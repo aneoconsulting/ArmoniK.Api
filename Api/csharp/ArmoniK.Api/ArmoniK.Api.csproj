@@ -1,0 +1,49 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Company>ANEO</Company>
+    <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <IsPackable>true</IsPackable>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugType>Embedded</DebugType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <!--<SymbolPackageFormat>snupkg</SymbolPackageFormat>-->
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.19.1" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.41.0" />
+    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.41.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.43.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Protobuf Include="..\..\..\Protos\V1\Compute.proto" GrpcServices="Server">
+      <Link>gRPC\Protos\Compute.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\ClientService.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\ClientService.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\Objects.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\Objects.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\TaskStatus.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\TaskStatus.proto</Link>
+    </Protobuf>
+  </ItemGroup>
+
+</Project>
