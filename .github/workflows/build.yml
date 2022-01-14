@@ -1,0 +1,71 @@
+name: BuildPush
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  versionning:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.genver.outputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.head_ref }}
+        fetch-depth: 0
+    - name: Generate Version
+      id: genver
+      run: |
+        VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=main --dev-branch=dev) 
+        echo "::set-output name=version::$VERSION"
+        echo $VERSION
+
+ 
+  build:
+    runs-on: ubuntu-latest
+    needs: versionning
+    env:
+      VERSION: ${{ needs.versionning.outputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.head_ref }}
+        submodules: true
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 6.x
+
+    - name: Build the package
+      run: dotnet build Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release
+
+    - name: Pack the package
+      run: |
+        dotnet pack Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+        ls /tmp/packages
+
+    - name: Push the package
+      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  tag:
+    runs-on: ubuntu-latest
+    needs:
+      - versionning
+      - build
+    env:
+      VERSION: ${{ needs.versionning.outputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.head_ref }}
+
+    - name: tag
+      run: |
+        git tag $VERSION
+        git push origin $VERSION
