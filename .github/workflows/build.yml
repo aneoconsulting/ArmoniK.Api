@@ -98,7 +98,7 @@ jobs:
       - versionning
       - buildRelease
     env:
-      VERSION: ${{ needs.versionning.outputs.version }}
+      VERSION: ${{ needs.versionning.outputs.release }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
