@@ -2,36 +2,76 @@ name: BuildPush
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]
+    tags-ignore: [ '**' ]
 
 jobs:
   versionning:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.genver.outputs.version }}
+      release: ${{ steps.genver.outputs.release }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
       with:
-        ref: ${{ github.head_ref }}
+        ref: ${{ github.ref }}
         fetch-depth: 0
+
     - name: Generate Version
       id: genver
       run: |
-        VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=main --dev-branch=dev) 
+        VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=${{ github.ref_name }}-pre --dev-branch=master)
         echo "::set-output name=version::$VERSION"
-        echo $VERSION
+        echo "VERSION : $VERSION"
+        RELEASE=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=${{ github.ref_name }} --dev-branch=master)
+        echo "::set-output name=release::$RELEASE"
+        echo "RELEASE : $RELEASE"
 
-  build:
+  buildPreRelease:
     runs-on: ubuntu-latest
     needs: versionning
+    if: ${{ github.ref != 'refs/heads/main' }}
     env:
       VERSION: ${{ needs.versionning.outputs.version }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
       with:
-        ref: ${{ github.head_ref }}
+        ref: ${{ github.ref }}
+        submodules: true
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 6.x
+        source-url: https://pkgs.dev.azure.com/aneofr/ArmoniK/_packaging/ArmoniKPackages/nuget/v3/index.json
+      env:
+        NUGET_AUTH_TOKEN: ${{secrets.PAT_AZURE}}
+
+    - name: Build the package
+      run: dotnet build Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release
+
+    - name: Pack the package
+      run: |
+        dotnet pack Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+        ls /tmp/packages
+
+    - name: Push the package
+      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg --api-key AzureArtifacts
+
+  buildRelease:
+    runs-on: ubuntu-latest
+    needs: versionning
+    if: ${{ github.ref == 'refs/heads/main' }}
+    env:
+      VERSION: ${{ needs.versionning.outputs.release }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.ref }}
         submodules: true
 
     # Install the .NET Core workload
@@ -49,20 +89,21 @@ jobs:
         ls /tmp/packages
 
     - name: Push the package
-      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
   tag:
     runs-on: ubuntu-latest
+    if: ${{ github.ref == 'refs/heads/main' }}
     needs:
       - versionning
-      - build
+      - buildRelease
     env:
       VERSION: ${{ needs.versionning.outputs.version }}
     steps:
     - name: Checkout
       uses: actions/checkout@v2
       with:
-        ref: ${{ github.head_ref }}
+        ref: ${{ github.ref }}
 
     - name: tag
       run: |
