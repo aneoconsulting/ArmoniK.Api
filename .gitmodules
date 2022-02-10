@@ -1,3 +1,3 @@
 [submodule "Protos"]
 	path = Protos
-	url = git@github.com:aneoconsulting/ArmoniK.Proto.git
+	url = https://github.com/aneoconsulting/ArmoniK.Proto.git
