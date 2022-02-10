@@ -1,13 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  
+
   <PropertyGroup>
-    <IsWindows Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
-    <IsLinux Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
+    <IsWindows
+      Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true'">true</IsWindows>
+    <IsLinux
+      Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true'">true</IsLinux>
   </PropertyGroup>
+
   <PropertyGroup>
-    <TargetFrameworks Condition="'$(IsLinux)'=='true'">net50;net60</TargetFrameworks>
-    <TargetFrameworks Condition="'$(IsWindows)'=='true'">net452;net472;net50;net60</TargetFrameworks>
+    <TargetFrameworks Condition="'$(IsLinux)'=='true'">net5.0;net6.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(IsWindows)'=='true'">net452;net472;net5.0;net6.0</TargetFrameworks>
   </PropertyGroup>
+
   <PropertyGroup>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Company>ANEO</Company>
@@ -16,6 +20,7 @@
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageOutputPath>../../../../publish</PackageOutputPath>
     <IsPackable>true</IsPackable>
+    <!--<Version>1.0.0-local</Version>-->
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -28,7 +33,7 @@
     <Optimize>true</Optimize>
   </PropertyGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net50' Or '$(TargetFramework)' == 'net60'">
+  <ItemGroup Condition=" '$(TargetFramework)' == 'net5.0' Or '$(TargetFramework)' == 'net6.0'">
     <PackageReference Include="Google.Protobuf" Version="3.19.1" />
     <PackageReference Include="Grpc.Net.Client" Version="2.41.0" />
     <PackageReference Include="Grpc.Net.ClientFactory" Version="2.41.0" />
@@ -37,7 +42,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
-  
+
   <ItemGroup Condition=" '$(TargetFramework)' == 'net472' Or '$(TargetFramework)' == 'net452' ">
     <PackageReference Include="Google.Protobuf" Version="3.19.1" />
     <PackageReference Include="Grpc.Core" Version="2.41.0" />
