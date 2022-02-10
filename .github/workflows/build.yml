@@ -54,7 +54,9 @@ jobs:
       run: dotnet build Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release
 
     - name: Cat
-      run: cat Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj
+      run: |
+        cat Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj
+        cat Protos/V1/worker_service.proto
 
     - name: Pack the package
       run: |
