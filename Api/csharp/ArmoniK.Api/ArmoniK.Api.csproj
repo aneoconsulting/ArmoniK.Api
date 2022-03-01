@@ -48,17 +48,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\..\Protos\V1\Compute.proto" GrpcServices="Server">
-      <Link>gRPC\Protos\Compute.proto</Link>
+    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Server">
+      <Link>gRPC\Protos\worker_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\ClientService.proto" GrpcServices="Client">
-      <Link>gRPC\Protos\ClientService.proto</Link>
+    <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\submitter_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\Objects.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\Objects.proto</Link>
+    <Protobuf Include="..\..\..\Protos\V1\objects.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\objects.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\TaskStatus.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\TaskStatus.proto</Link>
+    <Protobuf Include="..\..\..\Protos\V1\task_status.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\task_status.proto</Link>
     </Protobuf>
   </ItemGroup>
 
