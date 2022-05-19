@@ -34,7 +34,7 @@ message Session {
 }
 
 message SessionList {
-  repeated Session sessionIds = 1;
+  repeated Session sessions = 1;
 }
 
 message SessionIdList {
