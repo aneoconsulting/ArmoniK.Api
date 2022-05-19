@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+import "objects.proto";
+import "task_status.proto";
+import "session_status.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+package ArmoniK.api.grpc.v1;
+
+service Submitter{
+	rpc GetServiceConfiguration (Empty) returns (Configuration); 
+
+	rpc CreateSession (CreateSessionRequest) returns (CreateSessionReply);
+	rpc CancelSession (Session) returns (Empty);
+
+	rpc CreateSmallTasks (CreateSmallTaskRequest) returns (CreateTaskReply);
+	rpc CreateLargeTasks (stream CreateLargeTaskRequest) returns (CreateTaskReply);
+
+	rpc ListTasks (TaskFilter) returns (TaskIdList);
+	rpc ListSessions (SessionFilter) returns (SessionIdList);
+
+    rpc CountTasks (TaskFilter) returns (Count); 
+	rpc TryGetResultStream (ResultRequest) returns (stream ResultReply);
+	rpc TryGetTaskOutput (ResultRequest) returns (Output);
+	rpc WaitForAvailability (ResultRequest) returns (AvailabilityReply);
+	rpc WaitForCompletion (WaitRequest) returns (Count);
+	rpc CancelTasks (TaskFilter) returns (Empty); 
+	rpc GetStatus (GetStatusrequest) returns (GetStatusReply);
+}
+
+
+message Session {
+	string Id = 1;
+}
+
+message SessionList {
+  repeated Session sessions = 1;
+}
+
+message SessionIdList {
+  repeated string sessionIds = 1;
+}
+
+message CreateSessionRequest {
+	string id = 1;
+	TaskOptions default_task_option = 3;
+}
+
+message CreateSessionReply {
+	oneof result {
+		Empty Ok = 1;
+		string Error = 2;
+	}
+}
+
+
+message CreateSmallTaskRequest {
+	string session_id = 1;
+	TaskOptions task_options = 2;
+	repeated TaskRequest task_requests = 3;
+}
+
+message CreateLargeTaskRequest {
+	message InitRequest {
+		string session_id = 1;
+		TaskOptions task_options = 2;
+	}
+	oneof Type {
+		InitRequest init_request = 1;
+		InitTaskRequest init_task = 2;
+		DataChunk task_payload = 3;
+	}
+}
+
+message TaskFilter {
+	message IdsRequest {
+		repeated string ids = 1;
+	}
+	message StatusesRequest {
+		repeated TaskStatus.TaskStatus Statuses = 1;
+	}
+	oneof Ids {
+		IdsRequest session = 1;
+		IdsRequest task = 3;
+	}
+	oneof Statuses {
+		StatusesRequest included = 4;
+		StatusesRequest excluded = 5;
+	}
+}
+
+message SessionFilter {
+  repeated string sessions = 1;
+  
+  message StatusesRequest {
+    repeated SessionStatus.SessionStatus Statuses = 1;
+  }
+  
+  oneof Statuses {
+    StatusesRequest included = 4;
+    StatusesRequest excluded = 5;
+  }
+}
+
+message GetStatusrequest{
+	string task_id = 1;
+}
+
+message GetStatusReply {
+	TaskStatus.TaskStatus status = 2;
+}
+
+message ResultReply {
+	oneof Type {
+		DataChunk result = 1;
+		TaskError error = 2;
+		string not_completed_task = 3;
+	}
+}
+
+message AvailabilityReply {
+	oneof Type {
+		Empty ok = 1;
+		TaskError error = 2;
+		string not_completed_task = 3;
+	}
+}
+
+message WaitRequest {
+	TaskFilter Filter = 1;
+	bool stop_on_first_task_error = 2;
+	bool stop_on_first_task_cancellation = 3;
+}
+

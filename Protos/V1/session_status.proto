@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+package ArmoniK.api.grpc.v1.SessionStatus;
+
+enum SessionStatus
+{
+  SESSION_STATUS_UNSPECIFIED = 0;
+  SESSION_STATUS_RUNNING = 1;
+  SESSION_STATUS_CANCELED = 2;
+}

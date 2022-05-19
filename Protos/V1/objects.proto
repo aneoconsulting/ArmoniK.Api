@@ -1,0 +1,126 @@
+syntax = "proto3";
+
+import "google/protobuf/duration.proto"; 
+
+import "task_status.proto";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+package ArmoniK.api.grpc.v1;
+
+message Empty {}
+
+message TaskOptions {
+	map<string, string> Options = 1;
+	google.protobuf.Duration MaxDuration = 2;
+	int32 MaxRetries = 3;
+	int32 Priority = 4;
+}
+
+
+message Configuration {
+	int32 data_chunk_max_size = 1;
+}
+
+message Output {
+	message Error {
+		string details = 1;
+		bool kill_sub_tasks = 2;
+	}
+	TaskStatus.TaskStatus status = 1;
+	oneof Type {
+		Empty ok = 2;
+		Error error = 3;
+	}
+}
+
+message TaskRequest {
+	string id = 1;
+	repeated string expected_output_keys = 2;
+	repeated string data_dependencies = 3;
+	bytes payload = 4;
+}
+
+
+message InitKeyedDataStream {
+	oneof Type {
+		string key = 1;
+		bool last_result = 2;
+	}
+}
+
+message DataChunk {
+	oneof Type {
+		bytes data = 1;
+		bool dataComplete = 2;
+	}
+}
+
+message TaskRequestHeader {
+	string id = 1;
+	repeated string expected_output_keys = 3;
+	repeated string data_dependencies = 4;
+}
+
+message InitTaskRequest {
+	oneof Type{
+		TaskRequestHeader header = 1;
+		bool last_task = 2;
+	}
+}
+
+
+message TaskId {
+	string session = 1;
+	string task = 2;
+}
+
+message TaskIdList {
+	repeated string task_ids = 1;
+}
+
+message StatusCount{
+	TaskStatus.TaskStatus status =1;
+	int32 count =2;
+}
+
+message Count {
+	repeated StatusCount values = 1;
+}
+
+message ResultRequest {
+	string session = 1;
+	string key = 2;
+}
+
+message Error {
+	TaskStatus.TaskStatus task_status = 1;
+	string detail = 2;
+}
+
+message TaskError {
+	string task_id = 1;
+	repeated Error error = 2;
+}
+
+
+
+
+
+
+message CreateTaskReply{
+	message TaskIds{
+		repeated string ids = 1;
+	}
+	oneof Data{
+		Empty successfull = 1;
+		TaskIds non_successfull_ids = 2;
+	}
+}
+
+message TaskList {
+	repeated TaskId taskIds = 1;
+}
+
+message TaskIdWithStatus {
+	TaskId TaskId = 1;
+	TaskStatus.TaskStatus Status = 2;
+}
