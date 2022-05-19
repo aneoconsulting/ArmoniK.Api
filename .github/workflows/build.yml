@@ -35,7 +35,6 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: ${{ github.ref }}
-        submodules: true
 
     # Install the .NET Core workload
     - name: Install .NET Core
