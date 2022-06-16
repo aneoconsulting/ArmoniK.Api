@@ -105,11 +105,15 @@ message SessionFilter {
 }
 
 message GetTaskStatusRequest {
-	string task_id = 1;
+	repeated string task_id = 1;
 }
 
 message GetTaskStatusReply {
-	TaskStatus.TaskStatus status = 2;
+	message IdStatus {
+		string task_id = 1;
+		TaskStatus.TaskStatus status = 2;
+	}
+	repeated IdStatus id_status = 1;
 }
 
 message GetResultStatusRequest {
