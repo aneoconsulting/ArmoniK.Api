@@ -3,6 +3,7 @@ syntax = "proto3";
 import "objects.proto";
 import "task_status.proto";
 import "session_status.proto";
+import "result_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 package ArmoniK.api.grpc.v1;
@@ -19,13 +20,14 @@ service Submitter{
 	rpc ListTasks (TaskFilter) returns (TaskIdList);
 	rpc ListSessions (SessionFilter) returns (SessionIdList);
 
-    rpc CountTasks (TaskFilter) returns (Count); 
+	rpc CountTasks (TaskFilter) returns (Count);
 	rpc TryGetResultStream (ResultRequest) returns (stream ResultReply);
 	rpc TryGetTaskOutput (ResultRequest) returns (Output);
 	rpc WaitForAvailability (ResultRequest) returns (AvailabilityReply);
 	rpc WaitForCompletion (WaitRequest) returns (Count);
 	rpc CancelTasks (TaskFilter) returns (Empty); 
-	rpc GetStatus (GetStatusrequest) returns (GetStatusReply);
+	rpc GetTaskStatus (GetTaskStatusRequest) returns (GetTaskStatusReply);
+	rpc GetResultStatus (GetResultStatusRequest) returns (GetResultStatusReply);
 }
 
 
@@ -102,12 +104,29 @@ message SessionFilter {
   }
 }
 
-message GetStatusrequest{
-	string task_id = 1;
+message GetTaskStatusRequest {
+	repeated string task_id = 1;
 }
 
-message GetStatusReply {
-	TaskStatus.TaskStatus status = 2;
+message GetTaskStatusReply {
+	message IdStatus {
+		string task_id = 1;
+		TaskStatus.TaskStatus status = 2;
+	}
+	repeated IdStatus id_status = 1;
+}
+
+message GetResultStatusRequest {
+	repeated string result_id = 1;
+	string session_id = 2;
+}
+
+message GetResultStatusReply {
+	message IdStatus {
+		string result_id = 1;
+		ResultStatus.ResultStatus status = 2;
+	}
+	repeated IdStatus id_status = 1;
 }
 
 message ResultReply {
