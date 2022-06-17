@@ -23,9 +23,9 @@ message Configuration {
 message Output {
 	message Error {
 		string details = 1;
-		bool kill_sub_tasks = 2;
+		bool kill_sub_tasks = 2 [deprecated=true];
 	}
-	TaskStatus.TaskStatus status = 1;
+	TaskStatus.TaskStatus status = 1 [deprecated=true];
 	oneof Type {
 		Empty ok = 2;
 		Error error = 3;
