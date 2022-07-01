@@ -105,7 +105,7 @@ message SessionFilter {
 }
 
 message GetTaskStatusRequest {
-	repeated string task_id = 1;
+	repeated string task_ids = 1;
 }
 
 message GetTaskStatusReply {
@@ -117,7 +117,7 @@ message GetTaskStatusReply {
 }
 
 message GetResultStatusRequest {
-	repeated string result_id = 1;
+	repeated string result_ids = 1;
 	string session_id = 2;
 }
 

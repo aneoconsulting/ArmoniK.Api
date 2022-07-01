@@ -100,7 +100,7 @@ message Error {
 
 message TaskError {
 	string task_id = 1;
-	repeated Error error = 2;
+	repeated Error errors = 2;
 }
 
 
