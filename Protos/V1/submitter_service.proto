@@ -187,9 +187,9 @@ message WatchResultStream {
   // Key-Value pair for result id and its status
   message ResultIdStatus {
     // Id of the result
-    string result_id;
+    string result_id = 1;
     // Status of the result
-    ResultStatus status;
+    ResultStatus status = 2;
   }
 
   // List of result ids and their statuses
