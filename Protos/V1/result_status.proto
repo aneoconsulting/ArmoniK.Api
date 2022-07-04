@@ -1,7 +1,9 @@
 syntax = "proto3";
 
-option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 package ArmoniK.api.grpc.v1.ResultStatus;
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+
 
 enum ResultStatus
 {
