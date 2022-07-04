@@ -37,7 +37,7 @@ service Submitter{
    * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
    * It is possible to filter out specific statuses from events with options
    */
-  rpc WatchResults (WatchResultRequest) return (stream WatchResultStream);
+  rpc WatchResults (WatchResultRequest) returns (stream WatchResultStream);
 }
 
 
