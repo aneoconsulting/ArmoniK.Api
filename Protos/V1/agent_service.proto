@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package ArmoniK.api.grpc.v1;
+package ArmoniK.api.grpc.v1.agent;
 
 import "objects.proto";
 
-option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
 
 
 service Agent {
