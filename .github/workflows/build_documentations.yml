@@ -27,6 +27,10 @@ jobs:
         curl -L https://github.com/dotnet/docfx/releases/latest/download/docfx.zip -o docfx.zip
         unzip -d $HOME/.docfx docfx.zip
 
+    - name: Build docs
+      run:  |
+        mono $HOME/.docfx/docfx.exe Documentation/docfx.json build
+
     - name: Generate doc with docker image
       uses: addnab/docker-run-action@v3 
       with:
