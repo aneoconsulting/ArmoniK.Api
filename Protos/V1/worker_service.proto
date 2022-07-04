@@ -35,13 +35,13 @@ message ProcessRequest {
 			DataChunk data = 4;
 		}
 	}
-	string communication_id = 1;
+	string communication_token = 1;
 	ComputeRequest compute = 2;
 }
 
 
 message ProcessReply {
-	string communication_id = 1;
+	string communication_token = 1;
 	Output output = 2;
 }
 
