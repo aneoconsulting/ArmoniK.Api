@@ -28,6 +28,16 @@ service Submitter{
 	rpc CancelTasks (TaskFilter) returns (Empty); 
 	rpc GetTaskStatus (GetTaskStatusRequest) returns (GetTaskStatusReply);
 	rpc GetResultStatus (GetResultStatusRequest) returns (GetResultStatusReply);
+
+  /**
+   * This endpoint allows a user to watch a list of results and be notified when there is any change.
+   * The user sends the list of ids they want to watch.
+   * The submitter will then send the statuses for all requested ids immediately and keep the stream open.
+   * The submitter will send updates to the client via the opened stream.
+   * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
+   * It is possible to filter out specific statuses from events with options
+   */
+  rpc WatchResults (WatchResultRequest) return (stream WatchResultStream);
 }
 
 
@@ -149,4 +159,42 @@ message WaitRequest {
 	TaskFilter filter = 1;
 	bool stop_on_first_task_error = 2;
 	bool stop_on_first_task_cancellation = 3;
+}
+
+/**
+ * Request to watch result states
+ * It contains the list of result ids you want to watch
+ *   and some options to filter out some events
+ */
+message WatchResultRequest {
+  message Options {
+    // List of statuses to ignore in the replies
+    optional repeated ResultStatus ignore_statuses = 1;
+    // Skip the sending of result states at the beginning
+    optional bool skip_current_state = 2;
+  }
+  // List of result ids to watch
+  repeated string result_ids = 1;
+
+  // Options
+  optional Options options = 2;
+}
+
+/**
+ * List of Result statuses
+ */
+message WatchResultStream {
+  // Key-Value pair for result id and its status
+  message ResultIdStatus {
+    // Id of the result
+    string result_id;
+    // Status of the result
+    ResultStatus status;
+  }
+
+  // List of result ids and their statuses
+  repeated ResultIdStatus statuses = 1;
+  // List of ids that were not found
+  // Required in stream mode
+  repeated string not_found_ids = 2;
 }
