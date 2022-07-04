@@ -169,7 +169,7 @@ message WaitRequest {
 message WatchResultRequest {
   message Options {
     // List of statuses to ignore in the replies
-    optional repeated ResultStatus ignore_statuses = 1;
+    repeated ResultStatus ignore_statuses = 1;
     // Skip the sending of result states at the beginning
     optional bool skip_current_state = 2;
   }
