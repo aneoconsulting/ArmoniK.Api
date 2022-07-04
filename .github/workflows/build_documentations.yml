@@ -1,0 +1,25 @@
+name: Build Documentation
+
+on:
+  push:
+    branches:
+      - jf/doc
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Generate doc with docker image
+      uses: addnab/docker-run-action@v3 
+      with:
+        image: pseudomuto/protoc-gen-doc
+        options: -v $(pwd)/doc:/out -v $(pwd)/Protos/V1:/protos	
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: Documentation/_site
