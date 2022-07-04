@@ -74,6 +74,16 @@ message CreateLargeTaskRequest {
 	}
 }
 
+message CreateTaskReply{
+	message TaskIds{
+		repeated string ids = 1;
+	}
+	oneof Data{
+		Empty successfull = 1;
+		TaskIds non_successfull_ids = 2;
+	}
+}
+
 message TaskFilter {
 	message IdsRequest {
 		repeated string ids = 1;
