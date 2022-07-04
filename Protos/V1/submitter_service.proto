@@ -32,7 +32,7 @@ service Submitter{
 
 
 message Session {
-	string Id = 1;
+	string id = 1;
 }
 
 message SessionList {
@@ -40,7 +40,7 @@ message SessionList {
 }
 
 message SessionIdList {
-  repeated string sessionIds = 1;
+  repeated string session_ids = 1;
 }
 
 message CreateSessionRequest {
@@ -50,8 +50,8 @@ message CreateSessionRequest {
 
 message CreateSessionReply {
 	oneof result {
-		Empty Ok = 1;
-		string Error = 2;
+		Empty ok = 1;
+		string error = 2;
 	}
 }
 
@@ -67,7 +67,7 @@ message CreateLargeTaskRequest {
 		string session_id = 1;
 		TaskOptions task_options = 2;
 	}
-	oneof Type {
+	oneof type {
 		InitRequest init_request = 1;
 		InitTaskRequest init_task = 2;
 		DataChunk task_payload = 3;
@@ -79,13 +79,13 @@ message TaskFilter {
 		repeated string ids = 1;
 	}
 	message StatusesRequest {
-		repeated TaskStatus.TaskStatus Statuses = 1;
+		repeated TaskStatus.TaskStatus statuses = 1;
 	}
-	oneof Ids {
+	oneof ids {
 		IdsRequest session = 1;
 		IdsRequest task = 3;
 	}
-	oneof Statuses {
+	oneof statuses {
 		StatusesRequest included = 4;
 		StatusesRequest excluded = 5;
 	}
@@ -95,17 +95,17 @@ message SessionFilter {
   repeated string sessions = 1;
   
   message StatusesRequest {
-    repeated SessionStatus.SessionStatus Statuses = 1;
+    repeated SessionStatus.SessionStatus statuses = 1;
   }
   
-  oneof Statuses {
+  oneof statuses {
     StatusesRequest included = 4;
     StatusesRequest excluded = 5;
   }
 }
 
 message GetTaskStatusRequest {
-	repeated string task_id = 1;
+	repeated string task_ids = 1;
 }
 
 message GetTaskStatusReply {
@@ -113,11 +113,11 @@ message GetTaskStatusReply {
 		string task_id = 1;
 		TaskStatus.TaskStatus status = 2;
 	}
-	repeated IdStatus id_status = 1;
+	repeated IdStatus id_statuses = 1;
 }
 
 message GetResultStatusRequest {
-	repeated string result_id = 1;
+	repeated string result_ids = 1;
 	string session_id = 2;
 }
 
@@ -126,11 +126,11 @@ message GetResultStatusReply {
 		string result_id = 1;
 		ResultStatus.ResultStatus status = 2;
 	}
-	repeated IdStatus id_status = 1;
+	repeated IdStatus id_statuses = 1;
 }
 
 message ResultReply {
-	oneof Type {
+	oneof type {
 		DataChunk result = 1;
 		TaskError error = 2;
 		string not_completed_task = 3;
@@ -138,7 +138,7 @@ message ResultReply {
 }
 
 message AvailabilityReply {
-	oneof Type {
+	oneof type {
 		Empty ok = 1;
 		TaskError error = 2;
 		string not_completed_task = 3;
@@ -146,8 +146,7 @@ message AvailabilityReply {
 }
 
 message WaitRequest {
-	TaskFilter Filter = 1;
+	TaskFilter filter = 1;
 	bool stop_on_first_task_error = 2;
 	bool stop_on_first_task_cancellation = 3;
 }
-
