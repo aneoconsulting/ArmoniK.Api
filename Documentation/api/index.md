@@ -1,6 +1,6 @@
 ---
-uid: armonik_core_api
+uid: armonik_proto_api
 ---
 
-# Armonik.Core API 
+# Armonik Protocol Buffers
 

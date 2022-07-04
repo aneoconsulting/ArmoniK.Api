@@ -31,11 +31,11 @@ jobs:
       run:  |
         mono $HOME/.docfx/docfx.exe Documentation/docfx.json build
 
-    - name: Generate doc with docker image
+    - name: Generate protobuf documentation
       uses: addnab/docker-run-action@v3 
       with:
         image: pseudomuto/protoc-gen-doc
-        options: -v ${{ github.workspace }}:/out -v ${{ github.workspace }}/Protos/V1:/protos
+        options: -v ${{ github.workspace }}/Documentation/api:/out -v ${{ github.workspace }}/Protos/V1:/protos
 
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3
