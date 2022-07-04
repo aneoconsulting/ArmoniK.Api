@@ -169,7 +169,7 @@ message WaitRequest {
 message WatchResultRequest {
   message Options {
     // List of statuses to ignore in the replies
-    repeated ResultStatus ignore_statuses = 1;
+    repeated ResultStatus.ResultStatus ignore_statuses = 1;
     // Skip the sending of result states at the beginning
     optional bool skip_current_state = 2;
   }
@@ -189,7 +189,7 @@ message WatchResultStream {
     // Id of the result
     string result_id = 1;
     // Status of the result
-    ResultStatus status = 2;
+    ResultStatus.ResultStatus status = 2;
   }
 
   // List of result ids and their statuses
