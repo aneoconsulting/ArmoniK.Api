@@ -17,7 +17,7 @@ jobs:
       uses: addnab/docker-run-action@v3 
       with:
         image: pseudomuto/protoc-gen-doc
-        options: -v $GITHUB_WORKSPACE:/out -v $GITHUB_WORKSPACE/Protos/V1:/protos
+        options: -v ${{ github.workspace }}:/out -v ${{ github.workspace }}/Protos/V1:/protos
 
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3
