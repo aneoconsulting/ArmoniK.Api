@@ -1,6 +1,6 @@
 ### YamlMime:XRefMap
 sorted: true
 references:
-- uid: armonik_api
-  name: Armonik.API
+- uid: armonik_proto_api
+  name: Armonik Protocol Buffers
   href: api/index.html
