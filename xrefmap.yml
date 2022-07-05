@@ -1,3 +1,6 @@
 ### YamlMime:XRefMap
 sorted: true
-references: []
+references:
+- uid: armonik_api_grcp
+  name: Armonik.gRCP API
+  href: api/index.html
