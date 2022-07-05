@@ -9,7 +9,7 @@
       "output": {
         ".html": {
           "relative_path": "api/index.html",
-          "hash": "s+iC8afM7hu2OeIczPLIqpfGHneqpECYZXxAL/LbQxw="
+          "hash": "fO7/ammmyhPHgPbFsJqbaA7XcLis85+lsXKuP9Omwkg="
         }
       },
       "is_incremental": false,
@@ -34,18 +34,6 @@
         ".html": {
           "relative_path": "articles/toc.html",
           "hash": "BlPxk5mtl2kgfcZUgkEguqiSAR/EUyUTT4EdebwkQvs="
-        }
-      },
-      "is_incremental": false,
-      "version": ""
-    },
-    {
-      "type": "Conceptual",
-      "source_relative_path": "index.md",
-      "output": {
-        ".html": {
-          "relative_path": "index.html",
-          "hash": "cbxUy6zWUsoI6XKM5g3tV+ePj1xIrDs/1sRNSerOAVs="
         }
       },
       "is_incremental": false,
@@ -78,7 +66,7 @@
         "ConceptualDocumentProcessor": {
           "can_incremental": false,
           "incrementalPhase": "build",
-          "total_file_count": 3,
+          "total_file_count": 2,
           "skipped_file_count": 0
         },
         "TocDocumentProcessor": {
