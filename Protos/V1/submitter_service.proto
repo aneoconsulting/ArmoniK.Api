@@ -37,7 +37,7 @@ service Submitter{
    * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
    * It is possible to filter out specific statuses from events with options
    */
-  rpc WatchResults (WatchResultRequest) returns (stream WatchResultStream);
+  rpc WatchResults (stream WatchResultRequest) returns (stream WatchResultStream);
 }
 
 
@@ -170,11 +170,13 @@ message WatchResultRequest {
   message Options {
     // List of statuses to ignore in the replies
     repeated ResultStatus.ResultStatus ignore_statuses = 1;
-    // Skip the sending of result states at the beginning
+    // Skip the sending of current result states upon reception of the request
     optional bool skip_current_state = 2;
   }
   // List of result ids to watch
-  repeated string result_ids = 1;
+  repeated string watch_ids = 1;
+  // List of result ids to stop watching
+  repeated string unwatch_ids = 1;
 
   // Options
   optional Options options = 2;
