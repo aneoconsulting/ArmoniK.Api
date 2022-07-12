@@ -23,11 +23,15 @@ service Submitter{
 	rpc CountTasks (TaskFilter) returns (Count);
 	rpc TryGetResultStream (ResultRequest) returns (stream ResultReply);
 	rpc TryGetTaskOutput (ResultRequest) returns (Output);
-	rpc WaitForAvailability (ResultRequest) returns (AvailabilityReply) [deprecated=true];
+	rpc WaitForAvailability (ResultRequest) returns (AvailabilityReply) {
+    option deprecated = true;
+  }
 	rpc WaitForCompletion (WaitRequest) returns (Count);
 	rpc CancelTasks (TaskFilter) returns (Empty); 
 	rpc GetTaskStatus (GetTaskStatusRequest) returns (GetTaskStatusReply);
-	rpc GetResultStatus (GetResultStatusRequest) returns (GetResultStatusReply) [deprecated=true];
+	rpc GetResultStatus (GetResultStatusRequest) returns (GetResultStatusReply) {
+    option deprecated = true;
+  }
 
   /**
    * This endpoint allows a user to watch a list of results and be notified when there is any change.
