@@ -167,36 +167,22 @@ message WaitRequest {
  *   and some options to filter out some events
  */
 message WatchResultRequest {
-  message Options {
-    // List of statuses to ignore in the replies
-    repeated ResultStatus.ResultStatus ignore_statuses = 1;
-    // Skip the sending of current result states upon reception of the request
-    optional bool skip_current_state = 2;
-  }
-  // List of result ids to watch
-  repeated string watch_ids = 1;
-  // List of result ids to stop watching
-  repeated string unwatch_ids = 1;
-
-  // Options
-  optional Options options = 2;
+  // result ids to fetch/watch
+  repeated string result_ids = 1;
+  // list of statuses to check results against
+  repeated ResultStatus.ResultStatus target_statuses = 2;
+  // Whether the current state should be fetched
+  bool fetch_current_state = 3;
+  // Whether the future state should be watched
+  bool watch_future_state = 4;
 }
 
 /**
  * List of Result statuses
  */
 message WatchResultStream {
-  // Key-Value pair for result id and its status
-  message ResultIdStatus {
-    // Id of the result
-    string result_id = 1;
-    // Status of the result
-    ResultStatus.ResultStatus status = 2;
-  }
-
-  // List of result ids and their statuses
-  repeated ResultIdStatus statuses = 1;
-  // List of ids that were not found
-  // Required in stream mode
-  repeated string not_found_ids = 2;
+  // List of result ids that triggered the event
+  repeated string result_ids = 1;
+  // Status of the results
+  ResultStatus.ResultStatus status = 2;
 }
