@@ -8,7 +8,7 @@
     <title>Protocol Documentation </title>
     <meta name="viewport" content="width=device-width">
     <meta name="title" content="Protocol Documentation ">
-    <meta name="generator" content="docfx 2.59.2.0">
+    <meta name="generator" content="docfx 2.59.3.0">
     
     <link rel="shortcut icon" href="../favicon.ico">
     <link rel="stylesheet" href="../styles/docfx.vendor.css">
@@ -65,12 +65,34 @@
 <p><a name="top"></a></p>
 <h2 id="table-of-contents">Table of Contents</h2>
 <ul>
+<li><p><a href="#agent_service-proto">agent_service.proto</a></p>
+<ul>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskReply">CreateTaskReply</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskRequest">CreateTaskRequest</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskRequest-InitRequest">CreateTaskRequest.InitRequest</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-DataReply">DataReply</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-DataReply-Init">DataReply.Init</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-DataRequest">DataRequest</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-Result">Result</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-ResultReply">ResultReply</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-agent-Agent">Agent</a></p>
+</li>
+</ul>
+</li>
 <li><p><a href="#objects-proto">objects.proto</a></p>
 <ul>
 <li><a href="#ArmoniK-api-grpc-v1-Configuration">Configuration</a></li>
 <li><a href="#ArmoniK-api-grpc-v1-Count">Count</a></li>
-<li><a href="#ArmoniK-api-grpc-v1-CreateTaskReply">CreateTaskReply</a></li>
-<li><a href="#ArmoniK-api-grpc-v1-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></li>
 <li><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></li>
 <li><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></li>
 <li><a href="#ArmoniK-api-grpc-v1-Error">Error</a></li>
@@ -103,51 +125,55 @@
 </li>
 <li><p><a href="#submitter_service-proto">submitter_service.proto</a></p>
 <ul>
-<li><p><a href="#ArmoniK-api-grpc-v1-AvailabilityReply">AvailabilityReply</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-AvailabilityReply">AvailabilityReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-CreateLargeTaskRequest">CreateLargeTaskRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-CreateLargeTaskRequest">CreateLargeTaskRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-CreateLargeTaskRequest-InitRequest">CreateLargeTaskRequest.InitRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-CreateLargeTaskRequest-InitRequest">CreateLargeTaskRequest.InitRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-CreateSessionReply">CreateSessionReply</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-CreateSessionReply">CreateSessionReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-CreateSessionRequest">CreateSessionRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-CreateSessionRequest">CreateSessionRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-CreateSmallTaskRequest">CreateSmallTaskRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-CreateSmallTaskRequest">CreateSmallTaskRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-GetResultStatusReply">GetResultStatusReply</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-CreateTaskReply">CreateTaskReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-GetResultStatusReply-IdStatus">GetResultStatusReply.IdStatus</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-GetResultStatusRequest">GetResultStatusRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusReply">GetResultStatusReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-GetTaskStatusReply">GetTaskStatusReply</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusReply-IdStatus">GetResultStatusReply.IdStatus</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-GetTaskStatusReply-IdStatus">GetTaskStatusReply.IdStatus</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusRequest">GetResultStatusRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-GetTaskStatusRequest">GetTaskStatusRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-GetTaskStatusReply">GetTaskStatusReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ResultReply">ResultReply</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-GetTaskStatusReply-IdStatus">GetTaskStatusReply.IdStatus</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-Session">Session</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-GetTaskStatusRequest">GetTaskStatusRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-SessionFilter">SessionFilter</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-ResultReply">ResultReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-Session">Session</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-SessionIdList">SessionIdList</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-SessionFilter">SessionFilter</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-SessionList">SessionList</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-TaskFilter">TaskFilter</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-SessionIdList">SessionIdList</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-SessionList">SessionList</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter">TaskFilter</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-WaitRequest">WaitRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-Submitter">Submitter</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-WaitRequest">WaitRequest</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-Submitter">Submitter</a></p>
 </li>
 </ul>
 </li>
@@ -158,45 +184,344 @@
 </li>
 <li><p><a href="#worker_service-proto">worker_service.proto</a></p>
 <ul>
-<li><p><a href="#ArmoniK-api-grpc-v1-HealthCheckReply">HealthCheckReply</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-HealthCheckReply">HealthCheckReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessReply">ProcessReply</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-ProcessReply">ProcessReply</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessReply-CreateLargeTaskRequest">ProcessReply.CreateLargeTaskRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest">ProcessRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessReply-CreateLargeTaskRequest-InitRequest">ProcessReply.CreateLargeTaskRequest.InitRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest">ProcessRequest.ComputeRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessReply-CreateSmallTaskRequest">ProcessReply.CreateSmallTaskRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest-InitData">ProcessRequest.ComputeRequest.InitData</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessReply-DataRequest">ProcessReply.DataRequest</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest-InitRequest">ProcessRequest.ComputeRequest.InitRequest</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessReply-Result">ProcessReply.Result</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-HealthCheckReply-ServingStatus">HealthCheckReply.ServingStatus</a></p>
 </li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest">ProcessRequest</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest">ProcessRequest.ComputeRequest</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitData">ProcessRequest.ComputeRequest.InitData</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitRequest">ProcessRequest.ComputeRequest.InitRequest</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitRequest-TaskOptionsEntry">ProcessRequest.ComputeRequest.InitRequest.TaskOptionsEntry</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest-CreateTask">ProcessRequest.CreateTask</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest-DataReply">ProcessRequest.DataReply</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-ProcessRequest-DataReply-Init">ProcessRequest.DataReply.Init</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-HealthCheckReply-ServingStatus">HealthCheckReply.ServingStatus</a></p>
-</li>
-<li><p><a href="#ArmoniK-api-grpc-v1-Worker">Worker</a></p>
+<li><p><a href="#ArmoniK-api-grpc-v1-worker-Worker">Worker</a></p>
 </li>
 </ul>
 </li>
 <li><p><a href="#scalar-value-types">Scalar Value Types</a></p>
 </li>
 </ul>
+<p><a name="agent_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="agent_serviceproto">agent_service.proto</h2>
+<p><a name="ArmoniK-api-grpc-v1-agent-CreateTaskReply"></a></p>
+<h3 id="createtaskreply">CreateTaskReply</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>successfull</td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">ArmoniK.api.grpc.v1.Empty</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>non_successfull_ids</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>communication_token</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-CreateTaskReply-TaskIds"></a></p>
+<h3 id="createtaskreplytaskids">CreateTaskReply.TaskIds</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-CreateTaskRequest"></a></p>
+<h3 id="createtaskrequest">CreateTaskRequest</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>init_request</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskRequest-InitRequest">CreateTaskRequest.InitRequest</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>init_task</td>
+<td><a href="#ArmoniK-api-grpc-v1-InitTaskRequest">ArmoniK.api.grpc.v1.InitTaskRequest</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>task_payload</td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>communication_token</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-CreateTaskRequest-InitRequest"></a></p>
+<h3 id="createtaskrequestinitrequest">CreateTaskRequest.InitRequest</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_options</td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">ArmoniK.api.grpc.v1.TaskOptions</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-DataReply"></a></p>
+<h3 id="datareply">DataReply</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>communication_token</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>init</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-DataReply-Init">DataReply.Init</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>data</td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>error</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-DataReply-Init"></a></p>
+<h3 id="datareplyinit">DataReply.Init</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>key</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>data</td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>error</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-DataRequest"></a></p>
+<h3 id="datarequest">DataRequest</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>communication_token</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>key</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-Result"></a></p>
+<h3 id="result">Result</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>init</td>
+<td><a href="#ArmoniK-api-grpc-v1-InitKeyedDataStream">ArmoniK.api.grpc.v1.InitKeyedDataStream</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>data</td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>communication_token</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-ResultReply"></a></p>
+<h3 id="resultreply">ResultReply</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>communication_token</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Ok</td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">ArmoniK.api.grpc.v1.Empty</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Error</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-agent-Agent"></a></p>
+<h3 id="agent">Agent</h3>
+<table>
+<thead>
+<tr>
+<th>Method Name</th>
+<th>Request Type</th>
+<th>Response Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CreateTask</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskRequest">CreateTaskRequest</a> stream</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-CreateTaskReply">CreateTaskReply</a></td>
+<td></td>
+</tr>
+<tr>
+<td>GetResourceData</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-DataRequest">DataRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-DataReply">DataReply</a> stream</td>
+<td></td>
+</tr>
+<tr>
+<td>GetCommonData</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-DataRequest">DataRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-DataReply">DataReply</a> stream</td>
+<td></td>
+</tr>
+<tr>
+<td>GetDirectData</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-DataRequest">DataRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-DataReply">DataReply</a> stream</td>
+<td></td>
+</tr>
+<tr>
+<td>SendResult</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-Result">Result</a> stream</td>
+<td><a href="#ArmoniK-api-grpc-v1-agent-ResultReply">ResultReply</a></td>
+<td></td>
+</tr>
+</tbody>
+</table>
 <p><a name="objects-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="objectsproto">objects.proto</h2>
@@ -235,52 +560,6 @@
 <tr>
 <td>values</td>
 <td><a href="#ArmoniK-api-grpc-v1-StatusCount">StatusCount</a></td>
-<td>repeated</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-CreateTaskReply"></a></p>
-<h3 id="createtaskreply">CreateTaskReply</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>successfull</td>
-<td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>non_successfull_ids</td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-CreateTaskReply-TaskIds"></a></p>
-<h3 id="createtaskreplytaskids">CreateTaskReply.TaskIds</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>ids</td>
-<td><a href="#string">string</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
@@ -405,12 +684,6 @@
 </thead>
 <tbody>
 <tr>
-<td>status</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskStatus-TaskStatus">TaskStatus.TaskStatus</a></td>
-<td></td>
-<td><strong>Deprecated.</strong></td>
-</tr>
-<tr>
 <td>ok</td>
 <td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
 <td></td>
@@ -441,12 +714,6 @@
 <td><a href="#string">string</a></td>
 <td></td>
 <td></td>
-</tr>
-<tr>
-<td>kill_sub_tasks</td>
-<td><a href="#bool">bool</a></td>
-<td></td>
-<td><strong>Deprecated.</strong></td>
 </tr>
 </tbody>
 </table>
@@ -824,7 +1091,7 @@
 <p><a name="submitter_service-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="submitter_serviceproto">submitter_service.proto</h2>
-<p><a name="ArmoniK-api-grpc-v1-AvailabilityReply"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-AvailabilityReply"></a></p>
 <h3 id="availabilityreply">AvailabilityReply</h3>
 <table>
 <thead>
@@ -838,13 +1105,13 @@
 <tbody>
 <tr>
 <td>ok</td>
-<td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">ArmoniK.api.grpc.v1.Empty</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>error</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskError">TaskError</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskError">ArmoniK.api.grpc.v1.TaskError</a></td>
 <td></td>
 <td></td>
 </tr>
@@ -856,7 +1123,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-CreateLargeTaskRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-CreateLargeTaskRequest"></a></p>
 <h3 id="createlargetaskrequest">CreateLargeTaskRequest</h3>
 <table>
 <thead>
@@ -870,25 +1137,25 @@
 <tbody>
 <tr>
 <td>init_request</td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateLargeTaskRequest-InitRequest">CreateLargeTaskRequest.InitRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateLargeTaskRequest-InitRequest">CreateLargeTaskRequest.InitRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>init_task</td>
-<td><a href="#ArmoniK-api-grpc-v1-InitTaskRequest">InitTaskRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-InitTaskRequest">ArmoniK.api.grpc.v1.InitTaskRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>task_payload</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-CreateLargeTaskRequest-InitRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-CreateLargeTaskRequest-InitRequest"></a></p>
 <h3 id="createlargetaskrequestinitrequest">CreateLargeTaskRequest.InitRequest</h3>
 <table>
 <thead>
@@ -908,13 +1175,13 @@
 </tr>
 <tr>
 <td>task_options</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">TaskOptions</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">ArmoniK.api.grpc.v1.TaskOptions</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-CreateSessionReply"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-CreateSessionReply"></a></p>
 <h3 id="createsessionreply">CreateSessionReply</h3>
 <table>
 <thead>
@@ -928,7 +1195,7 @@
 <tbody>
 <tr>
 <td>ok</td>
-<td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">ArmoniK.api.grpc.v1.Empty</a></td>
 <td></td>
 <td></td>
 </tr>
@@ -940,7 +1207,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-CreateSessionRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-CreateSessionRequest"></a></p>
 <h3 id="createsessionrequest">CreateSessionRequest</h3>
 <table>
 <thead>
@@ -960,13 +1227,13 @@
 </tr>
 <tr>
 <td>default_task_option</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">TaskOptions</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">ArmoniK.api.grpc.v1.TaskOptions</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-CreateSmallTaskRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-CreateSmallTaskRequest"></a></p>
 <h3 id="createsmalltaskrequest">CreateSmallTaskRequest</h3>
 <table>
 <thead>
@@ -986,19 +1253,65 @@
 </tr>
 <tr>
 <td>task_options</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">TaskOptions</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">ArmoniK.api.grpc.v1.TaskOptions</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>task_requests</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskRequest">TaskRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskRequest">ArmoniK.api.grpc.v1.TaskRequest</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-GetResultStatusReply"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-CreateTaskReply"></a></p>
+<h3 id="createtaskreply-1">CreateTaskReply</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>successfull</td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">ArmoniK.api.grpc.v1.Empty</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>non_successfull_ids</td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-submitter-CreateTaskReply-TaskIds"></a></p>
+<h3 id="createtaskreplytaskids-1">CreateTaskReply.TaskIds</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-submitter-GetResultStatusReply"></a></p>
 <h3 id="getresultstatusreply">GetResultStatusReply</h3>
 <table>
 <thead>
@@ -1012,13 +1325,13 @@
 <tbody>
 <tr>
 <td>id_statuses</td>
-<td><a href="#ArmoniK-api-grpc-v1-GetResultStatusReply-IdStatus">GetResultStatusReply.IdStatus</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusReply-IdStatus">GetResultStatusReply.IdStatus</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-GetResultStatusReply-IdStatus"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-GetResultStatusReply-IdStatus"></a></p>
 <h3 id="getresultstatusreplyidstatus">GetResultStatusReply.IdStatus</h3>
 <table>
 <thead>
@@ -1038,13 +1351,13 @@
 </tr>
 <tr>
 <td>status</td>
-<td><a href="#ArmoniK-api-grpc-v1-ResultStatus-ResultStatus">ResultStatus.ResultStatus</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-ResultStatus-ResultStatus">ArmoniK.api.grpc.v1.ResultStatus.ResultStatus</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-GetResultStatusRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-GetResultStatusRequest"></a></p>
 <h3 id="getresultstatusrequest">GetResultStatusRequest</h3>
 <table>
 <thead>
@@ -1070,7 +1383,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-GetTaskStatusReply"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-GetTaskStatusReply"></a></p>
 <h3 id="gettaskstatusreply">GetTaskStatusReply</h3>
 <table>
 <thead>
@@ -1084,13 +1397,13 @@
 <tbody>
 <tr>
 <td>id_statuses</td>
-<td><a href="#ArmoniK-api-grpc-v1-GetTaskStatusReply-IdStatus">GetTaskStatusReply.IdStatus</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-GetTaskStatusReply-IdStatus">GetTaskStatusReply.IdStatus</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-GetTaskStatusReply-IdStatus"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-GetTaskStatusReply-IdStatus"></a></p>
 <h3 id="gettaskstatusreplyidstatus">GetTaskStatusReply.IdStatus</h3>
 <table>
 <thead>
@@ -1110,13 +1423,13 @@
 </tr>
 <tr>
 <td>status</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskStatus-TaskStatus">TaskStatus.TaskStatus</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskStatus-TaskStatus">ArmoniK.api.grpc.v1.TaskStatus.TaskStatus</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-GetTaskStatusRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-GetTaskStatusRequest"></a></p>
 <h3 id="gettaskstatusrequest">GetTaskStatusRequest</h3>
 <table>
 <thead>
@@ -1136,8 +1449,8 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-ResultReply"></a></p>
-<h3 id="resultreply">ResultReply</h3>
+<p><a name="ArmoniK-api-grpc-v1-submitter-ResultReply"></a></p>
+<h3 id="resultreply-1">ResultReply</h3>
 <table>
 <thead>
 <tr>
@@ -1150,13 +1463,13 @@
 <tbody>
 <tr>
 <td>result</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>error</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskError">TaskError</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskError">ArmoniK.api.grpc.v1.TaskError</a></td>
 <td></td>
 <td></td>
 </tr>
@@ -1168,7 +1481,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-Session"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-Session"></a></p>
 <h3 id="session">Session</h3>
 <table>
 <thead>
@@ -1188,7 +1501,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-SessionFilter"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-SessionFilter"></a></p>
 <h3 id="sessionfilter">SessionFilter</h3>
 <table>
 <thead>
@@ -1208,19 +1521,19 @@
 </tr>
 <tr>
 <td>included</td>
-<td><a href="#ArmoniK-api-grpc-v1-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>excluded</td>
-<td><a href="#ArmoniK-api-grpc-v1-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-SessionFilter-StatusesRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-SessionFilter-StatusesRequest"></a></p>
 <h3 id="sessionfilterstatusesrequest">SessionFilter.StatusesRequest</h3>
 <table>
 <thead>
@@ -1234,13 +1547,13 @@
 <tbody>
 <tr>
 <td>statuses</td>
-<td><a href="#ArmoniK-api-grpc-v1-SessionStatus-SessionStatus">SessionStatus.SessionStatus</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-SessionStatus-SessionStatus">ArmoniK.api.grpc.v1.SessionStatus.SessionStatus</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-SessionIdList"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-SessionIdList"></a></p>
 <h3 id="sessionidlist">SessionIdList</h3>
 <table>
 <thead>
@@ -1260,7 +1573,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-SessionList"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-SessionList"></a></p>
 <h3 id="sessionlist">SessionList</h3>
 <table>
 <thead>
@@ -1274,13 +1587,13 @@
 <tbody>
 <tr>
 <td>sessions</td>
-<td><a href="#ArmoniK-api-grpc-v1-Session">Session</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-Session">Session</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-TaskFilter"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-TaskFilter"></a></p>
 <h3 id="taskfilter">TaskFilter</h3>
 <table>
 <thead>
@@ -1294,31 +1607,31 @@
 <tbody>
 <tr>
 <td>session</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>task</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>included</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>excluded</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-TaskFilter-IdsRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-TaskFilter-IdsRequest"></a></p>
 <h3 id="taskfilteridsrequest">TaskFilter.IdsRequest</h3>
 <table>
 <thead>
@@ -1338,7 +1651,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-TaskFilter-StatusesRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-TaskFilter-StatusesRequest"></a></p>
 <h3 id="taskfilterstatusesrequest">TaskFilter.StatusesRequest</h3>
 <table>
 <thead>
@@ -1352,13 +1665,13 @@
 <tbody>
 <tr>
 <td>statuses</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskStatus-TaskStatus">TaskStatus.TaskStatus</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskStatus-TaskStatus">ArmoniK.api.grpc.v1.TaskStatus.TaskStatus</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-WaitRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-WaitRequest"></a></p>
 <h3 id="waitrequest">WaitRequest</h3>
 <table>
 <thead>
@@ -1372,7 +1685,7 @@
 <tbody>
 <tr>
 <td>filter</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter">TaskFilter</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter">TaskFilter</a></td>
 <td></td>
 <td></td>
 </tr>
@@ -1390,7 +1703,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-Submitter"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-submitter-Submitter"></a></p>
 <h3 id="submitter">Submitter</h3>
 <table>
 <thead>
@@ -1404,92 +1717,92 @@
 <tbody>
 <tr>
 <td>GetServiceConfiguration</td>
-<td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-Configuration">Configuration</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">.ArmoniK.api.grpc.v1.Empty</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Configuration">.ArmoniK.api.grpc.v1.Configuration</a></td>
 <td></td>
 </tr>
 <tr>
 <td>CreateSession</td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateSessionRequest">CreateSessionRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateSessionReply">CreateSessionReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateSessionRequest">CreateSessionRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateSessionReply">CreateSessionReply</a></td>
 <td></td>
 </tr>
 <tr>
 <td>CancelSession</td>
-<td><a href="#ArmoniK-api-grpc-v1-Session">Session</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-Session">Session</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">.ArmoniK.api.grpc.v1.Empty</a></td>
 <td></td>
 </tr>
 <tr>
 <td>CreateSmallTasks</td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateSmallTaskRequest">CreateSmallTaskRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateTaskReply">CreateTaskReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateSmallTaskRequest">CreateSmallTaskRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateTaskReply">CreateTaskReply</a></td>
 <td></td>
 </tr>
 <tr>
 <td>CreateLargeTasks</td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateLargeTaskRequest">CreateLargeTaskRequest</a> stream</td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateTaskReply">CreateTaskReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateLargeTaskRequest">CreateLargeTaskRequest</a> stream</td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-CreateTaskReply">CreateTaskReply</a></td>
 <td></td>
 </tr>
 <tr>
 <td>ListTasks</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter">TaskFilter</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskIdList">TaskIdList</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter">TaskFilter</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskIdList">.ArmoniK.api.grpc.v1.TaskIdList</a></td>
 <td></td>
 </tr>
 <tr>
 <td>ListSessions</td>
-<td><a href="#ArmoniK-api-grpc-v1-SessionFilter">SessionFilter</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-SessionIdList">SessionIdList</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-SessionFilter">SessionFilter</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-SessionIdList">SessionIdList</a></td>
 <td></td>
 </tr>
 <tr>
 <td>CountTasks</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter">TaskFilter</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-Count">Count</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter">TaskFilter</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Count">.ArmoniK.api.grpc.v1.Count</a></td>
 <td></td>
 </tr>
 <tr>
 <td>TryGetResultStream</td>
-<td><a href="#ArmoniK-api-grpc-v1-ResultRequest">ResultRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-ResultReply">ResultReply</a> stream</td>
+<td><a href="#ArmoniK-api-grpc-v1-ResultRequest">.ArmoniK.api.grpc.v1.ResultRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-ResultReply">ResultReply</a> stream</td>
 <td></td>
 </tr>
 <tr>
 <td>TryGetTaskOutput</td>
-<td><a href="#ArmoniK-api-grpc-v1-ResultRequest">ResultRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-Output">Output</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-ResultRequest">.ArmoniK.api.grpc.v1.ResultRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Output">.ArmoniK.api.grpc.v1.Output</a></td>
 <td></td>
 </tr>
 <tr>
 <td>WaitForAvailability</td>
-<td><a href="#ArmoniK-api-grpc-v1-ResultRequest">ResultRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-AvailabilityReply">AvailabilityReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-ResultRequest">.ArmoniK.api.grpc.v1.ResultRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-AvailabilityReply">AvailabilityReply</a></td>
 <td></td>
 </tr>
 <tr>
 <td>WaitForCompletion</td>
-<td><a href="#ArmoniK-api-grpc-v1-WaitRequest">WaitRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-Count">Count</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-WaitRequest">WaitRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Count">.ArmoniK.api.grpc.v1.Count</a></td>
 <td></td>
 </tr>
 <tr>
 <td>CancelTasks</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskFilter">TaskFilter</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-TaskFilter">TaskFilter</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">.ArmoniK.api.grpc.v1.Empty</a></td>
 <td></td>
 </tr>
 <tr>
 <td>GetTaskStatus</td>
-<td><a href="#ArmoniK-api-grpc-v1-GetTaskStatusRequest">GetTaskStatusRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-GetTaskStatusReply">GetTaskStatusReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-GetTaskStatusRequest">GetTaskStatusRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-GetTaskStatusReply">GetTaskStatusReply</a></td>
 <td></td>
 </tr>
 <tr>
 <td>GetResultStatus</td>
-<td><a href="#ArmoniK-api-grpc-v1-GetResultStatusRequest">GetResultStatusRequest</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-GetResultStatusReply">GetResultStatusReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusRequest">GetResultStatusRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusReply">GetResultStatusReply</a></td>
 <td></td>
 </tr>
 </tbody>
@@ -1573,7 +1886,7 @@
 <p><a name="worker_service-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="worker_serviceproto">worker_service.proto</h2>
-<p><a name="ArmoniK-api-grpc-v1-HealthCheckReply"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-HealthCheckReply"></a></p>
 <h3 id="healthcheckreply">HealthCheckReply</h3>
 <table>
 <thead>
@@ -1587,13 +1900,13 @@
 <tbody>
 <tr>
 <td>status</td>
-<td><a href="#ArmoniK-api-grpc-v1-HealthCheckReply-ServingStatus">HealthCheckReply.ServingStatus</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-worker-HealthCheckReply-ServingStatus">HealthCheckReply.ServingStatus</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessReply"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-ProcessReply"></a></p>
 <h3 id="processreply">ProcessReply</h3>
 <table>
 <thead>
@@ -1606,180 +1919,20 @@
 </thead>
 <tbody>
 <tr>
-<td>request_id</td>
+<td>communication_token</td>
 <td><a href="#string">string</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>output</td>
-<td><a href="#ArmoniK-api-grpc-v1-Output">Output</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>result</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply-Result">ProcessReply.Result</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>create_small_task</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply-CreateSmallTaskRequest">ProcessReply.CreateSmallTaskRequest</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>create_large_task</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply-CreateLargeTaskRequest">ProcessReply.CreateLargeTaskRequest</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>resource</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply-DataRequest">ProcessReply.DataRequest</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>common_data</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply-DataRequest">ProcessReply.DataRequest</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>direct_data</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply-DataRequest">ProcessReply.DataRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Output">ArmoniK.api.grpc.v1.Output</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessReply-CreateLargeTaskRequest"></a></p>
-<h3 id="processreplycreatelargetaskrequest">ProcessReply.CreateLargeTaskRequest</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>init_request</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply-CreateLargeTaskRequest-InitRequest">ProcessReply.CreateLargeTaskRequest.InitRequest</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>init_task</td>
-<td><a href="#ArmoniK-api-grpc-v1-InitTaskRequest">InitTaskRequest</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>task_payload</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessReply-CreateLargeTaskRequest-InitRequest"></a></p>
-<h3 id="processreplycreatelargetaskrequestinitrequest">ProcessReply.CreateLargeTaskRequest.InitRequest</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>task_options</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">TaskOptions</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessReply-CreateSmallTaskRequest"></a></p>
-<h3 id="processreplycreatesmalltaskrequest">ProcessReply.CreateSmallTaskRequest</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>task_options</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">TaskOptions</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>task_requests</td>
-<td><a href="#ArmoniK-api-grpc-v1-TaskRequest">TaskRequest</a></td>
-<td>repeated</td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessReply-DataRequest"></a></p>
-<h3 id="processreplydatarequest">ProcessReply.DataRequest</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>key</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessReply-Result"></a></p>
-<h3 id="processreplyresult">ProcessReply.Result</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>init</td>
-<td><a href="#ArmoniK-api-grpc-v1-InitKeyedDataStream">InitKeyedDataStream</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>data</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-ProcessRequest"></a></p>
 <h3 id="processrequest">ProcessRequest</h3>
 <table>
 <thead>
@@ -1792,38 +1945,20 @@
 </thead>
 <tbody>
 <tr>
+<td>communication_token</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
 <td>compute</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest">ProcessRequest.ComputeRequest</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>create_task</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-CreateTask">ProcessRequest.CreateTask</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>resource</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-DataReply">ProcessRequest.DataReply</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>common_data</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-DataReply">ProcessRequest.DataReply</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>direct_data</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-DataReply">ProcessRequest.DataReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest">ProcessRequest.ComputeRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest"></a></p>
 <h3 id="processrequestcomputerequest">ProcessRequest.ComputeRequest</h3>
 <table>
 <thead>
@@ -1837,31 +1972,31 @@
 <tbody>
 <tr>
 <td>init_request</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitRequest">ProcessRequest.ComputeRequest.InitRequest</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest-InitRequest">ProcessRequest.ComputeRequest.InitRequest</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>payload</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>init_data</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitData">ProcessRequest.ComputeRequest.InitData</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest-InitData">ProcessRequest.ComputeRequest.InitData</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
 <td>data</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitData"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest-InitData"></a></p>
 <h3 id="processrequestcomputerequestinitdata">ProcessRequest.ComputeRequest.InitData</h3>
 <table>
 <thead>
@@ -1887,7 +2022,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitRequest"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-ProcessRequest-ComputeRequest-InitRequest"></a></p>
 <h3 id="processrequestcomputerequestinitrequest">ProcessRequest.ComputeRequest.InitRequest</h3>
 <table>
 <thead>
@@ -1901,7 +2036,7 @@
 <tbody>
 <tr>
 <td>configuration</td>
-<td><a href="#ArmoniK-api-grpc-v1-Configuration">Configuration</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Configuration">ArmoniK.api.grpc.v1.Configuration</a></td>
 <td></td>
 <td></td>
 </tr>
@@ -1919,8 +2054,8 @@
 </tr>
 <tr>
 <td>task_options</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitRequest-TaskOptionsEntry">ProcessRequest.ComputeRequest.InitRequest.TaskOptionsEntry</a></td>
-<td>repeated</td>
+<td><a href="#ArmoniK-api-grpc-v1-TaskOptions">ArmoniK.api.grpc.v1.TaskOptions</a></td>
+<td></td>
 <td></td>
 </tr>
 <tr>
@@ -1931,129 +2066,13 @@
 </tr>
 <tr>
 <td>payload</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-DataChunk">ArmoniK.api.grpc.v1.DataChunk</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest-ComputeRequest-InitRequest-TaskOptionsEntry"></a></p>
-<h3 id="processrequestcomputerequestinitrequesttaskoptionsentry">ProcessRequest.ComputeRequest.InitRequest.TaskOptionsEntry</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>key</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>value</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest-CreateTask"></a></p>
-<h3 id="processrequestcreatetask">ProcessRequest.CreateTask</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>reply_id</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>reply</td>
-<td><a href="#ArmoniK-api-grpc-v1-CreateTaskReply">CreateTaskReply</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest-DataReply"></a></p>
-<h3 id="processrequestdatareply">ProcessRequest.DataReply</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>reply_id</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>init</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest-DataReply-Init">ProcessRequest.DataReply.Init</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>data</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-ProcessRequest-DataReply-Init"></a></p>
-<h3 id="processrequestdatareplyinit">ProcessRequest.DataReply.Init</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>key</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>data</td>
-<td><a href="#ArmoniK-api-grpc-v1-DataChunk">DataChunk</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>error</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><a name="ArmoniK-api-grpc-v1-HealthCheckReply-ServingStatus"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-HealthCheckReply-ServingStatus"></a></p>
 <h3 id="healthcheckreplyservingstatus">HealthCheckReply.ServingStatus</h3>
 <table>
 <thead>
@@ -2081,7 +2100,7 @@
 </tr>
 </tbody>
 </table>
-<p><a name="ArmoniK-api-grpc-v1-Worker"></a></p>
+<p><a name="ArmoniK-api-grpc-v1-worker-Worker"></a></p>
 <h3 id="worker">Worker</h3>
 <table>
 <thead>
@@ -2095,14 +2114,14 @@
 <tbody>
 <tr>
 <td>Process</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessRequest">ProcessRequest</a> stream</td>
-<td><a href="#ArmoniK-api-grpc-v1-ProcessReply">ProcessReply</a> stream</td>
+<td><a href="#ArmoniK-api-grpc-v1-worker-ProcessRequest">ProcessRequest</a> stream</td>
+<td><a href="#ArmoniK-api-grpc-v1-worker-ProcessReply">ProcessReply</a></td>
 <td></td>
 </tr>
 <tr>
 <td>HealthCheck</td>
-<td><a href="#ArmoniK-api-grpc-v1-Empty">Empty</a></td>
-<td><a href="#ArmoniK-api-grpc-v1-HealthCheckReply">HealthCheckReply</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-Empty">.ArmoniK.api.grpc.v1.Empty</a></td>
+<td><a href="#ArmoniK-api-grpc-v1-worker-HealthCheckReply">HealthCheckReply</a></td>
 <td></td>
 </tr>
 </tbody>
@@ -2298,7 +2317,7 @@
               <div class="contribution">
                 <ul class="nav">
                   <li>
-                    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/jf/doc/Documentation/api/index.md/#L1" class="contribution-link">Improve this Doc</a>
+                    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Documentation/api/index.md/#L1" class="contribution-link">Improve this Doc</a>
                   </li>
                 </ul>
               </div>
