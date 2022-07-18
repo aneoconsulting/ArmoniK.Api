@@ -39,7 +39,7 @@ service Submitter{
    * The submitter will then send the statuses for all requested ids immediately and keep the stream open.
    * The submitter will send updates to the client via the opened stream.
    * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
-   * It is possible to filter out specific statuses from events with options
+   * It is possible to filter out specific statuses from events
    */
   rpc WatchResults (stream WatchResultRequest) returns (stream WatchResultStream);
 }
@@ -171,22 +171,20 @@ message WaitRequest {
  *   and some options to filter out some events
  */
 message WatchResultRequest {
+  // list of statuses to check results against for the initial fetch
+  repeated ResultStatus.ResultStatus fetch_statuses = 1;
+  // list of statuses to check results against for the watch
+  repeated ResultStatus.ResultStatus watch_statuses = 2;
   // result ids to fetch/watch
-  repeated string result_ids = 1;
-  // list of statuses to check results against
-  repeated ResultStatus.ResultStatus target_statuses = 2;
-  // Whether the current state should be fetched
-  bool fetch_current_state = 3;
-  // Whether the future state should be watched
-  bool watch_future_state = 4;
+  repeated string result_ids = 3;
 }
 
 /**
  * List of Result statuses
  */
 message WatchResultStream {
-  // List of result ids that triggered the event
-  repeated string result_ids = 1;
   // Status of the results
-  ResultStatus.ResultStatus status = 2;
+  ResultStatus.ResultStatus status = 1;
+  // List of result ids that triggered the event
+  repeated string result_ids = 2;
 }
