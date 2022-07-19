@@ -35,8 +35,9 @@ message CreateTaskReply{
 	oneof Data{
 		Empty successfull = 1;
 		TaskIds non_successfull_ids = 2;
+		string error = 3;
 	}
-	string communication_token = 3;
+	string communication_token = 4;
 }
 
 message DataRequest {
