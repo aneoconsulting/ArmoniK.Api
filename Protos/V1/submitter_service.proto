@@ -24,25 +24,25 @@ service Submitter{
 	rpc TryGetResultStream (ResultRequest) returns (stream ResultReply);
 	rpc TryGetTaskOutput (ResultRequest) returns (Output);
 	rpc WaitForAvailability (ResultRequest) returns (AvailabilityReply) {
-    option deprecated = true;
-  }
+		option deprecated = true;
+	}
 	rpc WaitForCompletion (WaitRequest) returns (Count);
 	rpc CancelTasks (TaskFilter) returns (Empty); 
 	rpc GetTaskStatus (GetTaskStatusRequest) returns (GetTaskStatusReply);
 	rpc GetResultStatus (GetResultStatusRequest) returns (GetResultStatusReply) {
-    option deprecated = true;
-  }
+		option deprecated = true;
+	}
 
-  /**
-   * This endpoint allows a user to watch a list of results and be notified when there is any change.
-   * The user sends the list of ids they want to watch.
-   * The submitter will then send the statuses for all requested ids immediately and keep the stream open.
-   *   Ids not present in DB will be returned at that time with the special state NOTFOUND.
-   * The submitter will send updates to the client via the opened stream.
-   * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
-   * It is possible to filter out specific statuses from events
-   */
-  rpc WatchResults (stream WatchResultRequest) returns (stream WatchResultStream);
+	/**
+	 * This endpoint allows a user to watch a list of results and be notified when there is any change.
+	 * The user sends the list of ids they want to watch.
+	 * The submitter will then send the statuses for all requested ids immediately and keep the stream open.
+	 *   Ids not present in DB will be returned at that time with the special state NOTFOUND.
+	 * The submitter will send updates to the client via the opened stream.
+	 * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
+	 * It is possible to filter out specific statuses from events
+	 */
+	rpc WatchResults (stream WatchResultRequest) returns (stream WatchResultStream);
 }
 
 
@@ -174,23 +174,23 @@ message WaitRequest {
  * It is the responsability of the client to chunk the messages properly and avoid messages too large
  */
 message WatchResultRequest {
-  // list of statuses to check results against for the initial fetch
-  repeated ResultStatus.ResultStatus fetch_statuses = 1;
-  // list of statuses to check results against for the watch
-  repeated ResultStatus.ResultStatus watch_statuses = 2;
-  // result ids to fetch/watch
-  repeated string result_ids = 3;
+	// list of statuses to check results against for the initial fetch
+	repeated ResultStatus.ResultStatus fetch_statuses = 1;
+	// list of statuses to check results against for the watch
+	repeated ResultStatus.ResultStatus watch_statuses = 2;
+	// result ids to fetch/watch
+	repeated string result_ids = 3;
 }
 
 /**
  * List of Result statuses
  * A message is sent with all the results having the given status
  * Chunking is achieved by receiving several messages with the same status and the list of ids in multiple parts
- * There is at least one message per status
+ * As chunking is implicit, there is no way to distinguish between chunked messages and actually separate messages
  */
 message WatchResultStream {
-  // Status of the results
-  ResultStatus.ResultStatus status = 1;
-  // List of result ids that triggered the event
-  repeated string result_ids = 2;
+	// Status of the results
+	ResultStatus.ResultStatus status = 1;
+	// List of result ids that triggered the event
+	repeated string result_ids = 2;
 }
