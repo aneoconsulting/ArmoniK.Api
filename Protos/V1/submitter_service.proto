@@ -40,7 +40,7 @@ service Submitter{
 	 *   Ids not present in DB will be returned at that time with the special state NOTFOUND.
 	 * The submitter will send updates to the client via the opened stream.
 	 * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
-	 * It is possible to filter out specific statuses from events
+	 * It is possible to filter out specific statuses from events.
 	 */
 	rpc WatchResults (stream WatchResultRequest) returns (stream WatchResultStream);
 }
@@ -169,9 +169,9 @@ message WaitRequest {
 /**
  * Request to watch result states
  * It contains the list of result ids you want to watch
- *   and some options to filter out some events
- * Chunking is achieved by sending multiple messages with different result ids
- * It is the responsability of the client to chunk the messages properly and avoid messages too large
+ *   and some options to filter out some events.
+ * Chunking is achieved by sending multiple messages with different result ids.
+ * It is the responsability of the client to chunk the messages properly and avoid messages too large.
  */
 message WatchResultRequest {
 	// list of statuses to check results against for the initial fetch
@@ -184,9 +184,9 @@ message WatchResultRequest {
 
 /**
  * List of Result statuses
- * A message is sent with all the results having the given status
- * Chunking is achieved by receiving several messages with the same status and the list of ids in multiple parts
- * As chunking is implicit, there is no way to distinguish between chunked messages and actually separate messages
+ * Result Ids are grouped by status. One message contains result Ids that have the same status.
+ * Chunking is achieved by receiving several messages with the same status and the list of ids in multiple parts.
+ * As chunking is implicit, there is no way to distinguish between chunked messages and actually separate messages.
  */
 message WatchResultStream {
 	// Status of the results
