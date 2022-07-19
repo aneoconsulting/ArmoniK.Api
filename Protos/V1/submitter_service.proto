@@ -170,6 +170,8 @@ message WaitRequest {
  * Request to watch result states
  * It contains the list of result ids you want to watch
  *   and some options to filter out some events
+ * Chunking is achieved by sending multiple messages with different result ids
+ * It is the responsability of the client to chunk the messages properly and avoid messages too large
  */
 message WatchResultRequest {
   // list of statuses to check results against for the initial fetch
@@ -183,7 +185,7 @@ message WatchResultRequest {
 /**
  * List of Result statuses
  * A message is sent with all the results having the given status
- * Chunking is implicit
+ * Chunking is achieved by receiving several messages with the same status and the list of ids in multiple parts
  * There is at least one message per status
  */
 message WatchResultStream {
