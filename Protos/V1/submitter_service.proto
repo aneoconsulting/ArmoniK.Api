@@ -37,6 +37,7 @@ service Submitter{
    * This endpoint allows a user to watch a list of results and be notified when there is any change.
    * The user sends the list of ids they want to watch.
    * The submitter will then send the statuses for all requested ids immediately and keep the stream open.
+   *   Ids not present in DB will be returned at that time with the special state NOTFOUND.
    * The submitter will send updates to the client via the opened stream.
    * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
    * It is possible to filter out specific statuses from events
@@ -181,6 +182,9 @@ message WatchResultRequest {
 
 /**
  * List of Result statuses
+ * A message is sent with all the results having the given status
+ * Chunking is implicit
+ * There is at least one message per status
  */
 message WatchResultStream {
   // Status of the results
