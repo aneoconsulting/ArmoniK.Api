@@ -66,7 +66,7 @@ public static class SubmitterClientExt
   }
 
 
-  public static IEnumerable<CreateLargeTaskRequest> ToRequestStream(this IEnumerable<TaskRequest> taskRequests,
+  private static IEnumerable<CreateLargeTaskRequest> ToRequestStream(this IEnumerable<TaskRequest> taskRequests,
                                                                     string                        sessionId,
                                                                     TaskOptions?                  taskOptions,
                                                                     int                           chunkMaxSize)
@@ -108,7 +108,7 @@ public static class SubmitterClientExt
     }
   }
 
-  public static IEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest taskRequest,
+  private static IEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest taskRequest,
                                                                     bool             isLast,
                                                                     int              chunkMaxSize)
   {

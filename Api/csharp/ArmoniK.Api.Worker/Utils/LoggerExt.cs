@@ -26,8 +26,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
-using ArmoniK.Api.Worker.Options;
-
 using Microsoft.Extensions.Logging;
 
 namespace ArmoniK.Api.Worker.Utils;
@@ -96,4 +94,23 @@ public static class LoggerExt
                                scope.Dispose();
                              });
   }
+
+  private static class Disposable
+  {
+    public static IDisposable Create(Action action)
+      => new DisposableImpl(action);
+
+    private class DisposableImpl : IDisposable
+    {
+      private readonly Action action_;
+
+      public DisposableImpl(Action action)
+        => action_ = action;
+
+      /// <inheritdoc />
+      public void Dispose()
+        => action_();
+    }
+  }
+
 }
