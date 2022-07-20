@@ -41,12 +41,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Server">
-      <Link>gRPC\Protos\worker_service.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Client">
-      <Link>gRPC\Protos\agent_service.proto</Link>
-    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\submitter_service.proto</Link>
     </Protobuf>
