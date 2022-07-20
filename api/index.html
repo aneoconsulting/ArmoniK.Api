@@ -173,6 +173,10 @@
 </li>
 <li><p><a href="#ArmoniK-api-grpc-v1-submitter-WaitRequest">WaitRequest</a></p>
 </li>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-WatchResultRequest">WatchResultRequest</a></p>
+</li>
+<li><p><a href="#ArmoniK-api-grpc-v1-submitter-WatchResultStream">WatchResultStream</a></p>
+</li>
 <li><p><a href="#ArmoniK-api-grpc-v1-submitter-Submitter">Submitter</a></p>
 </li>
 </ul>
@@ -1061,6 +1065,11 @@
 <td>3</td>
 <td></td>
 </tr>
+<tr>
+<td>RESULT_STATUS_NOTFOUND</td>
+<td>127</td>
+<td>NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions <a href="https://developers.google.com/protocol-buffers/docs/proto3#enum">https://developers.google.com/protocol-buffers/docs/proto3#enum</a></td>
+</tr>
 </tbody>
 </table>
 <p><a name="session_status-proto"></a></p>
@@ -1709,6 +1718,73 @@
 </tr>
 </tbody>
 </table>
+<p><a name="ArmoniK-api-grpc-v1-submitter-WatchResultRequest"></a></p>
+<h3 id="watchresultrequest">WatchResultRequest</h3>
+<p>Request to watch result states
+It contains the list of result ids you want to watch
+and some options to filter out some events.
+Chunking is achieved by sending multiple messages with different result ids.
+It is the responsability of the client to chunk the messages properly and avoid messages too large.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>fetch_statuses</td>
+<td><a href="#ArmoniK-api-grpc-v1-ResultStatus-ResultStatus">ArmoniK.api.grpc.v1.ResultStatus.ResultStatus</a></td>
+<td>repeated</td>
+<td>list of statuses to check results against for the initial fetch</td>
+</tr>
+<tr>
+<td>watch_statuses</td>
+<td><a href="#ArmoniK-api-grpc-v1-ResultStatus-ResultStatus">ArmoniK.api.grpc.v1.ResultStatus.ResultStatus</a></td>
+<td>repeated</td>
+<td>list of statuses to check results against for the watch</td>
+</tr>
+<tr>
+<td>result_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td>result ids to fetch/watch</td>
+</tr>
+</tbody>
+</table>
+<p><a name="ArmoniK-api-grpc-v1-submitter-WatchResultStream"></a></p>
+<h3 id="watchresultstream">WatchResultStream</h3>
+<p>List of Result statuses
+Result Ids are grouped by status. One message contains result Ids that have the same status.
+Chunking is achieved by receiving several messages with the same status and the list of ids in multiple parts.
+As chunking is implicit, there is no way to distinguish between chunked messages and actually separate messages.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>status</td>
+<td><a href="#ArmoniK-api-grpc-v1-ResultStatus-ResultStatus">ArmoniK.api.grpc.v1.ResultStatus.ResultStatus</a></td>
+<td></td>
+<td>Status of the results</td>
+</tr>
+<tr>
+<td>result_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td>List of result ids that triggered the event</td>
+</tr>
+</tbody>
+</table>
 <p><a name="ArmoniK-api-grpc-v1-submitter-Submitter"></a></p>
 <h3 id="submitter">Submitter</h3>
 <table>
@@ -1810,6 +1886,12 @@
 <td><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusRequest">GetResultStatusRequest</a></td>
 <td><a href="#ArmoniK-api-grpc-v1-submitter-GetResultStatusReply">GetResultStatusReply</a></td>
 <td></td>
+</tr>
+<tr>
+<td>WatchResults</td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-WatchResultRequest">WatchResultRequest</a> stream</td>
+<td><a href="#ArmoniK-api-grpc-v1-submitter-WatchResultStream">WatchResultStream</a> stream</td>
+<td>This endpoint allows a user to watch a list of results and be notified when there is any change. The user sends the list of ids they want to watch. The submitter will then send the statuses for all requested ids immediately and keep the stream open. Ids not present in DB will be returned at that time with the special state NOTFOUND. The submitter will send updates to the client via the opened stream. Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply). It is possible to filter out specific statuses from events.</td>
 </tr>
 </tbody>
 </table>
