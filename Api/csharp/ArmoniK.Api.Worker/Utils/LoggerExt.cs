@@ -112,5 +112,4 @@ public static class LoggerExt
         => action_();
     }
   }
-
 }
