@@ -28,7 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ArmoniK.Api\ArmoniK.Api.Worker.csproj" />
+    <ProjectReference Include="..\ArmoniK.Api.Worker\ArmoniK.Api.Worker.csproj" />
   </ItemGroup>
 
 </Project>

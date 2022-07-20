@@ -28,7 +28,14 @@ namespace ArmoniK.Api.Worker.Options;
 [PublicAPI]
 public class GrpcChannel
 {
-  public string? Address { get; set; }
+  public GrpcChannel(string         address,
+                     GrpcSocketType socketType)
+  {
+    Address    = address;
+    SocketType = socketType;
+  }
+
+  public string Address { get; set; }
 
   public GrpcSocketType SocketType { get; set; } = GrpcSocketType.Web;
 }
