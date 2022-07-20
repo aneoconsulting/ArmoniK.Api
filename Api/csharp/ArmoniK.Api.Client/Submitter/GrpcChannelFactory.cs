@@ -1,0 +1,85 @@
+﻿// This file is part of the ArmoniK project
+// 
+// Copyright (C) ANEO, 2021-2022. All rights reserved.
+//   W. Kirschenmann   <wkirschenmann@aneo.fr>
+//   J. Gurhem         <jgurhem@aneo.fr>
+//   D. Dubuc          <ddubuc@aneo.fr>
+//   L. Ziane Khodja   <lzianekhodja@aneo.fr>
+//   F. Lemaitre       <flemaitre@aneo.fr>
+//   S. Djebbar        <sdjebbar@aneo.fr>
+//   J. Fonseca        <jfonseca@aneo.fr>
+// 
+// Licensed under the Apache License, Version 2.0 (the "License")
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//         http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+using System;
+using System.Net.Http;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
+
+using Grpc.Core;
+using Grpc.Net.Client;
+
+namespace ArmoniK.Core.Common.Utils;
+
+public static class GrpcChannelFactory
+{
+  public static GrpcChannel CreateChannel(Options.GrpcClient optionsGrpcClient)
+  {
+    if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
+    {
+      throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
+    }
+
+    var uri = new Uri(optionsGrpcClient.Endpoint);
+
+    var credentials = uri.Scheme == Uri.UriSchemeHttps
+                        ? new SslCredentials()
+                        : ChannelCredentials.Insecure;
+    HttpClientHandler httpClientHandler = new HttpClientHandler();
+
+    if (!optionsGrpcClient.SslValidation)
+    {
+      httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+      AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
+                           true);
+    }
+
+    if (!string.IsNullOrEmpty(optionsGrpcClient.CertPem) && string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
+    {
+      var cert = X509Certificate2.CreateFromPemFile(optionsGrpcClient.CertPem,
+                                                    optionsGrpcClient.KeyPem);
+
+      // Resolve issue with Windows on pem bug with windows
+      // https://github.com/dotnet/runtime/issues/23749#issuecomment-388231655
+      if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+      {
+        var originalCert = cert;
+        cert = new X509Certificate2(cert.Export(X509ContentType.Pkcs12));
+        originalCert.Dispose();
+      }
+
+      httpClientHandler.ClientCertificates.Add(cert);
+    }
+
+    var channelOptions = new GrpcChannelOptions()
+                         {
+                           Credentials = credentials,
+                           HttpHandler = httpClientHandler,
+                         };
+
+    var channel = GrpcChannel.ForAddress(optionsGrpcClient.Endpoint,
+                                         channelOptions);
+
+    return channel;
+  }
+}
