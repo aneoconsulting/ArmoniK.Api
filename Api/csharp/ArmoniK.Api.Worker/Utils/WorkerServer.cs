@@ -39,7 +39,7 @@ using Serilog.Formatting.Compact;
 
 namespace ArmoniK.Api.Worker.Utils;
 
-internal class WorkerServer<T>
+public class WorkerServer<T>
   where T : class
 {
   public WorkerServer()
