@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <Company>ANEO</Company>
+    <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageOutputPath>../publish</PackageOutputPath>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <TargetType>library</TargetType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DebugType>Embedded</DebugType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.Net.Client" Version="2.41.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
+    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+    <PackageReference Include="Google.Protobuf" Version="3.21.2" />
+    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.46.0" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="5.0.1" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="3.3.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
+    <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="6.0.1" />
+    <PackageReference Include="Grpc.Tools" Version="2.47.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Server">
+      <Link>gRPC\Protos\worker_service.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\agent_service.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\submitter_service.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\objects.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\objects.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\task_status.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\task_status.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\session_status.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\session_status.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\result_status.proto" GrpcServices="Message">
+      <Link>gRPC\Protos\result_status.proto</Link>
+    </Protobuf>
+  </ItemGroup>
+</Project>
