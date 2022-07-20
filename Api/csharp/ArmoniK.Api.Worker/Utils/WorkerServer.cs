@@ -68,13 +68,16 @@ internal class WorkerServer<T>
       var computePlanOptions = builder.Configuration.GetSection(ComputePlan.SettingSection)
                                       .Get<ComputePlan>();
 
-      if (computePlanOptions?.WorkerChannel == null)
-      {
-        throw new Exception("WorkerChannel Should not be null");
-      }
+      builder.WebHost.ConfigureKestrel(options =>
+                                       {
+                                         if (computePlanOptions == null)
+                                         {
+                                           throw new Exception("ComputePlan options Should not be null");
+                                         }
 
-      builder.WebHost.ConfigureKestrel(options => options.ListenUnixSocket(computePlanOptions.WorkerChannel.Address,
-                                                                           listenOptions => listenOptions.Protocols = HttpProtocols.Http2));
+                                         options.ListenUnixSocket(computePlanOptions.WorkerChannel.Address,
+                                                                  listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+                                       });
 
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
