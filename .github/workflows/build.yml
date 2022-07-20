@@ -41,9 +41,6 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 6.x
-        source-url: https://pkgs.dev.azure.com/aneofr/ArmoniK/_packaging/ArmoniKPackages/nuget/v3/index.json
-      env:
-        NUGET_AUTH_TOKEN: ${{secrets.PAT_AZURE}}
 
     - name: Build the package
       run: dotnet build Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release
@@ -54,5 +51,5 @@ jobs:
         ls /tmp/packages
 
     - name: Push the package
-      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg --api-key AzureArtifacts
+      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
