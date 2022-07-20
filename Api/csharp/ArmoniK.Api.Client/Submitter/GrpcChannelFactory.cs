@@ -26,14 +26,16 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 
+using ArmoniK.Api.Client.Options;
+
 using Grpc.Core;
 using Grpc.Net.Client;
 
-namespace ArmoniK.Core.Common.Utils;
+namespace ArmoniK.Api.Client.Submitter;
 
 public static class GrpcChannelFactory
 {
-  public static GrpcChannel CreateChannel(Options.GrpcClient optionsGrpcClient)
+  public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient)
   {
     if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
     {
