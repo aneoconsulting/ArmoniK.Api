@@ -6,6 +6,9 @@ import "session_status.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 package ArmoniK.api.grpc.V1.sessions;
 
+/**
+ * The SessionService provides methods for creating, listing, and cancelling sessions
+ */
 service Sessions {
   // Get all sessions with pagination
   rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
