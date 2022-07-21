@@ -36,5 +36,5 @@ public class GrpcChannel
   /// <summary>
   /// Type of Grpc Socket used
   /// </summary>
-  public GrpcSocketType SocketType { get; set; } = GrpcSocketType.UnixSocket;
+  public GrpcSocketType SocketType { get; set; } = GrpcSocketType.UnixDomainSocket;
 }

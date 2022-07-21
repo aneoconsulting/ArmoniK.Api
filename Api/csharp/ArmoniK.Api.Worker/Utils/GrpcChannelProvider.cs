@@ -109,10 +109,10 @@ public class GrpcChannelProvider : IAsyncDisposable
   {
     switch (options_.SocketType)
     {
-      case GrpcSocketType.Web:
+      case GrpcSocketType.Tcp:
         return BuildWebGrpcChannel(address_,
                                    logger_);
-      case GrpcSocketType.UnixSocket:
+      case GrpcSocketType.UnixDomainSocket:
         return BuildUnixSocketGrpcChannel(address_,
                                           logger_);
       default:
