@@ -79,7 +79,15 @@ public class WorkerServer
       }
 
       builder.WebHost.ConfigureKestrel(options => options.ListenUnixSocket(computePlanOptions.WorkerChannel.Address,
-                                                                           listenOptions => listenOptions.Protocols = HttpProtocols.Http2));
+                                                                           listenOptions =>
+                                                                           {
+                                                                             if (File.Exists(computePlanOptions.WorkerChannel.Address))
+                                                                             {
+                                                                               File.Delete(computePlanOptions.WorkerChannel.Address);
+                                                                             }
+
+                                                                             listenOptions.Protocols = HttpProtocols.Http2;
+                                                                           }));
 
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
