@@ -17,6 +17,7 @@
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
 
 
