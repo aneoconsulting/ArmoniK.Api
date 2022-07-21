@@ -41,7 +41,7 @@ namespace ArmoniK.Api.Worker.Utils;
 
 public class WorkerServer
 {
-  public static WebApplication Create<T>(IConfiguration configuration)
+  public static WebApplication Create<T>(IConfiguration? configuration = null)
     where T : class
   {
     try
@@ -52,8 +52,12 @@ public class WorkerServer
              .AddJsonFile("appsettings.json",
                           true,
                           false)
-             .AddConfiguration(configuration)
              .AddEnvironmentVariables();
+
+      if (configuration is not null)
+      {
+        builder.Configuration.AddConfiguration(configuration);
+      }
 
       Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration)
                                             .WriteTo.Console(new CompactJsonFormatter())

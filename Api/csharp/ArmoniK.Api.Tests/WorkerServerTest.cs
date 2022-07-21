@@ -76,6 +76,15 @@ public class WorkerServerTest
     var app = WorkerServer.Create<TestService>(configuration);
     return Task.CompletedTask;
   }
+
+  [Test]
+  public Task BuildServerNoArgs()
+  {
+    System.Environment.SetEnvironmentVariable("ComputePlan__WorkerChannel__Address",
+                                              "/tmp/worker.sock");
+    var app = WorkerServer.Create<TestService>();
+    return Task.CompletedTask;
+  }
 }
 
 public class TestService : WorkerStreamWrapper
