@@ -10,53 +10,83 @@ service Sessions {
   // Get all sessions with pagination
   rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
 
-  // Get a session using an ID.
+  // Get a session using an ID
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {}
 
-  // Cancel a session using an ID.
+  // Cancel a session using an ID
   rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
 }
 
-// Objects
+/**
+ * A raw session object
+ */
 message RawSession {
   // à compléter avec le schéma de la base de données
 }
 
-message PaginatedSesssion {
+/**
+ * A session object
+ */
+message SessionTable {
   // à compléter avec le schéma de la base de données
 }
 
-// Requests - Responses
+/**
+ * Request for listing sessions
+ */
 message ListSessionsRequest {
+  // Page number
   string page_token = 1;
+  // Page size
   int32 page_size = 2;
   
+  // Name of the application
   string application_name = 3;
+  // Version of the application
   string application_version = 4;
+  // Field to order by
   string order_by = 5;
+  // Order direction
   string order = 6;
+  // Id of the session
   string id = 7;
+  // Date since the last activity of the session
   string last_activity_since = 8;
 }
 
+/**
+ * Response for listing sessions
+ */
 message ListSessionsResponse {
-  repeated PaginatedSession sessions = 1;
+  repeated SessionTable sessions = 1;
 
   string next_page_token = 2;
 }
 
+/**
+ * Request for getting a session
+ */
 message GetSessionRequest {
   string session_id = 1;
 }
 
+/**
+ * Response for getting a session
+ */
 message GetSessionResponse {
   RawSession session = 1;
 }
 
+/**
+ * Request for cancelling a session
+ */
 message CancelSessionRequest {
   string session_id = 1;
 }
 
+/**
+ * Response for cancelling a session
+ */
 message CancelSessionResponse {
   RawSession session = 1;
 }
