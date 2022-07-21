@@ -2,13 +2,12 @@
 
   <PropertyGroup>
     <TargetFrameworks>net6.0</TargetFrameworks>
-    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <Company>ANEO</Company>
     <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageOutputPath>../publish</PackageOutputPath>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>10</LangVersion>
     <Nullable>enable</Nullable>
     <TargetType>library</TargetType>
     <IsPackable>true</IsPackable>

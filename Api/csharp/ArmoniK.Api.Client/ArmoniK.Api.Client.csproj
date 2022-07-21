@@ -1,8 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net5.0;net6.0</TargetFrameworks>
-    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <TargetFrameworks>net5.0</TargetFrameworks>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Company>ANEO</Company>
     <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
@@ -10,7 +9,7 @@
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageOutputPath>../publish</PackageOutputPath>
     <IsPackable>true</IsPackable>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>9.0</LangVersion>
     <SignAssembly>True</SignAssembly>
     <Nullable>enable</Nullable>
     <AssemblyOriginatorKeyFile>./kp.snk</AssemblyOriginatorKeyFile>

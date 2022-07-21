@@ -23,14 +23,17 @@
 
 using JetBrains.Annotations;
 
-namespace ArmoniK.Api.Client.Options;
-
-[PublicAPI]
-public class GrpcClient
+namespace ArmoniK.Api.Client.Options
 {
-  public const string  SettingSection = nameof(GrpcClient);
-  public       string? Endpoint             { get; set; }
-  public       bool    AllowUnsafeConnexion { get; set; }
-  public       string? CertPem              { get; set; }
-  public       string? KeyPem               { get; set; }
+  [PublicAPI]
+  public class GrpcClient
+  {
+    public const string  SettingSection = nameof(GrpcClient);
+    public       string? Endpoint             { get; set; }
+    public       bool    AllowUnsafeConnexion { get; set; }
+    public       string? CertPem              { get; set; }
+    public       string? KeyPem               { get; set; }
+  }
+
 }
+
