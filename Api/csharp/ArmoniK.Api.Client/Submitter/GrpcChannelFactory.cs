@@ -50,7 +50,7 @@ namespace ArmoniK.Api.Client.Submitter
                           : ChannelCredentials.Insecure;
       HttpClientHandler httpClientHandler = new HttpClientHandler();
 
-      if (optionsGrpcClient.AllowUnsafeConnexion)
+      if (optionsGrpcClient.AllowUnsafeConnection)
       {
         httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
