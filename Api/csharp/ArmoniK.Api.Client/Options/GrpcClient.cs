@@ -1,4 +1,4 @@
-﻿// This file is part of the ArmoniK project
+// This file is part of the ArmoniK project
 // 
 // Copyright (C) ANEO, 2021-2022. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
@@ -29,8 +29,8 @@ namespace ArmoniK.Api.Client.Options;
 public class GrpcClient
 {
   public const string  SettingSection = nameof(GrpcClient);
-  public       string? Endpoint      { get; set; }
-  public       bool    SslValidation { get; set; }
-  public       string? CertPem       { get; set; }
-  public       string? KeyPem        { get; set; }
+  public       string? Endpoint             { get; set; }
+  public       bool    AllowUnsafeConnexion { get; set; }
+  public       string? CertPem              { get; set; }
+  public       string? KeyPem               { get; set; }
 }

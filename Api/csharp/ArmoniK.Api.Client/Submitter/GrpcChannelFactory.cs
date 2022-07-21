@@ -1,4 +1,4 @@
-﻿// This file is part of the ArmoniK project
+// This file is part of the ArmoniK project
 // 
 // Copyright (C) ANEO, 2021-2022. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
@@ -49,7 +49,7 @@ public static class GrpcChannelFactory
                         : ChannelCredentials.Insecure;
     HttpClientHandler httpClientHandler = new HttpClientHandler();
 
-    if (!optionsGrpcClient.SslValidation)
+    if (optionsGrpcClient.AllowUnsafeConnexion)
     {
       httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
       AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
