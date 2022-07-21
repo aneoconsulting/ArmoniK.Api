@@ -25,6 +25,6 @@ namespace ArmoniK.Api.Worker.Options;
 
 public enum GrpcSocketType
 {
-  Web,
-  UnixSocket,
+  Tcp,
+  UnixDomainSocket,
 }
