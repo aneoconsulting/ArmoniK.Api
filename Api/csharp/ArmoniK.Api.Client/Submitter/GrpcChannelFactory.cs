@@ -31,57 +31,60 @@ using ArmoniK.Api.Client.Options;
 using Grpc.Core;
 using Grpc.Net.Client;
 
-namespace ArmoniK.Api.Client.Submitter;
-
-public static class GrpcChannelFactory
+namespace ArmoniK.Api.Client.Submitter
 {
-  public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient)
+
+  public static class GrpcChannelFactory
   {
-    if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
+    public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient)
     {
-      throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
-    }
-
-    var uri = new Uri(optionsGrpcClient.Endpoint);
-
-    var credentials = uri.Scheme == Uri.UriSchemeHttps
-                        ? new SslCredentials()
-                        : ChannelCredentials.Insecure;
-    HttpClientHandler httpClientHandler = new HttpClientHandler();
-
-    if (optionsGrpcClient.AllowUnsafeConnexion)
-    {
-      httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-      AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
-                           true);
-    }
-
-    if (!string.IsNullOrEmpty(optionsGrpcClient.CertPem) && string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
-    {
-      var cert = X509Certificate2.CreateFromPemFile(optionsGrpcClient.CertPem,
-                                                    optionsGrpcClient.KeyPem);
-
-      // Resolve issue with Windows on pem bug with windows
-      // https://github.com/dotnet/runtime/issues/23749#issuecomment-388231655
-      if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+      if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
       {
-        var originalCert = cert;
-        cert = new X509Certificate2(cert.Export(X509ContentType.Pkcs12));
-        originalCert.Dispose();
+        throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
       }
 
-      httpClientHandler.ClientCertificates.Add(cert);
+      var uri = new Uri(optionsGrpcClient.Endpoint);
+
+      var credentials = uri.Scheme == Uri.UriSchemeHttps
+                          ? new SslCredentials()
+                          : ChannelCredentials.Insecure;
+      HttpClientHandler httpClientHandler = new HttpClientHandler();
+
+      if (optionsGrpcClient.AllowUnsafeConnexion)
+      {
+        httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
+                             true);
+      }
+
+      if (!string.IsNullOrEmpty(optionsGrpcClient.CertPem) && string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
+      {
+        var cert = X509Certificate2.CreateFromPemFile(optionsGrpcClient.CertPem,
+                                                      optionsGrpcClient.KeyPem);
+
+        // Resolve issue with Windows on pem bug with windows
+        // https://github.com/dotnet/runtime/issues/23749#issuecomment-388231655
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+          var originalCert = cert;
+          cert = new X509Certificate2(cert.Export(X509ContentType.Pkcs12));
+          originalCert.Dispose();
+        }
+
+        httpClientHandler.ClientCertificates.Add(cert);
+      }
+
+      var channelOptions = new GrpcChannelOptions()
+                           {
+                             Credentials = credentials,
+                             HttpHandler = httpClientHandler,
+                           };
+
+      var channel = GrpcChannel.ForAddress(optionsGrpcClient.Endpoint,
+                                           channelOptions);
+
+      return channel;
     }
-
-    var channelOptions = new GrpcChannelOptions()
-                         {
-                           Credentials = credentials,
-                           HttpHandler = httpClientHandler,
-                         };
-
-    var channel = GrpcChannel.ForAddress(optionsGrpcClient.Endpoint,
-                                         channelOptions);
-
-    return channel;
   }
+
 }
