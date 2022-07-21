@@ -29,11 +29,10 @@ namespace ArmoniK.Api.Client.Options
   public class GrpcClient
   {
     public const string  SettingSection = nameof(GrpcClient);
-    public       string? Endpoint             { get; set; }
-    public       bool    AllowUnsafeConnexion { get; set; }
-    public       string? CertPem              { get; set; }
-    public       string? KeyPem               { get; set; }
+    public       string? Endpoint              { get; set; }
+    public       bool    AllowUnsafeConnection { get; set; }
+    public       string? CertPem               { get; set; }
+    public       string? KeyPem                { get; set; }
   }
-
 }
 
