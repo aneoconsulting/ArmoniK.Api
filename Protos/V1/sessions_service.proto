@@ -12,6 +12,7 @@ service Sessions {
 
   // Get a session using an ID.
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {}
+
   // Cancel a session using an ID.
   rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
 }
@@ -30,12 +31,12 @@ message ListSessionsRequest {
   string page_token = 1;
   int32 page_size = 2;
   
-  string applicationName = 3;
-  string applicationVersion = 4;
-  string orderBy = 5;
+  string application_name = 3;
+  string application_version = 4;
+  string order_by = 5;
   string order = 6;
   string id = 7;
-  string lastActivitySince = 8;
+  string last_activity_since = 8;
 }
 
 message ListSessionsResponse {
