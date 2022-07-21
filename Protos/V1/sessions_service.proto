@@ -7,7 +7,7 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 package ArmoniK.api.grpc.V1.sessions;
 
 /**
- * The SessionService provides methods for creating, listing, and cancelling sessions
+ * The SessionService provides methods for listing, getting and cancelling sessions
  */
 service Sessions {
   // Get all sessions with pagination
