@@ -11,16 +11,13 @@
     <Nullable>enable</Nullable>
     <TargetType>library</TargetType>
     <IsPackable>true</IsPackable>
+    <Optimize>true</Optimize>
+    <DebugType>Embedded</DebugType>
+    <IncludeSymbols>true</IncludeSymbols>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-    <DebugType>Embedded</DebugType>
-    <IncludeSymbols>true</IncludeSymbols>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
