@@ -78,38 +78,29 @@ public static class LoggerExt
     var scope = logger.BeginNamedScope($"{classFilePath}.{functionName}",
                                        properties.ToArray());
 
-    logger.Log(level,
-               "Entering {classFilePath}.{functionName} - {Id}",
-               classFilePath,
-               functionName,
-               id);
+    try
+    {
+      logger.Log(level,
+                 "Entering {classFilePath}.{functionName} - {Id}",
+                 classFilePath,
+                 functionName,
+                 id);
+    }
+    finally
+    {
+      scope.Dispose();
+    }
 
     return Disposable.Create(() =>
                              {
-                               logger.Log(level,
-                                          "Leaving {classFilePath}.{functionName} - {Id}",
-                                          classFilePath,
-                                          functionName,
-                                          id);
-                               scope.Dispose();
+                               using (scope)
+                               {
+                                 logger.Log(level,
+                                            "Leaving {classFilePath}.{functionName} - {Id}",
+                                            classFilePath,
+                                            functionName,
+                                            id);
+                               }
                              });
-  }
-
-  private static class Disposable
-  {
-    public static IDisposable Create(Action action)
-      => new DisposableImpl(action);
-
-    private class DisposableImpl : IDisposable
-    {
-      private readonly Action action_;
-
-      public DisposableImpl(Action action)
-        => action_ = action;
-
-      /// <inheritdoc />
-      public void Dispose()
-        => action_();
-    }
   }
 }
