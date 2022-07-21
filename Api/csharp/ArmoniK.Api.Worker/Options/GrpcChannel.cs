@@ -28,14 +28,13 @@ namespace ArmoniK.Api.Worker.Options;
 [PublicAPI]
 public class GrpcChannel
 {
-  public GrpcChannel(string         address,
-                     GrpcSocketType socketType)
-  {
-    Address    = address;
-    SocketType = socketType;
-  }
+  /// <summary>
+  /// Address or path of the resource used to communicate for this Grpc Channel
+  /// </summary>
+  public string Address { get; set; } = "/tmp/armonik.sock";
 
-  public string Address { get; set; }
-
-  public GrpcSocketType SocketType { get; set; } = GrpcSocketType.Web;
+  /// <summary>
+  /// Type of Grpc Socket used
+  /// </summary>
+  public GrpcSocketType SocketType { get; set; } = GrpcSocketType.UnixSocket;
 }

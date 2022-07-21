@@ -5,7 +5,7 @@ VisualStudioVersion = 17.2.32516.85
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Worker", "ArmoniK.Api.Worker\ArmoniK.Api.Worker.csproj", "{80086363-0248-4483-866F-2CB302F1EADF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Tests", "ArmoniK.Api.Tests\ArmoniK.Api.Tests.csproj", "{86492313-5B66-4A8E-BAEC-1219C13C7A75}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Worker.Tests", "ArmoniK.Api.Tests\ArmoniK.Api.Worker.Tests.csproj", "{86492313-5B66-4A8E-BAEC-1219C13C7A75}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Client", "ArmoniK.Api.Client\ArmoniK.Api.Client.csproj", "{A5FACED3-0F51-4B21-9302-FA51BF747E28}"
 EndProject

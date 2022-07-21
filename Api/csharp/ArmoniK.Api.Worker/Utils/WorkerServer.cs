@@ -39,10 +39,10 @@ using Serilog.Formatting.Compact;
 
 namespace ArmoniK.Api.Worker.Utils;
 
-public class WorkerServer<T>
-  where T : class
+public class WorkerServer
 {
-  public WorkerServer()
+  public static WebApplication Create<T>(IConfiguration configuration)
+    where T : class
   {
     try
     {
@@ -52,6 +52,7 @@ public class WorkerServer<T>
              .AddJsonFile("appsettings.json",
                           true,
                           false)
+             .AddConfiguration(configuration)
              .AddEnvironmentVariables();
 
       Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration)
@@ -65,19 +66,16 @@ public class WorkerServer<T>
       builder.Host.UseSerilog(Log.Logger);
 
 
-      var computePlanOptions = builder.Configuration.GetSection(ComputePlan.SettingSection)
+      var computePlanOptions = builder.Configuration.GetRequiredSection(ComputePlan.SettingSection)
                                       .Get<ComputePlan>();
 
-      builder.WebHost.ConfigureKestrel(options =>
-                                       {
-                                         if (computePlanOptions == null)
-                                         {
-                                           throw new Exception("ComputePlan options Should not be null");
-                                         }
+      if (computePlanOptions.WorkerChannel == null)
+      {
+        throw new Exception($"{nameof(computePlanOptions.WorkerChannel)} options should not be null");
+      }
 
-                                         options.ListenUnixSocket(computePlanOptions.WorkerChannel.Address,
-                                                                  listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
-                                       });
+      builder.WebHost.ConfigureKestrel(options => options.ListenUnixSocket(computePlanOptions.WorkerChannel.Address,
+                                                                           listenOptions => listenOptions.Protocols = HttpProtocols.Http2));
 
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
@@ -98,7 +96,6 @@ public class WorkerServer<T>
 
       app.UseRouting();
 
-
       app.UseEndpoints(endpoints =>
                        {
                          endpoints.MapGrpcService<T>();
@@ -110,16 +107,13 @@ public class WorkerServer<T>
                          }
                        });
 
-      app.Run();
+      return app;
     }
     catch (Exception ex)
     {
       Log.Fatal(ex,
                 "Host terminated unexpectedly");
-    }
-    finally
-    {
-      Log.CloseAndFlush();
+      throw;
     }
   }
 }
