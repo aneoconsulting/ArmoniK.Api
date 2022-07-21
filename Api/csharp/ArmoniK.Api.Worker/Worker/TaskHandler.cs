@@ -39,37 +39,6 @@ using Microsoft.Extensions.Logging;
 
 namespace ArmoniK.Api.Worker.Worker;
 
-class Counter : IDisposable
-{
-  private readonly int[] counter_;
-
-  public Counter(int[] counter)
-  {
-    counter_ = counter;
-    Interlocked.Increment(ref counter_[0]);
-  }
-
-
-  public void Dispose()
-  {
-    Interlocked.Decrement(ref counter_[0]);
-  }
-}
-
-class AutomaticCounter
-{
-  private readonly int[] counter_ =
-  {
-    0
-  };
-
-  public Counter GetCounter()
-    => new(counter_);
-
-  public bool IsZero
-    => counter_[0] == 0;
-}
-
 public class TaskHandler : ITaskHandler
 {
   private readonly CancellationToken    cancellationToken_;
@@ -88,7 +57,6 @@ public class TaskHandler : ITaskHandler
   private          string?           taskId_;
   private          TaskOptions?      taskOptions_;
   private readonly Agent.AgentClient client_;
-  private readonly AutomaticCounter  counter_ = new();
   private          string?           token_;
 
 
@@ -139,7 +107,6 @@ public class TaskHandler : ITaskHandler
   public async Task CreateTasksAsync(IEnumerable<TaskRequest> tasks,
                                      TaskOptions?             taskOptions = null)
   {
-    using var counter = counter_.GetCounter();
     using var stream  = client_.CreateTask();
 
     foreach (var createLargeTaskRequest in tasks.ToRequestStream(taskOptions,
@@ -176,8 +143,6 @@ public class TaskHandler : ITaskHandler
   public async Task SendResult(string key,
                                byte[] data)
   {
-    using var counter = counter_.GetCounter();
-
     using var stream = client_.SendResult();
 
     await stream.RequestStream.WriteAsync(new Result
@@ -404,12 +369,5 @@ public class TaskHandler : ITaskHandler
          : new InvalidOperationException("");
 
   public ValueTask DisposeAsync()
-  {
-    if (!counter_.IsZero)
-    {
-      logger_.LogWarning("At least one request to the agent is running");
-    }
-
-    return ValueTask.CompletedTask;
-  }
+    => ValueTask.CompletedTask;
 }
