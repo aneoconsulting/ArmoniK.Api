@@ -23,6 +23,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -46,15 +48,27 @@ namespace ArmoniK.Api.Client.Submitter
                                                                TaskOptions?                                     taskOptions,
                                                                IEnumerable<TaskRequest>                         taskRequests,
                                                                CancellationToken                                cancellationToken = default)
+      => await CreateTasksAsync(client,
+                                sessionId,
+                                taskOptions,
+                                taskRequests.ToAsyncEnumerable(),
+                                cancellationToken)
+           .ConfigureAwait(false);
+
+    public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
+                                                               string                                           sessionId,
+                                                               TaskOptions?                                     taskOptions,
+                                                               IAsyncEnumerable<TaskRequest>                         taskRequests,
+                                                               CancellationToken                                cancellationToken = default)
     {
       var serviceConfiguration = await client.GetServiceConfigurationAsync(new Empty(),
                                                                            cancellationToken: cancellationToken);
 
       using var stream = client.CreateLargeTasks(cancellationToken: cancellationToken);
 
-      foreach (var createLargeTaskRequest in taskRequests.ToRequestStream(sessionId,
+      await foreach (var createLargeTaskRequest in taskRequests.ToRequestStream(sessionId,
                                                                           taskOptions,
-                                                                          serviceConfiguration.DataChunkMaxSize))
+                                                                          serviceConfiguration.DataChunkMaxSize, cancellationToken))
       {
         await stream.RequestStream.WriteAsync(createLargeTaskRequest)
                     .ConfigureAwait(false);
@@ -67,10 +81,11 @@ namespace ArmoniK.Api.Client.Submitter
     }
 
 
-    private static IEnumerable<CreateLargeTaskRequest> ToRequestStream(this IEnumerable<TaskRequest> taskRequests,
-                                                                       string                        sessionId,
-                                                                       TaskOptions?                  taskOptions,
-                                                                       int                           chunkMaxSize)
+    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this IAsyncEnumerable<TaskRequest> taskRequests,
+                                                                                  string                             sessionId,
+                                                                                  TaskOptions?                       taskOptions,
+                                                                                  int                                chunkMaxSize,
+                                                                                  [EnumeratorCancellation] CancellationToken                 cancellationToken)
     {
       yield return new CreateLargeTaskRequest
                    {
@@ -81,19 +96,19 @@ namespace ArmoniK.Api.Client.Submitter
                                    },
                    };
 
-      using var taskRequestEnumerator = taskRequests.GetEnumerator();
+      await using var taskRequestEnumerator = taskRequests.GetAsyncEnumerator(cancellationToken);
 
-      if (!taskRequestEnumerator.MoveNext())
+      if (!await taskRequestEnumerator.MoveNextAsync(cancellationToken))
       {
         yield break;
       }
 
       var currentRequest = taskRequestEnumerator.Current;
 
-      while (taskRequestEnumerator.MoveNext())
+      while (await taskRequestEnumerator.MoveNextAsync(cancellationToken))
       {
-        foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(false,
-                                                                              chunkMaxSize))
+        await foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(false,
+                                                                              chunkMaxSize, cancellationToken))
         {
           yield return createLargeTaskRequest;
         }
@@ -102,16 +117,17 @@ namespace ArmoniK.Api.Client.Submitter
         currentRequest = taskRequestEnumerator.Current;
       }
 
-      foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(true,
-                                                                            chunkMaxSize))
+      await foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(true,
+                                                                            chunkMaxSize, cancellationToken))
       {
         yield return createLargeTaskRequest;
       }
     }
 
-    private static IEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest taskRequest,
-                                                                       bool             isLast,
-                                                                       int              chunkMaxSize)
+    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest   taskRequest,
+                                                                                  bool               isLast,
+                                                                                  int                chunkMaxSize,
+                                                                                  [EnumeratorCancellation] CancellationToken cancellationToken)
     {
       yield return new CreateLargeTaskRequest
                    {
@@ -133,6 +149,8 @@ namespace ArmoniK.Api.Client.Submitter
                    };
 
       var start = 0;
+      if (cancellationToken.IsCancellationRequested)
+        yield break;
 
       if (taskRequest.Payload.Length == 0)
       {
@@ -147,6 +165,9 @@ namespace ArmoniK.Api.Client.Submitter
 
       while (start < taskRequest.Payload.Length)
       {
+        if (cancellationToken.IsCancellationRequested)
+          yield break;
+
         var chunkSize = Math.Min(chunkMaxSize,
                                  taskRequest.Payload.Length - start);
 
@@ -161,6 +182,9 @@ namespace ArmoniK.Api.Client.Submitter
 
         start += chunkSize;
       }
+
+      if (cancellationToken.IsCancellationRequested)
+        yield break;
 
       yield return new CreateLargeTaskRequest
                    {
