@@ -63,6 +63,7 @@ message ListSessionsRequest {
 message ListSessionsResponse {
   repeated SessionTable sessions = 1;
 
+  // Next page token, empty if there are no more pages
   string next_page_token = 2;
 }
 
