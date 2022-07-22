@@ -1,3 +1,966 @@
 ### YamlMime:XRefMap
 sorted: true
-references: []
+references:
+- uid: ArmoniK.Api.Client.Options
+  name: ArmoniK.Api.Client.Options
+  href: api/ArmoniK.Api.Client.Options.html
+  commentId: N:ArmoniK.Api.Client.Options
+  fullName: ArmoniK.Api.Client.Options
+  nameWithType: ArmoniK.Api.Client.Options
+- uid: ArmoniK.Api.Client.Options.GrpcClient
+  name: GrpcClient
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html
+  commentId: T:ArmoniK.Api.Client.Options.GrpcClient
+  fullName: ArmoniK.Api.Client.Options.GrpcClient
+  nameWithType: GrpcClient
+- uid: ArmoniK.Api.Client.Options.GrpcClient.AllowUnsafeConnection
+  name: AllowUnsafeConnection
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_AllowUnsafeConnection
+  commentId: P:ArmoniK.Api.Client.Options.GrpcClient.AllowUnsafeConnection
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.AllowUnsafeConnection
+  nameWithType: GrpcClient.AllowUnsafeConnection
+- uid: ArmoniK.Api.Client.Options.GrpcClient.AllowUnsafeConnection*
+  name: AllowUnsafeConnection
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_AllowUnsafeConnection_
+  commentId: Overload:ArmoniK.Api.Client.Options.GrpcClient.AllowUnsafeConnection
+  isSpec: "True"
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.AllowUnsafeConnection
+  nameWithType: GrpcClient.AllowUnsafeConnection
+- uid: ArmoniK.Api.Client.Options.GrpcClient.CertPem
+  name: CertPem
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_CertPem
+  commentId: P:ArmoniK.Api.Client.Options.GrpcClient.CertPem
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.CertPem
+  nameWithType: GrpcClient.CertPem
+- uid: ArmoniK.Api.Client.Options.GrpcClient.CertPem*
+  name: CertPem
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_CertPem_
+  commentId: Overload:ArmoniK.Api.Client.Options.GrpcClient.CertPem
+  isSpec: "True"
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.CertPem
+  nameWithType: GrpcClient.CertPem
+- uid: ArmoniK.Api.Client.Options.GrpcClient.Endpoint
+  name: Endpoint
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_Endpoint
+  commentId: P:ArmoniK.Api.Client.Options.GrpcClient.Endpoint
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.Endpoint
+  nameWithType: GrpcClient.Endpoint
+- uid: ArmoniK.Api.Client.Options.GrpcClient.Endpoint*
+  name: Endpoint
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_Endpoint_
+  commentId: Overload:ArmoniK.Api.Client.Options.GrpcClient.Endpoint
+  isSpec: "True"
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.Endpoint
+  nameWithType: GrpcClient.Endpoint
+- uid: ArmoniK.Api.Client.Options.GrpcClient.KeyPem
+  name: KeyPem
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_KeyPem
+  commentId: P:ArmoniK.Api.Client.Options.GrpcClient.KeyPem
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.KeyPem
+  nameWithType: GrpcClient.KeyPem
+- uid: ArmoniK.Api.Client.Options.GrpcClient.KeyPem*
+  name: KeyPem
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_KeyPem_
+  commentId: Overload:ArmoniK.Api.Client.Options.GrpcClient.KeyPem
+  isSpec: "True"
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.KeyPem
+  nameWithType: GrpcClient.KeyPem
+- uid: ArmoniK.Api.Client.Options.GrpcClient.SettingSection
+  name: SettingSection
+  href: api/ArmoniK.Api.Client.Options.GrpcClient.html#ArmoniK_Api_Client_Options_GrpcClient_SettingSection
+  commentId: F:ArmoniK.Api.Client.Options.GrpcClient.SettingSection
+  fullName: ArmoniK.Api.Client.Options.GrpcClient.SettingSection
+  nameWithType: GrpcClient.SettingSection
+- uid: ArmoniK.Api.Client.Submitter
+  name: ArmoniK.Api.Client.Submitter
+  href: api/ArmoniK.Api.Client.Submitter.html
+  commentId: N:ArmoniK.Api.Client.Submitter
+  fullName: ArmoniK.Api.Client.Submitter
+  nameWithType: ArmoniK.Api.Client.Submitter
+- uid: ArmoniK.Api.Client.Submitter.GrpcChannelFactory
+  name: GrpcChannelFactory
+  href: api/ArmoniK.Api.Client.Submitter.GrpcChannelFactory.html
+  commentId: T:ArmoniK.Api.Client.Submitter.GrpcChannelFactory
+  fullName: ArmoniK.Api.Client.Submitter.GrpcChannelFactory
+  nameWithType: GrpcChannelFactory
+- uid: ArmoniK.Api.Client.Submitter.GrpcChannelFactory.CreateChannel(ArmoniK.Api.Client.Options.GrpcClient)
+  name: CreateChannel(GrpcClient)
+  href: api/ArmoniK.Api.Client.Submitter.GrpcChannelFactory.html#ArmoniK_Api_Client_Submitter_GrpcChannelFactory_CreateChannel_ArmoniK_Api_Client_Options_GrpcClient_
+  commentId: M:ArmoniK.Api.Client.Submitter.GrpcChannelFactory.CreateChannel(ArmoniK.Api.Client.Options.GrpcClient)
+  fullName: ArmoniK.Api.Client.Submitter.GrpcChannelFactory.CreateChannel(ArmoniK.Api.Client.Options.GrpcClient)
+  nameWithType: GrpcChannelFactory.CreateChannel(GrpcClient)
+- uid: ArmoniK.Api.Client.Submitter.GrpcChannelFactory.CreateChannel*
+  name: CreateChannel
+  href: api/ArmoniK.Api.Client.Submitter.GrpcChannelFactory.html#ArmoniK_Api_Client_Submitter_GrpcChannelFactory_CreateChannel_
+  commentId: Overload:ArmoniK.Api.Client.Submitter.GrpcChannelFactory.CreateChannel
+  isSpec: "True"
+  fullName: ArmoniK.Api.Client.Submitter.GrpcChannelFactory.CreateChannel
+  nameWithType: GrpcChannelFactory.CreateChannel
+- uid: ArmoniK.Api.Client.Submitter.SubmitterClientExt
+  name: SubmitterClientExt
+  href: api/ArmoniK.Api.Client.Submitter.SubmitterClientExt.html
+  commentId: T:ArmoniK.Api.Client.Submitter.SubmitterClientExt
+  fullName: ArmoniK.Api.Client.Submitter.SubmitterClientExt
+  nameWithType: SubmitterClientExt
+- uid: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient,System.String,System.Nullable{TaskOptions},IAsyncEnumerable{TaskRequest},CancellationToken)
+  name: CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable<TaskOptions>, IAsyncEnumerable<TaskRequest>, CancellationToken)
+  href: api/ArmoniK.Api.Client.Submitter.SubmitterClientExt.html#ArmoniK_Api_Client_Submitter_SubmitterClientExt_CreateTasksAsync_gRPC_V1_Submitter_Submitter_SubmitterClient_System_String_System_Nullable_TaskOptions__IAsyncEnumerable_TaskRequest__CancellationToken_
+  commentId: M:ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient,System.String,System.Nullable{TaskOptions},IAsyncEnumerable{TaskRequest},CancellationToken)
+  name.vb: CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable(Of TaskOptions), IAsyncEnumerable(Of TaskRequest), CancellationToken)
+  fullName: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, System.String, System.Nullable<TaskOptions>, IAsyncEnumerable<TaskRequest>, CancellationToken)
+  fullName.vb: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, System.String, System.Nullable(Of TaskOptions), IAsyncEnumerable(Of TaskRequest), CancellationToken)
+  nameWithType: SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable<TaskOptions>, IAsyncEnumerable<TaskRequest>, CancellationToken)
+  nameWithType.vb: SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable(Of TaskOptions), IAsyncEnumerable(Of TaskRequest), CancellationToken)
+- uid: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient,System.String,System.Nullable{TaskOptions},IEnumerable{TaskRequest},CancellationToken)
+  name: CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable<TaskOptions>, IEnumerable<TaskRequest>, CancellationToken)
+  href: api/ArmoniK.Api.Client.Submitter.SubmitterClientExt.html#ArmoniK_Api_Client_Submitter_SubmitterClientExt_CreateTasksAsync_gRPC_V1_Submitter_Submitter_SubmitterClient_System_String_System_Nullable_TaskOptions__IEnumerable_TaskRequest__CancellationToken_
+  commentId: M:ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient,System.String,System.Nullable{TaskOptions},IEnumerable{TaskRequest},CancellationToken)
+  name.vb: CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable(Of TaskOptions), IEnumerable(Of TaskRequest), CancellationToken)
+  fullName: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, System.String, System.Nullable<TaskOptions>, IEnumerable<TaskRequest>, CancellationToken)
+  fullName.vb: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, System.String, System.Nullable(Of TaskOptions), IEnumerable(Of TaskRequest), CancellationToken)
+  nameWithType: SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable<TaskOptions>, IEnumerable<TaskRequest>, CancellationToken)
+  nameWithType.vb: SubmitterClientExt.CreateTasksAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, String, Nullable(Of TaskOptions), IEnumerable(Of TaskRequest), CancellationToken)
+- uid: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync*
+  name: CreateTasksAsync
+  href: api/ArmoniK.Api.Client.Submitter.SubmitterClientExt.html#ArmoniK_Api_Client_Submitter_SubmitterClientExt_CreateTasksAsync_
+  commentId: Overload:ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Client.Submitter.SubmitterClientExt.CreateTasksAsync
+  nameWithType: SubmitterClientExt.CreateTasksAsync
+- uid: ArmoniK.Api.Client.Submitter.SubmitterClientExt.GetResultAsync(gRPC.V1.Submitter.Submitter.SubmitterClient,ResultRequest,CancellationToken)
+  name: GetResultAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, ResultRequest, CancellationToken)
+  href: api/ArmoniK.Api.Client.Submitter.SubmitterClientExt.html#ArmoniK_Api_Client_Submitter_SubmitterClientExt_GetResultAsync_gRPC_V1_Submitter_Submitter_SubmitterClient_ResultRequest_CancellationToken_
+  commentId: M:ArmoniK.Api.Client.Submitter.SubmitterClientExt.GetResultAsync(gRPC.V1.Submitter.Submitter.SubmitterClient,ResultRequest,CancellationToken)
+  fullName: ArmoniK.Api.Client.Submitter.SubmitterClientExt.GetResultAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, ResultRequest, CancellationToken)
+  nameWithType: SubmitterClientExt.GetResultAsync(gRPC.V1.Submitter.Submitter.SubmitterClient, ResultRequest, CancellationToken)
+- uid: ArmoniK.Api.Client.Submitter.SubmitterClientExt.GetResultAsync*
+  name: GetResultAsync
+  href: api/ArmoniK.Api.Client.Submitter.SubmitterClientExt.html#ArmoniK_Api_Client_Submitter_SubmitterClientExt_GetResultAsync_
+  commentId: Overload:ArmoniK.Api.Client.Submitter.SubmitterClientExt.GetResultAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Client.Submitter.SubmitterClientExt.GetResultAsync
+  nameWithType: SubmitterClientExt.GetResultAsync
+- uid: ArmoniK.Api.Worker.Options
+  name: ArmoniK.Api.Worker.Options
+  href: api/ArmoniK.Api.Worker.Options.html
+  commentId: N:ArmoniK.Api.Worker.Options
+  fullName: ArmoniK.Api.Worker.Options
+  nameWithType: ArmoniK.Api.Worker.Options
+- uid: ArmoniK.Api.Worker.Options.ComputePlane
+  name: ComputePlane
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html
+  commentId: T:ArmoniK.Api.Worker.Options.ComputePlane
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane
+  nameWithType: ComputePlane
+- uid: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  name: AgentChannel
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_AgentChannel
+  commentId: P:ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  nameWithType: ComputePlane.AgentChannel
+- uid: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel*
+  name: AgentChannel
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_AgentChannel_
+  commentId: Overload:ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  nameWithType: ComputePlane.AgentChannel
+- uid: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  name: MessageBatchSize
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_MessageBatchSize
+  commentId: P:ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  nameWithType: ComputePlane.MessageBatchSize
+- uid: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize*
+  name: MessageBatchSize
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_MessageBatchSize_
+  commentId: Overload:ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  nameWithType: ComputePlane.MessageBatchSize
+- uid: ArmoniK.Api.Worker.Options.ComputePlane.SettingSection
+  name: SettingSection
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_SettingSection
+  commentId: F:ArmoniK.Api.Worker.Options.ComputePlane.SettingSection
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane.SettingSection
+  nameWithType: ComputePlane.SettingSection
+- uid: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  name: WorkerChannel
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_WorkerChannel
+  commentId: P:ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  nameWithType: ComputePlane.WorkerChannel
+- uid: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel*
+  name: WorkerChannel
+  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_WorkerChannel_
+  commentId: Overload:ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  nameWithType: ComputePlane.WorkerChannel
+- uid: ArmoniK.Api.Worker.Options.GrpcChannel
+  name: GrpcChannel
+  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html
+  commentId: T:ArmoniK.Api.Worker.Options.GrpcChannel
+  fullName: ArmoniK.Api.Worker.Options.GrpcChannel
+  nameWithType: GrpcChannel
+- uid: ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  name: Address
+  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_Address
+  commentId: P:ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  nameWithType: GrpcChannel.Address
+- uid: ArmoniK.Api.Worker.Options.GrpcChannel.Address*
+  name: Address
+  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_Address_
+  commentId: Overload:ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  nameWithType: GrpcChannel.Address
+- uid: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  name: SocketType
+  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_SocketType
+  commentId: P:ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  nameWithType: GrpcChannel.SocketType
+- uid: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType*
+  name: SocketType
+  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_SocketType_
+  commentId: Overload:ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  nameWithType: GrpcChannel.SocketType
+- uid: ArmoniK.Api.Worker.Options.GrpcSocketType
+  name: GrpcSocketType
+  href: api/ArmoniK.Api.Worker.Options.GrpcSocketType.html
+  commentId: T:ArmoniK.Api.Worker.Options.GrpcSocketType
+  fullName: ArmoniK.Api.Worker.Options.GrpcSocketType
+  nameWithType: GrpcSocketType
+- uid: ArmoniK.Api.Worker.Options.GrpcSocketType.Tcp
+  name: Tcp
+  href: api/ArmoniK.Api.Worker.Options.GrpcSocketType.html#ArmoniK_Api_Worker_Options_GrpcSocketType_Tcp
+  commentId: F:ArmoniK.Api.Worker.Options.GrpcSocketType.Tcp
+  fullName: ArmoniK.Api.Worker.Options.GrpcSocketType.Tcp
+  nameWithType: GrpcSocketType.Tcp
+- uid: ArmoniK.Api.Worker.Options.GrpcSocketType.UnixDomainSocket
+  name: UnixDomainSocket
+  href: api/ArmoniK.Api.Worker.Options.GrpcSocketType.html#ArmoniK_Api_Worker_Options_GrpcSocketType_UnixDomainSocket
+  commentId: F:ArmoniK.Api.Worker.Options.GrpcSocketType.UnixDomainSocket
+  fullName: ArmoniK.Api.Worker.Options.GrpcSocketType.UnixDomainSocket
+  nameWithType: GrpcSocketType.UnixDomainSocket
+- uid: ArmoniK.Api.Worker.Tests
+  name: ArmoniK.Api.Worker.Tests
+  href: api/ArmoniK.Api.Worker.Tests.html
+  commentId: N:ArmoniK.Api.Worker.Tests
+  fullName: ArmoniK.Api.Worker.Tests
+  nameWithType: ArmoniK.Api.Worker.Tests
+- uid: ArmoniK.Api.Worker.Tests.TestService
+  name: TestService
+  href: api/ArmoniK.Api.Worker.Tests.TestService.html
+  commentId: T:ArmoniK.Api.Worker.Tests.TestService
+  fullName: ArmoniK.Api.Worker.Tests.TestService
+  nameWithType: TestService
+- uid: ArmoniK.Api.Worker.Tests.TestService.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  name: TestService(ILoggerFactory, GrpcChannelProvider)
+  href: api/ArmoniK.Api.Worker.Tests.TestService.html#ArmoniK_Api_Worker_Tests_TestService__ctor_ILoggerFactory_ArmoniK_Api_Worker_Utils_GrpcChannelProvider_
+  commentId: M:ArmoniK.Api.Worker.Tests.TestService.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  fullName: ArmoniK.Api.Worker.Tests.TestService.TestService(ILoggerFactory, ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  nameWithType: TestService.TestService(ILoggerFactory, GrpcChannelProvider)
+- uid: ArmoniK.Api.Worker.Tests.TestService.#ctor*
+  name: TestService
+  href: api/ArmoniK.Api.Worker.Tests.TestService.html#ArmoniK_Api_Worker_Tests_TestService__ctor_
+  commentId: Overload:ArmoniK.Api.Worker.Tests.TestService.#ctor
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Tests.TestService.TestService
+  nameWithType: TestService.TestService
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest
+  name: WorkerServerTest
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html
+  commentId: T:ArmoniK.Api.Worker.Tests.WorkerServerTest
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest
+  nameWithType: WorkerServerTest
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServer
+  name: BuildServer()
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_BuildServer
+  commentId: M:ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServer
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServer()
+  nameWithType: WorkerServerTest.BuildServer()
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServer*
+  name: BuildServer
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_BuildServer_
+  commentId: Overload:ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServer
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServer
+  nameWithType: WorkerServerTest.BuildServer
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerNoArgs
+  name: BuildServerNoArgs()
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_BuildServerNoArgs
+  commentId: M:ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerNoArgs
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerNoArgs()
+  nameWithType: WorkerServerTest.BuildServerNoArgs()
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerNoArgs*
+  name: BuildServerNoArgs
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_BuildServerNoArgs_
+  commentId: Overload:ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerNoArgs
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerNoArgs
+  nameWithType: WorkerServerTest.BuildServerNoArgs
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.SetUp
+  name: SetUp()
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_SetUp
+  commentId: M:ArmoniK.Api.Worker.Tests.WorkerServerTest.SetUp
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.SetUp()
+  nameWithType: WorkerServerTest.SetUp()
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.SetUp*
+  name: SetUp
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_SetUp_
+  commentId: Overload:ArmoniK.Api.Worker.Tests.WorkerServerTest.SetUp
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.SetUp
+  nameWithType: WorkerServerTest.SetUp
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.TearDown
+  name: TearDown()
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_TearDown
+  commentId: M:ArmoniK.Api.Worker.Tests.WorkerServerTest.TearDown
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.TearDown()
+  nameWithType: WorkerServerTest.TearDown()
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.TearDown*
+  name: TearDown
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_TearDown_
+  commentId: Overload:ArmoniK.Api.Worker.Tests.WorkerServerTest.TearDown
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.TearDown
+  nameWithType: WorkerServerTest.TearDown
+- uid: ArmoniK.Api.Worker.Utils
+  name: ArmoniK.Api.Worker.Utils
+  href: api/ArmoniK.Api.Worker.Utils.html
+  commentId: N:ArmoniK.Api.Worker.Utils
+  fullName: ArmoniK.Api.Worker.Utils
+  nameWithType: ArmoniK.Api.Worker.Utils
+- uid: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager
+  name: ApplicationLifeTimeManager
+  href: api/ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.html
+  commentId: T:ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager
+  fullName: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager
+  nameWithType: ApplicationLifeTimeManager
+- uid: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.#ctor(ILogger{ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager},IHostApplicationLifetime)
+  name: ApplicationLifeTimeManager(ILogger<ApplicationLifeTimeManager>, IHostApplicationLifetime)
+  href: api/ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.html#ArmoniK_Api_Worker_Utils_ApplicationLifeTimeManager__ctor_ILogger_ArmoniK_Api_Worker_Utils_ApplicationLifeTimeManager__IHostApplicationLifetime_
+  commentId: M:ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.#ctor(ILogger{ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager},IHostApplicationLifetime)
+  name.vb: ApplicationLifeTimeManager(ILogger(Of ApplicationLifeTimeManager), IHostApplicationLifetime)
+  fullName: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.ApplicationLifeTimeManager(ILogger<ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager>, IHostApplicationLifetime)
+  fullName.vb: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.ApplicationLifeTimeManager(ILogger(Of ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager), IHostApplicationLifetime)
+  nameWithType: ApplicationLifeTimeManager.ApplicationLifeTimeManager(ILogger<ApplicationLifeTimeManager>, IHostApplicationLifetime)
+  nameWithType.vb: ApplicationLifeTimeManager.ApplicationLifeTimeManager(ILogger(Of ApplicationLifeTimeManager), IHostApplicationLifetime)
+- uid: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.#ctor*
+  name: ApplicationLifeTimeManager
+  href: api/ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.html#ArmoniK_Api_Worker_Utils_ApplicationLifeTimeManager__ctor_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.#ctor
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.ApplicationLifeTimeManager
+  nameWithType: ApplicationLifeTimeManager.ApplicationLifeTimeManager
+- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider
+  name: GrpcChannelProvider
+  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html
+  commentId: T:ArmoniK.Api.Worker.Utils.GrpcChannelProvider
+  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider
+  nameWithType: GrpcChannelProvider
+- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor(ArmoniK.Api.Worker.Options.GrpcChannel,ILogger{ArmoniK.Api.Worker.Utils.GrpcChannelProvider})
+  name: GrpcChannelProvider(GrpcChannel, ILogger<GrpcChannelProvider>)
+  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider__ctor_ArmoniK_Api_Worker_Options_GrpcChannel_ILogger_ArmoniK_Api_Worker_Utils_GrpcChannelProvider__
+  commentId: M:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor(ArmoniK.Api.Worker.Options.GrpcChannel,ILogger{ArmoniK.Api.Worker.Utils.GrpcChannelProvider})
+  name.vb: GrpcChannelProvider(GrpcChannel, ILogger(Of GrpcChannelProvider))
+  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.GrpcChannelProvider(ArmoniK.Api.Worker.Options.GrpcChannel, ILogger<ArmoniK.Api.Worker.Utils.GrpcChannelProvider>)
+  fullName.vb: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.GrpcChannelProvider(ArmoniK.Api.Worker.Options.GrpcChannel, ILogger(Of ArmoniK.Api.Worker.Utils.GrpcChannelProvider))
+  nameWithType: GrpcChannelProvider.GrpcChannelProvider(GrpcChannel, ILogger<GrpcChannelProvider>)
+  nameWithType.vb: GrpcChannelProvider.GrpcChannelProvider(GrpcChannel, ILogger(Of GrpcChannelProvider))
+- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor*
+  name: GrpcChannelProvider
+  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider__ctor_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.GrpcChannelProvider
+  nameWithType: GrpcChannelProvider.GrpcChannelProvider
+- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
+  name: DisposeAsync()
+  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_DisposeAsync
+  commentId: M:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
+  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync()
+  nameWithType: GrpcChannelProvider.DisposeAsync()
+- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync*
+  name: DisposeAsync
+  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_DisposeAsync_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
+  nameWithType: GrpcChannelProvider.DisposeAsync
+- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
+  name: Get()
+  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_Get
+  commentId: M:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
+  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get()
+  nameWithType: GrpcChannelProvider.Get()
+- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get*
+  name: Get
+  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_Get_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
+  nameWithType: GrpcChannelProvider.Get
+- uid: ArmoniK.Api.Worker.Utils.LoggerExt
+  name: LoggerExt
+  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html
+  commentId: T:ArmoniK.Api.Worker.Utils.LoggerExt
+  fullName: ArmoniK.Api.Worker.Utils.LoggerExt
+  nameWithType: LoggerExt
+- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger,System.String,ValueTuple{System.String,System.Object}[])
+  name: BeginNamedScope(ILogger, String, ValueTuple<String, Object>[])
+  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginNamedScope_ILogger_System_String_ValueTuple_System_String_System_Object____
+  commentId: M:ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger,System.String,ValueTuple{System.String,System.Object}[])
+  name.vb: BeginNamedScope(ILogger, String, ValueTuple(Of String, Object)())
+  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger, System.String, ValueTuple<System.String, System.Object>[])
+  fullName.vb: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger, System.String, ValueTuple(Of System.String, System.Object)())
+  nameWithType: LoggerExt.BeginNamedScope(ILogger, String, ValueTuple<String, Object>[])
+  nameWithType.vb: LoggerExt.BeginNamedScope(ILogger, String, ValueTuple(Of String, Object)())
+- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope*
+  name: BeginNamedScope
+  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginNamedScope_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope
+  nameWithType: LoggerExt.BeginNamedScope
+- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger,ValueTuple{System.String,System.Object}[])
+  name: BeginPropertyScope(ILogger, ValueTuple<String, Object>[])
+  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginPropertyScope_ILogger_ValueTuple_System_String_System_Object____
+  commentId: M:ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger,ValueTuple{System.String,System.Object}[])
+  name.vb: BeginPropertyScope(ILogger, ValueTuple(Of String, Object)())
+  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger, ValueTuple<System.String, System.Object>[])
+  fullName.vb: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger, ValueTuple(Of System.String, System.Object)())
+  nameWithType: LoggerExt.BeginPropertyScope(ILogger, ValueTuple<String, Object>[])
+  nameWithType.vb: LoggerExt.BeginPropertyScope(ILogger, ValueTuple(Of String, Object)())
+- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope*
+  name: BeginPropertyScope
+  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginPropertyScope_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope
+  nameWithType: LoggerExt.BeginPropertyScope
+- uid: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction(ILogger,System.String,LogLevel,System.String,System.String,System.Int32)
+  name: LogFunction(ILogger, String, LogLevel, String, String, Int32)
+  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_LogFunction_ILogger_System_String_LogLevel_System_String_System_String_System_Int32_
+  commentId: M:ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction(ILogger,System.String,LogLevel,System.String,System.String,System.Int32)
+  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction(ILogger, System.String, LogLevel, System.String, System.String, System.Int32)
+  nameWithType: LoggerExt.LogFunction(ILogger, String, LogLevel, String, String, Int32)
+- uid: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction*
+  name: LogFunction
+  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_LogFunction_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction
+  nameWithType: LoggerExt.LogFunction
+- uid: ArmoniK.Api.Worker.Utils.WorkerServer
+  name: WorkerServer
+  href: api/ArmoniK.Api.Worker.Utils.WorkerServer.html
+  commentId: T:ArmoniK.Api.Worker.Utils.WorkerServer
+  fullName: ArmoniK.Api.Worker.Utils.WorkerServer
+  nameWithType: WorkerServer
+- uid: ArmoniK.Api.Worker.Utils.WorkerServer.Create*
+  name: Create
+  href: api/ArmoniK.Api.Worker.Utils.WorkerServer.html#ArmoniK_Api_Worker_Utils_WorkerServer_Create_
+  commentId: Overload:ArmoniK.Api.Worker.Utils.WorkerServer.Create
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Utils.WorkerServer.Create
+  nameWithType: WorkerServer.Create
+- uid: ArmoniK.Api.Worker.Utils.WorkerServer.Create``1(System.Nullable{IConfiguration})
+  name: Create<T>(Nullable<IConfiguration>)
+  href: api/ArmoniK.Api.Worker.Utils.WorkerServer.html#ArmoniK_Api_Worker_Utils_WorkerServer_Create__1_System_Nullable_IConfiguration__
+  commentId: M:ArmoniK.Api.Worker.Utils.WorkerServer.Create``1(System.Nullable{IConfiguration})
+  name.vb: Create(Of T)(Nullable(Of IConfiguration))
+  fullName: ArmoniK.Api.Worker.Utils.WorkerServer.Create<T>(System.Nullable<IConfiguration>)
+  fullName.vb: ArmoniK.Api.Worker.Utils.WorkerServer.Create(Of T)(System.Nullable(Of IConfiguration))
+  nameWithType: WorkerServer.Create<T>(Nullable<IConfiguration>)
+  nameWithType.vb: WorkerServer.Create(Of T)(Nullable(Of IConfiguration))
+- uid: ArmoniK.Api.Worker.Worker
+  name: ArmoniK.Api.Worker.Worker
+  href: api/ArmoniK.Api.Worker.Worker.html
+  commentId: N:ArmoniK.Api.Worker.Worker
+  fullName: ArmoniK.Api.Worker.Worker
+  nameWithType: ArmoniK.Api.Worker.Worker
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler
+  name: ITaskHandler
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html
+  commentId: T:ArmoniK.Api.Worker.Worker.ITaskHandler
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler
+  nameWithType: ITaskHandler
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.Configuration
+  name: Configuration
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_Configuration
+  commentId: P:ArmoniK.Api.Worker.Worker.ITaskHandler.Configuration
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.Configuration
+  nameWithType: ITaskHandler.Configuration
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.Configuration*
+  name: Configuration
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_Configuration_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.Configuration
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.Configuration
+  nameWithType: ITaskHandler.Configuration
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.CreateTasksAsync(IEnumerable{TaskRequest},System.Nullable{TaskOptions})
+  name: CreateTasksAsync(IEnumerable<TaskRequest>, Nullable<TaskOptions>)
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_CreateTasksAsync_IEnumerable_TaskRequest__System_Nullable_TaskOptions__
+  commentId: M:ArmoniK.Api.Worker.Worker.ITaskHandler.CreateTasksAsync(IEnumerable{TaskRequest},System.Nullable{TaskOptions})
+  name.vb: CreateTasksAsync(IEnumerable(Of TaskRequest), Nullable(Of TaskOptions))
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.CreateTasksAsync(IEnumerable<TaskRequest>, System.Nullable<TaskOptions>)
+  fullName.vb: ArmoniK.Api.Worker.Worker.ITaskHandler.CreateTasksAsync(IEnumerable(Of TaskRequest), System.Nullable(Of TaskOptions))
+  nameWithType: ITaskHandler.CreateTasksAsync(IEnumerable<TaskRequest>, Nullable<TaskOptions>)
+  nameWithType.vb: ITaskHandler.CreateTasksAsync(IEnumerable(Of TaskRequest), Nullable(Of TaskOptions))
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.CreateTasksAsync*
+  name: CreateTasksAsync
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_CreateTasksAsync_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.CreateTasksAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.CreateTasksAsync
+  nameWithType: ITaskHandler.CreateTasksAsync
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.DataDependencies
+  name: DataDependencies
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_DataDependencies
+  commentId: P:ArmoniK.Api.Worker.Worker.ITaskHandler.DataDependencies
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.DataDependencies
+  nameWithType: ITaskHandler.DataDependencies
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.DataDependencies*
+  name: DataDependencies
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_DataDependencies_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.DataDependencies
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.DataDependencies
+  nameWithType: ITaskHandler.DataDependencies
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.ExpectedResults
+  name: ExpectedResults
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_ExpectedResults
+  commentId: P:ArmoniK.Api.Worker.Worker.ITaskHandler.ExpectedResults
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.ExpectedResults
+  nameWithType: ITaskHandler.ExpectedResults
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.ExpectedResults*
+  name: ExpectedResults
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_ExpectedResults_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.ExpectedResults
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.ExpectedResults
+  nameWithType: ITaskHandler.ExpectedResults
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.Payload
+  name: Payload
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_Payload
+  commentId: P:ArmoniK.Api.Worker.Worker.ITaskHandler.Payload
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.Payload
+  nameWithType: ITaskHandler.Payload
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.Payload*
+  name: Payload
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_Payload_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.Payload
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.Payload
+  nameWithType: ITaskHandler.Payload
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestCommonData(System.String)
+  name: RequestCommonData(String)
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_RequestCommonData_System_String_
+  commentId: M:ArmoniK.Api.Worker.Worker.ITaskHandler.RequestCommonData(System.String)
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestCommonData(System.String)
+  nameWithType: ITaskHandler.RequestCommonData(String)
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestCommonData*
+  name: RequestCommonData
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_RequestCommonData_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.RequestCommonData
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestCommonData
+  nameWithType: ITaskHandler.RequestCommonData
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestDirectData(System.String)
+  name: RequestDirectData(String)
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_RequestDirectData_System_String_
+  commentId: M:ArmoniK.Api.Worker.Worker.ITaskHandler.RequestDirectData(System.String)
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestDirectData(System.String)
+  nameWithType: ITaskHandler.RequestDirectData(String)
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestDirectData*
+  name: RequestDirectData
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_RequestDirectData_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.RequestDirectData
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestDirectData
+  nameWithType: ITaskHandler.RequestDirectData
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestResource(System.String)
+  name: RequestResource(String)
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_RequestResource_System_String_
+  commentId: M:ArmoniK.Api.Worker.Worker.ITaskHandler.RequestResource(System.String)
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestResource(System.String)
+  nameWithType: ITaskHandler.RequestResource(String)
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestResource*
+  name: RequestResource
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_RequestResource_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.RequestResource
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.RequestResource
+  nameWithType: ITaskHandler.RequestResource
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.SendResult(System.String,System.Byte[])
+  name: SendResult(String, Byte[])
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_SendResult_System_String_System_Byte___
+  commentId: M:ArmoniK.Api.Worker.Worker.ITaskHandler.SendResult(System.String,System.Byte[])
+  name.vb: SendResult(String, Byte())
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.SendResult(System.String, System.Byte[])
+  fullName.vb: ArmoniK.Api.Worker.Worker.ITaskHandler.SendResult(System.String, System.Byte())
+  nameWithType: ITaskHandler.SendResult(String, Byte[])
+  nameWithType.vb: ITaskHandler.SendResult(String, Byte())
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.SendResult*
+  name: SendResult
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_SendResult_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.SendResult
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.SendResult
+  nameWithType: ITaskHandler.SendResult
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.SessionId
+  name: SessionId
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_SessionId
+  commentId: P:ArmoniK.Api.Worker.Worker.ITaskHandler.SessionId
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.SessionId
+  nameWithType: ITaskHandler.SessionId
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.SessionId*
+  name: SessionId
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_SessionId_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.SessionId
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.SessionId
+  nameWithType: ITaskHandler.SessionId
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskId
+  name: TaskId
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_TaskId
+  commentId: P:ArmoniK.Api.Worker.Worker.ITaskHandler.TaskId
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskId
+  nameWithType: ITaskHandler.TaskId
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskId*
+  name: TaskId
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_TaskId_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.TaskId
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskId
+  nameWithType: ITaskHandler.TaskId
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskOptions
+  name: TaskOptions
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_TaskOptions
+  commentId: P:ArmoniK.Api.Worker.Worker.ITaskHandler.TaskOptions
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskOptions
+  nameWithType: ITaskHandler.TaskOptions
+- uid: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskOptions*
+  name: TaskOptions
+  href: api/ArmoniK.Api.Worker.Worker.ITaskHandler.html#ArmoniK_Api_Worker_Worker_ITaskHandler_TaskOptions_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.ITaskHandler.TaskOptions
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.ITaskHandler.TaskOptions
+  nameWithType: ITaskHandler.TaskOptions
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler
+  name: TaskHandler
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html
+  commentId: T:ArmoniK.Api.Worker.Worker.TaskHandler
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler
+  nameWithType: TaskHandler
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Configuration
+  name: Configuration
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Configuration
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.Configuration
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Configuration
+  nameWithType: TaskHandler.Configuration
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Configuration*
+  name: Configuration
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Configuration_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.Configuration
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Configuration
+  nameWithType: TaskHandler.Configuration
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Create(IAsyncStreamReader{ProcessRequest},Agent.AgentClient,ILoggerFactory,CancellationToken)
+  name: Create(IAsyncStreamReader<ProcessRequest>, Agent.AgentClient, ILoggerFactory, CancellationToken)
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Create_IAsyncStreamReader_ProcessRequest__Agent_AgentClient_ILoggerFactory_CancellationToken_
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskHandler.Create(IAsyncStreamReader{ProcessRequest},Agent.AgentClient,ILoggerFactory,CancellationToken)
+  name.vb: Create(IAsyncStreamReader(Of ProcessRequest), Agent.AgentClient, ILoggerFactory, CancellationToken)
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Create(IAsyncStreamReader<ProcessRequest>, Agent.AgentClient, ILoggerFactory, CancellationToken)
+  fullName.vb: ArmoniK.Api.Worker.Worker.TaskHandler.Create(IAsyncStreamReader(Of ProcessRequest), Agent.AgentClient, ILoggerFactory, CancellationToken)
+  nameWithType: TaskHandler.Create(IAsyncStreamReader<ProcessRequest>, Agent.AgentClient, ILoggerFactory, CancellationToken)
+  nameWithType.vb: TaskHandler.Create(IAsyncStreamReader(Of ProcessRequest), Agent.AgentClient, ILoggerFactory, CancellationToken)
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Create*
+  name: Create
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Create_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.Create
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Create
+  nameWithType: TaskHandler.Create
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.CreateTasksAsync(IEnumerable{TaskRequest},System.Nullable{TaskOptions})
+  name: CreateTasksAsync(IEnumerable<TaskRequest>, Nullable<TaskOptions>)
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_CreateTasksAsync_IEnumerable_TaskRequest__System_Nullable_TaskOptions__
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskHandler.CreateTasksAsync(IEnumerable{TaskRequest},System.Nullable{TaskOptions})
+  name.vb: CreateTasksAsync(IEnumerable(Of TaskRequest), Nullable(Of TaskOptions))
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.CreateTasksAsync(IEnumerable<TaskRequest>, System.Nullable<TaskOptions>)
+  fullName.vb: ArmoniK.Api.Worker.Worker.TaskHandler.CreateTasksAsync(IEnumerable(Of TaskRequest), System.Nullable(Of TaskOptions))
+  nameWithType: TaskHandler.CreateTasksAsync(IEnumerable<TaskRequest>, Nullable<TaskOptions>)
+  nameWithType.vb: TaskHandler.CreateTasksAsync(IEnumerable(Of TaskRequest), Nullable(Of TaskOptions))
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.CreateTasksAsync*
+  name: CreateTasksAsync
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_CreateTasksAsync_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.CreateTasksAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.CreateTasksAsync
+  nameWithType: TaskHandler.CreateTasksAsync
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.DataDependencies
+  name: DataDependencies
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_DataDependencies
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.DataDependencies
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.DataDependencies
+  nameWithType: TaskHandler.DataDependencies
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.DataDependencies*
+  name: DataDependencies
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_DataDependencies_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.DataDependencies
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.DataDependencies
+  nameWithType: TaskHandler.DataDependencies
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync
+  name: DisposeAsync()
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_DisposeAsync
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync()
+  nameWithType: TaskHandler.DisposeAsync()
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync*
+  name: DisposeAsync
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_DisposeAsync_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync
+  nameWithType: TaskHandler.DisposeAsync
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.ExpectedResults
+  name: ExpectedResults
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_ExpectedResults
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.ExpectedResults
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.ExpectedResults
+  nameWithType: TaskHandler.ExpectedResults
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.ExpectedResults*
+  name: ExpectedResults
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_ExpectedResults_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.ExpectedResults
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.ExpectedResults
+  nameWithType: TaskHandler.ExpectedResults
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Payload
+  name: Payload
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Payload
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.Payload
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Payload
+  nameWithType: TaskHandler.Payload
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Payload*
+  name: Payload
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Payload_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.Payload
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Payload
+  nameWithType: TaskHandler.Payload
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData(System.String)
+  name: RequestCommonData(String)
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_RequestCommonData_System_String_
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData(System.String)
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData(System.String)
+  nameWithType: TaskHandler.RequestCommonData(String)
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData*
+  name: RequestCommonData
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_RequestCommonData_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData
+  nameWithType: TaskHandler.RequestCommonData
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData(System.String)
+  name: RequestDirectData(String)
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_RequestDirectData_System_String_
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData(System.String)
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData(System.String)
+  nameWithType: TaskHandler.RequestDirectData(String)
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData*
+  name: RequestDirectData
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_RequestDirectData_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData
+  nameWithType: TaskHandler.RequestDirectData
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource(System.String)
+  name: RequestResource(String)
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_RequestResource_System_String_
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource(System.String)
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource(System.String)
+  nameWithType: TaskHandler.RequestResource(String)
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource*
+  name: RequestResource
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_RequestResource_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource
+  nameWithType: TaskHandler.RequestResource
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.SendResult(System.String,System.Byte[])
+  name: SendResult(String, Byte[])
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_SendResult_System_String_System_Byte___
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskHandler.SendResult(System.String,System.Byte[])
+  name.vb: SendResult(String, Byte())
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.SendResult(System.String, System.Byte[])
+  fullName.vb: ArmoniK.Api.Worker.Worker.TaskHandler.SendResult(System.String, System.Byte())
+  nameWithType: TaskHandler.SendResult(String, Byte[])
+  nameWithType.vb: TaskHandler.SendResult(String, Byte())
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.SendResult*
+  name: SendResult
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_SendResult_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.SendResult
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.SendResult
+  nameWithType: TaskHandler.SendResult
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.SessionId
+  name: SessionId
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_SessionId
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.SessionId
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.SessionId
+  nameWithType: TaskHandler.SessionId
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.SessionId*
+  name: SessionId
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_SessionId_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.SessionId
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.SessionId
+  nameWithType: TaskHandler.SessionId
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.TaskId
+  name: TaskId
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_TaskId
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.TaskId
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.TaskId
+  nameWithType: TaskHandler.TaskId
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.TaskId*
+  name: TaskId
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_TaskId_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.TaskId
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.TaskId
+  nameWithType: TaskHandler.TaskId
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.TaskOptions
+  name: TaskOptions
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_TaskOptions
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.TaskOptions
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.TaskOptions
+  nameWithType: TaskHandler.TaskOptions
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.TaskOptions*
+  name: TaskOptions
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_TaskOptions_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.TaskOptions
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.TaskOptions
+  nameWithType: TaskHandler.TaskOptions
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Token
+  name: Token
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Token
+  commentId: P:ArmoniK.Api.Worker.Worker.TaskHandler.Token
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Token
+  nameWithType: TaskHandler.Token
+- uid: ArmoniK.Api.Worker.Worker.TaskHandler.Token*
+  name: Token
+  href: api/ArmoniK.Api.Worker.Worker.TaskHandler.html#ArmoniK_Api_Worker_Worker_TaskHandler_Token_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskHandler.Token
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskHandler.Token
+  nameWithType: TaskHandler.Token
+- uid: ArmoniK.Api.Worker.Worker.TaskRequestExtensions
+  name: TaskRequestExtensions
+  href: api/ArmoniK.Api.Worker.Worker.TaskRequestExtensions.html
+  commentId: T:ArmoniK.Api.Worker.Worker.TaskRequestExtensions
+  fullName: ArmoniK.Api.Worker.Worker.TaskRequestExtensions
+  nameWithType: TaskRequestExtensions
+- uid: ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream(IEnumerable{TaskRequest},System.Nullable{TaskOptions},System.String,System.Int32)
+  name: ToRequestStream(IEnumerable<TaskRequest>, Nullable<TaskOptions>, String, Int32)
+  href: api/ArmoniK.Api.Worker.Worker.TaskRequestExtensions.html#ArmoniK_Api_Worker_Worker_TaskRequestExtensions_ToRequestStream_IEnumerable_TaskRequest__System_Nullable_TaskOptions__System_String_System_Int32_
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream(IEnumerable{TaskRequest},System.Nullable{TaskOptions},System.String,System.Int32)
+  name.vb: ToRequestStream(IEnumerable(Of TaskRequest), Nullable(Of TaskOptions), String, Int32)
+  fullName: ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream(IEnumerable<TaskRequest>, System.Nullable<TaskOptions>, System.String, System.Int32)
+  fullName.vb: ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream(IEnumerable(Of TaskRequest), System.Nullable(Of TaskOptions), System.String, System.Int32)
+  nameWithType: TaskRequestExtensions.ToRequestStream(IEnumerable<TaskRequest>, Nullable<TaskOptions>, String, Int32)
+  nameWithType.vb: TaskRequestExtensions.ToRequestStream(IEnumerable(Of TaskRequest), Nullable(Of TaskOptions), String, Int32)
+- uid: ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream(TaskRequest,System.Boolean,System.String,System.Int32)
+  name: ToRequestStream(TaskRequest, Boolean, String, Int32)
+  href: api/ArmoniK.Api.Worker.Worker.TaskRequestExtensions.html#ArmoniK_Api_Worker_Worker_TaskRequestExtensions_ToRequestStream_TaskRequest_System_Boolean_System_String_System_Int32_
+  commentId: M:ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream(TaskRequest,System.Boolean,System.String,System.Int32)
+  fullName: ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream(TaskRequest, System.Boolean, System.String, System.Int32)
+  nameWithType: TaskRequestExtensions.ToRequestStream(TaskRequest, Boolean, String, Int32)
+- uid: ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream*
+  name: ToRequestStream
+  href: api/ArmoniK.Api.Worker.Worker.TaskRequestExtensions.html#ArmoniK_Api_Worker_Worker_TaskRequestExtensions_ToRequestStream_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.TaskRequestExtensions.ToRequestStream
+  nameWithType: TaskRequestExtensions.ToRequestStream
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper
+  name: WorkerStreamWrapper
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html
+  commentId: T:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper
+  nameWithType: WorkerStreamWrapper
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  name: WorkerStreamWrapper(ILoggerFactory, GrpcChannelProvider)
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper__ctor_ILoggerFactory_ArmoniK_Api_Worker_Utils_GrpcChannelProvider_
+  commentId: M:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.WorkerStreamWrapper(ILoggerFactory, ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  nameWithType: WorkerStreamWrapper.WorkerStreamWrapper(ILoggerFactory, GrpcChannelProvider)
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor*
+  name: WorkerStreamWrapper
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper__ctor_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.WorkerStreamWrapper
+  nameWithType: WorkerStreamWrapper.WorkerStreamWrapper
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.DisposeAsync
+  name: DisposeAsync()
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_DisposeAsync
+  commentId: M:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.DisposeAsync
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.DisposeAsync()
+  nameWithType: WorkerStreamWrapper.DisposeAsync()
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.DisposeAsync*
+  name: DisposeAsync
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_DisposeAsync_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.DisposeAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.DisposeAsync
+  nameWithType: WorkerStreamWrapper.DisposeAsync
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.HealthCheck(Empty,ServerCallContext)
+  name: HealthCheck(Empty, ServerCallContext)
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_HealthCheck_Empty_ServerCallContext_
+  commentId: M:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.HealthCheck(Empty,ServerCallContext)
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.HealthCheck(Empty, ServerCallContext)
+  nameWithType: WorkerStreamWrapper.HealthCheck(Empty, ServerCallContext)
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.HealthCheck*
+  name: HealthCheck
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_HealthCheck_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.HealthCheck
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.HealthCheck
+  nameWithType: WorkerStreamWrapper.HealthCheck
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.logger_
+  name: logger_
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_logger_
+  commentId: F:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.logger_
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.logger_
+  nameWithType: WorkerStreamWrapper.logger_
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process(ArmoniK.Api.Worker.Worker.ITaskHandler)
+  name: Process(ITaskHandler)
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_Process_ArmoniK_Api_Worker_Worker_ITaskHandler_
+  commentId: M:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process(ArmoniK.Api.Worker.Worker.ITaskHandler)
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process(ArmoniK.Api.Worker.Worker.ITaskHandler)
+  nameWithType: WorkerStreamWrapper.Process(ITaskHandler)
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process(IAsyncStreamReader{ProcessRequest},ServerCallContext)
+  name: Process(IAsyncStreamReader<ProcessRequest>, ServerCallContext)
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_Process_IAsyncStreamReader_ProcessRequest__ServerCallContext_
+  commentId: M:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process(IAsyncStreamReader{ProcessRequest},ServerCallContext)
+  name.vb: Process(IAsyncStreamReader(Of ProcessRequest), ServerCallContext)
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process(IAsyncStreamReader<ProcessRequest>, ServerCallContext)
+  fullName.vb: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process(IAsyncStreamReader(Of ProcessRequest), ServerCallContext)
+  nameWithType: WorkerStreamWrapper.Process(IAsyncStreamReader<ProcessRequest>, ServerCallContext)
+  nameWithType.vb: WorkerStreamWrapper.Process(IAsyncStreamReader(Of ProcessRequest), ServerCallContext)
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process*
+  name: Process
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper_Process_
+  commentId: Overload:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.Process
+  nameWithType: WorkerStreamWrapper.Process
