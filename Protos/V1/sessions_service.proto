@@ -112,7 +112,8 @@ message ListSessionsResponse {
 
   // Next page token, empty if there are no more pages
   int32 next_page = 2;
-  int32 total_pages = 3;
+  // Total number of sessions
+  int32 total_count = 3;
 }
 
 /**
