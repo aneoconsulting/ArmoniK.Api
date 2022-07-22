@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
+using ArmoniK.Api.Worker.Options;
 using ArmoniK.Api.Worker.Utils;
 using ArmoniK.Api.Worker.Worker;
 
@@ -55,15 +56,15 @@ public class WorkerServerTest
   {
     var collection = new List<KeyValuePair<string, string>>();
 
-    collection.Add(new KeyValuePair<string, string>("ComputePlan:WorkerChannel:Address",
+    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.Address)}",
                                                     "/tmp/worker.sock"));
-    collection.Add(new KeyValuePair<string, string>("ComputePlan:WorkerChannel:SocketType",
-                                                    "unixdomainsocket"));
+    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
+                                                    GrpcSocketType.UnixDomainSocket.ToString()));
 
-    collection.Add(new KeyValuePair<string, string>("ComputePlan:AgentChannel:Address",
+    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
                                                     "/tmp/agent.sock"));
-    collection.Add(new KeyValuePair<string, string>("ComputePlan:AgentChannel:SocketType",
-                                                    "unixdomainsocket"));
+    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
+                                                    GrpcSocketType.UnixDomainSocket.ToString()));
 
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(collection)
                                                   .Build();
@@ -80,7 +81,7 @@ public class WorkerServerTest
   [Test]
   public Task BuildServerNoArgs()
   {
-    System.Environment.SetEnvironmentVariable("ComputePlan__WorkerChannel__Address",
+    System.Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
                                               "/tmp/worker.sock");
     var app = WorkerServer.Create<TestService>();
     return Task.CompletedTask;
