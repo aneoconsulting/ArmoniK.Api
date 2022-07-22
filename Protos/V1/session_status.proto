@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package armonik.api.grpc.v1.sessionstatus;
+package armonik.api.grpc.v1.session_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 

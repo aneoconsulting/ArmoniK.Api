@@ -78,7 +78,7 @@ message TaskIdList {
 }
 
 message StatusCount{
-	TaskStatus.TaskStatus status =1;
+	task_status.TaskStatus status =1;
 	int32 count =2;
 }
 
@@ -92,7 +92,7 @@ message ResultRequest {
 }
 
 message Error {
-	TaskStatus.TaskStatus task_status = 1;
+	task_status.TaskStatus task_status = 1;
 	string detail = 2;
 }
 
@@ -107,5 +107,5 @@ message TaskList {
 
 message TaskIdWithStatus {
 	TaskId task_id = 1;
-	TaskStatus.TaskStatus status = 2;
+	task_status.TaskStatus status = 2;
 }
