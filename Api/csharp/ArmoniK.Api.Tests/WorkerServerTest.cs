@@ -58,12 +58,12 @@ public class WorkerServerTest
     collection.Add(new KeyValuePair<string, string>("ComputePlan:WorkerChannel:Address",
                                                     "/tmp/worker.sock"));
     collection.Add(new KeyValuePair<string, string>("ComputePlan:WorkerChannel:SocketType",
-                                                    "unixsocket"));
+                                                    "unixdomainsocket"));
 
     collection.Add(new KeyValuePair<string, string>("ComputePlan:AgentChannel:Address",
                                                     "/tmp/agent.sock"));
     collection.Add(new KeyValuePair<string, string>("ComputePlan:AgentChannel:SocketType",
-                                                    "unixsocket"));
+                                                    "unixdomainsocket"));
 
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(collection)
                                                   .Build();
