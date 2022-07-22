@@ -40,7 +40,7 @@ using GrpcChannel = ArmoniK.Api.Worker.Options.GrpcChannel;
 namespace ArmoniK.Api.Worker.Utils;
 
 [UsedImplicitly]
-public class GrpcChannelProvider : IAsyncDisposable
+public sealed class GrpcChannelProvider : IAsyncDisposable
 {
   private readonly GrpcChannel                  options_;
   private readonly ILogger<GrpcChannelProvider> logger_;
