@@ -67,8 +67,18 @@ message ListSessionsRequest {
     string application_version = 2;
     // Id of the session
     string session_id = 3;
-    // Date since the last activity of the session
-    string last_activity_since = 4;
+    // Date after the last activity of the session
+    string last_activity_after = 4;
+    // Date before the last activity of the session
+    string last_activity_before = 5;
+    // Date after the creation of the session
+    string created_after = 6;
+    // Date before the creation of the session
+    string created_before = 7;
+    // Date after the cancellation of the session
+    string cancelled_after = 8;
+    // Date before the cancellation of the session
+    string cancelled_before = 9;
   }
 
   // Filter to apply to the returned sessions
