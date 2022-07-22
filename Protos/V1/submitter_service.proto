@@ -5,8 +5,10 @@ import "task_status.proto";
 import "session_status.proto";
 import "result_status.proto";
 
-option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
 package armoniK.api.grpc.v1.submitter;
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
+
 
 service Submitter{
 	rpc GetServiceConfiguration (Empty) returns (Configuration); 
