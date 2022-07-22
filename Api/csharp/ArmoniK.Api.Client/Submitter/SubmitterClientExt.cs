@@ -151,7 +151,9 @@ namespace ArmoniK.Api.Client.Submitter
       }
     }
 
+#pragma warning disable CS1998
     private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest                           taskRequest,
+#pragma warning restore CS1998
                                                                                   bool                                       isLast,
                                                                                   int                                        chunkMaxSize,
                                                                                   [EnumeratorCancellation] CancellationToken cancellationToken)
