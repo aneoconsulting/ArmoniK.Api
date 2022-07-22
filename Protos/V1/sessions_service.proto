@@ -24,7 +24,7 @@ service Sessions {
  * A raw session object
  */
 message SessionRaw {
-  string _id = 1;
+  string session_id = 1;
   SessionStatus.SessionStatus status = 2;
   TaskOptions.TaskOptions options = 3;
 
@@ -36,7 +36,7 @@ message SessionRaw {
  * A session object
  */
 message SessionSummary {
-  string id = 1;
+  string session_id = 1;
 
   int64 count_tasks = 2;
   int64 count_tasks_pending = 3;
@@ -66,7 +66,7 @@ message ListSessionsRequest {
     // Version of the application
     string application_version = 2;
     // Id of the session
-    string id = 3;
+    string session_id = 3;
     // Date since the last activity of the session
     string last_activity_since = 4;
   }
@@ -76,7 +76,7 @@ message ListSessionsRequest {
 
   // Availble fields to order the returned sessions
   enum OrderByField {
-    id = 1;
+    session_id = 1;
     count_tasks = 2;
     status = 3;
     created_at = 4;
@@ -110,10 +110,12 @@ message ListSessionsRequest {
 message ListSessionsResponse {
   repeated SessionSummary sessions = 1;
 
-  // Next page token, empty if there are no more pages
-  int32 next_page = 2;
+  // Current page
+  int32 page = 2;
+  // Page size
+  int32 page_size = 3;
   // Total number of sessions
-  int32 total_count = 3;
+  int32 total_count = 4;
 }
 
 /**
