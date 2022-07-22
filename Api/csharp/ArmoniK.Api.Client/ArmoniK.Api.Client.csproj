@@ -13,16 +13,13 @@
     <SignAssembly>True</SignAssembly>
     <Nullable>enable</Nullable>
     <AssemblyOriginatorKeyFile>./kp.snk</AssemblyOriginatorKeyFile>
+    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugType>Embedded</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
