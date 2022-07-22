@@ -26,6 +26,8 @@ using System.IO;
 
 using ArmoniK.Api.Worker.Options;
 
+using JetBrains.Annotations;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -39,10 +41,22 @@ using Serilog.Formatting.Compact;
 
 namespace ArmoniK.Api.Worker.Utils;
 
-public class WorkerServer
+/// <summary>
+/// Convenience class to create a web application with the given gRPC Service for ArmoniK Worker
+/// </summary>
+[PublicAPI]
+public static class WorkerServer
 {
+  /// <summary>
+  /// Create a web application for the given ArmoniK Worker gRPC Service
+  /// </summary>
+  /// <typeparam name="T">gRPC Service to add to the web application</typeparam>
+  /// <param name="configuration">Additional configurations</param>
+  /// <returns>
+  /// The web application initialized
+  /// </returns>
   public static WebApplication Create<T>(IConfiguration? configuration = null)
-    where T : class
+    where T : gRPC.V1.Worker.Worker.WorkerBase
   {
     try
     {
