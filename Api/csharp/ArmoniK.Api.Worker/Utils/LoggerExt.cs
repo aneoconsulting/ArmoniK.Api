@@ -95,9 +95,7 @@ public static class LoggerExt
   {
     if (!logger.IsEnabled(level))
     {
-      return Disposable.Create(() =>
-                               {
-                               });
+      return Disposable.Empty;
     }
 
     var properties = new List<ValueTuple<string, object>>

@@ -51,10 +51,6 @@ public class WorkerStreamWrapper : Api.gRPC.V1.Worker.Worker.WorkerBase, IAsyncD
     logger_        = loggerFactory.CreateLogger<WorkerStreamWrapper>();
     loggerFactory_ = loggerFactory;
 
-
-    logger_.LogDebug("Trying to create channel for {address}",
-                     "/cache/armonik_agent.sock");
-
     channel_ = provider.Get();
 
     client_ = new Agent.AgentClient(channel_);
