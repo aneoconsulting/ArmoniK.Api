@@ -30,7 +30,7 @@ internal static class Disposable
   public static IDisposable Create(Action action)
     => new DisposableImpl(action);
 
-  private class DisposableImpl : IDisposable
+  private sealed class DisposableImpl : IDisposable
   {
     private readonly Action action_;
 
@@ -41,4 +41,8 @@ internal static class Disposable
     public void Dispose()
       => action_();
   }
+
+  public static IDisposable Empty = Create(() =>
+                                           {
+                                           });
 }
