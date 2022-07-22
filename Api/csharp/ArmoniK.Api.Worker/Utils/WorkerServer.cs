@@ -84,8 +84,8 @@ public static class WorkerServer
       builder.Host.UseSerilog(Log.Logger);
 
 
-      var computePlanOptions = builder.Configuration.GetRequiredSection(ComputePlan.SettingSection)
-                                      .Get<ComputePlan>();
+      var computePlanOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection)
+                                      .Get<ComputePlane>();
 
       if (computePlanOptions.WorkerChannel == null)
       {

@@ -29,9 +29,9 @@ namespace ArmoniK.Api.Worker.Options;
 /// Options to configure the connections between Worker and Agent
 /// </summary>
 [PublicAPI]
-public class ComputePlan
+public class ComputePlane
 {
-  public const string SettingSection = nameof(ComputePlan);
+  public const string SettingSection = nameof(ComputePlane);
 
   /// <summary>
   /// Channel used by the Agent to send tasks to the Worker
