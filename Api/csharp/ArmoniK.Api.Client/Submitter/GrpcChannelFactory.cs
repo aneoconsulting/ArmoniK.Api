@@ -22,9 +22,8 @@
 // limitations under the License.
 
 using System;
+using System.IO;
 using System.Net.Http;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography.X509Certificates;
 
 using ArmoniK.Api.Client.Options;
 
@@ -35,14 +34,12 @@ using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Client.Submitter
 {
-
   /// <summary>
   /// Factory for creating a secure GrpcChannel
   /// </summary>
   [PublicAPI]
   public static class GrpcChannelFactory
   {
-
     /// <summary>
     /// Creates the GrpcChannel
     /// </summary>
@@ -72,21 +69,14 @@ namespace ArmoniK.Api.Client.Submitter
                              true);
       }
 
-      if (!string.IsNullOrEmpty(optionsGrpcClient.CertPem) && string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
+      if (!string.IsNullOrEmpty(optionsGrpcClient.CertPem) && !string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
       {
-        var cert = X509Certificate2.CreateFromPemFile(optionsGrpcClient.CertPem,
-                                                      optionsGrpcClient.KeyPem);
+        var clientCertPem = File.ReadAllText(optionsGrpcClient.CertPem);
+        var clientKeyPem  = File.ReadAllText(optionsGrpcClient.KeyPem);
 
-        // Resolve issue with Windows on pem bug with windows
-        // https://github.com/dotnet/runtime/issues/23749#issuecomment-388231655
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-          var originalCert = cert;
-          cert = new X509Certificate2(cert.Export(X509ContentType.Pkcs12));
-          originalCert.Dispose();
-        }
-
-        httpClientHandler.ClientCertificates.Add(cert);
+        credentials = new SslCredentials(clientCertPem,
+                                         new KeyCertificatePair(clientCertPem,
+                                                                clientKeyPem));
       }
 
       var channelOptions = new GrpcChannelOptions()
@@ -95,10 +85,8 @@ namespace ArmoniK.Api.Client.Submitter
                              HttpHandler = httpClientHandler,
                            };
 
-      var channel = GrpcChannel.ForAddress(optionsGrpcClient.Endpoint,
-                                           channelOptions);
-
-      return channel;
+      return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint,
+                                    channelOptions);
     }
   }
 }
