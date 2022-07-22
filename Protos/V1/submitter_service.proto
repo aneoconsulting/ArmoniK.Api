@@ -5,7 +5,7 @@ import "task_status.proto";
 import "session_status.proto";
 import "result_status.proto";
 
-package armoniK.api.grpc.v1.submitter;
+package armonik.api.grpc.v1.submitter;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
 
@@ -106,7 +106,7 @@ message TaskFilter {
 		repeated string ids = 1;
 	}
 	message StatusesRequest {
-		repeated TaskStatus.TaskStatus statuses = 1;
+		repeated task_status.TaskStatus statuses = 1;
 	}
 	oneof ids {
 		IdsRequest session = 1;
@@ -122,7 +122,7 @@ message SessionFilter {
   repeated string sessions = 1;
   
   message StatusesRequest {
-    repeated SessionStatus.SessionStatus statuses = 1;
+    repeated session_status.SessionStatus statuses = 1;
   }
   
   oneof statuses {
@@ -138,7 +138,7 @@ message GetTaskStatusRequest {
 message GetTaskStatusReply {
 	message IdStatus {
 		string task_id = 1;
-		TaskStatus.TaskStatus status = 2;
+		task_status.TaskStatus status = 2;
 	}
 	repeated IdStatus id_statuses = 1;
 }
@@ -151,7 +151,7 @@ message GetResultStatusRequest {
 message GetResultStatusReply {
 	message IdStatus {
 		string result_id = 1;
-		ResultStatus.ResultStatus status = 2;
+		result_status.ResultStatus status = 2;
 	}
 	repeated IdStatus id_statuses = 1;
 }
@@ -187,9 +187,9 @@ message WaitRequest {
  */
 message WatchResultRequest {
 	// list of statuses to check results against for the initial fetch
-	repeated ResultStatus.ResultStatus fetch_statuses = 1;
+	repeated result_status.ResultStatus fetch_statuses = 1;
 	// list of statuses to check results against for the watch
-	repeated ResultStatus.ResultStatus watch_statuses = 2;
+	repeated result_status.ResultStatus watch_statuses = 2;
 	// result ids to fetch/watch
 	repeated string result_ids = 3;
 }
@@ -202,7 +202,7 @@ message WatchResultRequest {
  */
 message WatchResultStream {
 	// Status of the results
-	ResultStatus.ResultStatus status = 1;
+	result_status.ResultStatus status = 1;
 	// List of result ids that triggered the event
 	repeated string result_ids = 2;
 }
