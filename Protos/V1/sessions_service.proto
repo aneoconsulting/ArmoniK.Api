@@ -111,7 +111,8 @@ message ListSessionsResponse {
   repeated SessionSummary sessions = 1;
 
   // Next page token, empty if there are no more pages
-  string next_page_token = 2;
+  int32 next_page = 2;
+  int32 total_pages = 3;
 }
 
 /**
