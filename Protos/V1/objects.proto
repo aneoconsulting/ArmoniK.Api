@@ -1,18 +1,20 @@
 syntax = "proto3";
 
-import "google/protobuf/duration.proto"; 
+package armonik.api.grpc.v1;
 
+import "google/protobuf/duration.proto";
 import "task_status.proto";
+
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
-package ArmoniK.api.grpc.v1;
+
 
 message Empty {}
 
 message TaskOptions {
-	map<string, string> Options = 1;
-	google.protobuf.Duration MaxDuration = 2;
-	int32 MaxRetries = 3;
-	int32 Priority = 4;
+	map<string, string> options = 1;
+	google.protobuf.Duration max_duration = 2;
+	int32 max_retries = 3;
+	int32 priority = 4;
 }
 
 
@@ -23,10 +25,8 @@ message Configuration {
 message Output {
 	message Error {
 		string details = 1;
-		bool kill_sub_tasks = 2;
 	}
-	TaskStatus.TaskStatus status = 1;
-	oneof Type {
+	oneof type {
 		Empty ok = 2;
 		Error error = 3;
 	}
@@ -41,16 +41,16 @@ message TaskRequest {
 
 
 message InitKeyedDataStream {
-	oneof Type {
+	oneof type {
 		string key = 1;
 		bool last_result = 2;
 	}
 }
 
 message DataChunk {
-	oneof Type {
+	oneof type {
 		bytes data = 1;
-		bool dataComplete = 2;
+		bool data_complete = 2;
 	}
 }
 
@@ -61,7 +61,7 @@ message TaskRequestHeader {
 }
 
 message InitTaskRequest {
-	oneof Type{
+	oneof type{
 		TaskRequestHeader header = 1;
 		bool last_task = 2;
 	}
@@ -78,7 +78,7 @@ message TaskIdList {
 }
 
 message StatusCount{
-	TaskStatus.TaskStatus status =1;
+	task_status.TaskStatus status =1;
 	int32 count =2;
 }
 
@@ -92,35 +92,20 @@ message ResultRequest {
 }
 
 message Error {
-	TaskStatus.TaskStatus task_status = 1;
+	task_status.TaskStatus task_status = 1;
 	string detail = 2;
 }
 
 message TaskError {
 	string task_id = 1;
-	repeated Error error = 2;
-}
-
-
-
-
-
-
-message CreateTaskReply{
-	message TaskIds{
-		repeated string ids = 1;
-	}
-	oneof Data{
-		Empty successfull = 1;
-		TaskIds non_successfull_ids = 2;
-	}
+	repeated Error errors = 2;
 }
 
 message TaskList {
-	repeated TaskId taskIds = 1;
+	repeated TaskId task_ids = 1;
 }
 
 message TaskIdWithStatus {
-	TaskId TaskId = 1;
-	TaskStatus.TaskStatus Status = 2;
+	TaskId task_id = 1;
+	task_status.TaskStatus status = 2;
 }

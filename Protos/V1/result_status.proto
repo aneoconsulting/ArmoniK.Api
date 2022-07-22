@@ -1,7 +1,9 @@
 syntax = "proto3";
 
+package armonik.api.grpc.v1.result_status;
+
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
-package ArmoniK.api.grpc.v1.ResultStatus;
+
 
 enum ResultStatus
 {
@@ -9,4 +11,8 @@ enum ResultStatus
   RESULT_STATUS_CREATED = 1;
   RESULT_STATUS_COMPLETED = 2;
   RESULT_STATUS_ABORTED = 3;
+
+  // NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions
+  // https://developers.google.com/protocol-buffers/docs/proto3#enum
+  RESULT_STATUS_NOTFOUND = 127;
 }
