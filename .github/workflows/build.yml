@@ -58,5 +58,5 @@ jobs:
         ls /tmp/packages
 
     - name: Push the package
-      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
