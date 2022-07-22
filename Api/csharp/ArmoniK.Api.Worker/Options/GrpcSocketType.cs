@@ -32,6 +32,7 @@ public enum GrpcSocketType
   /// Tcp Connection
   /// </summary>
   Tcp,
+
   /// <summary>
   /// Unix socket connection
   /// </summary>

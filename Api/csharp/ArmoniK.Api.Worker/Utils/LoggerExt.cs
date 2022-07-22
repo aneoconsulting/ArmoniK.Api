@@ -35,7 +35,6 @@ namespace ArmoniK.Api.Worker.Utils;
 /// </summary>
 public static class LoggerExt
 {
-
   /// <summary>
   /// Create a <see cref="IDisposable"/> named logging scope that will start and end.
   /// It brings the given properties to every logs occurring in the scope

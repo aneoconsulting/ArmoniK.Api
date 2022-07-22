@@ -107,7 +107,7 @@ public class TaskHandler : ITaskHandler
   public async Task CreateTasksAsync(IEnumerable<TaskRequest> tasks,
                                      TaskOptions?             taskOptions = null)
   {
-    using var stream  = client_.CreateTask();
+    using var stream = client_.CreateTask();
 
     foreach (var createLargeTaskRequest in tasks.ToRequestStream(taskOptions,
                                                                  Token,

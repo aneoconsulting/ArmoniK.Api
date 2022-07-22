@@ -33,27 +33,26 @@ namespace ArmoniK.Api.Client.Options
   [PublicAPI]
   public class GrpcClient
   {
-    public const string  SettingSection = nameof(GrpcClient);
+    public const string SettingSection = nameof(GrpcClient);
 
     /// <summary>
     /// Endpoint for sending requests
     /// </summary>
-    public       string? Endpoint              { get; set; }
+    public string? Endpoint { get; set; }
 
     /// <summary>
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
     /// </summary>
-    public       bool    AllowUnsafeConnection { get; set; }
+    public bool AllowUnsafeConnection { get; set; }
 
     /// <summary>
     /// Path to the certificate file in pem format
     /// </summary>
-    public       string? CertPem               { get; set; }
+    public string CertPem { get; set; } = "";
 
     /// <summary>
     /// Path to the key file in pem format
     /// </summary>
-    public       string? KeyPem                { get; set; }
+    public string KeyPem { get; set; } = "";
   }
 }
-

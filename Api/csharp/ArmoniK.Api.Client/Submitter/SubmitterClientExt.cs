@@ -39,14 +39,12 @@ using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Client.Submitter
 {
-
   /// <summary>
   /// Extension to simplify <see cref="gRPC.V1.Submitter.Submitter.SubmitterClient"/> usage
   /// </summary>
   [PublicAPI]
   public static class SubmitterClientExt
   {
-
     /// <summary>
     /// Create task request without streaming
     /// </summary>
@@ -84,7 +82,7 @@ namespace ArmoniK.Api.Client.Submitter
     public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                                string                                           sessionId,
                                                                TaskOptions?                                     taskOptions,
-                                                               IAsyncEnumerable<TaskRequest>                         taskRequests,
+                                                               IAsyncEnumerable<TaskRequest>                    taskRequests,
                                                                CancellationToken                                cancellationToken = default)
     {
       var serviceConfiguration = await client.GetServiceConfigurationAsync(new Empty(),
@@ -93,8 +91,9 @@ namespace ArmoniK.Api.Client.Submitter
       using var stream = client.CreateLargeTasks(cancellationToken: cancellationToken);
 
       await foreach (var createLargeTaskRequest in taskRequests.ToRequestStream(sessionId,
-                                                                          taskOptions,
-                                                                          serviceConfiguration.DataChunkMaxSize, cancellationToken))
+                                                                                taskOptions,
+                                                                                serviceConfiguration.DataChunkMaxSize,
+                                                                                cancellationToken))
       {
         await stream.RequestStream.WriteAsync(createLargeTaskRequest)
                     .ConfigureAwait(false);
@@ -107,11 +106,11 @@ namespace ArmoniK.Api.Client.Submitter
     }
 
 
-    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this IAsyncEnumerable<TaskRequest> taskRequests,
-                                                                                  string                             sessionId,
-                                                                                  TaskOptions?                       taskOptions,
-                                                                                  int                                chunkMaxSize,
-                                                                                  [EnumeratorCancellation] CancellationToken                 cancellationToken)
+    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this IAsyncEnumerable<TaskRequest>         taskRequests,
+                                                                                  string                                     sessionId,
+                                                                                  TaskOptions?                               taskOptions,
+                                                                                  int                                        chunkMaxSize,
+                                                                                  [EnumeratorCancellation] CancellationToken cancellationToken)
     {
       yield return new CreateLargeTaskRequest
                    {
@@ -134,7 +133,8 @@ namespace ArmoniK.Api.Client.Submitter
       while (await taskRequestEnumerator.MoveNextAsync(cancellationToken))
       {
         await foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(false,
-                                                                              chunkMaxSize, cancellationToken))
+                                                                                    chunkMaxSize,
+                                                                                    cancellationToken))
         {
           yield return createLargeTaskRequest;
         }
@@ -144,15 +144,16 @@ namespace ArmoniK.Api.Client.Submitter
       }
 
       await foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(true,
-                                                                            chunkMaxSize, cancellationToken))
+                                                                                  chunkMaxSize,
+                                                                                  cancellationToken))
       {
         yield return createLargeTaskRequest;
       }
     }
 
-    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest   taskRequest,
-                                                                                  bool               isLast,
-                                                                                  int                chunkMaxSize,
+    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest                           taskRequest,
+                                                                                  bool                                       isLast,
+                                                                                  int                                        chunkMaxSize,
                                                                                   [EnumeratorCancellation] CancellationToken cancellationToken)
     {
       yield return new CreateLargeTaskRequest
@@ -278,5 +279,4 @@ namespace ArmoniK.Api.Client.Submitter
       return result.ToArray();
     }
   }
-
 }
