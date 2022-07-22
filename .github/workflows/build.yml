@@ -30,6 +30,12 @@ jobs:
     needs: versionning
     env:
       VERSION: ${{ needs.versionning.outputs.version }}
+    strategy:
+      fail-fast: true
+      matrix:
+        package:
+          - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
+          - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -41,18 +47,16 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 6.x
-        source-url: https://pkgs.dev.azure.com/aneofr/ArmoniK/_packaging/ArmoniKPackages/nuget/v3/index.json
-      env:
-        NUGET_AUTH_TOKEN: ${{secrets.PAT_AZURE}}
 
     - name: Build the package
-      run: dotnet build Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release
+      run: |
+        dotnet build ${{ matrix.package }} -c Release
 
     - name: Pack the package
       run: |
-        dotnet pack Api/csharp/ArmoniK.Api/ArmoniK.Api.csproj -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+        dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
         ls /tmp/packages
 
     - name: Push the package
-      run: dotnet nuget push /tmp/packages/ArmoniK.Api*.nupkg --api-key AzureArtifacts
+      run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
