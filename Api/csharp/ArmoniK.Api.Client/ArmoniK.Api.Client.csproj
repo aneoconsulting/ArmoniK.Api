@@ -1,8 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net472;net48;net5.0;net6.0</TargetFrameworks>
-    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <TargetFrameworks>netstandard2.1</TargetFrameworks>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Company>ANEO</Company>
     <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
@@ -10,10 +9,11 @@
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageOutputPath>../publish</PackageOutputPath>
     <IsPackable>true</IsPackable>
-    <LangVersion>latest</LangVersion>
+    <LangVersion>9.0</LangVersion>
     <SignAssembly>True</SignAssembly>
+    <Nullable>enable</Nullable>
     <AssemblyOriginatorKeyFile>./kp.snk</AssemblyOriginatorKeyFile>
-    <!--<Version>1.0.0-local</Version>-->
+    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -22,15 +22,11 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <Optimize>true</Optimize>
-  </PropertyGroup>
-
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.0.3" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.0" PrivateAssets="All" />
-  </ItemGroup>
-
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net5.0' Or '$(TargetFramework)' == 'net6.0'">
+    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
     <PackageReference Include="Google.Protobuf" Version="3.19.1" />
     <PackageReference Include="Grpc.Net.Client" Version="2.41.0" />
     <PackageReference Include="Grpc.Net.ClientFactory" Version="2.41.0" />
@@ -40,22 +36,7 @@
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net472' Or '$(TargetFramework)' == 'net48' ">
-    <PackageReference Include="Google.Protobuf" Version="3.19.1" />
-    <PackageReference Include="Grpc.Core" Version="2.41.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.43.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
-
   <ItemGroup>
-    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Server">
-      <Link>gRPC\Protos\worker_service.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Client">
-      <Link>gRPC\Protos\agent_service.proto</Link>
-    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\submitter_service.proto</Link>
     </Protobuf>
@@ -72,9 +53,4 @@
       <Link>gRPC\Protos\result_status.proto</Link>
     </Protobuf>
   </ItemGroup>
-
-  <Target Name="DeleteLocalCache" BeforeTargets="Pack">
-    <RemoveDir Directories="$(NugetPackageRoot)/$(PackageId.ToLower())/$(Version)" />
-  </Target>
-
 </Project>
