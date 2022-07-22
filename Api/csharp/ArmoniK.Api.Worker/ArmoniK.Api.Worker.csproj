@@ -12,7 +12,7 @@
     <TargetType>library</TargetType>
     <IsPackable>true</IsPackable>
     <Optimize>true</Optimize>
-    <DebugType>Embedded</DebugType>
+    <DebugType>full</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
