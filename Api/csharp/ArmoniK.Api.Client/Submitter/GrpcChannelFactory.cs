@@ -31,11 +31,26 @@ using ArmoniK.Api.Client.Options;
 using Grpc.Core;
 using Grpc.Net.Client;
 
+using JetBrains.Annotations;
+
 namespace ArmoniK.Api.Client.Submitter
 {
 
+  /// <summary>
+  /// Factory for creating a secure GrpcChannel
+  /// </summary>
+  [PublicAPI]
   public static class GrpcChannelFactory
   {
+
+    /// <summary>
+    /// Creates the GrpcChannel
+    /// </summary>
+    /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
+    /// <returns>
+    /// The initialized GrpcChannel
+    /// </returns>
+    /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
     public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient)
     {
       if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
@@ -86,5 +101,4 @@ namespace ArmoniK.Api.Client.Submitter
       return channel;
     }
   }
-
 }

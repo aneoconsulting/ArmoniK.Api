@@ -25,6 +25,9 @@ using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Worker.Options;
 
+/// <summary>
+/// Options to configure the connections between Worker and Agent
+/// </summary>
 [PublicAPI]
 public class ComputePlan
 {

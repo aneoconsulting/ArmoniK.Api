@@ -21,17 +21,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using ArmoniK.Api.Client.Submitter;
+
 using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Client.Options
 {
+  /// <summary>
+  /// Options for creating a gRPC Client with <see cref="GrpcChannelFactory"/>
+  /// </summary>
   [PublicAPI]
   public class GrpcClient
   {
     public const string  SettingSection = nameof(GrpcClient);
+
+    /// <summary>
+    /// Endpoint for sending requests
+    /// </summary>
     public       string? Endpoint              { get; set; }
+
+    /// <summary>
+    /// Allow unsafe connections to the endpoint (without SSL), defaults to false
+    /// </summary>
     public       bool    AllowUnsafeConnection { get; set; }
+
+    /// <summary>
+    /// Path to the certificate file in pem format
+    /// </summary>
     public       string? CertPem               { get; set; }
+
+    /// <summary>
+    /// Path to the key file in pem format
+    /// </summary>
     public       string? KeyPem                { get; set; }
   }
 }

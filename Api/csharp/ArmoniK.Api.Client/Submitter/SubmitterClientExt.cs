@@ -40,9 +40,24 @@ using JetBrains.Annotations;
 namespace ArmoniK.Api.Client.Submitter
 {
 
+  /// <summary>
+  /// Extension to simplify <see cref="gRPC.V1.Submitter.Submitter.SubmitterClient"/> usage
+  /// </summary>
   [PublicAPI]
   public static class SubmitterClientExt
   {
+
+    /// <summary>
+    /// Create task request without streaming
+    /// </summary>
+    /// <param name="client">gRPC client to the Submitter</param>
+    /// <param name="sessionId">Id of the sessions</param>
+    /// <param name="taskOptions">Task Options for the tasks in this request</param>
+    /// <param name="taskRequests">The collection of request</param>
+    /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+    /// <returns>
+    /// The reply to task creation
+    /// </returns>
     public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                                string                                           sessionId,
                                                                TaskOptions?                                     taskOptions,
@@ -55,6 +70,17 @@ namespace ArmoniK.Api.Client.Submitter
                                 cancellationToken)
            .ConfigureAwait(false);
 
+    /// <summary>
+    /// Create task request without streaming
+    /// </summary>
+    /// <param name="client">gRPC client to the Submitter</param>
+    /// <param name="sessionId">Id of the sessions</param>
+    /// <param name="taskOptions">Task Options for the tasks in this request</param>
+    /// <param name="taskRequests">The collection of request</param>
+    /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+    /// <returns>
+    /// The reply to task creation
+    /// </returns>
     public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                                string                                           sessionId,
                                                                TaskOptions?                                     taskOptions,
@@ -206,6 +232,17 @@ namespace ArmoniK.Api.Client.Submitter
       }
     }
 
+    /// <summary>
+    /// Get result without streaming
+    /// </summary>
+    /// <param name="client">gRPC client to the Submitter</param>
+    /// <param name="resultRequest">Request for result</param>
+    /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+    /// <returns>
+    /// A byte array containing the data associated to the result
+    /// </returns>
+    /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
+    /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
     public static async Task<byte[]> GetResultAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                     ResultRequest                                    resultRequest,
                                                     CancellationToken                                cancellationToken = default)
