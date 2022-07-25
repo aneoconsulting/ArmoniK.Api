@@ -15,7 +15,7 @@ message TaskOptions {
 	google.protobuf.Duration max_duration = 2;
 	int32 max_retries = 3;
 	int32 priority = 4;
-	string partition = 5;
+	string partition_id = 5;
 }
 
 
