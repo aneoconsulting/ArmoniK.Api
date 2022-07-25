@@ -63,8 +63,8 @@ message SessionIdList {
 message CreateSessionRequest {
 	string id = 1;
 	TaskOptions default_task_option = 3;
-  // List of partitions allowed during the session
-  repeated string partitions = 4;
+	// List of partitions allowed during the session
+	repeated string partitions = 4;
 }
 
 message CreateSessionReply {
