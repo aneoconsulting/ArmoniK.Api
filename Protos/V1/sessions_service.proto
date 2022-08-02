@@ -4,8 +4,9 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";  
 
+package armonik.api.grpc.v1.submitter;
+
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
-package ArmoniK.api.grpc.V1.sessions;
 
 /**
  * The SessionService provides methods for listing, getting and cancelling sessions
