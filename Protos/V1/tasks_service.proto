@@ -30,12 +30,12 @@ message TaskRaw {
   repeated string parent_task_ids = 4;
   repeated string data_dependencies = 5;
   repeated string expected_output_ids = 6;
-  repeated string retry_if_ids = 7;
+  repeated string retry_of_ids = 7;
 
-  TaskStatus.TaskStatus status = 8;
+  task_status.TaskStatus status = 8;
   string status_message = 9;
 
-  TaskOptions.TaskOptions options = 10;
+  task_options.TaskOptions options = 10;
 
   google.protobuf.Timestamp created_at = 11;
   google.protobuf.Timestamp submitted_at = 12;
@@ -44,7 +44,7 @@ message TaskRaw {
   google.protobuf.Timestamp pod_ttl = 15;
 
   message Output {
-    boolean sucess = 1;
+    boolean success = 1;
     string error = 2;
   }
 
