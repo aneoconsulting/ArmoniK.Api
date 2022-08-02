@@ -27,10 +27,11 @@ service Sessions {
 message SessionRaw {
   string session_id = 1;
   SessionStatus.SessionStatus status = 2;
-  TaskOptions.TaskOptions options = 3;
+  string partition_id = 3;
+  TaskOptions.TaskOptions options = 4;
 
-  google.protobuf.Timestamp created_at = 4;
-  google.protobuf.Timestamp cancelled_at = 5;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp cancelled_at = 6;
 }
 
 /**
