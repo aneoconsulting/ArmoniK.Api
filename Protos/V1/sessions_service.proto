@@ -1,0 +1,160 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "objects.proto";
+import "session_status.proto";  
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
+package ArmoniK.api.grpc.V1.sessions;
+
+/**
+ * The SessionService provides methods for listing, getting and cancelling sessions
+ */
+service Sessions {
+  // Get all sessions with pagination
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+
+  // Get a session using an ID
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {}
+
+  // Cancel a session using an ID
+  rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
+}
+
+/**
+ * A raw session object
+ */
+message SessionRaw {
+  string session_id = 1;
+  SessionStatus.SessionStatus status = 2;
+  repeated string partition_ids = 3;
+  TaskOptions.TaskOptions options = 4;
+
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp cancelled_at = 6;
+}
+
+/**
+ * A session object
+ */
+message SessionSummary {
+  string session_id = 1;
+
+  int64 count_tasks = 2;
+  int64 count_tasks_pending = 3;
+  int64 count_tasks_error = 4;
+  int64 count_tasks_completed = 5;
+  int64 count_tasks_processing = 6;
+
+  SessionStatus.SessionStatus status = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp cancelled_at = 9;
+  google.protobuf.Timestamp last_activity_at = 10;
+}
+
+/**
+ * Request for listing sessions
+ */
+message ListSessionsRequest {
+  // Page number
+  int32 page = 1;
+  // Page size
+  int32 page_size = 2;
+  
+  // To filter returned sessions
+  message Filter {
+    // Name of the application
+    string application_name = 1;
+    // Version of the application
+    string application_version = 2;
+    // Id of the session
+    string session_id = 3;
+    // Date after the last activity of the session
+    google.protobuf.Timestamp last_activity_after = 4;
+    // Date before the last activity of the session
+    google.protobuf.Timestamp last_activity_before = 5;
+    // Date after the creation of the session
+    google.protobuf.Timestamp created_after = 6;
+    // Date before the creation of the session
+    google.protobuf.Timestamp created_before = 7;
+    // Date after the cancellation of the session
+    google.protobuf.Timestamp cancelled_after = 8;
+    // Date before the cancellation of the session
+    google.protobuf.Timestamp cancelled_before = 9;
+  }
+
+  // Filter to apply to the returned sessions
+  Filter filter = 3;
+
+  // Available fields to order the returned sessions
+  enum OrderByField {
+    SESSION_ID = 1;
+    COUNT_TASKS = 2;
+    STATUS = 3;
+    CREATED_AT = 4;
+    CANCELLED_AT = 5;
+    LAST_ACTIVITY_AT = 6;
+  }
+
+  // Order direction values
+  enum OrderDirection {
+    // Order by ascending
+    ASC = 1;
+    // Order by descending
+    DESC = 2;
+  }
+
+  // To sort the returned sessions
+  message Sort {
+    // Field to order by
+    OrderByField field = 1;
+    // Order direction
+    OrderDirection direction = 2;
+  }
+
+  // Sort order, field and direction, to apply to the returned sessions
+  Sort sort = 4;
+}
+
+/**
+ * Response for listing sessions
+ */
+message ListSessionsResponse {
+  // List of sessions
+  repeated SessionSummary sessions = 1;
+
+  // Current page
+  int32 page = 2;
+  // Page size
+  int32 page_size = 3;
+  // Total number of sessions
+  int32 total_count = 4;
+}
+
+/**
+ * Request for getting a session
+ */
+message GetSessionRequest {
+  string session_id = 1;
+}
+
+/**
+ * Response for getting a session
+ */
+message GetSessionResponse {
+  SessionRaw session = 1;
+}
+
+/**
+ * Request for cancelling a session
+ */
+message CancelSessionRequest {
+  string session_id = 1;
+}
+
+/**
+ * Response for cancelling a session
+ */
+message CancelSessionResponse {
+  SessionRaw session = 1;
+}
