@@ -57,8 +57,8 @@ message TaskRaw {
 message Task {
   string id = 1;
   string session_id = 2;
-  TaskOptions.TaskOptions options = 3;
-  TaskStatus.TaskStatus status = 4;
+  task_options.TaskOptions options = 3;
+  task_status.TaskStatus status = 4;
 
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp started_at = 6;
