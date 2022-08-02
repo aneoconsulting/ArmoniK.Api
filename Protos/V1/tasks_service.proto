@@ -79,7 +79,7 @@ message ListTaskRequest {
     // Id of the session
     string session_id = 1;
     // Status of the task
-    TaskStatus.TaskStatus status = 2;
+    task_status.TaskStatus status = 2;
     // Date after the creation of the task
     google.protobuf.Timestamp created_after = 3;
     // Date before the creation of the task
