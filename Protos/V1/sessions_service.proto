@@ -119,6 +119,7 @@ message ListSessionsRequest {
  * Response for listing sessions
  */
 message ListSessionsResponse {
+  // List of sessions
   repeated SessionSummary sessions = 1;
 
   // Current page
