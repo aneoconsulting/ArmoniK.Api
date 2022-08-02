@@ -44,7 +44,7 @@ message TaskRaw {
   google.protobuf.Timestamp pod_ttl = 15;
 
   message Output {
-    booblean sucess = 1;
+    boolean sucess = 1;
     string error = 2;
   }
 
