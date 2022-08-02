@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
+package armonik.api.grpc.v1.applications;
+
+/**
+  * The ApplicationService provides methods for listing applications and associated tasks errors
+  */
+service ApplicationService {
+  // Get all applications
+  rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse);
+
+  // Get all tasks errors
+  rpc ListErrors(ListErrorsRequest) returns (ListErrorsResponse);
+}
+
+/**
+ * An appication object
+ */
+message Application {
+  string name = 1;
+  string version = 2;
+
+  int64 count_tasks_pending = 3;
+  int64 count_tasks_error = 4;
+  int64 count_tasks_completed = 5;
+  int64 count_tasks_processing = 6;
+}
+
+/**
+ * A task error object
+ */
+message TaskError {
+  string task_id = 1;
+  string session_id = 2;
+
+  string application_name = 3;
+  string application_version = 4;
+
+  string type = 5;
+  string message = 6;
+
+  google.protobuf.Timestamp error_at = 7;
+}
+
+/**
+ * A request to list all applications
+ */
+message ListApplicationsRequest {
+}
+
+/**
+ * A response for listing all applications
+ */
+message ListApplicationsResponse {
+  repeated Application applications = 1;
+}
+
+/**
+ * A request to list all tasks errors
+ */
+message ListErrorsRequest {
+  // Page number
+  int32 page = 1;
+  // Page size
+  int32 page_size = 2;
+
+    // To filter returned sessions
+  message Filter {
+    // Name of the application
+    string application_name = 1;
+    // Version of the application
+    string application_version = 2;
+    // Id of the session
+    string session_id = 3;
+    // Id of the task
+    string task_id = 4;
+    // Date after the cancellation of the session
+    google.protobuf.Timestamp error_after = 5;
+    // Date before the cancellation of the session
+    google.protobuf.Timestamp error_before = 6;
+  }
+
+  // Filter to apply to the returned sessions
+  Filter filter = 3;
+
+    // Available fields to order the returned tasks errors
+  enum OrderByField {
+    TASK_ID = 1;
+    SESSION_ID = 2;
+    APPLICATION_NAME = 3;
+    APPLICATION_VERSION = 4;
+    TYPE = 5;
+    MESSAGE = 6;
+    ERROR_AT = 7;
+  }
+
+  // Order direction values
+  enum OrderDirection {
+    // Order by ascending
+    ASC = 1;
+    // Order by descending
+    DESC = 2;
+  }
+
+  // To sort the returned tasks errors
+  message Sort {
+    // Field to order by
+    OrderByField field = 1;
+    // Order direction
+    OrderDirection direction = 2;
+  }
+
+  // Sort order, field and direction, to apply to the returned tasks errors
+  Sort sort = 4;
+}
+
+/**
+ * A response for listing all tasks errors
+ */
+message ListErrorsResponse {
+  // List of tasks errors
+  repeated TaskError errors = 1;
+  
+  // Current page
+  int32 page = 2;
+  //Page size
+  int32 page_size = 3;
+  // Total number of tasks errors
+  int32 total_count = 4;
+}
