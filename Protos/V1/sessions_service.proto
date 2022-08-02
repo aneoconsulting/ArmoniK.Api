@@ -86,22 +86,22 @@ message ListSessionsRequest {
   // Filter to apply to the returned sessions
   Filter filter = 3;
 
-  // Availble fields to order the returned sessions
+  // Available fields to order the returned sessions
   enum OrderByField {
-    session_id = 1;
-    count_tasks = 2;
-    status = 3;
-    created_at = 4;
-    cancelled_at = 5;
-    last_activity_at = 6;
+    SESSION_ID = 1;
+    COUNT_TASKS = 2;
+    STATUS = 3;
+    CREATED_AT = 4;
+    CANCELLED_AT = 5;
+    LAST_ACTIVITY_AT = 6;
   }
 
   // Order direction values
   enum OrderDirection {
     // Order by ascending
-    asc = 1;
+    ASC = 1;
     // Order by descending
-    desc = 2;
+    DESC = 2;
   }
 
   // To sort the returned sessions
