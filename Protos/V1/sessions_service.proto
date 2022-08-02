@@ -27,7 +27,7 @@ service Sessions {
 message SessionRaw {
   string session_id = 1;
   SessionStatus.SessionStatus status = 2;
-  string partition_id = 3;
+  repeated string partition_ids = 3;
   TaskOptions.TaskOptions options = 4;
 
   google.protobuf.Timestamp created_at = 5;
