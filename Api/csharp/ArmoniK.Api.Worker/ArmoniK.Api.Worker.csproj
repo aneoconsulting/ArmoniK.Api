@@ -46,9 +46,6 @@
     <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\agent_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Both">
-      <Link>gRPC\Protos\submitter_service.proto</Link>
-    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\sessions_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\sessions_service.proto</Link>
     </Protobuf>

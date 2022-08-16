@@ -47,11 +47,6 @@ service Submitter{
 	rpc WatchResults (stream WatchResultRequest) returns (stream WatchResultStream);
 }
 
-
-message Session {
-	string id = 1;
-}
-
 message SessionList {
   repeated Session sessions = 1;
 }
