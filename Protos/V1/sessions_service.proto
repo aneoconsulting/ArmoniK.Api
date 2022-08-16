@@ -4,8 +4,9 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";  
 
+package armonik.api.grpc.v1.submitter;
+
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
-package ArmoniK.api.grpc.V1.sessions;
 
 /**
  * The SessionService provides methods for listing, getting and cancelling sessions
@@ -26,9 +27,9 @@ service Sessions {
  */
 message SessionRaw {
   string session_id = 1;
-  SessionStatus.SessionStatus status = 2;
+  session_status.SessionStatus status = 2;
   repeated string partition_ids = 3;
-  TaskOptions.TaskOptions options = 4;
+  task_options.TaskOptions options = 4;
 
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp cancelled_at = 6;
@@ -46,7 +47,7 @@ message SessionSummary {
   int64 count_tasks_completed = 5;
   int64 count_tasks_processing = 6;
 
-  SessionStatus.SessionStatus status = 7;
+  session_status.SessionStatus status = 7;
   google.protobuf.Timestamp created_at = 8;
   google.protobuf.Timestamp cancelled_at = 9;
   google.protobuf.Timestamp last_activity_at = 10;
