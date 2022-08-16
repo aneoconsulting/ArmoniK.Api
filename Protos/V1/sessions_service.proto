@@ -4,9 +4,8 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";  
 
-package armonik.api.grpc.v1.submitter;
-
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
+package armonik.api.grpc.v1.sessions;
 
 /**
  * The SessionService provides methods for listing, getting and cancelling sessions
@@ -29,7 +28,7 @@ message SessionRaw {
   string session_id = 1;
   session_status.SessionStatus status = 2;
   repeated string partition_ids = 3;
-  task_options.TaskOptions options = 4;
+  TaskOptions options = 4;
 
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp cancelled_at = 6;
@@ -89,20 +88,22 @@ message ListSessionsRequest {
 
   // Available fields to order the returned sessions
   enum OrderByField {
-    SESSION_ID = 1;
-    COUNT_TASKS = 2;
-    STATUS = 3;
-    CREATED_AT = 4;
-    CANCELLED_AT = 5;
-    LAST_ACTIVITY_AT = 6;
+    ORDER_BY_FIELD_UNSPECIFIED = 0;
+    ORDER_BY_FIELD_SESSION_ID = 1;
+    ORDER_BY_FIELD_COUNT_TASKS = 2;
+    ORDER_BY_FIELD_STATUS = 3;
+    ORDER_BY_FIELD_CREATED_AT = 4;
+    ORDER_BY_FIELD_CANCELLED_AT = 5;
+    ORDER_BY_FIELD_LAST_ACTIVITY_AT = 6;
   }
 
   // Order direction values
   enum OrderDirection {
+    ORDER_DIRECTION_UNSPECIFIED = 0;
     // Order by ascending
-    ASC = 1;
+    ORDER_DIRECTION_ASC = 1;
     // Order by descending
-    DESC = 2;
+    ORDER_DIRECTION_DESC = 2;
   }
 
   // To sort the returned sessions

@@ -25,6 +25,21 @@ jobs:
         echo "::set-output name=version::$VERSION"
         echo $VERSION
 
+  build-doc:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Generate protobuf documentation
+      uses: addnab/docker-run-action@v3
+      with:
+        image: pseudomuto/protoc-gen-doc
+        options: -v ${{ github.workspace }}/Documentation/api:/out -v ${{ github.workspace }}/Protos/V1:/protos
+        run: |
+          protoc -I/usr/include -Iprotos --doc_out=/out --doc_opt=markdown,index.md protos/*.proto
+
   build:
     runs-on: ubuntu-latest
     needs: versionning
