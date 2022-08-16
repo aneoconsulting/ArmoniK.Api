@@ -99,13 +99,13 @@ message ListTasksRequest {
 
   // Available fields to order the return task
   enum OrderByField {
-    ORDER_BY_FILED_UNSPECIFIED = 0;
-    ORDER_BY_FILED_TASK_ID = 1;
-    ORDER_BY_FILED_SESSION_ID = 2;
-    ORDER_BY_FILED_STATUS = 3;
-    ORDER_BY_FILED_CREATED_AT = 4;
-    ORDER_BY_FILED_STARTED_AT = 5;
-    ORDER_BY_FILED_ENDED_AT = 6;
+    ORDER_BY_FIELD_UNSPECIFIED = 0;
+    ORDER_BY_FIELD_TASK_ID = 1;
+    ORDER_BY_FIELD_SESSION_ID = 2;
+    ORDER_BY_FIELD_STATUS = 3;
+    ORDER_BY_FIELD_CREATED_AT = 4;
+    ORDER_BY_FIELD_STARTED_AT = 5;
+    ORDER_BY_FIELD_ENDED_AT = 6;
   }
 
   // Order direction values
