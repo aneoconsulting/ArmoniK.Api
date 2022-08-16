@@ -33,8 +33,6 @@ using ArmoniK.Api.gRPC.V1.Submitter;
 
 using Google.Protobuf;
 
-using Grpc.Core;
-
 using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Client.Submitter
@@ -255,9 +253,9 @@ namespace ArmoniK.Api.Client.Submitter
 
       var result = new List<byte>();
 
-      await foreach (var reply in streamingCall.ResponseStream.ReadAllAsync(cancellationToken)
-                                               .ConfigureAwait(false))
+      while(await streamingCall.ResponseStream.MoveNext(cancellationToken))
       {
+        var reply = streamingCall.ResponseStream.Current;
         switch (reply.TypeCase)
         {
           case ResultReply.TypeOneofCase.Result:
