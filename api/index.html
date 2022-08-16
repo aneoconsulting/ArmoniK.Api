@@ -130,6 +130,36 @@
 <li><a href="#armonik-api-grpc-v1-session_status-SessionStatus">SessionStatus</a></li>
 </ul>
 </li>
+<li><p><a href="#sessions_service-proto">sessions_service.proto</a></p>
+<ul>
+<li><p><a href="#armonik-api-grpc-v1-sessions-CancelSessionRequest">CancelSessionRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-CancelSessionResponse">CancelSessionResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-GetSessionRequest">GetSessionRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-GetSessionResponse">GetSessionResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest">ListSessionsRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Filter">ListSessionsRequest.Filter</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Sort">ListSessionsRequest.Sort</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-ListSessionsResponse">ListSessionsResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-SessionRaw">SessionRaw</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-SessionSummary">SessionSummary</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderByField">ListSessionsRequest.OrderByField</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderDirection">ListSessionsRequest.OrderDirection</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-sessions-Sessions">Sessions</a></p>
+</li>
+</ul>
+</li>
 <li><p><a href="#submitter_service-proto">submitter_service.proto</a></p>
 <ul>
 <li><p><a href="#armonik-api-grpc-v1-submitter-AvailabilityReply">AvailabilityReply</a></p>
@@ -191,6 +221,34 @@
 <li><p><a href="#task_status-proto">task_status.proto</a></p>
 <ul>
 <li><a href="#armonik-api-grpc-v1-task_status-TaskStatus">TaskStatus</a></li>
+</ul>
+</li>
+<li><p><a href="#tasks_service-proto">tasks_service.proto</a></p>
+<ul>
+<li><p><a href="#armonik-api-grpc-v1-tasks-GetTaskRequest">GetTaskRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-GetTaskResponse">GetTaskResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest">ListTasksRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-Filter">ListTasksRequest.Filter</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-Sort">ListTasksRequest.Sort</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksResponse">ListTasksResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-Task">Task</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-TaskRaw">TaskRaw</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-TaskRaw-Output">TaskRaw.Output</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderByField">ListTasksRequest.OrderByField</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderDirection">ListTasksRequest.OrderDirection</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-tasks">tasks</a></p>
+</li>
 </ul>
 </li>
 <li><p><a href="#worker_service-proto">worker_service.proto</a></p>
@@ -1116,6 +1174,504 @@
 </tr>
 </tbody>
 </table>
+<p><a name="sessions_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="sessions_serviceproto">sessions_service.proto</h2>
+<p><a name="armonik-api-grpc-v1-sessions-CancelSessionRequest"></a></p>
+<h3 id="cancelsessionrequest">CancelSessionRequest</h3>
+<p>Request for cancelling a session</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-CancelSessionResponse"></a></p>
+<h3 id="cancelsessionresponse">CancelSessionResponse</h3>
+<p>Response for cancelling a session</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session</td>
+<td><a href="#armonik-api-grpc-v1-sessions-SessionRaw">SessionRaw</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-GetSessionRequest"></a></p>
+<h3 id="getsessionrequest">GetSessionRequest</h3>
+<p>Request for getting a session</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-GetSessionResponse"></a></p>
+<h3 id="getsessionresponse">GetSessionResponse</h3>
+<p>Response for getting a session</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session</td>
+<td><a href="#armonik-api-grpc-v1-sessions-SessionRaw">SessionRaw</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest"></a></p>
+<h3 id="listsessionsrequest">ListSessionsRequest</h3>
+<p>Request for listing sessions</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Page number</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Page size</td>
+</tr>
+<tr>
+<td>filter</td>
+<td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Filter">ListSessionsRequest.Filter</a></td>
+<td></td>
+<td>Filter to apply to the returned sessions</td>
+</tr>
+<tr>
+<td>sort</td>
+<td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Sort">ListSessionsRequest.Sort</a></td>
+<td></td>
+<td>Sort order, field and direction, to apply to the returned sessions</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-Filter"></a></p>
+<h3 id="listsessionsrequestfilter">ListSessionsRequest.Filter</h3>
+<p>To filter returned sessions</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>application_name</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Name of the application</td>
+</tr>
+<tr>
+<td>application_version</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Version of the application</td>
+</tr>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Id of the session</td>
+</tr>
+<tr>
+<td>last_activity_after</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date after the last activity of the session</td>
+</tr>
+<tr>
+<td>last_activity_before</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date before the last activity of the session</td>
+</tr>
+<tr>
+<td>created_after</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date after the creation of the session</td>
+</tr>
+<tr>
+<td>created_before</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date before the creation of the session</td>
+</tr>
+<tr>
+<td>cancelled_after</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date after the cancellation of the session</td>
+</tr>
+<tr>
+<td>cancelled_before</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date before the cancellation of the session</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-Sort"></a></p>
+<h3 id="listsessionsrequestsort">ListSessionsRequest.Sort</h3>
+<p>To sort the returned sessions</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>field</td>
+<td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderByField">ListSessionsRequest.OrderByField</a></td>
+<td></td>
+<td>Field to order by</td>
+</tr>
+<tr>
+<td>direction</td>
+<td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderDirection">ListSessionsRequest.OrderDirection</a></td>
+<td></td>
+<td>Order direction</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-ListSessionsResponse"></a></p>
+<h3 id="listsessionsresponse">ListSessionsResponse</h3>
+<p>Response for listing sessions</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>sessions</td>
+<td><a href="#armonik-api-grpc-v1-sessions-SessionSummary">SessionSummary</a></td>
+<td>repeated</td>
+<td>List of sessions</td>
+</tr>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Current page</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Page size</td>
+</tr>
+<tr>
+<td>total_count</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Total number of sessions</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-SessionRaw"></a></p>
+<h3 id="sessionraw">SessionRaw</h3>
+<p>A raw session object</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-session_status-SessionStatus">armonik.api.grpc.v1.session_status.SessionStatus</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>partition_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>options</td>
+<td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>created_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>cancelled_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-SessionSummary"></a></p>
+<h3 id="sessionsummary">SessionSummary</h3>
+<p>A session object</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>count_tasks</td>
+<td><a href="#int64">int64</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>count_tasks_pending</td>
+<td><a href="#int64">int64</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>count_tasks_error</td>
+<td><a href="#int64">int64</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>count_tasks_completed</td>
+<td><a href="#int64">int64</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>count_tasks_processing</td>
+<td><a href="#int64">int64</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-session_status-SessionStatus">armonik.api.grpc.v1.session_status.SessionStatus</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>created_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>cancelled_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>last_activity_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderByField"></a></p>
+<h3 id="listsessionsrequestorderbyfield">ListSessionsRequest.OrderByField</h3>
+<p>Available fields to order the returned sessions</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ORDER_BY_FIELD_UNSPECIFIED</td>
+<td>0</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_SESSION_ID</td>
+<td>1</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_COUNT_TASKS</td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_STATUS</td>
+<td>3</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_CREATED_AT</td>
+<td>4</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_CANCELLED_AT</td>
+<td>5</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_LAST_ACTIVITY_AT</td>
+<td>6</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderDirection"></a></p>
+<h3 id="listsessionsrequestorderdirection">ListSessionsRequest.OrderDirection</h3>
+<p>Order direction values</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ORDER_DIRECTION_UNSPECIFIED</td>
+<td>0</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_DIRECTION_ASC</td>
+<td>1</td>
+<td>Order by ascending</td>
+</tr>
+<tr>
+<td>ORDER_DIRECTION_DESC</td>
+<td>2</td>
+<td>Order by descending</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-sessions-Sessions"></a></p>
+<h3 id="sessions">Sessions</h3>
+<p>The SessionService provides methods for listing, getting and cancelling sessions</p>
+<table>
+<thead>
+<tr>
+<th>Method Name</th>
+<th>Request Type</th>
+<th>Response Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ListSessions</td>
+<td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest">ListSessionsRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-sessions-ListSessionsResponse">ListSessionsResponse</a></td>
+<td>Get all sessions with pagination</td>
+</tr>
+<tr>
+<td>GetSession</td>
+<td><a href="#armonik-api-grpc-v1-sessions-GetSessionRequest">GetSessionRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-sessions-GetSessionResponse">GetSessionResponse</a></td>
+<td>Get a session using an ID</td>
+</tr>
+<tr>
+<td>CancelSession</td>
+<td><a href="#armonik-api-grpc-v1-sessions-CancelSessionRequest">CancelSessionRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-sessions-CancelSessionResponse">CancelSessionResponse</a></td>
+<td>Cancel a session using an ID</td>
+</tr>
+</tbody>
+</table>
 <p><a name="submitter_service-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="submitter_serviceproto">submitter_service.proto</h2>
@@ -1987,6 +2543,518 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>TASK_STATUS_CANCELED</td>
 <td>9</td>
 <td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="tasks_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="tasks_serviceproto">tasks_service.proto</h2>
+<p><a name="armonik-api-grpc-v1-tasks-GetTaskRequest"></a></p>
+<h3 id="gettaskrequest">GetTaskRequest</h3>
+<p>Request for getting a task</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Id of the task</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-GetTaskResponse"></a></p>
+<h3 id="gettaskresponse">GetTaskResponse</h3>
+<p>Response for getting a task</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task</td>
+<td><a href="#armonik-api-grpc-v1-tasks-TaskRaw">TaskRaw</a></td>
+<td></td>
+<td>A raw task object</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest"></a></p>
+<h3 id="listtasksrequest">ListTasksRequest</h3>
+<p>Request for listing tasks</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Page number</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Page size</td>
+</tr>
+<tr>
+<td>filter</td>
+<td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-Filter">ListTasksRequest.Filter</a></td>
+<td></td>
+<td>Filter to apply to the returned tasks</td>
+</tr>
+<tr>
+<td>sort</td>
+<td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-Sort">ListTasksRequest.Sort</a></td>
+<td></td>
+<td>Sort order, field and direction, to apply to the returned tasks</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-Filter"></a></p>
+<h3 id="listtasksrequestfilter">ListTasksRequest.Filter</h3>
+<p>To filter returned tasks</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Id of the session</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
+<td></td>
+<td>Status of the task</td>
+</tr>
+<tr>
+<td>created_after</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date after the creation of the task</td>
+</tr>
+<tr>
+<td>created_before</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date before the creation of the task</td>
+</tr>
+<tr>
+<td>started_after</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date after the start of the task</td>
+</tr>
+<tr>
+<td>started_before</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date before the start of the task</td>
+</tr>
+<tr>
+<td>ended_after</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date after the end of the task</td>
+</tr>
+<tr>
+<td>ended_before</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td>Date before the end of the task</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-Sort"></a></p>
+<h3 id="listtasksrequestsort">ListTasksRequest.Sort</h3>
+<p>To sort the returned tasks</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>field</td>
+<td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderByField">ListTasksRequest.OrderByField</a></td>
+<td></td>
+<td>Field to order by</td>
+</tr>
+<tr>
+<td>direction</td>
+<td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderDirection">ListTasksRequest.OrderDirection</a></td>
+<td></td>
+<td>Order direction</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-ListTasksResponse"></a></p>
+<h3 id="listtasksresponse">ListTasksResponse</h3>
+<p>Response for listing tasks</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tasks</td>
+<td><a href="#armonik-api-grpc-v1-tasks-Task">Task</a></td>
+<td>repeated</td>
+<td>List of tasks</td>
+</tr>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Current page</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Page size</td>
+</tr>
+<tr>
+<td>total</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Total number of tasks</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-Task"></a></p>
+<h3 id="task">Task</h3>
+<p>A task object</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>options</td>
+<td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>created_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>started_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>ended_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-TaskRaw"></a></p>
+<h3 id="taskraw">TaskRaw</h3>
+<p>A raw task object</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>owner_pod_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>parent_task_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>data_dependencies</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>expected_output_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>retry_of_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>status_message</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>options</td>
+<td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>created_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>submitted_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>started_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>ended_at</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>pod_ttl</td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>output</td>
+<td><a href="#armonik-api-grpc-v1-tasks-TaskRaw-Output">TaskRaw.Output</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-TaskRaw-Output"></a></p>
+<h3 id="taskrawoutput">TaskRaw.Output</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>success</td>
+<td><a href="#bool">bool</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>error</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-OrderByField"></a></p>
+<h3 id="listtasksrequestorderbyfield">ListTasksRequest.OrderByField</h3>
+<p>Available fields to order the return task</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ORDER_BY_FIELD_UNSPECIFIED</td>
+<td>0</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_TASK_ID</td>
+<td>1</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_SESSION_ID</td>
+<td>2</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_STATUS</td>
+<td>3</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_CREATED_AT</td>
+<td>4</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_STARTED_AT</td>
+<td>5</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_ENDED_AT</td>
+<td>6</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-OrderDirection"></a></p>
+<h3 id="listtasksrequestorderdirection">ListTasksRequest.OrderDirection</h3>
+<p>Order direction values</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ORDER_DIRECTION_UNSPECIFIED</td>
+<td>0</td>
+<td></td>
+</tr>
+<tr>
+<td>ORDER_DIRECTION_ASC</td>
+<td>1</td>
+<td>Order by ascending</td>
+</tr>
+<tr>
+<td>ORDER_DIRECTION_DESC</td>
+<td>2</td>
+<td>Order by descending</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-tasks"></a></p>
+<h3 id="tasks">tasks</h3>
+<p>The TaskService provides methods for listing and getting tasks.</p>
+<table>
+<thead>
+<tr>
+<th>Method Name</th>
+<th>Request Type</th>
+<th>Response Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>list</td>
+<td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest">ListTasksRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-tasks-ListTasksResponse">ListTasksResponse</a></td>
+<td>Get all tasks with pagination</td>
+</tr>
+<tr>
+<td>get</td>
+<td><a href="#armonik-api-grpc-v1-tasks-GetTaskRequest">GetTaskRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-tasks-GetTaskResponse">GetTaskResponse</a></td>
+<td>Get a task by id</td>
 </tr>
 </tbody>
 </table>
