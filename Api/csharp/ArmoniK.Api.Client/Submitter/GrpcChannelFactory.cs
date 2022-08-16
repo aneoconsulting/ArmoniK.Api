@@ -64,7 +64,7 @@ namespace ArmoniK.Api.Client.Submitter
 
       if (optionsGrpcClient.AllowUnsafeConnection)
       {
-        httpClientHandler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        httpClientHandler.ServerCertificateCustomValidationCallback = (_,_,_,_)=> true;
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
                              true);
       }
@@ -85,7 +85,7 @@ namespace ArmoniK.Api.Client.Submitter
                              HttpHandler = httpClientHandler,
                            };
 
-      return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint,
+      return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
                                     channelOptions);
     }
   }
