@@ -88,13 +88,13 @@ message ListSessionsRequest {
 
   // Available fields to order the returned sessions
   enum OrderByField {
-    ORDER_BY_FILED_UNSPECIFIED = 0;
-    ORDER_BY_FILED_SESSION_ID = 1;
-    ORDER_BY_FILED_COUNT_TASKS = 2;
-    ORDER_BY_FILED_STATUS = 3;
-    ORDER_BY_FILED_CREATED_AT = 4;
-    ORDER_BY_FILED_CANCELLED_AT = 5;
-    ORDER_BY_FILED_LAST_ACTIVITY_AT = 6;
+    ORDER_BY_FIELD_UNSPECIFIED = 0;
+    ORDER_BY_FIELD_SESSION_ID = 1;
+    ORDER_BY_FIELD_COUNT_TASKS = 2;
+    ORDER_BY_FIELD_STATUS = 3;
+    ORDER_BY_FIELD_CREATED_AT = 4;
+    ORDER_BY_FIELD_CANCELLED_AT = 5;
+    ORDER_BY_FIELD_LAST_ACTIVITY_AT = 6;
   }
 
   // Order direction values
