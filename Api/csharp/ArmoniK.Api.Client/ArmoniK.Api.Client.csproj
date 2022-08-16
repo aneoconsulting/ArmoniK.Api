@@ -40,6 +40,12 @@
     <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\submitter_service.proto</Link>
     </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\sessions_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\sessions_service.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\tasks_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\tasks_service.proto</Link>
+    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\objects.proto" GrpcServices="Message">
       <Link>gRPC\Protos\objects.proto</Link>
     </Protobuf>
