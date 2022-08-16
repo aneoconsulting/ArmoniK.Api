@@ -6,7 +6,7 @@ import "task_status.proto";
 
 package armonik.api.grpc.v1.tasks;
 
-option csharp_namespace = "Armonik.Api.Grpc.V1.Tasks";
+option csharp_namespace = "Armonik.Api.gRPC.V1.Tasks";
 
 /**
  * The TaskService provides methods for listing and getting tasks.
