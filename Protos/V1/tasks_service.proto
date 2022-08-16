@@ -13,10 +13,10 @@ option csharp_namespace = "Armonik.Api.gRPC.V1.Tasks";
  */
 service Tasks {
   // Get all tasks with pagination
-  rpc list(ListTasksRequest) returns (ListTasksResponse) {}
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {}
 
   // Get a task by id
-  rpc get(GetTaskRequest) returns (GetTaskResponse) {}
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
 }
 
 /**
