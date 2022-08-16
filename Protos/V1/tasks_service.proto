@@ -35,7 +35,7 @@ message TaskRaw {
   task_status.TaskStatus status = 8;
   string status_message = 9;
 
-  task_options.TaskOptions options = 10;
+  TaskOptions options = 10;
 
   google.protobuf.Timestamp created_at = 11;
   google.protobuf.Timestamp submitted_at = 12;
@@ -44,7 +44,7 @@ message TaskRaw {
   google.protobuf.Timestamp pod_ttl = 15;
 
   message Output {
-    boolean success = 1;
+    bool success = 1;
     string error = 2;
   }
 
@@ -57,7 +57,7 @@ message TaskRaw {
 message Task {
   string id = 1;
   string session_id = 2;
-  task_options.TaskOptions options = 3;
+  TaskOptions options = 3;
   task_status.TaskStatus status = 4;
 
   google.protobuf.Timestamp created_at = 5;
@@ -68,7 +68,7 @@ message Task {
 /**
  * Request for listing tasks
  */
-message ListTaskRequest {
+message ListTasksRequest {
   // Page number
   int32 page = 1;
   // Page size
@@ -99,20 +99,22 @@ message ListTaskRequest {
 
   // Available fields to order the return task
   enum OrderByField {
-    TASK_ID = 1;
-    SESSION_ID = 2;
-    STATUS = 3;
-    CREATED_AT = 4;
-    STARTED_AT = 5;
-    ENDED_AT = 6;
+    ORDER_BY_FILED_UNSPECIFIED = 0;
+    ORDER_BY_FILED_TASK_ID = 1;
+    ORDER_BY_FILED_SESSION_ID = 2;
+    ORDER_BY_FILED_STATUS = 3;
+    ORDER_BY_FILED_CREATED_AT = 4;
+    ORDER_BY_FILED_STARTED_AT = 5;
+    ORDER_BY_FILED_ENDED_AT = 6;
   }
 
   // Order direction values
   enum OrderDirection {
+    ORDER_DIRECTION_UNSPECIFIED = 0;
     // Order by ascending
-    ASC = 1;
+    ORDER_DIRECTION_ASC = 1;
     // Order by descending
-    DESC = 2;
+    ORDER_DIRECTION_DESC = 2;
   }
 
   // To sort the returned tasks
