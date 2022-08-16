@@ -18,6 +18,10 @@ message TaskOptions {
 	string partition_id = 5;
 }
 
+message Session {
+	string id = 1;
+}
+
 
 message Configuration {
 	int32 data_chunk_max_size = 1;
