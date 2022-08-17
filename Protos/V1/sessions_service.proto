@@ -40,16 +40,9 @@ message SessionRaw {
 message SessionSummary {
   string session_id = 1;
 
-  int64 count_tasks = 2;
-  int64 count_tasks_pending = 3;
-  int64 count_tasks_error = 4;
-  int64 count_tasks_completed = 5;
-  int64 count_tasks_processing = 6;
-
-  session_status.SessionStatus status = 7;
-  google.protobuf.Timestamp created_at = 8;
-  google.protobuf.Timestamp cancelled_at = 9;
-  google.protobuf.Timestamp last_activity_at = 10;
+  session_status.SessionStatus status = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp cancelled_at = 4;
 }
 
 /**
@@ -69,18 +62,14 @@ message ListSessionsRequest {
     string application_version = 2;
     // Id of the session
     string session_id = 3;
-    // Date after the last activity of the session
-    google.protobuf.Timestamp last_activity_after = 4;
-    // Date before the last activity of the session
-    google.protobuf.Timestamp last_activity_before = 5;
     // Date after the creation of the session
-    google.protobuf.Timestamp created_after = 6;
+    google.protobuf.Timestamp created_after = 4;
     // Date before the creation of the session
-    google.protobuf.Timestamp created_before = 7;
+    google.protobuf.Timestamp created_before = 5;
     // Date after the cancellation of the session
-    google.protobuf.Timestamp cancelled_after = 8;
+    google.protobuf.Timestamp cancelled_after = 6;
     // Date before the cancellation of the session
-    google.protobuf.Timestamp cancelled_before = 9;
+    google.protobuf.Timestamp cancelled_before = 7;
   }
 
   // Filter to apply to the returned sessions
@@ -90,11 +79,9 @@ message ListSessionsRequest {
   enum OrderByField {
     ORDER_BY_FIELD_UNSPECIFIED = 0;
     ORDER_BY_FIELD_SESSION_ID = 1;
-    ORDER_BY_FIELD_COUNT_TASKS = 2;
-    ORDER_BY_FIELD_STATUS = 3;
-    ORDER_BY_FIELD_CREATED_AT = 4;
-    ORDER_BY_FIELD_CANCELLED_AT = 5;
-    ORDER_BY_FIELD_LAST_ACTIVITY_AT = 6;
+    ORDER_BY_FIELD_STATUS = 2;
+    ORDER_BY_FIELD_CREATED_AT = 3;
+    ORDER_BY_FIELD_CANCELLED_AT = 4;
   }
 
   // Order direction values
