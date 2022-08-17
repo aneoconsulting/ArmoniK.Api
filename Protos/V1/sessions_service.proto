@@ -70,6 +70,8 @@ message ListSessionsRequest {
     google.protobuf.Timestamp cancelled_after = 6;
     // Date before the cancellation of the session
     google.protobuf.Timestamp cancelled_before = 7;
+    // Status of the session
+    session_status.SessionStatus status = 8;
   }
 
   // Filter to apply to the returned sessions
