@@ -16,6 +16,8 @@ message TaskOptions {
 	int32 max_retries = 3;
 	int32 priority = 4;
 	string partition_id = 5;
+	string application_name = 6;
+	string application_version = 7;
 }
 
 
