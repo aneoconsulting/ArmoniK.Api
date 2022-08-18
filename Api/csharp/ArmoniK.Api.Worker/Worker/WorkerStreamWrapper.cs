@@ -24,6 +24,8 @@
 using System;
 using System.Threading.Tasks;
 
+using ArmoniK.Api.Common.Channel.Utils;
+using ArmoniK.Api.Common.Utils;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Agent;
 using ArmoniK.Api.gRPC.V1.Worker;

@@ -9,7 +9,7 @@
     <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
     <PackageOutputPath>../publish</PackageOutputPath>
     <IsPackable>true</IsPackable>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
     <SignAssembly>True</SignAssembly>
     <Nullable>enable</Nullable>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
@@ -18,10 +18,12 @@
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.21.5" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.47.0" />
     <PackageReference Include="Grpc.Tools" Version="2.48.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
   </ItemGroup>
 
   <ItemGroup>
