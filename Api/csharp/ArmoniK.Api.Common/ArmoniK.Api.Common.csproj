@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Company>ANEO</Company>
+    <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+    <PackageOutputPath>../publish</PackageOutputPath>
+    <IsPackable>true</IsPackable>
+    <LangVersion>9.0</LangVersion>
+    <SignAssembly>True</SignAssembly>
+    <Nullable>enable</Nullable>
+    <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.21.5" />
+    <PackageReference Include="Grpc.Tools" Version="2.48.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\..\Protos\V1\objects.proto" Link="objects.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\result_status.proto" Link="result_status.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\session_status.proto" Link="session_status.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\task_status.proto" Link="task_status.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+  </ItemGroup>
+
+</Project>
