@@ -247,7 +247,7 @@
 </li>
 <li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderDirection">ListTasksRequest.OrderDirection</a></p>
 </li>
-<li><p><a href="#armonik-api-grpc-v1-tasks-tasks">tasks</a></p>
+<li><p><a href="#armonik-api-grpc-v1-tasks-Tasks">Tasks</a></p>
 </li>
 </ul>
 </li>
@@ -1004,6 +1004,18 @@
 <td></td>
 <td></td>
 </tr>
+<tr>
+<td>application_name</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>application_version</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-TaskOptions-OptionsEntry"></a></p>
@@ -1332,18 +1344,6 @@
 <td>Id of the session</td>
 </tr>
 <tr>
-<td>last_activity_after</td>
-<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
-<td></td>
-<td>Date after the last activity of the session</td>
-</tr>
-<tr>
-<td>last_activity_before</td>
-<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
-<td></td>
-<td>Date before the last activity of the session</td>
-</tr>
-<tr>
 <td>created_after</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
@@ -1366,6 +1366,12 @@
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
 <td>Date before the cancellation of the session</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-session_status-SessionStatus">armonik.api.grpc.v1.session_status.SessionStatus</a></td>
+<td></td>
+<td>Status of the session</td>
 </tr>
 </tbody>
 </table>
@@ -1506,36 +1512,6 @@
 <td></td>
 </tr>
 <tr>
-<td>count_tasks</td>
-<td><a href="#int64">int64</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>count_tasks_pending</td>
-<td><a href="#int64">int64</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>count_tasks_error</td>
-<td><a href="#int64">int64</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>count_tasks_completed</td>
-<td><a href="#int64">int64</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>count_tasks_processing</td>
-<td><a href="#int64">int64</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
 <td>status</td>
 <td><a href="#armonik-api-grpc-v1-session_status-SessionStatus">armonik.api.grpc.v1.session_status.SessionStatus</a></td>
 <td></td>
@@ -1549,12 +1525,6 @@
 </tr>
 <tr>
 <td>cancelled_at</td>
-<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>last_activity_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
 <td></td>
@@ -1584,28 +1554,18 @@
 <td></td>
 </tr>
 <tr>
-<td>ORDER_BY_FIELD_COUNT_TASKS</td>
+<td>ORDER_BY_FIELD_STATUS</td>
 <td>2</td>
 <td></td>
 </tr>
 <tr>
-<td>ORDER_BY_FIELD_STATUS</td>
+<td>ORDER_BY_FIELD_CREATED_AT</td>
 <td>3</td>
 <td></td>
 </tr>
 <tr>
-<td>ORDER_BY_FIELD_CREATED_AT</td>
-<td>4</td>
-<td></td>
-</tr>
-<tr>
 <td>ORDER_BY_FIELD_CANCELLED_AT</td>
-<td>5</td>
-<td></td>
-</tr>
-<tr>
-<td>ORDER_BY_FIELD_LAST_ACTIVITY_AT</td>
-<td>6</td>
+<td>4</td>
 <td></td>
 </tr>
 </tbody>
@@ -3031,8 +2991,8 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 </tbody>
 </table>
-<p><a name="armonik-api-grpc-v1-tasks-tasks"></a></p>
-<h3 id="tasks">tasks</h3>
+<p><a name="armonik-api-grpc-v1-tasks-Tasks"></a></p>
+<h3 id="tasks">Tasks</h3>
 <p>The TaskService provides methods for listing and getting tasks.</p>
 <table>
 <thead>
@@ -3045,13 +3005,13 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </thead>
 <tbody>
 <tr>
-<td>list</td>
+<td>ListTasks</td>
 <td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest">ListTasksRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-tasks-ListTasksResponse">ListTasksResponse</a></td>
 <td>Get all tasks with pagination</td>
 </tr>
 <tr>
-<td>get</td>
+<td>GetTask</td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetTaskRequest">GetTaskRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetTaskResponse">GetTaskResponse</a></td>
 <td>Get a task by id</td>
