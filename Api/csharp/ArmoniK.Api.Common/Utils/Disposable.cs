@@ -21,30 +21,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using JetBrains.Annotations;
+using System;
 
-namespace ArmoniK.Api.Worker.Options;
+namespace ArmoniK.Api.Common.Utils;
 
-/// <summary>
-/// Options to configure the connections between Worker and Agent
-/// </summary>
-[PublicAPI]
-public class ComputePlane
+internal static class Disposable
 {
-  public const string SettingSection = nameof(ComputePlane);
+  public static IDisposable Create(Action action)
+    => new DisposableImpl(action);
 
-  /// <summary>
-  /// Channel used by the Agent to send tasks to the Worker
-  /// </summary>
-  public GrpcChannel WorkerChannel { get; set; } = new GrpcChannel();
+  private sealed class DisposableImpl : IDisposable
+  {
+    private readonly Action action_;
 
-  /// <summary>
-  /// Channel used by the Worker to send requests to the Agent
-  /// </summary>
-  public GrpcChannel AgentChannel { get; set; } = new GrpcChannel();
+    public DisposableImpl(Action action)
+      => action_ = action;
 
-  /// <summary>
-  /// Number of messages retrieved from the queue by the Agent
-  /// </summary>
-  public int MessageBatchSize { get; set; } = 1;
+    /// <inheritdoc />
+    public void Dispose()
+      => action_();
+  }
+
+  public static IDisposable Empty = Create(() =>
+                                           {
+                                           });
 }

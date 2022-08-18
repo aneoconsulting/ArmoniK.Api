@@ -21,20 +21,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace ArmoniK.Api.Worker.Options;
+using JetBrains.Annotations;
+
+namespace ArmoniK.Api.Common.Options;
 
 /// <summary>
-/// Type of connection used between Worker and Agent
+/// Options to configure the connections between Worker and Agent
 /// </summary>
-public enum GrpcSocketType
+[PublicAPI]
+public class ComputePlane
 {
-  /// <summary>
-  /// Tcp Connection
-  /// </summary>
-  Tcp,
+  public const string SettingSection = nameof(ComputePlane);
 
   /// <summary>
-  /// Unix socket connection
+  /// Channel used by the Agent to send tasks to the Worker
   /// </summary>
-  UnixDomainSocket,
+  public GrpcChannel WorkerChannel { get; set; } = new GrpcChannel();
+
+  /// <summary>
+  /// Channel used by the Worker to send requests to the Agent
+  /// </summary>
+  public GrpcChannel AgentChannel { get; set; } = new GrpcChannel();
+
+  /// <summary>
+  /// Number of messages retrieved from the queue by the Agent
+  /// </summary>
+  public int MessageBatchSize { get; set; } = 1;
 }

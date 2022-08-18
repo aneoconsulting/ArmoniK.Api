@@ -13,6 +13,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Common", "Armon
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArmoniK.Api.Core", "ArmoniK.Api.Core\ArmoniK.Api.Core.csproj", "{6DB4B49F-F509-4387-B3BE-F4F13BC9BC00}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Common.Channel", "ArmoniK.Api.Common.Channel\ArmoniK.Api.Common.Channel.csproj", "{38D7FC1B-1E64-40DB-88D0-841BAC763413}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{6DB4B49F-F509-4387-B3BE-F4F13BC9BC00}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6DB4B49F-F509-4387-B3BE-F4F13BC9BC00}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6DB4B49F-F509-4387-B3BE-F4F13BC9BC00}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38D7FC1B-1E64-40DB-88D0-841BAC763413}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38D7FC1B-1E64-40DB-88D0-841BAC763413}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38D7FC1B-1E64-40DB-88D0-841BAC763413}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38D7FC1B-1E64-40DB-88D0-841BAC763413}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
