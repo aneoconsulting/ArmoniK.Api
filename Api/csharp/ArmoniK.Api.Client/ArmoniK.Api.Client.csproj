@@ -12,7 +12,7 @@
     <LangVersion>9.0</LangVersion>
     <SignAssembly>True</SignAssembly>
     <Nullable>enable</Nullable>
-    <AssemblyOriginatorKeyFile>./kp.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
     <Optimize>true</Optimize>
   </PropertyGroup>
 
@@ -23,17 +23,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.0.3" />
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="All" />
     <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
-    <PackageReference Include="Google.Protobuf" Version="3.19.1" />
-    <PackageReference Include="Grpc.Net.Client" Version="2.41.0" />
-    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.41.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.43.0">
+    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.47.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.48.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ArmoniK.Api.Common\ArmoniK.Api.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -45,18 +46,6 @@
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\tasks_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\tasks_service.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\objects.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\objects.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\task_status.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\task_status.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\session_status.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\session_status.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\result_status.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\result_status.proto</Link>
     </Protobuf>
   </ItemGroup>
 </Project>
