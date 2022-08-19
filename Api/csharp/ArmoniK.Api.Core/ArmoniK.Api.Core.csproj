@@ -31,19 +31,19 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Server">
+    <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\submitter_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Client">
+    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\worker_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Server">
+    <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\agent_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\sessions_service.proto" GrpcServices="Server">
+    <Protobuf Include="..\..\..\Protos\V1\sessions_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\sessions_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\tasks_service.proto" GrpcServices="Server">
+    <Protobuf Include="..\..\..\Protos\V1\tasks_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\tasks_service.proto</Link>
     </Protobuf>
   </ItemGroup>
