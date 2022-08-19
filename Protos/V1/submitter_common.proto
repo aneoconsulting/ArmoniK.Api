@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+import "objects.proto";
+import "task_status.proto";
+import "session_status.proto";
+import "result_status.proto";
+
+package armonik.api.grpc.v1.submitter;
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
+
+message SessionList {
+  repeated Session sessions = 1;
+}
+
+message SessionIdList {
+  repeated string session_ids = 1;
+}
+
+message CreateSessionRequest {
+	string id = 1;
+	TaskOptions default_task_option = 3;
+	// List of partitions allowed during the session
+	repeated string partition_ids = 4;
+}
+
+message CreateSessionReply {
+	oneof result {
+		Empty ok = 1;
+		string error = 2;
+	}
+}
+
+
+message CreateSmallTaskRequest {
+	string session_id = 1;
+	TaskOptions task_options = 2;
+	repeated TaskRequest task_requests = 3;
+}
+
+message CreateLargeTaskRequest {
+	message InitRequest {
+		string session_id = 1;
+		TaskOptions task_options = 2;
+	}
+	oneof type {
+		InitRequest init_request = 1;
+		InitTaskRequest init_task = 2;
+		DataChunk task_payload = 3;
+	}
+}
+
+message CreateTaskReply{
+	message TaskIds{
+		repeated string ids = 1;
+	}
+	oneof Data{
+		Empty successfull = 1;
+		TaskIds non_successfull_ids = 2;
+	}
+}
+
+message TaskFilter {
+	message IdsRequest {
+		repeated string ids = 1;
+	}
+	message StatusesRequest {
+		repeated task_status.TaskStatus statuses = 1;
+	}
+	oneof ids {
+		IdsRequest session = 1;
+		IdsRequest task = 3;
+	}
+	oneof statuses {
+		StatusesRequest included = 4;
+		StatusesRequest excluded = 5;
+	}
+}
+
+message SessionFilter {
+  repeated string sessions = 1;
+  
+  message StatusesRequest {
+    repeated session_status.SessionStatus statuses = 1;
+  }
+  
+  oneof statuses {
+    StatusesRequest included = 4;
+    StatusesRequest excluded = 5;
+  }
+}
+
+message GetTaskStatusRequest {
+	repeated string task_ids = 1;
+}
+
+message GetTaskStatusReply {
+	message IdStatus {
+		string task_id = 1;
+		task_status.TaskStatus status = 2;
+	}
+	repeated IdStatus id_statuses = 1;
+}
+
+message GetResultStatusRequest {
+	repeated string result_ids = 1;
+	string session_id = 2;
+}
+
+message GetResultStatusReply {
+	message IdStatus {
+		string result_id = 1;
+		result_status.ResultStatus status = 2;
+	}
+	repeated IdStatus id_statuses = 1;
+}
+
+message ResultReply {
+	oneof type {
+		DataChunk result = 1;
+		TaskError error = 2;
+		string not_completed_task = 3;
+	}
+}
+
+message AvailabilityReply {
+	oneof type {
+		Empty ok = 1;
+		TaskError error = 2;
+		string not_completed_task = 3;
+	}
+}
+
+message WaitRequest {
+	TaskFilter filter = 1;
+	bool stop_on_first_task_error = 2;
+	bool stop_on_first_task_cancellation = 3;
+}
+
+/**
+ * Request to watch result states
+ * It contains the list of result ids you want to watch
+ *   and some options to filter out some events.
+ * Chunking is achieved by sending multiple messages with different result ids.
+ * It is the responsability of the client to chunk the messages properly and avoid messages too large.
+ */
+message WatchResultRequest {
+	// list of statuses to check results against for the initial fetch
+	repeated result_status.ResultStatus fetch_statuses = 1;
+	// list of statuses to check results against for the watch
+	repeated result_status.ResultStatus watch_statuses = 2;
+	// result ids to fetch/watch
+	repeated string result_ids = 3;
+}
+
+/**
+ * List of Result statuses
+ * Result Ids are grouped by status. One message contains result Ids that have the same status.
+ * Chunking is achieved by receiving several messages with the same status and the list of ids in multiple parts.
+ * As chunking is implicit, there is no way to distinguish between chunked messages and actually separate messages.
+ */
+message WatchResultStream {
+	// Status of the results
+	result_status.ResultStatus status = 1;
+	// List of result ids that triggered the event
+	repeated string result_ids = 2;
+}
