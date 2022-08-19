@@ -23,7 +23,7 @@
 
 using JetBrains.Annotations;
 
-namespace ArmoniK.Api.Worker.Options;
+namespace ArmoniK.Api.Common.Options;
 
 [PublicAPI]
 public class GrpcChannel

@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.agent;
+
+import "objects.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
+
+message CreateTaskRequest {
+	message InitRequest {
+		TaskOptions task_options = 1;
+	}
+	oneof type {
+		InitRequest init_request = 1;
+		InitTaskRequest init_task = 2;
+		DataChunk task_payload = 3;
+	}
+
+	string communication_token = 4;
+}
+
+message CreateTaskReply{
+	message TaskIds{
+		repeated string ids = 1;
+	}
+	oneof Data{
+		Empty successfull = 1;
+		TaskIds non_successfull_ids = 2;
+		string error = 3;
+	}
+	string communication_token = 4;
+}
+
+message DataRequest {
+	string communication_token = 1;
+	string key = 2;
+}
+
+message DataReply {
+	message Init{
+		string key = 1;
+		oneof has_result {
+			DataChunk data = 2;
+			string error = 3;
+		}
+	}
+	string communication_token = 1;
+	oneof type {
+		Init init = 2;
+		DataChunk data = 3;
+		string error = 4;
+	}
+}
+
+message Result {
+	oneof type {
+		InitKeyedDataStream init = 1;
+		DataChunk data = 2;
+	}
+	string communication_token = 3;
+}
+
+message ResultReply {
+	string communication_token = 3;
+	oneof type {
+		Empty Ok = 1;
+		string Error = 2;
+	}
+}

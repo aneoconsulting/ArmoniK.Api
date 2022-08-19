@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "objects.proto";
+import "task_status.proto";
+
+package armonik.api.grpc.v1.tasks;
+
+option csharp_namespace = "Armonik.Api.gRPC.V1.Tasks";
+
+/**
+ * A raw task object
+ */
+ message TaskRaw {
+  string id = 1;
+  string session_id = 2;
+  string owner_pod_id = 3;
+
+  repeated string parent_task_ids = 4;
+  repeated string data_dependencies = 5;
+  repeated string expected_output_ids = 6;
+  repeated string retry_of_ids = 7;
+
+  task_status.TaskStatus status = 8;
+  string status_message = 9;
+
+  TaskOptions options = 10;
+
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp submitted_at = 12;
+  google.protobuf.Timestamp started_at = 13;
+  google.protobuf.Timestamp ended_at = 14;
+  google.protobuf.Timestamp pod_ttl = 15;
+
+  message Output {
+    bool success = 1;
+    string error = 2;
+  }
+
+  Output output = 16;
+}
+
+/**
+ * A task object
+ */
+message Task {
+  string id = 1;
+  string session_id = 2;
+  TaskOptions options = 3;
+  task_status.TaskStatus status = 4;
+
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp ended_at = 7;
+}
+
+/**
+ * Request for listing tasks
+ */
+message ListTasksRequest {
+  // Page number
+  int32 page = 1;
+  // Page size
+  int32 page_size = 2;
+
+  // To filter returned tasks
+  message Filter {
+    // Id of the session
+    string session_id = 1;
+    // Status of the task
+    task_status.TaskStatus status = 2;
+    // Date after the creation of the task
+    google.protobuf.Timestamp created_after = 3;
+    // Date before the creation of the task
+    google.protobuf.Timestamp created_before = 4;
+    // Date after the start of the task
+    google.protobuf.Timestamp started_after = 5;
+    // Date before the start of the task
+    google.protobuf.Timestamp started_before = 6;
+    // Date after the end of the task
+    google.protobuf.Timestamp ended_after = 7;
+    // Date before the end of the task
+    google.protobuf.Timestamp ended_before = 8;
+  }
+
+  // Filter to apply to the returned tasks
+  Filter filter = 3;
+
+  // Available fields to order the return task
+  enum OrderByField {
+    ORDER_BY_FIELD_UNSPECIFIED = 0;
+    ORDER_BY_FIELD_TASK_ID = 1;
+    ORDER_BY_FIELD_SESSION_ID = 2;
+    ORDER_BY_FIELD_STATUS = 3;
+    ORDER_BY_FIELD_CREATED_AT = 4;
+    ORDER_BY_FIELD_STARTED_AT = 5;
+    ORDER_BY_FIELD_ENDED_AT = 6;
+  }
+
+  // Order direction values
+  enum OrderDirection {
+    ORDER_DIRECTION_UNSPECIFIED = 0;
+    // Order by ascending
+    ORDER_DIRECTION_ASC = 1;
+    // Order by descending
+    ORDER_DIRECTION_DESC = 2;
+  }
+
+  // To sort the returned tasks
+  message Sort {
+    // Field to order by
+    OrderByField field = 1;
+    // Order direction
+    OrderDirection direction = 2;
+  }
+
+  // Sort order, field and direction, to apply to the returned tasks
+  Sort sort = 4;
+}
+
+/**
+ * Response for listing tasks
+ */
+message ListTasksResponse {
+  // List of tasks
+  repeated Task tasks = 1;
+
+  // Current page
+  int32 page = 2;
+  // Page size
+  int32 page_size = 3;
+  // Total number of tasks
+  int32 total = 4; 
+}
+
+/**
+ * Request for getting a task
+ */
+message GetTaskRequest {
+  // Id of the task
+  string id = 1;
+}
+
+/**
+ * Response for getting a task
+ */
+message GetTaskResponse {
+  // A raw task object
+  TaskRaw task = 1;
+}

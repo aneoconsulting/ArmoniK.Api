@@ -21,23 +21,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Net.Http;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 
-using ArmoniK.Api.Worker.Options;
+using ArmoniK.Api.Common.Options;
 
 using Grpc.Core;
 using Grpc.Net.Client;
+using ArmoniK.Api.Common.Utils;
 
 using JetBrains.Annotations;
 
 using Microsoft.Extensions.Logging;
 
-using GrpcChannel = ArmoniK.Api.Worker.Options.GrpcChannel;
+using GrpcChannel = ArmoniK.Api.Common.Options.GrpcChannel;
 
-namespace ArmoniK.Api.Worker.Utils;
+namespace ArmoniK.Api.Common.Channel.Utils;
 
 [UsedImplicitly]
 public sealed class GrpcChannelProvider : IAsyncDisposable

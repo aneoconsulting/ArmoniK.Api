@@ -15,6 +15,7 @@
     <DebugType>full</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -22,50 +23,29 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.Net.Client" Version="2.41.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.47.0" />
     <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
-    <PackageReference Include="Google.Protobuf" Version="3.21.2" />
-    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.46.0" />
+    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.47.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="5.0.1" />
-    <PackageReference Include="Serilog.Settings.Configuration" Version="3.3.0" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="4.0.1" />
     <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="6.0.1" />
-    <PackageReference Include="Grpc.Tools" Version="2.47.0">
+    <PackageReference Include="Grpc.Tools" Version="2.48.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Both">
+    <ProjectReference Include="..\ArmoniK.Api.Common.Channel\ArmoniK.Api.Common.Channel.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\..\Protos\V1\worker_service.proto" GrpcServices="Server">
       <Link>gRPC\Protos\worker_service.proto</Link>
     </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Both">
+    <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\agent_service.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Both">
-      <Link>gRPC\Protos\submitter_service.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\sessions_service.proto" GrpcServices="Both">
-      <Link>gRPC\Protos\sessions_service.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\tasks_service.proto" GrpcServices="Both">
-      <Link>gRPC\Protos\tasks_service.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\objects.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\objects.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\task_status.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\task_status.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\session_status.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\session_status.proto</Link>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\result_status.proto" GrpcServices="Message">
-      <Link>gRPC\Protos\result_status.proto</Link>
     </Protobuf>
   </ItemGroup>
 </Project>
