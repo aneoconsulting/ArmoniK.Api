@@ -140,113 +140,224 @@ references:
   isSpec: "True"
   fullName: ArmoniK.Api.Client.Submitter.SubmitterClientExt.GetResultAsync
   nameWithType: SubmitterClientExt.GetResultAsync
-- uid: ArmoniK.Api.Worker.Options
-  name: ArmoniK.Api.Worker.Options
-  href: api/ArmoniK.Api.Worker.Options.html
-  commentId: N:ArmoniK.Api.Worker.Options
-  fullName: ArmoniK.Api.Worker.Options
-  nameWithType: ArmoniK.Api.Worker.Options
-- uid: ArmoniK.Api.Worker.Options.ComputePlane
+- uid: ArmoniK.Api.Common.Channel.Utils
+  name: ArmoniK.Api.Common.Channel.Utils
+  href: api/ArmoniK.Api.Common.Channel.Utils.html
+  commentId: N:ArmoniK.Api.Common.Channel.Utils
+  fullName: ArmoniK.Api.Common.Channel.Utils
+  nameWithType: ArmoniK.Api.Common.Channel.Utils
+- uid: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider
+  name: GrpcChannelProvider
+  href: api/ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.html
+  commentId: T:ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider
+  fullName: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider
+  nameWithType: GrpcChannelProvider
+- uid: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.#ctor(ArmoniK.Api.Common.Options.GrpcChannel,ILogger{ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider})
+  name: GrpcChannelProvider(GrpcChannel, ILogger<GrpcChannelProvider>)
+  href: api/ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.html#ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider__ctor_ArmoniK_Api_Common_Options_GrpcChannel_ILogger_ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider__
+  commentId: M:ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.#ctor(ArmoniK.Api.Common.Options.GrpcChannel,ILogger{ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider})
+  name.vb: GrpcChannelProvider(GrpcChannel, ILogger(Of GrpcChannelProvider))
+  fullName: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.GrpcChannelProvider(ArmoniK.Api.Common.Options.GrpcChannel, ILogger<ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider>)
+  fullName.vb: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.GrpcChannelProvider(ArmoniK.Api.Common.Options.GrpcChannel, ILogger(Of ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider))
+  nameWithType: GrpcChannelProvider.GrpcChannelProvider(GrpcChannel, ILogger<GrpcChannelProvider>)
+  nameWithType.vb: GrpcChannelProvider.GrpcChannelProvider(GrpcChannel, ILogger(Of GrpcChannelProvider))
+- uid: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.#ctor*
+  name: GrpcChannelProvider
+  href: api/ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.html#ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider__ctor_
+  commentId: Overload:ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.#ctor
+  isSpec: "True"
+  fullName: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.GrpcChannelProvider
+  nameWithType: GrpcChannelProvider.GrpcChannelProvider
+- uid: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.DisposeAsync
+  name: DisposeAsync()
+  href: api/ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.html#ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider_DisposeAsync
+  commentId: M:ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.DisposeAsync
+  fullName: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.DisposeAsync()
+  nameWithType: GrpcChannelProvider.DisposeAsync()
+- uid: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.DisposeAsync*
+  name: DisposeAsync
+  href: api/ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.html#ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider_DisposeAsync_
+  commentId: Overload:ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.DisposeAsync
+  isSpec: "True"
+  fullName: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.DisposeAsync
+  nameWithType: GrpcChannelProvider.DisposeAsync
+- uid: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.Get
+  name: Get()
+  href: api/ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.html#ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider_Get
+  commentId: M:ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.Get
+  fullName: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.Get()
+  nameWithType: GrpcChannelProvider.Get()
+- uid: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.Get*
+  name: Get
+  href: api/ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.html#ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider_Get_
+  commentId: Overload:ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.Get
+  isSpec: "True"
+  fullName: ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider.Get
+  nameWithType: GrpcChannelProvider.Get
+- uid: ArmoniK.Api.Common.Options
+  name: ArmoniK.Api.Common.Options
+  href: api/ArmoniK.Api.Common.Options.html
+  commentId: N:ArmoniK.Api.Common.Options
+  fullName: ArmoniK.Api.Common.Options
+  nameWithType: ArmoniK.Api.Common.Options
+- uid: ArmoniK.Api.Common.Options.ComputePlane
   name: ComputePlane
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html
-  commentId: T:ArmoniK.Api.Worker.Options.ComputePlane
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html
+  commentId: T:ArmoniK.Api.Common.Options.ComputePlane
+  fullName: ArmoniK.Api.Common.Options.ComputePlane
   nameWithType: ComputePlane
-- uid: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+- uid: ArmoniK.Api.Common.Options.ComputePlane.AgentChannel
   name: AgentChannel
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_AgentChannel
-  commentId: P:ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html#ArmoniK_Api_Common_Options_ComputePlane_AgentChannel
+  commentId: P:ArmoniK.Api.Common.Options.ComputePlane.AgentChannel
+  fullName: ArmoniK.Api.Common.Options.ComputePlane.AgentChannel
   nameWithType: ComputePlane.AgentChannel
-- uid: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel*
+- uid: ArmoniK.Api.Common.Options.ComputePlane.AgentChannel*
   name: AgentChannel
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_AgentChannel_
-  commentId: Overload:ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html#ArmoniK_Api_Common_Options_ComputePlane_AgentChannel_
+  commentId: Overload:ArmoniK.Api.Common.Options.ComputePlane.AgentChannel
   isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane.AgentChannel
+  fullName: ArmoniK.Api.Common.Options.ComputePlane.AgentChannel
   nameWithType: ComputePlane.AgentChannel
-- uid: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+- uid: ArmoniK.Api.Common.Options.ComputePlane.MessageBatchSize
   name: MessageBatchSize
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_MessageBatchSize
-  commentId: P:ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html#ArmoniK_Api_Common_Options_ComputePlane_MessageBatchSize
+  commentId: P:ArmoniK.Api.Common.Options.ComputePlane.MessageBatchSize
+  fullName: ArmoniK.Api.Common.Options.ComputePlane.MessageBatchSize
   nameWithType: ComputePlane.MessageBatchSize
-- uid: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize*
+- uid: ArmoniK.Api.Common.Options.ComputePlane.MessageBatchSize*
   name: MessageBatchSize
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_MessageBatchSize_
-  commentId: Overload:ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html#ArmoniK_Api_Common_Options_ComputePlane_MessageBatchSize_
+  commentId: Overload:ArmoniK.Api.Common.Options.ComputePlane.MessageBatchSize
   isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane.MessageBatchSize
+  fullName: ArmoniK.Api.Common.Options.ComputePlane.MessageBatchSize
   nameWithType: ComputePlane.MessageBatchSize
-- uid: ArmoniK.Api.Worker.Options.ComputePlane.SettingSection
+- uid: ArmoniK.Api.Common.Options.ComputePlane.SettingSection
   name: SettingSection
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_SettingSection
-  commentId: F:ArmoniK.Api.Worker.Options.ComputePlane.SettingSection
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane.SettingSection
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html#ArmoniK_Api_Common_Options_ComputePlane_SettingSection
+  commentId: F:ArmoniK.Api.Common.Options.ComputePlane.SettingSection
+  fullName: ArmoniK.Api.Common.Options.ComputePlane.SettingSection
   nameWithType: ComputePlane.SettingSection
-- uid: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+- uid: ArmoniK.Api.Common.Options.ComputePlane.WorkerChannel
   name: WorkerChannel
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_WorkerChannel
-  commentId: P:ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html#ArmoniK_Api_Common_Options_ComputePlane_WorkerChannel
+  commentId: P:ArmoniK.Api.Common.Options.ComputePlane.WorkerChannel
+  fullName: ArmoniK.Api.Common.Options.ComputePlane.WorkerChannel
   nameWithType: ComputePlane.WorkerChannel
-- uid: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel*
+- uid: ArmoniK.Api.Common.Options.ComputePlane.WorkerChannel*
   name: WorkerChannel
-  href: api/ArmoniK.Api.Worker.Options.ComputePlane.html#ArmoniK_Api_Worker_Options_ComputePlane_WorkerChannel_
-  commentId: Overload:ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  href: api/ArmoniK.Api.Common.Options.ComputePlane.html#ArmoniK_Api_Common_Options_ComputePlane_WorkerChannel_
+  commentId: Overload:ArmoniK.Api.Common.Options.ComputePlane.WorkerChannel
   isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Options.ComputePlane.WorkerChannel
+  fullName: ArmoniK.Api.Common.Options.ComputePlane.WorkerChannel
   nameWithType: ComputePlane.WorkerChannel
-- uid: ArmoniK.Api.Worker.Options.GrpcChannel
+- uid: ArmoniK.Api.Common.Options.GrpcChannel
   name: GrpcChannel
-  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html
-  commentId: T:ArmoniK.Api.Worker.Options.GrpcChannel
-  fullName: ArmoniK.Api.Worker.Options.GrpcChannel
+  href: api/ArmoniK.Api.Common.Options.GrpcChannel.html
+  commentId: T:ArmoniK.Api.Common.Options.GrpcChannel
+  fullName: ArmoniK.Api.Common.Options.GrpcChannel
   nameWithType: GrpcChannel
-- uid: ArmoniK.Api.Worker.Options.GrpcChannel.Address
+- uid: ArmoniK.Api.Common.Options.GrpcChannel.Address
   name: Address
-  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_Address
-  commentId: P:ArmoniK.Api.Worker.Options.GrpcChannel.Address
-  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  href: api/ArmoniK.Api.Common.Options.GrpcChannel.html#ArmoniK_Api_Common_Options_GrpcChannel_Address
+  commentId: P:ArmoniK.Api.Common.Options.GrpcChannel.Address
+  fullName: ArmoniK.Api.Common.Options.GrpcChannel.Address
   nameWithType: GrpcChannel.Address
-- uid: ArmoniK.Api.Worker.Options.GrpcChannel.Address*
+- uid: ArmoniK.Api.Common.Options.GrpcChannel.Address*
   name: Address
-  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_Address_
-  commentId: Overload:ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  href: api/ArmoniK.Api.Common.Options.GrpcChannel.html#ArmoniK_Api_Common_Options_GrpcChannel_Address_
+  commentId: Overload:ArmoniK.Api.Common.Options.GrpcChannel.Address
   isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.Address
+  fullName: ArmoniK.Api.Common.Options.GrpcChannel.Address
   nameWithType: GrpcChannel.Address
-- uid: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+- uid: ArmoniK.Api.Common.Options.GrpcChannel.SocketType
   name: SocketType
-  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_SocketType
-  commentId: P:ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
-  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  href: api/ArmoniK.Api.Common.Options.GrpcChannel.html#ArmoniK_Api_Common_Options_GrpcChannel_SocketType
+  commentId: P:ArmoniK.Api.Common.Options.GrpcChannel.SocketType
+  fullName: ArmoniK.Api.Common.Options.GrpcChannel.SocketType
   nameWithType: GrpcChannel.SocketType
-- uid: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType*
+- uid: ArmoniK.Api.Common.Options.GrpcChannel.SocketType*
   name: SocketType
-  href: api/ArmoniK.Api.Worker.Options.GrpcChannel.html#ArmoniK_Api_Worker_Options_GrpcChannel_SocketType_
-  commentId: Overload:ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  href: api/ArmoniK.Api.Common.Options.GrpcChannel.html#ArmoniK_Api_Common_Options_GrpcChannel_SocketType_
+  commentId: Overload:ArmoniK.Api.Common.Options.GrpcChannel.SocketType
   isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Options.GrpcChannel.SocketType
+  fullName: ArmoniK.Api.Common.Options.GrpcChannel.SocketType
   nameWithType: GrpcChannel.SocketType
-- uid: ArmoniK.Api.Worker.Options.GrpcSocketType
+- uid: ArmoniK.Api.Common.Options.GrpcSocketType
   name: GrpcSocketType
-  href: api/ArmoniK.Api.Worker.Options.GrpcSocketType.html
-  commentId: T:ArmoniK.Api.Worker.Options.GrpcSocketType
-  fullName: ArmoniK.Api.Worker.Options.GrpcSocketType
+  href: api/ArmoniK.Api.Common.Options.GrpcSocketType.html
+  commentId: T:ArmoniK.Api.Common.Options.GrpcSocketType
+  fullName: ArmoniK.Api.Common.Options.GrpcSocketType
   nameWithType: GrpcSocketType
-- uid: ArmoniK.Api.Worker.Options.GrpcSocketType.Tcp
+- uid: ArmoniK.Api.Common.Options.GrpcSocketType.Tcp
   name: Tcp
-  href: api/ArmoniK.Api.Worker.Options.GrpcSocketType.html#ArmoniK_Api_Worker_Options_GrpcSocketType_Tcp
-  commentId: F:ArmoniK.Api.Worker.Options.GrpcSocketType.Tcp
-  fullName: ArmoniK.Api.Worker.Options.GrpcSocketType.Tcp
+  href: api/ArmoniK.Api.Common.Options.GrpcSocketType.html#ArmoniK_Api_Common_Options_GrpcSocketType_Tcp
+  commentId: F:ArmoniK.Api.Common.Options.GrpcSocketType.Tcp
+  fullName: ArmoniK.Api.Common.Options.GrpcSocketType.Tcp
   nameWithType: GrpcSocketType.Tcp
-- uid: ArmoniK.Api.Worker.Options.GrpcSocketType.UnixDomainSocket
+- uid: ArmoniK.Api.Common.Options.GrpcSocketType.UnixDomainSocket
   name: UnixDomainSocket
-  href: api/ArmoniK.Api.Worker.Options.GrpcSocketType.html#ArmoniK_Api_Worker_Options_GrpcSocketType_UnixDomainSocket
-  commentId: F:ArmoniK.Api.Worker.Options.GrpcSocketType.UnixDomainSocket
-  fullName: ArmoniK.Api.Worker.Options.GrpcSocketType.UnixDomainSocket
+  href: api/ArmoniK.Api.Common.Options.GrpcSocketType.html#ArmoniK_Api_Common_Options_GrpcSocketType_UnixDomainSocket
+  commentId: F:ArmoniK.Api.Common.Options.GrpcSocketType.UnixDomainSocket
+  fullName: ArmoniK.Api.Common.Options.GrpcSocketType.UnixDomainSocket
   nameWithType: GrpcSocketType.UnixDomainSocket
+- uid: ArmoniK.Api.Common.Utils
+  name: ArmoniK.Api.Common.Utils
+  href: api/ArmoniK.Api.Common.Utils.html
+  commentId: N:ArmoniK.Api.Common.Utils
+  fullName: ArmoniK.Api.Common.Utils
+  nameWithType: ArmoniK.Api.Common.Utils
+- uid: ArmoniK.Api.Common.Utils.LoggerExt
+  name: LoggerExt
+  href: api/ArmoniK.Api.Common.Utils.LoggerExt.html
+  commentId: T:ArmoniK.Api.Common.Utils.LoggerExt
+  fullName: ArmoniK.Api.Common.Utils.LoggerExt
+  nameWithType: LoggerExt
+- uid: ArmoniK.Api.Common.Utils.LoggerExt.BeginNamedScope(ILogger,System.String,ValueTuple{System.String,System.Object}[])
+  name: BeginNamedScope(ILogger, String, ValueTuple<String, Object>[])
+  href: api/ArmoniK.Api.Common.Utils.LoggerExt.html#ArmoniK_Api_Common_Utils_LoggerExt_BeginNamedScope_ILogger_System_String_ValueTuple_System_String_System_Object____
+  commentId: M:ArmoniK.Api.Common.Utils.LoggerExt.BeginNamedScope(ILogger,System.String,ValueTuple{System.String,System.Object}[])
+  name.vb: BeginNamedScope(ILogger, String, ValueTuple(Of String, Object)())
+  fullName: ArmoniK.Api.Common.Utils.LoggerExt.BeginNamedScope(ILogger, System.String, ValueTuple<System.String, System.Object>[])
+  fullName.vb: ArmoniK.Api.Common.Utils.LoggerExt.BeginNamedScope(ILogger, System.String, ValueTuple(Of System.String, System.Object)())
+  nameWithType: LoggerExt.BeginNamedScope(ILogger, String, ValueTuple<String, Object>[])
+  nameWithType.vb: LoggerExt.BeginNamedScope(ILogger, String, ValueTuple(Of String, Object)())
+- uid: ArmoniK.Api.Common.Utils.LoggerExt.BeginNamedScope*
+  name: BeginNamedScope
+  href: api/ArmoniK.Api.Common.Utils.LoggerExt.html#ArmoniK_Api_Common_Utils_LoggerExt_BeginNamedScope_
+  commentId: Overload:ArmoniK.Api.Common.Utils.LoggerExt.BeginNamedScope
+  isSpec: "True"
+  fullName: ArmoniK.Api.Common.Utils.LoggerExt.BeginNamedScope
+  nameWithType: LoggerExt.BeginNamedScope
+- uid: ArmoniK.Api.Common.Utils.LoggerExt.BeginPropertyScope(ILogger,ValueTuple{System.String,System.Object}[])
+  name: BeginPropertyScope(ILogger, ValueTuple<String, Object>[])
+  href: api/ArmoniK.Api.Common.Utils.LoggerExt.html#ArmoniK_Api_Common_Utils_LoggerExt_BeginPropertyScope_ILogger_ValueTuple_System_String_System_Object____
+  commentId: M:ArmoniK.Api.Common.Utils.LoggerExt.BeginPropertyScope(ILogger,ValueTuple{System.String,System.Object}[])
+  name.vb: BeginPropertyScope(ILogger, ValueTuple(Of String, Object)())
+  fullName: ArmoniK.Api.Common.Utils.LoggerExt.BeginPropertyScope(ILogger, ValueTuple<System.String, System.Object>[])
+  fullName.vb: ArmoniK.Api.Common.Utils.LoggerExt.BeginPropertyScope(ILogger, ValueTuple(Of System.String, System.Object)())
+  nameWithType: LoggerExt.BeginPropertyScope(ILogger, ValueTuple<String, Object>[])
+  nameWithType.vb: LoggerExt.BeginPropertyScope(ILogger, ValueTuple(Of String, Object)())
+- uid: ArmoniK.Api.Common.Utils.LoggerExt.BeginPropertyScope*
+  name: BeginPropertyScope
+  href: api/ArmoniK.Api.Common.Utils.LoggerExt.html#ArmoniK_Api_Common_Utils_LoggerExt_BeginPropertyScope_
+  commentId: Overload:ArmoniK.Api.Common.Utils.LoggerExt.BeginPropertyScope
+  isSpec: "True"
+  fullName: ArmoniK.Api.Common.Utils.LoggerExt.BeginPropertyScope
+  nameWithType: LoggerExt.BeginPropertyScope
+- uid: ArmoniK.Api.Common.Utils.LoggerExt.LogFunction(ILogger,System.String,LogLevel,System.String,System.String,System.Int32)
+  name: LogFunction(ILogger, String, LogLevel, String, String, Int32)
+  href: api/ArmoniK.Api.Common.Utils.LoggerExt.html#ArmoniK_Api_Common_Utils_LoggerExt_LogFunction_ILogger_System_String_LogLevel_System_String_System_String_System_Int32_
+  commentId: M:ArmoniK.Api.Common.Utils.LoggerExt.LogFunction(ILogger,System.String,LogLevel,System.String,System.String,System.Int32)
+  fullName: ArmoniK.Api.Common.Utils.LoggerExt.LogFunction(ILogger, System.String, LogLevel, System.String, System.String, System.Int32)
+  nameWithType: LoggerExt.LogFunction(ILogger, String, LogLevel, String, String, Int32)
+- uid: ArmoniK.Api.Common.Utils.LoggerExt.LogFunction*
+  name: LogFunction
+  href: api/ArmoniK.Api.Common.Utils.LoggerExt.html#ArmoniK_Api_Common_Utils_LoggerExt_LogFunction_
+  commentId: Overload:ArmoniK.Api.Common.Utils.LoggerExt.LogFunction
+  isSpec: "True"
+  fullName: ArmoniK.Api.Common.Utils.LoggerExt.LogFunction
+  nameWithType: LoggerExt.LogFunction
 - uid: ArmoniK.Api.Worker.Tests
   name: ArmoniK.Api.Worker.Tests
   href: api/ArmoniK.Api.Worker.Tests.html
@@ -259,11 +370,11 @@ references:
   commentId: T:ArmoniK.Api.Worker.Tests.TestService
   fullName: ArmoniK.Api.Worker.Tests.TestService
   nameWithType: TestService
-- uid: ArmoniK.Api.Worker.Tests.TestService.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+- uid: ArmoniK.Api.Worker.Tests.TestService.#ctor(ILoggerFactory,GrpcChannelProvider)
   name: TestService(ILoggerFactory, GrpcChannelProvider)
-  href: api/ArmoniK.Api.Worker.Tests.TestService.html#ArmoniK_Api_Worker_Tests_TestService__ctor_ILoggerFactory_ArmoniK_Api_Worker_Utils_GrpcChannelProvider_
-  commentId: M:ArmoniK.Api.Worker.Tests.TestService.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
-  fullName: ArmoniK.Api.Worker.Tests.TestService.TestService(ILoggerFactory, ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  href: api/ArmoniK.Api.Worker.Tests.TestService.html#ArmoniK_Api_Worker_Tests_TestService__ctor_ILoggerFactory_GrpcChannelProvider_
+  commentId: M:ArmoniK.Api.Worker.Tests.TestService.#ctor(ILoggerFactory,GrpcChannelProvider)
+  fullName: ArmoniK.Api.Worker.Tests.TestService.TestService(ILoggerFactory, GrpcChannelProvider)
   nameWithType: TestService.TestService(ILoggerFactory, GrpcChannelProvider)
 - uid: ArmoniK.Api.Worker.Tests.TestService.#ctor*
   name: TestService
@@ -358,105 +469,6 @@ references:
   isSpec: "True"
   fullName: ArmoniK.Api.Worker.Utils.ApplicationLifeTimeManager.ApplicationLifeTimeManager
   nameWithType: ApplicationLifeTimeManager.ApplicationLifeTimeManager
-- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider
-  name: GrpcChannelProvider
-  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html
-  commentId: T:ArmoniK.Api.Worker.Utils.GrpcChannelProvider
-  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider
-  nameWithType: GrpcChannelProvider
-- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor(ArmoniK.Api.Worker.Options.GrpcChannel,ILogger{ArmoniK.Api.Worker.Utils.GrpcChannelProvider})
-  name: GrpcChannelProvider(GrpcChannel, ILogger<GrpcChannelProvider>)
-  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider__ctor_ArmoniK_Api_Worker_Options_GrpcChannel_ILogger_ArmoniK_Api_Worker_Utils_GrpcChannelProvider__
-  commentId: M:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor(ArmoniK.Api.Worker.Options.GrpcChannel,ILogger{ArmoniK.Api.Worker.Utils.GrpcChannelProvider})
-  name.vb: GrpcChannelProvider(GrpcChannel, ILogger(Of GrpcChannelProvider))
-  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.GrpcChannelProvider(ArmoniK.Api.Worker.Options.GrpcChannel, ILogger<ArmoniK.Api.Worker.Utils.GrpcChannelProvider>)
-  fullName.vb: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.GrpcChannelProvider(ArmoniK.Api.Worker.Options.GrpcChannel, ILogger(Of ArmoniK.Api.Worker.Utils.GrpcChannelProvider))
-  nameWithType: GrpcChannelProvider.GrpcChannelProvider(GrpcChannel, ILogger<GrpcChannelProvider>)
-  nameWithType.vb: GrpcChannelProvider.GrpcChannelProvider(GrpcChannel, ILogger(Of GrpcChannelProvider))
-- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor*
-  name: GrpcChannelProvider
-  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider__ctor_
-  commentId: Overload:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.#ctor
-  isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.GrpcChannelProvider
-  nameWithType: GrpcChannelProvider.GrpcChannelProvider
-- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
-  name: DisposeAsync()
-  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_DisposeAsync
-  commentId: M:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
-  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync()
-  nameWithType: GrpcChannelProvider.DisposeAsync()
-- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync*
-  name: DisposeAsync
-  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_DisposeAsync_
-  commentId: Overload:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
-  isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.DisposeAsync
-  nameWithType: GrpcChannelProvider.DisposeAsync
-- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
-  name: Get()
-  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_Get
-  commentId: M:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
-  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get()
-  nameWithType: GrpcChannelProvider.Get()
-- uid: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get*
-  name: Get
-  href: api/ArmoniK.Api.Worker.Utils.GrpcChannelProvider.html#ArmoniK_Api_Worker_Utils_GrpcChannelProvider_Get_
-  commentId: Overload:ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
-  isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Utils.GrpcChannelProvider.Get
-  nameWithType: GrpcChannelProvider.Get
-- uid: ArmoniK.Api.Worker.Utils.LoggerExt
-  name: LoggerExt
-  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html
-  commentId: T:ArmoniK.Api.Worker.Utils.LoggerExt
-  fullName: ArmoniK.Api.Worker.Utils.LoggerExt
-  nameWithType: LoggerExt
-- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger,System.String,ValueTuple{System.String,System.Object}[])
-  name: BeginNamedScope(ILogger, String, ValueTuple<String, Object>[])
-  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginNamedScope_ILogger_System_String_ValueTuple_System_String_System_Object____
-  commentId: M:ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger,System.String,ValueTuple{System.String,System.Object}[])
-  name.vb: BeginNamedScope(ILogger, String, ValueTuple(Of String, Object)())
-  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger, System.String, ValueTuple<System.String, System.Object>[])
-  fullName.vb: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope(ILogger, System.String, ValueTuple(Of System.String, System.Object)())
-  nameWithType: LoggerExt.BeginNamedScope(ILogger, String, ValueTuple<String, Object>[])
-  nameWithType.vb: LoggerExt.BeginNamedScope(ILogger, String, ValueTuple(Of String, Object)())
-- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope*
-  name: BeginNamedScope
-  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginNamedScope_
-  commentId: Overload:ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope
-  isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginNamedScope
-  nameWithType: LoggerExt.BeginNamedScope
-- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger,ValueTuple{System.String,System.Object}[])
-  name: BeginPropertyScope(ILogger, ValueTuple<String, Object>[])
-  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginPropertyScope_ILogger_ValueTuple_System_String_System_Object____
-  commentId: M:ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger,ValueTuple{System.String,System.Object}[])
-  name.vb: BeginPropertyScope(ILogger, ValueTuple(Of String, Object)())
-  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger, ValueTuple<System.String, System.Object>[])
-  fullName.vb: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope(ILogger, ValueTuple(Of System.String, System.Object)())
-  nameWithType: LoggerExt.BeginPropertyScope(ILogger, ValueTuple<String, Object>[])
-  nameWithType.vb: LoggerExt.BeginPropertyScope(ILogger, ValueTuple(Of String, Object)())
-- uid: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope*
-  name: BeginPropertyScope
-  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_BeginPropertyScope_
-  commentId: Overload:ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope
-  isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.BeginPropertyScope
-  nameWithType: LoggerExt.BeginPropertyScope
-- uid: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction(ILogger,System.String,LogLevel,System.String,System.String,System.Int32)
-  name: LogFunction(ILogger, String, LogLevel, String, String, Int32)
-  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_LogFunction_ILogger_System_String_LogLevel_System_String_System_String_System_Int32_
-  commentId: M:ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction(ILogger,System.String,LogLevel,System.String,System.String,System.Int32)
-  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction(ILogger, System.String, LogLevel, System.String, System.String, System.Int32)
-  nameWithType: LoggerExt.LogFunction(ILogger, String, LogLevel, String, String, Int32)
-- uid: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction*
-  name: LogFunction
-  href: api/ArmoniK.Api.Worker.Utils.LoggerExt.html#ArmoniK_Api_Worker_Utils_LoggerExt_LogFunction_
-  commentId: Overload:ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction
-  isSpec: "True"
-  fullName: ArmoniK.Api.Worker.Utils.LoggerExt.LogFunction
-  nameWithType: LoggerExt.LogFunction
 - uid: ArmoniK.Api.Worker.Utils.WorkerServer
   name: WorkerServer
   href: api/ArmoniK.Api.Worker.Utils.WorkerServer.html
@@ -897,11 +909,11 @@ references:
   commentId: T:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper
   fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper
   nameWithType: WorkerStreamWrapper
-- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+- uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor(ILoggerFactory,ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider)
   name: WorkerStreamWrapper(ILoggerFactory, GrpcChannelProvider)
-  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper__ctor_ILoggerFactory_ArmoniK_Api_Worker_Utils_GrpcChannelProvider_
-  commentId: M:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor(ILoggerFactory,ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
-  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.WorkerStreamWrapper(ILoggerFactory, ArmoniK.Api.Worker.Utils.GrpcChannelProvider)
+  href: api/ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.html#ArmoniK_Api_Worker_Worker_WorkerStreamWrapper__ctor_ILoggerFactory_ArmoniK_Api_Common_Channel_Utils_GrpcChannelProvider_
+  commentId: M:ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor(ILoggerFactory,ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider)
+  fullName: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.WorkerStreamWrapper(ILoggerFactory, ArmoniK.Api.Common.Channel.Utils.GrpcChannelProvider)
   nameWithType: WorkerStreamWrapper.WorkerStreamWrapper(ILoggerFactory, GrpcChannelProvider)
 - uid: ArmoniK.Api.Worker.Worker.WorkerStreamWrapper.#ctor*
   name: WorkerStreamWrapper

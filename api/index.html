@@ -72,28 +72,22 @@
 <p><a name="top"></a></p>
 <h2 id="table-of-contents">Table of Contents</h2>
 <ul>
+<li><p><a href="#agent_common-proto">agent_common.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-agent-CreateTaskReply">CreateTaskReply</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-CreateTaskRequest">CreateTaskRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-CreateTaskRequest-InitRequest">CreateTaskRequest.InitRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-DataReply">DataReply</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-DataReply-Init">DataReply.Init</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-DataRequest">DataRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-Result">Result</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-ResultReply">ResultReply</a></li>
+</ul>
+</li>
 <li><p><a href="#agent_service-proto">agent_service.proto</a></p>
 <ul>
-<li><p><a href="#armonik-api-grpc-v1-agent-CreateTaskReply">CreateTaskReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-CreateTaskRequest">CreateTaskRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-CreateTaskRequest-InitRequest">CreateTaskRequest.InitRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-DataReply">DataReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-DataReply-Init">DataReply.Init</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-DataRequest">DataRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-Result">Result</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-ResultReply">ResultReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-agent-Agent">Agent</a></p>
-</li>
+<li><a href="#armonik-api-grpc-v1-agent-Agent">Agent</a></li>
 </ul>
 </li>
 <li><p><a href="#objects-proto">objects.proto</a></p>
@@ -108,6 +102,7 @@
 <li><a href="#armonik-api-grpc-v1-Output">Output</a></li>
 <li><a href="#armonik-api-grpc-v1-Output-Error">Output.Error</a></li>
 <li><a href="#armonik-api-grpc-v1-ResultRequest">ResultRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-Session">Session</a></li>
 <li><a href="#armonik-api-grpc-v1-StatusCount">StatusCount</a></li>
 <li><a href="#armonik-api-grpc-v1-TaskError">TaskError</a></li>
 <li><a href="#armonik-api-grpc-v1-TaskId">TaskId</a></li>
@@ -130,7 +125,7 @@
 <li><a href="#armonik-api-grpc-v1-session_status-SessionStatus">SessionStatus</a></li>
 </ul>
 </li>
-<li><p><a href="#sessions_service-proto">sessions_service.proto</a></p>
+<li><p><a href="#sessions_common-proto">sessions_common.proto</a></p>
 <ul>
 <li><p><a href="#armonik-api-grpc-v1-sessions-CancelSessionRequest">CancelSessionRequest</a></p>
 </li>
@@ -156,66 +151,45 @@
 </li>
 <li><p><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderDirection">ListSessionsRequest.OrderDirection</a></p>
 </li>
-<li><p><a href="#armonik-api-grpc-v1-sessions-Sessions">Sessions</a></p>
+</ul>
 </li>
+<li><p><a href="#sessions_service-proto">sessions_service.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-sessions-Sessions">Sessions</a></li>
+</ul>
+</li>
+<li><p><a href="#submitter_common-proto">submitter_common.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-submitter-AvailabilityReply">AvailabilityReply</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateLargeTaskRequest">CreateLargeTaskRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateLargeTaskRequest-InitRequest">CreateLargeTaskRequest.InitRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateSessionReply">CreateSessionReply</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateSessionRequest">CreateSessionRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateSmallTaskRequest">CreateSmallTaskRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply">CreateTaskReply</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-GetResultStatusReply">GetResultStatusReply</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-GetResultStatusReply-IdStatus">GetResultStatusReply.IdStatus</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-GetResultStatusRequest">GetResultStatusRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-GetTaskStatusReply">GetTaskStatusReply</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-GetTaskStatusReply-IdStatus">GetTaskStatusReply.IdStatus</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-GetTaskStatusRequest">GetTaskStatusRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-ResultReply">ResultReply</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-SessionFilter">SessionFilter</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-SessionIdList">SessionIdList</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-SessionList">SessionList</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-TaskFilter">TaskFilter</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-WaitRequest">WaitRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-WatchResultRequest">WatchResultRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-WatchResultStream">WatchResultStream</a></li>
 </ul>
 </li>
 <li><p><a href="#submitter_service-proto">submitter_service.proto</a></p>
 <ul>
-<li><p><a href="#armonik-api-grpc-v1-submitter-AvailabilityReply">AvailabilityReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-CreateLargeTaskRequest">CreateLargeTaskRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-CreateLargeTaskRequest-InitRequest">CreateLargeTaskRequest.InitRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-CreateSessionReply">CreateSessionReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-CreateSessionRequest">CreateSessionRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-CreateSmallTaskRequest">CreateSmallTaskRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply">CreateTaskReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-GetResultStatusReply">GetResultStatusReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-GetResultStatusReply-IdStatus">GetResultStatusReply.IdStatus</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-GetResultStatusRequest">GetResultStatusRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-GetTaskStatusReply">GetTaskStatusReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-GetTaskStatusReply-IdStatus">GetTaskStatusReply.IdStatus</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-GetTaskStatusRequest">GetTaskStatusRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-ResultReply">ResultReply</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-Session">Session</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-SessionFilter">SessionFilter</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-SessionFilter-StatusesRequest">SessionFilter.StatusesRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-SessionIdList">SessionIdList</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-SessionList">SessionList</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-TaskFilter">TaskFilter</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-TaskFilter-IdsRequest">TaskFilter.IdsRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-TaskFilter-StatusesRequest">TaskFilter.StatusesRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-WaitRequest">WaitRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-WatchResultRequest">WatchResultRequest</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-WatchResultStream">WatchResultStream</a></p>
-</li>
-<li><p><a href="#armonik-api-grpc-v1-submitter-Submitter">Submitter</a></p>
-</li>
+<li><a href="#armonik-api-grpc-v1-submitter-Submitter">Submitter</a></li>
 </ul>
 </li>
 <li><p><a href="#task_status-proto">task_status.proto</a></p>
@@ -223,7 +197,7 @@
 <li><a href="#armonik-api-grpc-v1-task_status-TaskStatus">TaskStatus</a></li>
 </ul>
 </li>
-<li><p><a href="#tasks_service-proto">tasks_service.proto</a></p>
+<li><p><a href="#tasks_common-proto">tasks_common.proto</a></p>
 <ul>
 <li><p><a href="#armonik-api-grpc-v1-tasks-GetTaskRequest">GetTaskRequest</a></p>
 </li>
@@ -247,11 +221,14 @@
 </li>
 <li><p><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderDirection">ListTasksRequest.OrderDirection</a></p>
 </li>
-<li><p><a href="#armonik-api-grpc-v1-tasks-Tasks">Tasks</a></p>
-</li>
 </ul>
 </li>
-<li><p><a href="#worker_service-proto">worker_service.proto</a></p>
+<li><p><a href="#tasks_service-proto">tasks_service.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-tasks-Tasks">Tasks</a></li>
+</ul>
+</li>
+<li><p><a href="#worker_common-proto">worker_common.proto</a></p>
 <ul>
 <li><p><a href="#armonik-api-grpc-v1-worker-HealthCheckReply">HealthCheckReply</a></p>
 </li>
@@ -267,16 +244,19 @@
 </li>
 <li><p><a href="#armonik-api-grpc-v1-worker-HealthCheckReply-ServingStatus">HealthCheckReply.ServingStatus</a></p>
 </li>
-<li><p><a href="#armonik-api-grpc-v1-worker-Worker">Worker</a></p>
+</ul>
 </li>
+<li><p><a href="#worker_service-proto">worker_service.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-worker-Worker">Worker</a></li>
 </ul>
 </li>
 <li><p><a href="#scalar-value-types">Scalar Value Types</a></p>
 </li>
 </ul>
-<p><a name="agent_service-proto"></a></p>
+<p><a name="agent_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
-<h2 id="agent_serviceproto">agent_service.proto</h2>
+<h2 id="agent_commonproto">agent_common.proto</h2>
 <p><a name="armonik-api-grpc-v1-agent-CreateTaskReply"></a></p>
 <h3 id="createtaskreply">CreateTaskReply</h3>
 <table>
@@ -553,6 +533,9 @@
 </tr>
 </tbody>
 </table>
+<p><a name="agent_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="agent_serviceproto">agent_service.proto</h2>
 <p><a name="armonik-api-grpc-v1-agent-Agent"></a></p>
 <h3 id="agent">Agent</h3>
 <table>
@@ -812,6 +795,26 @@
 </tr>
 <tr>
 <td>key</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-Session"></a></p>
+<h3 id="session">Session</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
 <td><a href="#string">string</a></td>
 <td></td>
 <td></td>
@@ -1186,9 +1189,9 @@
 </tr>
 </tbody>
 </table>
-<p><a name="sessions_service-proto"></a></p>
+<p><a name="sessions_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
-<h2 id="sessions_serviceproto">sessions_service.proto</h2>
+<h2 id="sessions_commonproto">sessions_common.proto</h2>
 <p><a name="armonik-api-grpc-v1-sessions-CancelSessionRequest"></a></p>
 <h3 id="cancelsessionrequest">CancelSessionRequest</h3>
 <p>Request for cancelling a session</p>
@@ -1599,6 +1602,9 @@
 </tr>
 </tbody>
 </table>
+<p><a name="sessions_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="sessions_serviceproto">sessions_service.proto</h2>
 <p><a name="armonik-api-grpc-v1-sessions-Sessions"></a></p>
 <h3 id="sessions">Sessions</h3>
 <p>The SessionService provides methods for listing, getting and cancelling sessions</p>
@@ -1632,9 +1638,9 @@
 </tr>
 </tbody>
 </table>
-<p><a name="submitter_service-proto"></a></p>
+<p><a name="submitter_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
-<h2 id="submitter_serviceproto">submitter_service.proto</h2>
+<h2 id="submitter_commonproto">submitter_common.proto</h2>
 <p><a name="armonik-api-grpc-v1-submitter-AvailabilityReply"></a></p>
 <h3 id="availabilityreply">AvailabilityReply</h3>
 <table>
@@ -2031,26 +2037,6 @@
 </tr>
 </tbody>
 </table>
-<p><a name="armonik-api-grpc-v1-submitter-Session"></a></p>
-<h3 id="session">Session</h3>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Label</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>id</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
-</tbody>
-</table>
 <p><a name="armonik-api-grpc-v1-submitter-SessionFilter"></a></p>
 <h3 id="sessionfilter">SessionFilter</h3>
 <table>
@@ -2137,7 +2123,7 @@
 <tbody>
 <tr>
 <td>sessions</td>
-<td><a href="#armonik-api-grpc-v1-submitter-Session">Session</a></td>
+<td><a href="#armonik-api-grpc-v1-Session">armonik.api.grpc.v1.Session</a></td>
 <td>repeated</td>
 <td></td>
 </tr>
@@ -2320,6 +2306,9 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 </tbody>
 </table>
+<p><a name="submitter_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="submitter_serviceproto">submitter_service.proto</h2>
 <p><a name="armonik-api-grpc-v1-submitter-Submitter"></a></p>
 <h3 id="submitter">Submitter</h3>
 <table>
@@ -2346,7 +2335,7 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 <tr>
 <td>CancelSession</td>
-<td><a href="#armonik-api-grpc-v1-submitter-Session">Session</a></td>
+<td><a href="#armonik-api-grpc-v1-Session">.armonik.api.grpc.v1.Session</a></td>
 <td><a href="#armonik-api-grpc-v1-Empty">.armonik.api.grpc.v1.Empty</a></td>
 <td></td>
 </tr>
@@ -2506,9 +2495,9 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 </tbody>
 </table>
-<p><a name="tasks_service-proto"></a></p>
+<p><a name="tasks_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
-<h2 id="tasks_serviceproto">tasks_service.proto</h2>
+<h2 id="tasks_commonproto">tasks_common.proto</h2>
 <p><a name="armonik-api-grpc-v1-tasks-GetTaskRequest"></a></p>
 <h3 id="gettaskrequest">GetTaskRequest</h3>
 <p>Request for getting a task</p>
@@ -2991,6 +2980,9 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 </tbody>
 </table>
+<p><a name="tasks_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="tasks_serviceproto">tasks_service.proto</h2>
 <p><a name="armonik-api-grpc-v1-tasks-Tasks"></a></p>
 <h3 id="tasks">Tasks</h3>
 <p>The TaskService provides methods for listing and getting tasks.</p>
@@ -3018,9 +3010,9 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 </tbody>
 </table>
-<p><a name="worker_service-proto"></a></p>
+<p><a name="worker_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
-<h2 id="worker_serviceproto">worker_service.proto</h2>
+<h2 id="worker_commonproto">worker_common.proto</h2>
 <p><a name="armonik-api-grpc-v1-worker-HealthCheckReply"></a></p>
 <h3 id="healthcheckreply">HealthCheckReply</h3>
 <table>
@@ -3235,6 +3227,9 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 </tbody>
 </table>
+<p><a name="worker_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="worker_serviceproto">worker_service.proto</h2>
 <p><a name="armonik-api-grpc-v1-worker-Worker"></a></p>
 <h3 id="worker">Worker</h3>
 <table>
