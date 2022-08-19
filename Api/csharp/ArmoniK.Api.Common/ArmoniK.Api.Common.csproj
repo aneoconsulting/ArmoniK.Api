@@ -43,6 +43,26 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\agent_common.proto" Link="agent_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\sessions_common.proto" Link="sessions_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\submitter_common.proto" Link="submitter_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\tasks_common.proto" Link="tasks_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\worker_common.proto" Link="worker_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
   </ItemGroup>
 
 </Project>
