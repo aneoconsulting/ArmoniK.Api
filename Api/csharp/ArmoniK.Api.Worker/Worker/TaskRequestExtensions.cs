@@ -111,7 +111,6 @@ public static class TaskRequestExtensions
                                            {
                                              taskRequest.ExpectedOutputKeys,
                                            },
-                                           Id = taskRequest.Id,
                                          },
                               },
                  };

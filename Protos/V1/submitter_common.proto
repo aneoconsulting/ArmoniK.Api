@@ -18,15 +18,14 @@ message SessionIdList {
 }
 
 message CreateSessionRequest {
-	string id = 1;
-	TaskOptions default_task_option = 3;
+	TaskOptions default_task_option = 1;
 	// List of partitions allowed during the session
-	repeated string partition_ids = 4;
+	repeated string partition_ids = 2;
 }
 
 message CreateSessionReply {
 	oneof result {
-		Empty ok = 1;
+		string session_id = 1;
 		string error = 2;
 	}
 }
@@ -51,12 +50,20 @@ message CreateLargeTaskRequest {
 }
 
 message CreateTaskReply{
-	message TaskIds{
-		repeated string ids = 1;
+	message CreationStatus {
+		oneof Status {
+			string task_id = 1;
+			string error = 2;
+		}
 	}
-	oneof Data{
-		Empty successfull = 1;
-		TaskIds non_successfull_ids = 2;
+
+	message CreationStatusList {
+		repeated CreationStatus creation_statuses = 1;
+	}
+
+	oneof Response {
+		CreationStatusList creation_status_list = 1;
+		string error = 2;
 	}
 }
 
