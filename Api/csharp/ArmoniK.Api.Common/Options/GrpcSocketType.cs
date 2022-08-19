@@ -21,28 +21,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
+namespace ArmoniK.Api.Common.Options;
 
-namespace ArmoniK.Api.Worker.Utils;
-
-internal static class Disposable
+/// <summary>
+/// Type of connection used between Worker and Agent
+/// </summary>
+public enum GrpcSocketType
 {
-  public static IDisposable Create(Action action)
-    => new DisposableImpl(action);
+  /// <summary>
+  /// Tcp Connection
+  /// </summary>
+  Tcp,
 
-  private sealed class DisposableImpl : IDisposable
-  {
-    private readonly Action action_;
-
-    public DisposableImpl(Action action)
-      => action_ = action;
-
-    /// <inheritdoc />
-    public void Dispose()
-      => action_();
-  }
-
-  public static IDisposable Empty = Create(() =>
-                                           {
-                                           });
+  /// <summary>
+  /// Unix socket connection
+  /// </summary>
+  UnixDomainSocket,
 }

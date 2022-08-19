@@ -34,6 +34,9 @@ jobs:
       fail-fast: true
       matrix:
         package:
+          - Api/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
+          - Api/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
+          - Api/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
           - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
           - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:

@@ -26,13 +26,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
+using JetBrains.Annotations;
+
 using Microsoft.Extensions.Logging;
 
-namespace ArmoniK.Api.Worker.Utils;
+namespace ArmoniK.Api.Common.Utils;
 
 /// <summary>
 /// Convenience methods for logging
 /// </summary>
+[PublicAPI]
 public static class LoggerExt
 {
   /// <summary>

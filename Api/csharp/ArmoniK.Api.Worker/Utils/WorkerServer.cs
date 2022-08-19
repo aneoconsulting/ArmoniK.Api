@@ -24,7 +24,8 @@
 using System;
 using System.IO;
 
-using ArmoniK.Api.Worker.Options;
+using ArmoniK.Api.Common.Channel.Utils;
+using ArmoniK.Api.Common.Options;
 
 using JetBrains.Annotations;
 
@@ -108,6 +109,7 @@ public static class WorkerServer
              .AddSingleton<GrpcChannelProvider>()
              .AddSingleton(computePlanOptions.AgentChannel)
              .AddLogging()
+             .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
 
 
