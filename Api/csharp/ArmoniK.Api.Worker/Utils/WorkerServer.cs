@@ -109,6 +109,7 @@ public static class WorkerServer
              .AddSingleton<GrpcChannelProvider>()
              .AddSingleton(computePlanOptions.AgentChannel)
              .AddLogging()
+             .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
 
 
