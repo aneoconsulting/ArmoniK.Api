@@ -20,9 +20,15 @@ message CreateTaskRequest {
 }
 
 message CreateTaskReply{
+	message TaskInfo {
+		string task_id = 1;
+		repeated string expected_output_keys = 2;
+		repeated string data_dependencies = 3;
+	}
+
 	message CreationStatus {
 		oneof Status {
-			string task_id = 1;
+			TaskInfo task_info = 1;
 			string error = 2;
 		}
 	}
