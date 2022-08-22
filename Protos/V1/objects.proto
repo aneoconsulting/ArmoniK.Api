@@ -93,7 +93,12 @@ message Count {
 
 message ResultRequest {
 	string session = 1;
-	string key = 2;
+	string result_id = 2;
+}
+
+message TaskOutputRequest {
+	string session = 1;
+	string task_id = 2;
 }
 
 message Error {
