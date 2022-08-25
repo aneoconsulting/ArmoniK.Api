@@ -75,7 +75,9 @@
 <li><p><a href="#agent_common-proto">agent_common.proto</a></p>
 <ul>
 <li><a href="#armonik-api-grpc-v1-agent-CreateTaskReply">CreateTaskReply</a></li>
-<li><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-CreationStatus">CreateTaskReply.CreationStatus</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-CreationStatusList">CreateTaskReply.CreationStatusList</a></li>
+<li><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-TaskInfo">CreateTaskReply.TaskInfo</a></li>
 <li><a href="#armonik-api-grpc-v1-agent-CreateTaskRequest">CreateTaskRequest</a></li>
 <li><a href="#armonik-api-grpc-v1-agent-CreateTaskRequest-InitRequest">CreateTaskRequest.InitRequest</a></li>
 <li><a href="#armonik-api-grpc-v1-agent-DataReply">DataReply</a></li>
@@ -111,6 +113,7 @@
 <li><a href="#armonik-api-grpc-v1-TaskList">TaskList</a></li>
 <li><a href="#armonik-api-grpc-v1-TaskOptions">TaskOptions</a></li>
 <li><a href="#armonik-api-grpc-v1-TaskOptions-OptionsEntry">TaskOptions.OptionsEntry</a></li>
+<li><a href="#armonik-api-grpc-v1-TaskOutputRequest">TaskOutputRequest</a></li>
 <li><a href="#armonik-api-grpc-v1-TaskRequest">TaskRequest</a></li>
 <li><a href="#armonik-api-grpc-v1-TaskRequestHeader">TaskRequestHeader</a></li>
 </ul>
@@ -167,7 +170,9 @@
 <li><a href="#armonik-api-grpc-v1-submitter-CreateSessionRequest">CreateSessionRequest</a></li>
 <li><a href="#armonik-api-grpc-v1-submitter-CreateSmallTaskRequest">CreateSmallTaskRequest</a></li>
 <li><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply">CreateTaskReply</a></li>
-<li><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-CreationStatus">CreateTaskReply.CreationStatus</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-CreationStatusList">CreateTaskReply.CreationStatusList</a></li>
+<li><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-TaskInfo">CreateTaskReply.TaskInfo</a></li>
 <li><a href="#armonik-api-grpc-v1-submitter-GetResultStatusReply">GetResultStatusReply</a></li>
 <li><a href="#armonik-api-grpc-v1-submitter-GetResultStatusReply-IdStatus">GetResultStatusReply.IdStatus</a></li>
 <li><a href="#armonik-api-grpc-v1-submitter-GetResultStatusRequest">GetResultStatusRequest</a></li>
@@ -270,14 +275,8 @@
 </thead>
 <tbody>
 <tr>
-<td>successfull</td>
-<td><a href="#armonik-api-grpc-v1-Empty">armonik.api.grpc.v1.Empty</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>non_successfull_ids</td>
-<td><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></td>
+<td>creation_status_list</td>
+<td><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-CreationStatusList">CreateTaskReply.CreationStatusList</a></td>
 <td></td>
 <td></td>
 </tr>
@@ -295,8 +294,8 @@
 </tr>
 </tbody>
 </table>
-<p><a name="armonik-api-grpc-v1-agent-CreateTaskReply-TaskIds"></a></p>
-<h3 id="createtaskreplytaskids">CreateTaskReply.TaskIds</h3>
+<p><a name="armonik-api-grpc-v1-agent-CreateTaskReply-CreationStatus"></a></p>
+<h3 id="createtaskreplycreationstatus">CreateTaskReply.CreationStatus</h3>
 <table>
 <thead>
 <tr>
@@ -308,7 +307,65 @@
 </thead>
 <tbody>
 <tr>
-<td>ids</td>
+<td>task_info</td>
+<td><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-TaskInfo">CreateTaskReply.TaskInfo</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>error</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-agent-CreateTaskReply-CreationStatusList"></a></p>
+<h3 id="createtaskreplycreationstatuslist">CreateTaskReply.CreationStatusList</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>creation_statuses</td>
+<td><a href="#armonik-api-grpc-v1-agent-CreateTaskReply-CreationStatus">CreateTaskReply.CreationStatus</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-agent-CreateTaskReply-TaskInfo"></a></p>
+<h3 id="createtaskreplytaskinfo">CreateTaskReply.TaskInfo</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>expected_output_keys</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>data_dependencies</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
 <td></td>
@@ -794,7 +851,7 @@
 <td></td>
 </tr>
 <tr>
-<td>key</td>
+<td>result_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
 <td></td>
@@ -1047,6 +1104,32 @@
 </tr>
 </tbody>
 </table>
+<p><a name="armonik-api-grpc-v1-TaskOutputRequest"></a></p>
+<h3 id="taskoutputrequest">TaskOutputRequest</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
 <p><a name="armonik-api-grpc-v1-TaskRequest"></a></p>
 <h3 id="taskrequest">TaskRequest</h3>
 <table>
@@ -1059,12 +1142,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>id</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
 <tr>
 <td>expected_output_keys</td>
 <td><a href="#string">string</a></td>
@@ -1097,12 +1174,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>id</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
 <tr>
 <td>expected_output_keys</td>
 <td><a href="#string">string</a></td>
@@ -1733,6 +1804,9 @@
 </table>
 <p><a name="armonik-api-grpc-v1-submitter-CreateSessionReply"></a></p>
 <h3 id="createsessionreply">CreateSessionReply</h3>
+<p>Reply after session creation.
+We have this reply in case of success.
+When the session creation is not successful, there is an rpc exception.</p>
 <table>
 <thead>
 <tr>
@@ -1744,16 +1818,10 @@
 </thead>
 <tbody>
 <tr>
-<td>ok</td>
-<td><a href="#armonik-api-grpc-v1-Empty">armonik.api.grpc.v1.Empty</a></td>
-<td></td>
-<td></td>
-</tr>
-<tr>
-<td>error</td>
+<td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>Session id of the created session if successful</td>
 </tr>
 </tbody>
 </table>
@@ -1769,12 +1837,6 @@
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>id</td>
-<td><a href="#string">string</a></td>
-<td></td>
-<td></td>
-</tr>
 <tr>
 <td>default_task_option</td>
 <td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
@@ -1834,21 +1896,21 @@
 </thead>
 <tbody>
 <tr>
-<td>successfull</td>
-<td><a href="#armonik-api-grpc-v1-Empty">armonik.api.grpc.v1.Empty</a></td>
+<td>creation_status_list</td>
+<td><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-CreationStatusList">CreateTaskReply.CreationStatusList</a></td>
 <td></td>
 <td></td>
 </tr>
 <tr>
-<td>non_successfull_ids</td>
-<td><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-TaskIds">CreateTaskReply.TaskIds</a></td>
+<td>error</td>
+<td><a href="#string">string</a></td>
 <td></td>
 <td></td>
 </tr>
 </tbody>
 </table>
-<p><a name="armonik-api-grpc-v1-submitter-CreateTaskReply-TaskIds"></a></p>
-<h3 id="createtaskreplytaskids-1">CreateTaskReply.TaskIds</h3>
+<p><a name="armonik-api-grpc-v1-submitter-CreateTaskReply-CreationStatus"></a></p>
+<h3 id="createtaskreplycreationstatus-1">CreateTaskReply.CreationStatus</h3>
 <table>
 <thead>
 <tr>
@@ -1860,7 +1922,65 @@
 </thead>
 <tbody>
 <tr>
-<td>ids</td>
+<td>task_info</td>
+<td><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-TaskInfo">CreateTaskReply.TaskInfo</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>error</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-submitter-CreateTaskReply-CreationStatusList"></a></p>
+<h3 id="createtaskreplycreationstatuslist-1">CreateTaskReply.CreationStatusList</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>creation_statuses</td>
+<td><a href="#armonik-api-grpc-v1-submitter-CreateTaskReply-CreationStatus">CreateTaskReply.CreationStatus</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-submitter-CreateTaskReply-TaskInfo"></a></p>
+<h3 id="createtaskreplytaskinfo-1">CreateTaskReply.TaskInfo</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>expected_output_keys</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>data_dependencies</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
 <td></td>
@@ -2377,7 +2497,7 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </tr>
 <tr>
 <td>TryGetTaskOutput</td>
-<td><a href="#armonik-api-grpc-v1-ResultRequest">.armonik.api.grpc.v1.ResultRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-TaskOutputRequest">.armonik.api.grpc.v1.TaskOutputRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-Output">.armonik.api.grpc.v1.Output</a></td>
 <td></td>
 </tr>
@@ -2454,16 +2574,6 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td></td>
 </tr>
 <tr>
-<td>TASK_STATUS_PROCESSING</td>
-<td>10</td>
-<td></td>
-</tr>
-<tr>
-<td>TASK_STATUS_PROCESSED</td>
-<td>11</td>
-<td></td>
-</tr>
-<tr>
 <td>TASK_STATUS_COMPLETED</td>
 <td>4</td>
 <td></td>
@@ -2474,23 +2584,28 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td></td>
 </tr>
 <tr>
-<td>TASK_STATUS_FAILED</td>
+<td>TASK_STATUS_TIMEOUT</td>
 <td>6</td>
 <td></td>
 </tr>
 <tr>
-<td>TASK_STATUS_TIMEOUT</td>
+<td>TASK_STATUS_CANCELING</td>
 <td>7</td>
 <td></td>
 </tr>
 <tr>
-<td>TASK_STATUS_CANCELING</td>
+<td>TASK_STATUS_CANCELED</td>
 <td>8</td>
 <td></td>
 </tr>
 <tr>
-<td>TASK_STATUS_CANCELED</td>
+<td>TASK_STATUS_PROCESSING</td>
 <td>9</td>
+<td></td>
+</tr>
+<tr>
+<td>TASK_STATUS_PROCESSED</td>
+<td>10</td>
 <td></td>
 </tr>
 </tbody>

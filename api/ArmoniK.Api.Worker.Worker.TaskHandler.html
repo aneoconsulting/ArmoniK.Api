@@ -347,7 +347,7 @@
     <a href="https://github.com/aneoconsulting/ArmoniK.Api/new/main/apiSpec/new?filename=ArmoniK_Api_Worker_Worker_TaskHandler_Create_IAsyncStreamReader_ProcessRequest__Agent_AgentClient_ILoggerFactory_CancellationToken_.md&amp;value=---%0Auid%3A%20ArmoniK.Api.Worker.Worker.TaskHandler.Create(IAsyncStreamReader%7BProcessRequest%7D%2CAgent.AgentClient%2CILoggerFactory%2CCancellationToken)%0Asummary%3A%20'*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax'%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">Improve this Doc</a>
   </span>
   <span class="small pull-right mobile-hide">
-    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L210">View Source</a>
+    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L206">View Source</a>
   </span>
   <a id="ArmoniK_Api_Worker_Worker_TaskHandler_Create_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.Create*"></a>
   <h4 id="ArmoniK_Api_Worker_Worker_TaskHandler_Create_IAsyncStreamReader_ProcessRequest__Agent_AgentClient_ILoggerFactory_CancellationToken_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.Create(IAsyncStreamReader{ProcessRequest},Agent.AgentClient,ILoggerFactory,CancellationToken)">Create(IAsyncStreamReader&lt;ProcessRequest&gt;, Agent.AgentClient, ILoggerFactory, CancellationToken)</h4>
@@ -418,7 +418,7 @@
   <div class="markdown level1 conceptual"></div>
   <h5 class="decalaration">Declaration</h5>
   <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">public async Task CreateTasksAsync(IEnumerable&lt;TaskRequest&gt; tasks, TaskOptions? taskOptions = null)</code></pre>
+    <pre><code class="lang-csharp hljs">public async Task&lt;CreateTaskReply&gt; CreateTasksAsync(IEnumerable&lt;TaskRequest&gt; tasks, TaskOptions? taskOptions = null)</code></pre>
   </div>
   <h5 class="parameters">Parameters</h5>
   <table class="table table-bordered table-striped table-condensed">
@@ -454,7 +454,7 @@
     </thead>
     <tbody>
       <tr>
-        <td><span class="xref">Task</span></td>
+        <td><span class="xref">Task</span>&lt;<span class="xref">CreateTaskReply</span>&gt;</td>
         <td></td>
       </tr>
     </tbody>
@@ -464,7 +464,7 @@
     <a href="https://github.com/aneoconsulting/ArmoniK.Api/new/main/apiSpec/new?filename=ArmoniK_Api_Worker_Worker_TaskHandler_DisposeAsync.md&amp;value=---%0Auid%3A%20ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync%0Asummary%3A%20'*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax'%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">Improve this Doc</a>
   </span>
   <span class="small pull-right mobile-hide">
-    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L371">View Source</a>
+    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L367">View Source</a>
   </span>
   <a id="ArmoniK_Api_Worker_Worker_TaskHandler_DisposeAsync_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync*"></a>
   <h4 id="ArmoniK_Api_Worker_Worker_TaskHandler_DisposeAsync" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.DisposeAsync">DisposeAsync()</h4>
@@ -494,7 +494,7 @@
     <a href="https://github.com/aneoconsulting/ArmoniK.Api/new/main/apiSpec/new?filename=ArmoniK_Api_Worker_Worker_TaskHandler_RequestCommonData_System_String_.md&amp;value=---%0Auid%3A%20ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData(System.String)%0Asummary%3A%20'*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax'%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">Improve this Doc</a>
   </span>
   <span class="small pull-right mobile-hide">
-    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L135">View Source</a>
+    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L131">View Source</a>
   </span>
   <a id="ArmoniK_Api_Worker_Worker_TaskHandler_RequestCommonData_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData*"></a>
   <h4 id="ArmoniK_Api_Worker_Worker_TaskHandler_RequestCommonData_System_String_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.RequestCommonData(System.String)">RequestCommonData(String)</h4>
@@ -544,7 +544,7 @@ This method is used to retrieve data provided when creating the session.</p>
     <a href="https://github.com/aneoconsulting/ArmoniK.Api/new/main/apiSpec/new?filename=ArmoniK_Api_Worker_Worker_TaskHandler_RequestDirectData_System_String_.md&amp;value=---%0Auid%3A%20ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData(System.String)%0Asummary%3A%20'*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax'%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">Improve this Doc</a>
   </span>
   <span class="small pull-right mobile-hide">
-    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L139">View Source</a>
+    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L135">View Source</a>
   </span>
   <a id="ArmoniK_Api_Worker_Worker_TaskHandler_RequestDirectData_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData*"></a>
   <h4 id="ArmoniK_Api_Worker_Worker_TaskHandler_RequestDirectData_System_String_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.RequestDirectData(System.String)">RequestDirectData(String)</h4>
@@ -593,7 +593,7 @@ This method is used to retrieve data directly from the submission client.</p>
     <a href="https://github.com/aneoconsulting/ArmoniK.Api/new/main/apiSpec/new?filename=ArmoniK_Api_Worker_Worker_TaskHandler_RequestResource_System_String_.md&amp;value=---%0Auid%3A%20ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource(System.String)%0Asummary%3A%20'*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax'%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">Improve this Doc</a>
   </span>
   <span class="small pull-right mobile-hide">
-    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L131">View Source</a>
+    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L127">View Source</a>
   </span>
   <a id="ArmoniK_Api_Worker_Worker_TaskHandler_RequestResource_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource*"></a>
   <h4 id="ArmoniK_Api_Worker_Worker_TaskHandler_RequestResource_System_String_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.RequestResource(System.String)">RequestResource(String)</h4>
@@ -643,7 +643,7 @@ This method is used to retrieve data available system-wide.</p>
     <a href="https://github.com/aneoconsulting/ArmoniK.Api/new/main/apiSpec/new?filename=ArmoniK_Api_Worker_Worker_TaskHandler_SendResult_System_String_System_Byte___.md&amp;value=---%0Auid%3A%20ArmoniK.Api.Worker.Worker.TaskHandler.SendResult(System.String%2CSystem.Byte%5B%5D)%0Asummary%3A%20'*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax'%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">Improve this Doc</a>
   </span>
   <span class="small pull-right mobile-hide">
-    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L143">View Source</a>
+    <a href="https://github.com/aneoconsulting/ArmoniK.Api/blob/main/Api/csharp/ArmoniK.Api.Worker/Worker/TaskHandler.cs/#L139">View Source</a>
   </span>
   <a id="ArmoniK_Api_Worker_Worker_TaskHandler_SendResult_" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.SendResult*"></a>
   <h4 id="ArmoniK_Api_Worker_Worker_TaskHandler_SendResult_System_String_System_Byte___" data-uid="ArmoniK.Api.Worker.Worker.TaskHandler.SendResult(System.String,System.Byte[])">SendResult(String, Byte[])</h4>
