@@ -20,13 +20,26 @@ message CreateTaskRequest {
 }
 
 message CreateTaskReply{
-	message TaskIds{
-		repeated string ids = 1;
+	message TaskInfo {
+		string task_id = 1;
+		repeated string expected_output_keys = 2;
+		repeated string data_dependencies = 3;
 	}
-	oneof Data{
-		Empty successfull = 1;
-		TaskIds non_successfull_ids = 2;
-		string error = 3;
+
+	message CreationStatus {
+		oneof Status {
+			TaskInfo task_info = 1;
+			string error = 2;
+		}
+	}
+
+	message CreationStatusList {
+		repeated CreationStatus creation_statuses = 1;
+	}
+
+	oneof Response {
+		CreationStatusList creation_status_list = 1;
+		string error = 2;
 	}
 	string communication_token = 4;
 }

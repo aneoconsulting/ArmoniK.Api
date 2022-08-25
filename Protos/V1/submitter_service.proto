@@ -26,7 +26,7 @@ service Submitter{
 
 	rpc CountTasks (TaskFilter) returns (Count);
 	rpc TryGetResultStream (ResultRequest) returns (stream ResultReply);
-	rpc TryGetTaskOutput (ResultRequest) returns (Output);
+	rpc TryGetTaskOutput (TaskOutputRequest) returns (Output);
 	rpc WaitForAvailability (ResultRequest) returns (AvailabilityReply) {
 		option deprecated = true;
 	}

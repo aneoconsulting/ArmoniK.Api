@@ -170,7 +170,6 @@ namespace ArmoniK.Api.Client.Submitter
                                              {
                                                taskRequest.ExpectedOutputKeys,
                                              },
-                                             Id = taskRequest.Id,
                                            },
                                 },
                    };
