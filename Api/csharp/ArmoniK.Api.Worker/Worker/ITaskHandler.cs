@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.gRPC.V1;
+using ArmoniK.Api.gRPC.V1.Agent;
 
 using JetBrains.Annotations;
 
@@ -75,8 +76,8 @@ public interface ITaskHandler : IAsyncDisposable
   /// <param name="tasks">Lists the tasks to submit</param>
   /// <param name="taskOptions">The task options. If no value is provided, will use the default session options</param>
   /// <returns></returns>
-  Task CreateTasksAsync(IEnumerable<TaskRequest> tasks,
-                        TaskOptions?             taskOptions = null);
+  Task<CreateTaskReply> CreateTasksAsync(IEnumerable<TaskRequest> tasks,
+                                         TaskOptions?             taskOptions = null);
 
   /// <summary>
   ///   NOT IMPLEMENTED

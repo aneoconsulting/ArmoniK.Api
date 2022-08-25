@@ -40,10 +40,9 @@ message Output {
 }
 
 message TaskRequest {
-	string id = 1;
-	repeated string expected_output_keys = 2;
-	repeated string data_dependencies = 3;
-	bytes payload = 4;
+	repeated string expected_output_keys = 1;
+	repeated string data_dependencies = 2;
+	bytes payload = 3;
 }
 
 
@@ -62,9 +61,8 @@ message DataChunk {
 }
 
 message TaskRequestHeader {
-	string id = 1;
-	repeated string expected_output_keys = 3;
-	repeated string data_dependencies = 4;
+	repeated string expected_output_keys = 1;
+	repeated string data_dependencies = 2;
 }
 
 message InitTaskRequest {
@@ -95,7 +93,12 @@ message Count {
 
 message ResultRequest {
 	string session = 1;
-	string key = 2;
+	string result_id = 2;
+}
+
+message TaskOutputRequest {
+	string session = 1;
+	string task_id = 2;
 }
 
 message Error {

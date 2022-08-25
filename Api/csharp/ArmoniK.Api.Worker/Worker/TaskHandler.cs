@@ -104,8 +104,8 @@ public class TaskHandler : ITaskHandler
   public Configuration? Configuration { get; private set; }
 
   /// <inheritdoc />
-  public async Task CreateTasksAsync(IEnumerable<TaskRequest> tasks,
-                                     TaskOptions?             taskOptions = null)
+  public async Task<CreateTaskReply> CreateTasksAsync(IEnumerable<TaskRequest> tasks,
+                                                      TaskOptions?             taskOptions = null)
   {
     using var stream = client_.CreateTask();
 
@@ -120,11 +120,7 @@ public class TaskHandler : ITaskHandler
     await stream.RequestStream.CompleteAsync()
                 .ConfigureAwait(false);
 
-    var reply = await stream.ResponseAsync.ConfigureAwait(false);
-    if (reply.DataCase == CreateTaskReply.DataOneofCase.NonSuccessfullIds)
-    {
-      throw new AggregateException(reply.NonSuccessfullIds.Ids.Select(s => new InvalidOperationException($"Could not create task it id={s}")));
-    }
+    return await stream.ResponseAsync.ConfigureAwait(false);
   }
 
   /// <inheritdoc />
