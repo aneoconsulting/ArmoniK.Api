@@ -33,6 +33,7 @@ using ArmoniK.Api.Worker.Worker;
 using JetBrains.Annotations;
 
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using NUnit.Framework;
@@ -82,9 +83,18 @@ public class WorkerServerTest
   [Test]
   public Task BuildServerNoArgs()
   {
-    System.Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
+    Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
                                               "/tmp/worker.sock");
     var app = WorkerServer.Create<TestService>();
+    return Task.CompletedTask;
+  }
+
+  [Test]
+  public Task BuildServerAddService()
+  {
+    Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
+                                              "/tmp/worker.sock");
+    var app = WorkerServer.Create<TestService>(serviceConfigurator: collection => collection.AddSingleton("test"));
     return Task.CompletedTask;
   }
 }
