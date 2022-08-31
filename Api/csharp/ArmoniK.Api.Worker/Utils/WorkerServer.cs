@@ -53,10 +53,12 @@ public static class WorkerServer
   /// </summary>
   /// <typeparam name="T">gRPC Service to add to the web application</typeparam>
   /// <param name="configuration">Additional configurations</param>
+  /// <param name="serviceConfigurator">Lambda to configure server services</param>
   /// <returns>
   /// The web application initialized
   /// </returns>
-  public static WebApplication Create<T>(IConfiguration? configuration = null)
+  public static WebApplication Create<T>(IConfiguration?             configuration       = null,
+                                         Action<IServiceCollection>? serviceConfigurator = null)
     where T : gRPC.V1.Worker.Worker.WorkerBase
   {
     try
@@ -112,6 +114,7 @@ public static class WorkerServer
              .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
 
+      serviceConfigurator?.Invoke(builder.Services);
 
       var app = builder.Build();
 
