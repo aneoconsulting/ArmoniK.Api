@@ -402,6 +402,19 @@ references:
   isSpec: "True"
   fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServer
   nameWithType: WorkerServerTest.BuildServer
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerAddService
+  name: BuildServerAddService()
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_BuildServerAddService
+  commentId: M:ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerAddService
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerAddService()
+  nameWithType: WorkerServerTest.BuildServerAddService()
+- uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerAddService*
+  name: BuildServerAddService
+  href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_BuildServerAddService_
+  commentId: Overload:ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerAddService
+  isSpec: "True"
+  fullName: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerAddService
+  nameWithType: WorkerServerTest.BuildServerAddService
 - uid: ArmoniK.Api.Worker.Tests.WorkerServerTest.BuildServerNoArgs
   name: BuildServerNoArgs()
   href: api/ArmoniK.Api.Worker.Tests.WorkerServerTest.html#ArmoniK_Api_Worker_Tests_WorkerServerTest_BuildServerNoArgs
@@ -482,15 +495,15 @@ references:
   isSpec: "True"
   fullName: ArmoniK.Api.Worker.Utils.WorkerServer.Create
   nameWithType: WorkerServer.Create
-- uid: ArmoniK.Api.Worker.Utils.WorkerServer.Create``1(System.Nullable{IConfiguration})
-  name: Create<T>(Nullable<IConfiguration>)
-  href: api/ArmoniK.Api.Worker.Utils.WorkerServer.html#ArmoniK_Api_Worker_Utils_WorkerServer_Create__1_System_Nullable_IConfiguration__
-  commentId: M:ArmoniK.Api.Worker.Utils.WorkerServer.Create``1(System.Nullable{IConfiguration})
-  name.vb: Create(Of T)(Nullable(Of IConfiguration))
-  fullName: ArmoniK.Api.Worker.Utils.WorkerServer.Create<T>(System.Nullable<IConfiguration>)
-  fullName.vb: ArmoniK.Api.Worker.Utils.WorkerServer.Create(Of T)(System.Nullable(Of IConfiguration))
-  nameWithType: WorkerServer.Create<T>(Nullable<IConfiguration>)
-  nameWithType.vb: WorkerServer.Create(Of T)(Nullable(Of IConfiguration))
+- uid: ArmoniK.Api.Worker.Utils.WorkerServer.Create``1(System.Nullable{IConfiguration},System.Nullable{Action{IServiceCollection}})
+  name: Create<T>(Nullable<IConfiguration>, Nullable<Action<IServiceCollection>>)
+  href: api/ArmoniK.Api.Worker.Utils.WorkerServer.html#ArmoniK_Api_Worker_Utils_WorkerServer_Create__1_System_Nullable_IConfiguration__System_Nullable_Action_IServiceCollection___
+  commentId: M:ArmoniK.Api.Worker.Utils.WorkerServer.Create``1(System.Nullable{IConfiguration},System.Nullable{Action{IServiceCollection}})
+  name.vb: Create(Of T)(Nullable(Of IConfiguration), Nullable(Of Action(Of IServiceCollection)))
+  fullName: ArmoniK.Api.Worker.Utils.WorkerServer.Create<T>(System.Nullable<IConfiguration>, System.Nullable<Action<IServiceCollection>>)
+  fullName.vb: ArmoniK.Api.Worker.Utils.WorkerServer.Create(Of T)(System.Nullable(Of IConfiguration), System.Nullable(Of Action(Of IServiceCollection)))
+  nameWithType: WorkerServer.Create<T>(Nullable<IConfiguration>, Nullable<Action<IServiceCollection>>)
+  nameWithType.vb: WorkerServer.Create(Of T)(Nullable(Of IConfiguration), Nullable(Of Action(Of IServiceCollection)))
 - uid: ArmoniK.Api.Worker.Worker
   name: ArmoniK.Api.Worker.Worker
   href: api/ArmoniK.Api.Worker.Worker.html
