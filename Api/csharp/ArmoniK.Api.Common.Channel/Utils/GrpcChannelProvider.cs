@@ -24,10 +24,10 @@
 using System.Net.Sockets;
 
 using ArmoniK.Api.Common.Options;
+using ArmoniK.Api.Common.Utils;
 
 using Grpc.Core;
 using Grpc.Net.Client;
-using ArmoniK.Api.Common.Utils;
 
 using JetBrains.Annotations;
 
@@ -40,11 +40,11 @@ namespace ArmoniK.Api.Common.Channel.Utils;
 [UsedImplicitly]
 public sealed class GrpcChannelProvider : IAsyncDisposable
 {
-  private readonly GrpcChannel                  options_;
-  private readonly ILogger<GrpcChannelProvider> logger_;
   private readonly string                       address_;
-  private          Socket?                      socket_;
+  private readonly ILogger<GrpcChannelProvider> logger_;
+  private readonly GrpcChannel                  options_;
   private          NetworkStream?               networkStream_;
+  private          Socket?                      socket_;
 
   public GrpcChannelProvider(GrpcChannel                  options,
                              ILogger<GrpcChannelProvider> logger)
@@ -54,6 +54,17 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
     address_ = options_.Address ?? throw new InvalidOperationException();
     logger.LogDebug("Channel created for address : {address}",
                     address_);
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    socket_?.Close();
+    socket_?.Dispose();
+    if (networkStream_ != null)
+    {
+      await networkStream_.DisposeAsync()
+                          .ConfigureAwait(false);
+    }
   }
 
   private static ChannelBase BuildWebGrpcChannel(string  address,
@@ -115,17 +126,6 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
                                           logger_);
       default:
         throw new InvalidOperationException();
-    }
-  }
-
-  public async ValueTask DisposeAsync()
-  {
-    socket_?.Close();
-    socket_?.Dispose();
-    if (networkStream_ != null)
-    {
-      await networkStream_.DisposeAsync()
-                          .ConfigureAwait(false);
     }
   }
 }
