@@ -42,8 +42,9 @@ namespace ArmoniK.Api.Worker.Worker;
 public class TaskHandler : ITaskHandler
 {
   private readonly CancellationToken    cancellationToken_;
-  private readonly ILoggerFactory       loggerFactory_;
+  private readonly Agent.AgentClient    client_;
   private readonly ILogger<TaskHandler> logger_;
+  private readonly ILoggerFactory       loggerFactory_;
 
   private readonly IAsyncStreamReader<ProcessRequest> requestStream_;
 
@@ -52,12 +53,11 @@ public class TaskHandler : ITaskHandler
 
   private bool isInitialized_;
 
-  private          byte[]?           payload_;
-  private          string?           sessionId_;
-  private          string?           taskId_;
-  private          TaskOptions?      taskOptions_;
-  private readonly Agent.AgentClient client_;
-  private          string?           token_;
+  private byte[]?      payload_;
+  private string?      sessionId_;
+  private string?      taskId_;
+  private TaskOptions? taskOptions_;
+  private string?      token_;
 
 
   private TaskHandler(IAsyncStreamReader<ProcessRequest> requestStream,
@@ -72,6 +72,9 @@ public class TaskHandler : ITaskHandler
     logger_            = loggerFactory.CreateLogger<TaskHandler>();
   }
 
+  public string Token
+    => token_ ?? throw TaskHandlerException(nameof(Token));
+
   /// <inheritdoc />
   public string SessionId
     => sessionId_ ?? throw TaskHandlerException(nameof(SessionId));
@@ -79,9 +82,6 @@ public class TaskHandler : ITaskHandler
   /// <inheritdoc />
   public string TaskId
     => taskId_ ?? throw TaskHandlerException(nameof(TaskId));
-
-  public string Token
-    => token_ ?? throw TaskHandlerException(nameof(Token));
 
   /// <inheritdoc />
   public TaskOptions TaskOptions
@@ -202,6 +202,9 @@ public class TaskHandler : ITaskHandler
       throw new InvalidOperationException($"Cannot send result id={key}");
     }
   }
+
+  public ValueTask DisposeAsync()
+    => ValueTask.CompletedTask;
 
   public static async Task<TaskHandler> Create(IAsyncStreamReader<ProcessRequest> requestStream,
                                                Agent.AgentClient                  agentClient,
@@ -363,7 +366,4 @@ public class TaskHandler : ITaskHandler
     => isInitialized_
          ? new InvalidOperationException($"Error in initalization: {argumentName} is null")
          : new InvalidOperationException("");
-
-  public ValueTask DisposeAsync()
-    => ValueTask.CompletedTask;
 }

@@ -33,20 +33,20 @@ using Microsoft.Extensions.Logging;
 namespace ArmoniK.Api.Common.Utils;
 
 /// <summary>
-/// Convenience methods for logging
+///   Convenience methods for logging
 /// </summary>
 [PublicAPI]
 public static class LoggerExt
 {
   /// <summary>
-  /// Create a <see cref="IDisposable"/> named logging scope that will start and end.
-  /// It brings the given properties to every logs occurring in the scope
+  ///   Create a <see cref="IDisposable" /> named logging scope that will start and end.
+  ///   It brings the given properties to every logs occurring in the scope
   /// </summary>
   /// <param name="logger">Logger that will produce logs</param>
   /// <param name="name">Name of the scope</param>
   /// <param name="properties">Properties to put in the scope</param>
   /// <returns>
-  /// <see cref="IDisposable"/> object that can be dispose to terminate the scope
+  ///   <see cref="IDisposable" /> object that can be dispose to terminate the scope
   /// </returns>
   public static IDisposable BeginNamedScope(this ILogger                        logger,
                                             string                              name,
@@ -59,13 +59,13 @@ public static class LoggerExt
   }
 
   /// <summary>
-  /// Create a <see cref="IDisposable"/> logging scope that will start and end.
-  /// It brings the given properties to every logs occurring in the scope
+  ///   Create a <see cref="IDisposable" /> logging scope that will start and end.
+  ///   It brings the given properties to every logs occurring in the scope
   /// </summary>
   /// <param name="logger">Logger that will produce logs</param>
   /// <param name="properties">Properties to put in the scope</param>
   /// <returns>
-  /// <see cref="IDisposable"/> object that can be dispose to terminate the scope
+  ///   <see cref="IDisposable" /> object that can be dispose to terminate the scope
   /// </returns>
   public static IDisposable BeginPropertyScope(this   ILogger                      logger,
                                                params ValueTuple<string, object>[] properties)
@@ -77,7 +77,7 @@ public static class LoggerExt
 
 
   /// <summary>
-  /// Logs the entering and leaving of a function represented by a scope
+  ///   Logs the entering and leaving of a function represented by a scope
   /// </summary>
   /// <param name="logger">Logger that will produce logs</param>
   /// <param name="id">Id of the under laying scope</param>
@@ -86,7 +86,7 @@ public static class LoggerExt
   /// <param name="classFilePath">Path to the filename containing the function, found automatically with annotation</param>
   /// <param name="line">Line of the function, found automatically with annotation</param>
   /// <returns>
-  /// <see cref="IDisposable"/> object that can be dispose to terminate the scope
+  ///   <see cref="IDisposable" /> object that can be dispose to terminate the scope
   /// </returns>
   public static IDisposable LogFunction(this ILogger              logger,
                                         string                    id            = "",

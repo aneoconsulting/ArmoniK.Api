@@ -35,17 +35,17 @@ using JetBrains.Annotations;
 namespace ArmoniK.Api.Client.Submitter
 {
   /// <summary>
-  /// Factory for creating a secure GrpcChannel
+  ///   Factory for creating a secure GrpcChannel
   /// </summary>
   [PublicAPI]
   public static class GrpcChannelFactory
   {
     /// <summary>
-    /// Creates the GrpcChannel
+    ///   Creates the GrpcChannel
     /// </summary>
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
     /// <returns>
-    /// The initialized GrpcChannel
+    ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
     public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient)
@@ -60,11 +60,14 @@ namespace ArmoniK.Api.Client.Submitter
       var credentials = uri.Scheme == Uri.UriSchemeHttps
                           ? new SslCredentials()
                           : ChannelCredentials.Insecure;
-      HttpClientHandler httpClientHandler = new HttpClientHandler();
+      var httpClientHandler = new HttpClientHandler();
 
       if (optionsGrpcClient.AllowUnsafeConnection)
       {
-        httpClientHandler.ServerCertificateCustomValidationCallback = (_,_,_,_)=> true;
+        httpClientHandler.ServerCertificateCustomValidationCallback = (_,
+                                                                       _,
+                                                                       _,
+                                                                       _) => true;
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
                              true);
       }
@@ -79,7 +82,7 @@ namespace ArmoniK.Api.Client.Submitter
                                                                 clientKeyPem));
       }
 
-      var channelOptions = new GrpcChannelOptions()
+      var channelOptions = new GrpcChannelOptions
                            {
                              Credentials = credentials,
                              HttpHandler = httpClientHandler,
