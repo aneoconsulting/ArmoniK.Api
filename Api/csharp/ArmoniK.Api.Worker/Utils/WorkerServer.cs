@@ -43,19 +43,19 @@ using Serilog.Formatting.Compact;
 namespace ArmoniK.Api.Worker.Utils;
 
 /// <summary>
-/// Convenience class to create a web application with the given gRPC Service for ArmoniK Worker
+///   Convenience class to create a web application with the given gRPC Service for ArmoniK Worker
 /// </summary>
 [PublicAPI]
 public static class WorkerServer
 {
   /// <summary>
-  /// Create a web application for the given ArmoniK Worker gRPC Service
+  ///   Create a web application for the given ArmoniK Worker gRPC Service
   /// </summary>
   /// <typeparam name="T">gRPC Service to add to the web application</typeparam>
   /// <param name="configuration">Additional configurations</param>
   /// <param name="serviceConfigurator">Lambda to configure server services</param>
   /// <returns>
-  /// The web application initialized
+  ///   The web application initialized
   /// </returns>
   public static WebApplication Create<T>(IConfiguration?             configuration       = null,
                                          Action<IServiceCollection>? serviceConfigurator = null)

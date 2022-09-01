@@ -29,12 +29,12 @@ namespace ArmoniK.Api.Common.Options;
 public class GrpcChannel
 {
   /// <summary>
-  /// Address or path of the resource used to communicate for this Grpc Channel
+  ///   Address or path of the resource used to communicate for this Grpc Channel
   /// </summary>
   public string Address { get; set; } = "/tmp/armonik.sock";
 
   /// <summary>
-  /// Type of Grpc Socket used
+  ///   Type of Grpc Socket used
   /// </summary>
   public GrpcSocketType SocketType { get; set; } = GrpcSocketType.UnixDomainSocket;
 }
