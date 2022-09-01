@@ -26,7 +26,7 @@ using JetBrains.Annotations;
 namespace ArmoniK.Api.Common.Options;
 
 /// <summary>
-/// Options to configure the connections between Worker and Agent
+///   Options to configure the connections between Worker and Agent
 /// </summary>
 [PublicAPI]
 public class ComputePlane
@@ -34,17 +34,17 @@ public class ComputePlane
   public const string SettingSection = nameof(ComputePlane);
 
   /// <summary>
-  /// Channel used by the Agent to send tasks to the Worker
+  ///   Channel used by the Agent to send tasks to the Worker
   /// </summary>
-  public GrpcChannel WorkerChannel { get; set; } = new GrpcChannel();
+  public GrpcChannel WorkerChannel { get; set; } = new();
 
   /// <summary>
-  /// Channel used by the Worker to send requests to the Agent
+  ///   Channel used by the Worker to send requests to the Agent
   /// </summary>
-  public GrpcChannel AgentChannel { get; set; } = new GrpcChannel();
+  public GrpcChannel AgentChannel { get; set; } = new();
 
   /// <summary>
-  /// Number of messages retrieved from the queue by the Agent
+  ///   Number of messages retrieved from the queue by the Agent
   /// </summary>
   public int MessageBatchSize { get; set; } = 1;
 }

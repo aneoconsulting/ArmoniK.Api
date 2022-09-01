@@ -29,7 +29,6 @@ using ArmoniK.Api.Common.Utils;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Agent;
 using ArmoniK.Api.gRPC.V1.Worker;
-using ArmoniK.Api.Worker.Utils;
 
 using Grpc.Core;
 
@@ -40,12 +39,12 @@ using Microsoft.Extensions.Logging;
 namespace ArmoniK.Api.Worker.Worker;
 
 [PublicAPI]
-public class WorkerStreamWrapper : Api.gRPC.V1.Worker.Worker.WorkerBase, IAsyncDisposable
+public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDisposable
 {
-  private readonly ILoggerFactory               loggerFactory_;
-  public           ILogger<WorkerStreamWrapper> logger_;
   private readonly ChannelBase                  channel_;
   private readonly Agent.AgentClient            client_;
+  private readonly ILoggerFactory               loggerFactory_;
+  public           ILogger<WorkerStreamWrapper> logger_;
 
   public WorkerStreamWrapper(ILoggerFactory      loggerFactory,
                              GrpcChannelProvider provider)
@@ -57,6 +56,10 @@ public class WorkerStreamWrapper : Api.gRPC.V1.Worker.Worker.WorkerBase, IAsyncD
 
     client_ = new Agent.AgentClient(channel_);
   }
+
+  public async ValueTask DisposeAsync()
+    => await channel_.ShutdownAsync()
+                     .ConfigureAwait(false);
 
   public sealed override async Task<ProcessReply> Process(IAsyncStreamReader<ProcessRequest> requestStream,
                                                           ServerCallContext                  context)
@@ -92,10 +95,4 @@ public class WorkerStreamWrapper : Api.gRPC.V1.Worker.Worker.WorkerBase, IAsyncD
                        {
                          Status = HealthCheckReply.Types.ServingStatus.Serving,
                        });
-
-  public async ValueTask DisposeAsync()
-  {
-    await channel_.ShutdownAsync()
-                  .ConfigureAwait(false);
-  }
 }

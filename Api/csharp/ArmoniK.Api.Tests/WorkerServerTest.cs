@@ -84,7 +84,7 @@ public class WorkerServerTest
   public Task BuildServerNoArgs()
   {
     Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
-                                              "/tmp/worker.sock");
+                                       "/tmp/worker.sock");
     var app = WorkerServer.Create<TestService>();
     return Task.CompletedTask;
   }
@@ -93,7 +93,7 @@ public class WorkerServerTest
   public Task BuildServerAddService()
   {
     Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
-                                              "/tmp/worker.sock");
+                                       "/tmp/worker.sock");
     var app = WorkerServer.Create<TestService>(serviceConfigurator: collection => collection.AddSingleton("test"));
     return Task.CompletedTask;
   }

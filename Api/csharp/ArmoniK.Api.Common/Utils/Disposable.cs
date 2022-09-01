@@ -27,6 +27,10 @@ namespace ArmoniK.Api.Common.Utils;
 
 internal static class Disposable
 {
+  public static IDisposable Empty = Create(() =>
+                                           {
+                                           });
+
   public static IDisposable Create(Action action)
     => new DisposableImpl(action);
 
@@ -41,8 +45,4 @@ internal static class Disposable
     public void Dispose()
       => action_();
   }
-
-  public static IDisposable Empty = Create(() =>
-                                           {
-                                           });
 }
