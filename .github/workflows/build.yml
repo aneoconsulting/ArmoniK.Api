@@ -25,6 +25,50 @@ jobs:
         echo "::set-output name=version::$VERSION"
         echo $VERSION
 
+  formatCsharp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+        submodules: true
+
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 6.x
+
+    - name: Install ReSharper
+      run: |
+        dotnet tool install -g JetBrains.ReSharper.GlobalTools
+
+    - name: Restore
+      run: |
+        cd Api/csharp
+        dotnet restore ArmoniK.Api.sln
+
+    - name: Reformat
+      run: |
+        cd Api/csharp
+        jb cleanupcode ArmoniK.Api.sln
+
+    - name: Check Diff
+      run: |
+        DIFF="$(git diff --name-only)"
+
+        if [ -z "$DIFF" ]; then
+          echo "OK: Format is clean"
+        else
+          echo "Error: Format was not clean"
+          echo "List of files:"
+          echo "$DIFF"
+          git diff
+          exit 1
+        fi
+
   build-doc:
     runs-on: ubuntu-20.04
 
