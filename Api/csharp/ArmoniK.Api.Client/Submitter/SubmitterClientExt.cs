@@ -38,13 +38,13 @@ using JetBrains.Annotations;
 namespace ArmoniK.Api.Client.Submitter
 {
   /// <summary>
-  /// Extension to simplify <see cref="gRPC.V1.Submitter.Submitter.SubmitterClient"/> usage
+  ///   Extension to simplify <see cref="gRPC.V1.Submitter.Submitter.SubmitterClient" /> usage
   /// </summary>
   [PublicAPI]
   public static class SubmitterClientExt
   {
     /// <summary>
-    /// Create task request without streaming
+    ///   Create task request without streaming
     /// </summary>
     /// <param name="client">gRPC client to the Submitter</param>
     /// <param name="sessionId">Id of the sessions</param>
@@ -52,7 +52,7 @@ namespace ArmoniK.Api.Client.Submitter
     /// <param name="taskRequests">The collection of request</param>
     /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
     /// <returns>
-    /// The reply to task creation
+    ///   The reply to task creation
     /// </returns>
     public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                                string                                           sessionId,
@@ -67,7 +67,7 @@ namespace ArmoniK.Api.Client.Submitter
            .ConfigureAwait(false);
 
     /// <summary>
-    /// Create task request without streaming
+    ///   Create task request without streaming
     /// </summary>
     /// <param name="client">gRPC client to the Submitter</param>
     /// <param name="sessionId">Id of the sessions</param>
@@ -75,7 +75,7 @@ namespace ArmoniK.Api.Client.Submitter
     /// <param name="taskRequests">The collection of request</param>
     /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
     /// <returns>
-    /// The reply to task creation
+    ///   The reply to task creation
     /// </returns>
     public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                                string                                           sessionId,
@@ -150,7 +150,7 @@ namespace ArmoniK.Api.Client.Submitter
     }
 
 #pragma warning disable CS1998
-    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest                           taskRequest,
+    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest taskRequest,
 #pragma warning restore CS1998
                                                                                   bool                                       isLast,
                                                                                   int                                        chunkMaxSize,
@@ -176,7 +176,9 @@ namespace ArmoniK.Api.Client.Submitter
 
       var start = 0;
       if (cancellationToken.IsCancellationRequested)
+      {
         yield break;
+      }
 
       if (taskRequest.Payload.Length == 0)
       {
@@ -192,7 +194,9 @@ namespace ArmoniK.Api.Client.Submitter
       while (start < taskRequest.Payload.Length)
       {
         if (cancellationToken.IsCancellationRequested)
+        {
           yield break;
+        }
 
         var chunkSize = Math.Min(chunkMaxSize,
                                  taskRequest.Payload.Length - start);
@@ -210,7 +214,9 @@ namespace ArmoniK.Api.Client.Submitter
       }
 
       if (cancellationToken.IsCancellationRequested)
+      {
         yield break;
+      }
 
       yield return new CreateLargeTaskRequest
                    {
@@ -233,13 +239,13 @@ namespace ArmoniK.Api.Client.Submitter
     }
 
     /// <summary>
-    /// Get result without streaming
+    ///   Get result without streaming
     /// </summary>
     /// <param name="client">gRPC client to the Submitter</param>
     /// <param name="resultRequest">Request for result</param>
     /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
     /// <returns>
-    /// A byte array containing the data associated to the result
+    ///   A byte array containing the data associated to the result
     /// </returns>
     /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
     /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
@@ -252,7 +258,7 @@ namespace ArmoniK.Api.Client.Submitter
 
       var result = new List<byte>();
 
-      while(await streamingCall.ResponseStream.MoveNext(cancellationToken))
+      while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
       {
         var reply = streamingCall.ResponseStream.Current;
         switch (reply.TypeCase)

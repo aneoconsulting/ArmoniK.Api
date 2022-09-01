@@ -24,17 +24,17 @@
 namespace ArmoniK.Api.Common.Options;
 
 /// <summary>
-/// Type of connection used between Worker and Agent
+///   Type of connection used between Worker and Agent
 /// </summary>
 public enum GrpcSocketType
 {
   /// <summary>
-  /// Tcp Connection
+  ///   Tcp Connection
   /// </summary>
   Tcp,
 
   /// <summary>
-  /// Unix socket connection
+  ///   Unix socket connection
   /// </summary>
   UnixDomainSocket,
 }
