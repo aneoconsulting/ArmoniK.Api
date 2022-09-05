@@ -4,9 +4,7 @@ package armonik.api.grpc.v1.session_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
-
-enum SessionStatus
-{
+enum SessionStatus {
   SESSION_STATUS_UNSPECIFIED = 0;
   SESSION_STATUS_RUNNING = 1;
   SESSION_STATUS_CANCELED = 2;
