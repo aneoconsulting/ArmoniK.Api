@@ -1,16 +1,17 @@
 syntax = "proto3";
 
+package armonik.api.grpc.v1.sessions;
+
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
-import "session_status.proto";  
+import "session_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
-package armonik.api.grpc.v1.sessions;
 
 /**
  * A raw session object
  */
- message SessionRaw {
+message SessionRaw {
   string session_id = 1;
   session_status.SessionStatus status = 2;
   repeated string partition_ids = 3;
@@ -39,7 +40,7 @@ message ListSessionsRequest {
   int32 page = 1;
   // Page size
   int32 page_size = 2;
-  
+
   // To filter returned sessions
   message Filter {
     // Name of the application

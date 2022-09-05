@@ -1,12 +1,13 @@
 syntax = "proto3";
 
+package armonik.api.grpc.v1.sessions;
+
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
-import "session_status.proto";  
+import "session_status.proto";
 import "sessions_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
-package armonik.api.grpc.v1.sessions;
 
 /**
  * The SessionService provides methods for listing, getting and cancelling sessions

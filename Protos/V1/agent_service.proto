@@ -2,11 +2,10 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.agent;
 
-import "objects.proto";
 import "agent_common.proto";
+import "objects.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
-
 
 service Agent {
   rpc CreateTask(stream CreateTaskRequest) returns (CreateTaskReply);
@@ -15,4 +14,3 @@ service Agent {
   rpc GetDirectData(DataRequest) returns (stream DataReply);
   rpc SendResult(stream Result) returns (ResultReply);
 }
-

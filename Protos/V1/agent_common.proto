@@ -7,76 +7,76 @@ import "objects.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
 
 message CreateTaskRequest {
-	message InitRequest {
-		TaskOptions task_options = 1;
-	}
-	oneof type {
-		InitRequest init_request = 1;
-		InitTaskRequest init_task = 2;
-		DataChunk task_payload = 3;
-	}
+  message InitRequest {
+    TaskOptions task_options = 1;
+  }
+  oneof type {
+    InitRequest init_request = 1;
+    InitTaskRequest init_task = 2;
+    DataChunk task_payload = 3;
+  }
 
-	string communication_token = 4;
+  string communication_token = 4;
 }
 
-message CreateTaskReply{
-	message TaskInfo {
-		string task_id = 1;
-		repeated string expected_output_keys = 2;
-		repeated string data_dependencies = 3;
-	}
+message CreateTaskReply {
+  message TaskInfo {
+    string task_id = 1;
+    repeated string expected_output_keys = 2;
+    repeated string data_dependencies = 3;
+  }
 
-	message CreationStatus {
-		oneof Status {
-			TaskInfo task_info = 1;
-			string error = 2;
-		}
-	}
+  message CreationStatus {
+    oneof Status {
+      TaskInfo task_info = 1;
+      string error = 2;
+    }
+  }
 
-	message CreationStatusList {
-		repeated CreationStatus creation_statuses = 1;
-	}
+  message CreationStatusList {
+    repeated CreationStatus creation_statuses = 1;
+  }
 
-	oneof Response {
-		CreationStatusList creation_status_list = 1;
-		string error = 2;
-	}
-	string communication_token = 4;
+  oneof Response {
+    CreationStatusList creation_status_list = 1;
+    string error = 2;
+  }
+  string communication_token = 4;
 }
 
 message DataRequest {
-	string communication_token = 1;
-	string key = 2;
+  string communication_token = 1;
+  string key = 2;
 }
 
 message DataReply {
-	message Init{
-		string key = 1;
-		oneof has_result {
-			DataChunk data = 2;
-			string error = 3;
-		}
-	}
-	string communication_token = 1;
-	oneof type {
-		Init init = 2;
-		DataChunk data = 3;
-		string error = 4;
-	}
+  message Init {
+    string key = 1;
+    oneof has_result {
+      DataChunk data = 2;
+      string error = 3;
+    }
+  }
+  string communication_token = 1;
+  oneof type {
+    Init init = 2;
+    DataChunk data = 3;
+    string error = 4;
+  }
 }
 
 message Result {
-	oneof type {
-		InitKeyedDataStream init = 1;
-		DataChunk data = 2;
-	}
-	string communication_token = 3;
+  oneof type {
+    InitKeyedDataStream init = 1;
+    DataChunk data = 2;
+  }
+  string communication_token = 3;
 }
 
 message ResultReply {
-	string communication_token = 3;
-	oneof type {
-		Empty Ok = 1;
-		string Error = 2;
-	}
+  string communication_token = 3;
+  oneof type {
+    Empty Ok = 1;
+    string Error = 2;
+  }
 }

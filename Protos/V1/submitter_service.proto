@@ -1,43 +1,41 @@
 syntax = "proto3";
 
-import "objects.proto";
-import "task_status.proto";
-import "session_status.proto";
-import "result_status.proto";
-
-import "submitter_common.proto";
-
 package armonik.api.grpc.v1.submitter;
+
+import "objects.proto";
+import "result_status.proto";
+import "session_status.proto";
+import "submitter_common.proto";
+import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
 
+service Submitter {
+  rpc GetServiceConfiguration(Empty) returns (Configuration);
 
-service Submitter{
-	rpc GetServiceConfiguration (Empty) returns (Configuration); 
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
+  rpc CancelSession(Session) returns (Empty);
 
-	rpc CreateSession (CreateSessionRequest) returns (CreateSessionReply);
-	rpc CancelSession (Session) returns (Empty);
+  rpc CreateSmallTasks(CreateSmallTaskRequest) returns (CreateTaskReply);
+  rpc CreateLargeTasks(stream CreateLargeTaskRequest) returns (CreateTaskReply);
 
-	rpc CreateSmallTasks (CreateSmallTaskRequest) returns (CreateTaskReply);
-	rpc CreateLargeTasks (stream CreateLargeTaskRequest) returns (CreateTaskReply);
+  rpc ListTasks(TaskFilter) returns (TaskIdList);
+  rpc ListSessions(SessionFilter) returns (SessionIdList);
 
-	rpc ListTasks (TaskFilter) returns (TaskIdList);
-	rpc ListSessions (SessionFilter) returns (SessionIdList);
+  rpc CountTasks(TaskFilter) returns (Count);
+  rpc TryGetResultStream(ResultRequest) returns (stream ResultReply);
+  rpc TryGetTaskOutput(TaskOutputRequest) returns (Output);
+  rpc WaitForAvailability(ResultRequest) returns (AvailabilityReply) {
+    option deprecated = true;
+  }
+  rpc WaitForCompletion(WaitRequest) returns (Count);
+  rpc CancelTasks(TaskFilter) returns (Empty);
+  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusReply);
+  rpc GetResultStatus(GetResultStatusRequest) returns (GetResultStatusReply) {
+    option deprecated = true;
+  }
 
-	rpc CountTasks (TaskFilter) returns (Count);
-	rpc TryGetResultStream (ResultRequest) returns (stream ResultReply);
-	rpc TryGetTaskOutput (TaskOutputRequest) returns (Output);
-	rpc WaitForAvailability (ResultRequest) returns (AvailabilityReply) {
-		option deprecated = true;
-	}
-	rpc WaitForCompletion (WaitRequest) returns (Count);
-	rpc CancelTasks (TaskFilter) returns (Empty); 
-	rpc GetTaskStatus (GetTaskStatusRequest) returns (GetTaskStatusReply);
-	rpc GetResultStatus (GetResultStatusRequest) returns (GetResultStatusReply) {
-		option deprecated = true;
-	}
-
-	/**
+  /**
 	 * This endpoint allows a user to watch a list of results and be notified when there is any change.
 	 * The user sends the list of ids they want to watch.
 	 * The submitter will then send the statuses for all requested ids immediately and keep the stream open.
@@ -46,6 +44,5 @@ service Submitter{
 	 * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
 	 * It is possible to filter out specific statuses from events.
 	 */
-	rpc WatchResults (stream WatchResultRequest) returns (stream WatchResultStream);
+  rpc WatchResults(stream WatchResultRequest) returns (stream WatchResultStream);
 }
-
