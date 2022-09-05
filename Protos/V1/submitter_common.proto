@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-import "objects.proto";
-import "task_status.proto";
-import "session_status.proto";
-import "result_status.proto";
-
 package armonik.api.grpc.v1.submitter;
+
+import "objects.proto";
+import "result_status.proto";
+import "session_status.proto";
+import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
 
@@ -18,9 +18,9 @@ message SessionIdList {
 }
 
 message CreateSessionRequest {
-	TaskOptions default_task_option = 1;
-	// List of partitions allowed during the session
-	repeated string partition_ids = 2;
+  TaskOptions default_task_option = 1;
+  // List of partitions allowed during the session
+  repeated string partition_ids = 2;
 }
 
 /*
@@ -29,77 +29,76 @@ message CreateSessionRequest {
 	When the session creation is not successful, there is an rpc exception.
 */
 message CreateSessionReply {
-	// Session id of the created session if successful
-	string session_id = 1;
+  // Session id of the created session if successful
+  string session_id = 1;
 }
 
-
 message CreateSmallTaskRequest {
-	string session_id = 1;
-	TaskOptions task_options = 2;
-	repeated TaskRequest task_requests = 3;
+  string session_id = 1;
+  TaskOptions task_options = 2;
+  repeated TaskRequest task_requests = 3;
 }
 
 message CreateLargeTaskRequest {
-	message InitRequest {
-		string session_id = 1;
-		TaskOptions task_options = 2;
-	}
-	oneof type {
-		InitRequest init_request = 1;
-		InitTaskRequest init_task = 2;
-		DataChunk task_payload = 3;
-	}
+  message InitRequest {
+    string session_id = 1;
+    TaskOptions task_options = 2;
+  }
+  oneof type {
+    InitRequest init_request = 1;
+    InitTaskRequest init_task = 2;
+    DataChunk task_payload = 3;
+  }
 }
 
-message CreateTaskReply{
-	message TaskInfo {
-		string task_id = 1;
-		repeated string expected_output_keys = 2;
-		repeated string data_dependencies = 3;
-	}
+message CreateTaskReply {
+  message TaskInfo {
+    string task_id = 1;
+    repeated string expected_output_keys = 2;
+    repeated string data_dependencies = 3;
+  }
 
-	message CreationStatus {
-		oneof Status {
-			TaskInfo task_info = 1;
-			string error = 2;
-		}
-	}
+  message CreationStatus {
+    oneof Status {
+      TaskInfo task_info = 1;
+      string error = 2;
+    }
+  }
 
-	message CreationStatusList {
-		repeated CreationStatus creation_statuses = 1;
-	}
+  message CreationStatusList {
+    repeated CreationStatus creation_statuses = 1;
+  }
 
-	oneof Response {
-		CreationStatusList creation_status_list = 1;
-		string error = 2;
-	}
+  oneof Response {
+    CreationStatusList creation_status_list = 1;
+    string error = 2;
+  }
 }
 
 message TaskFilter {
-	message IdsRequest {
-		repeated string ids = 1;
-	}
-	message StatusesRequest {
-		repeated task_status.TaskStatus statuses = 1;
-	}
-	oneof ids {
-		IdsRequest session = 1;
-		IdsRequest task = 3;
-	}
-	oneof statuses {
-		StatusesRequest included = 4;
-		StatusesRequest excluded = 5;
-	}
+  message IdsRequest {
+    repeated string ids = 1;
+  }
+  message StatusesRequest {
+    repeated task_status.TaskStatus statuses = 1;
+  }
+  oneof ids {
+    IdsRequest session = 1;
+    IdsRequest task = 3;
+  }
+  oneof statuses {
+    StatusesRequest included = 4;
+    StatusesRequest excluded = 5;
+  }
 }
 
 message SessionFilter {
   repeated string sessions = 1;
-  
+
   message StatusesRequest {
     repeated session_status.SessionStatus statuses = 1;
   }
-  
+
   oneof statuses {
     StatusesRequest included = 4;
     StatusesRequest excluded = 5;
@@ -107,50 +106,50 @@ message SessionFilter {
 }
 
 message GetTaskStatusRequest {
-	repeated string task_ids = 1;
+  repeated string task_ids = 1;
 }
 
 message GetTaskStatusReply {
-	message IdStatus {
-		string task_id = 1;
-		task_status.TaskStatus status = 2;
-	}
-	repeated IdStatus id_statuses = 1;
+  message IdStatus {
+    string task_id = 1;
+    task_status.TaskStatus status = 2;
+  }
+  repeated IdStatus id_statuses = 1;
 }
 
 message GetResultStatusRequest {
-	repeated string result_ids = 1;
-	string session_id = 2;
+  repeated string result_ids = 1;
+  string session_id = 2;
 }
 
 message GetResultStatusReply {
-	message IdStatus {
-		string result_id = 1;
-		result_status.ResultStatus status = 2;
-	}
-	repeated IdStatus id_statuses = 1;
+  message IdStatus {
+    string result_id = 1;
+    result_status.ResultStatus status = 2;
+  }
+  repeated IdStatus id_statuses = 1;
 }
 
 message ResultReply {
-	oneof type {
-		DataChunk result = 1;
-		TaskError error = 2;
-		string not_completed_task = 3;
-	}
+  oneof type {
+    DataChunk result = 1;
+    TaskError error = 2;
+    string not_completed_task = 3;
+  }
 }
 
 message AvailabilityReply {
-	oneof type {
-		Empty ok = 1;
-		TaskError error = 2;
-		string not_completed_task = 3;
-	}
+  oneof type {
+    Empty ok = 1;
+    TaskError error = 2;
+    string not_completed_task = 3;
+  }
 }
 
 message WaitRequest {
-	TaskFilter filter = 1;
-	bool stop_on_first_task_error = 2;
-	bool stop_on_first_task_cancellation = 3;
+  TaskFilter filter = 1;
+  bool stop_on_first_task_error = 2;
+  bool stop_on_first_task_cancellation = 3;
 }
 
 /**
@@ -161,12 +160,12 @@ message WaitRequest {
  * It is the responsability of the client to chunk the messages properly and avoid messages too large.
  */
 message WatchResultRequest {
-	// list of statuses to check results against for the initial fetch
-	repeated result_status.ResultStatus fetch_statuses = 1;
-	// list of statuses to check results against for the watch
-	repeated result_status.ResultStatus watch_statuses = 2;
-	// result ids to fetch/watch
-	repeated string result_ids = 3;
+  // list of statuses to check results against for the initial fetch
+  repeated result_status.ResultStatus fetch_statuses = 1;
+  // list of statuses to check results against for the watch
+  repeated result_status.ResultStatus watch_statuses = 2;
+  // result ids to fetch/watch
+  repeated string result_ids = 3;
 }
 
 /**
@@ -176,8 +175,8 @@ message WatchResultRequest {
  * As chunking is implicit, there is no way to distinguish between chunked messages and actually separate messages.
  */
 message WatchResultStream {
-	// Status of the results
-	result_status.ResultStatus status = 1;
-	// List of result ids that triggered the event
-	repeated string result_ids = 2;
+  // Status of the results
+  result_status.ResultStatus status = 1;
+  // List of result ids that triggered the event
+  repeated string result_ids = 2;
 }

@@ -4,9 +4,7 @@ package armonik.api.grpc.v1.result_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
-
-enum ResultStatus
-{
+enum ResultStatus {
   RESULT_STATUS_UNSPECIFIED = 0;
   RESULT_STATUS_CREATED = 1;
   RESULT_STATUS_COMPLETED = 2;

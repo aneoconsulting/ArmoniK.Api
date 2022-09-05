@@ -7,43 +7,42 @@ import "objects.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Worker";
 
 message ProcessRequest {
-	message ComputeRequest {
-		message InitRequest {
-			Configuration configuration = 1;
-			string session_id = 2;
-			string task_id = 3;
-			TaskOptions task_options = 4;
-			repeated string expected_output_keys = 5; 
-			DataChunk payload = 6;
-		}
-		message InitData {
-			oneof type{
-				string key = 1;
-				bool last_data = 2;
-			}
-		}
-		oneof type {
-			InitRequest init_request = 1;
-			DataChunk payload = 2;
-			InitData init_data = 3;
-			DataChunk data = 4;
-		}
-	}
-	string communication_token = 1;
-	ComputeRequest compute = 2;
+  message ComputeRequest {
+    message InitRequest {
+      Configuration configuration = 1;
+      string session_id = 2;
+      string task_id = 3;
+      TaskOptions task_options = 4;
+      repeated string expected_output_keys = 5;
+      DataChunk payload = 6;
+    }
+    message InitData {
+      oneof type {
+        string key = 1;
+        bool last_data = 2;
+      }
+    }
+    oneof type {
+      InitRequest init_request = 1;
+      DataChunk payload = 2;
+      InitData init_data = 3;
+      DataChunk data = 4;
+    }
+  }
+  string communication_token = 1;
+  ComputeRequest compute = 2;
 }
 
-
 message ProcessReply {
-	string communication_token = 1;
-	Output output = 2;
+  string communication_token = 1;
+  Output output = 2;
 }
 
 message HealthCheckReply {
-	enum ServingStatus {
-		UNKNOWN = 0;
-		SERVING = 1;
-		NOT_SERVING = 2;
-	}
-	ServingStatus status = 1;
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
 }
