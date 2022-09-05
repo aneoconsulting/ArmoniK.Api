@@ -18,6 +18,9 @@ message TaskOptions {
 	string partition_id = 5;
 	string application_name = 6;
 	string application_version = 7;
+	string application_namespace = 8;
+	string application_service = 9;
+	string engine_type = 10;
 }
 
 message Session {
