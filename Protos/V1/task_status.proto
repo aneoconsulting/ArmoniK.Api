@@ -4,9 +4,7 @@ package armonik.api.grpc.v1.task_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
-
-enum TaskStatus
-{
+enum TaskStatus {
   TASK_STATUS_UNSPECIFIED = 0;
   TASK_STATUS_CREATING = 1;
   TASK_STATUS_SUBMITTED = 2;

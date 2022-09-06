@@ -7,118 +7,114 @@ import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
-
 message Empty {}
 
 message TaskOptions {
-	map<string, string> options = 1;
-	google.protobuf.Duration max_duration = 2;
-	int32 max_retries = 3;
-	int32 priority = 4;
-	string partition_id = 5;
-	string application_name = 6;
-	string application_version = 7;
-	string application_namespace = 8;
-	string application_service = 9;
-	string engine_type = 10;
+  map<string, string> options = 1;
+  google.protobuf.Duration max_duration = 2;
+  int32 max_retries = 3;
+  int32 priority = 4;
+  string partition_id = 5;
+  string application_name = 6;
+  string application_version = 7;
+  string application_namespace = 8;
+  string application_service = 9;
+  string engine_type = 10;
 }
 
 message Session {
-	string id = 1;
+  string id = 1;
 }
 
-
 message Configuration {
-	int32 data_chunk_max_size = 1;
+  int32 data_chunk_max_size = 1;
 }
 
 message Output {
-	message Error {
-		string details = 1;
-	}
-	oneof type {
-		Empty ok = 2;
-		Error error = 3;
-	}
+  message Error {
+    string details = 1;
+  }
+  oneof type {
+    Empty ok = 2;
+    Error error = 3;
+  }
 }
 
 message TaskRequest {
-	repeated string expected_output_keys = 1;
-	repeated string data_dependencies = 2;
-	bytes payload = 3;
+  repeated string expected_output_keys = 1;
+  repeated string data_dependencies = 2;
+  bytes payload = 3;
 }
 
-
 message InitKeyedDataStream {
-	oneof type {
-		string key = 1;
-		bool last_result = 2;
-	}
+  oneof type {
+    string key = 1;
+    bool last_result = 2;
+  }
 }
 
 message DataChunk {
-	oneof type {
-		bytes data = 1;
-		bool data_complete = 2;
-	}
+  oneof type {
+    bytes data = 1;
+    bool data_complete = 2;
+  }
 }
 
 message TaskRequestHeader {
-	repeated string expected_output_keys = 1;
-	repeated string data_dependencies = 2;
+  repeated string expected_output_keys = 1;
+  repeated string data_dependencies = 2;
 }
 
 message InitTaskRequest {
-	oneof type{
-		TaskRequestHeader header = 1;
-		bool last_task = 2;
-	}
+  oneof type {
+    TaskRequestHeader header = 1;
+    bool last_task = 2;
+  }
 }
 
-
 message TaskId {
-	string session = 1;
-	string task = 2;
+  string session = 1;
+  string task = 2;
 }
 
 message TaskIdList {
-	repeated string task_ids = 1;
+  repeated string task_ids = 1;
 }
 
-message StatusCount{
-	task_status.TaskStatus status =1;
-	int32 count =2;
+message StatusCount {
+  task_status.TaskStatus status = 1;
+  int32 count = 2;
 }
 
 message Count {
-	repeated StatusCount values = 1;
+  repeated StatusCount values = 1;
 }
 
 message ResultRequest {
-	string session = 1;
-	string result_id = 2;
+  string session = 1;
+  string result_id = 2;
 }
 
 message TaskOutputRequest {
-	string session = 1;
-	string task_id = 2;
+  string session = 1;
+  string task_id = 2;
 }
 
 message Error {
-	task_status.TaskStatus task_status = 1;
-	string detail = 2;
+  task_status.TaskStatus task_status = 1;
+  string detail = 2;
 }
 
 message TaskError {
-	string task_id = 1;
-	repeated Error errors = 2;
+  string task_id = 1;
+  repeated Error errors = 2;
 }
 
 message TaskList {
-	repeated TaskId task_ids = 1;
+  repeated TaskId task_ids = 1;
 }
 
 message TaskIdWithStatus {
-	TaskId task_id = 1;
-	task_status.TaskStatus status = 2;
+  TaskId task_id = 1;
+  task_status.TaskStatus status = 2;
 }

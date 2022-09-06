@@ -69,6 +69,19 @@ jobs:
           exit 1
         fi
 
+  formatProto:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+        submodules: true
+    - name: Check Diff
+      run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf format -d --exit-code
+
   build-doc:
     runs-on: ubuntu-20.04
 
