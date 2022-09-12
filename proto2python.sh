@@ -14,16 +14,16 @@ fi;
 export PATH=$HOME/.local/bin:$PATH
 export PROTO_PATH="Protos/V1"
 export ARMONIK_PYTHON_SRC="Api/python/src" 
-export ARMONIK_SERVER=$ARMONIK_PYTHON_SRC"/armonik/server"
+export ARMONIK_WORKER=$ARMONIK_PYTHON_SRC"/armonik/worker"
 export ARMONIK_CLIENT=$ARMONIK_PYTHON_SRC"/armonik/client"
 export ARMONIK_COMMON=$ARMONIK_PYTHON_SRC"/armonik/common"
 
-mkdir -p $ARMONIK_SERVER $ARMONIK_CLIENT $ARMONIK_COMMON
+mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON
 
 # for debian/ubuntu:
 # sudo apt install python3-venv
 
-armonik_server_files=("agent_service.proto" "worker_service.proto")
+armonik_worker_files=("agent_service.proto" "worker_service.proto")
 armonik_client_files=("submitter_service.proto" "tasks_service.proto" "sessions_service.proto")
 armonik_common_files=("objects.proto" "task_status.proto" "session_status.proto" \
                       "result_status.proto" "agent_common.proto" "sessions_common.proto"  \
@@ -36,11 +36,11 @@ python -m pip install build
 python -m pip install grpcio grpcio-tools fix-protobuf-imports
 
 unset proto_files
-for proto in ${armonik_server_files[@]}; do
+for proto in ${armonik_worker_files[@]}; do
     proto_files="$PROTO_PATH/$proto $proto_files"
 done
 python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
-        --python_out=$ARMONIK_SERVER --grpc_python_out=$ARMONIK_SERVER \
+        --python_out=$ARMONIK_WORKER --grpc_python_out=$ARMONIK_WORKER \
         $proto_files
 
 unset proto_files
@@ -59,7 +59,7 @@ python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
         --python_out=$ARMONIK_COMMON --grpc_python_out=$ARMONIK_COMMON \
         $proto_files
 
-touch $ARMONIK_SERVER/__input__.py
+touch $ARMONIK_WORKER/__input__.py
 touch $ARMONIK_CLIENT/__input__.py
 touch $ARMONIK_COMMON/__input__.py
 
@@ -69,7 +69,7 @@ sed -i 's/\_pb2\.py/\_pb2\*\.py/g' $PYTHON_VENV//lib/python*/site-packages/fix_p
 fix-protobuf-imports $ARMONIK_PYTHON_SRC/armonik
 
 # another fix to have working relative import
-sed -i 's/from \.\.\./from \.\./g' $ARMONIK_SERVER/*
+sed -i 's/from \.\.\./from \.\./g' $ARMONIK_WORKER/*
 sed -i 's/from \.\.\./from \.\./g' $ARMONIK_CLIENT/*
 sed -i 's/from \.\.\./from \.\./g' $ARMONIK_COMMON/*
 
