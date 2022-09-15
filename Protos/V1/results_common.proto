@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.results;
+
+import "result_status.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
+
+message GetOwnerTaskIdRequest {
+  string session_id = 1;
+  repeated string result_id = 2;
+}
+
+message GetOwnerTaskIdResponse {
+  message MapResultTask {
+    string result_id = 1;
+    string task_id = 2;
+  }
+  repeated MapResultTask result_task = 1;
+  string session_id = 2;
+}
