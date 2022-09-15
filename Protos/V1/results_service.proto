@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.results;
+
+import "results_common.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
+
+/**
+ * The ResultsService provides methods for interacting with results
+ */
+service Results {
+  // Get the id of the task that should produce the result
+  rpc GetOwnerTaskId(GetOwnerTaskIdRequest) returns (GetOwnerTaskIdResponse);
+}
