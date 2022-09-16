@@ -23,6 +23,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -43,29 +44,6 @@ namespace ArmoniK.Api.Client.Submitter
   [PublicAPI]
   public static class SubmitterClientExt
   {
-    /// <summary>
-    ///   Create task request without streaming
-    /// </summary>
-    /// <param name="client">gRPC client to the Submitter</param>
-    /// <param name="sessionId">Id of the sessions</param>
-    /// <param name="taskOptions">Task Options for the tasks in this request</param>
-    /// <param name="taskRequests">The collection of request</param>
-    /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
-    /// <returns>
-    ///   The reply to task creation
-    /// </returns>
-    public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
-                                                               string                                           sessionId,
-                                                               TaskOptions?                                     taskOptions,
-                                                               IEnumerable<TaskRequest>                         taskRequests,
-                                                               CancellationToken                                cancellationToken = default)
-      => await CreateTasksAsync(client,
-                                sessionId,
-                                taskOptions,
-                                taskRequests.ToAsyncEnumerable(),
-                                cancellationToken)
-           .ConfigureAwait(false);
-
     /// <summary>
     ///   Create task request without streaming
     /// </summary>
@@ -119,40 +97,25 @@ namespace ArmoniK.Api.Client.Submitter
                                    },
                    };
 
-      await using var taskRequestEnumerator = taskRequests.GetAsyncEnumerator(cancellationToken);
-
-      if (!await taskRequestEnumerator.MoveNextAsync(cancellationToken))
+      await foreach (var request in taskRequests.WithCancellation(cancellationToken))
       {
-        yield break;
-      }
-
-      var currentRequest = taskRequestEnumerator.Current;
-
-      while (await taskRequestEnumerator.MoveNextAsync(cancellationToken))
-      {
-        await foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(false,
-                                                                                    chunkMaxSize,
-                                                                                    cancellationToken))
+        await foreach (var createLargeTaskRequest in request.ToRequestStream(chunkMaxSize,
+                                                                             cancellationToken))
         {
           yield return createLargeTaskRequest;
         }
-
-
-        currentRequest = taskRequestEnumerator.Current;
       }
 
-      await foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(true,
-                                                                                  chunkMaxSize,
-                                                                                  cancellationToken))
-      {
-        yield return createLargeTaskRequest;
-      }
+      yield return new CreateLargeTaskRequest
+                   {
+                     InitTask = new InitTaskRequest
+                                {
+                                  LastTask = true,
+                                },
+                   };
     }
 
-#pragma warning disable CS1998
-    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest taskRequest,
-#pragma warning restore CS1998
-                                                                                  bool                                       isLast,
+    private static async IAsyncEnumerable<CreateLargeTaskRequest> ToRequestStream(this TaskRequest                           taskRequest,
                                                                                   int                                        chunkMaxSize,
                                                                                   [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -174,13 +137,32 @@ namespace ArmoniK.Api.Client.Submitter
                                 },
                    };
 
-      var start = 0;
       if (cancellationToken.IsCancellationRequested)
       {
         yield break;
       }
 
-      if (taskRequest.Payload.Length == 0)
+      var i = 0;
+
+      await foreach (var b in taskRequest.Payload.ToChunkedByteStringAsync(chunkMaxSize,
+                                                                           cancellationToken))
+      {
+        if (cancellationToken.IsCancellationRequested)
+        {
+          yield break;
+        }
+
+        yield return new CreateLargeTaskRequest
+                     {
+                       TaskPayload = new DataChunk
+                                     {
+                                       Data = b,
+                                     },
+                     };
+        i++;
+      }
+
+      if (i == 0)
       {
         yield return new CreateLargeTaskRequest
                      {
@@ -191,33 +173,6 @@ namespace ArmoniK.Api.Client.Submitter
                      };
       }
 
-      while (start < taskRequest.Payload.Length)
-      {
-        if (cancellationToken.IsCancellationRequested)
-        {
-          yield break;
-        }
-
-        var chunkSize = Math.Min(chunkMaxSize,
-                                 taskRequest.Payload.Length - start);
-
-        yield return new CreateLargeTaskRequest
-                     {
-                       TaskPayload = new DataChunk
-                                     {
-                                       Data = ByteString.CopyFrom(taskRequest.Payload.Span.Slice(start,
-                                                                                                 chunkSize)),
-                                     },
-                     };
-
-        start += chunkSize;
-      }
-
-      if (cancellationToken.IsCancellationRequested)
-      {
-        yield break;
-      }
-
       yield return new CreateLargeTaskRequest
                    {
                      TaskPayload = new DataChunk
@@ -225,17 +180,6 @@ namespace ArmoniK.Api.Client.Submitter
                                      DataComplete = true,
                                    },
                    };
-
-      if (isLast)
-      {
-        yield return new CreateLargeTaskRequest
-                     {
-                       InitTask = new InitTaskRequest
-                                  {
-                                    LastTask = true,
-                                  },
-                     };
-      }
     }
 
     /// <summary>
@@ -245,18 +189,18 @@ namespace ArmoniK.Api.Client.Submitter
     /// <param name="resultRequest">Request for result</param>
     /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
     /// <returns>
-    ///   A byte array containing the data associated to the result
+    ///   A stream in which the data will be written
     /// </returns>
     /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
     /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
-    public static async Task<byte[]> GetResultAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
-                                                    ResultRequest                                    resultRequest,
-                                                    CancellationToken                                cancellationToken = default)
+    [PublicAPI]
+    public static async Task<MemoryStream> GetResultAsStreamAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
+                                                                  ResultRequest                                    resultRequest,
+                                                                  CancellationToken                                cancellationToken = default)
     {
+      var data = new MemoryStream();
       var streamingCall = client.TryGetResultStream(resultRequest,
                                                     cancellationToken: cancellationToken);
-
-      var result = new List<byte>();
 
       while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
       {
@@ -266,7 +210,7 @@ namespace ArmoniK.Api.Client.Submitter
           case ResultReply.TypeOneofCase.Result:
             if (!reply.Result.DataComplete)
             {
-              result.AddRange(reply.Result.Data.ToByteArray());
+              reply.Result.Data.WriteTo(data);
             }
 
             break;
@@ -281,7 +225,69 @@ namespace ArmoniK.Api.Client.Submitter
         }
       }
 
-      return result.ToArray();
+      return data;
+    }
+
+    /// <summary>
+    ///   Get result without streaming
+    /// </summary>
+    /// <param name="client">gRPC client to the Submitter</param>
+    /// <param name="resultRequest">Request for result</param>
+    /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+    /// <returns>
+    ///   A byte array containing the data associated to the result
+    /// </returns>
+    /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
+    /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
+    [PublicAPI]
+    public static async Task<byte[]> GetResultAsBytesAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
+                                                           ResultRequest                                    resultRequest,
+                                                           CancellationToken                                cancellationToken = default)
+    {
+      var streamingCall = client.TryGetResultStream(resultRequest,
+                                                    cancellationToken: cancellationToken);
+
+      var chunks = new List<ReadOnlyMemory<byte>>();
+      var len    = 0;
+
+      while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
+      {
+        var reply = streamingCall.ResponseStream.Current;
+
+        switch (reply.TypeCase)
+        {
+          case ResultReply.TypeOneofCase.Result:
+            if (!reply.Result.DataComplete)
+            {
+              chunks.Add(reply.Result.Data.Memory);
+              len += reply.Result.Data.Memory.Length;
+            }
+
+            break;
+          case ResultReply.TypeOneofCase.None:
+            throw new Exception("Issue with Server !");
+
+          case ResultReply.TypeOneofCase.Error:
+            throw new Exception($"Error in task {reply.Error.TaskId} {string.Join("Message is : ", reply.Error.Errors.Select(x => x.Detail))}");
+
+          case ResultReply.TypeOneofCase.NotCompletedTask:
+            throw new Exception($"Task {reply.NotCompletedTask} not completed");
+
+          default:
+            throw new ArgumentOutOfRangeException();
+        }
+      }
+
+      var res = new byte[len];
+      var idx = 0;
+      foreach (var rm in chunks)
+      {
+        rm.CopyTo(res.AsMemory(idx,
+                               rm.Length));
+        idx += rm.Length;
+      }
+
+      return res;
     }
   }
 }
