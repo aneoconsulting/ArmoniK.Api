@@ -8,7 +8,7 @@
     <title>Protocol Documentation </title>
     <meta name="viewport" content="width=device-width">
     <meta name="title" content="Protocol Documentation ">
-    <meta name="generator" content="docfx 2.59.3.0">
+    <meta name="generator" content="docfx 2.59.4.0">
     
     <link rel="shortcut icon" href="../favicon.ico">
     <link rel="stylesheet" href="../styles/docfx.vendor.css">
@@ -121,6 +121,18 @@
 <li><p><a href="#result_status-proto">result_status.proto</a></p>
 <ul>
 <li><a href="#armonik-api-grpc-v1-result_status-ResultStatus">ResultStatus</a></li>
+</ul>
+</li>
+<li><p><a href="#results_common-proto">results_common.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdRequest">GetOwnerTaskIdRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse">GetOwnerTaskIdResponse</a></li>
+<li><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse-MapResultTask">GetOwnerTaskIdResponse.MapResultTask</a></li>
+</ul>
+</li>
+<li><p><a href="#results_service-proto">results_service.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-results-Results">Results</a></li>
 </ul>
 </li>
 <li><p><a href="#session_status-proto">session_status.proto</a></p>
@@ -1244,6 +1256,113 @@
 <td>RESULT_STATUS_NOTFOUND</td>
 <td>127</td>
 <td>NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions <a href="https://developers.google.com/protocol-buffers/docs/proto3#enum">https://developers.google.com/protocol-buffers/docs/proto3#enum</a></td>
+</tr>
+</tbody>
+</table>
+<p><a name="results_common-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="results_commonproto">results_common.proto</h2>
+<p><a name="armonik-api-grpc-v1-results-GetOwnerTaskIdRequest"></a></p>
+<h3 id="getownertaskidrequest">GetOwnerTaskIdRequest</h3>
+<p>Request for getting the id of the task that should create this result</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>result_id</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-results-GetOwnerTaskIdResponse"></a></p>
+<h3 id="getownertaskidresponse">GetOwnerTaskIdResponse</h3>
+<p>Response for getting the id of the task that should create this result</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>result_task</td>
+<td><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse-MapResultTask">GetOwnerTaskIdResponse.MapResultTask</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-results-GetOwnerTaskIdResponse-MapResultTask"></a></p>
+<h3 id="getownertaskidresponsemapresulttask">GetOwnerTaskIdResponse.MapResultTask</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>result_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="results_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="results_serviceproto">results_service.proto</h2>
+<p><a name="armonik-api-grpc-v1-results-Results"></a></p>
+<h3 id="results">Results</h3>
+<p>The ResultsService provides methods for interacting with results</p>
+<table>
+<thead>
+<tr>
+<th>Method Name</th>
+<th>Request Type</th>
+<th>Response Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GetOwnerTaskId</td>
+<td><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdRequest">GetOwnerTaskIdRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse">GetOwnerTaskIdResponse</a></td>
+<td>Get the id of the task that should produce the result</td>
 </tr>
 </tbody>
 </table>
