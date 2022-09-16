@@ -194,9 +194,9 @@ namespace ArmoniK.Api.Client.Submitter
     /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
     /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
     [PublicAPI]
-    public static async Task<MemoryStream> GetResultAsStreamAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
-                                                                  ResultRequest                                    resultRequest,
-                                                                  CancellationToken                                cancellationToken = default)
+    public static async Task<Stream> GetResultAsStreamAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
+                                                            ResultRequest                                    resultRequest,
+                                                            CancellationToken                                cancellationToken = default)
     {
       var data = new MemoryStream();
       var streamingCall = client.TryGetResultStream(resultRequest,

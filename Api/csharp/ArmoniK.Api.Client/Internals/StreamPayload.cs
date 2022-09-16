@@ -28,9 +28,11 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
+using ArmoniK.Api.Client.Submitter;
+
 using Google.Protobuf;
 
-namespace ArmoniK.Api.Client.Submitter
+namespace ArmoniK.Api.Client.Internals
 {
   public class StreamPayload : IPayload
   {
@@ -55,15 +57,16 @@ namespace ArmoniK.Api.Client.Submitter
                                            maxChunkSize - length,
                                            cancellationToken);
           length += size;
-          if (size == 0)
+          if (length == maxChunkSize || (size == 0 && length > 0))
           {
-            if (length == 0)
-            {
-              yield break;
-            }
-
             yield return UnsafeByteOperations.UnsafeWrap(buffer.AsMemory(0,
                                                                          length));
+            break;
+          }
+
+          if (size == 0 && length == 0)
+          {
+            yield break;
           }
         }
       }

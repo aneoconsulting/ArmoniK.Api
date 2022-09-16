@@ -27,9 +27,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 
+using ArmoniK.Api.Client.Submitter;
+
 using Google.Protobuf;
 
-namespace ArmoniK.Api.Client.Submitter
+namespace ArmoniK.Api.Client.Internals
 {
   public class ReadOnlyByteMemoryPayload : IPayload
   {
@@ -38,13 +40,13 @@ namespace ArmoniK.Api.Client.Submitter
     public ReadOnlyByteMemoryPayload(ReadOnlyMemory<byte> readOnlyMemory)
       => readOnlyMemory_ = readOnlyMemory;
 
-    public IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int               maxChunkSize,
+    public IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int maxChunkSize,
                                                                  CancellationToken cancellationToken = default)
       => ToChunkedByteString(maxChunkSize,
                              cancellationToken)
         .ToAsyncEnumerable();
 
-    private IEnumerable<ByteString> ToChunkedByteString(int               maxChunkSize,
+    private IEnumerable<ByteString> ToChunkedByteString(int maxChunkSize,
                                                         CancellationToken cancellationToken = default)
     {
       var start = 0;

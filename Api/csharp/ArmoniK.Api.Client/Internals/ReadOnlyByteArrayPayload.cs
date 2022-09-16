@@ -24,7 +24,7 @@
 
 using System;
 
-namespace ArmoniK.Api.Client.Submitter
+namespace ArmoniK.Api.Client.Internals
 {
   public class ReadOnlyByteArrayPayload : ReadOnlyByteMemoryPayload
   {

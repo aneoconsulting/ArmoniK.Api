@@ -26,6 +26,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
+using ArmoniK.Api.Client.Internals;
+
 namespace ArmoniK.Api.Client.Submitter
 {
   public struct TaskRequest

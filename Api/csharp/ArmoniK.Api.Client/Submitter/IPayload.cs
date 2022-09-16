@@ -31,7 +31,7 @@ namespace ArmoniK.Api.Client.Submitter
 {
   public interface IPayload
   {
-    IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int               maxChunkSize,
+    IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int maxChunkSize,
                                                           CancellationToken cancellationToken = default);
   }
 }

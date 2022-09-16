@@ -22,12 +22,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System;
+using System.Collections;
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+
+using ArmoniK.Api.Client.Internals;
+using ArmoniK.Api.Client.Submitter;
+
 using NUnit.Framework;
 
 namespace ArmoniK.Api.Client.Tests;
 
 [TestFixture]
-public class SubmitterClientExtTest
+public class PayloadTest
 {
   [SetUp]
   public void SetUp()
@@ -39,8 +49,66 @@ public class SubmitterClientExtTest
   {
   }
 
-  [Test]
-  public void Atest()
+  public static IEnumerable TestCases(int n)
   {
+
+    var bytes = Encoding.ASCII.GetBytes("test");
+
+    for (var i = 1; i < bytes.Length + n; i++)
+    {
+      yield return new TestCaseData(new ReadOnlyByteArrayPayload(bytes),
+                                    bytes,
+                                    i);
+      yield return new TestCaseData(new ReadOnlyByteMemoryPayload(bytes),
+                                    bytes,
+                                    i);
+      yield return new TestCaseData(new StreamPayload(new MemoryStream(bytes)),
+                                    bytes,
+                                    i);
+    }
+  }
+
+
+  [Test]
+  [TestCaseSource(nameof(TestCases), new object[]{3})]
+  public async Task ChunkingShouldSucceed(IPayload payload, byte[] bytes, int maxChunkSize)
+  {
+    var res = new byte[bytes.Length];
+    var idx = 0;
+    await foreach (var rm in payload.ToChunkedByteStringAsync(maxChunkSize,
+                                                              CancellationToken.None))
+    {
+      rm.Memory.CopyTo(res.AsMemory(idx,
+                                    rm.Length));
+      idx += rm.Length;
+    }
+
+    Assert.AreEqual(bytes,
+                    res);
+  }
+
+  [Test]
+  [TestCaseSource(nameof(TestCases), new object[]{0})]
+  public  void ChunkingWithCancel(IPayload payload,
+                                          byte[]   bytes,
+                                          int      maxChunkSize)
+  {
+    var res = new byte[bytes.Length];
+    var idx = 0;
+
+    var cancellationTokenSource = new CancellationTokenSource();
+
+    Assert.ThrowsAsync<OperationCanceledException>(async () =>
+                                                   {
+                                                     await foreach (var rm in payload.ToChunkedByteStringAsync(maxChunkSize,
+                                                                                                               cancellationTokenSource.Token))
+                                                     {
+                                                       rm.Memory.CopyTo(res.AsMemory(idx,
+                                                                                     rm.Length));
+                                                       idx += rm.Length;
+                                                       cancellationTokenSource.Cancel();
+                                                     }
+                                                   });
+
   }
 }
