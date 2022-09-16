@@ -24,7 +24,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
+using System.Linq;
 using System.Threading;
 
 using Google.Protobuf;
@@ -38,10 +38,14 @@ namespace ArmoniK.Api.Client.Submitter
     public ReadOnlyByteMemoryPayload(ReadOnlyMemory<byte> readOnlyMemory)
       => readOnlyMemory_ = readOnlyMemory;
 
-#pragma warning disable CS1998
-    public async IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int maxChunkSize,
-#pragma warning restore CS1998
-                                                                       [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int                  maxChunkSize,
+                                                                 CancellationToken cancellationToken = default)
+      => ToChunkedByteString(maxChunkSize,
+                             cancellationToken)
+        .ToAsyncEnumerable();
+
+    private IEnumerable<ByteString> ToChunkedByteString(int               maxChunkSize,
+                                                        CancellationToken cancellationToken = default)
     {
       var start = 0;
 

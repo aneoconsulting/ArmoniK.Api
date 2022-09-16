@@ -23,37 +23,14 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
-
-using Google.Protobuf;
 
 namespace ArmoniK.Api.Client.Submitter
 {
-  public class ReadOnlyByteArrayPayload : IPayload
+  public class ReadOnlyByteArrayPayload : ReadOnlyByteMemoryPayload
   {
-    private readonly byte[] bytes_;
-
     public ReadOnlyByteArrayPayload(byte[] bytes)
-      => bytes_ = bytes;
-
-#pragma warning disable CS1998
-    public async IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int maxChunkSize,
-#pragma warning restore CS1998
-                                                                       [EnumeratorCancellation] CancellationToken cancellationToken = default)
+      : base(new ReadOnlyMemory<byte>(bytes))
     {
-      var start = 0;
-
-      while (start < bytes_.Length)
-      {
-        cancellationToken.ThrowIfCancellationRequested();
-        var chunkSize = Math.Min(maxChunkSize,
-                                 bytes_.Length - start);
-        yield return UnsafeByteOperations.UnsafeWrap(bytes_.AsMemory(start,
-                                                                     chunkSize));
-        start += chunkSize;
-      }
     }
   }
 }

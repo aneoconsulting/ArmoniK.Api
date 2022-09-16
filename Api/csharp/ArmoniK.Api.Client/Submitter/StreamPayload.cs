@@ -45,17 +45,27 @@ namespace ArmoniK.Api.Client.Submitter
       while (true)
       {
         var buffer = new byte[maxChunkSize];
-        var size = await data_.ReadAsync(buffer,
-                                         0,
-                                         maxChunkSize,
-                                         cancellationToken);
-        if (size == 0)
-        {
-          yield break;
-        }
+        var length = 0;
 
-        yield return UnsafeByteOperations.UnsafeWrap(buffer.AsMemory(0,
-                                                                     size));
+        while (length < maxChunkSize)
+        {
+          cancellationToken.ThrowIfCancellationRequested();
+          var size = await data_.ReadAsync(buffer,
+                                           length,
+                                           maxChunkSize - length,
+                                           cancellationToken);
+          length += size;
+          if (size == 0)
+          {
+            if (length == 0)
+            {
+              yield break;
+            }
+
+            yield return UnsafeByteOperations.UnsafeWrap(buffer.AsMemory(0,
+                                                                         length));
+          }
+        }
       }
     }
   }
