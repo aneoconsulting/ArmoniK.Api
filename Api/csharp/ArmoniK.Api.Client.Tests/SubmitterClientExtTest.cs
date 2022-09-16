@@ -51,7 +51,6 @@ public class PayloadTest
 
   public static IEnumerable TestCases(int n)
   {
-
     var bytes = Encoding.ASCII.GetBytes("test");
 
     for (var i = 1; i < bytes.Length + n; i++)
@@ -70,8 +69,14 @@ public class PayloadTest
 
 
   [Test]
-  [TestCaseSource(nameof(TestCases), new object[]{3})]
-  public async Task ChunkingShouldSucceed(IPayload payload, byte[] bytes, int maxChunkSize)
+  [TestCaseSource(nameof(TestCases),
+                  new object[]
+                  {
+                    3,
+                  })]
+  public async Task ChunkingShouldSucceed(IPayload payload,
+                                          byte[]   bytes,
+                                          int      maxChunkSize)
   {
     var res = new byte[bytes.Length];
     var idx = 0;
@@ -88,10 +93,14 @@ public class PayloadTest
   }
 
   [Test]
-  [TestCaseSource(nameof(TestCases), new object[]{0})]
-  public  void ChunkingWithCancel(IPayload payload,
-                                          byte[]   bytes,
-                                          int      maxChunkSize)
+  [TestCaseSource(nameof(TestCases),
+                  new object[]
+                  {
+                    0,
+                  })]
+  public void ChunkingWithCancel(IPayload payload,
+                                 byte[]   bytes,
+                                 int      maxChunkSize)
   {
     var res = new byte[bytes.Length];
     var idx = 0;
@@ -109,6 +118,5 @@ public class PayloadTest
                                                        cancellationTokenSource.Cancel();
                                                      }
                                                    });
-
   }
 }
