@@ -38,7 +38,7 @@ namespace ArmoniK.Api.Client.Submitter
     public ReadOnlyByteMemoryPayload(ReadOnlyMemory<byte> readOnlyMemory)
       => readOnlyMemory_ = readOnlyMemory;
 
-    public IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int                  maxChunkSize,
+    public IAsyncEnumerable<ByteString> ToChunkedByteStringAsync(int               maxChunkSize,
                                                                  CancellationToken cancellationToken = default)
       => ToChunkedByteString(maxChunkSize,
                              cancellationToken)
