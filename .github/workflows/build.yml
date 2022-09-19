@@ -110,7 +110,9 @@ jobs:
           - Api/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
           - Api/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
           - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
+          - Api/csharp/ArmoniK.Api.Client.Tests/ArmoniK.Api.Client.Tests.csproj
           - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
+          - Api/csharp/ArmoniK.Api.Worker.Tests/ArmoniK.Api.Worker.Tests.csproj
     steps:
     - name: Checkout
       uses: actions/checkout@v2
