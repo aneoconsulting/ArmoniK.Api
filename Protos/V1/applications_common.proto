@@ -55,3 +55,7 @@ message ListApplicationsRequest {
     int32 page_size = 2;
   }
 }
+
+message ListApplicationsResponse {
+  repeated Application application = 1;
+}
