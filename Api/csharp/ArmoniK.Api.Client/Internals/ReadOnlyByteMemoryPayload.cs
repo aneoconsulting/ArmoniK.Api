@@ -33,7 +33,7 @@ using Google.Protobuf;
 
 namespace ArmoniK.Api.Client.Internals
 {
-  public class ReadOnlyByteMemoryPayload : IPayload
+  internal class ReadOnlyByteMemoryPayload : IPayload
   {
     private readonly ReadOnlyMemory<byte> readOnlyMemory_;
 

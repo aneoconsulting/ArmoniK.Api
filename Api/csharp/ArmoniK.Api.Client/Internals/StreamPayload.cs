@@ -34,7 +34,7 @@ using Google.Protobuf;
 
 namespace ArmoniK.Api.Client.Internals
 {
-  public class StreamPayload : IPayload
+  internal class StreamPayload : IPayload
   {
     private readonly Stream data_;
 

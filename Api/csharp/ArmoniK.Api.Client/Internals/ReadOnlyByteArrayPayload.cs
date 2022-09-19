@@ -26,7 +26,7 @@ using System;
 
 namespace ArmoniK.Api.Client.Internals
 {
-  public class ReadOnlyByteArrayPayload : ReadOnlyByteMemoryPayload
+  internal class ReadOnlyByteArrayPayload : ReadOnlyByteMemoryPayload
   {
     public ReadOnlyByteArrayPayload(byte[] bytes)
       : base(new ReadOnlyMemory<byte>(bytes))
