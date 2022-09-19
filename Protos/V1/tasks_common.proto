@@ -161,6 +161,6 @@ message CancelTasksRequest {
  * Response from canceling one or many tasks
  */
 message CancelTasksResponse {
-  // Ids of the canceled tasks
+  // Tasks that have been asked to cancel
   repeated Task tasks = 1;
 }
