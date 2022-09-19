@@ -18,4 +18,7 @@ service Tasks {
 
   // Get a task by id
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
+
+  // Cancel one or many tasks
+  rpc CancelTasks(CancelTasksRequest) returns (CancelTasksResponse) {}
 }

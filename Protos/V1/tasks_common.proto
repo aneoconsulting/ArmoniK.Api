@@ -148,3 +148,19 @@ message GetTaskResponse {
   // A raw task object
   TaskRaw task = 1;
 }
+
+/**
+ * Request to cancel one or many tasks
+ */
+message CancelTasksRequest {
+  // Ids of the tasks to cancel
+  repeated string ids = 1;
+}
+
+/**
+ * Response from canceling one or many tasks
+ */
+message CancelTasksResponse {
+  // Ids of the canceled tasks
+  repeated Task tasks = 1;
+}
