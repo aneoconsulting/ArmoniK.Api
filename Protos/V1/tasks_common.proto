@@ -6,7 +6,7 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "task_status.proto";
 
-option csharp_namespace = "Armonik.Api.gRPC.V1.Tasks";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
 
 /**
  * A raw task object
