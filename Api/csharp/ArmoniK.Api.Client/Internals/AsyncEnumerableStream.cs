@@ -30,12 +30,19 @@ using System.Threading.Tasks;
 
 namespace ArmoniK.Api.Client.Internals
 {
+  /// <summary>
+  ///   IO.Stream that is read from an IAsyncEnumerable
+  /// </summary>
   public class AsyncEnumerableStream : Stream, IAsyncDisposable
   {
     private readonly IAsyncEnumerator<ReadOnlyMemory<byte>> enumerator_;
     private          int                                    inputOffset_;
 
-
+    /// <summary>
+    ///   Constructs the stream from an IAsyncEnumerable
+    /// </summary>
+    /// <param name="enumerable">async enumerable read from the stream</param>
+    /// <param name="cancellationToken">cancellation token used to abort the enumeration</param>
     public AsyncEnumerableStream(IAsyncEnumerable<ReadOnlyMemory<byte>> enumerable,
                                  CancellationToken                      cancellationToken = default)
     {
@@ -43,30 +50,76 @@ namespace ArmoniK.Api.Client.Internals
       inputOffset_ = 0;
     }
 
+    /// <inheritdoc />
+    public override bool CanRead
+      => true;
+
+    /// <inheritdoc />
+    public override bool CanSeek
+      => false;
+
+    /// <inheritdoc />
+    public override bool CanWrite
+      => false;
+
+    /// <inheritdoc />
+    public override long Length
+      => 0;
+
+    /// <inheritdoc />
+    public override long Position
+    {
+      get => 0;
+      set => throw new NotImplementedException();
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
       => await enumerator_.DisposeAsync()
                           .ConfigureAwait(false);
 
+    /// <inheritdoc />
     public override void Flush()
     {
     }
 
+    /// <inheritdoc />
     public override int Read(byte[] buffer,
                              int    offset,
                              int    count)
       => Read(buffer.AsSpan(offset,
                             count));
 
+    /// <summary>
+    ///   Reads a sequence of bytes from the current stream and advances the position within the stream by the number of
+    ///   bytes read.
+    /// </summary>
+    /// <param name="span">
+    ///   An array of bytes. When this method returns, the buffer contains the specified byte array with the
+    ///   values replaced by the bytes read from the current source.
+    /// </param>
+    /// <returns>
+    ///   The total number of bytes read into the buffer. This can be less than the number of bytes requested if that
+    ///   many bytes are not currently available, or zero (0) if the end of the stream has been reached.
+    /// </returns>
+    /// <exception cref="T:System.ArgumentNullException"><paramref name="span">buffer</paramref> is null.</exception>
+    /// <exception cref="T:System.IO.IOException">An I/O error occurs.</exception>
+    /// <exception cref="T:System.ObjectDisposedException">Methods were called after the stream was closed.</exception>
     public int Read(Span<byte> span)
     {
-      if (enumerator_.Current.Length == 0)
+      // More data is needed
+      while (enumerator_.Current.Length == inputOffset_)
       {
-        enumerator_.MoveNextAsync()
-                   .GetAwaiter()
-                   .GetResult();
         inputOffset_ = 0;
+        if (!enumerator_.MoveNextAsync()
+                        .GetAwaiter()
+                        .GetResult())
+        {
+          return 0;
+        }
       }
 
+      // Write only what is asked for
       var length = Math.Min(span.Length,
                             enumerator_.Current.Length - inputOffset_);
       enumerator_.Current.Slice(inputOffset_,
@@ -78,6 +131,7 @@ namespace ArmoniK.Api.Client.Internals
       return length;
     }
 
+    /// <inheritdoc />
     public override Task<int> ReadAsync(byte[]            buffer,
                                         int               offset,
                                         int               count,
@@ -87,9 +141,29 @@ namespace ArmoniK.Api.Client.Internals
                    cancellationToken)
         .AsTask();
 
+
+    /// <summary>
+    ///   Asynchronously reads a sequence of bytes from the current stream, advances the position within the stream by
+    ///   the number of bytes read, and monitors cancellation requests.
+    /// </summary>
+    /// <param name="buffer">The buffer to write the data into.</param>
+    /// <param name="cancellationToken">
+    ///   The token to monitor for cancellation requests. The default value is
+    ///   <see cref="P:System.Threading.CancellationToken.None"></see>.
+    /// </param>
+    /// <returns>
+    ///   A task that represents the asynchronous read operation. The value of the
+    ///   <paramref name="TResult">TResult</paramref> parameter contains the total number of bytes read into the buffer. The
+    ///   result value can be less than the number of bytes requested if the number of bytes currently available is less than
+    ///   the requested number, or it can be 0 (zero) if the end of the stream has been reached.
+    /// </returns>
+    /// <exception cref="T:System.ArgumentNullException"><paramref name="buffer">buffer</paramref> is null.</exception>
+    /// <exception cref="T:System.ObjectDisposedException">The stream has been disposed.</exception>
+    /// <exception cref="T:System.InvalidOperationException">The stream is currently in use by a previous read operation.</exception>
     public async ValueTask<int> ReadAsync(Memory<byte>      buffer,
                                           CancellationToken cancellationToken = default)
     {
+      // More data is needed
       while (enumerator_.Current.Length == inputOffset_)
       {
         inputOffset_ = 0;
@@ -100,6 +174,7 @@ namespace ArmoniK.Api.Client.Internals
         }
       }
 
+      // Write only what is asked for
       var length = Math.Min(buffer.Length,
                             enumerator_.Current.Length - inputOffset_);
       enumerator_.Current.Slice(inputOffset_,
@@ -111,35 +186,19 @@ namespace ArmoniK.Api.Client.Internals
       return length;
     }
 
-
+    /// <inheritdoc />
     public override long Seek(long       offset,
                               SeekOrigin origin)
       => throw new NotImplementedException();
 
+    /// <inheritdoc />
     public override void SetLength(long value)
       => throw new NotImplementedException();
 
+    /// <inheritdoc />
     public override void Write(byte[] buffer,
                                int    offset,
                                int    count)
       => throw new NotImplementedException();
-
-    public override bool CanRead
-      => true;
-
-    public override bool CanSeek
-      => false;
-
-    public override bool CanWrite
-      => false;
-
-    public override long Length
-      => 0;
-
-    public override long Position
-    {
-      get => 0;
-      set => throw new NotImplementedException();
-    }
   }
 }

@@ -200,9 +200,6 @@ public class PayloadTest
 
   public class TestClient : gRPC.V1.Submitter.Submitter.SubmitterClient
   {
-    private static Task<Metadata> GetResponse()
-      => Task.FromResult(new Metadata());
-
     private readonly IAsyncStreamReader<ResultReply> streamReader_;
 
     public TestClient(byte[] resultData,
@@ -240,14 +237,17 @@ public class PayloadTest
       streamReader_ = new EnumerableAsyncStreamReader(list);
     }
 
+    private static Task<Metadata> GetResponse()
+      => Task.FromResult(new Metadata());
+
     public override AsyncServerStreamingCall<ResultReply> TryGetResultStream(ResultRequest request,
                                                                              CallOptions   options)
-      => new AsyncServerStreamingCall<ResultReply>(streamReader_,
-                                                   GetResponse(),
-                                                   () => Status.DefaultSuccess,
-                                                   () => new Metadata(),
-                                                   () =>
-                                                   {
-                                                   });
+      => new(streamReader_,
+             GetResponse(),
+             () => Status.DefaultSuccess,
+             () => new Metadata(),
+             () =>
+             {
+             });
   }
 }

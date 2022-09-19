@@ -183,7 +183,7 @@ namespace ArmoniK.Api.Client.Submitter
     }
 
     /// <summary>
-    ///   Get result without streaming
+    ///   Get result as a stream
     /// </summary>
     /// <param name="client">gRPC client to the Submitter</param>
     /// <param name="resultRequest">Request for result</param>
@@ -203,7 +203,7 @@ namespace ArmoniK.Api.Client.Submitter
 
 
     /// <summary>
-    ///   Get result without streaming
+    ///   Get result from an AsyncEnumerable
     /// </summary>
     /// <param name="client">gRPC client to the Submitter</param>
     /// <param name="resultRequest">Request for result</param>
