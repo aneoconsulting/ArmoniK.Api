@@ -140,7 +140,7 @@ public class PayloadTest
                                 maxChunkSize);
 
     var res = await client.GetResultAsBytesAsync(new ResultRequest(),
-                                       CancellationToken.None);
+                                                 CancellationToken.None);
 
     Console.WriteLine(Encoding.ASCII.GetString(res));
     Assert.AreEqual(bytes,
@@ -161,18 +161,24 @@ public class PayloadTest
                                 maxChunkSize);
 
     var stream = await client.GetResultAsStreamAsync(new ResultRequest(),
-                                                  CancellationToken.None);
+                                                     CancellationToken.None);
 
 
-    var res = new byte[bytes.Length];
-    var readSize = await stream.ReadAsync(res,
-                           0,
-                           bytes.Length);
+    var res    = new byte[bytes.Length];
+    var offset = 0;
+    int readSize;
+    do
+    {
+      readSize = await stream.ReadAsync(res,
+                                        offset,
+                                        res.Length - offset);
+      offset += readSize;
+    } while (readSize > 0);
 
     Console.WriteLine(Encoding.ASCII.GetString(res));
 
-    Assert.AreNotEqual(0,
-                       readSize);
+    Assert.AreEqual(bytes.Length,
+                    offset);
     Assert.AreEqual(bytes,
                     res);
   }
@@ -182,9 +188,7 @@ public class PayloadTest
     private readonly IEnumerator<ResultReply> enumerator_;
 
     public EnumerableAsyncStreamReader(IEnumerable<ResultReply> enumerable)
-    {
-      enumerator_ = enumerable.GetEnumerator();
-    }
+      => enumerator_ = enumerable.GetEnumerator();
 
     public Task<bool> MoveNext(CancellationToken cancellationToken)
       => Task.FromResult(enumerator_.MoveNext());
@@ -197,9 +201,7 @@ public class PayloadTest
   public class TestClient : gRPC.V1.Submitter.Submitter.SubmitterClient
   {
     private static Task<Metadata> GetResponse()
-    {
-      return Task.FromResult(new Metadata());
-    }
+      => Task.FromResult(new Metadata());
 
     private readonly IAsyncStreamReader<ResultReply> streamReader_;
 
@@ -240,14 +242,12 @@ public class PayloadTest
 
     public override AsyncServerStreamingCall<ResultReply> TryGetResultStream(ResultRequest request,
                                                                              CallOptions   options)
-    {
-      return new AsyncServerStreamingCall<ResultReply>(streamReader_,
-                                                       GetResponse(),
-                                                       () => Status.DefaultSuccess,
-                                                       () => new Metadata(),
-                                                       () =>
-                                                       {
-                                                       });
-    }
+      => new AsyncServerStreamingCall<ResultReply>(streamReader_,
+                                                   GetResponse(),
+                                                   () => Status.DefaultSuccess,
+                                                   () => new Metadata(),
+                                                   () =>
+                                                   {
+                                                   });
   }
 }

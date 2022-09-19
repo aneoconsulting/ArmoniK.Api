@@ -24,11 +24,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
+using ArmoniK.Api.Client.Internals;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Submitter;
 
@@ -194,11 +194,30 @@ namespace ArmoniK.Api.Client.Submitter
     /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
     /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
     [PublicAPI]
-    public static async Task<Stream> GetResultAsStreamAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
-                                                            ResultRequest                                    resultRequest,
-                                                            CancellationToken                                cancellationToken = default)
+    public static Task<Stream> GetResultAsStreamAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
+                                                      ResultRequest                                    resultRequest,
+                                                      CancellationToken                                cancellationToken = default)
+      => Task.FromResult(new AsyncEnumerableStream(GetResultAsEnumerableAsync(client,
+                                                                              resultRequest,
+                                                                              cancellationToken)) as Stream);
+
+
+    /// <summary>
+    ///   Get result without streaming
+    /// </summary>
+    /// <param name="client">gRPC client to the Submitter</param>
+    /// <param name="resultRequest">Request for result</param>
+    /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+    /// <returns>
+    ///   An async enumerable of byte chunks
+    /// </returns>
+    /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
+    /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
+    [PublicAPI]
+    public static async IAsyncEnumerable<ReadOnlyMemory<byte>> GetResultAsEnumerableAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
+                                                                                          ResultRequest                                    resultRequest,
+                                                                                          [EnumeratorCancellation] CancellationToken       cancellationToken = default)
     {
-      var data = new MemoryStream();
       var streamingCall = client.TryGetResultStream(resultRequest,
                                                     cancellationToken: cancellationToken);
 
@@ -210,7 +229,7 @@ namespace ArmoniK.Api.Client.Submitter
           case ResultReply.TypeOneofCase.Result:
             if (!reply.Result.DataComplete)
             {
-              reply.Result.Data.WriteTo(data);
+              yield return reply.Result.Data.Memory;
             }
 
             break;
@@ -224,8 +243,6 @@ namespace ArmoniK.Api.Client.Submitter
             throw new ArgumentOutOfRangeException();
         }
       }
-
-      return data;
     }
 
     /// <summary>
@@ -244,38 +261,15 @@ namespace ArmoniK.Api.Client.Submitter
                                                            ResultRequest                                    resultRequest,
                                                            CancellationToken                                cancellationToken = default)
     {
-      var streamingCall = client.TryGetResultStream(resultRequest,
-                                                    cancellationToken: cancellationToken);
-
       var chunks = new List<ReadOnlyMemory<byte>>();
       var len    = 0;
 
-      while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
+      await foreach (var chunk in GetResultAsEnumerableAsync(client,
+                                                             resultRequest,
+                                                             cancellationToken))
       {
-        var reply = streamingCall.ResponseStream.Current;
-
-        switch (reply.TypeCase)
-        {
-          case ResultReply.TypeOneofCase.Result:
-            if (!reply.Result.DataComplete)
-            {
-              chunks.Add(reply.Result.Data.Memory);
-              len += reply.Result.Data.Memory.Length;
-            }
-
-            break;
-          case ResultReply.TypeOneofCase.None:
-            throw new Exception("Issue with Server !");
-
-          case ResultReply.TypeOneofCase.Error:
-            throw new Exception($"Error in task {reply.Error.TaskId} {string.Join("Message is : ", reply.Error.Errors.Select(x => x.Detail))}");
-
-          case ResultReply.TypeOneofCase.NotCompletedTask:
-            throw new Exception($"Task {reply.NotCompletedTask} not completed");
-
-          default:
-            throw new ArgumentOutOfRangeException();
-        }
+        chunks.Add(chunk);
+        len += chunk.Length;
       }
 
       var res = new byte[len];
