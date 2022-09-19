@@ -149,7 +149,6 @@ message GetTaskResponse {
   TaskRaw task = 1;
 }
 
-
 /*
 *  Request for getting the id of the results that the tasks should produce
 */
@@ -164,7 +163,7 @@ message GetResultIdsRequest {
 message GetResultIdsResponse {
   message MapTaskResult {
     string task_id = 1;
-    string result_id = 2;
+    repeated string result_ids = 2;
   }
   repeated MapTaskResult task_result = 1;
   string session_id = 2;
