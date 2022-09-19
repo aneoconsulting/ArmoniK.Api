@@ -24,10 +24,12 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON
 # sudo apt install python3-venv
 
 armonik_worker_files=("agent_service.proto" "worker_service.proto")
-armonik_client_files=("submitter_service.proto" "tasks_service.proto" "sessions_service.proto")
+armonik_client_files=("submitter_service.proto" "tasks_service.proto" "sessions_service.proto" \
+                      "results_service.proto")
 armonik_common_files=("objects.proto" "task_status.proto" "session_status.proto" \
                       "result_status.proto" "agent_common.proto" "sessions_common.proto"  \
-                      "submitter_common.proto"  "tasks_common.proto"  "worker_common.proto")
+                      "submitter_common.proto"  "tasks_common.proto"  "worker_common.proto" \
+                      "results_common.proto")
 
 python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
