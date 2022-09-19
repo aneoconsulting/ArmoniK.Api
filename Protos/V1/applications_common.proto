@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.applicaitons;
+
+import "google/protobuf/timestamp.proto";
+import "objects.proto";
+import "sessions_common.proto";
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Applications";
+
+message Application {
+  ApplicationId id = 1;
+
+  message ApplicationId {
+    string name = 1;
+    string version = 2;
+  }
+
+  int64 tasks_pending = 2;
+  int64 tasks_in_error = 3;
+  int64 tasks_completed = 4;
+  int64 tasks_processing = 5;
+
+  repeated SessionSummary session = 6;
+}
+
+message ListApplicationsRequest {
+  Filter filter = 1;
+
+  message Filter {
+    string name = 1;
+    string version = 2;
+  }
+
+  Sort sort = 2;
+
+  message Sort {
+    OrderByFiled field = 1;
+    OrderByDirection direction = 2;
+  }
+
+  enum OrderByFiled {
+    ORDER_BY_FIELD_UNSPECIFIED = 0;
+    ORDER_BY_FIELD_ID = 1;
+    ORDER_BY_FIELD_TASKS_PENDING = 2;
+    ORDER_BY_FIELD_TASKS_IN_ERROR = 3;
+    ORDER_BY_FIELD_TASKS_COMPLETED = 4;
+    ORDER_BY_FIELD_TASKS_PROCESSING = 5;
+  }
+
+  LastSessionsOptions last_sessions_options = 3;
+  
+  message LastSessionsOptions {
+    int32 page = 1;
+    int32 page_size = 2;
+  }
+}
