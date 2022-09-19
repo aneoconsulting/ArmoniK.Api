@@ -24,6 +24,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -31,6 +32,12 @@ using System.Threading.Tasks;
 
 using ArmoniK.Api.Client.Internals;
 using ArmoniK.Api.Client.Submitter;
+using ArmoniK.Api.gRPC.V1;
+using ArmoniK.Api.gRPC.V1.Submitter;
+
+using Google.Protobuf;
+
+using Grpc.Core;
 
 using NUnit.Framework;
 
@@ -118,5 +125,129 @@ public class PayloadTest
                                                        cancellationTokenSource.Cancel();
                                                      }
                                                    });
+  }
+
+  [Test]
+  [TestCase(2)]
+  [TestCase(3)]
+  [TestCase(4)]
+  [TestCase(100)]
+  public async Task GetResultAsBytesAsyncShouldSucceed(int maxChunkSize)
+  {
+    var bytes = Encoding.ASCII.GetBytes("test_jfiejiçlkqflkljsdkljf");
+
+    var client = new TestClient(bytes,
+                                maxChunkSize);
+
+    var res = await client.GetResultAsBytesAsync(new ResultRequest(),
+                                       CancellationToken.None);
+
+    Console.WriteLine(Encoding.ASCII.GetString(res));
+    Assert.AreEqual(bytes,
+                    res);
+  }
+
+
+  [Test]
+  [TestCase(2)]
+  [TestCase(3)]
+  [TestCase(4)]
+  [TestCase(100)]
+  public async Task GetResultAsStreamAsyncShouldSucceed(int maxChunkSize)
+  {
+    var bytes = Encoding.ASCII.GetBytes("test_jfiejiçlkqflkljsdkljf");
+
+    var client = new TestClient(bytes,
+                                maxChunkSize);
+
+    var stream = await client.GetResultAsStreamAsync(new ResultRequest(),
+                                                  CancellationToken.None);
+
+
+    var res = new byte[bytes.Length];
+    var readSize = await stream.ReadAsync(res,
+                           0,
+                           bytes.Length);
+
+    Console.WriteLine(Encoding.ASCII.GetString(res));
+
+    Assert.AreNotEqual(0,
+                       readSize);
+    Assert.AreEqual(bytes,
+                    res);
+  }
+
+  private class EnumerableAsyncStreamReader : IAsyncStreamReader<ResultReply>
+  {
+    private readonly IEnumerator<ResultReply> enumerator_;
+
+    public EnumerableAsyncStreamReader(IEnumerable<ResultReply> enumerable)
+    {
+      enumerator_ = enumerable.GetEnumerator();
+    }
+
+    public Task<bool> MoveNext(CancellationToken cancellationToken)
+      => Task.FromResult(enumerator_.MoveNext());
+
+    public ResultReply Current
+      => enumerator_.Current;
+  }
+
+
+  public class TestClient : gRPC.V1.Submitter.Submitter.SubmitterClient
+  {
+    private static Task<Metadata> GetResponse()
+    {
+      return Task.FromResult(new Metadata());
+    }
+
+    private readonly IAsyncStreamReader<ResultReply> streamReader_;
+
+    public TestClient(byte[] resultData,
+                      int    maxChunkSize)
+    {
+      var list = new List<ResultReply>();
+
+      var start = 0;
+
+      while (start < resultData.Length)
+      {
+        var chunkSize = Math.Min(maxChunkSize,
+                                 resultData.Length - start);
+
+        list.Add(new ResultReply
+                 {
+                   Result = new DataChunk
+                            {
+                              Data = UnsafeByteOperations.UnsafeWrap(resultData.AsMemory()
+                                                                               .Slice(start,
+                                                                                      chunkSize)),
+                            },
+                 });
+        start += chunkSize;
+      }
+
+      list.Add(new ResultReply
+               {
+                 Result = new DataChunk
+                          {
+                            DataComplete = true,
+                          },
+               });
+
+      streamReader_ = new EnumerableAsyncStreamReader(list);
+    }
+
+    public override AsyncServerStreamingCall<ResultReply> TryGetResultStream(ResultRequest request,
+                                                                             CallOptions   options)
+    {
+      return new AsyncServerStreamingCall<ResultReply>(streamReader_,
+                                                       GetResponse(),
+                                                       () => Status.DefaultSuccess,
+                                                       () => new Metadata(),
+                                                       () =>
+                                                       {
+                                                       });
+    }
   }
 }
