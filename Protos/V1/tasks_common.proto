@@ -148,3 +148,24 @@ message GetTaskResponse {
   // A raw task object
   TaskRaw task = 1;
 }
+
+
+/*
+*  Request for getting the id of the results that the tasks should produce
+*/
+message GetResultIdsRequest {
+  string session_id = 1;
+  repeated string task_id = 2;
+}
+
+/*
+* Response for getting the id of the results that the tasks should produce
+*/
+message GetResultIdsResponse {
+  message MapTaskResult {
+    string task_id = 1;
+    string result_id = 2;
+  }
+  repeated MapTaskResult task_result = 1;
+  string session_id = 2;
+}
