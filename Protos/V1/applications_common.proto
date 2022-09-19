@@ -8,37 +8,67 @@ import "sessions_common.proto";
 
 option csharp_namespace = "Armonik.Api.Grpc.V1.Applications";
 
+/**
+ * An application object
+ */
 message Application {
+  // Application ID
   ApplicationId id = 1;
 
+  /**
+   * Application ID message
+   */
   message ApplicationId {
+    // Application name
     string name = 1;
+    // Application version
     string version = 2;
   }
 
+  // Number of tasks with a pending status ("CREATING", "SUBMITTED", "DISOATCHED")
   int64 tasks_pending = 2;
+  // Number of tasks with a status "ERROR"
   int64 tasks_in_error = 3;
+  // Number of tasks with a status "COMPLETED"
   int64 tasks_completed = 4;
+  // Number of tasks with a status "PROCESSING"
   int64 tasks_processing = 5;
 
+  // Last session related to the application
   repeated SessionSummary session = 6;
 }
 
+/**
+  * Request for listing applications
+  */
 message ListApplicationsRequest {
+  // Filter used to select applications
   Filter filter = 1;
 
+  /**
+   * Message to filter applications
+   */
   message Filter {
+    // Application name
     string name = 1;
+    // Application version
     string version = 2;
   }
 
+  // Used to sort the returned applications
   Sort sort = 2;
 
+  /**
+   * Message to sort applications
+   */
   message Sort {
+    // Field to order by
     OrderByFiled field = 1;
+    // Order direction
     OrderByDirection direction = 2;
   }
 
+  // Available fields to order the returned applications
   enum OrderByFiled {
     ORDER_BY_FIELD_UNSPECIFIED = 0;
     ORDER_BY_FIELD_ID = 1;
@@ -48,14 +78,24 @@ message ListApplicationsRequest {
     ORDER_BY_FIELD_TASKS_PROCESSING = 5;
   }
 
+  // Options for the last sessions. If not specified, last sessions are not returned
   LastSessionsOptions last_sessions_options = 3;
   
+  /**
+   * Message to specify the options for the last sessions
+   */
   message LastSessionsOptions {
+    // Page number for the last sessions
     int32 page = 1;
+    // Page size for the last sessions
     int32 page_size = 2;
   }
 }
 
+/**
+ * Response for listing applications
+ */
 message ListApplicationsResponse {
+  // List of applications
   repeated Application application = 1;
 }
