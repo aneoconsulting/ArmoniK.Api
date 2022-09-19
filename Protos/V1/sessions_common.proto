@@ -30,6 +30,12 @@ message SessionSummary {
   session_status.SessionStatus status = 2;
   google.protobuf.Timestamp created_at = 3;
   google.protobuf.Timestamp cancelled_at = 4;
+
+  int64 total_tasks = 5;
+  int64 completed_tasks = 6;
+  int64 in_error_tasks = 7;
+  int64 cancelled_tasks = 8;
+  int64 pending_tasks = 9;
 }
 
 /**
