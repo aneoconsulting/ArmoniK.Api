@@ -119,8 +119,8 @@ message ListTasksRequest {
   // Sort order, field and direction, to apply to the returned tasks
   Sort sort = 4;
 
-  // Request error message in case of error in response
-  bool with_error = 5;
+  // Request error message in case of error in task
+  bool with_errors = 5;
 }
 
 /**
