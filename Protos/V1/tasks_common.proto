@@ -164,5 +164,5 @@ message GetResultIdsResponse {
     string task_id = 1;
     repeated string result_ids = 2;
   }
-  repeated MapTaskResult task_result = 1;
+  repeated MapTaskResult task_results = 1;
 }
