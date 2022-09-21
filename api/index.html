@@ -216,6 +216,12 @@
 </li>
 <li><p><a href="#tasks_common-proto">tasks_common.proto</a></p>
 <ul>
+<li><p><a href="#armonik-api-grpc-v1-tasks-GetResultIdsRequest">GetResultIdsRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-GetResultIdsResponse">GetResultIdsResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-tasks-GetResultIdsResponse-MapTaskResult">GetResultIdsResponse.MapTaskResult</a></p>
+</li>
 <li><p><a href="#armonik-api-grpc-v1-tasks-GetTaskRequest">GetTaskRequest</a></p>
 </li>
 <li><p><a href="#armonik-api-grpc-v1-tasks-GetTaskResponse">GetTaskResponse</a></p>
@@ -2750,6 +2756,74 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <p><a name="tasks_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="tasks_commonproto">tasks_common.proto</h2>
+<p><a name="armonik-api-grpc-v1-tasks-GetResultIdsRequest"></a></p>
+<h3 id="getresultidsrequest">GetResultIdsRequest</h3>
+<p>Request for getting the id of the results that the tasks should produce</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-GetResultIdsResponse"></a></p>
+<h3 id="getresultidsresponse">GetResultIdsResponse</h3>
+<p>Response for getting the id of the results that the tasks should produce</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_results</td>
+<td><a href="#armonik-api-grpc-v1-tasks-GetResultIdsResponse-MapTaskResult">GetResultIdsResponse.MapTaskResult</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-tasks-GetResultIdsResponse-MapTaskResult"></a></p>
+<h3 id="getresultidsresponsemaptaskresult">GetResultIdsResponse.MapTaskResult</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>result_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+</tbody>
+</table>
 <p><a name="armonik-api-grpc-v1-tasks-GetTaskRequest"></a></p>
 <h3 id="gettaskrequest">GetTaskRequest</h3>
 <p>Request for getting a task</p>
@@ -3259,6 +3333,12 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td><a href="#armonik-api-grpc-v1-tasks-GetTaskRequest">GetTaskRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetTaskResponse">GetTaskResponse</a></td>
 <td>Get a task by id</td>
+</tr>
+<tr>
+<td>GetResultIds</td>
+<td><a href="#armonik-api-grpc-v1-tasks-GetResultIdsRequest">GetResultIdsRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-tasks-GetResultIdsResponse">GetResultIdsResponse</a></td>
+<td>Get the id of the results that the tasks should produce</td>
 </tr>
 </tbody>
 </table>
