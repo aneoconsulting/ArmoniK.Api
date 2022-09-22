@@ -1,5 +1,5 @@
 /**
- * Message describing tasks and associated requests.
+ * Message describing tasks and associated requests and responses.
  */
 syntax = "proto3";
 
