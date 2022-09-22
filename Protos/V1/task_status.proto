@@ -1,7 +1,6 @@
 /**
  * Status of a task.
  */
-
 syntax = "proto3";
 
 package armonik.api.grpc.v1.task_status;

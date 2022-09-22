@@ -1,7 +1,6 @@
 /**
  * Status of a session.
  */
-
 syntax = "proto3";
 
 package armonik.api.grpc.v1.session_status;
