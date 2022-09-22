@@ -50,9 +50,9 @@ message ListSessionsRequest {
   int32 page_size = 2; /** The page size. */
 
   /**
-   * Represents a filter with every available fields.
+   * Represents a filter with all available fields.
    *
-   * Every field can be used as the same time.
+   * Every fields can be used as the same time.
    */
   message Filter {
     string application_name = 1; /** The application name. */
@@ -67,7 +67,7 @@ message ListSessionsRequest {
 
   /** The filter.
    *
-   * Must be set for every request but can be empty.
+   * Must be set for every request but allowed to be empty.
    */
   Filter filter = 3;
 
