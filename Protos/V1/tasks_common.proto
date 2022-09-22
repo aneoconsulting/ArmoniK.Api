@@ -1,3 +1,6 @@
+/**
+ * Message describing tasks and associated requests.
+ */
 syntax = "proto3";
 
 package armonik.api.grpc.v1.tasks;
@@ -9,49 +12,58 @@ import "task_status.proto";
 option csharp_namespace = "Armonik.Api.gRPC.V1.Tasks";
 
 /**
- * A raw task object
+ * A raw task object.
+ *
+ * Similar to a task in the database.
+ * Used when a single task is returned.
  */
 message TaskRaw {
-  string id = 1;
-  string session_id = 2;
-  string owner_pod_id = 3;
+  string id = 1; /** The task ID. */
+  string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
+  string owner_pod_id = 3; /** The owner pod ID. */
 
-  repeated string parent_task_ids = 4;
-  repeated string data_dependencies = 5;
-  repeated string expected_output_ids = 6;
-  repeated string retry_of_ids = 7;
+  repeated string parent_task_ids = 4; /** The parent task IDs. A tasks can be a child of anoter task. */
+  repeated string data_dependencies = 5; /** The data dependencies. A task have data dependencies. */
+  repeated string expected_output_ids = 6; /** The expected output IDs. A task have expected output IDs. */
+  repeated string retry_of_ids = 7; /** The retry of IDs. When a task fail, retry will use these set of IDs. */
 
-  task_status.TaskStatus status = 8;
-  string status_message = 9;
+  task_status.TaskStatus status = 8; /** The task status. */
+  string status_message = 9; /** The status message. */
 
-  TaskOptions options = 10;
+  TaskOptions options = 10; /** The task options. */
 
-  google.protobuf.Timestamp created_at = 11;
-  google.protobuf.Timestamp submitted_at = 12;
-  google.protobuf.Timestamp started_at = 13;
-  google.protobuf.Timestamp ended_at = 14;
-  google.protobuf.Timestamp pod_ttl = 15;
+  google.protobuf.Timestamp created_at = 11; /** The task creation date. */
+  google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
+  google.protobuf.Timestamp started_at = 13; /** The task start date. */
+  google.protobuf.Timestamp ended_at = 14; /** The task end date. Also used when task failed. */
+  google.protobuf.Timestamp pod_ttl = 15; /** The pod TTL (Time To Live). */
 
+  /**
+   * Represents the task output.
+   */
   message Output {
-    bool success = 1;
-    string error = 2;
+    bool success = 1; /** To know if a task have failed or succeed. */
+    string error = 2; /** The error message. Only set if task have failed. */
   }
 
-  Output output = 16;
+  Output output = 16; /** The task output. */
 }
 
 /**
- * A task object
+ * A formated task object.
+ *
+ * Does not contain all the fields from the database.
+ * Widely used when many tasks are returned.
  */
 message Task {
-  string id = 1;
-  string session_id = 2;
-  TaskOptions options = 3;
-  task_status.TaskStatus status = 4;
+  string id = 1;  /** The task ID. */
+  string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
+  TaskOptions options = 3; /** The task options. */
+  task_status.TaskStatus status = 4; /** The task status. */
 
-  google.protobuf.Timestamp created_at = 5;
-  google.protobuf.Timestamp started_at = 6;
-  google.protobuf.Timestamp ended_at = 7;
+  google.protobuf.Timestamp created_at = 5; /** The task creation date. */
+  google.protobuf.Timestamp started_at = 6; /** The task start date. */
+  google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
 }
 
 /**
