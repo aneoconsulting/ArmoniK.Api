@@ -51,7 +51,7 @@ message TaskRaw {
 /**
  * A summary task object.
  *
- * Does not contain all the fields of the object.
+ * It contains only a subset of the fields from the underlying task object.
  * Used when a list of tasks are returned.
  */
 message Task {

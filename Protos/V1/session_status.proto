@@ -12,6 +12,6 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1";
  */
 enum SessionStatus {
   SESSION_STATUS_UNSPECIFIED = 0; /** Session is in an unknown state. */
-  SESSION_STATUS_RUNNING = 1; /** Session is working and can run tasks. */
+  SESSION_STATUS_RUNNING = 1; /** Session is open and accepting tasks for execution. */
   SESSION_STATUS_CANCELED = 2; /** Session is canceled. No more tasks can be submitted and no more tasks will be executed. */
 }
