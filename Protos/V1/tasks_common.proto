@@ -75,7 +75,7 @@ message ListTasksRequest {
   int32 page_size = 2; /** The page size. */
 
   /**
-   * Represents a filter with every available field.
+   * Represents a filter with every available fields.
    *
    * Every field can be used as the same time.
    */
@@ -110,7 +110,7 @@ message ListTasksRequest {
   }
 
   /**
-   * Represents every available order tasks.
+   * Represents every available order directions.
    */
   enum OrderDirection {
     ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. Do not use. */
