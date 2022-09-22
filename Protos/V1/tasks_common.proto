@@ -14,7 +14,6 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
 /**
  * A raw task object.
  *
- * Similar to a task in the database.
  * Used when a single task is returned.
  */
 message TaskRaw {
@@ -101,7 +100,7 @@ message ListTasksRequest {
    * Represents every available field to use in order to sort tasks.
    */
   enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. Do not use. */
+    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
     ORDER_BY_FIELD_TASK_ID = 1; /** The task ID. */
     ORDER_BY_FIELD_SESSION_ID = 2; /** The session ID. */
     ORDER_BY_FIELD_STATUS = 3; /** The task status. */
