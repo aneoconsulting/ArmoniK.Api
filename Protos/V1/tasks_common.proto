@@ -164,19 +164,23 @@ message GetTaskResponse {
 }
 
 /*
-*  Request for getting the id of the results that the tasks should produce
+*  Request for getting result ids of tasks ids.
 */
 message GetResultIdsRequest {
-  repeated string task_id = 1;
+  repeated string task_id = 1; /** The task IDs. */
 }
 
 /*
-* Response for getting the id of the results that the tasks should produce
+* Response for getting result ids of tasks ids.
 */
 message GetResultIdsResponse {
+  /**
+   * Represents a task result.
+  */
   message MapTaskResult {
-    string task_id = 1;
-    repeated string result_ids = 2;
+    string task_id = 1; /** The task ID. */
+    repeated string result_ids = 2; /** The result IDs. */
   }
-  repeated MapTaskResult task_results = 1;
+
+  repeated MapTaskResult task_results = 1; /** The task results. */
 }
