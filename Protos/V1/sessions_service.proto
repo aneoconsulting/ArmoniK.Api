@@ -1,3 +1,6 @@
+/**
+ * Tasks related methods within a service.
+ */
 syntax = "proto3";
 
 package armonik.api.grpc.v1.sessions;
@@ -10,15 +13,27 @@ import "sessions_common.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
 /**
- * The SessionService provides methods for listing, getting and cancelling sessions
+ * Service for handling sessions.
  */
 service Sessions {
-  // Get all sessions with pagination
+  /**
+   * Get a sessions list using pagination, filters and sorting.
+   *
+   * Sessions are summary.
+   */
   rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
 
-  // Get a session using an ID
+  /**
+   * Get a session by its id.
+   *
+   * Session is raw.
+   */
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {}
 
-  // Cancel a session using an ID
+  /**
+   * Cancel a session by its id.
+   *
+   * Session is raw.
+   */
   rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
 }
