@@ -1,19 +1,26 @@
+/**
+ * Status of a task.
+ */
+
 syntax = "proto3";
 
 package armonik.api.grpc.v1.task_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
+/**
+ * Task status.
+ */
 enum TaskStatus {
-  TASK_STATUS_UNSPECIFIED = 0;
-  TASK_STATUS_CREATING = 1;
-  TASK_STATUS_SUBMITTED = 2;
-  TASK_STATUS_DISPATCHED = 3;
-  TASK_STATUS_COMPLETED = 4;
-  TASK_STATUS_ERROR = 5;
-  TASK_STATUS_TIMEOUT = 6;
-  TASK_STATUS_CANCELING = 7;
-  TASK_STATUS_CANCELED = 8;
-  TASK_STATUS_PROCESSING = 9;
-  TASK_STATUS_PROCESSED = 10;
+  TASK_STATUS_UNSPECIFIED = 0; /** Task is in an unknown state. */
+  TASK_STATUS_CREATING = 1; /** Task is being created in database. */
+  TASK_STATUS_SUBMITTED = 2; /** Task is submitted to the queue. */
+  TASK_STATUS_DISPATCHED = 3; /** Task is dispatched to a worker. */
+  TASK_STATUS_COMPLETED = 4; /** Task is completed. */
+  TASK_STATUS_ERROR = 5; /** Task is in error state. */
+  TASK_STATUS_TIMEOUT = 6; /** Task is in timeout state. */
+  TASK_STATUS_CANCELING = 7; /** Task is being canceled. */
+  TASK_STATUS_CANCELED = 8; /** Task is canceled. */
+  TASK_STATUS_PROCESSING = 9; /** Task is being processed. */
+  TASK_STATUS_PROCESSED = 10; /** Task is processed. */
 }
