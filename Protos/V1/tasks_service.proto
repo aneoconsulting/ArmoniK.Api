@@ -29,7 +29,7 @@ service Tasks {
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
 
   /**
-   * Get ids of the results that tasks should produce.
+   * Get ids of the result that tasks should produce.
    */
   rpc GetResultIds(GetResultIdsRequest) returns (GetResultIdsResponse);
 }

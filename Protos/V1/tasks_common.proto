@@ -1,5 +1,5 @@
 /**
- * Message describing tasks and associated requests and responses.
+ * Messages describing tasks and associated requests and responses.
  */
 syntax = "proto3";
 
@@ -49,10 +49,10 @@ message TaskRaw {
 }
 
 /**
- * A formated task object.
+ * A summary task object.
  *
- * Does not contain all the fields from the database.
- * Widely used when many tasks are returned.
+ * Does not contain all the fields of the object.
+ * Used when a list of tasks are returned.
  */
 message Task {
   string id = 1;  /** The task ID. */
