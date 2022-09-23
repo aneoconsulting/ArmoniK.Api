@@ -96,7 +96,7 @@ jobs:
     - name: use_tag
       run: git checkout $VERSION
     - name: pip update and add build package
-      run: bash ./Api/python/proto2python.sh
+      run: bash ./Api/python/proto2python.sh ~/pyvenv
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
