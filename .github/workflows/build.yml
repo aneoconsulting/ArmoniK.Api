@@ -135,3 +135,24 @@ jobs:
     - name: Push the package
       run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
+  python_package:
+    runs-on: ubuntu-latest
+    needs:
+      - versionning
+      - tag
+    env:
+      VERSION: ${{ needs.versionning.outputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.ref }}
+    - name: use_tag
+      run: git checkout $VERSION
+    - name: pip update and add build package
+      run: bash ./Api/python/proto2python.sh
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        print_hash: true
