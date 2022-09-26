@@ -19,6 +19,9 @@ service Tasks {
   // Get a task by id
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
 
+  // Cancel one or many tasks
+  rpc CancelTasks(CancelTasksRequest) returns (CancelTasksResponse) {}
+
   // Get the id of the results that the tasks should produce
   rpc GetResultIds(GetResultIdsRequest) returns (GetResultIdsResponse);
 }
