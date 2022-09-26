@@ -147,9 +147,11 @@ jobs:
       with:
         ref: ${{ github.ref }}
     - name: pip update and add build package
-      run: bash ./Api/python/proto2python.sh ~/pyvenv
+      working-directory: ./Api/python/
+      run: bash ./proto2python.sh ~/pyvenv
     - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
+        packages_dir: ./Api/python/pkg/
         print_hash: true
