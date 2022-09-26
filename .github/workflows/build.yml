@@ -153,9 +153,8 @@ jobs:
     - name: pip update and add build package
       working-directory: ./Api/python/
       run: bash ./proto2python.sh ~/pyvenv
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+    - name: Upload package as artifact
+      uses: actions/upload-artifact@v3
       with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
-        packages_dir: ./Api/python/pkg/
-        print_hash: true
+        name: python-packages
+        path: ./Api/python/pkg/
