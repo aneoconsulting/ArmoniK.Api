@@ -26,7 +26,13 @@ service Tasks {
    */
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
 
+
   /**
+   * Cancel tasks using ids.
+   */
+  rpc CancelTasks(CancelTasksRequest) returns (CancelTasksResponse) {}
+
+    /**
    * Get ids of the result that tasks should produce.
    */
   rpc GetResultIds(GetResultIdsRequest) returns (GetResultIdsResponse);

@@ -21,4 +21,4 @@ Contributions are always welcome!
 See [CONTRIBUTING.md](https://github.com/aneoconsulting/ArmoniK.Api/blob/main/CONTRIBUTING.md) for ways to get started.
 
 Please refer to [protoc-gen-doc](https://github.com/pseudomuto/protoc-gen-doc) to make sure to adhere to
-the format the plugin expects to correctly generate documentation.
+the format the plugin expects to correctly generate documentation. You can find examples at the end section of [protoc-gen-doc](https://github.com/pseudomuto/protoc-gen-doc#output-example).

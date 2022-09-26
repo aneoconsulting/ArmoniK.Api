@@ -63,6 +63,8 @@ message Task {
   google.protobuf.Timestamp created_at = 5; /** The task creation date. */
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
+
+   string error = 8; /** The error message. Only set if task have failed. */
 }
 
 /**
@@ -131,6 +133,9 @@ message ListTasksRequest {
    * Must be set for every request.
    */
   Sort sort = 4;
+
+  // Request error message in case of error in task
+  bool with_errors = 5;
 }
 
 /**
@@ -161,6 +166,22 @@ message GetTaskRequest {
  */
 message GetTaskResponse {
   TaskRaw task = 1; /** The task. */
+}
+
+/**
+ * Request to cancel one or many tasks
+ */
+message CancelTasksRequest {
+  // Ids of the tasks to cancel
+  repeated string ids = 1;
+}
+
+/**
+ * Response from canceling one or many tasks
+ */
+message CancelTasksResponse {
+  // Tasks that have been asked to cancel
+  repeated Task tasks = 1;
 }
 
 /*
