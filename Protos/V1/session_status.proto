@@ -7,5 +7,5 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 enum SessionStatus {
   SESSION_STATUS_UNSPECIFIED = 0;
   SESSION_STATUS_RUNNING = 1;
-  SESSION_STATUS_CANCELED = 2;
+  SESSION_STATUS_CANCELLED = 2;
 }
