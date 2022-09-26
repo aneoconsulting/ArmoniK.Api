@@ -1,3 +1,6 @@
+/**
+ * Tasks related methods within a service.
+ */
 syntax = "proto3";
 
 package armonik.api.grpc.v1.tasks;
@@ -10,18 +13,27 @@ import "tasks_common.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
 
 /**
- * The TaskService provides methods for listing and getting tasks.
+ * Service for handling tasks.
  */
 service Tasks {
-  // Get all tasks with pagination
+  /**
+   * Get a tasks list using pagination, filters and sorting.
+   */
   rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {}
 
-  // Get a task by id
+  /**
+   * Get a task by its id.
+   */
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
 
-  // Cancel one or many tasks
+
+  /**
+   * Cancel tasks using ids.
+   */
   rpc CancelTasks(CancelTasksRequest) returns (CancelTasksResponse) {}
 
-  // Get the id of the results that the tasks should produce
+    /**
+   * Get ids of the result that tasks should produce.
+   */
   rpc GetResultIds(GetResultIdsRequest) returns (GetResultIdsResponse);
 }

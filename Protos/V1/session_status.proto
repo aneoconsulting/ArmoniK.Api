@@ -1,11 +1,17 @@
+/**
+ * Status of a session.
+ */
 syntax = "proto3";
 
 package armonik.api.grpc.v1.session_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
+/**
+ * Session status.
+ */
 enum SessionStatus {
-  SESSION_STATUS_UNSPECIFIED = 0;
-  SESSION_STATUS_RUNNING = 1;
-  SESSION_STATUS_CANCELLED = 2;
+  SESSION_STATUS_UNSPECIFIED = 0; /** Session is in an unknown state. */
+  SESSION_STATUS_RUNNING = 1; /** Session is open and accepting tasks for execution. */
+  SESSION_STATUS_CANCELLED = 2; /** Session is cancelled. No more tasks can be submitted and no more tasks will be executed. */
 }

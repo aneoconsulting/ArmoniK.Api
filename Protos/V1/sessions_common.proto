@@ -1,3 +1,6 @@
+/**
+ * Messages describing sessions and associated requests and responses.
+ */
 syntax = "proto3";
 
 package armonik.api.grpc.v1.sessions;
@@ -9,130 +12,142 @@ import "session_status.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
 /**
- * A raw session object
+ * A raw session object.
+ *
+ * Used when a single session is returned.
  */
 message SessionRaw {
-  string session_id = 1;
-  session_status.SessionStatus status = 2;
-  repeated string partition_ids = 3;
-  TaskOptions options = 4;
+  string session_id = 1; /** The session ID. */
+  session_status.SessionStatus status = 2; /** The session status. */
+  repeated string partition_ids = 3; /** The partition IDs. */
+  TaskOptions options = 4; /** The task options. In fact, these are used as default value in child tasks. */
 
-  google.protobuf.Timestamp created_at = 5;
-  google.protobuf.Timestamp cancelled_at = 6;
+  google.protobuf.Timestamp created_at = 5; /** The creation date. */
+  google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
 }
 
 /**
- * A session object
+ * A summary session object.
+ *
+ * Does not contain all the fields of the object.
+ * Used when a list of sessions is returned.
  */
 message SessionSummary {
-  string session_id = 1;
+  string session_id = 1; /** The session ID. */
 
-  session_status.SessionStatus status = 2;
-  google.protobuf.Timestamp created_at = 3;
-  google.protobuf.Timestamp cancelled_at = 4;
+  session_status.SessionStatus status = 2; /** The session status. */
+  google.protobuf.Timestamp created_at = 3; /** The creation date. */
+  google.protobuf.Timestamp cancelled_at = 4; /** The cancellation date. Only set when status is 'cancelled'. */
 }
 
 /**
- * Request for listing sessions
+ * Request to list sessions.
+ *
+ * Use pagination, filtering and sorting.
  */
 message ListSessionsRequest {
-  // Page number
-  int32 page = 1;
-  // Page size
-  int32 page_size = 2;
+  int32 page = 1; /** The page number. Start at 0. */
+  int32 page_size = 2; /** The page size. */
 
-  // To filter returned sessions
+  /**
+   * Represents a filter with all available fields.
+   *
+   * Any fields can be used at the same time.
+   */
   message Filter {
-    // Name of the application
-    string application_name = 1;
-    // Version of the application
-    string application_version = 2;
-    // Id of the session
-    string session_id = 3;
-    // Date after the creation of the session
-    google.protobuf.Timestamp created_after = 4;
-    // Date before the creation of the session
-    google.protobuf.Timestamp created_before = 5;
-    // Date after the cancellation of the session
-    google.protobuf.Timestamp cancelled_after = 6;
-    // Date before the cancellation of the session
-    google.protobuf.Timestamp cancelled_before = 7;
-    // Status of the session
-    session_status.SessionStatus status = 8;
+    string application_name = 1; /** The application name. */
+    string application_version = 2; /** The application version. */
+    string session_id = 3; /** The session ID. */
+    google.protobuf.Timestamp created_after = 4; /** Use the creation date of a session to filter sessions created after the input. */
+    google.protobuf.Timestamp created_before = 5; /** Use the creation date of a session to filter sessions created before the input. */
+    google.protobuf.Timestamp cancelled_after = 6; /** Use the cancellation date of a session to filter sessions cancelled after the input. */
+    google.protobuf.Timestamp cancelled_before = 7; /** Use the cancellation date of a session to filter sessions cancelled before the input. */
+    session_status.SessionStatus status = 8; /** The session status. */
   }
 
-  // Filter to apply to the returned sessions
+  /** The filter.
+   *
+   * Must be set for every request but allowed to be empty.
+   */
   Filter filter = 3;
 
-  // Available fields to order the returned sessions
+  /**
+   * Represents every available field to use in order to sort sessions.
+   */
   enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0;
-    ORDER_BY_FIELD_SESSION_ID = 1;
-    ORDER_BY_FIELD_STATUS = 2;
-    ORDER_BY_FIELD_CREATED_AT = 3;
-    ORDER_BY_FIELD_CANCELLED_AT = 4;
+    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_BY_FIELD_SESSION_ID = 1; /** The session ID. */
+    ORDER_BY_FIELD_STATUS = 2; /** The session status. */
+    ORDER_BY_FIELD_CREATED_AT = 3; /** The creation date. */
+    ORDER_BY_FIELD_CANCELLED_AT = 4; /** The cancellation date. */
   }
 
-  // Order direction values
+  /**
+   * Represents every available order directions.
+   */
   enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0;
-    // Order by ascending
-    ORDER_DIRECTION_ASC = 1;
-    // Order by descending
-    ORDER_DIRECTION_DESC = 2;
+    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_DIRECTION_ASC = 1; /** Ascending. */
+    ORDER_DIRECTION_DESC = 2; /** Descending. */
   }
 
-  // To sort the returned sessions
+  /**
+   * Represents the sort object.
+   */
   message Sort {
-    // Field to order by
-    OrderByField field = 1;
-    // Order direction
-    OrderDirection direction = 2;
+    OrderByField field = 1; /** The field to order by. */
+    OrderDirection direction = 2; /** The order direction. */
   }
 
-  // Sort order, field and direction, to apply to the returned sessions
+  /** The sort.
+   *
+   * Must be set for every request.
+   */
   Sort sort = 4;
 }
 
 /**
- * Response for listing sessions
+ * Response to list sessions.
+ *
+ * Use pagination, filtering and sorting from the request.
+ * Return a list of summary sessions.
  */
 message ListSessionsResponse {
-  // List of sessions
-  repeated SessionSummary sessions = 1;
+  repeated SessionSummary sessions = 1; /** The list of sessions. */
 
-  // Current page
-  int32 page = 2;
-  // Page size
-  int32 page_size = 3;
-  // Total number of sessions
-  int32 total = 4;
+  int32 page = 2; /** The current page. Start at 0. */
+  int32 page_size = 3; /** The page size. */
+  int32 total = 4; /** The total number of sessions. */
 }
 
 /**
- * Request for getting a session
+ * Request for getting a single session.
  */
 message GetSessionRequest {
-  string session_id = 1;
+  string session_id = 1; /** The session ID. */
 }
 
 /**
- * Response for getting a session
+ * Response for getting a single session.
+ *
+ * Return a raw session.
  */
 message GetSessionResponse {
-  SessionRaw session = 1;
+  SessionRaw session = 1; /** The session. */
 }
 
 /**
- * Request for cancelling a session
+ * Request for cancelling a single session.
  */
 message CancelSessionRequest {
-  string session_id = 1;
+  string session_id = 1; /** The session ID. */
 }
 
 /**
- * Response for cancelling a session
+ * Response for cancelling a single session.
+ *
+ * Return a raw session.
  */
 message CancelSessionResponse {
-  SessionRaw session = 1;
+  SessionRaw session = 1; /** The session. */
 }
