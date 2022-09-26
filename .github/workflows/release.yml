@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - release
-    tags-ignore: [ '**' ]
+    tags-ignore: ["**"]
 
 jobs:
   versionning:
@@ -12,18 +12,18 @@ jobs:
     outputs:
       version: ${{ steps.genver.outputs.version }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        ref: ${{ github.ref }}
-        fetch-depth: 0
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
 
-    - name: Generate Version
-      id: genver
-      run: |
-        VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main) 
-        echo "::set-output name=version::$VERSION"
-        echo $VERSION
+      - name: Generate Version
+        id: genver
+        run: |
+          VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main)
+          echo "::set-output name=version::$VERSION"
+          echo $VERSION
 
   build:
     runs-on: ubuntu-latest
@@ -40,28 +40,28 @@ jobs:
           - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
           - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        ref: ${{ github.ref }}
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
 
-    # Install the .NET Core workload
-    - name: Install .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 6.x
+      # Install the .NET Core workload
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.x
 
-    - name: Build the package
-      run: |
-        dotnet build ${{ matrix.package }} -c Release
+      - name: Build the package
+        run: |
+          dotnet build ${{ matrix.package }} -c Release
 
-    - name: Pack the package
-      run: |
-        dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
-        ls /tmp/packages
+      - name: Pack the package
+        run: |
+          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+          ls /tmp/packages
 
-    - name: Push the package
-      run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+      - name: Push the package
+        run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
   tag:
     runs-on: ubuntu-latest
@@ -71,10 +71,10 @@ jobs:
     env:
       VERSION: ${{ needs.versionning.outputs.version }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        ref: ${{ github.ref }}
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
 
     - name: tag
       run: |
