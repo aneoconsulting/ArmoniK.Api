@@ -146,8 +146,6 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: ${{ github.ref }}
-    - name: use_tag
-      run: git checkout $VERSION
     - name: pip update and add build package
       run: bash ./Api/python/proto2python.sh ~/pyvenv
     - name: Publish to PyPI
