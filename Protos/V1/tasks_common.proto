@@ -6,7 +6,7 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "task_status.proto";
 
-option csharp_namespace = "Armonik.Api.gRPC.V1.Tasks";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
 
 /**
  * A raw task object
@@ -152,4 +152,22 @@ message GetTaskRequest {
 message GetTaskResponse {
   // A raw task object
   TaskRaw task = 1;
+}
+
+/*
+*  Request for getting the id of the results that the tasks should produce
+*/
+message GetResultIdsRequest {
+  repeated string task_id = 1;
+}
+
+/*
+* Response for getting the id of the results that the tasks should produce
+*/
+message GetResultIdsResponse {
+  message MapTaskResult {
+    string task_id = 1;
+    repeated string result_ids = 2;
+  }
+  repeated MapTaskResult task_results = 1;
 }
