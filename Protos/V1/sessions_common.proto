@@ -106,7 +106,7 @@ message ListSessionsResponse {
   // Page size
   int32 page_size = 3;
   // Total number of sessions
-  int32 total_count = 4;
+  int32 total = 4;
 }
 
 /**
