@@ -146,10 +146,7 @@ jobs:
       uses: actions/checkout@v2
       with:
         ref: ${{ github.ref }}
-    - name: Get history and tags for SCM versioning to work
-      run: |
-        git fetch --prune --unshallow
-        git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+        fetch-depth: 0
     - name: pip update and add build package
       working-directory: ./Api/python/
       run: bash ./proto2python.sh ~/pyvenv
