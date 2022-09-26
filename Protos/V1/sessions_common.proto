@@ -117,7 +117,7 @@ message ListSessionsResponse {
 
   int32 page = 2; /** The current page. Start at 0. */
   int32 page_size = 3; /** The page size. */
-  int32 total_count = 4; /** The total number of sessions. */
+  int32 total = 4; /** The total number of sessions. */
 }
 
 /**
