@@ -1379,8 +1379,10 @@
 <p><a name="session_status-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="session_statusproto">session_status.proto</h2>
+<p>Status of a session.</p>
 <p><a name="armonik-api-grpc-v1-session_status-SessionStatus"></a></p>
 <h3 id="sessionstatus">SessionStatus</h3>
+<p>Session status.</p>
 <table>
 <thead>
 <tr>
@@ -1393,26 +1395,27 @@
 <tr>
 <td>SESSION_STATUS_UNSPECIFIED</td>
 <td>0</td>
-<td></td>
+<td>Session is in an unknown state.</td>
 </tr>
 <tr>
 <td>SESSION_STATUS_RUNNING</td>
 <td>1</td>
-<td></td>
+<td>Session is open and accepting tasks for execution.</td>
 </tr>
 <tr>
 <td>SESSION_STATUS_CANCELLED</td>
 <td>2</td>
-<td></td>
+<td>Session is cancelled. No more tasks can be submitted and no more tasks will be executed.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="sessions_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="sessions_commonproto">sessions_common.proto</h2>
+<p>Messages describing sessions and associated requests and responses.</p>
 <p><a name="armonik-api-grpc-v1-sessions-CancelSessionRequest"></a></p>
 <h3 id="cancelsessionrequest">CancelSessionRequest</h3>
-<p>Request for cancelling a session</p>
+<p>Request for cancelling a single session.</p>
 <table>
 <thead>
 <tr>
@@ -1427,13 +1430,14 @@
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The session ID.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-CancelSessionResponse"></a></p>
 <h3 id="cancelsessionresponse">CancelSessionResponse</h3>
-<p>Response for cancelling a session</p>
+<p>Response for cancelling a single session.</p>
+<p>Return a raw session.</p>
 <table>
 <thead>
 <tr>
@@ -1448,13 +1452,13 @@
 <td>session</td>
 <td><a href="#armonik-api-grpc-v1-sessions-SessionRaw">SessionRaw</a></td>
 <td></td>
-<td></td>
+<td>The session.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-GetSessionRequest"></a></p>
 <h3 id="getsessionrequest">GetSessionRequest</h3>
-<p>Request for getting a session</p>
+<p>Request for getting a single session.</p>
 <table>
 <thead>
 <tr>
@@ -1469,13 +1473,14 @@
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The session ID.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-GetSessionResponse"></a></p>
 <h3 id="getsessionresponse">GetSessionResponse</h3>
-<p>Response for getting a session</p>
+<p>Response for getting a single session.</p>
+<p>Return a raw session.</p>
 <table>
 <thead>
 <tr>
@@ -1490,13 +1495,14 @@
 <td>session</td>
 <td><a href="#armonik-api-grpc-v1-sessions-SessionRaw">SessionRaw</a></td>
 <td></td>
-<td></td>
+<td>The session.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest"></a></p>
 <h3 id="listsessionsrequest">ListSessionsRequest</h3>
-<p>Request for listing sessions</p>
+<p>Request to list sessions.</p>
+<p>Use pagination, filtering and sorting.</p>
 <table>
 <thead>
 <tr>
@@ -1511,31 +1517,29 @@
 <td>page</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Page number</td>
+<td>The page number. Start at 0.</td>
 </tr>
 <tr>
 <td>page_size</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Page size</td>
+<td>The page size.</td>
 </tr>
 <tr>
 <td>filter</td>
 <td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Filter">ListSessionsRequest.Filter</a></td>
 <td></td>
-<td>Filter to apply to the returned sessions</td>
-</tr>
-<tr>
-<td>sort</td>
-<td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Sort">ListSessionsRequest.Sort</a></td>
-<td></td>
-<td>Sort order, field and direction, to apply to the returned sessions</td>
+<td>The filter.</td>
 </tr>
 </tbody>
 </table>
+<p>Must be set for every request but allowed to be empty. |
+| sort | <a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Sort">ListSessionsRequest.Sort</a> |  | The sort.</p>
+<p>Must be set for every request. |</p>
 <p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-Filter"></a></p>
 <h3 id="listsessionsrequestfilter">ListSessionsRequest.Filter</h3>
-<p>To filter returned sessions</p>
+<p>Represents a filter with all available fields.</p>
+<p>Any fields can be used at the same time.</p>
 <table>
 <thead>
 <tr>
@@ -1550,55 +1554,55 @@
 <td>application_name</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td>Name of the application</td>
+<td>The application name.</td>
 </tr>
 <tr>
 <td>application_version</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td>Version of the application</td>
+<td>The application version.</td>
 </tr>
 <tr>
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td>Id of the session</td>
+<td>The session ID.</td>
 </tr>
 <tr>
 <td>created_after</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date after the creation of the session</td>
+<td>Use the creation date of a session to filter sessions created after the input.</td>
 </tr>
 <tr>
 <td>created_before</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date before the creation of the session</td>
+<td>Use the creation date of a session to filter sessions created before the input.</td>
 </tr>
 <tr>
 <td>cancelled_after</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date after the cancellation of the session</td>
+<td>Use the cancellation date of a session to filter sessions cancelled after the input.</td>
 </tr>
 <tr>
 <td>cancelled_before</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date before the cancellation of the session</td>
+<td>Use the cancellation date of a session to filter sessions cancelled before the input.</td>
 </tr>
 <tr>
 <td>status</td>
 <td><a href="#armonik-api-grpc-v1-session_status-SessionStatus">armonik.api.grpc.v1.session_status.SessionStatus</a></td>
 <td></td>
-<td>Status of the session</td>
+<td>The session status.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-Sort"></a></p>
 <h3 id="listsessionsrequestsort">ListSessionsRequest.Sort</h3>
-<p>To sort the returned sessions</p>
+<p>Represents the sort object.</p>
 <table>
 <thead>
 <tr>
@@ -1613,19 +1617,21 @@
 <td>field</td>
 <td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderByField">ListSessionsRequest.OrderByField</a></td>
 <td></td>
-<td>Field to order by</td>
+<td>The field to order by.</td>
 </tr>
 <tr>
 <td>direction</td>
 <td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderDirection">ListSessionsRequest.OrderDirection</a></td>
 <td></td>
-<td>Order direction</td>
+<td>The order direction.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-ListSessionsResponse"></a></p>
 <h3 id="listsessionsresponse">ListSessionsResponse</h3>
-<p>Response for listing sessions</p>
+<p>Response to list sessions.</p>
+<p>Use pagination, filtering and sorting from the request.
+Return a list of summary sessions.</p>
 <table>
 <thead>
 <tr>
@@ -1640,31 +1646,32 @@
 <td>sessions</td>
 <td><a href="#armonik-api-grpc-v1-sessions-SessionSummary">SessionSummary</a></td>
 <td>repeated</td>
-<td>List of sessions</td>
+<td>The list of sessions.</td>
 </tr>
 <tr>
 <td>page</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Current page</td>
+<td>The current page. Start at 0.</td>
 </tr>
 <tr>
 <td>page_size</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Page size</td>
+<td>The page size.</td>
 </tr>
 <tr>
 <td>total</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Total number of sessions</td>
+<td>The total number of sessions.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-SessionRaw"></a></p>
 <h3 id="sessionraw">SessionRaw</h3>
-<p>A raw session object</p>
+<p>A raw session object.</p>
+<p>Used when a single session is returned.</p>
 <table>
 <thead>
 <tr>
@@ -1679,43 +1686,45 @@
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The session ID.</td>
 </tr>
 <tr>
 <td>status</td>
 <td><a href="#armonik-api-grpc-v1-session_status-SessionStatus">armonik.api.grpc.v1.session_status.SessionStatus</a></td>
 <td></td>
-<td></td>
+<td>The session status.</td>
 </tr>
 <tr>
 <td>partition_ids</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
-<td></td>
+<td>The partition IDs.</td>
 </tr>
 <tr>
 <td>options</td>
 <td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
 <td></td>
-<td></td>
+<td>The task options. In fact, these are used as default value in child tasks.</td>
 </tr>
 <tr>
 <td>created_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The creation date.</td>
 </tr>
 <tr>
 <td>cancelled_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The cancellation date. Only set when status is 'cancelled'.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-SessionSummary"></a></p>
 <h3 id="sessionsummary">SessionSummary</h3>
-<p>A session object</p>
+<p>A summary session object.</p>
+<p>Does not contain all the fields of the object.
+Used when a list of sessions is returned.</p>
 <table>
 <thead>
 <tr>
@@ -1730,31 +1739,31 @@
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The session ID.</td>
 </tr>
 <tr>
 <td>status</td>
 <td><a href="#armonik-api-grpc-v1-session_status-SessionStatus">armonik.api.grpc.v1.session_status.SessionStatus</a></td>
 <td></td>
-<td></td>
+<td>The session status.</td>
 </tr>
 <tr>
 <td>created_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The creation date.</td>
 </tr>
 <tr>
 <td>cancelled_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The cancellation date. Only set when status is 'cancelled'.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderByField"></a></p>
 <h3 id="listsessionsrequestorderbyfield">ListSessionsRequest.OrderByField</h3>
-<p>Available fields to order the returned sessions</p>
+<p>Represents every available field to use in order to sort sessions.</p>
 <table>
 <thead>
 <tr>
@@ -1767,33 +1776,33 @@
 <tr>
 <td>ORDER_BY_FIELD_UNSPECIFIED</td>
 <td>0</td>
-<td></td>
+<td>Unspecified.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_SESSION_ID</td>
 <td>1</td>
-<td></td>
+<td>The session ID.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_STATUS</td>
 <td>2</td>
-<td></td>
+<td>The session status.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_CREATED_AT</td>
 <td>3</td>
-<td></td>
+<td>The creation date.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_CANCELLED_AT</td>
 <td>4</td>
-<td></td>
+<td>The cancellation date.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-OrderDirection"></a></p>
 <h3 id="listsessionsrequestorderdirection">ListSessionsRequest.OrderDirection</h3>
-<p>Order direction values</p>
+<p>Represents every available order directions.</p>
 <table>
 <thead>
 <tr>
@@ -1806,26 +1815,27 @@
 <tr>
 <td>ORDER_DIRECTION_UNSPECIFIED</td>
 <td>0</td>
-<td></td>
+<td>Unspecified.</td>
 </tr>
 <tr>
 <td>ORDER_DIRECTION_ASC</td>
 <td>1</td>
-<td>Order by ascending</td>
+<td>Ascending.</td>
 </tr>
 <tr>
 <td>ORDER_DIRECTION_DESC</td>
 <td>2</td>
-<td>Order by descending</td>
+<td>Descending.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="sessions_service-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="sessions_serviceproto">sessions_service.proto</h2>
+<p>Tasks related methods within a service.</p>
 <p><a name="armonik-api-grpc-v1-sessions-Sessions"></a></p>
 <h3 id="sessions">Sessions</h3>
-<p>The SessionService provides methods for listing, getting and cancelling sessions</p>
+<p>Service for handling sessions.</p>
 <table>
 <thead>
 <tr>
@@ -1840,19 +1850,19 @@
 <td>ListSessions</td>
 <td><a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest">ListSessionsRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-sessions-ListSessionsResponse">ListSessionsResponse</a></td>
-<td>Get all sessions with pagination</td>
+<td>Get a sessions list using pagination, filters and sorting.</td>
 </tr>
 <tr>
 <td>GetSession</td>
 <td><a href="#armonik-api-grpc-v1-sessions-GetSessionRequest">GetSessionRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-sessions-GetSessionResponse">GetSessionResponse</a></td>
-<td>Get a session using an ID</td>
+<td>Get a session by its id.</td>
 </tr>
 <tr>
 <td>CancelSession</td>
 <td><a href="#armonik-api-grpc-v1-sessions-CancelSessionRequest">CancelSessionRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-sessions-CancelSessionResponse">CancelSessionResponse</a></td>
-<td>Cancel a session using an ID</td>
+<td>Cancel a session by its id.</td>
 </tr>
 </tbody>
 </table>
@@ -2689,8 +2699,10 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <p><a name="task_status-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="task_statusproto">task_status.proto</h2>
+<p>Status of a task.</p>
 <p><a name="armonik-api-grpc-v1-task_status-TaskStatus"></a></p>
 <h3 id="taskstatus">TaskStatus</h3>
+<p>Task status.</p>
 <table>
 <thead>
 <tr>
@@ -2703,63 +2715,64 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <tr>
 <td>TASK_STATUS_UNSPECIFIED</td>
 <td>0</td>
-<td></td>
+<td>Task is in an unknown state.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_CREATING</td>
 <td>1</td>
-<td></td>
+<td>Task is being created in database.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_SUBMITTED</td>
 <td>2</td>
-<td></td>
+<td>Task is submitted to the queue.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_DISPATCHED</td>
 <td>3</td>
-<td></td>
+<td>Task is dispatched to a worker.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_COMPLETED</td>
 <td>4</td>
-<td></td>
+<td>Task is completed.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_ERROR</td>
 <td>5</td>
-<td></td>
+<td>Task is in error state.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_TIMEOUT</td>
 <td>6</td>
-<td></td>
+<td>Task is in timeout state.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_CANCELLING</td>
 <td>7</td>
-<td></td>
+<td>Task is being cancelled.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_CANCELLED</td>
 <td>8</td>
-<td></td>
+<td>Task is cancelled.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_PROCESSING</td>
 <td>9</td>
-<td></td>
+<td>Task is being processed.</td>
 </tr>
 <tr>
 <td>TASK_STATUS_PROCESSED</td>
 <td>10</td>
-<td></td>
+<td>Task is processed.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="tasks_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="tasks_commonproto">tasks_common.proto</h2>
+<p>Messages describing tasks and associated requests and responses.</p>
 <p><a name="armonik-api-grpc-v1-tasks-CancelTasksRequest"></a></p>
 <h3 id="canceltasksrequest">CancelTasksRequest</h3>
 <p>Request to cancel one or many tasks</p>
@@ -2804,7 +2817,7 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-GetResultIdsRequest"></a></p>
 <h3 id="getresultidsrequest">GetResultIdsRequest</h3>
-<p>Request for getting the id of the results that the tasks should produce</p>
+<p>Request for getting result ids of tasks ids.</p>
 <table>
 <thead>
 <tr>
@@ -2819,13 +2832,13 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>task_id</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
-<td></td>
+<td>The task IDs.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-GetResultIdsResponse"></a></p>
 <h3 id="getresultidsresponse">GetResultIdsResponse</h3>
-<p>Response for getting the id of the results that the tasks should produce</p>
+<p>Response for getting result ids of tasks ids.</p>
 <table>
 <thead>
 <tr>
@@ -2840,12 +2853,13 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>task_results</td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetResultIdsResponse-MapTaskResult">GetResultIdsResponse.MapTaskResult</a></td>
 <td>repeated</td>
-<td></td>
+<td>The task results.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-GetResultIdsResponse-MapTaskResult"></a></p>
 <h3 id="getresultidsresponsemaptaskresult">GetResultIdsResponse.MapTaskResult</h3>
+<p>Represents a task result.</p>
 <table>
 <thead>
 <tr>
@@ -2860,19 +2874,19 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>task_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The task ID.</td>
 </tr>
 <tr>
 <td>result_ids</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
-<td></td>
+<td>The result IDs.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-GetTaskRequest"></a></p>
 <h3 id="gettaskrequest">GetTaskRequest</h3>
-<p>Request for getting a task</p>
+<p>Request for getting a single task.</p>
 <table>
 <thead>
 <tr>
@@ -2887,13 +2901,14 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td>Id of the task</td>
+<td>The task ID.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-GetTaskResponse"></a></p>
 <h3 id="gettaskresponse">GetTaskResponse</h3>
-<p>Response for getting a task</p>
+<p>Response for getting a single task.</p>
+<p>Return a raw task.</p>
 <table>
 <thead>
 <tr>
@@ -2908,13 +2923,14 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>task</td>
 <td><a href="#armonik-api-grpc-v1-tasks-TaskRaw">TaskRaw</a></td>
 <td></td>
-<td>A raw task object</td>
+<td>The task.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest"></a></p>
 <h3 id="listtasksrequest">ListTasksRequest</h3>
-<p>Request for listing tasks</p>
+<p>Request to list tasks.</p>
+<p>Use pagination, filtering and sorting.</p>
 <table>
 <thead>
 <tr>
@@ -2929,37 +2945,30 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>page</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Page number</td>
+<td>The page number. Start at 0.</td>
 </tr>
 <tr>
 <td>page_size</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Page size</td>
+<td>The page size.</td>
 </tr>
 <tr>
 <td>filter</td>
 <td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-Filter">ListTasksRequest.Filter</a></td>
 <td></td>
-<td>Filter to apply to the returned tasks</td>
-</tr>
-<tr>
-<td>sort</td>
-<td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-Sort">ListTasksRequest.Sort</a></td>
-<td></td>
-<td>Sort order, field and direction, to apply to the returned tasks</td>
-</tr>
-<tr>
-<td>with_errors</td>
-<td><a href="#bool">bool</a></td>
-<td></td>
-<td>Request error message in case of error in task</td>
+<td>The filter.</td>
 </tr>
 </tbody>
 </table>
+<p>Must be set for every request but can be empty. |
+| sort | <a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-Sort">ListTasksRequest.Sort</a> |  | The sort.</p>
+<p>Must be set for every request. |
+| with_errors | <a href="#bool">bool</a> |  | Request error message in case of error in task |</p>
 <p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-Filter"></a></p>
 <h3 id="listtasksrequestfilter">ListTasksRequest.Filter</h3>
-<p>To filter returned tasks</p>
+<p>Represents a filter with every available fields.</p>
+<p>Every field can be used as the same time.</p>
 <table>
 <thead>
 <tr>
@@ -2974,55 +2983,55 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td>Id of the session</td>
+<td>The session ID of related tasks.</td>
 </tr>
 <tr>
 <td>status</td>
 <td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
 <td></td>
-<td>Status of the task</td>
+<td>The task status.</td>
 </tr>
 <tr>
 <td>created_after</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date after the creation of the task</td>
+<td>Use the creation date of a task to filter tasks created after the input.</td>
 </tr>
 <tr>
 <td>created_before</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date before the creation of the task</td>
+<td>Use the creation date of a task to filter tasks created before the input.</td>
 </tr>
 <tr>
 <td>started_after</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date after the start of the task</td>
+<td>Use the start date of a task to filter tasks started after the input.</td>
 </tr>
 <tr>
 <td>started_before</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date before the start of the task</td>
+<td>Use the start date of a task to filter tasks started before the input.</td>
 </tr>
 <tr>
 <td>ended_after</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date after the end of the task</td>
+<td>Use the end date of a task to filter tasks ended after the input.</td>
 </tr>
 <tr>
 <td>ended_before</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td>Date before the end of the task</td>
+<td>Use the end date of a task to filter tasks ended before the input.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-Sort"></a></p>
 <h3 id="listtasksrequestsort">ListTasksRequest.Sort</h3>
-<p>To sort the returned tasks</p>
+<p>Represents the sort object.</p>
 <table>
 <thead>
 <tr>
@@ -3037,19 +3046,21 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>field</td>
 <td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderByField">ListTasksRequest.OrderByField</a></td>
 <td></td>
-<td>Field to order by</td>
+<td>The field to order by.</td>
 </tr>
 <tr>
 <td>direction</td>
 <td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest-OrderDirection">ListTasksRequest.OrderDirection</a></td>
 <td></td>
-<td>Order direction</td>
+<td>The order direction.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-ListTasksResponse"></a></p>
 <h3 id="listtasksresponse">ListTasksResponse</h3>
-<p>Response for listing tasks</p>
+<p>Response to list tasks.</p>
+<p>Use pagination, filtering and sorting from the request.
+Return a list of formated tasks.</p>
 <table>
 <thead>
 <tr>
@@ -3064,31 +3075,33 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>tasks</td>
 <td><a href="#armonik-api-grpc-v1-tasks-Task">Task</a></td>
 <td>repeated</td>
-<td>List of tasks</td>
+<td>The list of tasks.</td>
 </tr>
 <tr>
 <td>page</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Current page</td>
+<td>The page number. Start at 0.</td>
 </tr>
 <tr>
 <td>page_size</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Page size</td>
+<td>The page size.</td>
 </tr>
 <tr>
 <td>total</td>
 <td><a href="#int32">int32</a></td>
 <td></td>
-<td>Total number of tasks</td>
+<td>The total number of tasks.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-Task"></a></p>
 <h3 id="task">Task</h3>
-<p>A task object</p>
+<p>A summary task object.</p>
+<p>It contains only a subset of the fields from the underlying task object.
+Used when a list of tasks are returned.</p>
 <table>
 <thead>
 <tr>
@@ -3103,55 +3116,56 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The task ID.</td>
 </tr>
 <tr>
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The session ID. A task have only one related session but a session have many tasks.</td>
 </tr>
 <tr>
 <td>options</td>
 <td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
 <td></td>
-<td></td>
+<td>The task options.</td>
 </tr>
 <tr>
 <td>status</td>
 <td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
 <td></td>
-<td></td>
+<td>The task status.</td>
 </tr>
 <tr>
 <td>created_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The task creation date.</td>
 </tr>
 <tr>
 <td>started_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The task start date.</td>
 </tr>
 <tr>
 <td>ended_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The task end date. Also used when task failed.</td>
 </tr>
 <tr>
 <td>error</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The error message. Only set if task have failed.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-TaskRaw"></a></p>
 <h3 id="taskraw">TaskRaw</h3>
-<p>A raw task object</p>
+<p>A raw task object.</p>
+<p>Used when a single task is returned.</p>
 <table>
 <thead>
 <tr>
@@ -3166,102 +3180,103 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The task ID.</td>
 </tr>
 <tr>
 <td>session_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The session ID. A task have only one related session but a session have many tasks.</td>
 </tr>
 <tr>
 <td>owner_pod_id</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The owner pod ID.</td>
 </tr>
 <tr>
 <td>parent_task_ids</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
-<td></td>
+<td>The parent task IDs. A tasks can be a child of another task.</td>
 </tr>
 <tr>
 <td>data_dependencies</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
-<td></td>
+<td>The data dependencies. A task have data dependencies.</td>
 </tr>
 <tr>
 <td>expected_output_ids</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
-<td></td>
+<td>The expected output IDs. A task have expected output IDs.</td>
 </tr>
 <tr>
 <td>retry_of_ids</td>
 <td><a href="#string">string</a></td>
 <td>repeated</td>
-<td></td>
+<td>The retry of IDs. When a task fail, retry will use these set of IDs.</td>
 </tr>
 <tr>
 <td>status</td>
 <td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
 <td></td>
-<td></td>
+<td>The task status.</td>
 </tr>
 <tr>
 <td>status_message</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The status message.</td>
 </tr>
 <tr>
 <td>options</td>
 <td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
 <td></td>
-<td></td>
+<td>The task options.</td>
 </tr>
 <tr>
 <td>created_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The task creation date.</td>
 </tr>
 <tr>
 <td>submitted_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The task submission date.</td>
 </tr>
 <tr>
 <td>started_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The task start date.</td>
 </tr>
 <tr>
 <td>ended_at</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The task end date. Also used when task failed.</td>
 </tr>
 <tr>
 <td>pod_ttl</td>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
-<td></td>
+<td>The pod TTL (Time To Live).</td>
 </tr>
 <tr>
 <td>output</td>
 <td><a href="#armonik-api-grpc-v1-tasks-TaskRaw-Output">TaskRaw.Output</a></td>
 <td></td>
-<td></td>
+<td>The task output.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-TaskRaw-Output"></a></p>
 <h3 id="taskrawoutput">TaskRaw.Output</h3>
+<p>Represents the task output.</p>
 <table>
 <thead>
 <tr>
@@ -3276,19 +3291,19 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>success</td>
 <td><a href="#bool">bool</a></td>
 <td></td>
-<td></td>
+<td>To know if a task have failed or succeed.</td>
 </tr>
 <tr>
 <td>error</td>
 <td><a href="#string">string</a></td>
 <td></td>
-<td></td>
+<td>The error message. Only set if task have failed.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-OrderByField"></a></p>
 <h3 id="listtasksrequestorderbyfield">ListTasksRequest.OrderByField</h3>
-<p>Available fields to order the return task</p>
+<p>Represents every available field to use in order to sort tasks.</p>
 <table>
 <thead>
 <tr>
@@ -3301,43 +3316,43 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <tr>
 <td>ORDER_BY_FIELD_UNSPECIFIED</td>
 <td>0</td>
-<td></td>
+<td>Unspecified.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_TASK_ID</td>
 <td>1</td>
-<td></td>
+<td>The task ID.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_SESSION_ID</td>
 <td>2</td>
-<td></td>
+<td>The session ID.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_STATUS</td>
 <td>3</td>
-<td></td>
+<td>The task status.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_CREATED_AT</td>
 <td>4</td>
-<td></td>
+<td>The task creation date.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_STARTED_AT</td>
 <td>5</td>
-<td></td>
+<td>The task start date.</td>
 </tr>
 <tr>
 <td>ORDER_BY_FIELD_ENDED_AT</td>
 <td>6</td>
-<td></td>
+<td>The task end date.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="armonik-api-grpc-v1-tasks-ListTasksRequest-OrderDirection"></a></p>
 <h3 id="listtasksrequestorderdirection">ListTasksRequest.OrderDirection</h3>
-<p>Order direction values</p>
+<p>Represents every available order directions.</p>
 <table>
 <thead>
 <tr>
@@ -3350,26 +3365,27 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <tr>
 <td>ORDER_DIRECTION_UNSPECIFIED</td>
 <td>0</td>
-<td></td>
+<td>Unspecified. Do not use.</td>
 </tr>
 <tr>
 <td>ORDER_DIRECTION_ASC</td>
 <td>1</td>
-<td>Order by ascending</td>
+<td>Ascending.</td>
 </tr>
 <tr>
 <td>ORDER_DIRECTION_DESC</td>
 <td>2</td>
-<td>Order by descending</td>
+<td>Descending.</td>
 </tr>
 </tbody>
 </table>
 <p><a name="tasks_service-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="tasks_serviceproto">tasks_service.proto</h2>
+<p>Tasks related methods within a service.</p>
 <p><a name="armonik-api-grpc-v1-tasks-Tasks"></a></p>
 <h3 id="tasks">Tasks</h3>
-<p>The TaskService provides methods for listing and getting tasks.</p>
+<p>Service for handling tasks.</p>
 <table>
 <thead>
 <tr>
@@ -3384,25 +3400,25 @@ As chunking is implicit, there is no way to distinguish between chunked messages
 <td>ListTasks</td>
 <td><a href="#armonik-api-grpc-v1-tasks-ListTasksRequest">ListTasksRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-tasks-ListTasksResponse">ListTasksResponse</a></td>
-<td>Get all tasks with pagination</td>
+<td>Get a tasks list using pagination, filters and sorting.</td>
 </tr>
 <tr>
 <td>GetTask</td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetTaskRequest">GetTaskRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetTaskResponse">GetTaskResponse</a></td>
-<td>Get a task by id</td>
+<td>Get a task by its id.</td>
 </tr>
 <tr>
 <td>CancelTasks</td>
 <td><a href="#armonik-api-grpc-v1-tasks-CancelTasksRequest">CancelTasksRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-tasks-CancelTasksResponse">CancelTasksResponse</a></td>
-<td>Cancel one or many tasks</td>
+<td>Cancel tasks using ids.</td>
 </tr>
 <tr>
 <td>GetResultIds</td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetResultIdsRequest">GetResultIdsRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-tasks-GetResultIdsResponse">GetResultIdsResponse</a></td>
-<td>Get the id of the results that the tasks should produce</td>
+<td>Get ids of the result that tasks should produce.</td>
 </tr>
 </tbody>
 </table>
