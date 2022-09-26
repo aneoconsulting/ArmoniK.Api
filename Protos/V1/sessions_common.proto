@@ -52,7 +52,7 @@ message ListSessionsRequest {
   /**
    * Represents a filter with all available fields.
    *
-   * Every fields can be used as the same time.
+   * Any fields can be used at the same time.
    */
   message Filter {
     string application_name = 1; /** The application name. */

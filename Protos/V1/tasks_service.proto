@@ -18,8 +18,6 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
 service Tasks {
   /**
    * Get a tasks list using pagination, filters and sorting.
-   *
-   * Tasks are summary.
    */
   rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {}
 
