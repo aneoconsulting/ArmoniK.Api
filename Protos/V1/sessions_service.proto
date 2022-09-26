@@ -18,22 +18,16 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 service Sessions {
   /**
    * Get a sessions list using pagination, filters and sorting.
-   *
-   * Sessions are summary.
    */
   rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
 
   /**
    * Get a session by its id.
-   *
-   * Session is raw.
    */
   rpc GetSession(GetSessionRequest) returns (GetSessionResponse) {}
 
   /**
    * Cancel a session by its id.
-   *
-   * Session is raw.
    */
   rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
 }
