@@ -52,6 +52,8 @@ message Task {
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp started_at = 6;
   google.protobuf.Timestamp ended_at = 7;
+
+  string error = 8;
 }
 
 /**
@@ -116,6 +118,9 @@ message ListTasksRequest {
 
   // Sort order, field and direction, to apply to the returned tasks
   Sort sort = 4;
+
+  // Request error message in case of error in task
+  bool with_errors = 5;
 }
 
 /**
