@@ -25,4 +25,4 @@ See [CONTRIBUTING.md](https://github.com/aneoconsulting/ArmoniK.Api/blob/main/CO
 ### Improve Protocol Documentation
 
 Please refer to [protoc-gen-doc](https://github.com/pseudomuto/protoc-gen-doc) to make sure to adhere to
-the format the plugin expects to correctly generate documentation.
+the format the plugin expects to correctly generate documentation. You can find examples at the end section of [protoc-gen-doc](https://github.com/pseudomuto/protoc-gen-doc#output-example).
