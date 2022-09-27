@@ -55,7 +55,7 @@ message ListApplicationsRequest {
   /**
    * Represents every available field to use in order to sort applications.
    */
-  enum OrderByFiled {
+  enum OrderByField {
     ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
     ORDER_BY_FIELD_ID = 1; /** Application ID. */
   }
