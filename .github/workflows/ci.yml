@@ -4,7 +4,8 @@ on:
   pull_request:
 
 jobs:
-  formatCsharp:
+  format-csharp:
+    name: Format C#
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -48,7 +49,8 @@ jobs:
             exit 1
           fi
 
-  formatProto:
+  format-protobuf:
+    name: Format Protobuf
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -58,12 +60,13 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
           submodules: true
+
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf format -d --exit-code
 
-  build-doc:
+  build-documentation:
+    name: Build Documentation
     runs-on: ubuntu-20.04
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
