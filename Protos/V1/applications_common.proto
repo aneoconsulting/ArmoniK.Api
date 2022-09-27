@@ -1,72 +1,99 @@
+/**
+ * Messages describing applications and associated requests and responses.
+ */
 syntax = "proto3";
 
-package armonik.api.grpc.v1.applicaitons;
+package armonik.api.grpc.v1.applications;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
-import "sessions_common.proto";
 
 option csharp_namespace = "Armonik.Api.Grpc.V1.Applications";
 
 /**
- * An application object
+ * A raw application object.
+ *
+ * Used when a list of applications is requested.
  */
-message Application {
-  // Application ID
-  ApplicationId id = 1;
-
+message ApplicationRaw {
   /**
-   * Application ID message
+   * Represents an application ID.
    */
   message ApplicationId {
-    // Application name
-    string name = 1;
-    // Application version
-    string version = 2;
+    string name = 1; /** Application name. */
+    string version = 2; /** Application version. */
   }
+
+  ApplicationId id = 1; /** Application ID. */
 }
 
 /**
-  * Request for listing applications
-  */
+ * Request to list applications.
+ *
+ * Use pagination, filtering and sorting.
+ */
 message ListApplicationsRequest {
-  /**
-  * Message to filter applications
-  */
-  message Filter {
-    // Application name
-    string name = 1;
-    // Application version
-    string version = 2;
-  }
-  
-  // Filter used to select applications
-  Filter filter = 1;
+  int32 page = 1; /** The page number. Start at 0. */
+  int32 page_size = 2; /** Number of items per page. */
 
   /**
-   * Message to sort applications
+   * Represents a filter with all available fields.
+   *
+   * Any fields can be used at the same time.
+   */
+  message Filter {
+    string name = 1; /** Application name. */
+    string version = 2; /** Application version. */
+  }
+
+  /** The filter.
+   *
+   * Must be set for every request but allowed to be empty.
+   */
+  Filter filter = 3;
+
+  /**
+   * Represents every available field to use in order to sort applications.
+   */
+  enum OrderByFiled {
+    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_BY_FIELD_ID = 1; /** Application ID. */
+  }
+
+  /**
+   * Represents every available order directions.
+   */
+  enum OrderDirection {
+    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_DIRECTION_ASC = 1; /** Ascending. */
+    ORDER_DIRECTION_DESC = 2; /** Descending. */
+  }
+
+  /**
+   * Represents the sort object.
    */
   message Sort {
-    // Field to order by
-    OrderByFiled field = 1;
-    // Order direction
-    OrderByDirection direction = 2;
+    OrderByField field = 1; /** The field to order by. */
+    OrderDirection direction = 2; /** The order direction. */
   }
 
-  // Available fields to order the returned applications
-  enum OrderByFiled {
-    ORDER_BY_FIELD_UNSPECIFIED = 0;
-    ORDER_BY_FIELD_ID = 1;
-  }
-
-  // Used to sort the returned applications
-  Sort sort = 2;
+  /** The sort.
+   *
+   * Must be set for every request.
+   */
+  Sort sort = 4;
 }
 
 /**
- * Response for listing applications
+ * Response to list applications.
+ *
+ * Use pagination, filtering and sorting from the request.
+ * Return a list of raw applications.
  */
 message ListApplicationsResponse {
-  // List of applications
-  repeated Application application = 1;
+  repeated ApplicationRaw application = 1;
+
+  int32 page = 2; /** The current page. Start at 0. */
+  int32 page_size = 3; /** Number of items per page. */
+  int32 total = 4; /** Total number of items. */
 }
