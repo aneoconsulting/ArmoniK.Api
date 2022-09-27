@@ -2,6 +2,8 @@ name: Release Package
 
 on:
   push:
+    branches:
+      - "**"
     tags-ignore: ["**"]
 
 jobs:
