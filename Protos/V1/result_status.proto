@@ -5,12 +5,14 @@ package armonik.api.grpc.v1.result_status;
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
 enum ResultStatus {
-  RESULT_STATUS_UNSPECIFIED = 0;
-  RESULT_STATUS_CREATED = 1;
-  RESULT_STATUS_COMPLETED = 2;
-  RESULT_STATUS_ABORTED = 3;
+  RESULT_STATUS_UNSPECIFIED = 0; /** Result is in an unspecified state. */
+  RESULT_STATUS_CREATED = 1; /** Result is created and task is created, submitted or dispatched. */
+  RESULT_STATUS_COMPLETED = 2; /** Result is completed with a completed task. */
+  RESULT_STATUS_ABORTED = 3; /** Result is aborted. */
 
-  // NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions
-  // https://developers.google.com/protocol-buffers/docs/proto3#enum
+  /** NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions
+   *
+   * see https://developers.google.com/protocol-buffers/docs/proto3#enum
+  */
   RESULT_STATUS_NOTFOUND = 127;
 }
