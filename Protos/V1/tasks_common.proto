@@ -156,7 +156,7 @@ message ListTasksResponse {
  * Request for getting a single task.
  */
 message GetTaskRequest {
-  string id = 1; /** The task ID. */
+  string task_id = 1; /** The task ID. */
 }
 
 /**
@@ -173,7 +173,7 @@ message GetTaskResponse {
  */
 message CancelTasksRequest {
   // Ids of the tasks to cancel
-  repeated string ids = 1;
+  repeated string task_ids = 1;
 }
 
 /**
