@@ -22,11 +22,12 @@ message ApplicationRaw {
   message ApplicationId {
     string name = 1; /** Application name. */
     string version = 2; /** Application version. */
-    string service = 3; /** Application service used in the excecuted class. */
-    string namespace = 4; /** Application namespace used in the excecuted class. */
   }
 
   ApplicationId id = 1; /** Application ID. */
+
+  string namespace = 2; /** Application namespace used in the excecuted class. */
+  string service = 3; /** Application service used in the excecuted class. */
 }
 
 /**
@@ -46,6 +47,8 @@ message ListApplicationsRequest {
   message Filter {
     string name = 1; /** Application name. */
     string version = 2; /** Application version. */
+    string namespace = 3; /** Application namespace. */
+    string service = 4; /** Application service. */
   }
 
   /** The filter.
