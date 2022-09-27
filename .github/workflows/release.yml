@@ -76,10 +76,10 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
-    - name: tag
-      run: |
-        git tag $VERSION
-        git push origin $VERSION
+      - name: tag
+        run: |
+          git tag $VERSION
+          git push origin $VERSION
 
   python_package:
     runs-on: ubuntu-latest
