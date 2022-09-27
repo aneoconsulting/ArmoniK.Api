@@ -30,21 +30,18 @@ message Application {
   * Request for listing applications
   */
 message ListApplicationsRequest {
-  // Filter used to select applications
-  Filter filter = 1;
-
   /**
-   * Message to filter applications
-   */
+  * Message to filter applications
+  */
   message Filter {
     // Application name
     string name = 1;
     // Application version
     string version = 2;
   }
-
-  // Used to sort the returned applications
-  Sort sort = 2;
+  
+  // Filter used to select applications
+  Filter filter = 1;
 
   /**
    * Message to sort applications
@@ -60,21 +57,10 @@ message ListApplicationsRequest {
   enum OrderByFiled {
     ORDER_BY_FIELD_UNSPECIFIED = 0;
     ORDER_BY_FIELD_ID = 1;
-    ORDER_BY_FIELD_TASKS_PENDING = 2;
-    ORDER_BY_FIELD_TASKS_IN_ERROR = 3;
-    ORDER_BY_FIELD_TASKS_COMPLETED = 4;
-    ORDER_BY_FIELD_TASKS_PROCESSING = 5;
   }
 
-  /**
-   * Message to specify the options for the last sessions
-   */
-  message LastSessionsOptions {
-    // Page number for the last sessions
-    int32 page = 1;
-    // Page size for the last sessions
-    int32 page_size = 2;
-  }
+  // Used to sort the returned applications
+  Sort sort = 2;
 }
 
 /**
