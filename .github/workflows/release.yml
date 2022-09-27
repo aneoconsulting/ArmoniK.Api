@@ -63,7 +63,13 @@ jobs:
       - name: Push the package
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
+      - name: Missing Nuget API Key
+        if: ${{ secrets.NUGET_API_KEY == '' }}
+        run: echo "Missing Nuget API Key"
+
   tag:
+    # Only if branch is release
+    if: ${{ github.ref == 'refs/heads/release' }}
     runs-on: ubuntu-latest
     needs:
       - versionning
