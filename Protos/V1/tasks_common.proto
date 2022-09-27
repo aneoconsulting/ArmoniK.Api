@@ -64,7 +64,7 @@ message Task {
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
 
-   string error = 8; /** The error message. Only set if task have failed. */
+  string error = 8; /** The error message. Only set if task have failed. */
 }
 
 /**
