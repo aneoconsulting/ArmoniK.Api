@@ -13,6 +13,6 @@ enum ResultStatus {
   /** NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions
    *
    * see https://developers.google.com/protocol-buffers/docs/proto3#enum
-  */
+   */
   RESULT_STATUS_NOTFOUND = 127;
 }
