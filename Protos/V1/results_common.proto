@@ -12,12 +12,11 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
  * Used when a list or a single result is returned.
  */
 message ResultRaw {
-  string id = 1; /** The result ID. */
-  string session_id = 2; /** The session ID. */
-  string name = 3; /** The result name. */
-  string owner_task_id = 4; /** The owner task ID. */
-  result_status.ResultStatus status = 5; /** The result status. */
-  string created_at = 6; /** The result creation date. */
+  string session_id = 1; /** The session ID. */
+  string name = 2; /** The result name. */
+  string owner_task_id = 3; /** The owner task ID. */
+  result_status.ResultStatus status = 4; /** The result status. */
+  string created_at = 5; /** The result creation date. */
 }
 
 /**
@@ -35,13 +34,12 @@ message ListResultsRequest {
    * Any fields can be used at the same time.
    */
   message Filter {
-    string id = 1; /** The result ID. */
-    string session_id = 2; /** The session ID. */
-    string name = 3; /** The result name. */
-    string owner_task_id = 4; /** The owner task ID. */
-    result_status.ResultStatus status = 5; /** The result status. */
-    string created_after = 6; /** Use the creation date of a result to filter results created after the input. */
-    string created_before = 7; /** Use the creation date of a result to filter results created before the input. */
+    string session_id = 1; /** The session ID. */
+    string name = 2; /** The result name. */
+    string owner_task_id = 3; /** The owner task ID. */
+    result_status.ResultStatus status = 4; /** The result status. */
+    string created_after = 5; /** Use the creation date of a result to filter results created after the input. */
+    string created_before = 6; /** Use the creation date of a result to filter results created before the input. */
   }
 
   /**
@@ -56,12 +54,11 @@ message ListResultsRequest {
    */
   enum SortField {
     SORT_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ID = 1; /** The result ID. */
-    SESSION_ID = 2; /** The session ID. */
-    NAME = 3; /** The result name. */
-    OWNER_TASK_ID = 4; /** The owner task ID. */
-    STATUS = 5; /** The result status. */
-    CREATED_AT = 6; /** The result creation date. */
+    SESSION_ID = 1; /** The session ID. */
+    NAME = 2; /** The result name. */
+    OWNER_TASK_ID = 3; /** The owner task ID. */
+    STATUS = 4; /** The result status. */
+    CREATED_AT = 5; /** The result creation date. */
   }
 
   /**
