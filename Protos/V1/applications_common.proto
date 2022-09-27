@@ -22,6 +22,8 @@ message ApplicationRaw {
   message ApplicationId {
     string name = 1; /** Application name. */
     string version = 2; /** Application version. */
+    string service = 3; /** Application service. */
+    string namespace = 4; /** Application namespace. */
   }
 
   ApplicationId id = 1; /** Application ID. */
