@@ -65,15 +65,15 @@ jobs:
         # https://github.com/orgs/community/discussions/26726
         env:
           is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
-        if: ${{ env.is_NUGET_API_KEY_set }}
+        if: ${{ env.is_NUGET_API_KEY_set == 'false' }}
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
       - name: Missing Nuget API Key
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
         # https://github.com/orgs/community/discussions/26726
         env:
-          is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
-        if: ${{ env.is_NUGET_API_KEY_set }}
+          is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY == '' }}
+        if: ${{ env.is_NUGET_API_KEY_set == 'true' }}
         run: echo "Missing Nuget API Key"
 
   tag:
