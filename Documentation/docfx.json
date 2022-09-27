@@ -9,7 +9,7 @@
           ]
         }
       ],
-      "dest": "api",
+      "dest": "api-csharp",
       "disableGitFeatures": false,
       "disableDefaultFilter": false
     }
@@ -18,8 +18,14 @@
     "content": [
       {
         "files": [
-          "api/**.yml",
-          "api/index.md"
+          "api-csharp/**.yml",
+          "api-csharp/index.md"
+        ]
+      },
+      {
+        "files": [
+          "api-protocol/**.yml",
+          "api-protocol/index.md"
         ]
       },
       {
