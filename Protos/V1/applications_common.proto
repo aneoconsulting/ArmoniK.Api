@@ -24,18 +24,6 @@ message Application {
     // Application version
     string version = 2;
   }
-
-  // Number of tasks with a pending status ("CREATING", "SUBMITTED", "DISOATCHED")
-  int64 tasks_pending = 2;
-  // Number of tasks with a status "ERROR"
-  int64 tasks_in_error = 3;
-  // Number of tasks with a status "COMPLETED"
-  int64 tasks_completed = 4;
-  // Number of tasks with a status "PROCESSING"
-  int64 tasks_processing = 5;
-
-  // Last session related to the application
-  repeated SessionSummary session = 6;
 }
 
 /**
@@ -78,9 +66,6 @@ message ListApplicationsRequest {
     ORDER_BY_FIELD_TASKS_PROCESSING = 5;
   }
 
-  // Options for the last sessions. If not specified, last sessions are not returned
-  LastSessionsOptions last_sessions_options = 3;
-  
   /**
    * Message to specify the options for the last sessions
    */
