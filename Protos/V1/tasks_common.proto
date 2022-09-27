@@ -54,7 +54,7 @@ message TaskRaw {
  * It contains only a subset of the fields from the underlying task object.
  * Used when a list of tasks are returned.
  */
-message Task {
+message TaskSummary {
   string id = 1;  /** The task ID. */
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   TaskOptions options = 3; /** The task options. */
@@ -145,7 +145,7 @@ message ListTasksRequest {
  * Return a list of formated tasks.
  */
 message ListTasksResponse {
-  repeated Task tasks = 1; /** The list of tasks. */
+  repeated TaskSummary tasks = 1; /** The list of tasks. */
 
   int32 page = 2; /** The page number. Start at 0. */
   int32 page_size = 3; /** The page size. */
@@ -181,7 +181,7 @@ message CancelTasksRequest {
  */
 message CancelTasksResponse {
   // Tasks that have been asked to cancel
-  repeated Task tasks = 1;
+  repeated TaskSummary tasks = 1;
 }
 
 /*
