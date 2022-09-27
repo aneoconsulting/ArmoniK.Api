@@ -61,9 +61,16 @@ jobs:
           ls /tmp/packages
 
       - name: Push the package
+        # GitHub doesn't allow to read secrets from conditionals in steps
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        if: ${{ env.NUGET_API_KEY != '' }}
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
       - name: Missing Nuget API Key
+        # GitHub doesn't allow to read secrets from conditionals in steps
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         if: ${{ secrets.NUGET_API_KEY == '' }}
         run: echo "Missing Nuget API Key"
 
