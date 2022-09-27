@@ -55,7 +55,7 @@ message TaskRaw {
  * Used when a list of tasks are returned.
  */
 message Task {
-  string id = 1;  /** The task ID. */
+  string id = 1; /** The task ID. */
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   TaskOptions options = 3; /** The task options. */
   task_status.TaskStatus status = 4; /** The task status. */
