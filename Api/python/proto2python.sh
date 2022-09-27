@@ -22,8 +22,8 @@ export ARMONIK_COMMON=$ARMONIK_PYTHON_SRC"/armonik/common"
 
 mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 
-# for debian/ubuntu:
-# sudo apt install python3-venv python3 python-is-python3 pip
+# for debian/ubuntu if you don't have python 3 installed:
+# sudo apt install python3-venv python3 python-is-python3 python3-pip
 
 armonik_worker_files=("agent_service.proto" "worker_service.proto")
 armonik_client_files=("submitter_service.proto" "tasks_service.proto" "sessions_service.proto" \
