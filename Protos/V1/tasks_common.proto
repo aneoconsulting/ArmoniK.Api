@@ -55,7 +55,7 @@ message TaskRaw {
  * Used when a list of tasks are returned.
  */
 message TaskSummary {
-  string id = 1;  /** The task ID. */
+  string id = 1; /** The task ID. */
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   TaskOptions options = 3; /** The task options. */
   task_status.TaskStatus status = 4; /** The task status. */
@@ -64,7 +64,7 @@ message TaskSummary {
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
 
-   string error = 8; /** The error message. Only set if task have failed. */
+  string error = 8; /** The error message. Only set if task have failed. */
 }
 
 /**
