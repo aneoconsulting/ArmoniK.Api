@@ -16,15 +16,8 @@ option csharp_namespace = "Armonik.Api.Grpc.V1.Applications";
  * Used when a list of applications is requested.
  */
 message ApplicationRaw {
-  /**
-   * Represents an application ID.
-   */
-  message ApplicationId {
-    string name = 1; /** Application name. */
-    string version = 2; /** Application version. */
-  }
-
-  ApplicationId id = 1; /** Application ID. */
+  string name = 1; /** Application name. */
+  string version = 2; /** Application version. */
 
   string namespace = 2; /** Application namespace used in the excecuted class. */
   string service = 3; /** Application service used in the excecuted class. */
