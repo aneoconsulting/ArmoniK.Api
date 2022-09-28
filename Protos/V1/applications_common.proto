@@ -19,8 +19,8 @@ message ApplicationRaw {
   string name = 1; /** Application name. */
   string version = 2; /** Application version. */
 
-  string namespace = 2; /** Application namespace used in the excecuted class. */
-  string service = 3; /** Application service used in the excecuted class. */
+  string namespace = 3; /** Application namespace used in the excecuted class. */
+  string service = 4; /** Application service used in the excecuted class. */
 }
 
 /**
