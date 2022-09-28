@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "armonik"
 description = "GRPC python binding for the ArmoniK orchestrator API"
-readme = "README.md"
+readme = "generated/README.md"
 requires-python = ">=3.7"
 keywords = ["cloud", "HTC", "gRPC", "ArmoniK", "Aneo"]
 license = {text = "Apache v2.0 LICENSE"}
@@ -23,7 +23,8 @@ dynamic = ["version"]
 "Bug Tracker" = "https://github.com/aneoconsulting/ArmoniK/issues"
 
 [tool.setuptools_scm]
-write_to = "pkg/_version.py"
+write_to = "Api/python/generated/_version.py"
+root="../.."
 
 [tool.setuptools.packages.find]
-where= ["Api/python/src"]
+where= ["generated"]
