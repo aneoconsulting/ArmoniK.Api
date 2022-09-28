@@ -76,6 +76,43 @@ jobs:
         if: ${{ env.is_NUGET_API_KEY_set == 'false' }}
         run: echo "Missing Nuget API Key"
 
+  python_package:
+    runs-on: ubuntu-latest
+    needs: versionning
+    env:
+      VERSION: ${{ needs.versionning.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: use_tag
+        run: git checkout $VERSION
+
+      - name: pip update and add build package
+        run: bash ./Api/python/proto2python.sh ~/pyvenv
+
+      - name: Publish to PyPI
+        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+        # https://github.com/orgs/community/discussions/26726
+        env:
+          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          print_hash: true
+
+      - name: Missing PyPI API Key
+        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+        # https://github.com/orgs/community/discussions/26726
+        env:
+          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'false' }}
+        run: echo "Missing PyPI API Key"
+
   tag:
     # Only if branch is release
     if: ${{ github.ref == 'refs/heads/release' }}
