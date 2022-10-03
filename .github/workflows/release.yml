@@ -88,11 +88,14 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
 
-      - name: use_tag
-        run: git checkout $VERSION
-
       - name: pip update and add build package
-        run: bash ./Api/python/proto2python.sh ~/pyvenv
+        run: |
+          cd ./Api/python
+          bash proto2python.sh ~/pyvenv
+
+      - name: symlink to right directory
+        run: |
+          ln -s Api/python/pkg/ dist
 
       - name: Publish to PyPI
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
