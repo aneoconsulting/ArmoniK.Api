@@ -184,6 +184,64 @@ message CancelTasksResponse {
   repeated TaskSummary tasks = 1;
 }
 
+/**
+ * Request to count tasks.
+ */
+message CountTasksRequest {
+  /**
+   * Represents every availaible field to use in order to group tasks.
+   */
+  enum GroupByField {
+    GROUP_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
+    GROUP_BY_FIELD_STATUS = 1; /** The task status. */
+    GROUP_BY_FIELD_SESSION_ID = 2; /** The session ID. */
+  }
+
+  /**
+   * The group by.
+   *
+   * Can't be empty.
+   */
+  GroupByField group_by = 1;
+
+  /**
+   * Represents a filter with every available fields.
+   *
+   * Every field can be used as the same time.
+   */
+  message Filter {
+    string session_id = 1; /** The session ID of related tasks. */
+    task_status.TaskStatus status = 2; /** The task status. */
+    google.protobuf.Timestamp created_after = 3; /** Use the creation date of a task to filter tasks created after the input. */
+    google.protobuf.Timestamp created_before = 4; /** Use the creation date of a task to filter tasks created before the input. */
+    google.protobuf.Timestamp started_after = 5; /** Use the start date of a task to filter tasks started after the input. */
+    google.protobuf.Timestamp started_before = 6; /** Use the start date of a task to filter tasks started before the input. */
+    google.protobuf.Timestamp ended_after = 7; /** Use the end date of a task to filter tasks ended after the input. */
+    google.protobuf.Timestamp ended_before = 8; /** Use the end date of a task to filter tasks ended before the input. */
+  }
+
+  /** The filter.
+   *
+   * Must be set for every request but can be empty.
+   */
+  Filter filter = 3;
+}
+
+/**
+ * Response to count tasks.
+ *
+ * Return a list of count by group.
+ */
+message CountTasksResponse {
+  /**
+   * Counts.
+   *
+   * Key is the group by field value. E.g.: if the group by field is status, the key is the status.
+   * Value is the count.
+   */
+  map<string, int64> counts = 1;
+}
+
 /*
 *  Request for getting result ids of tasks ids.
 */
