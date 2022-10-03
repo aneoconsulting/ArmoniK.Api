@@ -5,15 +5,19 @@ VisualStudioVersion = 17.2.32516.85
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Worker", "ArmoniK.Api.Worker\ArmoniK.Api.Worker.csproj", "{80086363-0248-4483-866F-2CB302F1EADF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Worker.Tests", "ArmoniK.Api.Tests\ArmoniK.Api.Worker.Tests.csproj", "{86492313-5B66-4A8E-BAEC-1219C13C7A75}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Worker.Tests", "ArmoniK.Api.Worker.Tests\ArmoniK.Api.Worker.Tests.csproj", "{86492313-5B66-4A8E-BAEC-1219C13C7A75}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Client", "ArmoniK.Api.Client\ArmoniK.Api.Client.csproj", "{A5FACED3-0F51-4B21-9302-FA51BF747E28}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Common", "ArmoniK.Api.Common\ArmoniK.Api.Common.csproj", "{C306F96C-247C-47E2-85D1-484CB6889451}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArmoniK.Api.Core", "ArmoniK.Api.Core\ArmoniK.Api.Core.csproj", "{6DB4B49F-F509-4387-B3BE-F4F13BC9BC00}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Core", "ArmoniK.Api.Core\ArmoniK.Api.Core.csproj", "{6DB4B49F-F509-4387-B3BE-F4F13BC9BC00}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Common.Channel", "ArmoniK.Api.Common.Channel\ArmoniK.Api.Common.Channel.csproj", "{38D7FC1B-1E64-40DB-88D0-841BAC763413}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Client.GetServiceConfig", "ArmoniK.Api.Client.GetServiceConfig\ArmoniK.Api.Client.GetServiceConfig.csproj", "{B0D561B9-6CB3-4BBD-8234-D40E1697CB35}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Client.Tests", "ArmoniK.Api.Client.Tests\ArmoniK.Api.Client.Tests.csproj", "{A1B3171E-4B92-4DD5-BE1A-158327376155}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +49,14 @@ Global
 		{38D7FC1B-1E64-40DB-88D0-841BAC763413}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{38D7FC1B-1E64-40DB-88D0-841BAC763413}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{38D7FC1B-1E64-40DB-88D0-841BAC763413}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0D561B9-6CB3-4BBD-8234-D40E1697CB35}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0D561B9-6CB3-4BBD-8234-D40E1697CB35}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0D561B9-6CB3-4BBD-8234-D40E1697CB35}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0D561B9-6CB3-4BBD-8234-D40E1697CB35}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1B3171E-4B92-4DD5-BE1A-158327376155}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B3171E-4B92-4DD5-BE1A-158327376155}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B3171E-4B92-4DD5-BE1A-158327376155}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B3171E-4B92-4DD5-BE1A-158327376155}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
