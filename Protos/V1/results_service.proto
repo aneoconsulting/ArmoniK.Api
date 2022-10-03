@@ -10,6 +10,13 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
  * The ResultsService provides methods for interacting with results
  */
 service Results {
-  // Get the id of the task that should produce the result
+  /**
+   * Get a results list using pagination, filters and sorting
+   */
+  rpc ListResults(ListResultsRequest) returns (ListResultsResponse) {}
+
+  /**
+   * Get the id of the task that should produce the result
+   */
   rpc GetOwnerTaskId(GetOwnerTaskIdRequest) returns (GetOwnerTaskIdResponse);
 }
