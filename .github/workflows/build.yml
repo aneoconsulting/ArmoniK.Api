@@ -80,7 +80,7 @@ jobs:
           fetch-depth: 0
           submodules: true
       - name: Check Diff
-        run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf format -d --exit-code
+        run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
 
   build-doc:
     runs-on: ubuntu-20.04
@@ -134,3 +134,25 @@ jobs:
 
       - name: Push the package
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+
+  python_package:
+    runs-on: ubuntu-latest
+    needs:
+      - versionning
+    env:
+      VERSION: ${{ needs.versionning.outputs.version }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+    - name: pip update and add build package
+      working-directory: ./Api/python/
+      run: bash ./proto2python.sh ~/pyvenv
+    - name: Upload package as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: python-packages
+        path: ./Api/python/pkg/
+      
