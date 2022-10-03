@@ -194,6 +194,8 @@ message CountTasksRequest {
   enum GroupByField {
     GROUP_BY_FIELD_STATUS = 1; /** The task status. */
     GROUP_BY_FIELD_SESSION_ID = 2; /** The session ID. */
+    GROUP_BY_FIELD_APPLICATION_NAME = 3; /** The application name. */
+    GROUP_BY_FIELD_APPLICATION_VERSION = 4; /** The application version. */
   }
 
   /**
@@ -209,14 +211,16 @@ message CountTasksRequest {
    * Every field can be used as the same time.
    */
   message Filter {
-    string session_id = 1; /** The session ID of related tasks. */
-    task_status.TaskStatus status = 2; /** The task status. */
-    google.protobuf.Timestamp created_after = 3; /** Use the creation date of a task to filter tasks created after the input. */
-    google.protobuf.Timestamp created_before = 4; /** Use the creation date of a task to filter tasks created before the input. */
-    google.protobuf.Timestamp started_after = 5; /** Use the start date of a task to filter tasks started after the input. */
-    google.protobuf.Timestamp started_before = 6; /** Use the start date of a task to filter tasks started before the input. */
-    google.protobuf.Timestamp ended_after = 7; /** Use the end date of a task to filter tasks ended after the input. */
-    google.protobuf.Timestamp ended_before = 8; /** Use the end date of a task to filter tasks ended before the input. */
+    string application_name = 1; /** The application name. */
+    string application_version = 2; /** The application version. */
+    string session_id = 3; /** The session ID of related tasks. */
+    task_status.TaskStatus status = 4; /** The task status. */
+    google.protobuf.Timestamp created_after = 5; /** Use the creation date of a task to filter tasks created after the input. */
+    google.protobuf.Timestamp created_before = 6; /** Use the creation date of a task to filter tasks created before the input. */
+    google.protobuf.Timestamp started_after = 7; /** Use the start date of a task to filter tasks started after the input. */
+    google.protobuf.Timestamp started_before = 8; /** Use the start date of a task to filter tasks started before the input. */
+    google.protobuf.Timestamp ended_after = 9; /** Use the end date of a task to filter tasks ended after the input. */
+    google.protobuf.Timestamp ended_before = 10; /** Use the end date of a task to filter tasks ended before the input. */
   }
 
   /** The filter.
@@ -236,9 +240,11 @@ message CountTasksResponse {
   * Represents a count by group.
   */
   message CountByGroup {
-    string session_id = 1; /** The session ID. Could be not set depending of group by. */
-    task_status.TaskStatus status = 2; /** The task status. Could be not set depending of group by. */
-    int64 count = 2; /** The count. */
+    string application_name = 1; /** The application name. */
+    string application_version = 2; /** The application version. */
+    string session_id = 3; /** The session ID. Could be not set depending of group by. */
+    task_status.TaskStatus status = 4; /** The task status. Could be not set depending of group by. */
+    int64 count = 5; /** The count. */
   }
 
   /**
