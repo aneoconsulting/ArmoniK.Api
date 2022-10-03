@@ -85,6 +85,29 @@
 <li><a href="#armonik-api-grpc-v1-agent-Agent">Agent</a></li>
 </ul>
 </li>
+<li><p><a href="#applications_common-proto">applications_common.proto</a></p>
+<ul>
+<li><p><a href="#armonik-api-grpc-v1-applications-ApplicationRaw">ApplicationRaw</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest">ListApplicationsRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-Filter">ListApplicationsRequest.Filter</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-Sort">ListApplicationsRequest.Sort</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-applications-ListApplicationsResponse">ListApplicationsResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-OrderByField">ListApplicationsRequest.OrderByField</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-OrderDirection">ListApplicationsRequest.OrderDirection</a></p>
+</li>
+</ul>
+</li>
+<li><p><a href="#applications_service-proto">applications_service.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-applications-Applications">Applications</a></li>
+</ul>
+</li>
 <li><p><a href="#objects-proto">objects.proto</a></p>
 <ul>
 <li><a href="#armonik-api-grpc-v1-Configuration">Configuration</a></li>
@@ -649,6 +672,273 @@
 <td><a href="#armonik-api-grpc-v1-agent-Result">Result</a> stream</td>
 <td><a href="#armonik-api-grpc-v1-agent-ResultReply">ResultReply</a></td>
 <td></td>
+</tr>
+</tbody>
+</table>
+<p><a name="applications_common-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="applications_commonproto">applications_common.proto</h2>
+<p>Messages describing applications and associated requests and responses.</p>
+<p><a name="armonik-api-grpc-v1-applications-ApplicationRaw"></a></p>
+<h3 id="applicationraw">ApplicationRaw</h3>
+<p>A raw application object.</p>
+<p>Used when a list of applications is requested.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application name.</td>
+</tr>
+<tr>
+<td>version</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application version.</td>
+</tr>
+<tr>
+<td>namespace</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application namespace used in the excecuted class.</td>
+</tr>
+<tr>
+<td>service</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application service used in the excecuted class.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-applications-ListApplicationsRequest"></a></p>
+<h3 id="listapplicationsrequest">ListApplicationsRequest</h3>
+<p>Request to list applications.</p>
+<p>Use pagination, filtering and sorting.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>The page number. Start at 0.</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Number of items per page.</td>
+</tr>
+<tr>
+<td>filter</td>
+<td><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-Filter">ListApplicationsRequest.Filter</a></td>
+<td></td>
+<td>The filter.</td>
+</tr>
+</tbody>
+</table>
+<p>Must be set for every request but allowed to be empty. |
+| sort | <a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-Sort">ListApplicationsRequest.Sort</a> |  | The sort.</p>
+<p>Must be set for every request. |</p>
+<p><a name="armonik-api-grpc-v1-applications-ListApplicationsRequest-Filter"></a></p>
+<h3 id="listapplicationsrequestfilter">ListApplicationsRequest.Filter</h3>
+<p>Represents a filter with all available fields.</p>
+<p>Any fields can be used at the same time.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>name</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application name.</td>
+</tr>
+<tr>
+<td>version</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application version.</td>
+</tr>
+<tr>
+<td>namespace</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application namespace.</td>
+</tr>
+<tr>
+<td>service</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Application service.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-applications-ListApplicationsRequest-Sort"></a></p>
+<h3 id="listapplicationsrequestsort">ListApplicationsRequest.Sort</h3>
+<p>Represents the sort object.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>field</td>
+<td><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-OrderByField">ListApplicationsRequest.OrderByField</a></td>
+<td></td>
+<td>The field to order by.</td>
+</tr>
+<tr>
+<td>direction</td>
+<td><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest-OrderDirection">ListApplicationsRequest.OrderDirection</a></td>
+<td></td>
+<td>The order direction.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-applications-ListApplicationsResponse"></a></p>
+<h3 id="listapplicationsresponse">ListApplicationsResponse</h3>
+<p>Response to list applications.</p>
+<p>Use pagination, filtering and sorting from the request.
+Return a list of raw applications.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>application</td>
+<td><a href="#armonik-api-grpc-v1-applications-ApplicationRaw">ApplicationRaw</a></td>
+<td>repeated</td>
+<td></td>
+</tr>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>The current page. Start at 0.</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Number of items per page.</td>
+</tr>
+<tr>
+<td>total</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>Total number of items.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-applications-ListApplicationsRequest-OrderByField"></a></p>
+<h3 id="listapplicationsrequestorderbyfield">ListApplicationsRequest.OrderByField</h3>
+<p>Represents every available field to use in order to sort applications.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ORDER_BY_FIELD_UNSPECIFIED</td>
+<td>0</td>
+<td>Unspecified.</td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_ID</td>
+<td>1</td>
+<td>Application ID.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-applications-ListApplicationsRequest-OrderDirection"></a></p>
+<h3 id="listapplicationsrequestorderdirection">ListApplicationsRequest.OrderDirection</h3>
+<p>Represents every available order directions.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ORDER_DIRECTION_UNSPECIFIED</td>
+<td>0</td>
+<td>Unspecified.</td>
+</tr>
+<tr>
+<td>ORDER_DIRECTION_ASC</td>
+<td>1</td>
+<td>Ascending.</td>
+</tr>
+<tr>
+<td>ORDER_DIRECTION_DESC</td>
+<td>2</td>
+<td>Descending.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="applications_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="applications_serviceproto">applications_service.proto</h2>
+<p>Applications related methods within a service.</p>
+<p><a name="armonik-api-grpc-v1-applications-Applications"></a></p>
+<h3 id="applications">Applications</h3>
+<p>Service for handling applications.</p>
+<table>
+<thead>
+<tr>
+<th>Method Name</th>
+<th>Request Type</th>
+<th>Response Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ListApplications</td>
+<td><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest">ListApplicationsRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-applications-ListApplicationsResponse">ListApplicationsResponse</a></td>
+<td>Get a applications list using pagination, filters and sorting;</td>
 </tr>
 </tbody>
 </table>
