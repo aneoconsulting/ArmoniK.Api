@@ -69,6 +69,24 @@
             <article class="content wrap" id="_content" data-uid="armonik_api_csharp">
 <h1 id="armonik-api-c">ArmoniK API C#</h1>
 
+<p>This page lists the namespaces in the C# projects of this repository.
+In each namespace, the included classes are available.</p>
+<h2 id="armonikapiclientoptions">ArmoniK.Api.Client.Options</h2>
+<p>In this namespace, there are options classes to configure the client connection to ArmoniK control plane.</p>
+<h2 id="armonikapiclientsubmitter">ArmoniK.Api.Client.Submitter</h2>
+<p>This namespace includes some utilitarian classes for interaction with ArmoniK control plane.
+It also contains the generated gRPC classes built from the protobuf files related to the client to ArmoniK control plane.</p>
+<h2 id="armonikapicommonchannelutils-armonikapicommonoptions">ArmoniK.Api.Common.Channel.Utils, ArmoniK.Api.Common.Options</h2>
+<p>They contain some classes to create and configure (though options) Grpc Channels between ArmoniK workers and polling agents.</p>
+<h2 id="armonikapicore">ArmoniK.Api.Core</h2>
+<p>It includes the generated gRPC classes built from the protobuf files used by <a href="https://github.com/aneoconsulting/ArmoniK.Core">ArmoniK.Core</a>.</p>
+<h2 id="armonikapicommonutils">ArmoniK.Api.Common.Utils</h2>
+<p>It contains helpers that are widely used in ArmoniK.</p>
+<h2 id="armonikapiworkertests">ArmoniK.Api.Worker.Tests</h2>
+<p>This namespace contains the test classes for the worker.</p>
+<h2 id="armonikapiworkerworker-armonikapiworkerutils">ArmoniK.Api.Worker.Worker, ArmoniK.Api.Worker.Utils</h2>
+<p>They contain helper classes to create a .Net 6 worker that implements ArmoniK interfaces and executes the computations submitted to the control plane.
+It also includes the generated gRPC classes built from the protobuf files used by the workers that execute the computations.</p>
 </article>
           </div>
           
