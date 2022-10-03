@@ -141,9 +141,26 @@
 </li>
 <li><p><a href="#results_common-proto">results_common.proto</a></p>
 <ul>
-<li><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdRequest">GetOwnerTaskIdRequest</a></li>
-<li><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse">GetOwnerTaskIdResponse</a></li>
-<li><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse-MapResultTask">GetOwnerTaskIdResponse.MapResultTask</a></li>
+<li><p><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdRequest">GetOwnerTaskIdRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse">GetOwnerTaskIdResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdResponse-MapResultTask">GetOwnerTaskIdResponse.MapResultTask</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest">ListResultsRequest</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-Filter">ListResultsRequest.Filter</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-Sort">ListResultsRequest.Sort</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsResponse">ListResultsResponse</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-ResultRaw">ResultRaw</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortField">ListResultsRequest.SortField</a></p>
+</li>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortOrder">ListResultsRequest.SortOrder</a></p>
+</li>
 </ul>
 </li>
 <li><p><a href="#results_service-proto">results_service.proto</a></p>
@@ -1528,30 +1545,31 @@ Return a list of raw applications.</p>
 <tr>
 <td>RESULT_STATUS_UNSPECIFIED</td>
 <td>0</td>
-<td></td>
+<td>Result is in an unspecified state.</td>
 </tr>
 <tr>
 <td>RESULT_STATUS_CREATED</td>
 <td>1</td>
-<td></td>
+<td>Result is created and task is created, submitted or dispatched.</td>
 </tr>
 <tr>
 <td>RESULT_STATUS_COMPLETED</td>
 <td>2</td>
-<td></td>
+<td>Result is completed with a completed task.</td>
 </tr>
 <tr>
 <td>RESULT_STATUS_ABORTED</td>
 <td>3</td>
-<td></td>
+<td>Result is aborted.</td>
 </tr>
 <tr>
 <td>RESULT_STATUS_NOTFOUND</td>
 <td>127</td>
-<td>NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions <a href="https://developers.google.com/protocol-buffers/docs/proto3#enum">https://developers.google.com/protocol-buffers/docs/proto3#enum</a></td>
+<td>NOTFOUND is encoded as 127 to make it small while still leaving enough room for future status extensions</td>
 </tr>
 </tbody>
 </table>
+<p>see <a href="https://developers.google.com/protocol-buffers/docs/proto3#enum">https://developers.google.com/protocol-buffers/docs/proto3#enum</a> |</p>
 <p><a name="results_common-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="results_commonproto">results_common.proto</h2>
@@ -1635,6 +1653,282 @@ Return a list of raw applications.</p>
 </tr>
 </tbody>
 </table>
+<p><a name="armonik-api-grpc-v1-results-ListResultsRequest"></a></p>
+<h3 id="listresultsrequest">ListResultsRequest</h3>
+<p>Request to list results.</p>
+<p>Use pagination, filtering and sorting.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>The page number. Start at 0.</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>The page size.</td>
+</tr>
+<tr>
+<td>filter</td>
+<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest-Filter">ListResultsRequest.Filter</a></td>
+<td></td>
+<td>The filter.</td>
+</tr>
+</tbody>
+</table>
+<p>Must be set for every request but allowed to be empty. |
+| sort | <a href="#armonik-api-grpc-v1-results-ListResultsRequest-Sort">ListResultsRequest.Sort</a> |  | The sort.</p>
+<p>Must be set for every request. |</p>
+<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-Filter"></a></p>
+<h3 id="listresultsrequestfilter">ListResultsRequest.Filter</h3>
+<p>Represents a filter with all available fields.</p>
+<p>Any fields can be used at the same time.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The session ID.</td>
+</tr>
+<tr>
+<td>name</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The result name.</td>
+</tr>
+<tr>
+<td>owner_task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The owner task ID.</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-result_status-ResultStatus">armonik.api.grpc.v1.result_status.ResultStatus</a></td>
+<td></td>
+<td>The result status.</td>
+</tr>
+<tr>
+<td>created_after</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Use the creation date of a result to filter results created after the input.</td>
+</tr>
+<tr>
+<td>created_before</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Use the creation date of a result to filter results created before the input.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-Sort"></a></p>
+<h3 id="listresultsrequestsort">ListResultsRequest.Sort</h3>
+<p>Represents the sort object.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>field</td>
+<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortField">ListResultsRequest.SortField</a></td>
+<td></td>
+<td>The field to sort by.</td>
+</tr>
+<tr>
+<td>order</td>
+<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortOrder">ListResultsRequest.SortOrder</a></td>
+<td></td>
+<td>The order direction.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-results-ListResultsResponse"></a></p>
+<h3 id="listresultsresponse">ListResultsResponse</h3>
+<p>Response to list results.</p>
+<p>Use pagination, filtering and sorting from the request.
+Retunr a list of raw results.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>results</td>
+<td><a href="#armonik-api-grpc-v1-results-ResultRaw">ResultRaw</a></td>
+<td>repeated</td>
+<td>The list of raw results.</td>
+</tr>
+<tr>
+<td>page</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>The page number. Start at 0.</td>
+</tr>
+<tr>
+<td>page_size</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>The page size.</td>
+</tr>
+<tr>
+<td>total</td>
+<td><a href="#int32">int32</a></td>
+<td></td>
+<td>The total number of results.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-results-ResultRaw"></a></p>
+<h3 id="resultraw">ResultRaw</h3>
+<p>A raw result object.</p>
+<p>Used when a list or a single result is returned.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The session ID.</td>
+</tr>
+<tr>
+<td>name</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The result name.</td>
+</tr>
+<tr>
+<td>owner_task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The owner task ID.</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-result_status-ResultStatus">armonik.api.grpc.v1.result_status.ResultStatus</a></td>
+<td></td>
+<td>The result status.</td>
+</tr>
+<tr>
+<td>created_at</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The result creation date.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-SortField"></a></p>
+<h3 id="listresultsrequestsortfield">ListResultsRequest.SortField</h3>
+<p>Represents every available field to use in order to sort results.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SORT_FIELD_UNSPECIFIED</td>
+<td>0</td>
+<td>Unspecified.</td>
+</tr>
+<tr>
+<td>SESSION_ID</td>
+<td>1</td>
+<td>The session ID.</td>
+</tr>
+<tr>
+<td>NAME</td>
+<td>2</td>
+<td>The result name.</td>
+</tr>
+<tr>
+<td>OWNER_TASK_ID</td>
+<td>3</td>
+<td>The owner task ID.</td>
+</tr>
+<tr>
+<td>STATUS</td>
+<td>4</td>
+<td>The result status.</td>
+</tr>
+<tr>
+<td>CREATED_AT</td>
+<td>5</td>
+<td>The result creation date.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-SortOrder"></a></p>
+<h3 id="listresultsrequestsortorder">ListResultsRequest.SortOrder</h3>
+<p>Represents every available order directions.</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Number</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SORT_ORDER_UNSPECIFIED</td>
+<td>0</td>
+<td>Unspecified.</td>
+</tr>
+<tr>
+<td>ASC</td>
+<td>1</td>
+<td>Ascending.</td>
+</tr>
+<tr>
+<td>DESC</td>
+<td>2</td>
+<td>Descending.</td>
+</tr>
+</tbody>
+</table>
 <p><a name="results_service-proto"></a></p>
 <p align="right"><a href="#top">Top</a></p>
 <h2 id="results_serviceproto">results_service.proto</h2>
@@ -1651,6 +1945,12 @@ Return a list of raw applications.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>ListResults</td>
+<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest">ListResultsRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-results-ListResultsResponse">ListResultsResponse</a></td>
+<td>Get a results list using pagination, filters and sorting</td>
+</tr>
 <tr>
 <td>GetOwnerTaskId</td>
 <td><a href="#armonik-api-grpc-v1-results-GetOwnerTaskIdRequest">GetOwnerTaskIdRequest</a></td>
