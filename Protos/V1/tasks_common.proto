@@ -192,6 +192,7 @@ message CountTasksRequest {
    * Represents every availaible field to use in order to group tasks.
    */
   enum GroupByField {
+    GROUP_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
     GROUP_BY_FIELD_STATUS = 1; /** The task status. */
     GROUP_BY_FIELD_SESSION_ID = 2; /** The session ID. */
     GROUP_BY_FIELD_APPLICATION_NAME = 3; /** The application name. */
