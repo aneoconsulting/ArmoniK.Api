@@ -62,7 +62,7 @@ jobs:
           submodules: true
 
       - name: Check Diff
-        run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf format -d --exit-code
+        run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
 
   build-documentation:
     name: Build Documentation
