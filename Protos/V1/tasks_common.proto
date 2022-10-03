@@ -200,9 +200,9 @@ message CountTasksRequest {
   /**
    * The group by.
    *
-   * Can't be empty.
+   * Can't be empty. Can group on multiple fields at the same time.
    */
-  GroupByField group_by = 1;
+  repeated GroupByField group_by = 1;
 
   /**
    * Represents a filter with every available fields.
@@ -234,12 +234,18 @@ message CountTasksRequest {
  */
 message CountTasksResponse {
   /**
+  * Represents a count by group.
+  */
+  message CountByGroup {
+    string session_id = 1; /** The session ID. Could be not set depending of group by. */
+    task_status.TaskStatus status = 2; /** The task status. Could be not set depending of group by. */
+    int64 count = 2; /** The count. */
+  }
+
+  /**
    * Counts.
-   *
-   * Key is the group by field value. E.g.: if the group by field is status, the key is the status.
-   * Value is the count.
    */
-  map<string, int64> counts = 1;
+  repeated CountByGroup counts = 1;
 }
 
 /*
