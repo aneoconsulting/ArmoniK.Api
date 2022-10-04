@@ -1,4 +1,4 @@
-name: Build Documentation
+name: Build & Deploy Documentation
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  build-deploy-documentation:
     runs-on: ubuntu-20.04
 
     steps:
@@ -35,7 +35,7 @@ jobs:
           curl -L https://github.com/dotnet/docfx/releases/latest/download/docfx.zip -o docfx.zip
           unzip -d $HOME/.docfx docfx.zip
 
-      - name: Build docs
+      - name: Build
         run: |
           mono $HOME/.docfx/docfx.exe Documentation/docfx.json build
 
