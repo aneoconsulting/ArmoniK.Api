@@ -239,12 +239,15 @@ message CountTasksRequest {
 message CountTasksResponse {
   /**
   * Represents a count by group.
+  *
+  * Depending on the group by fields, some fields can be empty.
+  * Count is always set.
   */
   message CountByGroup {
     string application_name = 1; /** The application name. */
     string application_version = 2; /** The application version. */
-    string session_id = 3; /** The session ID. Could be not set depending of group by. */
-    task_status.TaskStatus status = 4; /** The task status. Could be not set depending of group by. */
+    string session_id = 3; /** The session ID. */
+    task_status.TaskStatus status = 4; /** The task status. */
     int64 count = 5; /** The count. */
   }
 
