@@ -1,0 +1,21 @@
+/**
+ * Applications related methods within a service.
+ */
+syntax = "proto3";
+
+package armonik.api.grpc.v1.applications;
+
+import "applications_common.proto";
+import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Applications";
+
+/**
+ * Service for handling applications.
+ */
+service Applications {
+  /**
+   * Get a applications list using pagination, filters and sorting;
+  */
+  rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse) {}
+}

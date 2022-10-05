@@ -362,7 +362,5 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# Python package
-dist/
-Api/python
-*.egg-info
+# Ignore dist directory
+dist
