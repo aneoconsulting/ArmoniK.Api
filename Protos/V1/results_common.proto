@@ -6,6 +6,99 @@ import "result_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
 
+/**
+ * A raw result object.
+ *
+ * Used when a list or a single result is returned.
+ */
+message ResultRaw {
+  string session_id = 1; /** The session ID. */
+  string name = 2; /** The result name. */
+  string owner_task_id = 3; /** The owner task ID. */
+  result_status.ResultStatus status = 4; /** The result status. */
+  string created_at = 5; /** The result creation date. */
+}
+
+/**
+ * Request to list results.
+ *
+ * Use pagination, filtering and sorting.
+ */
+message ListResultsRequest {
+  int32 page = 1; /** The page number. Start at 0. */
+  int32 page_size = 2; /** The page size. */
+
+  /**
+   * Represents a filter with all available fields.
+   *
+   * Any fields can be used at the same time.
+   */
+  message Filter {
+    string session_id = 1; /** The session ID. */
+    string name = 2; /** The result name. */
+    string owner_task_id = 3; /** The owner task ID. */
+    result_status.ResultStatus status = 4; /** The result status. */
+    string created_after = 5; /** Use the creation date of a result to filter results created after the input. */
+    string created_before = 6; /** Use the creation date of a result to filter results created before the input. */
+  }
+
+  /**
+   * The filter.
+   *
+   * Must be set for every request but allowed to be empty.
+   */
+  Filter filter = 3;
+
+  /**
+   * Represents every available field to use in order to sort results.
+   */
+  enum SortField {
+    SORT_FIELD_UNSPECIFIED = 0; /** Unspecified. */
+    SESSION_ID = 1; /** The session ID. */
+    NAME = 2; /** The result name. */
+    OWNER_TASK_ID = 3; /** The owner task ID. */
+    STATUS = 4; /** The result status. */
+    CREATED_AT = 5; /** The result creation date. */
+  }
+
+  /**
+   * Represents every available order directions.
+   */
+  enum SortOrder {
+    SORT_ORDER_UNSPECIFIED = 0; /** Unspecified. */
+    ASC = 1; /** Ascending. */
+    DESC = 2; /** Descending. */
+  }
+
+  /**
+   * Represents the sort object.
+   */
+  message Sort {
+    SortField field = 1; /** The field to sort by. */
+    SortOrder order = 2; /** The order direction. */
+  }
+
+  /** The sort.
+   *
+   * Must be set for every request.
+   */
+  Sort sort = 4;
+}
+
+/**
+ * Response to list results.
+ *
+ * Use pagination, filtering and sorting from the request.
+ * Retunr a list of raw results.
+ */
+message ListResultsResponse {
+  repeated ResultRaw results = 1; /** The list of raw results. */
+
+  int32 page = 2; /** The page number. Start at 0. */
+  int32 page_size = 3; /** The page size. */
+  int32 total = 4; /** The total number of results. */
+}
+
 /*
 *  Request for getting the id of the task that should create this result
 */
