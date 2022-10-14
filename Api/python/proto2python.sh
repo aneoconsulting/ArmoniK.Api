@@ -11,9 +11,9 @@ else
     export PYTHON_VENV="$1" 
 fi;
 
+source ../common/protofiles.sh
+
 export PATH=$HOME/.local/bin:$PATH
-export PROTO_PATH="../../Protos/V1"
-export README_PATH="../../README.md"
 export ARMONIK_PYTHON_SRC="generated"
 export PACKAGE_PATH="pkg"
 export ARMONIK_WORKER=$ARMONIK_PYTHON_SRC"/armonik/worker"
@@ -24,14 +24,6 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 
 # for debian/ubuntu if you don't have python 3 installed:
 # sudo apt install python3-venv python3 python-is-python3 python3-pip
-
-armonik_worker_files=("agent_service.proto" "worker_service.proto")
-armonik_client_files=("submitter_service.proto" "tasks_service.proto" "sessions_service.proto" \
-                      "results_service.proto")
-armonik_common_files=("objects.proto" "task_status.proto" "session_status.proto" \
-                      "result_status.proto" "agent_common.proto" "sessions_common.proto"  \
-                      "submitter_common.proto"  "tasks_common.proto"  "worker_common.proto" \
-                      "results_common.proto")
 
 python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
