@@ -8,7 +8,7 @@ package armonik.api.grpc.v1.applications;
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 
-option csharp_namespace = "Armonik.Api.Grpc.V1.Applications";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
 /**
  * A raw application object.
