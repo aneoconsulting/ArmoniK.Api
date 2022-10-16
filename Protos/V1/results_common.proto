@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.results;
 
+import "google/protobuf/timestamp.proto";
 import "result_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
@@ -16,7 +17,7 @@ message ResultRaw {
   string name = 2; /** The result name. */
   string owner_task_id = 3; /** The owner task ID. */
   result_status.ResultStatus status = 4; /** The result status. */
-  string created_at = 5; /** The result creation date. */
+  google.protobuf.Timestamp created_at = 5; /** The result creation date. */
 }
 
 /**
@@ -38,8 +39,8 @@ message ListResultsRequest {
     string name = 2; /** The result name. */
     string owner_task_id = 3; /** The owner task ID. */
     result_status.ResultStatus status = 4; /** The result status. */
-    string created_after = 5; /** Use the creation date of a result to filter results created after the input. */
-    string created_before = 6; /** Use the creation date of a result to filter results created before the input. */
+    google.protobuf.Timestamp created_after = 5; /** Use the creation date of a result to filter results created after the input. */
+    google.protobuf.Timestamp created_before = 6; /** Use the creation date of a result to filter results created before the input. */
   }
 
   /**
