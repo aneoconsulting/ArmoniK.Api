@@ -90,6 +90,7 @@ message ListTasksRequest {
     google.protobuf.Timestamp started_before = 6; /** Use the start date of a task to filter tasks started before the input. */
     google.protobuf.Timestamp ended_after = 7; /** Use the end date of a task to filter tasks ended after the input. */
     google.protobuf.Timestamp ended_before = 8; /** Use the end date of a task to filter tasks ended before the input. */
+    string partition = 9; /** The partition. */
   }
 
   /** The filter.
@@ -109,6 +110,7 @@ message ListTasksRequest {
     ORDER_BY_FIELD_CREATED_AT = 4; /** The task creation date. */
     ORDER_BY_FIELD_STARTED_AT = 5; /** The task start date. */
     ORDER_BY_FIELD_ENDED_AT = 6; /** The task end date. */
+    ORDER_BY_PARTITION = 7; /** The task partition. */
   }
 
   /**
@@ -197,6 +199,7 @@ message CountTasksRequest {
     GROUP_BY_FIELD_SESSION_ID = 2; /** The session ID. */
     GROUP_BY_FIELD_APPLICATION_NAME = 3; /** The application name. */
     GROUP_BY_FIELD_APPLICATION_VERSION = 4; /** The application version. */
+    GROUP_BY_FIELD_PARTITION = 5; /** The partition. */
   }
 
   /**
@@ -222,6 +225,7 @@ message CountTasksRequest {
     google.protobuf.Timestamp started_before = 8; /** Use the start date of a task to filter tasks started before the input. */
     google.protobuf.Timestamp ended_after = 9; /** Use the end date of a task to filter tasks ended after the input. */
     google.protobuf.Timestamp ended_before = 10; /** Use the end date of a task to filter tasks ended before the input. */
+    string partition = 11; /** The partition. */
   }
 
   /** The filter.
