@@ -899,9 +899,24 @@ Return a list of raw applications.</p>
 <td>Unspecified.</td>
 </tr>
 <tr>
-<td>ORDER_BY_FIELD_ID</td>
+<td>ORDER_BY_FIELD_NAME</td>
 <td>1</td>
-<td>Application ID.</td>
+<td>Application name.</td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_VERSION</td>
+<td>2</td>
+<td>Application version.</td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_NAMESPACE</td>
+<td>3</td>
+<td>Application namespace.</td>
+</tr>
+<tr>
+<td>ORDER_BY_FIELD_SERVICE</td>
+<td>4</td>
+<td>Application service.</td>
 </tr>
 </tbody>
 </table>
@@ -1730,13 +1745,13 @@ Return a list of raw applications.</p>
 </tr>
 <tr>
 <td>created_after</td>
-<td><a href="#string">string</a></td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
 <td>Use the creation date of a result to filter results created after the input.</td>
 </tr>
 <tr>
 <td>created_before</td>
-<td><a href="#string">string</a></td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
 <td>Use the creation date of a result to filter results created before the input.</td>
 </tr>
@@ -1850,7 +1865,7 @@ Retunr a list of raw results.</p>
 </tr>
 <tr>
 <td>created_at</td>
-<td><a href="#string">string</a></td>
+<td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
 <td>The result creation date.</td>
 </tr>
