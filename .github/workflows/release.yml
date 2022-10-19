@@ -8,6 +8,7 @@ on:
 
 jobs:
   versionning:
+    name: Versionning
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.genver.outputs.version }}
