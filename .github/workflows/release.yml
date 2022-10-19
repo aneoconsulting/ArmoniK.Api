@@ -22,7 +22,7 @@ jobs:
         id: genver
         run: |
           VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main)
-          echo "name=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo $VERSION
 
   build:
