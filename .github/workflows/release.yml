@@ -131,7 +131,7 @@ jobs:
         # https://github.com/orgs/community/discussions/26726
         env:
           is_PYPI_API_TOKEN_set: ${{ (secrets.PYPI_API_TOKEN != '' && github.ref == 'refs/heads/release') || (secrets.DEV_PYPI_API_TOKEN != '' && github.ref == 'refs/heads/main') }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'false' }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'false' && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main')}}
         run: echo "Missing PyPI API Key"
 
   tag:
