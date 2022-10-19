@@ -53,30 +53,30 @@ message ListResultsRequest {
   /**
    * Represents every available field to use in order to sort results.
    */
-  enum SortField {
-    SORT_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    SESSION_ID = 1; /** The session ID. */
-    NAME = 2; /** The result name. */
-    OWNER_TASK_ID = 3; /** The owner task ID. */
-    STATUS = 4; /** The result status. */
-    CREATED_AT = 5; /** The result creation date. */
+  enum OrderByField {
+    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_BY_FIELD_SESSION_ID = 1; /** The session ID. */
+    ORDER_BY_FIELD_NAME = 2; /** The result name. */
+    ORDER_BY_FIELD_OWNER_TASK_ID = 3; /** The owner task ID. */
+    ORDER_BY_FIELD_STATUS = 4; /** The result status. */
+    ORDER_BY_FIELD_CREATED_AT = 5; /** The result creation date. */
   }
 
   /**
    * Represents every available order directions.
    */
-  enum SortOrder {
-    SORT_ORDER_UNSPECIFIED = 0; /** Unspecified. */
-    ASC = 1; /** Ascending. */
-    DESC = 2; /** Descending. */
+  enum OrderDirection {
+    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_DIRECTION_ASC = 1; /** Ascending. */
+    ORDER_DIRECTION_DESC = 2; /** Descending. */
   }
 
   /**
    * Represents the sort object.
    */
   message Sort {
-    SortField field = 1; /** The field to sort by. */
-    SortOrder order = 2; /** The order direction. */
+    OrderByField field = 1; /** The field to order by. */
+    OrderDirection direction = 2; /** The order direction. */
   }
 
   /** The sort.
