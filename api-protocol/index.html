@@ -157,9 +157,9 @@
 </li>
 <li><p><a href="#armonik-api-grpc-v1-results-ResultRaw">ResultRaw</a></p>
 </li>
-<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortField">ListResultsRequest.SortField</a></p>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-OrderByField">ListResultsRequest.OrderByField</a></p>
 </li>
-<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortOrder">ListResultsRequest.SortOrder</a></p>
+<li><p><a href="#armonik-api-grpc-v1-results-ListResultsRequest-OrderDirection">ListResultsRequest.OrderDirection</a></p>
 </li>
 </ul>
 </li>
@@ -1772,13 +1772,13 @@ Return a list of raw applications.</p>
 <tbody>
 <tr>
 <td>field</td>
-<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortField">ListResultsRequest.SortField</a></td>
+<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest-OrderByField">ListResultsRequest.OrderByField</a></td>
 <td></td>
-<td>The field to sort by.</td>
+<td>The field to order by.</td>
 </tr>
 <tr>
-<td>order</td>
-<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest-SortOrder">ListResultsRequest.SortOrder</a></td>
+<td>direction</td>
+<td><a href="#armonik-api-grpc-v1-results-ListResultsRequest-OrderDirection">ListResultsRequest.OrderDirection</a></td>
 <td></td>
 <td>The order direction.</td>
 </tr>
@@ -1871,8 +1871,8 @@ Retunr a list of raw results.</p>
 </tr>
 </tbody>
 </table>
-<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-SortField"></a></p>
-<h3 id="listresultsrequestsortfield">ListResultsRequest.SortField</h3>
+<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-OrderByField"></a></p>
+<h3 id="listresultsrequestorderbyfield">ListResultsRequest.OrderByField</h3>
 <p>Represents every available field to use in order to sort results.</p>
 <table>
 <thead>
@@ -1884,39 +1884,39 @@ Retunr a list of raw results.</p>
 </thead>
 <tbody>
 <tr>
-<td>SORT_FIELD_UNSPECIFIED</td>
+<td>ORDER_BY_FIELD_UNSPECIFIED</td>
 <td>0</td>
 <td>Unspecified.</td>
 </tr>
 <tr>
-<td>SESSION_ID</td>
+<td>ORDER_BY_FIELD_SESSION_ID</td>
 <td>1</td>
 <td>The session ID.</td>
 </tr>
 <tr>
-<td>NAME</td>
+<td>ORDER_BY_FIELD_NAME</td>
 <td>2</td>
 <td>The result name.</td>
 </tr>
 <tr>
-<td>OWNER_TASK_ID</td>
+<td>ORDER_BY_FIELD_OWNER_TASK_ID</td>
 <td>3</td>
 <td>The owner task ID.</td>
 </tr>
 <tr>
-<td>STATUS</td>
+<td>ORDER_BY_FIELD_STATUS</td>
 <td>4</td>
 <td>The result status.</td>
 </tr>
 <tr>
-<td>CREATED_AT</td>
+<td>ORDER_BY_FIELD_CREATED_AT</td>
 <td>5</td>
 <td>The result creation date.</td>
 </tr>
 </tbody>
 </table>
-<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-SortOrder"></a></p>
-<h3 id="listresultsrequestsortorder">ListResultsRequest.SortOrder</h3>
+<p><a name="armonik-api-grpc-v1-results-ListResultsRequest-OrderDirection"></a></p>
+<h3 id="listresultsrequestorderdirection">ListResultsRequest.OrderDirection</h3>
 <p>Represents every available order directions.</p>
 <table>
 <thead>
@@ -1928,17 +1928,17 @@ Retunr a list of raw results.</p>
 </thead>
 <tbody>
 <tr>
-<td>SORT_ORDER_UNSPECIFIED</td>
+<td>ORDER_DIRECTION_UNSPECIFIED</td>
 <td>0</td>
 <td>Unspecified.</td>
 </tr>
 <tr>
-<td>ASC</td>
+<td>ORDER_DIRECTION_ASC</td>
 <td>1</td>
 <td>Ascending.</td>
 </tr>
 <tr>
-<td>DESC</td>
+<td>ORDER_DIRECTION_DESC</td>
 <td>2</td>
 <td>Descending.</td>
 </tr>
