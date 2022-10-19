@@ -96,23 +96,41 @@ jobs:
       - name: symlink to right directory
         run: |
           ln -s Api/python/pkg/ dist
+      
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-packages
+          path: dist
 
       - name: Publish to PyPI
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
         # https://github.com/orgs/community/discussions/26726
         env:
           is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' && github.ref == 'refs/heads/release'}}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print_hash: true
+          
+      - name: Publish to PyPITest
+        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+        # https://github.com/orgs/community/discussions/26726
+        env:
+          is_PYPI_API_TOKEN_set: ${{ secrets.DEV_PYPI_API_TOKEN != '' }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' && github.ref == 'refs/heads/main'}}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.DEV_PYPI_API_TOKEN }}
+          print_hash: true
+          repository_url: https://test.pypi.org/legacy/
 
       - name: Missing PyPI API Key
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
         # https://github.com/orgs/community/discussions/26726
         env:
-          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
+          is_PYPI_API_TOKEN_set: ${{ (secrets.PYPI_API_TOKEN != '' && github.ref == 'refs/heads/release') || (secrets.DEV_PYPI_API_TOKEN != '' && github.ref == 'refs/heads/main') }}
         if: ${{ env.is_PYPI_API_TOKEN_set == 'false' }}
         run: echo "Missing PyPI API Key"
 
