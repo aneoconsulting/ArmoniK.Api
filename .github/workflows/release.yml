@@ -24,6 +24,7 @@ jobs:
           VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo $VERSION
+          echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
 
   build:
     runs-on: ubuntu-latest
@@ -92,10 +93,6 @@ jobs:
         run: |
           cd ./Api/python
           bash proto2python.sh ~/pyvenv
-
-      - name: symlink to right directory
-        run: |
-          ln -s Api/python/pkg/ dist
       
       - name: Upload as artifact
         uses: actions/upload-artifact@v3
@@ -113,6 +110,7 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print_hash: true
+          packages_dir: Api/python/pkg/
           
       - name: Publish to PyPITest
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
@@ -124,6 +122,7 @@ jobs:
         with:
           password: ${{ secrets.DEV_PYPI_API_TOKEN }}
           print_hash: true
+          packages_dir: Api/python/pkg/
           repository_url: https://test.pypi.org/legacy/
 
       - name: Missing PyPI API Key
