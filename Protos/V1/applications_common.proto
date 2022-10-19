@@ -8,7 +8,7 @@ package armonik.api.grpc.v1.applications;
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 
-option csharp_namespace = "Armonik.Api.Grpc.V1.Applications";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
 /**
  * A raw application object.
@@ -55,7 +55,10 @@ message ListApplicationsRequest {
    */
   enum OrderByField {
     ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_ID = 1; /** Application ID. */
+    ORDER_BY_FIELD_NAME = 1; /** Application name. */
+    ORDER_BY_FIELD_VERSION = 2; /** Application version. */
+    ORDER_BY_FIELD_NAMESPACE = 3; /** Application namespace. */
+    ORDER_BY_FIELD_SERVICE = 4; /** Application service. */
   }
 
   /**
