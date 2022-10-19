@@ -101,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: python-packages
-          path: dist
+          path: Api/python/pkg/
 
       - name: Publish to PyPI
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
