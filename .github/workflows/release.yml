@@ -90,6 +90,10 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
 
+      - name: Create tag if Release
+        if: ${{ github.ref == 'refs/heads/release' }}
+        run: git tag $VERSION
+
       - name: pip update and add build package
         run: |
           cd ./Api/python
