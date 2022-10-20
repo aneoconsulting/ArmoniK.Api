@@ -8,12 +8,13 @@ on:
 
 jobs:
   versionning:
+    name: Versionning
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.genver.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -22,8 +23,9 @@ jobs:
         id: genver
         run: |
           VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main)
-          echo "::set-output name=version::$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo $VERSION
+          echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
 
   build:
     runs-on: ubuntu-latest
@@ -41,13 +43,13 @@ jobs:
           - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
 
       # Install the .NET Core workload
       - name: Install .NET Core
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 6.x
 
@@ -83,7 +85,7 @@ jobs:
       VERSION: ${{ needs.versionning.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -92,28 +94,44 @@ jobs:
         run: |
           cd ./Api/python
           bash proto2python.sh ~/pyvenv
-
-      - name: symlink to right directory
-        run: |
-          ln -s Api/python/pkg/ dist
+      
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-packages
+          path: Api/python/pkg/
 
       - name: Publish to PyPI
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
         # https://github.com/orgs/community/discussions/26726
         env:
           is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' && github.ref == 'refs/heads/release'}}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print_hash: true
+          packages_dir: Api/python/pkg/
+          
+      - name: Publish to PyPITest
+        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+        # https://github.com/orgs/community/discussions/26726
+        env:
+          is_PYPI_API_TOKEN_set: ${{ secrets.DEV_PYPI_API_TOKEN != '' }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' && github.ref == 'refs/heads/main'}}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.DEV_PYPI_API_TOKEN }}
+          print_hash: true
+          packages_dir: Api/python/pkg/
+          repository_url: https://test.pypi.org/legacy/
 
       - name: Missing PyPI API Key
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
         # https://github.com/orgs/community/discussions/26726
         env:
-          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'false' }}
+          is_PYPI_API_TOKEN_set: ${{ (secrets.PYPI_API_TOKEN != '' && github.ref == 'refs/heads/release') || (secrets.DEV_PYPI_API_TOKEN != '' && github.ref == 'refs/heads/main') }}
+        if: ${{ env.is_PYPI_API_TOKEN_set == 'false' && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main')}}
         run: echo "Missing PyPI API Key"
 
   tag:
@@ -127,7 +145,7 @@ jobs:
       VERSION: ${{ needs.versionning.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.ref }}
 
