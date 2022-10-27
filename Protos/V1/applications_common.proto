@@ -92,7 +92,7 @@ message ListApplicationsRequest {
  * Return a list of raw applications.
  */
 message ListApplicationsResponse {
-  repeated ApplicationRaw application = 1;
+  repeated ApplicationRaw applications = 1;
 
   int32 page = 2; /** The current page. Start at 0. */
   int32 page_size = 3; /** Number of items per page. */
