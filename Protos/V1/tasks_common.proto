@@ -46,6 +46,10 @@ message TaskRaw {
   }
 
   Output output = 16; /** The task output. */
+
+  string pod_hostname = 17; /** The hostname of the container running the task. */
+  google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
+  google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
 }
 
 /**
