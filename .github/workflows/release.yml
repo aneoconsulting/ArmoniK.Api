@@ -32,8 +32,9 @@ jobs:
     needs: versionning
     env:
       VERSION: ${{ needs.versionning.outputs.version }}
+    timeout-minutes: 10
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         package:
           - Api/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
