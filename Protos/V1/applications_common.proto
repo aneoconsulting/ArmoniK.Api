@@ -7,7 +7,7 @@ package armonik.api.grpc.v1.applications;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
-import "sessions_common.proto";
+import "Protos/V1/sessions_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
