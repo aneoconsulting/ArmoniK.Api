@@ -24,14 +24,14 @@ message ApplicationRaw {
   string service = 4; /** Application service used in the excecuted class. */
 
   /**
-   * Represents a number of a task associted to a status
+   * Represents a number of tasks associted to a status.
    */
   message TasksCount {
-    int64 count = 1; /** */
-    task_status.TaskStatus status = 2; /** */
+    int64 count = 1; /** Number of tasks. */
+    task_status.TaskStatus status = 2; /** Status related to the count. */
   }
 
-  repeated TasksCount tasks_count = 5; /** */
+  repeated TasksCount tasks_count = 5; /** Count by status. */
 }
 
 /**
@@ -94,6 +94,8 @@ message ListApplicationsRequest {
    * Must be set for every request.
    */
   Sort sort = 4;
+
+  bool with_tasks_count = 5; /** Tell to the server if we want tasks count in returned sessions */
 }
 
 /**
