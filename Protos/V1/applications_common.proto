@@ -7,6 +7,7 @@ package armonik.api.grpc.v1.applications;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
@@ -21,6 +22,16 @@ message ApplicationRaw {
 
   string namespace = 3; /** Application namespace used in the excecuted class. */
   string service = 4; /** Application service used in the excecuted class. */
+
+  /**
+   * Represents a number of a task associted to a status
+   */
+  message TasksCount {
+    int64 count = 1; /** */
+    task_status.TaskStatus status = 2; /** */
+  }
+
+  repeated TasksCount tasks_count = 5; /** */
 }
 
 /**
