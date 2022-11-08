@@ -7,6 +7,7 @@ package armonik.api.grpc.v1.applications;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "sessions_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
@@ -83,6 +84,8 @@ message ListApplicationsRequest {
    * Must be set for every request.
    */
   Sort sort = 4;
+
+  int64 last_sessions = 5; /** Get the last X sessions, order by created_at, reversed. If null or 0, no sessions are returned. */
 }
 
 /**
@@ -97,4 +100,6 @@ message ListApplicationsResponse {
   int32 page = 2; /** The current page. Start at 0. */
   int32 page_size = 3; /** Number of items per page. */
   int32 total = 4; /** Total number of items. */
+
+  repeated SessionSummary last_sessions = 5; /** The last sessions related to the application. */
 }
