@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.applications;
 
+import "sessions_common.proto";
 import "applications_common.proto";
 import "google/protobuf/timestamp.proto";
 
