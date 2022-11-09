@@ -9,6 +9,10 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "task_status.proto";
 import "tasks_common.proto";
+import "submitter_common.proto";
+import "result_status.proto";
+import "session_status.proto";
+
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
 
@@ -26,10 +30,8 @@ service Tasks {
    */
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
 
-  rpc GetTasksData(GetTaskRequest) returns (GetTasksDataResponse) {}
-
-   rpc GetTasksDataStream(GetTaskRequest) returns (stream GetTasksDataResponse) {}
-
+  rpc GetTasksData(armonik.api.grpc.v1.submitter.TaskFilter) returns (GetTasksDataResponse);
+  rpc GetTasksDataStream(armonik.api.grpc.v1.submitter.TaskFilter) returns (stream TaskRaw);
 
   /**
    * Cancel tasks using ids.
