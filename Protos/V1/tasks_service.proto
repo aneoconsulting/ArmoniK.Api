@@ -26,6 +26,11 @@ service Tasks {
    */
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
 
+  rpc GetTasksData(GetTaskRequest) returns (GetTasksDataResponse) {}
+
+   rpc GetTasksDataStream(GetTaskRequest) returns (stream GetTasksDataResponse) {}
+
+
   /**
    * Cancel tasks using ids.
    */

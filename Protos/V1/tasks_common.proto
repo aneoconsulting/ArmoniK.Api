@@ -172,6 +172,10 @@ message GetTaskResponse {
   TaskRaw task = 1; /** The task. */
 }
 
+message GetTasksDataResponse {
+  repeated TaskRaw taskData = 1; /** The task. */
+}
+
 /**
  * Request to cancel one or many tasks
  */
