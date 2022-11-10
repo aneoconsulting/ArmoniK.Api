@@ -3,10 +3,7 @@ syntax = "proto3";
 package armonik.api.grpc.v1.submitter;
 
 import "objects.proto";
-import "result_status.proto";
-import "session_status.proto";
 import "submitter_common.proto";
-import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
 
