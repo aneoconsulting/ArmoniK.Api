@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.graphs;
+
+import "result_status.proto";
+import "task_status.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Graphs";
+
+/**
+ * Request to subscribe to the graph visualization stream.
+ */
+message GraphSubscriptionRequest {
+  string session_id = 1; /** Id of the session for which the graph will be created. **/
+}
+
+/**
+ * Response containing an update to the graph.
+ */
+message GraphContentResponse {
+  string session_id = 1; /** Id of the session for which the graph will be created. **/
+
+  /**
+   * Represents an update to the status of a task
+   */
+  message TaskStatusUpdate {
+    string task_id = 10; /** The result id. **/
+    task_status.TaskStatus status = 11; /** The task status. **/
+  }
+
+  /**
+   * Represents an update to the status of a result
+   */
+  message ResultStatusUpdate {
+    string result_id = 20; /** The result id. **/
+    result_status.ResultStatus status = 21; /** The result status. **/
+  }
+
+  /**
+   * Represents an update to the owner task id of a result
+   */
+  message ResultOwnerUpdate {
+    string result_id = 30; /** The result id. **/
+    string previous = 31; /** The previous owner. **/
+    string current = 32; /** The current owner. **/
+  }
+
+  /**
+   * Represents a new task to add to the graph
+   */
+  message NewTask {
+    string task_id = 40; /** The task id. **/
+    string payload_id = 41; /** The payload id. **/
+    string origin_task_id = 42; /** The task id before retry. **/
+    task_status.TaskStatus status = 43; /** The task status. **/
+    repeated string expected_output_keys = 44; /** The task id. **/
+    repeated string data_dependencies = 45; /** The task id. **/
+    repeated string retry_of_ids = 46; /** The list of retried tasks from the first retry to the current. **/
+  }
+
+  /**
+   * Represents a new result to add to the graph
+   */
+   message NewResult {
+    string result_id = 50; /** The result id. **/
+    string owner_id = 51; /** The owner task id. **/
+    result_status.ResultStatus status = 52; /** The result status. **/
+  }
+
+  /**
+   * Represents an update to the graph. Only one update will be sent per message.
+   */
+  oneof update {
+    TaskStatusUpdate task_status_update = 2; /** An update to the status of a task. **/
+    ResultStatusUpdate result_status_update = 3; /** An update to the status of a result. **/
+    ResultOwnerUpdate result_owner_update = 4; /** An update to the owner of a result. **/
+    NewTask new_task = 5; /** A new task to add to the graph. **/
+    NewResult new_result = 6; /** A new result to add to the graph. **/
+  }
+}

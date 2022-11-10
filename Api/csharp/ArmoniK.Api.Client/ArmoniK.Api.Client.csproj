@@ -55,6 +55,8 @@
     </Protobuf>
      <Protobuf Include="..\..\..\Protos\V1\auth_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\auth_service.proto</Link>
+    <Protobuf Include="..\..\..\Protos\V1\graphs_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\graphs_service.proto</Link>
     </Protobuf>
   </ItemGroup>
 </Project>
