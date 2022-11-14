@@ -10,11 +10,11 @@ import "auth_common.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Auth";
 
 /**
- * Service for handling authentication.
+ * Service for authentication management.
  */
 service Authentication {
   /**
-   * Get active user
+   * Get current user
    */
-  rpc GetMe(GetMeRequest) returns (GetMeResponse) {}
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {}
 }
