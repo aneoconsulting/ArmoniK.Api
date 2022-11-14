@@ -19,13 +19,13 @@ message User {
 
 
 /**
- * Request to active user informations
+ * Request to get active user informations
  */
 message GetMeRequest {}
 
 /**
- * Response to active user informations
+ * Response to get active user informations
  */
-message Response {
+message GetMeResponse {
   User user = 1; /** Return active user. */
 }
