@@ -17,7 +17,6 @@ message User {
   repeated string permissions = 3; /** Permissions. If authentication is disabled, must return every permissions. */
 }
 
-
 /**
  * Request to get active user informations.
  */
