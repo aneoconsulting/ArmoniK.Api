@@ -31,6 +31,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Protobuf Include="..\..\..\Protos\V1\auth_service.proto" GrpcServices="Both">
+      <Link>gRPC\Protos\auth_service.proto</Link>
+    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\submitter_service.proto</Link>
     </Protobuf>

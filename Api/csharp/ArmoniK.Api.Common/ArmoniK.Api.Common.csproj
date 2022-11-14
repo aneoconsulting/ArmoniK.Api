@@ -51,6 +51,10 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
+      <Protobuf Include="..\..\..\Protos\V1\auth_common.proto" Link="auth_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\sessions_common.proto" Link="sessions_common.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
