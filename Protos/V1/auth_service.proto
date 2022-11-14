@@ -14,7 +14,7 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Auth";
  */
 service Authentication {
   /**
-   * Get current user
+   * Get active user
    */
-   rpc GetMe(GetMeRequest) returns (GetMeResponse) {}
+  rpc GetMe(GetMeRequest) returns (GetMeResponse) {}
 }
