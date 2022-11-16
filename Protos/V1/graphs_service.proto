@@ -16,5 +16,5 @@ service Graphs {
   /**
    * Get ids of the result that tasks should produce.
    */
-  rpc GetResultIds(GraphSubscriptionRequest) returns (stream GraphContentResponse);
+  rpc GetGraphs(GraphSubscriptionRequest) returns (stream GraphContentResponse);
 }
