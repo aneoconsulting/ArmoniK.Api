@@ -38,6 +38,8 @@ message SessionSummary {
   session_status.SessionStatus status = 2; /** The session status. */
   google.protobuf.Timestamp created_at = 3; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 4; /** The cancellation date. Only set when status is 'cancelled'. */
+
+  TaskOptions options = 5; /** The default task options. */
 }
 
 /**
@@ -104,6 +106,11 @@ message ListSessionsRequest {
    * Must be set for every request.
    */
   Sort sort = 4;
+
+  /**
+   * Flag to tell if server must return task options in summary sessions
+   */
+  bool with_task_options = 5;
 }
 
 /**
