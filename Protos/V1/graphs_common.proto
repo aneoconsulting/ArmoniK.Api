@@ -61,7 +61,7 @@ message GraphContentResponse {
   /**
    * Represents a new result to add to the graph.
    */
-   message NewResult {
+  message NewResult {
     string result_id = 50; /** The result id. **/
     string owner_id = 51; /** The owner task id. **/
     result_status.ResultStatus status = 52; /** The result status. **/
