@@ -21,7 +21,7 @@ message GraphContentResponse {
   string session_id = 1; /** Id of the session for which the graph will be created. **/
 
   /**
-   * Represents an update to the status of a task
+   * Represents an update to the status of a task.
    */
   message TaskStatusUpdate {
     string task_id = 10; /** The result id. **/
@@ -29,7 +29,7 @@ message GraphContentResponse {
   }
 
   /**
-   * Represents an update to the status of a result
+   * Represents an update to the status of a result.
    */
   message ResultStatusUpdate {
     string result_id = 20; /** The result id. **/
@@ -37,7 +37,7 @@ message GraphContentResponse {
   }
 
   /**
-   * Represents an update to the owner task id of a result
+   * Represents an update to the owner task id of a result.
    */
   message ResultOwnerUpdate {
     string result_id = 30; /** The result id. **/
@@ -46,7 +46,7 @@ message GraphContentResponse {
   }
 
   /**
-   * Represents a new task to add to the graph
+   * Represents a new task to add to the graph.
    */
   message NewTask {
     string task_id = 40; /** The task id. **/
@@ -59,7 +59,7 @@ message GraphContentResponse {
   }
 
   /**
-   * Represents a new result to add to the graph
+   * Represents a new result to add to the graph.
    */
    message NewResult {
     string result_id = 50; /** The result id. **/
