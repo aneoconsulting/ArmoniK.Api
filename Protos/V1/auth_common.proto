@@ -26,5 +26,5 @@ message GetCurrentUserRequest {}
  * Response to get current user informations.
  */
 message GetCurrentUserResponse {
-  User user = 1; /** Return current user. */
+  User user = 1; /** Return current user. If auth failed, must throw a gRPC error. */
 }
