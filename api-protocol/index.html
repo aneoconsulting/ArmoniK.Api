@@ -2133,7 +2133,8 @@ Retunr a list of raw results.</p>
 </table>
 <p>Must be set for every request but allowed to be empty. |
 | sort | <a href="#armonik-api-grpc-v1-sessions-ListSessionsRequest-Sort">ListSessionsRequest.Sort</a> |  | The sort.</p>
-<p>Must be set for every request. |</p>
+<p>Must be set for every request. |
+| with_task_options | <a href="#bool">bool</a> |  | Flag to tell if server must return task options in summary sessions |</p>
 <p><a name="armonik-api-grpc-v1-sessions-ListSessionsRequest-Filter"></a></p>
 <h3 id="listsessionsrequestfilter">ListSessionsRequest.Filter</h3>
 <p>Represents a filter with all available fields.</p>
@@ -2356,6 +2357,12 @@ Used when a list of sessions is returned.</p>
 <td><a href="#google-protobuf-Timestamp">google.protobuf.Timestamp</a></td>
 <td></td>
 <td>The cancellation date. Only set when status is 'cancelled'.</td>
+</tr>
+<tr>
+<td>options</td>
+<td><a href="#armonik-api-grpc-v1-TaskOptions">armonik.api.grpc.v1.TaskOptions</a></td>
+<td></td>
+<td>The default task options.</td>
 </tr>
 </tbody>
 </table>
