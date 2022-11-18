@@ -1,0 +1,30 @@
+/**
+ * Messages describing authentication and associated requests and responses.
+ */
+syntax = "proto3";
+
+package armonik.api.grpc.v1.auth;
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Auth";
+
+/**
+ * A user.
+ */
+message User {
+  string username = 1; /** Username. If authentication is disabled, must be set to 'Anonymous' */
+
+  repeated string roles = 2; /** Roles. If authentication is disabled, must return []. */
+  repeated string permissions = 3; /** Permissions. If authentication is disabled, must return every permissions. */
+}
+
+/**
+ * Request to get current user informations.
+ */
+message GetCurrentUserRequest {}
+
+/**
+ * Response to get current user informations.
+ */
+message GetCurrentUserResponse {
+  User user = 1; /** Return current user. If auth failed, must throw a gRPC error. */
+}
