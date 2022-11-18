@@ -108,6 +108,18 @@
 <li><a href="#armonik-api-grpc-v1-applications-Applications">Applications</a></li>
 </ul>
 </li>
+<li><p><a href="#auth_common-proto">auth_common.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-auth-GetCurrentUserRequest">GetCurrentUserRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-auth-GetCurrentUserResponse">GetCurrentUserResponse</a></li>
+<li><a href="#armonik-api-grpc-v1-auth-User">User</a></li>
+</ul>
+</li>
+<li><p><a href="#auth_service-proto">auth_service.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-auth-Authentication">Authentication</a></li>
+</ul>
+</li>
 <li><p><a href="#objects-proto">objects.proto</a></p>
 <ul>
 <li><a href="#armonik-api-grpc-v1-Configuration">Configuration</a></li>
@@ -971,6 +983,92 @@ Return a list of raw applications.</p>
 <td><a href="#armonik-api-grpc-v1-applications-ListApplicationsRequest">ListApplicationsRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-applications-ListApplicationsResponse">ListApplicationsResponse</a></td>
 <td>Get a applications list using pagination, filters and sorting;</td>
+</tr>
+</tbody>
+</table>
+<p><a name="auth_common-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="auth_commonproto">auth_common.proto</h2>
+<p>Messages describing authentication and associated requests and responses.</p>
+<p><a name="armonik-api-grpc-v1-auth-GetCurrentUserRequest"></a></p>
+<h3 id="getcurrentuserrequest">GetCurrentUserRequest</h3>
+<p>Request to get current user informations.</p>
+<p><a name="armonik-api-grpc-v1-auth-GetCurrentUserResponse"></a></p>
+<h3 id="getcurrentuserresponse">GetCurrentUserResponse</h3>
+<p>Response to get current user informations.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>user</td>
+<td><a href="#armonik-api-grpc-v1-auth-User">User</a></td>
+<td></td>
+<td>Return current user. If auth failed, must throw a gRPC error.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-auth-User"></a></p>
+<h3 id="user">User</h3>
+<p>A user.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>username</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Username. If authentication is disabled, must be set to 'Anonymous'</td>
+</tr>
+<tr>
+<td>roles</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td>Roles. If authentication is disabled, must return [].</td>
+</tr>
+<tr>
+<td>permissions</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td>Permissions. If authentication is disabled, must return every permissions.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="auth_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="auth_serviceproto">auth_service.proto</h2>
+<p>Authentication related methods within a service.</p>
+<p><a name="armonik-api-grpc-v1-auth-Authentication"></a></p>
+<h3 id="authentication">Authentication</h3>
+<p>Service for authentication management.</p>
+<table>
+<thead>
+<tr>
+<th>Method Name</th>
+<th>Request Type</th>
+<th>Response Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GetCurrentUser</td>
+<td><a href="#armonik-api-grpc-v1-auth-GetCurrentUserRequest">GetCurrentUserRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-auth-GetCurrentUserResponse">GetCurrentUserResponse</a></td>
+<td>Get current user</td>
 </tr>
 </tbody>
 </table>
