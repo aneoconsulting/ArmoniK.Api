@@ -71,6 +71,10 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\partitions_common.proto" Link="partitions_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
   </ItemGroup>
 
 </Project>
