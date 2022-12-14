@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.partitions;
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
+
+/**
+ * A raw partition object.
+ *
+ * Used when a list or a single partition is returned.
+ */
+message PartitionRaw {
+  string id = 1; /** The partition ID. */
+  repeated string parent_partition_ids = 2; /** The parent partition IDs. */
+  bool pod_reserved = 3; /** Whether the partition is reserved for pods. */
+  int64 pod_max = 4; /** The maximum number of pods that can be used by sessions using the partition. */
+  PodConfigucation pod_configuration = 7; /** The pod configuration. */
+
+  int32 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
+  int32 priority = 6; /** The priority of the partition. */
+}
