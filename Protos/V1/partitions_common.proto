@@ -94,7 +94,7 @@ message ListPartitionsRequest {
  * Use pagination, filtering and sorting from the request.
  * Retunr a list of raw partitions.
  */
-message ListpartitionsResponse {
+message ListPartitionsResponse {
   repeated PartitionRaw partitions = 1; /** The list of raw partitions. */
 
   int32 page = 2; /** The page number. Start at 0. */
