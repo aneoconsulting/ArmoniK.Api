@@ -1,0 +1,20 @@
+/**
+ * Authentication related methods within a service.
+ */
+syntax = "proto3";
+
+package armonik.api.grpc.v1.auth;
+
+import "auth_common.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Auth";
+
+/**
+ * Service for authentication management.
+ */
+service Authentication {
+  /**
+   * Get current user
+   */
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {}
+}

@@ -53,7 +53,10 @@
     <Protobuf Include="..\..\..\Protos\V1\results_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\results_service.proto</Link>
     </Protobuf>
-        <Protobuf Include="..\..\..\Protos\V1\partitions_service.proto" GrpcServices="Client">
+     <Protobuf Include="..\..\..\Protos\V1\auth_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\auth_service.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\partitions_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\partitions_service.proto</Link>
     </Protobuf>
   </ItemGroup>
