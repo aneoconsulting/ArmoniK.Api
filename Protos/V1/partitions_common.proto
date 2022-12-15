@@ -101,3 +101,20 @@ message ListPartitionsResponse {
   int32 page_size = 3; /** The page size. */
   int32 total = 4; /** The total number of partitions. */
 }
+
+
+/**
+ * Request to get a partition.
+ */
+message GetPartitionRequest {
+  string id = 1; /** The partition ID. */
+}
+
+/**
+ * Response to get a partition.
+ *
+ * Return a raw partition.
+ */
+message GetPartitionResponse {
+  PartitionRaw partition = 1; /** The raw partition. */
+}
