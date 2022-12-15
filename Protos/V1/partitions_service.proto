@@ -14,4 +14,9 @@ service Partitions {
    * Get a partitions list using pagination, filters and sorting.
    */
   rpc ListPartitions(ListPartitionsRequest) returns (ListPartitionsResponse) {}
+
+  /**
+   * Get a partition by its ID.
+   */
+  rpc GetPartition(GetPartitionRequest) returns (GetPartitionResponse) {}
 }
