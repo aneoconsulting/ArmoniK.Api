@@ -253,8 +253,8 @@ namespace ArmoniK.Api.Client.Submitter
                                                     ResultRequest                                    resultRequest,
                                                     CancellationToken                                cancellationToken = default)
     {
-      var streamingCall = client.TryGetResultStream(resultRequest,
-                                                    cancellationToken: cancellationToken);
+      using var streamingCall = client.TryGetResultStream(resultRequest,
+                                                          cancellationToken: cancellationToken);
 
       var result = new List<byte>();
 
