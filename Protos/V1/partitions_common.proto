@@ -31,7 +31,7 @@ message ListPartitionsRequest {
    *
    * Any fields can be used at the same time.
    */
-   message Filter {
+  message Filter {
     string id = 1; /** The partition ID. */
     repeated string parent_partition_ids = 2; /** The parent partition IDs. */
     int64 pod_reserved = 3; /** Whether the partition is reserved for pods. */
@@ -39,7 +39,7 @@ message ListPartitionsRequest {
 
     int64 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
     int64 priority = 6; /** The priority of the partition. */
-   }
+  }
 
   /**
    * The filter.
@@ -99,7 +99,6 @@ message ListPartitionsResponse {
   int32 page_size = 3; /** The page size. */
   int32 total = 4; /** The total number of partitions. */
 }
-
 
 /**
  * Request to get a partition.
