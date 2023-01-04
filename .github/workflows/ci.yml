@@ -40,7 +40,7 @@ jobs:
         run: yarn proto:generate:linux
 
       - name: Check index.ts
-        run: tsc
+        run: yarn build
 
   format-csharp:
     name: Format C#
