@@ -3,6 +3,7 @@ syntax = "proto3";
 package armonik.api.grpc.v1.results;
 
 import "google/protobuf/timestamp.proto";
+import "common.proto";
 import "result_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
@@ -60,15 +61,6 @@ message ListResultsRequest {
     ORDER_BY_FIELD_OWNER_TASK_ID = 3; /** The owner task ID. */
     ORDER_BY_FIELD_STATUS = 4; /** The result status. */
     ORDER_BY_FIELD_CREATED_AT = 5; /** The result creation date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
   }
 
   /**

@@ -7,6 +7,7 @@ package armonik.api.grpc.v1.sessions;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "common.proto";
 import "session_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
@@ -82,15 +83,6 @@ message ListSessionsRequest {
     ORDER_BY_FIELD_STATUS = 2; /** The session status. */
     ORDER_BY_FIELD_CREATED_AT = 3; /** The creation date. */
     ORDER_BY_FIELD_CANCELLED_AT = 4; /** The cancellation date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
   }
 
   /**

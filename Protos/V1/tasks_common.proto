@@ -7,6 +7,7 @@ package armonik.api.grpc.v1.tasks;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "common.proto";
 import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
@@ -113,15 +114,6 @@ message ListTasksRequest {
     ORDER_BY_FIELD_CREATED_AT = 4; /** The task creation date. */
     ORDER_BY_FIELD_STARTED_AT = 5; /** The task start date. */
     ORDER_BY_FIELD_ENDED_AT = 6; /** The task end date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. Do not use. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
   }
 
   /**
