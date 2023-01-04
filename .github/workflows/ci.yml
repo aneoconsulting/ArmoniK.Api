@@ -4,6 +4,44 @@ on:
   pull_request:
 
 jobs:
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Cache Node Modules
+        id: node-cache
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('yarn.lock') }}
+
+      - name: Cache Protos
+        id: proto-cache
+        uses: actions/cache@v3
+        with:
+          path: web/
+          key: protobuf-${{ hashFiles('Protos/V1/*.proto') }}
+
+      - name: Install Dependencies
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        run: yarn
+
+      - name: Install Protoc
+        if: steps.proto-cache.outputs.cache-hit != 'true'
+        uses: arduino/setup-protoc@v1
+
+      - name: Build protos
+        if: steps.proto-cache.outputs.cache-hit != 'true'
+        run: yarn proto:generate:linux
+
+      - name: Check index.ts
+        run: tsc
+
   format-csharp:
     name: Format C#
     runs-on: ubuntu-latest
