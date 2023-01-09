@@ -25,19 +25,18 @@ jobs:
         if: ${{ !contains(github.ref, 'refs/tags') }}
         run: |
           VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=main)
-          echo "::set-env name=version::$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Get version from tag
         if: ${{ contains(github.ref, 'refs/tags') }}
         run: |
           VERSION=$(echo $GITHUB_REF | sed -e 's/refs\/tags\///g')
-          echo "::set-env name=version::$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set version
         id: version
         run: |
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "Version : ${{ env.version }}" >> $GITHUB_STEP_SUMMARY
 
   # release-csharp-package:
   #   name: Release C# Package
