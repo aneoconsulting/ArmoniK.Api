@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package armonik.api.grpc.v1.common;
+package armonik.api.grpc.v1;
 
 option csharp_namespace = "Armonik.Api.Grpc.V1.Common";
 
