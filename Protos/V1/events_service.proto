@@ -1,5 +1,5 @@
 /**
- * Graph visualization related methods within a service.
+ * Events subscription related methods within a service.
  *
  * This service can be used to receive events related to the update of tasks
  * and results whithin a session.
@@ -12,18 +12,18 @@
  */
 syntax = "proto3";
 
-package armonik.api.grpc.v1.graphs;
+package armonik.api.grpc.v1.events;
 
-import "graphs_common.proto";
+import "events_common.proto";
 
-option csharp_namespace = "ArmoniK.Api.gRPC.V1.Graphs";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
 
 /**
- * Service for creating graphs with tasks and data dependencies.
+ * Service for subscribing to events representing modifications to ArmoniK result and task data
  */
-service Graphs {
+service Events {
   /**
-   * Get events that represents updates of the dependency graph.
+   * Get events that represents updates of result and tasks data.
    */
-  rpc GetGraphs(GraphSubscriptionRequest) returns (stream GraphContentResponse);
+  rpc GetEvents(EventSubscriptionRequest) returns (stream EventContentResponse);
 }
