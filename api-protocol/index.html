@@ -120,6 +120,22 @@
 <li><a href="#armonik-api-grpc-v1-auth-Authentication">Authentication</a></li>
 </ul>
 </li>
+<li><p><a href="#events_common-proto">events_common.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-events-EventSubscriptionRequest">EventSubscriptionRequest</a></li>
+<li><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse">EventSubscriptionResponse</a></li>
+<li><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-NewResult">EventSubscriptionResponse.NewResult</a></li>
+<li><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-NewTask">EventSubscriptionResponse.NewTask</a></li>
+<li><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-ResultOwnerUpdate">EventSubscriptionResponse.ResultOwnerUpdate</a></li>
+<li><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-ResultStatusUpdate">EventSubscriptionResponse.ResultStatusUpdate</a></li>
+<li><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-TaskStatusUpdate">EventSubscriptionResponse.TaskStatusUpdate</a></li>
+</ul>
+</li>
+<li><p><a href="#events_service-proto">events_service.proto</a></p>
+<ul>
+<li><a href="#armonik-api-grpc-v1-events-Events">Events</a></li>
+</ul>
+</li>
 <li><p><a href="#objects-proto">objects.proto</a></p>
 <ul>
 <li><a href="#armonik-api-grpc-v1-Configuration">Configuration</a></li>
@@ -1069,6 +1085,290 @@ Return a list of raw applications.</p>
 <td><a href="#armonik-api-grpc-v1-auth-GetCurrentUserRequest">GetCurrentUserRequest</a></td>
 <td><a href="#armonik-api-grpc-v1-auth-GetCurrentUserResponse">GetCurrentUserResponse</a></td>
 <td>Get current user</td>
+</tr>
+</tbody>
+</table>
+<p><a name="events_common-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="events_commonproto">events_common.proto</h2>
+<p><a name="armonik-api-grpc-v1-events-EventSubscriptionRequest"></a></p>
+<h3 id="eventsubscriptionrequest">EventSubscriptionRequest</h3>
+<p>Request to subscribe to the event stream.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Id of the session that will be used to subscribe events for. *</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-events-EventSubscriptionResponse"></a></p>
+<h3 id="eventsubscriptionresponse">EventSubscriptionResponse</h3>
+<p>Response containing the update event.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>session_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>Id of the session that will be used to subscribe events for. *</td>
+</tr>
+<tr>
+<td>task_status_update</td>
+<td><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-TaskStatusUpdate">EventSubscriptionResponse.TaskStatusUpdate</a></td>
+<td></td>
+<td>An update to the status of a task. *</td>
+</tr>
+<tr>
+<td>result_status_update</td>
+<td><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-ResultStatusUpdate">EventSubscriptionResponse.ResultStatusUpdate</a></td>
+<td></td>
+<td>An update to the status of a result. *</td>
+</tr>
+<tr>
+<td>result_owner_update</td>
+<td><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-ResultOwnerUpdate">EventSubscriptionResponse.ResultOwnerUpdate</a></td>
+<td></td>
+<td>An update to the owner of a result. *</td>
+</tr>
+<tr>
+<td>new_task</td>
+<td><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-NewTask">EventSubscriptionResponse.NewTask</a></td>
+<td></td>
+<td>A new task in ArmoniK. *</td>
+</tr>
+<tr>
+<td>new_result</td>
+<td><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse-NewResult">EventSubscriptionResponse.NewResult</a></td>
+<td></td>
+<td>A new result in ArmoniK. *</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-events-EventSubscriptionResponse-NewResult"></a></p>
+<h3 id="eventsubscriptionresponsenewresult">EventSubscriptionResponse.NewResult</h3>
+<p>Represents the submission of a new result in ArmoniK.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>result_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The result id. *</td>
+</tr>
+<tr>
+<td>owner_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The owner task id. *</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-result_status-ResultStatus">armonik.api.grpc.v1.result_status.ResultStatus</a></td>
+<td></td>
+<td>The result status. *</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-events-EventSubscriptionResponse-NewTask"></a></p>
+<h3 id="eventsubscriptionresponsenewtask">EventSubscriptionResponse.NewTask</h3>
+<p>Represents the submission of a new task in ArmoniK.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The task id. *</td>
+</tr>
+<tr>
+<td>payload_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The payload id. *</td>
+</tr>
+<tr>
+<td>origin_task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The task id before retry. *</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
+<td></td>
+<td>The task status. *</td>
+</tr>
+<tr>
+<td>expected_output_keys</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td>The keys of the expected outputs *</td>
+</tr>
+<tr>
+<td>data_dependencies</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td>The keys of the data dependencies. *</td>
+</tr>
+<tr>
+<td>retry_of_ids</td>
+<td><a href="#string">string</a></td>
+<td>repeated</td>
+<td>The list of retried tasks from the first retry to the current. *</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-events-EventSubscriptionResponse-ResultOwnerUpdate"></a></p>
+<h3 id="eventsubscriptionresponseresultownerupdate">EventSubscriptionResponse.ResultOwnerUpdate</h3>
+<p>Represents an update to the owner task id of a result.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>result_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The result id. *</td>
+</tr>
+<tr>
+<td>previous_owner_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The previous owner id. *</td>
+</tr>
+<tr>
+<td>current_owner_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The current owner id. *</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-events-EventSubscriptionResponse-ResultStatusUpdate"></a></p>
+<h3 id="eventsubscriptionresponseresultstatusupdate">EventSubscriptionResponse.ResultStatusUpdate</h3>
+<p>Represents an update to the status of a result.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>result_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The result id. *</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-result_status-ResultStatus">armonik.api.grpc.v1.result_status.ResultStatus</a></td>
+<td></td>
+<td>The result status. *</td>
+</tr>
+</tbody>
+</table>
+<p><a name="armonik-api-grpc-v1-events-EventSubscriptionResponse-TaskStatusUpdate"></a></p>
+<h3 id="eventsubscriptionresponsetaskstatusupdate">EventSubscriptionResponse.TaskStatusUpdate</h3>
+<p>Represents an update to the status of a task.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Label</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>task_id</td>
+<td><a href="#string">string</a></td>
+<td></td>
+<td>The task id. *</td>
+</tr>
+<tr>
+<td>status</td>
+<td><a href="#armonik-api-grpc-v1-task_status-TaskStatus">armonik.api.grpc.v1.task_status.TaskStatus</a></td>
+<td></td>
+<td>The task status. *</td>
+</tr>
+</tbody>
+</table>
+<p><a name="events_service-proto"></a></p>
+<p align="right"><a href="#top">Top</a></p>
+<h2 id="events_serviceproto">events_service.proto</h2>
+<p>Events subscription related methods within a service.</p>
+<p>This service can be used to receive events related to the update of tasks
+and results whithin a session.
+The endpoint can be called to listen to the modifications of multiple sessions
+if needed.</p>
+<p>Note: As for now, all the events of a session will be sent whithout filtering.
+It is possible that the API will evolve to a more refined way to filter the events
+to be received.</p>
+<p><a name="armonik-api-grpc-v1-events-Events"></a></p>
+<h3 id="events">Events</h3>
+<p>Service for subscribing to events representing modifications to ArmoniK result and task data</p>
+<table>
+<thead>
+<tr>
+<th>Method Name</th>
+<th>Request Type</th>
+<th>Response Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GetEvents</td>
+<td><a href="#armonik-api-grpc-v1-events-EventSubscriptionRequest">EventSubscriptionRequest</a></td>
+<td><a href="#armonik-api-grpc-v1-events-EventSubscriptionResponse">EventSubscriptionResponse</a> stream</td>
+<td>Get events that represents updates of result and tasks data.</td>
 </tr>
 </tbody>
 </table>
