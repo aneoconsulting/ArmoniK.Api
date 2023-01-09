@@ -24,7 +24,7 @@ message EventSubscriptionResponse {
    * Represents an update to the status of a task.
    */
   message TaskStatusUpdate {
-    string task_id = 10; /** The result id. **/
+    string task_id = 10; /** The task id. **/
     task_status.TaskStatus status = 11; /** The task status. **/
   }
 
@@ -53,8 +53,8 @@ message EventSubscriptionResponse {
     string payload_id = 41; /** The payload id. **/
     string origin_task_id = 42; /** The task id before retry. **/
     task_status.TaskStatus status = 43; /** The task status. **/
-    repeated string expected_output_keys = 44; /** The task id. **/
-    repeated string data_dependencies = 45; /** The task id. **/
+    repeated string expected_output_keys = 44; /** The keys of the expected outputs **/
+    repeated string data_dependencies = 45; /** The keys of the data dependencies. **/
     repeated string retry_of_ids = 46; /** The list of retried tasks from the first retry to the current. **/
   }
 
