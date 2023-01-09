@@ -2,11 +2,9 @@ name: Release Package
 
 on:
   push:
+    branches:
+      - "**"
     tags-ignore: ["**"]
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
 
 jobs:
   create-version:
