@@ -1,6 +1,7 @@
 name: Release Packages
 
 on:
+  pull_request:
   push:
     branches:
       - main
@@ -38,116 +39,116 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
 
-  release-csharp-package:
-    name: Release C# Package
-    runs-on: ubuntu-latest
-    needs: create-version
-    env:
-      VERSION: ${{ needs.create-version.outputs.version }}
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - Api/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
-          - Api/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
-          - Api/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
-          - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
-          - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.ref }}
+  # release-csharp-package:
+  #   name: Release C# Package
+  #   runs-on: ubuntu-latest
+  #   needs: create-version
+  #   env:
+  #     VERSION: ${{ needs.create-version.outputs.version }}
+  #   timeout-minutes: 10
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       package:
+  #         - Api/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
+  #         - Api/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
+  #         - Api/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
+  #         - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
+  #         - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+  #       with:
+  #         ref: ${{ github.ref }}
 
-      # Install the .NET Core workload
-      - name: Install .NET Core
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: 6.x
+  #     # Install the .NET Core workload
+  #     - name: Install .NET Core
+  #       uses: actions/setup-dotnet@v3
+  #       with:
+  #         dotnet-version: 6.x
 
-      - name: Build the package
-        run: |
-          dotnet build ${{ matrix.package }} -c Release
+  #     - name: Build the package
+  #       run: |
+  #         dotnet build ${{ matrix.package }} -c Release
 
-      - name: Pack the package
-        run: |
-          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
-          ls /tmp/packages
+  #     - name: Pack the package
+  #       run: |
+  #         dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+  #         ls /tmp/packages
 
-      - name: Push the package
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
-        if: ${{ env.is_NUGET_API_KEY_set == 'true' }}
-        run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+  #     - name: Push the package
+  #       # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+  #       # https://github.com/orgs/community/discussions/26726
+  #       env:
+  #         is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
+  #       if: ${{ env.is_NUGET_API_KEY_set == 'true' }}
+  #       run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
-      - name: Missing Nuget API Key
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
-        if: ${{ env.is_NUGET_API_KEY_set == 'false' }}
-        run: echo "Missing Nuget API Key"
+  #     - name: Missing Nuget API Key
+  #       # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+  #       # https://github.com/orgs/community/discussions/26726
+  #       env:
+  #         is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
+  #       if: ${{ env.is_NUGET_API_KEY_set == 'false' }}
+  #       run: echo "Missing Nuget API Key"
 
-  release-python-package:
-    if: ${{ contains(github.ref, 'refs/tags') }}
-    name: Release Python Package
-    runs-on: ubuntu-latest
-    needs: create-version
-    env:
-      VERSION: ${{ needs.create-version.outputs.version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.ref }}
-          fetch-depth: 0
+  # release-python-package:
+  #   if: ${{ contains(github.ref, 'refs/tags') }}
+  #   name: Release Python Package
+  #   runs-on: ubuntu-latest
+  #   needs: create-version
+  #   env:
+  #     VERSION: ${{ needs.create-version.outputs.version }}
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+  #       with:
+  #         ref: ${{ github.ref }}
+  #         fetch-depth: 0
 
-      - name: Create tag if Release
-        run: git tag $VERSION
+  #     - name: Create tag if Release
+  #       run: git tag $VERSION
 
-      - name: pip update and add build package
-        run: |
-          cd ./Api/python
-          bash proto2python.sh ~/pyvenv
+  #     - name: pip update and add build package
+  #       run: |
+  #         cd ./Api/python
+  #         bash proto2python.sh ~/pyvenv
 
-      - name: Upload as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: python-packages
-          path: Api/python/pkg/
+  #     - name: Upload as artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: python-packages
+  #         path: Api/python/pkg/
 
-      - name: Publish to PyPI
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'true'}}
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
-          print_hash: true
-          packages_dir: Api/python/pkg/
+  #     - name: Publish to PyPI
+  #       # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+  #       # https://github.com/orgs/community/discussions/26726
+  #       env:
+  #         is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
+  #       if: ${{ env.is_PYPI_API_TOKEN_set == 'true'}}
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       with:
+  #         password: ${{ secrets.PYPI_API_TOKEN }}
+  #         print_hash: true
+  #         packages_dir: Api/python/pkg/
 
-      - name: Publish to PyPITest
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_PYPI_API_TOKEN_set: ${{ secrets.DEV_PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'true'}}
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.DEV_PYPI_API_TOKEN }}
-          print_hash: true
-          packages_dir: Api/python/pkg/
-          repository_url: https://test.pypi.org/legacy/
+  #     - name: Publish to PyPITest
+  #       # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+  #       # https://github.com/orgs/community/discussions/26726
+  #       env:
+  #         is_PYPI_API_TOKEN_set: ${{ secrets.DEV_PYPI_API_TOKEN != '' }}
+  #       if: ${{ env.is_PYPI_API_TOKEN_set == 'true'}}
+  #       uses: pypa/gh-action-pypi-publish@release/v1
+  #       with:
+  #         password: ${{ secrets.DEV_PYPI_API_TOKEN }}
+  #         print_hash: true
+  #         packages_dir: Api/python/pkg/
+  #         repository_url: https://test.pypi.org/legacy/
 
-      - name: Missing PyPI API Key
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' || secrets.DEV_PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'false' }}
-        run: echo "Missing PyPI API Key"
+  #     - name: Missing PyPI API Key
+  #       # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
+  #       # https://github.com/orgs/community/discussions/26726
+  #       env:
+  #         is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' || secrets.DEV_PYPI_API_TOKEN != '' }}
+  #       if: ${{ env.is_PYPI_API_TOKEN_set == 'false' }}
+  #       run: echo "Missing PyPI API Key"
