@@ -31,6 +31,10 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
+      <Protobuf Include="..\..\..\Protos\V1\common.proto" Link="common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\result_status.proto" Link="result_status.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
