@@ -17,7 +17,7 @@ message EventSubscriptionRequest {
 /**
  * Response containing the update event.
  */
-message EventContentResponse {
+message EventSubscriptionResponse {
   string session_id = 1; /** Id of the session that will be used to subscribe events for. **/
 
   /**
