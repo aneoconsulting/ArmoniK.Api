@@ -147,6 +147,6 @@ jobs:
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
         # https://github.com/orgs/community/discussions/26726
         env:
-          is_PYPI_API_TOKEN_set: ${{ (secrets.PYPI_API_TOKEN != '' || secrets.DEV_PYPI_API_TOKEN != '' }}
+          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' || secrets.DEV_PYPI_API_TOKEN != '' }}
         if: ${{ env.is_PYPI_API_TOKEN_set == 'false' }}
         run: echo "Missing PyPI API Key"
