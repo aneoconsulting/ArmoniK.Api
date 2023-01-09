@@ -25,5 +25,5 @@ service Events {
   /**
    * Get events that represents updates of result and tasks data.
    */
-  rpc GetEvents(EventSubscriptionRequest) returns (stream EventContentResponse);
+  rpc GetEvents(EventSubscriptionRequest) returns (stream EventSubscriptionResponse);
 }
