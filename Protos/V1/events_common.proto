@@ -1,24 +1,24 @@
 syntax = "proto3";
 
-package armonik.api.grpc.v1.graphs;
+package armonik.api.grpc.v1.events;
 
 import "result_status.proto";
 import "task_status.proto";
 
-option csharp_namespace = "ArmoniK.Api.gRPC.V1.Graphs";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
 
 /**
- * Request to subscribe to the graph visualization stream.
+ * Request to subscribe to the event stream.
  */
-message GraphSubscriptionRequest {
-  string session_id = 1; /** Id of the session for which the graph will be created. **/
+message EventSubscriptionRequest {
+  string session_id = 1; /** Id of the session that will be used to subscribe events for. **/
 }
 
 /**
- * Response containing an update to the graph.
+ * Response containing the update event.
  */
-message GraphContentResponse {
-  string session_id = 1; /** Id of the session for which the graph will be created. **/
+message EventContentResponse {
+  string session_id = 1; /** Id of the session that will be used to subscribe events for. **/
 
   /**
    * Represents an update to the status of a task.
@@ -46,7 +46,7 @@ message GraphContentResponse {
   }
 
   /**
-   * Represents a new task to add to the graph.
+   * Represents the submission of a new task in ArmoniK.
    */
   message NewTask {
     string task_id = 40; /** The task id. **/
@@ -59,7 +59,7 @@ message GraphContentResponse {
   }
 
   /**
-   * Represents a new result to add to the graph.
+   * Represents the submission of a new result in ArmoniK.
    */
   message NewResult {
     string result_id = 50; /** The result id. **/
@@ -68,13 +68,13 @@ message GraphContentResponse {
   }
 
   /**
-   * Represents an update to the graph. Only one update will be sent per message.
+   * Represents an event update. Only one update will be sent per message.
    */
   oneof update {
     TaskStatusUpdate task_status_update = 2; /** An update to the status of a task. **/
     ResultStatusUpdate result_status_update = 3; /** An update to the status of a result. **/
     ResultOwnerUpdate result_owner_update = 4; /** An update to the owner of a result. **/
-    NewTask new_task = 5; /** A new task to add to the graph. **/
-    NewResult new_result = 6; /** A new result to add to the graph. **/
+    NewTask new_task = 5; /** A new task in ArmoniK. **/
+    NewResult new_result = 6; /** A new result in ArmoniK. **/
   }
 }
