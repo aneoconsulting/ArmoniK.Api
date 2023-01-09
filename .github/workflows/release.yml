@@ -148,7 +148,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - create-version
-      - build
+      - release-csharp-package
+      - release-python-package
     env:
       VERSION: ${{ needs.create-version.outputs.version }}
     steps:
