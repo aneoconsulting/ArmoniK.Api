@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.results;
 
-import "google/protobuf/timestamp.proto";
 import "common.proto";
+import "google/protobuf/timestamp.proto";
 import "result_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
