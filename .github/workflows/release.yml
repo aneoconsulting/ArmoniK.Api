@@ -30,7 +30,7 @@ jobs:
   release-csharp-package:
     name: Release C# Package
     runs-on: ubuntu-latest
-    needs: versionning
+    needs: create-version
     env:
       VERSION: ${{ needs.versionning.outputs.version }}
     timeout-minutes: 10
