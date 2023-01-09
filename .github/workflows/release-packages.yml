@@ -1,7 +1,6 @@
 name: Release Packages
 
 on:
-  pull_request:
   push:
     branches:
       - main
@@ -21,19 +20,21 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
 
-      - name: Generate version
+      - name: Generate version from git
         if: ${{ !contains(github.ref, 'refs/tags') }}
-        id: version
         run: |
           VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=main)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "::set-env name=version::$VERSION"
 
       - name: Get version from tag
         if: ${{ contains(github.ref, 'refs/tags') }}
-        id: version
         run: |
           VERSION=$(echo $GITHUB_REF | sed -e 's/refs\/tags\///g')
+          echo "::set-env name=version::$VERSION"
+
+      - name: Set version
+        id: version
+        run: |
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
 
