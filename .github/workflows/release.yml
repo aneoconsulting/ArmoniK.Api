@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: create-version
     env:
-      VERSION: ${{ needs.versionning.outputs.version }}
+      VERSION: ${{ needs.create-version.outputs.version }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -83,9 +83,9 @@ jobs:
   release-python-package:
     name: Release Python Package
     runs-on: ubuntu-latest
-    needs: versionning
+    needs: create-version
     env:
-      VERSION: ${{ needs.versionning.outputs.version }}
+      VERSION: ${{ needs.create-version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -147,10 +147,10 @@ jobs:
     name: Release Version
     runs-on: ubuntu-latest
     needs:
-      - versionning
+      - create-version
       - build
     env:
-      VERSION: ${{ needs.versionning.outputs.version }}
+      VERSION: ${{ needs.create-version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
