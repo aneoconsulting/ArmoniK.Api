@@ -41,8 +41,8 @@ message EventSubscriptionResponse {
    */
   message ResultOwnerUpdate {
     string result_id = 30; /** The result id. **/
-    string previous = 31; /** The previous owner. **/
-    string current = 32; /** The current owner. **/
+    string previous_owner_id = 31; /** The previous owner id. **/
+    string current_owner_id = 32; /** The current owner id. **/
   }
 
   /**
