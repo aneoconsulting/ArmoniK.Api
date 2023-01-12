@@ -83,7 +83,7 @@ message ListPartitionsRequest {
    *
    * Must be set for every request.
    */
-  repeated Sort sort = 4;
+  Sort sort = 4;
 }
 
 /**
