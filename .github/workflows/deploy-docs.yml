@@ -59,25 +59,25 @@ jobs:
         id: proto-cache
         uses: actions/cache@v3
         with:
-          path: .docs/content/api-proto/*.md
-          key: proto-${{ hashFiles('Protos/V1/**.proto') }}
+          path: .docs/content/api/*.md
+          key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
 
       - name: Generate protobuf documentation
         if: steps.proto-cache.outputs.cache-hit != 'true'
         uses: addnab/docker-run-action@v3
         with:
           image: pseudomuto/protoc-gen-doc
-          options: -v ${{ github.workspace }}/.docs/content/api-proto:/out -v ${{ github.workspace }}/Protos/V1:/protos
+          options: -v ${{ github.workspace }}/.docs/content/api:/out -v ${{ github.workspace }}/Protos/V1:/protos
           run: |
             protoc -I/usr/include -Iprotos --doc_out=/out --doc_opt=markdown,tmp.md protos/*.proto
 
       - name: Remove Toc
         if: steps.proto-cache.outputs.cache-hit != 'true'
-        run: node ./scripts/remove-useless-md.mjs .docs/content/api-proto/tmp.md .docs/content/api-proto/index.md
+        run: node ./scripts/remove-useless-md.mjs .docs/content/api/tmp.md .docs/content/api/1.v1.md
 
       - name: Remove tmp.md
         if: steps.proto-cache.outputs.cache-hit != 'true'
-        run: rm .docs/content/api-proto/tmp.md
+        run: rm .docs/content/api/tmp.md
 
   build-docs:
     name: Build Docs
@@ -92,7 +92,7 @@ jobs:
         id: proto-cache
         uses: actions/cache@v3
         with:
-          path: .docs/content/api-proto/*.md
+          path: .docs/content/api/*.md
           key: proto-${{ hashFiles('Protos/V1/**.proto') }}
 
       - name: Setup Node
