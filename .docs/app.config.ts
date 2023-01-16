@@ -6,7 +6,7 @@ export default defineAppConfig({
       github: "aneoconsulting/ArmoniK.Api",
     },
     aside: {
-      level: 0,
+      level: 1,
       exclude: [],
     },
     header: {
