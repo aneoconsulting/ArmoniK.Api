@@ -93,7 +93,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .docs/content/api/*.md
-          key: proto-${{ hashFiles('Protos/V1/**.proto') }}
+          key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
 
       - name: Setup Node
         uses: actions/setup-node@v3
