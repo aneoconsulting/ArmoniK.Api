@@ -27,12 +27,12 @@ jobs:
 
       - name: Restore
         run: |
-          cd Api/csharp
+          cd packages/csharp
           dotnet restore ArmoniK.Api.sln
 
       - name: Reformat
         run: |
-          cd Api/csharp
+          cd packages/csharp
           jb cleanupcode ArmoniK.Api.sln
 
       - name: Check Diff
