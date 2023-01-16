@@ -5,8 +5,6 @@ export default defineNuxtConfig({
 
   extends: "@nuxt-themes/docus",
 
-  studio: { enabled: false },
-
   content: {
     markdown: {
       toc: { depth: 1, searchDepth: 2 },
