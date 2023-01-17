@@ -79,6 +79,10 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\events_common.proto" Link="events_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
   </ItemGroup>
 
 </Project>
