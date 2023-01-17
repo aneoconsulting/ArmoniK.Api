@@ -1,0 +1,29 @@
+/**
+ * Events subscription related methods within a service.
+ *
+ * This service can be used to receive events related to the update of tasks
+ * and results whithin a session.
+ * The endpoint can be called to listen to the modifications of multiple sessions
+ * if needed.
+ *
+ * Note: As for now, all the events of a session will be sent whithout filtering.
+ * It is possible that the API will evolve to a more refined way to filter the events
+ * to be received.
+ */
+syntax = "proto3";
+
+package armonik.api.grpc.v1.events;
+
+import "events_common.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
+
+/**
+ * Service for subscribing to events representing modifications to ArmoniK result and task data
+ */
+service Events {
+  /**
+   * Get events that represents updates of result and tasks data.
+   */
+  rpc GetEvents(EventSubscriptionRequest) returns (stream EventSubscriptionResponse);
+}

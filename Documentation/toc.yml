@@ -1,8 +1,0 @@
-- name: Articles
-  href: articles/
-- name: API Protocol
-  href: api-protocol/
-  homepage: api-protocol/index.md
-- name: API C#
-  href: api-csharp/
-  homepage: api-csharp/index.md
