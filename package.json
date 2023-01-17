@@ -1,6 +1,6 @@
 {
   "name": "armonik.api",
-  "version": "1.0.0",
+  "version": "3.2.1",
   "description": "This project is part of the [ArmoniK](https://github.com/aneoconsulting/ArmoniK) project.\r In particular it is a consitutent of its [Core](https://github.com/aneoconsulting/ArmoniK.Core)\r component which, among its main functionalities, implements several gRPC services aiming to\r provide a user with a robust task scheduler for a high throughput computing application.",
   "main": "index.js",
   "scripts": {
@@ -19,7 +19,6 @@
   "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
   "devDependencies": {
     "consola": "^2.15.3",
-    "magic-regexp": "^0.6.1",
     "pathe": "^1.0.0"
   }
 }
