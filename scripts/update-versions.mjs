@@ -21,41 +21,30 @@ const csharpFiles = [
 ];
 
 consola.info("Updating C# projects to version", version);
-csharpFiles.forEach((file) => {
-  const data = fs.readFileSync(resolve(file), "utf8");
-
-  const result = data.replace(
-    csharpPattern,
-    `<PackageVersion>${version}</PackageVersion>`
-  );
-
-  fs.writeFileSync(resolve(file), result, "utf8");
-
-  consola.success(`Updated ${file.split("/").pop()}`);
-});
+csharpFiles.forEach(
+  _readAndReplace(csharpPattern, `<PackageVersion>${version}</PackageVersion>`)
+);
 
 const pythonPattern = /version = "(.*)"/g;
 const pythonFiles = ["packages/python/pyproject.toml"];
+
 consola.info("Updating Python projects to version", version);
-pythonFiles.forEach((file) => {
-  const data = fs.readFileSync(resolve(file), "utf8");
-
-  const result = data.replace(pythonPattern, `version = "${version}"`);
-
-  fs.writeFileSync(resolve(file), result, "utf8");
-
-  consola.success(`Updated ${file.split("/").pop()}`);
-});
+pythonFiles.forEach(_readAndReplace(pythonPattern, `version = "${version}"`));
 
 const jsPattern = /"version": "(.*)"/g;
 const jsFiles = ["package.json"];
+
 consola.info("Updating JS projects to version", version);
-jsFiles.forEach((file) => {
-  const data = fs.readFileSync(resolve(file), "utf8");
+jsFiles.forEach(_readAndReplace(jsPattern, `"version": "${version}"`));
 
-  const result = data.replace(jsPattern, `"version": "${version}"`);
+function _readAndReplace(pattern, replace) {
+  return (file) => {
+    const data = fs.readFileSync(resolve(file), "utf8");
 
-  fs.writeFileSync(resolve(file), result, "utf8");
+    const result = data.replace(pattern, replace);
 
-  consola.success(`Updated ${file.split("/").pop()}`);
-});
+    fs.writeFileSync(resolve(file), result, "utf8");
+
+    consola.success(`Update ${file.split("/").pop()}`);
+  };
+}
