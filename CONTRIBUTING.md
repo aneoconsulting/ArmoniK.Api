@@ -1,9 +1,6 @@
-# Contributing
+# Contributing Guide
 
-When contributing to this repository, please first discuss the change you wish to make via issue,
-email, or any other method with the owners of this repository before making a change.
-
-Please note we have a code of conduct, please follow it in all your interactions with the project.
+Hi! We are very happy that you are interested in contributing to ArmoniK.Api. Before submitting your contribution, please make sure to take a moment and read through the following guide.
 
 ## Pull Request Process
 
@@ -14,6 +11,17 @@ Please note we have a code of conduct, please follow it in all your interactions
 3. Make sure to do a PR against main
 4. Make sure you clearly define the changes in the description of the PR
 5. Make sure all tests pass
+
+## Release Process
+
+When necessary, maintainers will release a new version of the project. The release process is as follows:
+
+1. A Pull Request is created to update every packages version in the repository
+2. The Pull Request is merged into main
+3. A new tag is created on the main branch with the new version number
+
+Once done, the CI will automatically publish the new version to correct package registries.
+
 
 ## Code of Conduct
 
