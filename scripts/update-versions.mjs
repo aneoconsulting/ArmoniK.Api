@@ -46,3 +46,16 @@ pythonFiles.forEach((file) => {
 
   consola.success(`Updated ${file.split("/").pop()}`);
 });
+
+const jsPattern = /"version": "(.*)"/g;
+const jsFiles = ["package.json"];
+consola.info("Updating JS projects to version", version);
+jsFiles.forEach((file) => {
+  const data = fs.readFileSync(resolve(file), "utf8");
+
+  const result = data.replace(jsPattern, `"version": "${version}"`);
+
+  fs.writeFileSync(resolve(file), result, "utf8");
+
+  consola.success(`Updated ${file.split("/").pop()}`);
+});
