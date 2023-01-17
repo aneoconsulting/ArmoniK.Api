@@ -37,11 +37,11 @@ jobs:
       fail-fast: false
       matrix:
         package:
-          - Api/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
-          - Api/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
-          - Api/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
-          - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
-          - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
+          - packages/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
+          - packages/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
+          - packages/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
+          - packages/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
+          - packages/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -97,14 +97,14 @@ jobs:
 
       - name: pip update and add build package
         run: |
-          cd ./Api/python
+          cd ./packages/python
           bash proto2python.sh ~/pyvenv
-      
+
       - name: Upload as artifact
         uses: actions/upload-artifact@v3
         with:
           name: python-packages
-          path: Api/python/pkg/
+          path: packages/python/pkg/
 
       - name: Publish to PyPI
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
@@ -116,8 +116,8 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print_hash: true
-          packages_dir: Api/python/pkg/
-          
+          packages_dir: packages/python/pkg/
+
       - name: Publish to PyPITest
         # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
         # https://github.com/orgs/community/discussions/26726
@@ -128,7 +128,7 @@ jobs:
         with:
           password: ${{ secrets.DEV_PYPI_API_TOKEN }}
           print_hash: true
-          packages_dir: Api/python/pkg/
+          packages_dir: packages/python/pkg/
           repository_url: https://test.pypi.org/legacy/
 
       - name: Missing PyPI API Key

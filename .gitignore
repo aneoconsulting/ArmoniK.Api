@@ -364,3 +364,8 @@ FodyWeavers.xsd
 
 # Ignore dist directory
 dist
+
+
+!packages/common
+!packages/csharp
+!packages/python
