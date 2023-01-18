@@ -1,54 +1,32 @@
-name: Release Package
+name: Release Packages
+
+permissions:
+  contents: write
 
 on:
   push:
-    branches:
-      - "**"
-    tags-ignore: ["**"]
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
-  versionning:
-    name: Versionning
+  release-csharp-packages:
+    name: Release C# Packages
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.genver.outputs.version }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ github.ref }}
-          fetch-depth: 0
-
-      - name: Generate Version
-        id: genver
-        run: |
-          VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo $VERSION
-          echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
-
-  build:
-    runs-on: ubuntu-latest
-    needs: versionning
-    env:
-      VERSION: ${{ needs.versionning.outputs.version }}
-    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
         package:
-          - Api/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
-          - Api/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
-          - Api/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
-          - Api/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
-          - Api/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
+          - packages/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
+          - packages/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
+          - packages/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
+          - packages/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
+          - packages/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
+          fetch-depth: 0
 
-      # Install the .NET Core workload
       - name: Install .NET Core
         uses: actions/setup-dotnet@v3
         with:
@@ -60,101 +38,58 @@ jobs:
 
       - name: Pack the package
         run: |
-          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages
           ls /tmp/packages
 
       - name: Push the package
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
-        if: ${{ env.is_NUGET_API_KEY_set == 'true' }}
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
-      - name: Missing Nuget API Key
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_NUGET_API_KEY_set: ${{ secrets.NUGET_API_KEY != '' }}
-        if: ${{ env.is_NUGET_API_KEY_set == 'false' }}
-        run: echo "Missing Nuget API Key"
-
-  python_package:
+  release-python-package:
     runs-on: ubuntu-latest
-    needs: versionning
-    env:
-      VERSION: ${{ needs.versionning.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
           fetch-depth: 0
-
-      - name: Create tag if Release
-        if: ${{ github.ref == 'refs/heads/release' }}
-        run: git tag $VERSION
 
       - name: pip update and add build package
         run: |
-          cd ./Api/python
+          cd ./packages/python
           bash proto2python.sh ~/pyvenv
-      
+
       - name: Upload as artifact
         uses: actions/upload-artifact@v3
         with:
           name: python-packages
-          path: Api/python/pkg/
+          path: packages/python/pkg/
 
       - name: Publish to PyPI
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_PYPI_API_TOKEN_set: ${{ secrets.PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' && github.ref == 'refs/heads/release'}}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print_hash: true
-          packages_dir: Api/python/pkg/
-          
+          packages_dir: packages/python/pkg/
+
       - name: Publish to PyPITest
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_PYPI_API_TOKEN_set: ${{ secrets.DEV_PYPI_API_TOKEN != '' }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'true' && github.ref == 'refs/heads/main'}}
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.DEV_PYPI_API_TOKEN }}
           print_hash: true
-          packages_dir: Api/python/pkg/
+          packages_dir: packages/python/pkg/
           repository_url: https://test.pypi.org/legacy/
 
-      - name: Missing PyPI API Key
-        # GitHub doesn't allow to read secrets from conditionals in steps (use is_*_set to avoid to expose the secret)
-        # https://github.com/orgs/community/discussions/26726
-        env:
-          is_PYPI_API_TOKEN_set: ${{ (secrets.PYPI_API_TOKEN != '' && github.ref == 'refs/heads/release') || (secrets.DEV_PYPI_API_TOKEN != '' && github.ref == 'refs/heads/main') }}
-        if: ${{ env.is_PYPI_API_TOKEN_set == 'false' && (github.ref == 'refs/heads/release' || github.ref == 'refs/heads/main')}}
-        run: echo "Missing PyPI API Key"
-
-  tag:
-    # Only if branch is release
-    if: ${{ github.ref == 'refs/heads/release' }}
+  update-changelog:
     runs-on: ubuntu-latest
-    needs:
-      - versionning
-      - build
-    env:
-      VERSION: ${{ needs.versionning.outputs.version }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
-          ref: ${{ github.ref }}
+          fetch-depth: 0
 
-      - name: tag
-        run: |
-          git tag $VERSION
-          git push origin $VERSION
+      - name: Set node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - run: npx changelogithub
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
