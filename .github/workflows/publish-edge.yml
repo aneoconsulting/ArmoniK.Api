@@ -1,0 +1,69 @@
+name: Publish Edge C# Packages
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  create-version:
+    name: Create Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.generate-version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Generate Version
+        id: generate-version
+        run: |
+          VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo $VERSION
+          echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
+
+  release-csharp-packages:
+    needs: create-version
+    name: Release C# Packages
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.create-version.outputs.version }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - packages/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
+          - packages/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
+          - packages/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
+          - packages/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
+          - packages/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.x
+
+      - name: Build the package
+        run: |
+          dotnet build ${{ matrix.package }} -c Release
+
+      - name: Pack the package
+        run: |
+          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+          ls /tmp/packages
+
+      - name: Push the package
+        run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
