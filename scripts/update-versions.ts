@@ -13,6 +13,8 @@ const [, , ...args] = process.argv;
 
 if (args.length === 0) {
   consola.fatal("Please provide a version");
+  consola.log("Usage: npm run update-versions <version>");
+  consola.log("Example: npm run update-versions 1.0.0");
   process.exit(1);
 }
 
