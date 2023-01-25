@@ -2,8 +2,8 @@ import { resolve } from "pathe";
 import consola from "consola";
 import fs from "node:fs";
 
-export function _readAndReplace(pattern, replace) {
-  return (file) => {
+export function _readAndReplace(pattern: RegExp, replace: string) {
+  return (file: string) => {
     const data = fs.readFileSync(resolve(file), "utf8");
 
     const result = data.replace(pattern, replace);

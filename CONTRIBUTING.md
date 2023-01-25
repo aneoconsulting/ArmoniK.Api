@@ -14,14 +14,23 @@ Hi! We are very happy that you are interested in contributing to ArmoniK.Api. Be
 
 ## Release Process
 
-When necessary, maintainers will release a new version of the project. The release process is as follows:
+When necessary, maintainers can release a new version. This new version will publish packages to registries.
 
-1. A Pull Request is created to update every packages version in the repository
-2. The Pull Request is merged into main
-3. A new tag is created on the main branch with the new version number
+### Release a new version
 
-Once done, the CI will automatically publish the new version to correct package registries.
+> Replace <version> with the new version number
 
+1. Install Node.js LTS version (https://nodejs.org/en/download/)
+2. Install dependencies with `npm ci` (from the root of the project)
+3. Create a new branch from main named `chore(release): release <version>` (from the root of the project)
+4. Update versions using `npm run update-versions <version>` (from the root of the project)
+5. Commit changes with `chore(release): release <version>`
+6. Push the branch to the remote repository
+7. Create a new pull request from the branch to main
+8. Merge the pull request
+9. Create a new release named `<version>` using the GitHub interface (be sure to select the main branch and to create a tag)
+
+And _voilà_! The new version is released and a CI workflow will publish packages to registries.
 
 ## Code of Conduct
 
