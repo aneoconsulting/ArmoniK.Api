@@ -1,5 +1,5 @@
 import consola from "consola";
-import { _readAndReplace } from "./versions/_readAndReplace.mjs";
+import { _readAndReplace } from "./versions/_readAndReplace";
 import {
   csharpFiles,
   csharpPattern,
@@ -7,7 +7,7 @@ import {
   jsPattern,
   pythonFiles,
   pythonPattern,
-} from "./versions/_contants.mjs";
+} from "./versions/_contants";
 
 const [, , ...args] = process.argv;
 
@@ -18,13 +18,13 @@ if (args.length === 0) {
 
 const version = args[0];
 
-consola.info("Updating C# projects to version", version);
+consola.info("Updating C# projects to ", version);
 csharpFiles.forEach(
   _readAndReplace(csharpPattern, `<PackageVersion>${version}</PackageVersion>`)
 );
 
-consola.info("Updating Python projects to version", version);
+consola.info("Updating Python projects to ", version);
 pythonFiles.forEach(_readAndReplace(pythonPattern, `version = "${version}"`));
 
-consola.info("Updating JS projects to version", version);
+consola.info("Updating JS projects to ", version);
 jsFiles.forEach(_readAndReplace(jsPattern, `"version": "${version}"`));
