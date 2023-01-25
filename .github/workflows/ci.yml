@@ -4,6 +4,27 @@ on:
   pull_request:
 
 jobs:
+  verify-versions:
+    name: Verify Versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+          cache: "npm"
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Verify Versions
+        run: npm run verify-versions
+
   format-csharp:
     name: Format C#
     runs-on: ubuntu-latest
