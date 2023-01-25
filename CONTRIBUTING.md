@@ -28,7 +28,7 @@ When necessary, maintainers can release a new version. This new version will pub
 6. Push the branch to the remote repository
 7. Create a new pull request from the branch to main
 8. Merge the pull request
-9. Create a new tag named `<version>` using the GitHub interface
+9. Create a new release named `<version>` using the GitHub interface (be sure to select the main branch and to create a tag)
 
 And _voilà_! The new version is released and a CI workflow will publish packages to registries.
 
