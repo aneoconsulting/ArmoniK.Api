@@ -1,5 +1,5 @@
 {
-  "name": "docus-starter",
+  "name": "armonik-api-docs",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,6 +10,6 @@
   },
   "devDependencies": {
     "nuxt": "^3.0.0",
-    "@nuxt-themes/docus": "^1.1.5"
+    "@aneoconsultingfr/armonik-docs-theme": "^0.1.0"
   }
 }
