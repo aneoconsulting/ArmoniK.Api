@@ -53,6 +53,15 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "18"
+          cache: "npm"
+          cache-dependency-path: .docs/package-lock.json
+
+      - name: Cache Node Modules
+        id: node-cache
+        uses: actions/cache@v3
+        with:
+          path: .docs/node_modules
+          key: node-modules-${{ hashFiles('.docs/package-lock.json') }}
 
         # This will be used to avoid the use of the docker image to generate the documentation if the proto files have not changed
       - name: Cache Proto
