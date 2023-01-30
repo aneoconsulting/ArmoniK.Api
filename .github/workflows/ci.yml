@@ -98,4 +98,4 @@ jobs:
           image: pseudomuto/protoc-gen-doc
           options: -v ${{ github.workspace }}/Documentation/api:/out -v ${{ github.workspace }}/Protos/V1:/protos
           run: |
-            protoc -I/usr/include -Iprotos --doc_out=/out --doc_opt=markdown,index.md protos/*.proto
+            protoc -I/usr/include -Iprotos --doc_out=/out --doc_opt=markdown,index.md --proto_path protos --proto_path wellKnown protos/*.proto
