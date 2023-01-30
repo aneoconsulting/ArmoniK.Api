@@ -13,7 +13,7 @@ jobs:
     name: Create Version
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.generate-version.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -21,13 +21,16 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
 
-      - name: Generate Version
-        id: generate-version
+      - name: Git Version
+        id: version
+        uses: codacy/git-version@2.7.1
+        with:
+          release-branch: main
+          dev-branch: main
+
+      - name: Print version
         run: |
-          VERSION=$(docker run --rm -v $(pwd):/repo codacy/git-version /bin/git-version --folder=/repo --release-branch=release --dev-branch=main)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo $VERSION
-          echo "Version : $VERSION" >> $GITHUB_STEP_SUMMARY
+          echo ${{ steps.version.outputs.version }} >> $GITHUB_STEP_SUMMARY
 
   release-csharp-packages:
     needs: create-version
