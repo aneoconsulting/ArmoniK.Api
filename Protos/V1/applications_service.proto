@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.applications;
 
+import "google/api/annotations.proto";
 import "applications_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
@@ -16,5 +17,9 @@ service Applications {
   /**
    * Get a applications list using pagination, filters and sorting;
   */
-  rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse) {}
+  rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse) {
+    option (google.api.http) = {
+      get: "/v1/applications"
+    };
+  }
 }
