@@ -3,11 +3,5 @@ export default defineNuxtConfig({
     baseURL: process.env.NODE_ENV === "production" ? "/ArmoniK.Api/" : "",
   },
 
-  extends: "@nuxt-themes/docus",
-
-  content: {
-    markdown: {
-      toc: { depth: 1, searchDepth: 2 },
-    },
-  },
+  extends: "@aneoconsultingfr/armonik-docs-theme",
 });
