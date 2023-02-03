@@ -39,7 +39,7 @@ jobs:
       fail-fast: false
       matrix:
         projects:
-          - packages/csharp/ArmoniK.Api.Worker.Tests
+          - packages/csharp/ArmoniK.Api.Tests
     steps:
     - name: Checkout
       uses: actions/checkout@v2
