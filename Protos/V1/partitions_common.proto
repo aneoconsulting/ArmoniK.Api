@@ -34,11 +34,11 @@ message ListPartitionsRequest {
   message Filter {
     string id = 1; /** The partition ID. */
     string parent_partition_id = 2; /** The parent partition ID. */
-    int64 pod_reserved = 3; /** Whether the partition is reserved for pods. */
-    int64 pod_max = 4; /** The maximum number of pods that can be used by sessions using the partition. */
+    int32 pod_reserved = 3; /** Whether the partition is reserved for pods. */
+    int32 pod_max = 4; /** The maximum number of pods that can be used by sessions using the partition. */
 
-    int64 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
-    int64 priority = 6; /** The priority of the partition. */
+    int32 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
+    int32 priority = 6; /** The priority of the partition. */
   }
 
   /**
