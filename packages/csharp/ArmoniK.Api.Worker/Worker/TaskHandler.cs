@@ -162,9 +162,9 @@ public class TaskHandler : ITaskHandler
                                               CommunicationToken = Token,
                                               Data = new DataChunk
                                                      {
-                                                       Data = ByteString.CopyFrom(data.AsMemory()
-                                                                                      .Span.Slice(start,
-                                                                                                  chunkSize)),
+                                                       Data = UnsafeByteOperations.UnsafeWrap(data.AsMemory()
+                                                                                                  .Slice(start,
+                                                                                                         chunkSize)),
                                                      },
                                             })
                   .ConfigureAwait(false);
