@@ -205,8 +205,8 @@ namespace ArmoniK.Api.Client.Submitter
                      {
                        TaskPayload = new DataChunk
                                      {
-                                       Data = ByteString.CopyFrom(taskRequest.Payload.Span.Slice(start,
-                                                                                                 chunkSize)),
+                                       Data = UnsafeByteOperations.UnsafeWrap(taskRequest.Payload.Memory.Slice(start,
+                                                                                                               chunkSize)),
                                      },
                      };
 
