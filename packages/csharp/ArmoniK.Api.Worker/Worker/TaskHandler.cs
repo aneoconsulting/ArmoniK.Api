@@ -241,6 +241,11 @@ public class TaskHandler : ITaskHandler
     Configuration    = initRequest.Configuration;
     token_           = requestStream_.Current.CommunicationToken;
 
+    if (initRequest.Payload is null)
+    {
+      throw new InvalidOperationException("Payload from InitRequest should not be null");
+    }
+
 
     if (initRequest.Payload.DataComplete)
     {
