@@ -76,13 +76,11 @@ public class TaskHandlerTest
 
   private class MyClientStreamWriter<T> : IClientStreamWriter<T>
   {
-    private         bool             isComplete_;
     public readonly ConcurrentBag<T> Messages = new();
+    private         bool             isComplete_;
 
     public MyClientStreamWriter()
-    {
-      isComplete_ = false;
-    }
+      => isComplete_ = false;
 
     public Task WriteAsync(T message)
     {
@@ -117,7 +115,7 @@ public class TaskHandlerTest
 
     public override AsyncClientStreamingCall<Result, ResultReply> SendResult(Metadata          headers           = null,
                                                                              DateTime?         deadline          = null,
-                                                                             CancellationToken cancellationToken = default(CancellationToken))
+                                                                             CancellationToken cancellationToken = default)
       => new(resultStream_,
              Task.FromResult(new ResultReply()),
              Task.FromResult(new Metadata()),
@@ -129,7 +127,7 @@ public class TaskHandlerTest
 
     public override AsyncClientStreamingCall<CreateTaskRequest, CreateTaskReply> CreateTask(Metadata          headers           = null,
                                                                                             DateTime?         deadline          = null,
-                                                                                            CancellationToken cancellationToken = default(CancellationToken))
+                                                                                            CancellationToken cancellationToken = default)
       => new(taskStream_,
              Task.FromResult(new CreateTaskReply()),
              Task.FromResult(new Metadata()),
