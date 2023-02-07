@@ -105,7 +105,7 @@ jobs:
         id: proto-cache
         uses: actions/cache@v3
         with:
-          path: angular/
+          path: packages/angular
           key: protobuf-${{ hashFiles('Protos/V1/*.proto') }}
 
       - name: Install Dependencies
