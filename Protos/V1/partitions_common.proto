@@ -1,0 +1,117 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.partitions;
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
+
+/**
+ * A raw partition object.
+ *
+ * Used when a list or a single partition is returned.
+ */
+message PartitionRaw {
+  string id = 1; /** The partition ID. */
+  repeated string parent_partition_ids = 2; /** The parent partition IDs. */
+  int64 pod_reserved = 3; /** Whether the partition is reserved for pods. */
+  int64 pod_max = 4; /** The maximum number of pods that can be used by sessions using the partition. */
+  map<string, string> pod_configuration = 7; /** The pod configuration. */
+  int64 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
+  int64 priority = 6; /** The priority of the partition. */
+}
+
+/**
+ * Request to list partitions.
+ */
+message ListPartitionsRequest {
+  int32 page = 1; /** The page number. Start at 0. */
+  int32 page_size = 2; /** The number of items per page. */
+
+  /**
+   * Represents a filter with all available fields.
+   *
+   * Any fields can be used at the same time.
+   */
+  message Filter {
+    string id = 1; /** The partition ID. */
+    string parent_partition_id = 2; /** The parent partition ID. */
+    int32 pod_reserved = 3; /** Whether the partition is reserved for pods. */
+    int32 pod_max = 4; /** The maximum number of pods that can be used by sessions using the partition. */
+
+    int32 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
+    int32 priority = 6; /** The priority of the partition. */
+  }
+
+  /**
+   * The filter.
+   *
+   * Must be set for every request but allowed to be empty.
+   */
+  Filter filter = 3;
+
+  /**
+   * Represents every available field to use in order to sort partitions.
+   */
+  enum OrderByField {
+    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_BY_FIELD_ID = 1; /** The partition ID. */
+    ORDER_BY_FIELD_PARENT_PARTITION_IDS = 2; /** The parent partition IDs. */
+    ORDER_BY_FIELD_POD_RESERVED = 3; /** Whether the partition is reserved for pods. */
+    ORDER_BY_FIELD_POD_MAX = 4; /** The maximum number of pods that can be used by sessions using the partition. */
+    ORDER_BY_FIELD_PREEMPTION_PERCENTAGE = 5; /** The percentage of the partition that can be preempted. */
+    ORDER_BY_FIELD_PRIORITY = 6; /** The priority of the partition. */
+  }
+
+  /**
+   * Represents the order of the sorting.
+   */
+  enum OrderDirection {
+    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
+    ORDER_DIRECTION_ASC = 1; /** Ascending. */
+    ORDER_DIRECTION_DESC = 2; /** Descending. */
+  }
+
+  /**
+   * Represents a field to use in order to sort partitions.
+   */
+  message Sort {
+    OrderByField field = 1; /** The field. */
+    OrderDirection direction = 2; /** The order direction. */
+  }
+
+  /**
+   * The sort.
+   *
+   * Must be set for every request.
+   */
+  Sort sort = 4;
+}
+
+/**
+ * Response to list partitions.
+ *
+ * Use pagination, filtering and sorting from the request.
+ * Retunr a list of raw partitions.
+ */
+message ListPartitionsResponse {
+  repeated PartitionRaw partitions = 1; /** The list of raw partitions. */
+
+  int32 page = 2; /** The page number. Start at 0. */
+  int32 page_size = 3; /** The page size. */
+  int32 total = 4; /** The total number of partitions. */
+}
+
+/**
+ * Request to get a partition.
+ */
+message GetPartitionRequest {
+  string id = 1; /** The partition ID. */
+}
+
+/**
+ * Response to get a partition.
+ *
+ * Return a raw partition.
+ */
+message GetPartitionResponse {
+  PartitionRaw partition = 1; /** The raw partition. */
+}

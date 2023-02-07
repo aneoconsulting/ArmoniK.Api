@@ -374,3 +374,10 @@ dist
 *.pb.ts
 *.pbconf.ts
 *.pbsc.ts
+
+!packages/common
+!packages/csharp
+!packages/python
+
+
+**/launchSettings.json

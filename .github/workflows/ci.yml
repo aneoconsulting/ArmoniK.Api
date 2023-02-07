@@ -4,43 +4,26 @@ on:
   pull_request:
 
 jobs:
-  build-web:
-    name: Build Web
+  verify-versions:
+    name: Verify Versions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          submodules: true
 
-      - name: Cache Node Modules
-        id: node-cache
-        uses: actions/cache@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
         with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('yarn.lock') }}
-
-      - name: Cache Protos
-        id: proto-cache
-        uses: actions/cache@v3
-        with:
-          path: web/
-          key: protobuf-${{ hashFiles('Protos/V1/*.proto') }}
+          node-version: 16.x
+          cache: "npm"
 
       - name: Install Dependencies
-        if: steps.node-cache.outputs.cache-hit != 'true'
-        run: yarn
+        run: npm ci
 
-      - name: Install Protoc
-        if: steps.proto-cache.outputs.cache-hit != 'true'
-        uses: arduino/setup-protoc@v1
-
-      - name: Build protos
-        if: steps.proto-cache.outputs.cache-hit != 'true'
-        run: yarn proto:generate:linux
-
-      - name: Check index.ts
-        run: yarn build
+      - name: Verify Versions
+        run: npm run verify-versions
 
   format-csharp:
     name: Format C#
@@ -65,12 +48,12 @@ jobs:
 
       - name: Restore
         run: |
-          cd Api/csharp
+          cd packages/csharp
           dotnet restore ArmoniK.Api.sln
 
       - name: Reformat
         run: |
-          cd Api/csharp
+          cd packages/csharp
           jb cleanupcode ArmoniK.Api.sln
 
       - name: Check Diff
@@ -101,6 +84,44 @@ jobs:
 
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
+
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Cache Node Modules
+        id: node-cache
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('yarn.lock') }}
+
+      - name: Cache Protos
+        id: proto-cache
+        uses: actions/cache@v3
+        with:
+          path: web/
+          key: protobuf-${{ hashFiles('Protos/V1/*.proto') }}
+
+      - name: Install Dependencies
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        run: yarn --immutable
+
+      - name: Install Protoc
+        if: steps.proto-cache.outputs.cache-hit != 'true'
+        uses: arduino/setup-protoc@v1
+
+      - name: Build protos
+        if: steps.proto-cache.outputs.cache-hit != 'true'
+        run: yarn proto:generate:linux
+
+      - name: Check index.ts
+        run: yarn build
 
   build-documentation:
     name: Build Documentation

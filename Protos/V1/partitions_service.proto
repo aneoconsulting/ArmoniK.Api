@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.partitions;
+
+import "partitions_common.proto";
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
+
+/**
+ * The PartitionsService provides methods to manage partitions.
+ */
+service Partitions {
+  /**
+   * Get a partitions list using pagination, filters and sorting.
+   */
+  rpc ListPartitions(ListPartitionsRequest) returns (ListPartitionsResponse) {}
+
+  /**
+   * Get a partition by its ID.
+   */
+  rpc GetPartition(GetPartitionRequest) returns (GetPartitionResponse) {}
+}
