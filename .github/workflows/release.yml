@@ -78,6 +78,36 @@ jobs:
           packages_dir: packages/python/pkg/
           repository_url: https://test.pypi.org/legacy/
 
+  release-angular-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org/
+          cache: yarn
+
+      - name: Install ni
+        run: npm i -g @antfu/ni
+
+      - name: Install dependencies
+        run: nci
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+
+      - name: Build protos
+        run: nr proto:generate:linux
+
+      - name: Release package
+        run: nr ci:publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
   update-changelog:
     runs-on: ubuntu-latest
     steps:

@@ -378,6 +378,7 @@ dist
 !packages/common
 !packages/csharp
 !packages/python
+!packages/angular
 
 
 **/launchSettings.json

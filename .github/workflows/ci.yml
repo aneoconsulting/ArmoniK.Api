@@ -85,8 +85,8 @@ jobs:
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
 
-  build-web:
-    name: Build Web
+  build-angular:
+    name: Build Angular
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -105,7 +105,7 @@ jobs:
         id: proto-cache
         uses: actions/cache@v3
         with:
-          path: web/
+          path: angular/
           key: protobuf-${{ hashFiles('Protos/V1/*.proto') }}
 
       - name: Install Dependencies

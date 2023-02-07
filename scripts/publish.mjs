@@ -1,5 +1,5 @@
 // @ts-nocheck
 
-import { $ } from "zx";
+import { $ } from 'zx'
 
-await $`yarn npm publish --access public`;
+await $`yarn npm publish --access public`

@@ -6,13 +6,13 @@
   "main": "index.ts",
   "files": [
     "index.ts",
-    "./web/*.ts"
+    "./packages/angular/*.ts"
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "ci:publish": "zx scripts/publish.mjs",
     "build": "tsc --noEmit index.ts",
-    "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./web -I ./Protos/V1 ./Protos/V1/*.proto",
+    "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./packages/angular -I ./Protos/V1 ./Protos/V1/*.proto",
     "update-versions": "jiti ./scripts/update-versions.ts",
     "verify-versions": "jiti ./scripts/verify-versions.ts"
   },
