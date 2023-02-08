@@ -2,4 +2,4 @@
 
 import { $ } from 'zx'
 
-await $`yarn npm publish --access public --tag next`
+await $`pnpm publish --access public --no-git-checks --tag next`
