@@ -52,19 +52,18 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "18"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
+          cache: "yarn"
 
       - name: Cache Project Node Modules
         id: node-cache
         uses: actions/cache@v3
         with:
           path: node_modules
-          key: node-modules-${{ hashFiles('package-lock.json') }}
+          key: node-modules-${{ hashFiles('yarn.lock') }}
 
       - name: Install dependencies
         if: steps.node-cache.outputs.cache-hit != 'true'
-        run: npm ci
+        run: yarn --immutable
 
   generate-proto-docs:
     name: Generate Proto Docs
@@ -78,8 +77,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "18"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
 
       - name: Cache Node Modules
         id: node-cache
@@ -133,8 +130,6 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: "18"
-          cache: "npm"
-          cache-dependency-path: .docs/package-lock.json
 
       - name: Cache Node Modules
         id: node-cache
