@@ -210,7 +210,6 @@ message GetResultIdsResponse {
   repeated MapTaskResult task_results = 1; /** The task results. */
 }
 
-
 /**
  * Request to get count from tasks by status
  */
