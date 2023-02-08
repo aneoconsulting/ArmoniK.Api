@@ -127,8 +127,8 @@ public static class TaskRequestExtensions
                      CommunicationToken = token,
                      TaskPayload = new DataChunk
                                    {
-                                     Data = ByteString.CopyFrom(taskRequest.Payload.Span.Slice(start,
-                                                                                               chunkSize)),
+                                     Data = UnsafeByteOperations.UnsafeWrap(taskRequest.Payload.Memory.Slice(start,
+                                                                                                             chunkSize)),
                                    },
                    };
 

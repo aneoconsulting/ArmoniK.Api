@@ -25,15 +25,48 @@ jobs:
         id: version
         uses: codacy/git-version@2.7.1
         with:
-          release-branch: main
+          release-branch: release
           dev-branch: main
 
       - name: Print version
         run: |
           echo ${{ steps.version.outputs.version }} >> $GITHUB_STEP_SUMMARY
 
-  release-csharp-packages:
+  tests:
+    runs-on: ubuntu-latest
     needs: create-version
+    strategy:
+      fail-fast: false
+      matrix:
+        projects:
+          - packages/csharp/ArmoniK.Api.Tests
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ref: ${{ github.ref }}
+
+    # Install the .NET Core workload
+    - name: Install .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 6.x
+
+    - name: Run tests
+      run: |
+        cd ${{ matrix.projects }}
+        dotnet test --logger "trx;LogFileName=test-results.trx"
+
+    - name: Test Report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Test - ${{ matrix.os }} ${{ matrix.projects }}
+        path: ${{ matrix.projects }}/TestResults/test-results.trx
+        reporter: dotnet-trx
+
+  release-csharp-packages:
+    needs: [ create-version, tests ]
     name: Release C# Packages
     runs-on: ubuntu-latest
     env:

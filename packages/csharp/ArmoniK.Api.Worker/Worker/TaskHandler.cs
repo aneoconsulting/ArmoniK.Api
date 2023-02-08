@@ -162,9 +162,9 @@ public class TaskHandler : ITaskHandler
                                               CommunicationToken = Token,
                                               Data = new DataChunk
                                                      {
-                                                       Data = ByteString.CopyFrom(data.AsMemory()
-                                                                                      .Span.Slice(start,
-                                                                                                  chunkSize)),
+                                                       Data = UnsafeByteOperations.UnsafeWrap(data.AsMemory()
+                                                                                                  .Slice(start,
+                                                                                                         chunkSize)),
                                                      },
                                             })
                   .ConfigureAwait(false);
@@ -240,6 +240,11 @@ public class TaskHandler : ITaskHandler
     expectedResults_ = initRequest.ExpectedOutputKeys;
     Configuration    = initRequest.Configuration;
     token_           = requestStream_.Current.CommunicationToken;
+
+    if (initRequest.Payload is null)
+    {
+      throw new InvalidOperationException("Payload from InitRequest should not be null");
+    }
 
 
     if (initRequest.Payload.DataComplete)
