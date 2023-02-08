@@ -32,4 +32,9 @@ service Tasks {
    * Get ids of the result that tasks should produce.
    */
   rpc GetResultIds(GetResultIdsRequest) returns (GetResultIdsResponse);
+
+  /**
+   * Get count from tasks status.
+   */
+  rpc CountTasksByStatus(CountTasksByStatusRequest) returns (CountTasksByStatusResponse) {}
 }
