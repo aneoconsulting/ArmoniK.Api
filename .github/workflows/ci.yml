@@ -3,6 +3,10 @@ name: CI
 on:
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify-versions:
     name: Verify Versions
@@ -14,16 +18,24 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v3
         with:
-          node-version: 16.x
-          cache: "npm"
+          node-version: 18.x
+          cache: yarn
+
+      - name: Cache Node Modules
+        id: node-cache
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('yarn.lock') }}
 
       - name: Install Dependencies
-        run: npm ci
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        run: yarn --immutable
 
       - name: Verify Versions
-        run: npm run verify-versions
+        run: yarn verify-versions
 
   format-csharp:
     name: Format C#
@@ -84,6 +96,50 @@ jobs:
 
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
+
+  build-angular:
+    name: Build Angular
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: yarn
+
+      - name: Cache Node Modules
+        id: node-cache
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: node-modules-${{ hashFiles('yarn.lock') }}
+
+      - name: Cache Protos
+        id: proto-cache
+        uses: actions/cache@v3
+        with:
+          path: packages/angular
+          key: protobuf-${{ hashFiles('Protos/V1/*.proto') }}
+
+      - name: Install Dependencies
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        run: yarn --immutable
+
+      - name: Install Protoc
+        if: steps.proto-cache.outputs.cache-hit != 'true'
+        uses: arduino/setup-protoc@v1
+
+      - name: Build protos
+        if: steps.proto-cache.outputs.cache-hit != 'true'
+        run: yarn proto:generate:linux
+
+      - name: Check index.ts
+        run: yarn build
 
   build-documentation:
     name: Build Documentation
