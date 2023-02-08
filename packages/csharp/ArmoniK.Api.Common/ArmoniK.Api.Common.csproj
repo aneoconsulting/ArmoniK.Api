@@ -28,6 +28,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Protobuf Include="..\..\..\Protos\V1\google\api\http.proto" Link="http.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\google\api\annotations.proto" Link="annotations.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\objects.proto" Link="objects.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
