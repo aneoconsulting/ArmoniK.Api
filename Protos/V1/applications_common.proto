@@ -102,13 +102,13 @@ message ListApplicationsResponse {
   * Request to get count from tasks status by application.
   */
 message CountTasksByStatusRequest {
-  string name = 1; /** Application name. */
-  string version = 2; /** Application version. */
+  string name = 1; /** Application name. Must fail when name is empty. */
+  string version = 2; /** Application version. Must fail when version is emtpy. */
 }
 
 /**
  * Response to get count from tasks status by application.
  */
 message CountTasksByStatusResponse {
-  repeated StatusCount status = 1; /** Number of tasks by status. */
+  repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 object by task status. */
 }
