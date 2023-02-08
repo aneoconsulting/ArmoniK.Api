@@ -98,7 +98,6 @@ message ListApplicationsResponse {
   int32 total = 4; /** Total number of items. */
 }
 
-
 /**
   * Request to get count from tasks status by application.
   */
