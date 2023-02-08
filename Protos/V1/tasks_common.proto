@@ -220,5 +220,5 @@ message CountTasksByStatusRequest {}
  * Response to get count from tasks by status
  */
 message CountTasksByStatusResponse {
-  map<TaskStatus, int32> status = 1; /** Number of tasks by status. */
+  map<task_status.TaskStatus, int32> status = 1; /** Number of tasks by status. */
 }
