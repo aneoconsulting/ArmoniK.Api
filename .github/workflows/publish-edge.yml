@@ -25,6 +25,7 @@ jobs:
         id: version
         uses: codacy/git-version@2.7.1
         with:
+          minor-identifier: "feat:"
           release-branch: release
           dev-branch: main
 
