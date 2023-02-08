@@ -135,7 +135,7 @@ jobs:
         run: nr proto:generate:linux
 
       - name: Update version
-        run: nr update-version $VERSION
+        run: nr update-versions $VERSION
 
       - name: Release package
         run: nr ci:publish-edge
