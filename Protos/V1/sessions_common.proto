@@ -171,5 +171,5 @@ message CountTasksByStatusRequest {
  * Response to get count from tasks by status
  */
 message CountTasksByStatusResponse {
-  map<string, int32> status = 1; /** Number of tasks by status. */
+  repeated StatusCount status = 1; /** Number of tasks by status. */
 }

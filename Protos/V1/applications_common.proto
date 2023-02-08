@@ -5,7 +5,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.applications;
 
-import "task_status.proto";
+import "objects.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
@@ -111,5 +111,5 @@ message CountTasksByStatusRequest {
  * Response to get count from tasks status by application.
  */
 message CountTasksByStatusResponse {
-  map<task_status.TaskStatus, int32> status = 1; /** Number of tasks by status. */
+  repeated StatusCount status = 1; /** Number of tasks by status. */
 }
