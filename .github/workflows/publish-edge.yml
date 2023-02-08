@@ -1,4 +1,4 @@
-name: Publish Edge C# Packages
+name: Publish Edge Packages
 
 on:
   pull_request:
@@ -104,3 +104,41 @@ jobs:
 
       - name: Push the package
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+
+  release-angular-package:
+    if: github.ref == 'refs/heads/main'
+    needs: [create-version]
+    name: Release Angular Package
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.create-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org/
+          cache: yarn
+
+      - name: Install ni
+        run: npm i -g @antfu/ni
+
+      - name: Install dependencies
+        run: nci
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+
+      - name: Build protos
+        run: nr proto:generate:linux
+
+      - name: Update version
+        run: nr update-version $VERSION
+
+      - name: Release package
+        run: nr ci:publish-edge
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
