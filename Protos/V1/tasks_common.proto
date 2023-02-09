@@ -209,3 +209,15 @@ message GetResultIdsResponse {
 
   repeated MapTaskResult task_results = 1; /** The task results. */
 }
+
+/**
+ * Request to get count from tasks by status
+ */
+message CountTasksByStatusRequest {}
+
+/**
+ * Response to get count from tasks by status
+ */
+message CountTasksByStatusResponse {
+  repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 objct by tasks status. */
+}

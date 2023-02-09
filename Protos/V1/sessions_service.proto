@@ -27,4 +27,9 @@ service Sessions {
    * Cancel a session by its id.
    */
   rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
+
+  /**
+   * Get count from tasks by status using a session id.
+   */
+  rpc CountTasksByStatus(CountTasksByStatusRequest) returns (CountTasksByStatusResponse) {}
 }

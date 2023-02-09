@@ -8,6 +8,7 @@ package armonik.api.grpc.v1.sessions;
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";
+import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
@@ -157,4 +158,18 @@ message CancelSessionRequest {
  */
 message CancelSessionResponse {
   SessionRaw session = 1; /** The session. */
+}
+
+/**
+ * Request to get count from tasks by status
+ */
+message CountTasksByStatusRequest {
+  string session_id = 1; /** The session ID. Must fail when session_id is empty. */
+}
+
+/**
+ * Response to get count from tasks by status
+ */
+message CountTasksByStatusResponse {
+  repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 objct by tasks status. */
 }

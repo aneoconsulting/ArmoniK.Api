@@ -22,4 +22,10 @@ service Applications {
       get: "/v1/applications"
     };
   }
+
+  /**
+   * Get count from tasks by status using an application.
+   */
+  rpc CountTasksByStatus(CountTasksByStatusRequest) returns (CountTasksByStatusResponse) {}
+
 }
