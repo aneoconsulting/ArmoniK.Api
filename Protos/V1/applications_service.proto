@@ -27,5 +27,4 @@ service Applications {
    * Get count from tasks by status using an application.
    */
   rpc CountTasksByStatus(CountTasksByStatusRequest) returns (CountTasksByStatusResponse) {}
-
 }
