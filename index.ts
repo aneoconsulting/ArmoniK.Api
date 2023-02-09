@@ -42,4 +42,12 @@ export {
   TaskRaw,
   TaskSummary
 } from "./packages/angular/tasks-common.pb";
+export { 
+  GetPartitionRequest,
+  GetPartitionResponse,
+  ListPartitionsRequest,
+  ListPartitionsResponse,
+  PartitionRaw
+} from "./packages/angular/partitions-common.pb"
+export { PartitionsClient } from "./packages/angular/partitions-service.pbsc"
 export { TasksClient } from "./packages/angular/tasks-service.pbsc";
