@@ -380,5 +380,7 @@ dist
 !packages/python
 !packages/angular
 
+!.docs/content/**
+
 
 **/launchSettings.json
