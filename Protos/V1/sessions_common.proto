@@ -5,9 +5,9 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.sessions;
 
-import "order_direction.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "order_direction.proto";
 import "session_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
