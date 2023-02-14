@@ -364,3 +364,23 @@ FodyWeavers.xsd
 
 # Ignore dist directory
 dist
+
+# Ignore yarn files
+.yarn/*
+!.yarn/releases
+!yarn.lock
+
+# Ignore generated files from proto to ts
+*.pb.ts
+*.pbconf.ts
+*.pbsc.ts
+
+!packages/common
+!packages/csharp
+!packages/python
+!packages/angular
+
+!.docs/content/**
+
+
+**/launchSettings.json

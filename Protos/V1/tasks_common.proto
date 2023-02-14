@@ -88,7 +88,7 @@ message ListTasksRequest {
    */
   message Filter {
     string session_id = 1; /** The session ID of related tasks. */
-    task_status.TaskStatus status = 2; /** The task status. */
+    repeated task_status.TaskStatus status = 2; /** Use the differents status of a task to filter tasks having one of the requested status. */
     google.protobuf.Timestamp created_after = 3; /** Use the creation date of a task to filter tasks created after the input. */
     google.protobuf.Timestamp created_before = 4; /** Use the creation date of a task to filter tasks created before the input. */
     google.protobuf.Timestamp started_after = 5; /** Use the start date of a task to filter tasks started after the input. */
@@ -200,4 +200,16 @@ message GetResultIdsResponse {
   }
 
   repeated MapTaskResult task_results = 1; /** The task results. */
+}
+
+/**
+ * Request to get count from tasks by status
+ */
+message CountTasksByStatusRequest {}
+
+/**
+ * Response to get count from tasks by status
+ */
+message CountTasksByStatusResponse {
+  repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 objct by tasks status. */
 }
