@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.results;
 
-import "common.proto";
+import "order_direction.proto";
 import "google/protobuf/timestamp.proto";
 import "result_status.proto";
 

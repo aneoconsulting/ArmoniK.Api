@@ -32,7 +32,7 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
-      <Protobuf Include="..\..\..\Protos\V1\common.proto" Link="common.proto">
+      <Protobuf Include="..\..\..\Protos\V1\common.proto" Link="order_direction.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
