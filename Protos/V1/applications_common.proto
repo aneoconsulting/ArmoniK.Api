@@ -81,7 +81,7 @@ message ListApplicationsRequest {
    *
    * Must be set for every request.
    */
-  Sort sort = 4;
+  repeated Sort sort = 4;
 }
 
 /**
