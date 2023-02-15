@@ -73,7 +73,7 @@ message ListApplicationsRequest {
    * Represents the sort object.
    */
   message Sort {
-    OrderByField field = 1; /** The field to order by. */
+    repeated OrderByField field = 1; /** The field to order by. */
     OrderDirection direction = 2; /** The order direction. */
   }
 
@@ -81,7 +81,7 @@ message ListApplicationsRequest {
    *
    * Must be set for every request.
    */
-  repeated Sort sort = 4;
+  Sort sort = 4;
 }
 
 /**
