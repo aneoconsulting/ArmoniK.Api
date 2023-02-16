@@ -379,6 +379,7 @@ dist
 !packages/csharp
 !packages/python
 !packages/angular
+!packages/web
 
 !.docs/content/**
 
