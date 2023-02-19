@@ -9,7 +9,7 @@
     "preview": "nuxi preview"
   },
   "devDependencies": {
-    "nuxt": "^3.1.1",
-    "@aneoconsultingfr/armonik-docs-theme": "^0.2.0"
+    "nuxt": "^3.1.2",
+    "@aneoconsultingfr/armonik-docs-theme": "^0.2.2"
   }
 }
