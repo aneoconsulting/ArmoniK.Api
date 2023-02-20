@@ -11,12 +11,12 @@ import { _readAndFind } from "./versions/_readAndFind";
 
 const versions = new Map<string, string>();
 
+consola.info("Finding JS projects versions");
+jsFiles.forEach(_readAndFind(jsPattern, versions));
 consola.info("Finding C# projects versions");
 csharpFiles.forEach(_readAndFind(csharpPattern, versions));
 consola.info("Finding Python projects versions");
 pythonFiles.forEach(_readAndFind(pythonPattern, versions));
-consola.info("Finding JS projects versions");
-jsFiles.forEach(_readAndFind(jsPattern, versions));
 
 const versionsArray = [...versions.values()];
 const uniqueVersions = [...new Set(versionsArray)];
