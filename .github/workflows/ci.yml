@@ -118,7 +118,7 @@ jobs:
         run: npm ci
 
       - name: Install Protoc
-        run: apt install -y protobuf-compiler
+        run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
         run: npm run proto:generate:linux
@@ -147,7 +147,7 @@ jobs:
         run: npm ci
 
       - name: Install Protoc
-        run: apt install -y protobuf-compiler
+        run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
         run: npm run proto:generate:linux
