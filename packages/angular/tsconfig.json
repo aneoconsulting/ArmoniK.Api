@@ -2,6 +2,14 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    "paths": {
+      "@aneoconsultingfr/armonik.api.angular": [
+        "dist/aneoconsultingfr/armonik.api.angular"
+      ],
+      "@aneoconsutingfr/armonik.api.angular": [
+        "dist/aneoconsutingfr/armonik.api.angular"
+      ]
+    },
     "baseUrl": "./",
     "outDir": "./dist/out-tsc",
     "forceConsistentCasingInFileNames": true,
