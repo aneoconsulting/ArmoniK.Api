@@ -4,11 +4,10 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build && cp ../../LICENSE ./LICENSE",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./projects/aneoconsultingfr/armonik.api.angular/src/lib/generated -I ../../Protos/V1 ../../Protos/V1/*.proto",
-    "prepublish": "cp ../../LICENSE ./LICENSE"
+    "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./projects/aneoconsultingfr/armonik.api.angular/src/lib/generated -I ../../Protos/V1 ../../Protos/V1/*.proto"
   },
   "private": true,
   "dependencies": {
