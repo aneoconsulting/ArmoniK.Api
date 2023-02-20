@@ -130,7 +130,7 @@ jobs:
         run: cd packages/angular && nci && cd ../..
 
       - name: Install Protoc
-        uses: apt install -y protobuf-compiler
+        run: apt install -y protobuf-compiler
 
       - name: Build protos
         run: cd packages/angular && nr proto:generate:linux && cd ../..
@@ -167,7 +167,7 @@ jobs:
         run: cd packages/web && nci && cd ../..
 
       - name: Install Protoc
-        uses: apt install -y protobuf-compiler
+        run: apt install -y protobuf-compiler
 
       - name: Build protos
         run: cd packages/web && nr proto:generate:linux && cd ../..
