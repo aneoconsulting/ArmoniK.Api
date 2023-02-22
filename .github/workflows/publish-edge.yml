@@ -135,11 +135,11 @@ jobs:
       - name: Build protos
         run: cd packages/angular && nr proto:generate:linux && cd ../..
 
-      - name: Build package
-        run: cd packages/angular && nr build && cd ../..
-
       - name: Update version
         run: nr update-versions $VERSION
+
+      - name: Build package
+        run: cd packages/angular && nr build && cd ../..
 
       - name: Release package
         run: nr ci:publish-edge angular dist/aneoconsultingfr/armonik.api.angular
