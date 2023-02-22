@@ -88,22 +88,53 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18
+          cache: npm
           registry-url: https://registry.npmjs.org/
 
       - name: Install ni
         run: npm i -g @antfu/ni pnpm
 
       - name: Install dependencies
-        run: nci
+        run: cd packages/angular && nci && cd ../..
 
       - name: Install Protoc
-        uses: arduino/setup-protoc@v1
+        run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
-        run: nr proto:generate:linux
+        run: cd packages/angular && nr proto:generate:linux && cd ../..
 
       - name: Release package
-        run: nr ci:publish
+        run: nr ci:publish angular dist/aneoconsultingfr/armonik.api.angular
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+  release-web-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: npm
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install ni
+        run: npm i -g @antfu/ni pnpm
+
+      - name: Install dependencies
+        run: cd packages/web && nci && cd ../..
+
+      - name: Install Protoc
+        run: sudo apt install -y protobuf-compiler
+
+      - name: Build protos
+        run: cd packages/web && nr proto:generate:linux && cd ../..
+
+      - name: Release package
+        run: nr ci:publish web
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
