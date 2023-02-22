@@ -136,8 +136,8 @@ jobs:
       - name: Build protos
         run: cd packages/web && nr proto:generate:linux && cd ../..
 
-      - name: Buis web
-        run: cd packages/web && nr build:web && cd ../..
+      - name: Build web
+        run: cd packages/web && nr build && cd ../..
 
       - name: Release package
         run: nr ci:publish web
