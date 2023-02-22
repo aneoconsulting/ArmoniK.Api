@@ -95,7 +95,7 @@ jobs:
         run: npm i -g @antfu/ni pnpm
 
       - name: Install dependencies
-        run: cd packages/angular && nci && cd ../..
+        run: nci && cd packages/angular && nci && cd ../..
 
       - name: Install Protoc
         run: sudo apt install -y protobuf-compiler
@@ -128,7 +128,7 @@ jobs:
         run: npm i -g @antfu/ni pnpm
 
       - name: Install dependencies
-        run: cd packages/web && nci && cd ../..
+        run: nci && cd packages/web && nci && cd ../..
 
       - name: Install Protoc
         run: sudo apt install -y protobuf-compiler
