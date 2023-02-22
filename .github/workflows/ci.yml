@@ -97,61 +97,60 @@ jobs:
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
 
-  build-angular:
-    name: Build Angular
+  build-web:
+    name: Build Web
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/web
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          submodules: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
-          cache: yarn
-
-      - name: Cache Node Modules
-        id: node-cache
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('yarn.lock') }}
-
-      - name: Cache Protos
-        id: proto-cache
-        uses: actions/cache@v3
-        with:
-          path: packages/angular
-          key: protobuf-${{ hashFiles('Protos/V1/*.proto') }}
+          cache: npm
 
       - name: Install Dependencies
-        if: steps.node-cache.outputs.cache-hit != 'true'
-        run: yarn --immutable
+        run: npm ci
 
       - name: Install Protoc
-        if: steps.proto-cache.outputs.cache-hit != 'true'
-        uses: arduino/setup-protoc@v1
+        run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
-        if: steps.proto-cache.outputs.cache-hit != 'true'
-        run: yarn proto:generate:linux
+        run: npm run proto:generate:linux
 
-      - name: Check index.ts
-        run: yarn build
+      - name: Build
+        run: npm run build
 
-  build-documentation:
-    name: Build Documentation
-    runs-on: ubuntu-20.04
+  build-angular:
+    name: Build Angular
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/angular
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Generate protobuf documentation
-        uses: addnab/docker-run-action@v3
+      - uses: actions/checkout@v3
         with:
-          image: pseudomuto/protoc-gen-doc
-          options: -v ${{ github.workspace }}/Documentation/api:/out -v ${{ github.workspace }}/Protos/V1:/protos
-          run: |
-            protoc -I/usr/include -Iprotos --doc_out=/out --doc_opt=markdown,index.md protos/*.proto
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Protoc
+        run: sudo apt install -y protobuf-compiler
+
+      - name: Build protos
+        run: npm run proto:generate:linux
+
+      - name: Build
+        run: npm run build
