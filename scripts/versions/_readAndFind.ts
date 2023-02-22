@@ -10,7 +10,6 @@ export function _readAndFind(pattern: RegExp, versions: Map<string, string>) {
     });
 
     const version = pattern.exec(data)?.groups?.version;
-    console.log(version);
 
     if (!version) {
       consola.fatal(`Could not find version in ${file}`);
