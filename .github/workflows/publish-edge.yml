@@ -135,6 +135,9 @@ jobs:
       - name: Build protos
         run: cd packages/angular && nr proto:generate:linux && cd ../..
 
+      - name: Build package
+        run: cd packages/angular && nr build && cd ../..
+
       - name: Update version
         run: nr update-versions $VERSION
 
@@ -171,6 +174,9 @@ jobs:
 
       - name: Build protos
         run: cd packages/web && nr proto:generate:linux && cd ../..
+
+      - name: Build package
+        run: cd packages/web && nr build && cd ../..
 
       - name: Update version
         run: nr update-versions $VERSION
