@@ -120,24 +120,68 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18
+          cache: npm
           registry-url: https://registry.npmjs.org/
 
       - name: Install ni
         run: npm i -g @antfu/ni pnpm
 
       - name: Install dependencies
-        run: nci
+        run: nci && cd packages/angular && nci && cd ../..
 
       - name: Install Protoc
-        uses: arduino/setup-protoc@v1
+        run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
-        run: nr proto:generate:linux
+        run: cd packages/angular && nr proto:generate:linux && cd ../..
+
+      - name: Update version
+        run: nr update-versions $VERSION
+
+      - name: Build package
+        run: cd packages/angular && nr build && cd ../..
+
+      - name: Release package
+        run: nr ci:publish-edge angular dist/aneoconsultingfr/armonik.api.angular
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
+  release-web-package:
+    if: github.ref == 'refs/heads/main'
+    needs: [create-version]
+    name: Release Web Package
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.create-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install ni
+        run: npm i -g @antfu/ni pnpm
+
+      - name: Install dependencies
+        run: nci && cd packages/web && nci && cd ../..
+
+      - name: Install Protoc
+        run: sudo apt install -y protobuf-compiler
+
+      - name: Build protos
+        run: cd packages/web && nr proto:generate:linux && cd ../..
+
+      - name: Build package
+        run: cd packages/web && nr build && cd ../..
 
       - name: Update version
         run: nr update-versions $VERSION
 
       - name: Release package
-        run: nr ci:publish-edge
+        run: nr ci:publish-edge web
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
