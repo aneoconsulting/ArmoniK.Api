@@ -103,6 +103,9 @@ jobs:
       - name: Build protos
         run: cd packages/angular && nr proto:generate:linux && cd ../..
 
+      - name: Build angular
+        run: cd packages/angular && nr build && cd ../..
+
       - name: Release package
         run: nr ci:publish angular dist/aneoconsultingfr/armonik.api.angular
         env:
@@ -132,6 +135,9 @@ jobs:
 
       - name: Build protos
         run: cd packages/web && nr proto:generate:linux && cd ../..
+
+      - name: Buis web
+        run: cd packages/web && nr build:web && cd ../..
 
       - name: Release package
         run: nr ci:publish web
