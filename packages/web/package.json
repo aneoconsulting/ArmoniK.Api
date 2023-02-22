@@ -2,13 +2,17 @@
   "name": "@aneoconsultingfr/armonik.api",
   "version": "3.4.0",
   "description": "gRPC API to interact with ArmoniK built for the web",
-  "type": "module",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     },
-    "./*": "./dist/generated/*"
+    "./*": {
+      "import": "./dist/generated/*.mjs",
+      "require": "./dist/generated/*.js",
+      "types": "./dist/generated/*.d.ts"
+    }
   },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -17,8 +21,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "rimraf dist && tsup src/generated/*.ts",
-    "proto:generate:linux": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=esModuleInterop=true --ts_proto_out=./src/generated  -I ../../Protos/V1 ../../Protos/V1/*.proto",
+    "build": "tsup src/",
+    "proto:generate:linux": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=esModuleInterop=true,importSuffix=.js --ts_proto_out=./src/generated   -I ../../Protos/V1 ../../Protos/V1/*.proto",
     "prepublish": "cp ../../LICENSE ./LICENSE"
   },
   "keywords": [
@@ -37,7 +41,6 @@
   },
   "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
   "devDependencies": {
-    "rimraf": "^4.1.2",
     "ts-proto": "^1.139.0",
     "tsup": "^6.6.3",
     "typescript": "^4.9.5"
