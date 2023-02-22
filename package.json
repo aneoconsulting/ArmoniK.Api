@@ -1,33 +1,13 @@
 {
-  "name": "@aneoconsultingfr/armonik.api",
-  "version": "3.5.0",
+  "name": "armonik.api",
   "packageManager": "yarn@3.3.1",
-  "description": "gRPC API to interact with ArmoniK",
-  "main": "index.ts",
-  "files": [
-    "index.ts",
-    "./packages/angular/*.ts"
-  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "ci:publish": "zx scripts/publish.mjs",
     "ci:publish-edge": "zx scripts/publish-edge.mjs",
-    "build": "tsc --noEmit index.ts",
-    "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./packages/angular -I ./Protos/V1 ./Protos/V1/*.proto",
     "update-versions": "jiti ./scripts/update-versions.ts",
     "verify-versions": "jiti ./scripts/verify-versions.ts"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/aneoconsulting/ArmoniK.Api.git"
-  },
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/aneoconsulting/ArmoniK.Api/issues"
-  },
-  "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
   "devDependencies": {
-    "@ngx-grpc/protoc-gen-ng": "^3.1.1",
     "@typescript-eslint/eslint-plugin": "^5.49.0",
     "consola": "^2.15.3",
     "eslint": "^8.32.0",
