@@ -9,6 +9,7 @@
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^5.49.0",
+    "changelogen": "^0.4.1",
     "consola": "^2.15.3",
     "eslint": "^8.32.0",
     "eslint-config-standard-with-typescript": "^32.0.0",
