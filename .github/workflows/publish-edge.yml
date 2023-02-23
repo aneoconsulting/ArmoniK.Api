@@ -39,8 +39,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        projects:
-          - packages/csharp/ArmoniK.Api.Tests
+        include:
+          - projects: packages/csharp/ArmoniK.Api.Tests
+            framework: 6.x
+          - projects: packages/csharp/ArmoniK.Api.Core.Tests
+            framework: 7.x
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -51,7 +54,7 @@ jobs:
       - name: Install .NET Core
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: 6.x
+          dotnet-version: ${{ matrix.framework }}
 
       - name: Run tests
         run: |
