@@ -41,7 +41,7 @@ jobs:
       matrix:
         projects:
           - packages/csharp/ArmoniK.Api.Tests
-          - packages/csharp/ArmoniK.Core.Tests
+          - packages/csharp/ArmoniK.Api.Core.Tests
     steps:
       - name: Checkout
         uses: actions/checkout@v2
