@@ -4,7 +4,10 @@ import fs from "node:fs";
 
 export function _readAndFind(pattern: RegExp, versions: Map<string, string>) {
   return (file: string) => {
-    const data = fs.readFileSync(resolve(file), "utf8");
+    const data = fs.readFileSync(resolve(file), {
+      encoding: "utf8",
+      flag: "r",
+    });
 
     const version = pattern.exec(data)?.groups?.version;
 
@@ -14,6 +17,7 @@ export function _readAndFind(pattern: RegExp, versions: Map<string, string>) {
     }
 
     versions.set(file, version);
-    consola.trace(`Found ${file.split("/").pop()}@${version}`);
+    consola.log(`Found ${file.split("/").pop()}@${version}`);
+
   };
 }

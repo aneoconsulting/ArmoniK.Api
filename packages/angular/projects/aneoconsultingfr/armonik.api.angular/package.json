@@ -1,0 +1,33 @@
+{
+  "name": "@aneoconsultingfr/armonik.api.angular",
+  "version": "3.5.2",
+  "description": "gRPC API to interact with ArmoniK built for Angular",
+  "peerDependencies": {
+    "@angular/common": "^15.1.0",
+    "@angular/core": "^15.1.0",
+    "@ngx-grpc/common": "^3.1.1",
+    "@ngx-grpc/core": "^3.1.1",
+    "@ngx-grpc/well-known-types": "^3.1.1",
+    "google-protobuf": "^3.21.2",
+    "rxjs": "~7.8.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "keywords": [
+    "gRPC",
+    "API",
+    "Aneo consulting",
+    "Angular"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aneoconsulting/ArmoniK.Api.git"
+  },
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/aneoconsulting/ArmoniK.Api/issues"
+  },
+  "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
+  "sideEffects": false
+}

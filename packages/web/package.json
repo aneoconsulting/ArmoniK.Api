@@ -1,0 +1,52 @@
+{
+  "name": "@aneoconsultingfr/armonik.api",
+  "version": "3.5.2",
+  "description": "gRPC API to interact with ArmoniK built for the web",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./*": {
+      "import": "./dist/generated/*.mjs",
+      "require": "./dist/generated/*.js",
+      "types": "./dist/generated/*.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/",
+    "proto:generate:linux": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=esModuleInterop=true,importSuffix=.js --ts_proto_out=./src/generated   -I ../../Protos/V1 ../../Protos/V1/*.proto",
+    "prepublish": "cp ../../LICENSE ./LICENSE"
+  },
+  "keywords": [
+    "gRPC",
+    "API",
+    "Aneo consulting",
+    "Web"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aneoconsulting/ArmoniK.Api.git"
+  },
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/aneoconsulting/ArmoniK.Api/issues"
+  },
+  "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
+  "devDependencies": {
+    "ts-proto": "^1.139.0",
+    "tsup": "^6.6.3",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "protobufjs": "^7.2.2",
+    "rxjs": "^7.8.0"
+  }
+}
