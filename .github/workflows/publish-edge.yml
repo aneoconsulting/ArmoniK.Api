@@ -57,7 +57,7 @@ jobs:
       - name: Run tests
         run: |
           cd ${{ matrix.projects }}
-          dotnet test --logger "trx;LogFileName=test-results.trx"
+          dotnet test -f net7.0 --logger "trx;LogFileName=test-results.trx"
 
       - name: Test Report
         uses: dorny/test-reporter@v1
