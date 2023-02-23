@@ -18,6 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Google.Api.CommonProtos" Version="2.8.0" />
     <PackageReference Include="Google.Protobuf" Version="3.21.7" />
     <PackageReference Include="Grpc.Net.Client" Version="2.49.0" />
     <PackageReference Include="Grpc.Tools" Version="2.49.1">
@@ -28,14 +29,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\..\Protos\V1\http.proto" Link="http.proto">
-      <GrpcServices>Message</GrpcServices>
-      <ProtoCompile>True</ProtoCompile>
-    </Protobuf>
-    <Protobuf Include="..\..\..\Protos\V1\annotations.proto" Link="annotations.proto">
-      <GrpcServices>Message</GrpcServices>
-      <ProtoCompile>True</ProtoCompile>
-    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\objects.proto" Link="objects.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
