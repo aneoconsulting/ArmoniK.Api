@@ -1,22 +1,31 @@
-import { execSync } from 'node:child_process'
-import { bumpVersion } from 'changelogen'
+import { determineSemverChange, getGitDiff, loadChangelogConfig, parseCommits } from 'changelogen';
+import consola from 'consola';
+import { execSync } from 'node:child_process';
+import semver from "semver";
 
-function main() {
-  const branch = execSync('git rev-parse --abbrev-ref HEAD').toString('utf-8').trim();
-  const currentCommit = execSync('git rev-parse HEAD').toString('utf-8').trim();
-  const latestTagCommit = execSync('git rev-list --tags --max-count=1').toString('utf-8').trim();
-  const version = execSync('git describe --abbrev=0 --tags').toString('utf-8').trim();
+async function main() {
+  const from = execSync('git describe --abbrev=0 --tags').toString('utf-8').trim();
+  const to = 'main'
 
-  const bumpedVersion = bumpVersion([latestTagCommit, currentCommit], {
+  const config = await loadChangelogConfig(process.cwd(), {
+    from,
+    to
+  })
 
-  });
+  const rawCommits = await getGitDiff(from, to)
+  const commits = parseCommits(rawCommits, config).filter(
+    (c) =>
+      config.types[c.type] &&
+      !(c.type === "chore" && c.scope === "deps" && !c.isBreaking)
+  )
 
-  console.log(version);
+  const type = determineSemverChange(commits, config) || "patch"
+  const newVersion = semver.inc(from, type)
+
+  console.log("from", from, "to", to, "type", type, "newVersion", newVersion);
 }
 
-try {
-  main()
-} catch (error) {
-  console.error(error);
+main().catch((error) => {
+  consola.fatal(error);
   process.exit(1);
-}
+})
