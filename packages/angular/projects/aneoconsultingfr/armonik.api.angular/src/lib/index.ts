@@ -1,7 +1,9 @@
 export {
   ApplicationRaw,
   ListApplicationsRequest,
-  ListApplicationsResponse
+  ListApplicationsResponse,
+  CountTasksByStatusRequest as CountTasksByStatusApplicationRequest,
+  CountTasksByStatusResponse as CountTasksByStatusApplicationResponse,
 } from "./generated/applications-common.pb";
 export { ApplicationsClient } from "./generated/applications-service.pbsc";
 export {
@@ -39,6 +41,8 @@ export {
   GetTaskResponse,
   ListTasksRequest,
   ListTasksResponse,
+  CountTasksByStatusRequest,
+  CountTasksByStatusResponse,
   TaskRaw,
   TaskSummary
 } from "./generated/tasks-common.pb";
