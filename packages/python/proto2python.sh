@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 # Bash script to create the python packages from the grpc proto for Armonik.Api
 # We are using the same structure than the C# package
 
@@ -14,11 +16,11 @@ fi;
 source ../common/protofiles.sh
 
 export PATH=$HOME/.local/bin:$PATH
-export ARMONIK_PYTHON_SRC="generated"
+export ARMONIK_PYTHON_SRC="armonik"
 export PACKAGE_PATH="pkg"
-export ARMONIK_WORKER=$ARMONIK_PYTHON_SRC"/armonik/worker"
-export ARMONIK_CLIENT=$ARMONIK_PYTHON_SRC"/armonik/client"
-export ARMONIK_COMMON=$ARMONIK_PYTHON_SRC"/armonik/common"
+export ARMONIK_WORKER=$ARMONIK_PYTHON_SRC"/protogen/worker"
+export ARMONIK_CLIENT=$ARMONIK_PYTHON_SRC"/protogen/client"
+export ARMONIK_COMMON=$ARMONIK_PYTHON_SRC"/protogen/common"
 
 mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 
@@ -28,14 +30,14 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install build grpcio grpcio-tools fix-protobuf-imports
+python -m pip install build grpcio grpcio-tools
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
     proto_files="$PROTO_PATH/$proto $proto_files"
 done
 python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
-        --python_out=$ARMONIK_WORKER --grpc_python_out=$ARMONIK_WORKER \
+        --python_out=$ARMONIK_WORKER --grpc_python_out=$ARMONIK_WORKER --pyi_out=$ARMONIK_WORKER \
         $proto_files
 
 unset proto_files
@@ -43,7 +45,7 @@ for proto in ${armonik_client_files[@]}; do
     proto_files="$PROTO_PATH/$proto $proto_files" 
 done
 python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
-        --python_out=$ARMONIK_CLIENT --grpc_python_out=$ARMONIK_CLIENT \
+        --python_out=$ARMONIK_CLIENT --grpc_python_out=$ARMONIK_CLIENT --pyi_out=$ARMONIK_CLIENT \
         $proto_files
 
 unset proto_files
@@ -51,7 +53,7 @@ for proto in ${armonik_common_files[@]}; do
     proto_files="$PROTO_PATH/$proto $proto_files" 
 done
 python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
-        --python_out=$ARMONIK_COMMON --grpc_python_out=$ARMONIK_COMMON \
+        --python_out=$ARMONIK_COMMON --grpc_python_out=$ARMONIK_COMMON --pyi_out=$ARMONIK_COMMON \
         $proto_files
 
 touch $ARMONIK_WORKER/__init__.py
@@ -59,16 +61,6 @@ touch $ARMONIK_CLIENT/__init__.py
 touch $ARMONIK_COMMON/__init__.py
 
 # Need to fix the relative import
-# the package fix_protobuf_import help a lot but miss the capactiy to do the same things for the _pb2_grpc.py file
-sed -i 's/\_pb2\.py/\_pb2\*\.py/g' $PYTHON_VENV//lib/python*/site-packages/fix_protobuf_imports/*.py
-fix-protobuf-imports $ARMONIK_PYTHON_SRC/armonik
-
-# another fix to have working relative import
-sed -i 's/from \.\.\./from \.\./g' $ARMONIK_WORKER/*
-sed -i 's/from \.\.\./from \.\./g' $ARMONIK_CLIENT/*
-sed -i 's/from \.\.\./from \.\./g' $ARMONIK_COMMON/*
-
-# Build cannot access files outside the current directory
-cp $README_PATH $ARMONIK_PYTHON_SRC
+python fix_imports.py $ARMONIK_PYTHON_SRC/protogen
 
 python -m build -s -w -o $PACKAGE_PATH

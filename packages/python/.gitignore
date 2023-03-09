@@ -1,4 +1,5 @@
 pkg/
-generated/
+armonik/protogen
 build/
 *.egg-info
+**/_version.py
