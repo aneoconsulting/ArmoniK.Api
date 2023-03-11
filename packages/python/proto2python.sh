@@ -16,11 +16,12 @@ fi;
 source ../common/protofiles.sh
 
 export PATH=$HOME/.local/bin:$PATH
-export ARMONIK_PYTHON_SRC="armonik"
+export ARMONIK_PYTHON_SRC="src"
 export PACKAGE_PATH="pkg"
-export ARMONIK_WORKER=$ARMONIK_PYTHON_SRC"/protogen/worker"
-export ARMONIK_CLIENT=$ARMONIK_PYTHON_SRC"/protogen/client"
-export ARMONIK_COMMON=$ARMONIK_PYTHON_SRC"/protogen/common"
+export GENERATED_PATH=$ARMONIK_PYTHON_SRC"/armonik/protogen"
+export ARMONIK_WORKER=$GENERATED_PATH"/worker"
+export ARMONIK_CLIENT=$GENERATED_PATH"/client"
+export ARMONIK_COMMON=$GENERATED_PATH"/common"
 
 mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 
@@ -30,7 +31,7 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install build grpcio grpcio-tools
+python -m pip install build grpcio grpcio-tools click
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
@@ -61,6 +62,6 @@ touch $ARMONIK_CLIENT/__init__.py
 touch $ARMONIK_COMMON/__init__.py
 
 # Need to fix the relative import
-python fix_imports.py $ARMONIK_PYTHON_SRC/protogen
+python fix_imports.py $GENERATED_PATH
 
 python -m build -s -w -o $PACKAGE_PATH

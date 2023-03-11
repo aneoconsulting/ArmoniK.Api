@@ -5,18 +5,8 @@ from typing import Optional, List
 from client.tasks import ArmoniKTasks
 from protogen.common.tasks_common_pb2 import TaskRaw
 from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
-from ..protogen.common.objects_pb2 import Empty, Configuration as ProtoConfig, Output as WorkerOutput
+from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput
 from ..protogen.common.task_status_pb2 import *
-
-
-@dataclass()
-class Configuration:
-    data_chunk_max_size: int
-    _message: ProtoConfig
-
-    def __init__(self, config: ProtoConfig):
-        self._message = config
-        self.data_chunk_max_size = self._message.data_chunk_max_size
 
 
 @dataclass()
