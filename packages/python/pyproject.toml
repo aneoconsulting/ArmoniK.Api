@@ -25,7 +25,7 @@ dependencies = [
 "Bug Tracker" = "https://github.com/aneoconsulting/ArmoniK/issues"
 
 [tool.setuptools_scm]
-write_to = "packages/python/armonik/_version.py"
+write_to = "packages/python/src/_version.py"
 root="../.."
 local_scheme = "no-local-version"
 
@@ -33,7 +33,7 @@ local_scheme = "no-local-version"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-where= ["armonik"]
+where= ["src"]
 
 [tool.setuptools.package-data]
 "*" = ["*.pyi"]
