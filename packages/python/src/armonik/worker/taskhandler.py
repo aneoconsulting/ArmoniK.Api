@@ -1,9 +1,9 @@
 import uuid
 from typing import Optional, Dict, List, Tuple, Union
 
-from ..common.objects import TaskOptions, Configuration, TaskDefinition, Task
+from ..common import TaskOptions, TaskDefinition, Task
 from ..protogen.common.agent_common_pb2 import Result, CreateTaskRequest
-from ..protogen.common.objects_pb2 import TaskRequest, InitKeyedDataStream, DataChunk, InitTaskRequest, TaskRequestHeader
+from ..protogen.common.objects_pb2 import TaskRequest, InitKeyedDataStream, DataChunk, InitTaskRequest, TaskRequestHeader, Configuration
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
 
 

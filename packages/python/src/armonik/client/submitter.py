@@ -3,8 +3,7 @@ from typing import Optional, List, Tuple, Dict
 
 from grpc import Channel
 
-from ..common.helpers import get_task_filter
-from ..common.objects import Configuration, TaskOptions, TaskStatus, TaskDefinition, Task
+from ..common import get_task_filter, TaskOptions, TaskDefinition, Task, TaskStatus
 from ..protogen.client.submitter_service_pb2_grpc import SubmitterStub
 from ..protogen.common.objects_pb2 import Empty, TaskRequest, ResultRequest, DataChunk, InitTaskRequest, \
     TaskRequestHeader, Configuration
@@ -43,7 +42,7 @@ class ArmoniKSubmitter:
         self._client = SubmitterStub(grpc_channel)
 
     def get_service_configuration(self) -> Configuration:
-        return Configuration(self._client.GetServiceConfiguration(Empty()))
+        return self._client.GetServiceConfiguration(Empty())
 
     def create_session(self, default_task_options: TaskOptions, partition_ids: Optional[List[str]] = None) -> str:
         if partition_ids is None:
@@ -96,7 +95,7 @@ class ArmoniKSubmitter:
         request = GetTaskStatusRequest()
         request.task_ids.extend(task_ids)
         reply = self._client.GetTaskStatus(request)
-        return dict([(s.task_id, TaskStatus(s.status)) for s in reply.id_statuses])
+        return dict([(s.task_id, s.status) for s in reply.id_statuses])
 
     def wait_for_completion(self,
                             session_ids: Optional[List[str]] = None,
@@ -105,7 +104,7 @@ class ArmoniKSubmitter:
                             excluded_statuses: Optional[List[TaskStatus]] = None,
                             stop_on_first_task_error: bool = False,
                             stop_on_first_task_cancellation: bool = False) -> Dict[TaskStatus, int]:
-        return dict([(TaskStatus(sc.status), sc.count) for sc in self._client.WaitForCompletion(
+        return dict([(sc.status, sc.count) for sc in self._client.WaitForCompletion(
             WaitRequest(filter=get_task_filter(session_ids, task_ids, included_statuses, excluded_statuses),
                         stop_on_first_task_error=stop_on_first_task_error,
                         stop_on_first_task_cancellation=stop_on_first_task_cancellation)).values])

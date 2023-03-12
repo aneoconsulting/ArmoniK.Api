@@ -2,11 +2,10 @@ from dataclasses import dataclass, field
 from datetime import timedelta, datetime
 from typing import Optional, List
 
-from client.tasks import ArmoniKTasks
-from protogen.common.tasks_common_pb2 import TaskRaw
+from ..protogen.common.tasks_common_pb2 import TaskRaw
 from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
 from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput
-from ..protogen.common.task_status_pb2 import *
+from .enumwrapper import TaskStatus
 
 
 @dataclass()
@@ -84,7 +83,7 @@ class Task:
     data_dependencies: Optional[List[str]] = None
     expected_output_ids: Optional[List[str]] = None
     retry_of_ids: Optional[List[str]] = None
-    status: TaskStatus = TaskStatus.TASK_STATUS_UNSPECIFIED
+    status: TaskStatus = TaskStatus.UNSPECIFIED
     status_message: Optional[str] = None
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
@@ -97,7 +96,7 @@ class Task:
     received_at: Optional[datetime] = None
     acquired_at: Optional[datetime] = None
 
-    def refresh(self, task_client: ArmoniKTasks) -> None:
+    def refresh(self, task_client) -> None:
         result = task_client.get_task(self.id)
         self.session_id = result.session_id
         self.owner_pod_id = result.owner_pod_id
@@ -128,7 +127,7 @@ class Task:
             data_dependencies=list(task_raw.data_dependencies),
             expected_output_ids=list(task_raw.expected_output_ids),
             retry_of_ids=list(task_raw.retry_of_ids),
-            status=task_raw.status,
+            status=TaskStatus(task_raw.status),
             status_message=task_raw.status_message,
             options=task_raw.options,
             created_at=timestamp_to_datetime(task_raw.created_at),
