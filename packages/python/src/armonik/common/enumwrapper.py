@@ -3,7 +3,7 @@ import enum
 from ..protogen.common.task_status_pb2 import *
 from ..protogen.common.worker_common_pb2 import HealthCheckReply
 
-# This file is necessary because the grpc values don't have the proper type
+# This file is necessary because the grpc types aren't considered proper types
 
 
 class HealthCheckStatus(enum.Enum):
