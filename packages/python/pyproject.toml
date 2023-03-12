@@ -17,8 +17,7 @@ classifiers = [
 ]
 dependencies = [
     "grpcio",
-    "grpcio-tools",
-	"seqlog"
+    "grpcio-tools"
 ]
 
 [project.urls]

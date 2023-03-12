@@ -1,3 +1,3 @@
 from .worker import ArmoniKWorker
 from .taskhandler import TaskHandler
-from .seqlogger import get_worker_logger
+from .seqlogger import ClefLogger
