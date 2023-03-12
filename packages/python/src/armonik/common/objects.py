@@ -104,7 +104,7 @@ class Task:
         self.data_dependencies = result.data_dependencies
         self.expected_output_ids = result.expected_output_ids
         self.retry_of_ids = result.retry_of_ids
-        self.status = result.status
+        self.status = TaskStatus(result.status)
         self.status_message = result.status_message
         self.options = result.options
         self.created_at = result.created_at
