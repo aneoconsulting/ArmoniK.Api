@@ -31,7 +31,7 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install build grpcio grpcio-tools click seqlog
+python -m pip install build grpcio grpcio-tools click
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do

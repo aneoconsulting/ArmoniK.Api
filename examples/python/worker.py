@@ -2,18 +2,18 @@ import logging
 import os
 
 import grpc
-from armonik.worker import ArmoniKWorker, TaskHandler
-from armonik.worker import get_worker_logger
+from armonik.worker import ArmoniKWorker, TaskHandler, ClefLogger
 from armonik.common import Output, TaskDefinition
 from typing import List
 
 from common import Payload, Result
 
-logger = get_worker_logger("ArmoniKWorker", level=logging.INFO)
+ClefLogger.setup_logging(logging.INFO)
 
 
 # Task processing
 def processor(task_handler: TaskHandler) -> Output:
+    logger = ClefLogger.getLogger("ArmoniKWorker")
     payload = Payload.deserialize(task_handler.payload)
     # No values
     if len(payload.values) == 0:
@@ -60,6 +60,7 @@ def aggregate(values: List[float]) -> float:
 
 
 def main():
+    logger = ClefLogger.getLogger("ArmoniKWorker")
     worker_scheme = "unix://" if os.getenv("ComputePlane__WorkerChannel__SocketType", "unixdomainsocket") == "unixdomainsocket" else "http://"
     agent_scheme = "unix://" if os.getenv("ComputePlane__AgentChannel__SocketType", "unixdomainsocket") == "unixdomainsocket" else "http://"
     worker_endpoint = worker_scheme+os.getenv("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock")
