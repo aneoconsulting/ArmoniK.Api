@@ -5,8 +5,8 @@ from typing import List, Optional
 import google.protobuf.duration_pb2 as duration
 import google.protobuf.timestamp_pb2 as timestamp
 
-from .objects import TaskStatus
 from ..protogen.common.submitter_common_pb2 import TaskFilter
+from .enumwrapper import TaskStatus
 
 
 def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[List[str]] = None,
