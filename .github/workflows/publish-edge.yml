@@ -105,6 +105,39 @@ jobs:
       - name: Push the package
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
+  release-python-package:
+    needs: [create-version]
+    name: Release Python Package
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.create-version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - run: npm i -g @antfu/ni pnpm && nci && nr update-versions $VERSION
+
+      - name: pip update and add build package
+        run: |
+          cd ./packages/python
+          bash proto2python.sh ~/pyvenv
+
+      - name: Upload as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: python-packages
+          path: packages/python/pkg/
+
+      - name: Publish to PyPITest
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.DEV_PYPI_API_TOKEN }}
+          print_hash: true
+          packages_dir: packages/python/pkg/
+          repository_url: https://test.pypi.org/legacy/
+
   release-angular-package:
     if: github.ref == 'refs/heads/main'
     needs: [create-version]
