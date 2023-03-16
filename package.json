@@ -1,6 +1,6 @@
 {
   "name": "armonik.api",
-  "packageManager": "yarn@3.3.1",
+  "packageManager": "pnpm@7.29.0",
   "scripts": {
     "ci:publish": "zx scripts/publish.mjs",
     "ci:publish-edge": "zx scripts/publish-edge.mjs",
