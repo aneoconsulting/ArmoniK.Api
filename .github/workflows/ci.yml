@@ -17,25 +17,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - run: npm i -g pnpm @antfu/ni
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
-          cache: yarn
-
-      - name: Cache Node Modules
-        id: node-cache
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: node-modules-${{ hashFiles('yarn.lock') }}
+          cache: pnpm
 
       - name: Install Dependencies
-        if: steps.node-cache.outputs.cache-hit != 'true'
-        run: yarn --immutable
+        run: nci
 
       - name: Verify Versions
-        run: yarn verify-versions
+        run: nr verify-versions
 
   format-csharp:
     name: Format C#
@@ -108,23 +102,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      - run: npm i -g pnpm @antfu/ni
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
-          cache: npm
+          cache: pnpm
 
       - name: Install Dependencies
-        run: npm ci
+        run: nci
 
       - name: Install Protoc
         run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
-        run: npm run proto:generate:linux
+        run: nr proto:generate:linux
 
       - name: Build
-        run: npm run build
+        run: nr build
 
   build-angular:
     name: Build Angular
@@ -137,20 +133,22 @@ jobs:
         with:
           fetch-depth: 0
 
+      - run: npm i -g pnpm @antfu/ni
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
-          cache: npm
+          cache: pnpm
 
       - name: Install Dependencies
-        run: npm ci
+        run: nci
 
       - name: Install Protoc
         run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
-        run: npm run proto:generate:linux
+        run: nr proto:generate:linux
 
       - name: Build
-        run: npm run build
+        run: nr build
