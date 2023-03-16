@@ -117,29 +117,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      - run: npm i -g @antfu/ni pnpm
+
       - uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: npm
+          cache: pnpm
           registry-url: https://registry.npmjs.org/
 
-      - name: Install ni
-        run: npm i -g @antfu/ni pnpm
-
       - name: Install dependencies
-        run: nci && cd packages/angular && nci && cd ../..
+        run: nci && cd packages/angular && nci
 
       - name: Install Protoc
         run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
-        run: cd packages/angular && nr proto:generate:linux && cd ../..
+        run: cd packages/angular && nr proto:generate:linux
 
       - name: Update version
         run: nr update-versions $VERSION
 
       - name: Build package
-        run: cd packages/angular && nr build && cd ../..
+        run: cd packages/angular && nr build
 
       - name: Release package
         run: nr ci:publish-edge angular dist/aneoconsultingfr/armonik.api.angular
@@ -158,25 +157,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      - run: npm i -g @antfu/ni pnpm
+
       - uses: actions/setup-node@v3
         with:
           node-version: 18
+          cache: pnpm
           registry-url: https://registry.npmjs.org/
 
       - name: Install ni
         run: npm i -g @antfu/ni pnpm
 
       - name: Install dependencies
-        run: nci && cd packages/web && nci && cd ../..
+        run: nci && cd packages/web && nci
 
       - name: Install Protoc
         run: sudo apt install -y protobuf-compiler
 
       - name: Build protos
-        run: cd packages/web && nr proto:generate:linux && cd ../..
+        run: cd packages/web && nr proto:generate:linux
 
       - name: Build package
-        run: cd packages/web && nr build && cd ../..
+        run: cd packages/web && nr build
 
       - name: Update version
         run: nr update-versions $VERSION
