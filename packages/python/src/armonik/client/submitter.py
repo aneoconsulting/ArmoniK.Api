@@ -1,40 +1,14 @@
 import uuid
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, Union
 
 from grpc import Channel
 
-from ..common import get_task_filter, TaskOptions, TaskDefinition, Task, TaskStatus
+from ..common import get_task_filter, TaskOptions, TaskDefinition, Task, TaskStatus, ResultAvailability
 from ..protogen.client.submitter_service_pb2_grpc import SubmitterStub
 from ..protogen.common.objects_pb2 import Empty, TaskRequest, ResultRequest, DataChunk, InitTaskRequest, \
-    TaskRequestHeader, Configuration
+    TaskRequestHeader, Configuration, Session
 from ..protogen.common.submitter_common_pb2 import CreateSessionRequest, GetTaskStatusRequest, CreateLargeTaskRequest, \
     WaitRequest
-
-"""
-  rpc GetServiceConfiguration(Empty) returns (Configuration);
-
-  rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
-  rpc CancelSession(Session) returns (Empty);
-
-  rpc CreateSmallTasks(CreateSmallTaskRequest) returns (CreateTaskReply);
-  rpc CreateLargeTasks(stream CreateLargeTaskRequest) returns (CreateTaskReply);
-
-  rpc ListTasks(TaskFilter) returns (TaskIdList);
-  rpc ListSessions(SessionFilter) returns (SessionIdList);
-
-  rpc CountTasks(TaskFilter) returns (Count);
-  rpc TryGetResultStream(ResultRequest) returns (stream ResultReply);
-  rpc TryGetTaskOutput(TaskOutputRequest) returns (Output);
-  rpc WaitForAvailability(ResultRequest) returns (AvailabilityReply) {
-    option deprecated = true;
-  }
-  rpc WaitForCompletion(WaitRequest) returns (Count);
-  rpc CancelTasks(TaskFilter) returns (Empty);
-  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusReply);
-  rpc GetResultStatus(GetResultStatusRequest) returns (GetResultStatusReply) {
-    option deprecated = true;
-  }
-"""
 
 
 class ArmoniKSubmitter:
@@ -42,22 +16,46 @@ class ArmoniKSubmitter:
         self._client = SubmitterStub(grpc_channel)
 
     def get_service_configuration(self) -> Configuration:
+        """
+        Get service configuration
+        :return: Configuration object containing the chunk size
+        """
         return self._client.GetServiceConfiguration(Empty())
 
     def create_session(self, default_task_options: TaskOptions, partition_ids: Optional[List[str]] = None) -> str:
+        """
+        Create a session
+        :param default_task_options: Default TaskOptions used when submitting tasks without specifying the options
+        :param partition_ids: List of partitions this session can send tasks to. If unspecified, can only send to the default partition
+        :return: Session Id
+        """
         if partition_ids is None:
             partition_ids = []
-        request = CreateSessionRequest(default_task_option=default_task_options)
+        request = CreateSessionRequest(default_task_option=default_task_options.to_message())
         for partition in partition_ids:
             request.partition_ids.append(partition)
         return self._client.CreateSession(request).session_id
 
+    def cancel_session(self, session_id: str) -> None:
+        """
+        Cancel a session
+        :param session_id: Id of the session to b cancelled
+        """
+        self._client.CancelSession(Session(id=session_id))
+
     def submit(self, session_id: str, tasks: List[TaskDefinition], task_options: Optional[TaskOptions] = None) -> Tuple[List[Task], List[str]]:
+        """
+        Send tasks to ArmoniK
+        :param session_id: Session Id
+        :param tasks: List of task definitions
+        :param task_options: Task Options used for this batch of tasks
+        :return: Tuple containing the list of successfully sent tasks, and the list of submission errors if any
+        """
         task_requests = []
 
         for t in tasks:
             task_request = TaskRequest()
-            task_request.expected_output_keys.extend(t.expected_outputs)
+            task_request.expected_output_keys.extend(t.expected_output_ids)
             if t.data_dependencies is not None:
                 task_request.data_dependencies.extend(t.data_dependencies)
             task_request.payload = t.payload
@@ -88,10 +86,23 @@ class ArmoniKSubmitter:
     def list_tasks(self, session_ids: Optional[List[str]] = None, task_ids: Optional[List[str]] = None,
                    included_statuses: Optional[List[TaskStatus]] = None,
                    excluded_statuses: Optional[List[TaskStatus]] = None) -> List[str]:
+        """
+        List tasks
+        :param session_ids: List of session ids from which to list tasks from. Mutually exclusive with task_ids
+        :param task_ids: List of task ids to list. Mutually exclusive with session_ids
+        :param included_statuses: List of statuses to list tasks from, excluding other stask statuses. Mutually exclusive with excluded_statuses
+        :param excluded_statuses: List of statuses to not list tasks from, including other stask statuses. Mutually exclusive with included_statuses
+        :return: List of task ids
+        """
         return [t for t in self._client.ListTasks(
             get_task_filter(session_ids, task_ids, included_statuses, excluded_statuses)).task_ids]
 
     def get_task_status(self, task_ids: List[str]) -> Dict[str, TaskStatus]:
+        """
+        Get statuses of a given task list
+        :param task_ids: List of task ids
+        :return: Dictionary mapping a task id to the status of the corresponding task
+        """
         request = GetTaskStatusRequest()
         request.task_ids.extend(task_ids)
         reply = self._client.GetTaskStatus(request)
@@ -104,12 +115,28 @@ class ArmoniKSubmitter:
                             excluded_statuses: Optional[List[TaskStatus]] = None,
                             stop_on_first_task_error: bool = False,
                             stop_on_first_task_cancellation: bool = False) -> Dict[TaskStatus, int]:
+        """
+        Wait for the tasks matching the filters
+        :param session_ids: List of session ids from which to list tasks from. Mutually exclusive with task_ids
+        :param task_ids: List of task ids to list. Mutually exclusive with session_ids
+        :param included_statuses: List of statuses to list tasks from, excluding other stask statuses. Mutually exclusive with excluded_statuses
+        :param excluded_statuses: List of statuses to not list tasks from, including other stask statuses. Mutually exclusive with included_statuses
+        :param stop_on_first_task_error: If set to true, stop the wait if a matching task fails
+        :param stop_on_first_task_cancellation: If set to true, stop the wait if a matching task is cancelled
+        :return: Dictionary containing the number of tasks in each status after waiting for completion
+        """
         return dict([(sc.status, sc.count) for sc in self._client.WaitForCompletion(
             WaitRequest(filter=get_task_filter(session_ids, task_ids, included_statuses, excluded_statuses),
                         stop_on_first_task_error=stop_on_first_task_error,
                         stop_on_first_task_cancellation=stop_on_first_task_cancellation)).values])
 
-    def get_result(self, session_id: str, result_id) -> bytes:
+    def get_result(self, session_id: str, result_id: str) -> bytes:
+        """
+        Get a result
+        :param session_id: Session Id
+        :param result_id: Result Id
+        :return: content of the result as bytes
+        """
         result_request = ResultRequest(
             result_id=result_id,
             session=session_id
@@ -135,7 +162,31 @@ class ArmoniKSubmitter:
             return result
         raise Exception("Incomplete Data")
 
+    def wait_for_availability(self, session_id: str, result_id: str) -> Union[ResultAvailability, None]:
+        """
+        Blocks until the result is available or is in error
+        :param session_id: Session Id
+        :param result_id: Result Id
+        :return: None if the wait was cancelled unexpectedly, otherwise a ResultAvailability with potential errors
+        """
+        result_request = ResultRequest(
+            result_id=result_id,
+            session=session_id
+        )
+        response = self._client.WaitForAvailability(result_request)
+        response_type = response.WhichOneof("type")
+        if response_type == "ok":
+            return ResultAvailability()
+        if response_type == "error":
+            return ResultAvailability(errors=[e.detail for e in response.error.errors])
+        return None
+
     def request_output_id(self, session_id: str) -> str:
+        """
+        Request an output id
+        :param session_id: Session Id
+        :return: Output id
+        """
         return f"{session_id}%{uuid.uuid4()}"
 
 

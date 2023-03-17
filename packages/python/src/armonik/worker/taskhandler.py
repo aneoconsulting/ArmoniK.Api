@@ -39,7 +39,7 @@ class TaskHandler:
         self.task_id: str = init_request.task_id
         self.task_options: TaskOptions = TaskOptions.from_message(init_request.task_options)
         self.expected_results = list(init_request.expected_output_keys)
-        self.configuration = Configuration(init_request.configuration)
+        self.configuration = init_request.configuration
         self.token: str = current.communication_token
 
         datachunk = init_request.payload
@@ -63,6 +63,7 @@ class TaskHandler:
             if not (init_data.key is None or init_data.key == ""):
                 chunk = bytearray()
                 while True:
+                    current = next(self.request_iterator, None)
                     if current is None:
                         raise ValueError("Request stream ended unexpectedly")
                     if current.compute.WhichOneof("type") != "data":
@@ -83,7 +84,7 @@ class TaskHandler:
 
         for t in tasks:
             task_request = TaskRequest()
-            task_request.expected_output_keys.extend(t.expected_outputs)
+            task_request.expected_output_keys.extend(t.expected_output_ids)
             task_request.data_dependencies.extend(t.data_dependencies)
             task_request.payload = t.payload
             task_requests.append(task_request)
@@ -170,9 +171,14 @@ def _to_request_stream_internal(request, communication_token, is_last, chunk_max
 
 
 def _to_request_stream(requests, communication_token, t_options, chunk_max_size):
-    req = CreateTaskRequest(
-        init_request=CreateTaskRequest.InitRequest(task_options=t_options),
-        communication_token=communication_token)
+    if t_options is None:
+        req = CreateTaskRequest(
+            init_request=CreateTaskRequest.InitRequest(),
+            communication_token=communication_token)
+    else:
+        req = CreateTaskRequest(
+            init_request=CreateTaskRequest.InitRequest(task_options=t_options),
+            communication_token=communication_token)
     yield req
     if len(requests) == 0:
         return

@@ -42,9 +42,9 @@ def processor(task_handler: TaskHandler) -> Output:
     subtasks = []
     for vals in [lower, upper]:
         new_payload = Payload(values=vals, subtask_threshold=payload.subtask_threshold).serialize()
-        subtasks.append(TaskDefinition(payload=new_payload, expected_outputs=[task_handler.request_output_id()]))
-    aggregate_dependencies = [s.expected_outputs[0] for s in subtasks]
-    subtasks.append(TaskDefinition(Payload(values=aggregate_dependencies).serialize(), expected_outputs=task_handler.expected_results, data_dependencies=aggregate_dependencies))
+        subtasks.append(TaskDefinition(payload=new_payload, expected_output_ids=[task_handler.request_output_id()]))
+    aggregate_dependencies = [s.expected_output_ids[0] for s in subtasks]
+    subtasks.append(TaskDefinition(Payload(values=aggregate_dependencies).serialize(), expected_output_ids=task_handler.expected_results, data_dependencies=aggregate_dependencies))
     if len(subtasks) > 0:
         submitted, errors = task_handler.create_tasks(subtasks)
         if len(errors) > 0:

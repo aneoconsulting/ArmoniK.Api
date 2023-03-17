@@ -45,24 +45,27 @@ class ClefLogger:
         self.log(logging.ERROR, message, exc_info=exc_info, **kwargs)
 
     def log(self, level: int, message: str, exc_info: Union[BaseException, Tuple[Type[BaseException], BaseException, Optional[TracebackType]], bool, None] = None, **kwargs):
-        if self._logger.isEnabledFor(level):
-            payload = {
-                "@t": datetime.utcnow().isoformat(),
-                "@l": logging.getLevelName(level),
-                "@mt": message,
-            }
-            if exc_info:
-                if isinstance(exc_info, bool):
-                    exc_info = sys.exc_info()
-                elif isinstance(exc_info, BaseException):
-                    exc_info = (None, exc_info, None)
-                exc_info = "\n".join(traceback.format_exception(exc_info[1]))
-                payload["@x"] = exc_info
-            for k, v in kwargs:
-                if k.startswith("@"):
-                    k = "@"+k
-                payload[k] = str(v)
-            self._logger.log(level, msg=json.dumps(payload))
+        try:
+            if self._logger.isEnabledFor(level):
+                payload = {
+                    "@t": datetime.utcnow().isoformat(),
+                    "@l": logging.getLevelName(level),
+                    "@mt": message,
+                }
+                if exc_info:
+                    if isinstance(exc_info, bool):
+                        exc_info = sys.exc_info()
+                    elif isinstance(exc_info, BaseException):
+                        exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
+                    exc_info = "\n".join(traceback.format_exception(*exc_info))
+                    payload["@x"] = exc_info
+                for k, v in kwargs:
+                    if k.startswith("@"):
+                        k = "@"+k
+                    payload[k] = str(v)
+                self._logger.log(level, msg=json.dumps(payload))
+        except Exception as e:
+            print(f"Couldn't log message : {e}")
 
     def setLevel(self, level: int):
         self._logger.setLevel(level)

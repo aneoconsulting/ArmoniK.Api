@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
 from datetime import timedelta, datetime
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 from ..protogen.common.tasks_common_pb2 import TaskRaw
 from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
-from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput
+from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput, TaskOptions as RawTaskOptions
 from .enumwrapper import TaskStatus
 
 
@@ -19,34 +19,34 @@ class TaskOptions:
     application_namespace: Optional[str] = None
     application_service: Optional[str] = None
     engine_type: Optional[str] = None
-    options: Optional[dict] = None
+    options: Optional[Dict] = field(default_factory=dict)
 
-    @staticmethod
-    def from_message(task_options):
-        return TaskOptions(max_duration=duration_to_timedelta(task_options.max_duration),
-                           max_retries=task_options.max_retries,
-                           priority=task_options.priority,
-                           partition_id=task_options.partition_id,
-                           application_name=task_options.application_name,
-                           application_version=task_options.application_version,
-                           application_namespace=task_options.application_namespace,
-                           application_service=task_options.application_service,
-                           engine_type=task_options.engine_type,
-                           options=task_options.options
-                           )
+    @classmethod
+    def from_message(cls, task_options):
+        return cls(max_duration=duration_to_timedelta(task_options.max_duration),
+                   max_retries=task_options.max_retries,
+                   priority=task_options.priority,
+                   partition_id=task_options.partition_id,
+                   application_name=task_options.application_name,
+                   application_version=task_options.application_version,
+                   application_namespace=task_options.application_namespace,
+                   application_service=task_options.application_service,
+                   engine_type=task_options.engine_type,
+                   options=task_options.options
+                   )
 
-    def to_message(self):
-        return TaskOptions(max_duration=timedelta_to_duration(self.max_duration),
-                           max_retries=self.max_retries,
-                           priority=self.priority,
-                           partition_id=self.partition_id,
-                           application_name=self.application_name,
-                           application_version=self.application_version,
-                           application_namespace=self.application_namespace,
-                           application_service=self.application_service,
-                           engine_type=self.engine_type,
-                           options=self.options
-                           )
+    def to_message(self) -> RawTaskOptions:
+        return RawTaskOptions(max_duration=timedelta_to_duration(self.max_duration),
+                              max_retries=self.max_retries,
+                              priority=self.priority,
+                              partition_id=self.partition_id,
+                              application_name=self.application_name,
+                              application_version=self.application_version,
+                              application_namespace=self.application_namespace,
+                              application_service=self.application_service,
+                              engine_type=self.engine_type,
+                              options=self.options
+                              )
 
 
 @dataclass()
@@ -66,12 +66,12 @@ class Output:
 @dataclass()
 class TaskDefinition:
     payload: bytes
-    expected_outputs: List[str]
+    expected_output_ids: List[str]
     data_dependencies: List[str] = field(default_factory=list)
 
     def __post_init__(self):
-        if len(self.expected_outputs) <= 0:
-            raise ValueError("expected_outputs must be >= 1")
+        if len(self.expected_output_ids) <= 0:
+            raise ValueError("expected_output_ids must be not be empty")
 
 
 @dataclass()
@@ -97,6 +97,10 @@ class Task:
     acquired_at: Optional[datetime] = None
 
     def refresh(self, task_client) -> None:
+        """
+        Refresh the fields of this task object by using the given task client
+        :param task_client: ArmoniKTasks client
+        """
         result = task_client.get_task(self.id)
         self.session_id = result.session_id
         self.owner_pod_id = result.owner_pod_id
@@ -141,3 +145,11 @@ class Task:
             received_at=timestamp_to_datetime(task_raw.received_at),
             acquired_at=timestamp_to_datetime(task_raw.acquired_at)
         )
+
+
+@dataclass()
+class ResultAvailability:
+    errors: List[str] = field(default_factory=list)
+
+    def is_available(self) -> bool:
+        return len(self.errors) == 0
