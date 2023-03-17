@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#Fixed version of fix_protobuf_imports available here under MIT License : https://pypi.org/project/fix-protobuf-imports/
+# Fixed version of fix_protobuf_imports available here under MIT License : https://pypi.org/project/fix-protobuf-imports/
 import os
 import re
 import sys
@@ -7,7 +7,7 @@ from typing import Tuple
 from pathlib import Path
 
 if sys.version_info >= (3, 8):
-    from typing import TypedDict# pylint: disable=no-name-in-module
+    from typing import TypedDict  # pylint: disable=no-name-in-module
 else:
     from typing_extensions import TypedDict
 
@@ -21,7 +21,8 @@ class ProtobufFilePathInfo(TypedDict):
 
 
 @click.command()
-@click.option("--dry", is_flag=True, show_default=True, default=False, help="Do not write out the changes to the files.")
+@click.option("--dry", is_flag=True, show_default=True, default=False,
+              help="Do not write out the changes to the files.")
 @click.argument("root_dir", type=click.Path(exists=True))
 def fix_protobuf_imports(root_dir, dry):
     """
@@ -79,9 +80,11 @@ def fix_protobuf_imports(root_dir, dry):
                 .replace("\\", ".")
             )
             if referenced_alias:
-                line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name} as {referenced_alias}\n'.replace("from ...", "from ..")
+                line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name} as {referenced_alias}\n'.replace(
+                    "from ...", "from ..")
             else:
-                line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name}\n'.replace("from ...", "from ..")
+                line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name}\n'.replace(
+                    "from ...", "from ..")
 
             new_line = line.replace("\n", "")
 
@@ -112,8 +115,7 @@ def fix_protobuf_imports(root_dir, dry):
                     print(
                         f'{referencing_info["rel_path"]}: "{original_line}" -> "{new_line}"'
                     )
-					
-		
+
         return line
 
     def fix_protobuf_imports_in_file(name, info: ProtobufFilePathInfo, pyi=False):
@@ -141,8 +143,10 @@ def fix_protobuf_imports(root_dir, dry):
     ) in pyi_files_dictionary.items():
         fix_protobuf_imports_in_file(name, info, pyi=True)
 
+
 def main():
     fix_protobuf_imports()
+
 
 if __name__ == '__main__':
     sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
