@@ -37,21 +37,25 @@ def processor(task_handler: TaskHandler) -> Output:
 
     # Subtasking
     pivot = len(payload.values) // 2
+    # Split payload in half
     lower = payload.values[:pivot]
     upper = payload.values[pivot:]
     subtasks = []
     for vals in [lower, upper]:
+        # Create new payloads and task definitions
         new_payload = Payload(values=vals, subtask_threshold=payload.subtask_threshold).serialize()
         subtasks.append(TaskDefinition(payload=new_payload, expected_output_ids=[task_handler.request_output_id()]))
+    # Create the aggregation task
     aggregate_dependencies = [s.expected_output_ids[0] for s in subtasks]
     subtasks.append(TaskDefinition(Payload(values=aggregate_dependencies).serialize(), expected_output_ids=task_handler.expected_results, data_dependencies=aggregate_dependencies))
-    if len(subtasks) > 0:
-        submitted, errors = task_handler.create_tasks(subtasks)
-        if len(errors) > 0:
-            message = f"Errors while submitting subtasks : {', '.join(errors)}"
-            logger.error(message)
-            return Output(message)
-        logger.info(f"Submitted {len(submitted)} subtasks")
+
+    # Submit tasks
+    submitted, errors = task_handler.create_tasks(subtasks)
+    if len(errors) > 0:
+        message = f"Errors while submitting subtasks : {', '.join(errors)}"
+        logger.error(message)
+        return Output(message)
+    logger.info(f"Submitted {len(submitted)} subtasks")
     return Output()
 
 
@@ -60,11 +64,15 @@ def aggregate(values: List[float]) -> float:
 
 
 def main():
+    # Create Seq compatible logger
     logger = ClefLogger.getLogger("ArmoniKWorker")
+    # Define agent-worker communication endpoints
     worker_scheme = "unix://" if os.getenv("ComputePlane__WorkerChannel__SocketType", "unixdomainsocket") == "unixdomainsocket" else "http://"
     agent_scheme = "unix://" if os.getenv("ComputePlane__AgentChannel__SocketType", "unixdomainsocket") == "unixdomainsocket" else "http://"
     worker_endpoint = worker_scheme+os.getenv("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock")
     agent_endpoint = agent_scheme+os.getenv("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock")
+
+    # Start worker
     logger.info("Worker Started")
     with grpc.insecure_channel(agent_endpoint) as agent_channel:
         worker = ArmoniKWorker(agent_channel, processor, logger=logger)
