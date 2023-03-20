@@ -64,4 +64,4 @@ touch $ARMONIK_COMMON/__init__.py
 # Need to fix the relative import
 python fix_imports.py $GENERATED_PATH
 
-python -m build -w -o $PACKAGE_PATH
+python -m build -w -s -o $PACKAGE_PATH
