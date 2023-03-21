@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.partitions;
 
+import "objects.proto";
+
 option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
 
 /**
@@ -114,4 +116,83 @@ message GetPartitionRequest {
  */
 message GetPartitionResponse {
   PartitionRaw partition = 1; /** The raw partition. */
+}
+
+/**
+ * Request to update multiple partitions.
+ *
+ * Cannot update more than 30 partitions
+ */
+message UpdatePartitionsRequest {
+  /**
+   * Represents the data of the partitions that will be updated.
+   *
+   * ID is mandatory.
+   * -1 means that value will not be updated
+   * value >= 0 means that it will be the new value
+   */
+  message PartitionUpdate {
+    string id = 1; /** The ID of the partition that will be updated. */
+    int64 pod_reserved = 2; /** Whether the partition is reserved for pods. */
+    int64 pod_max = 3; /** The maximum number of pods that can be used by sessions using the partition. */
+    int64 preemption_percentage = 4; /** The percentage of the partition that can be preempted. */
+    int64 priority = 5; /** The priority of the partition. */
+  }
+
+  repeated PartitionUpdate partitions = 1; /** The list of partitions to update. */
+}
+
+/**
+ * Response to update a partition.
+ *
+ * Return a list of raw partitions with the new values.
+ */
+message UpdatePartitionsResponse {
+  repeated PartitionRaw partitions = 1; /** The list of raw partitions. */
+}
+
+/**
+ * Request to delete partitions.
+ *
+ * If the ID is not found, it is ignored
+ */
+message DeletePartitionsRequest {
+  repeated string id = 1; /** The IDs of the partitions to delete. */
+}
+
+/**
+ * Response to delete partitions.
+ */
+message DeletePartitionsResponse {
+  Empty ok = 1;
+}
+
+/**
+ * Request to create multiple partitions.
+ *
+ * Cannot create more than 30 partitions
+ */
+message CreatePartitionsRequest {
+  /**
+   * Represents the data of the partitions that will be created.
+   */
+  message PartitionCreate {
+    repeated string parent_partition_ids = 2; /** The parent partition IDs. */
+    int64 pod_reserved = 3; /** Whether the partition is reserved for pods. */
+    int64 pod_max = 4; /** The maximum number of pods that can be used by sessions using the partition. */
+    map<string, string> pod_configuration = 7; /** The pod configuration. */
+    int64 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
+    int64 priority = 6; /** The priority of the partition. */
+  }
+
+  repeated PartitionCreate partitions = 1; /** The list of partitions to create. */
+}
+
+/**
+ * Response to create a partitions.
+ *
+ * Return a list of raw partitions with the given values.
+ */
+message CreatePartitionsResponse {
+  repeated PartitionRaw partitions = 1; /** The list of raw partitions. */
 }
