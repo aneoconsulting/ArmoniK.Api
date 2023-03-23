@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "armonik"
 description = "GRPC python binding for the ArmoniK orchestrator API"
 readme = "generated/README.md"
-version = "3.5.3"
+version = "3.6.0"
 requires-python = ">=3.7"
 keywords = ["cloud", "HTC", "gRPC", "ArmoniK", "Aneo"]
 license = {text = "Apache v2.0 LICENSE"}
