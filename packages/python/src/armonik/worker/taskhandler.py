@@ -80,6 +80,16 @@ class TaskHandler:
                 break
 
     def create_tasks(self, tasks: List[TaskDefinition], task_options: Optional[TaskOptions] = None) -> Tuple[List[Task], List[str]]:
+        """Create new tasks for ArmoniK
+
+        Args:
+            tasks: List of task definitions
+            task_options: Task Options used for this batch of tasks
+
+        Returns:
+            Tuple containing the list of successfully sent tasks, and
+            the list of submission errors if any
+        """
         task_requests = []
 
         for t in tasks:
@@ -106,9 +116,20 @@ class TaskHandler:
         return tasks_created, tasks_creation_failed
 
     def request_output_id(self) -> str:
+        """Request an output id
+
+                Returns:
+                    Output id
+        """
         return f"{self.token}%{uuid.uuid4()}"
 
     def send_result(self, key: str, data: Union[bytes, bytearray]) -> None:
+        """ Send task result
+
+        Args:
+            key: Result key
+            data: Result data
+        """
         def result_stream():
             res = Result(communication_token=self.token, init=InitKeyedDataStream(key=key))
             yield res

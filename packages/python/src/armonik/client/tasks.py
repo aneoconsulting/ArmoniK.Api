@@ -15,13 +15,13 @@ class ArmoniKTasks:
         self._client = TasksStub(grpc_channel)
 
     def get_task(self, task_id: str) -> Task:
-        """Get task informations from task id
+        """Get task information from task id
 
         Args:
             task_id: Id of the task
 
         Returns:
-            Task object with the informations
+            Task object with the information
         """
         task_response = self._client.GetTask(GetTaskRequest(task_id=task_id))
         task = Task()
