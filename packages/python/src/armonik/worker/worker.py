@@ -15,12 +15,17 @@ from .taskhandler import TaskHandler
 
 class ArmoniKWorker(WorkerServicer):
     def __init__(self, agent_channel: Channel, processing_function: Callable[[TaskHandler], Output], health_check: Callable[[], HealthCheckStatus] = lambda: HealthCheckStatus.SERVING, logger=ClefLogger.getLogger("ArmoniKWorker")):
-        """
-        Creates a worker for ArmoniK
-        :param agent_channel: gRPC channel for the agent
-        :param processing_function: Function that will be called when a task needs processing
-        :param health_check: Function that will be called to check the health of the worker. Defaults to a simple "Serving" reply
-        :param logger: Logger used for the worker, defaults to a logger ArmoniKWorker compatible with Seq
+        """Creates a worker for ArmoniK
+
+        Args:
+            agent_channel: gRPC channel for the agent
+            processing_function: Function that will be called when a
+                task needs processing
+            health_check: Function that will be called to check the
+                health of the worker. Defaults to a simple "Serving"
+                reply
+            logger: Logger used for the worker, defaults to a logger
+                ArmoniKWorker compatible with Seq
         """
         self.health_check = health_check
         self.processing_function = processing_function
@@ -28,9 +33,10 @@ class ArmoniKWorker(WorkerServicer):
         self._logger = logger
 
     def start(self, endpoint: str):
-        """
-        Starts the worker
-        :param endpoint: endpoint from which to listen to requests
+        """Starts the worker
+
+        Args:
+            endpoint: endpoint from which to listen to requests
         """
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
         add_WorkerServicer_to_server(self, server)

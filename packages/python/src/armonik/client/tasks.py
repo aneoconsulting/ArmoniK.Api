@@ -7,9 +7,22 @@ from ..protogen.common.tasks_common_pb2 import GetTaskRequest
 
 class ArmoniKTasks:
     def __init__(self, grpc_channel: Channel):
+        """ Tasks service client
+
+        Args:
+            grpc_channel: gRPC channel to use
+        """
         self._client = TasksStub(grpc_channel)
 
     def get_task(self, task_id: str) -> Task:
+        """Get task informations from task id
+
+        Args:
+            task_id: Id of the task
+
+        Returns:
+            Task object with the informations
+        """
         task_response = self._client.GetTask(GetTaskRequest(task_id=task_id))
         task = Task()
         raw = task_response.task
