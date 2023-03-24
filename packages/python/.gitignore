@@ -3,3 +3,4 @@ src/armonik/protogen
 build/
 *.egg-info
 **/_version.py
+**/.pytest_cache
