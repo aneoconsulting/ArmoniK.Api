@@ -10,7 +10,7 @@ then
     echo "usage: $0 <path where the python virtual env will be created>"
     exit
 else
-    export PYTHON_VENV="$1" 
+    export PYTHON_VENV="$1"
 fi;
 
 source ../common/protofiles.sh
@@ -31,7 +31,7 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install build grpcio grpcio-tools click
+python -m pip install build grpcio grpcio-tools click pytest
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
@@ -43,7 +43,7 @@ python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
 
 unset proto_files
 for proto in ${armonik_client_files[@]}; do
-    proto_files="$PROTO_PATH/$proto $proto_files" 
+    proto_files="$PROTO_PATH/$proto $proto_files"
 done
 python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
         --python_out=$ARMONIK_CLIENT --grpc_python_out=$ARMONIK_CLIENT --pyi_out=$ARMONIK_CLIENT \
@@ -51,7 +51,7 @@ python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
 
 unset proto_files
 for proto in ${armonik_common_files[@]}; do
-    proto_files="$PROTO_PATH/$proto $proto_files" 
+    proto_files="$PROTO_PATH/$proto $proto_files"
 done
 python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
         --python_out=$ARMONIK_COMMON --grpc_python_out=$ARMONIK_COMMON --pyi_out=$ARMONIK_COMMON \
