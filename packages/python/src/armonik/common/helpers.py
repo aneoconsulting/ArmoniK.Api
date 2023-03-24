@@ -12,6 +12,17 @@ from .enumwrapper import TaskStatus
 def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[List[str]] = None,
                     included_statuses: Optional[List[TaskStatus]] = None,
                     excluded_statuses: Optional[List[TaskStatus]] = None) -> TaskFilter:
+    """
+
+    Args:
+        session_ids:
+        task_ids:
+        included_statuses:
+        excluded_statuses:
+
+    Returns:
+
+    """
     if session_ids is not None and task_ids is not None:
         raise ValueError("session_ids and task_ids cannot be defined at the same time")
     if included_statuses is not None and excluded_statuses is not None:

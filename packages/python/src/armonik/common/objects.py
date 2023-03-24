@@ -97,9 +97,10 @@ class Task:
     acquired_at: Optional[datetime] = None
 
     def refresh(self, task_client) -> None:
-        """
-        Refresh the fields of this task object by using the given task client
-        :param task_client: ArmoniKTasks client
+        """Refresh the fields of this task object by using the given task client
+
+        Args:
+            task_client: ArmoniKTasks client
         """
         result = task_client.get_task(self.id)
         self.session_id = result.session_id
