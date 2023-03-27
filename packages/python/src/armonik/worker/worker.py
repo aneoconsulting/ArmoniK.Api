@@ -7,6 +7,7 @@ from grpc import Channel
 
 from .seqlogger import ClefLogger
 from ..common import Output, HealthCheckStatus
+from ..protogen.common.objects_pb2 import Empty
 from ..protogen.common.worker_common_pb2 import ProcessReply, HealthCheckReply
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
 from ..protogen.worker.worker_service_pb2_grpc import WorkerServicer, add_WorkerServicer_to_server
@@ -52,5 +53,5 @@ class ArmoniKWorker(WorkerServicer):
         except Exception as e:
             self._logger.exception(f"Failed task {''.join(traceback.format_exception(etype=type(e) ,value=e, tb=e.__traceback__))}", exc_info=e)
 
-    def HealthCheck(self, request, context) -> HealthCheckReply:
+    def HealthCheck(self, request: Empty, context) -> HealthCheckReply:
         return HealthCheckReply(status=self.health_check().value)
