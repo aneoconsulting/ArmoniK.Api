@@ -60,10 +60,7 @@ def fix_protobuf_imports(root_dir, dry):
 
         if m is not None:
             referenced_name = m.group(1)
-            if pyi:
-                referenced_alias = None
-            else:
-                referenced_alias = m.group(2)
+            referenced_alias = m.group(2)
 
             referenced_directory = py_files_dictionary[referenced_name]["dir"]
             relative_path_to_referenced_module = os.path.relpath(

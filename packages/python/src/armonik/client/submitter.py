@@ -80,7 +80,7 @@ class ArmoniKSubmitter:
 
         configuration = self.get_service_configuration()
         create_tasks_reply = self._client.CreateLargeTasks(
-            _to_request_stream(task_requests, session_id, task_options.to_message(), configuration.data_chunk_max_size))
+            _to_request_stream(task_requests, session_id, task_options.to_message() if task_options is not None else None, configuration.data_chunk_max_size))
         ret = create_tasks_reply.WhichOneof("Response")
         if ret is None or ret == "error":
             raise Exception(f'Issue with server when submitting tasks : {create_tasks_reply.error}')
