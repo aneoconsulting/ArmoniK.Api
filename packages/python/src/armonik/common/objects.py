@@ -105,22 +105,23 @@ class Task:
         result = task_client.get_task(self.id)
         self.session_id = result.session_id
         self.owner_pod_id = result.owner_pod_id
-        self.parent_task_ids = result.parent_task_ids
-        self.data_dependencies = result.data_dependencies
-        self.expected_output_ids = result.expected_output_ids
-        self.retry_of_ids = result.retry_of_ids
+        self.parent_task_ids = list(result.parent_task_ids)
+        self.data_dependencies = list(result.data_dependencies)
+        self.expected_output_ids = list(result.expected_output_ids)
+        self.retry_of_ids = list(result.retry_of_ids)
         self.status = TaskStatus(result.status)
         self.status_message = result.status_message
-        self.options = result.options
-        self.created_at = result.created_at
-        self.submitted_at = result.submitted_at
-        self.started_at = result.started_at
-        self.ended_at = result.ended_at
-        self.pod_ttl = result.pod_ttl
-        self.output = result.output
+        self.options = TaskOptions.from_message(result.options)
+        self.created_at = timestamp_to_datetime(result.created_at)
+        self.submitted_at = timestamp_to_datetime(result.submitted_at)
+        self.started_at = timestamp_to_datetime(result.started_at)
+        self.ended_at = timestamp_to_datetime(result.ended_at)
+        self.pod_ttl = timestamp_to_datetime(result.pod_ttl)
+        self.output = Output(
+                error=(result.output.error if not result.output.success else None))
         self.pod_hostname = result.pod_hostname
-        self.received_at = result.received_at
-        self.acquired_at = result.acquired_at
+        self.received_at = timestamp_to_datetime(result.received_at)
+        self.acquired_at = timestamp_to_datetime(result.acquired_at)
 
     @classmethod
     def from_message(cls, task_raw: TaskRaw) -> "Task":

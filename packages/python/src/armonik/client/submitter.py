@@ -136,7 +136,7 @@ class ArmoniKSubmitter:
         request = GetTaskStatusRequest()
         request.task_ids.extend(task_ids)
         reply = self._client.GetTaskStatus(request)
-        return dict([(s.task_id, s.status) for s in reply.id_statuses])
+        return dict([(s.task_id, TaskStatus(s.status)) for s in reply.id_statuses])
 
     def wait_for_completion(self,
                             session_ids: Optional[List[str]] = None,
@@ -167,12 +167,12 @@ class ArmoniKSubmitter:
             Dictionary containing the number of tasks in each status
             after waiting for completion
         """
-        return dict([(sc.status, sc.count) for sc in self._client.WaitForCompletion(
+        return dict([(TaskStatus(sc.status), sc.count) for sc in self._client.WaitForCompletion(
             WaitRequest(filter=get_task_filter(session_ids, task_ids, included_statuses, excluded_statuses),
                         stop_on_first_task_error=stop_on_first_task_error,
                         stop_on_first_task_cancellation=stop_on_first_task_cancellation)).values])
 
-    def get_result(self, session_id: str, result_id: str) -> bytes:
+    def get_result(self, session_id: str, result_id: str) -> Union[bytes, None]:
         """Get a result
 
         Args:
@@ -188,7 +188,7 @@ class ArmoniKSubmitter:
         )
         streaming_call = self._client.TryGetResultStream(result_request)
         result = bytearray()
-        valid = True
+        valid = False
         for message in streaming_call:
             ret = message.WhichOneof("type")
             if ret is None:
@@ -201,6 +201,8 @@ class ArmoniKSubmitter:
                     valid = True
             elif ret == "error":
                 raise Exception("Task in error")
+            elif ret == "not_completed_task":
+                return None
             else:
                 raise Exception("Unknown return type")
         if valid:
