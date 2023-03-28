@@ -1,6 +1,5 @@
-from datetime import timedelta, datetime
-from math import floor
-from typing import List, Optional
+from datetime import timedelta, datetime, timezone
+from typing import List, Optional, cast
 
 import google.protobuf.duration_pb2 as duration
 import google.protobuf.timestamp_pb2 as timestamp
@@ -53,8 +52,9 @@ def datetime_to_timestamp(time_stamp: datetime) -> timestamp.Timestamp:
     Returns:
         Equivalent gRPC Timestamp
     """
-    secs, fracsec = divmod(time_stamp.timestamp(), 1)
-    return timestamp.Timestamp(seconds=secs, nanos=floor(fracsec * 1e9))
+    t = timestamp.Timestamp()
+    t.FromDatetime(dt=time_stamp)
+    return t
 
 
 def timestamp_to_datetime(time_stamp: timestamp.Timestamp) -> datetime:
@@ -67,7 +67,7 @@ def timestamp_to_datetime(time_stamp: timestamp.Timestamp) -> datetime:
     Returns:
         Equivalent Python Datetime
     """
-    return datetime.utcfromtimestamp(time_stamp.seconds + time_stamp.nanos / 1e9)
+    return time_stamp.ToDatetime(tzinfo=timezone.utc)
 
 
 def duration_to_timedelta(delta: duration.Duration) -> timedelta:
@@ -80,7 +80,7 @@ def duration_to_timedelta(delta: duration.Duration) -> timedelta:
     Returns:
         Equivalent Python timedelta
     """
-    return timedelta(seconds=delta.seconds, microseconds=delta.nanos // 1000)
+    return delta.ToTimedelta()
 
 
 def timedelta_to_duration(delta: timedelta) -> duration.Duration:
@@ -92,5 +92,6 @@ def timedelta_to_duration(delta: timedelta) -> duration.Duration:
         Returns:
             Equivalent gRPC Duration
     """
-    secs, remainder = divmod(delta, timedelta(seconds=1))
-    return duration.Duration(seconds=secs, nanos=(remainder // timedelta(microseconds=1)) * 1000)
+    d = duration.Duration()
+    d.FromTimedelta(delta)
+    return d
