@@ -111,17 +111,16 @@ class Task:
         self.retry_of_ids = list(result.retry_of_ids)
         self.status = TaskStatus(result.status)
         self.status_message = result.status_message
-        self.options = TaskOptions.from_message(result.options)
-        self.created_at = timestamp_to_datetime(result.created_at)
-        self.submitted_at = timestamp_to_datetime(result.submitted_at)
-        self.started_at = timestamp_to_datetime(result.started_at)
-        self.ended_at = timestamp_to_datetime(result.ended_at)
-        self.pod_ttl = timestamp_to_datetime(result.pod_ttl)
-        self.output = Output(
-                error=(result.output.error if not result.output.success else None))
+        self.options = result.options
+        self.created_at = result.created_at
+        self.submitted_at = result.submitted_at
+        self.started_at = result.started_at
+        self.ended_at = result.ended_at
+        self.pod_ttl = result.pod_ttl
+        self.output = result.output
         self.pod_hostname = result.pod_hostname
-        self.received_at = timestamp_to_datetime(result.received_at)
-        self.acquired_at = timestamp_to_datetime(result.acquired_at)
+        self.received_at = result.received_at
+        self.acquired_at = result.acquired_at
 
     @classmethod
     def from_message(cls, task_raw: TaskRaw) -> "Task":

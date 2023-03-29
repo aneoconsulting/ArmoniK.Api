@@ -5,7 +5,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from google.protobuf.duration_pb2 import Duration
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from ..common.helpers import datetime_to_timestamp, timestamp_to_datetime, timedelta_to_duration, duration_to_timedelta
+from armonik.common.helpers import datetime_to_timestamp, timestamp_to_datetime, timedelta_to_duration, duration_to_timedelta
 
 
 @dataclass
