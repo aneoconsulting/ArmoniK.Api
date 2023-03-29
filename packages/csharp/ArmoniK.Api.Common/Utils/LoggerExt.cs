@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
-//
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// 
+// Copyright (C) ANEO, 2021-2023. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -23,6 +23,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
@@ -100,6 +101,8 @@ public static class LoggerExt
       return Disposable.Empty;
     }
 
+    var stopWatch = Stopwatch.StartNew();
+
     var properties = new List<ValueTuple<string, object>>
                      {
                        (nameof(functionName), functionName),
@@ -132,10 +135,11 @@ public static class LoggerExt
                                using (scope)
                                {
                                  logger.Log(level,
-                                            "Leaving {classFilePath}.{functionName} - {Id}",
+                                            "Leaving {classFilePath}.{functionName} - {Id} in {duration}",
                                             classFilePath,
                                             functionName,
-                                            id);
+                                            id,
+                                            stopWatch.Elapsed);
                                }
                              });
   }
