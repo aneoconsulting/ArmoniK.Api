@@ -3,10 +3,10 @@ from typing import Optional
 
 from datetime import datetime
 from .common import DummyChannel
-from ..client import ArmoniKTasks
-from ..common import TaskStatus, datetime_to_timestamp
-from ..protogen.client.tasks_service_pb2_grpc import TasksStub
-from ..protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, TaskRaw
+from armonik.client import ArmoniKTasks
+from armonik.common import TaskStatus, datetime_to_timestamp, Task
+from armonik.protogen.client.tasks_service_pb2_grpc import TasksStub
+from armonik.protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, TaskRaw
 from .submitter_test import default_task_option
 
 
@@ -44,3 +44,18 @@ def test_tasks_get_task_should_succeed():
     assert task.session_id == "SessionId"
     assert task.parent_task_ids == ["ParentTaskId"]
     assert task.output.success
+
+
+def test_task_refresh():
+    channel = DummyChannel()
+    inner = DummyTasksService(channel)
+    tasks = ArmoniKTasks(channel)
+    current = Task(id="TaskId")
+    current.refresh(tasks)
+    assert current is not None
+    assert inner.task_request is not None
+    assert inner.task_request.task_id == "TaskId"
+    assert current.id == "TaskId"
+    assert current.session_id == "SessionId"
+    assert current.parent_task_ids == ["ParentTaskId"]
+    assert current.output.success

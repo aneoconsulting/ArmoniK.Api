@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import logging
 
-from ..worker import ArmoniKWorker, TaskHandler, ClefLogger
-from ..common import Output
+from armonik.worker import ArmoniKWorker, TaskHandler, ClefLogger
+from armonik.common import Output
 from .taskhandler_test import should_succeed_cases
-from ..protogen.common.objects_pb2 import Empty
+from armonik.protogen.common.objects_pb2 import Empty
 import grpc
 
 

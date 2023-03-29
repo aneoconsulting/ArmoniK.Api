@@ -2,14 +2,14 @@
 import datetime
 import logging
 import pytest
-from ..client import ArmoniKSubmitter
+from armonik.client import ArmoniKSubmitter
 from typing import Iterator, Optional, List
 from .common import DummyChannel
-from ..common import TaskOptions, TaskDefinition, TaskStatus, timedelta_to_duration
-from ..protogen.client.submitter_service_pb2_grpc import SubmitterStub
-from ..protogen.common.objects_pb2 import Empty, Configuration, Session, TaskIdList, ResultRequest, TaskError, Error, \
+from armonik.common import TaskOptions, TaskDefinition, TaskStatus, timedelta_to_duration
+from armonik.protogen.client.submitter_service_pb2_grpc import SubmitterStub
+from armonik.protogen.common.objects_pb2 import Empty, Configuration, Session, TaskIdList, ResultRequest, TaskError, Error, \
     Count, StatusCount, DataChunk
-from ..protogen.common.submitter_common_pb2 import CreateSessionRequest, CreateSessionReply, CreateLargeTaskRequest, \
+from armonik.protogen.common.submitter_common_pb2 import CreateSessionRequest, CreateSessionReply, CreateLargeTaskRequest, \
     CreateTaskReply, TaskFilter, ResultReply, AvailabilityReply, WaitRequest, GetTaskStatusRequest, GetTaskStatusReply
 
 logging.basicConfig()
@@ -60,18 +60,18 @@ class DummySubmitter(SubmitterStub):
             yield r
 
     def WaitForAvailability(self, request: ResultRequest) -> AvailabilityReply:
-        from ..protogen.common.task_status_pb2 import TASK_STATUS_ERROR
+        from armonik.protogen.common.task_status_pb2 import TASK_STATUS_ERROR
         self.result_request = request
         return AvailabilityReply(ok=Empty()) if self.is_available else AvailabilityReply(
             error=TaskError(task_id="TaskId", errors=[Error(task_status=TASK_STATUS_ERROR, detail="TestError")]))
 
     def WaitForCompletion(self, request: WaitRequest) -> Count:
-        from ..protogen.common.task_status_pb2 import TASK_STATUS_COMPLETED
+        from armonik.protogen.common.task_status_pb2 import TASK_STATUS_COMPLETED
         self.wait_request = request
         return Count(values=[StatusCount(status=TASK_STATUS_COMPLETED, count=1)])
 
     def GetTaskStatus(self, request: GetTaskStatusRequest) -> GetTaskStatusReply:
-        from ..protogen.common.task_status_pb2 import TASK_STATUS_COMPLETED
+        from armonik.protogen.common.task_status_pb2 import TASK_STATUS_COMPLETED
         self.get_status_request = request
         return GetTaskStatusReply(
             id_statuses=[GetTaskStatusReply.IdStatus(task_id="TaskId", status=TASK_STATUS_COMPLETED)])

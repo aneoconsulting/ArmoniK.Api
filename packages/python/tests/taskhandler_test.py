@@ -2,12 +2,12 @@
 import pytest
 from typing import Iterator
 from .common import DummyChannel
-from ..common import TaskDefinition
-from ..worker import TaskHandler
-from ..protogen.worker.agent_service_pb2_grpc import AgentStub
-from ..protogen.common.agent_common_pb2 import CreateTaskRequest, CreateTaskReply, Result, ResultReply
-from ..protogen.common.worker_common_pb2 import ProcessRequest
-from ..protogen.common.objects_pb2 import Configuration, DataChunk
+from armonik.common import TaskDefinition
+from armonik.worker import TaskHandler
+from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
+from armonik.protogen.common.agent_common_pb2 import CreateTaskRequest, CreateTaskReply, Result, ResultReply
+from armonik.protogen.common.worker_common_pb2 import ProcessRequest
+from armonik.protogen.common.objects_pb2 import Configuration, DataChunk
 import logging
 
 logging.basicConfig()
