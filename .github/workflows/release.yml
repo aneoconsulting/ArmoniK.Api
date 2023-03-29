@@ -55,6 +55,7 @@ jobs:
       - name: pip update and add build package
         run: |
           cd ./packages/python
+          export RELEASE=true
           bash proto2python.sh ~/pyvenv
 
       - name: Upload as artifact
@@ -69,14 +70,6 @@ jobs:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print_hash: true
           packages_dir: packages/python/pkg/
-
-      - name: Publish to PyPITest
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.DEV_PYPI_API_TOKEN }}
-          print_hash: true
-          packages_dir: packages/python/pkg/
-          repository_url: https://test.pypi.org/legacy/
 
   release-angular-packages:
     runs-on: ubuntu-latest
