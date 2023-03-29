@@ -31,7 +31,7 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install build grpcio grpcio-tools click pytest
+python -m pip install build grpcio grpcio-tools click pytest setuptools_scm[toml]
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
@@ -63,5 +63,12 @@ touch $ARMONIK_COMMON/__init__.py
 
 # Need to fix the relative import
 python fix_imports.py $GENERATED_PATH
+
+if [ "$RELEASE" == "" ]
+then
+	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py)"
+else
+	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py -r)"
+fi
 
 python -m build -w -s -o $PACKAGE_PATH
