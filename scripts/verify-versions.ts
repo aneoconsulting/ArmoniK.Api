@@ -15,8 +15,6 @@ consola.info("Finding JS projects versions");
 jsFiles.forEach(_readAndFind(jsPattern, versions));
 consola.info("Finding C# projects versions");
 csharpFiles.forEach(_readAndFind(csharpPattern, versions));
-consola.info("Finding Python projects versions");
-pythonFiles.forEach(_readAndFind(pythonPattern, versions));
 
 const versionsArray = [...versions.values()];
 const uniqueVersions = [...new Set(versionsArray)];

@@ -64,11 +64,18 @@ touch $ARMONIK_COMMON/__init__.py
 # Need to fix the relative import
 python fix_imports.py $GENERATED_PATH
 
+export GENVERSION_OPT=""
+
+if [ "$CI" == "true" ]
+then
+	export GENVERSION_OPT="$GENVERSION_OPT -n"
+fi
+
 if [ "$RELEASE" == "" ]
 then
-	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py)"
+	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py $GENVERSION_OPT)"
 else
-	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py -r)"
+	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py -r $GENVERSION_OPT)"
 fi
 
 python -m build -w -s -o $PACKAGE_PATH
