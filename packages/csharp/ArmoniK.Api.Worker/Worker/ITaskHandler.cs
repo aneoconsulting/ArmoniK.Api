@@ -111,4 +111,13 @@ public interface ITaskHandler : IAsyncDisposable
   /// <returns></returns>
   Task SendResult(string key,
                   byte[] data);
+
+  /// <summary>
+  ///   Create results metadata
+  /// </summary>
+  /// <param name="results">The collection of results to be created</param>
+  /// <returns>
+  ///   The result creation response
+  /// </returns>
+  Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results);
 }

@@ -136,6 +136,20 @@ public class TaskHandler : ITaskHandler
     => throw new NotImplementedException();
 
   /// <inheritdoc />
+  public async Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results)
+    => await client_.CreateResultsMetaDataAsync(new CreateResultsMetaDataRequest
+                                                {
+                                                  CommunicationToken = Token,
+                                                  Results =
+                                                  {
+                                                    results,
+                                                  },
+                                                  SessionId = sessionId_,
+                                                })
+                    .ConfigureAwait(false);
+
+
+  /// <inheritdoc />
   public async Task SendResult(string key,
                                byte[] data)
   {
