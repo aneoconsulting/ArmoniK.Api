@@ -165,9 +165,7 @@ jobs:
           fetch-depth: 0
 
       - name: pip update and add build package
-        run: |
-          cd ./packages/python
-          bash proto2python.sh ~/pyvenv
+        run: bash proto2python.sh ~/pyvenv
       
       - name: Install dependencies
         run: |
