@@ -1,6 +1,5 @@
 [build-system]
 requires = ["setuptools",
-            "setuptools_scm[toml]",
             "wheel"]
 build-backend = "setuptools.build_meta"
 
@@ -24,16 +23,13 @@ dependencies = [
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
 "Bug Tracker" = "https://github.com/aneoconsulting/ArmoniK/issues"
 
-[tool.setuptools_scm]
-write_to = "packages/python/src/_version.py"
-root="../.."
-local_scheme = "no-local-version"
-
 [tool.setuptools]
 include-package-data = true
+dynamic = {version = {attr = "armonik.__version__"}}
 
 [tool.setuptools.packages.find]
 where= ["src"]
+exclude=['tests']
 
 [tool.setuptools.package-data]
 "*" = ["*.pyi"]

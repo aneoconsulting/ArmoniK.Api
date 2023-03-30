@@ -17,8 +17,9 @@ source ../common/protofiles.sh
 
 export PATH=$HOME/.local/bin:$PATH
 export ARMONIK_PYTHON_SRC="src"
+export ARMONIK_MODULE_PATH=$ARMONIK_PYTHON_SRC"/armonik"
 export PACKAGE_PATH="pkg"
-export GENERATED_PATH=$ARMONIK_PYTHON_SRC"/armonik/protogen"
+export GENERATED_PATH=$ARMONIK_MODULE_PATH"/protogen"
 export ARMONIK_WORKER=$GENERATED_PATH"/worker"
 export ARMONIK_CLIENT=$GENERATED_PATH"/client"
 export ARMONIK_COMMON=$GENERATED_PATH"/common"
@@ -64,18 +65,18 @@ touch $ARMONIK_COMMON/__init__.py
 # Need to fix the relative import
 python fix_imports.py $GENERATED_PATH
 
-export GENVERSION_OPT=""
+export GENVERSION_OPT="-w $ARMONIK_MODULE_PATH/_version.py"
 
 if [ "$CI" == "true" ]
 then
 	export GENVERSION_OPT="$GENVERSION_OPT -n"
 fi
 
-if [ "$RELEASE" == "" ]
+if [ "$RELEASE" != "" ]
 then
-	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py $GENVERSION_OPT)"
-else
-	export SETUPTOOLS_SCM_PRETEND_VERSION="$(python genversion.py -r $GENVERSION_OPT)"
+	export GENVERSION_OPT="$GENVERSION_OPT -r"
 fi
+
+python genversion.py $GENVERSION_OPT
 
 python -m build -w -s -o $PACKAGE_PATH
