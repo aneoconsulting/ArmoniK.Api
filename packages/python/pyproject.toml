@@ -1,14 +1,13 @@
 [build-system]
 requires = ["setuptools",
-            "setuptools-scm",
             "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "armonik"
 description = "GRPC python binding for the ArmoniK orchestrator API"
-readme = "generated/README.md"
-version = "3.6.0"
+readme = "README.md"
+dynamic = ["version"]
 requires-python = ">=3.7"
 keywords = ["cloud", "HTC", "gRPC", "ArmoniK", "Aneo"]
 license = {text = "Apache v2.0 LICENSE"}
@@ -17,17 +16,33 @@ classifiers = [
 ]
 dependencies = [
     "grpcio",
-    "grpcio-tools",
+    "grpcio-tools"
 ]
 
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
 "Bug Tracker" = "https://github.com/aneoconsulting/ArmoniK/issues"
 
-[tool.setuptools_scm]
-write_to = "packages/python/generated/_version.py"
-root="../.."
-local_scheme = "no-local-version"
+[tool.setuptools]
+include-package-data = true
+dynamic = {version = {attr = "armonik.__version__"}}
 
 [tool.setuptools.packages.find]
-where= ["generated"]
+where= ["src"]
+exclude=['tests']
+
+[tool.setuptools.package-data]
+"*" = ["*.pyi"]
+
+[project.optional-dependencies]
+tests = [
+  'coverage',
+  'pytest',
+  'pytest-cov',
+  'pytest-benchmark[histogram]',
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+]

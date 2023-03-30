@@ -25,8 +25,5 @@ csharpFiles.forEach(
   _readAndReplace(csharpPattern, `<PackageVersion>${version}</PackageVersion>`)
 );
 
-consola.info("Updating Python projects to ", version);
-pythonFiles.forEach(_readAndReplace(pythonPattern, `version = "${version}"`));
-
 consola.info("Updating JS projects to ", version);
 jsFiles.forEach(_readAndReplace(jsPattern, `"version": "${version}"`));
