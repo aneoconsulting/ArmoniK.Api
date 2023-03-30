@@ -4,7 +4,7 @@ import os
 import grpc
 from armonik.worker import ArmoniKWorker, TaskHandler, ClefLogger
 from armonik.common import Output, TaskDefinition
-from typing import List
+from typing import List, Union
 
 from common import Payload, Result
 
@@ -59,7 +59,7 @@ def processor(task_handler: TaskHandler) -> Output:
     return Output()
 
 
-def aggregate(values: List[float]) -> float:
+def aggregate(values: List[Union[int, float]]) -> float:
     return sum(values)
 
 
