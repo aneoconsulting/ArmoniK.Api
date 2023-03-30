@@ -168,13 +168,10 @@ jobs:
         run: bash proto2python.sh ~/pyvenv
       
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install "$(echo pkg/armonik*.whl)[tests]"
+        run: pip install "$(echo pkg/armonik*.whl)[tests]"
 
       - name: Run tests
-        run: |
-          python -m pytest tests --cov=src --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
+        run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
       
       - name: Get Cover 
         uses: orgoro/coverage@v3
