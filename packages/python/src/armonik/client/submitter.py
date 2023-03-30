@@ -1,12 +1,12 @@
 import uuid
-from typing import Optional, List, Tuple, Dict, Union
+from typing import Optional, List, Tuple, Dict, Union, Generator
 
 from grpc import Channel
 
 from ..common import get_task_filter, TaskOptions, TaskDefinition, Task, TaskStatus, ResultAvailability
 from ..protogen.client.submitter_service_pb2_grpc import SubmitterStub
 from ..protogen.common.objects_pb2 import Empty, TaskRequest, ResultRequest, DataChunk, InitTaskRequest, \
-    TaskRequestHeader, Configuration, Session
+    TaskRequestHeader, Configuration, Session, TaskOptions as InnerTaskOptions
 from ..protogen.common.submitter_common_pb2 import CreateSessionRequest, GetTaskStatusRequest, CreateLargeTaskRequest, \
     WaitRequest
 
@@ -73,7 +73,7 @@ class ArmoniKSubmitter:
         for t in tasks:
             task_request = TaskRequest()
             task_request.expected_output_keys.extend(t.expected_output_ids)
-            if t.data_dependencies is not None:
+            if t.data_dependencies:
                 task_request.data_dependencies.extend(t.data_dependencies)
             task_request.payload = t.payload
             task_requests.append(task_request)
@@ -136,7 +136,7 @@ class ArmoniKSubmitter:
         request = GetTaskStatusRequest()
         request.task_ids.extend(task_ids)
         reply = self._client.GetTaskStatus(request)
-        return dict([(s.task_id, TaskStatus(s.status)) for s in reply.id_statuses])
+        return {s.task_id: TaskStatus(s.status) for s in reply.id_statuses}
 
     def wait_for_completion(self,
                             session_ids: Optional[List[str]] = None,
@@ -167,10 +167,10 @@ class ArmoniKSubmitter:
             Dictionary containing the number of tasks in each status
             after waiting for completion
         """
-        return dict([(TaskStatus(sc.status), sc.count) for sc in self._client.WaitForCompletion(
+        return {TaskStatus(sc.status): sc.count for sc in self._client.WaitForCompletion(
             WaitRequest(filter=get_task_filter(session_ids, task_ids, included_statuses, excluded_statuses),
                         stop_on_first_task_error=stop_on_first_task_error,
-                        stop_on_first_task_cancellation=stop_on_first_task_cancellation)).values])
+                        stop_on_first_task_cancellation=stop_on_first_task_cancellation)).values}
 
     def get_result(self, session_id: str, result_id: str) -> Union[bytes, None]:
         """Get a result
@@ -244,7 +244,17 @@ class ArmoniKSubmitter:
         return f"{session_id}%{uuid.uuid4()}"
 
 
-def _to_request_stream_internal(request, is_last, chunk_max_size):
+def _to_request_stream_internal(request: TaskRequest, is_last: bool, chunk_max_size: int) -> Generator[CreateLargeTaskRequest, None, None]:
+    """ Generate the CreateLargeTaskRequests for the given request
+
+    Args:
+        request: TaskRequest
+        is_last: true if the request is the last one to send
+        chunk_max_size: Chunk max size
+
+    Yields:
+        CreateLargeTaskRequest
+    """
     req = CreateLargeTaskRequest(
         init_task=InitTaskRequest(
             header=TaskRequestHeader(
@@ -280,7 +290,18 @@ def _to_request_stream_internal(request, is_last, chunk_max_size):
         yield req
 
 
-def _to_request_stream(requests, s_id, t_options, chunk_max_size):
+def _to_request_stream(requests: List[TaskRequest], s_id: str, t_options: Optional[InnerTaskOptions], chunk_max_size: int) -> Generator[CreateLargeTaskRequest, None, None]:
+    """ Generate the CreateLargeTaskRequests from a list of TaskRequest
+    This is necessary to respect the payload size limit
+    Args:
+        requests: List of Task requests
+        s_id: session id
+        t_options: Task options
+        chunk_max_size: chunk max size
+
+    Yields:
+        CreateLargeTaskRequest from the list of task requests
+    """
     req = CreateLargeTaskRequest(
         init_request=CreateLargeTaskRequest.InitRequest(
             session_id=s_id, task_options=t_options))

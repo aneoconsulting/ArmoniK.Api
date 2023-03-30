@@ -35,22 +35,22 @@ def main():
             submitted_tasks, submission_errors = client.submit(session_id, [task_definition])
             for e in submission_errors:
                 print(f"Submission error : {e}")
-            if len(submitted_tasks) > 0:
-                for t in submitted_tasks:
-                    # Wait for the result to be available
-                    reply = client.wait_for_availability(session_id, result_id=t.expected_output_ids[0])
-                    if reply is None:
-                        # This should not happen
-                        print("Result unexpectedly unavailable")
-                        continue
-                    if reply.is_available():
-                        # Result is available, get the result
-                        result_payload = Result.deserialize(client.get_result(session_id, result_id=t.expected_output_ids[0]))
-                        print(f"Result : {result_payload.value}")
-                    else:
-                        # Result is in error
-                        errors = "\n".join(reply.errors)
-                        print(f'Errors : {errors}')
+
+            for t in submitted_tasks:
+                # Wait for the result to be available
+                reply = client.wait_for_availability(session_id, result_id=t.expected_output_ids[0])
+                if reply is None:
+                    # This should not happen
+                    print("Result unexpectedly unavailable")
+                    continue
+                if reply.is_available():
+                    # Result is available, get the result
+                    result_payload = Result.deserialize(client.get_result(session_id, result_id=t.expected_output_ids[0]))
+                    print(f"Result : {result_payload.value}")
+                else:
+                    # Result is in error
+                    errors = "\n".join(reply.errors)
+                    print(f'Errors : {errors}')
         except KeyboardInterrupt:
             # If we stop the script, cancel the session
             client.cancel_session(session_id)

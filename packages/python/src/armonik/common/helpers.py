@@ -22,15 +22,15 @@ def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[
     Returns:
         Task filter to be used in a gRPC call to filter tasks
     """
-    if session_ids is not None and task_ids is not None:
+    if session_ids and task_ids:
         raise ValueError("session_ids and task_ids cannot be defined at the same time")
-    if included_statuses is not None and excluded_statuses is not None:
+    if included_statuses and excluded_statuses:
         raise ValueError("included_statuses and excluded_statuses cannot be defined at the same time")
     task_filter = TaskFilter(
-        session=TaskFilter.IdsRequest() if session_ids is not None else None,
-        task=TaskFilter.IdsRequest() if task_ids is not None else None,
-        included=TaskFilter.StatusesRequest() if included_statuses is not None else None,
-        excluded=TaskFilter.StatusesRequest() if excluded_statuses is not None else None
+        session=TaskFilter.IdsRequest() if session_ids else None,
+        task=TaskFilter.IdsRequest() if task_ids else None,
+        included=TaskFilter.StatusesRequest() if included_statuses else None,
+        excluded=TaskFilter.StatusesRequest() if excluded_statuses else None
     )
     if session_ids is not None:
         task_filter.session.ids.extend(session_ids)
