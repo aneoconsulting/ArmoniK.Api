@@ -51,7 +51,7 @@ class ArmoniKWorker(WorkerServicer):
             task_handler = TaskHandler.create(request_iterator, self._client)
             return ProcessReply(output=self.processing_function(task_handler).to_message())
         except Exception as e:
-            self._logger.exception(f"Failed task {''.join(traceback.format_exception(etype=type(e) ,value=e, tb=e.__traceback__))}", exc_info=e)
+            self._logger.exception(f"Failed task {''.join(traceback.format_exception(type(e) ,e, e.__traceback__))}", exc_info=e)
 
     def HealthCheck(self, request: Empty, context) -> HealthCheckReply:
         return HealthCheckReply(status=self.health_check().value)
