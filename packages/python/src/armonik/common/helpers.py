@@ -32,13 +32,13 @@ def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[
         included=TaskFilter.StatusesRequest() if included_statuses else None,
         excluded=TaskFilter.StatusesRequest() if excluded_statuses else None
     )
-    if session_ids is not None:
+    if session_ids:
         task_filter.session.ids.extend(session_ids)
-    if task_ids is not None:
+    if task_ids:
         task_filter.task.ids.extend(task_ids)
-    if included_statuses is not None:
+    if included_statuses:
         task_filter.included.statuses.extend([t.value for t in included_statuses])
-    if excluded_statuses is not None:
+    if excluded_statuses:
         task_filter.excluded.statuses.extend([t.value for t in excluded_statuses])
     return task_filter
 

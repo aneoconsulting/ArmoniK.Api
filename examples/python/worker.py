@@ -17,7 +17,7 @@ def processor(task_handler: TaskHandler) -> Output:
     payload = Payload.deserialize(task_handler.payload)
     # No values
     if len(payload.values) == 0:
-        if len(task_handler.expected_results) > 0:
+        if task_handler.expected_results:
             task_handler.send_result(task_handler.expected_results[0], Result(0.0).serialize())
         logger.info("No values")
         return Output()
