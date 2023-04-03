@@ -24,6 +24,7 @@ message SessionRaw {
 
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
+  google.protobuf.Timestamp duration = 7; /** The duration. Only set when status is 'cancelled'. */
 }
 
 /**
@@ -38,6 +39,7 @@ message SessionSummary {
   session_status.SessionStatus status = 2; /** The session status. */
   google.protobuf.Timestamp created_at = 3; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 4; /** The cancellation date. Only set when status is 'cancelled'. */
+  google.protobuf.Timestamp duration = 7; /** The duration. Only set when status is 'cancelled'. */
 
   TaskOptions options = 5; /** The default task options. */
 }
