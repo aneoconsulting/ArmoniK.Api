@@ -69,6 +69,8 @@ message TaskSummary {
   google.protobuf.Timestamp created_at = 5; /** The task creation date. */
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
+  google.protobuf.Timestamp duration = 15; /** The task duration. Between the creation date and the end date. */
+  google.protobuf.Timestamp calculation_duration = 16; /** The task calculated duration. Between the start date and the end date. */
 
   string error = 8; /** The error message. Only set if task have failed. */
 }
