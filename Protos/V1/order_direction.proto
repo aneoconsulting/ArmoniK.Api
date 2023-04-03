@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.order_direction;
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.OrderDirection";
+
+/**
+  * Represents every available order directions.
+  */
+enum OrderDirection {
+  ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. Do not use. */
+  ORDER_DIRECTION_ASC = 1; /** Ascending. */
+  ORDER_DIRECTION_DESC = 2; /** Descending. */
+}

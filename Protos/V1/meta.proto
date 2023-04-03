@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.meta;
+
+import "order_direction.proto";
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Meta";
+
+message Meta {
+  int32 page = 1; /** The page number. Start at 0.*/
+  int32 page_size = 2; /** The page size. */
+
+  string order_by = 3; /** The order by. */
+  order_direction.OrderDirection order = 4; /** The order. */
+
+  map<string, string> filters = 5; /** The filters. */
+}
