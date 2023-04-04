@@ -74,7 +74,7 @@ fi
 
 if [ "$RELEASE" == "" ] && [ "$GITHUB_RUN_ID" != "" ]
 then
-	export GENVERSION_OPT="$GENVERSION_OPT -d $GITHUB_RUN_ID"
+	export GENVERSION_OPT="$GENVERSION_OPT -d $GITHUB_RUN_NUMBER"
 fi
 
 python genversion.py $GENVERSION_OPT
