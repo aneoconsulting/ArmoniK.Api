@@ -8,7 +8,7 @@
     "test": "ng test",
     "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./projects/aneoconsultingfr/armonik.api.angular/src/lib/generated -I ../../Protos/V1 ../../Protos/V1/*.proto"
   },
-  "packageManager": "pnpm@7.29.0",
+  "packageManager": "pnpm@8.1.0",
   "private": true,
   "dependencies": {
     "@angular/animations": "^15.1.0",
