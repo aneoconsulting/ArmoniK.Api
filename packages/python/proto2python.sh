@@ -67,14 +67,14 @@ python fix_imports.py $GENERATED_PATH
 
 export GENVERSION_OPT="-w $ARMONIK_MODULE_PATH/_version.py"
 
-if [ "$CI" == "true" ]
+if [ "$CI" != "" ]
 then
 	export GENVERSION_OPT="$GENVERSION_OPT -n"
 fi
 
-if [ "$RELEASE" != "" ]
+if [ "$RELEASE" == "" ] && [ "$GITHUB_RUN_ID" != "" ]
 then
-	export GENVERSION_OPT="$GENVERSION_OPT -r"
+	export GENVERSION_OPT="$GENVERSION_OPT -d $GITHUB_RUN_ID"
 fi
 
 python genversion.py $GENVERSION_OPT
