@@ -23,7 +23,11 @@
 
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 using ArmoniK.Api.Client.Options;
 
@@ -31,6 +35,14 @@ using Grpc.Core;
 using Grpc.Net.Client;
 
 using JetBrains.Annotations;
+
+using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.Pkcs;
+using Org.BouncyCastle.Security;
+using Org.BouncyCastle.X509;
+
+using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
 
 namespace ArmoniK.Api.Client.Submitter
 {
@@ -55,10 +67,10 @@ namespace ArmoniK.Api.Client.Submitter
         throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
       }
 
-      var uri = new Uri(optionsGrpcClient.Endpoint);
+      var uri = new Uri(optionsGrpcClient.Endpoint!);
 
       var credentials = uri.Scheme == Uri.UriSchemeHttps
-                          ? new SslCredentials()
+                          ? ChannelCredentials.SecureSsl
                           : ChannelCredentials.Insecure;
       var httpClientHandler = new HttpClientHandler();
 
@@ -72,14 +84,20 @@ namespace ArmoniK.Api.Client.Submitter
                              true);
       }
 
-      if (!string.IsNullOrEmpty(optionsGrpcClient.CertPem) && !string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
+      if (uri.Scheme == Uri.UriSchemeHttps)
       {
-        var clientCertPem = File.ReadAllText(optionsGrpcClient.CertPem);
-        var clientKeyPem  = File.ReadAllText(optionsGrpcClient.KeyPem);
-
-        credentials = new SslCredentials(clientCertPem,
-                                         new KeyCertificatePair(clientCertPem,
-                                                                clientKeyPem));
+        httpClientHandler.ClientCertificates.Add(GetCertificate(optionsGrpcClient));
+        try
+        {
+          // try TLS1.3
+          ServicePointManager.SecurityProtocol |= (SecurityProtocolType)12288 | SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+          httpClientHandler.SslProtocols       =  (SslProtocols)12288         | SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
+        }
+        catch (NotSupportedException)
+        {
+          ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+          httpClientHandler.SslProtocols       =  SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
+        }
       }
 
       var channelOptions = new GrpcChannelOptions
@@ -90,6 +108,48 @@ namespace ArmoniK.Api.Client.Submitter
 
       return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
                                     channelOptions);
+    }
+
+    private static X509Certificate2 GetCertificate(GrpcClient optionsGrpcClient)
+    {
+      if (!string.IsNullOrEmpty(optionsGrpcClient.CertP12))
+      {
+        return new X509Certificate2(optionsGrpcClient.CertP12);
+      }
+
+      if (string.IsNullOrEmpty(optionsGrpcClient.CertPem) || string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
+      {
+        throw new InvalidOperationException("Cannot find requested certificate from options");
+      }
+
+      X509Certificate cert;
+      using (var reader = new FileStream(optionsGrpcClient.CertPem,
+                                         FileMode.Open))
+      {
+        cert = new X509CertificateParser().ReadCertificate(reader);
+      }
+
+      var store = new Pkcs12StoreBuilder().Build();
+      using (var reader = new StreamReader(optionsGrpcClient.KeyPem,
+                                           Encoding.UTF8))
+      {
+        var pemReader = new PemReader(reader);
+        var keyPair   = pemReader.ReadObject() as AsymmetricCipherKeyPair ?? throw new KeyException("Key could not be retrieved from file");
+        store.SetKeyEntry("alias",
+                          new AsymmetricKeyEntry(keyPair.Private),
+                          new X509CertificateEntry[]
+                          {
+                            new(cert),
+                          });
+      }
+
+      using var pkcs = new MemoryStream();
+      store.Save(pkcs,
+                 Array.Empty<char>(),
+                 new SecureRandom());
+      return new X509Certificate2(pkcs.ToArray(),
+                                  string.Empty,
+                                  X509KeyStorageFlags.Exportable);
     }
   }
 }
