@@ -54,5 +54,10 @@ namespace ArmoniK.Api.Client.Options
     ///   Path to the key file in pem format
     /// </summary>
     public string KeyPem { get; set; } = "";
+
+    /// <summary>
+    ///   Path to the certificate file in p12/pfx format
+    /// </summary>
+    public string CertP12 { get; set; } = "";
   }
 }
