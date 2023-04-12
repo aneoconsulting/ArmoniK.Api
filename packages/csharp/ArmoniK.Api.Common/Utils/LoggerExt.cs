@@ -134,12 +134,14 @@ public static class LoggerExt
                              {
                                using (scope)
                                {
+                                 var elapsed = stopWatch.Elapsed;
                                  logger.Log(level,
-                                            "Leaving {classFilePath}.{functionName} - {Id} in {duration}",
+                                            "Leaving {classFilePath}.{functionName} - {Id} in {duration} ( {milliseconds} ms )",
                                             classFilePath,
                                             functionName,
                                             id,
-                                            stopWatch.Elapsed);
+                                            elapsed,
+                                            elapsed.TotalMilliseconds);
                                }
                              });
   }
