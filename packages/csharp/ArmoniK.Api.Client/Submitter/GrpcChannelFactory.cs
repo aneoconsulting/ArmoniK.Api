@@ -26,6 +26,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
@@ -72,45 +73,49 @@ namespace ArmoniK.Api.Client.Submitter
       var credentials = uri.Scheme == Uri.UriSchemeHttps
                           ? ChannelCredentials.SecureSsl
                           : ChannelCredentials.Insecure;
-      var httpClientHandler = new HttpClientHandler();
+
+      var httpHandler = new HttpClientHandler();
 
       if (optionsGrpcClient.AllowUnsafeConnection)
       {
-        httpClientHandler.ServerCertificateCustomValidationCallback = (_,
-                                                                       _,
-                                                                       _,
-                                                                       _) => true;
+        httpHandler.ServerCertificateCustomValidationCallback = (_,
+                                                                 _,
+                                                                 _,
+                                                                 _) => true;
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
                              true);
       }
 
       if (uri.Scheme == Uri.UriSchemeHttps)
       {
-        httpClientHandler.ClientCertificates.Add(GetCertificate(optionsGrpcClient));
+        if (optionsGrpcClient.mTLS)
+        {
+          httpHandler.ClientCertificates.Add(GetCertificate(optionsGrpcClient));
+        }
+
         try
         {
           // try TLS1.3
           ServicePointManager.SecurityProtocol |= (SecurityProtocolType)12288 | SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-          httpClientHandler.SslProtocols       =  (SslProtocols)12288         | SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
+          httpHandler.SslProtocols             =  (SslProtocols)12288         | SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
         }
         catch (NotSupportedException)
         {
           ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-          httpClientHandler.SslProtocols       =  SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
+          httpHandler.SslProtocols             =  SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
         }
       }
 
       var channelOptions = new GrpcChannelOptions
                            {
                              Credentials = credentials,
-                             HttpHandler = httpClientHandler,
+                             HttpHandler = httpHandler,
                            };
-
       return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
                                     channelOptions);
     }
 
-    private static X509Certificate2 GetCertificate(GrpcClient optionsGrpcClient)
+    public static X509Certificate2 GetCertificate(GrpcClient optionsGrpcClient)
     {
       if (!string.IsNullOrEmpty(optionsGrpcClient.CertP12))
       {
@@ -124,7 +129,8 @@ namespace ArmoniK.Api.Client.Submitter
 
       X509Certificate cert;
       using (var reader = new FileStream(optionsGrpcClient.CertPem,
-                                         FileMode.Open))
+                                         FileMode.Open,
+                                         FileAccess.Read))
       {
         cert = new X509CertificateParser().ReadCertificate(reader);
       }
@@ -150,6 +156,45 @@ namespace ArmoniK.Api.Client.Submitter
       return new X509Certificate2(pkcs.ToArray(),
                                   string.Empty,
                                   X509KeyStorageFlags.Exportable);
+    }
+
+    public static KeyCertificatePair GetKeyCertificatePair(GrpcClient optionsGrpcClient)
+    {
+      if (!string.IsNullOrEmpty(optionsGrpcClient.CertP12))
+      {
+        var cert = new X509Certificate2(optionsGrpcClient.CertP12);
+        var certPem =
+          $"-----BEGIN CERTIFICATE-----\n{Convert.ToBase64String(cert.GetRawCertData(), Base64FormattingOptions.InsertLineBreaks)}\n-----END CERTIFICATE-----";
+
+        if (cert.GetRSAPrivateKey() is not RSA rsaKey)
+        {
+          throw new
+            CryptographicException("Only certificate with RSA key in P12 format is supported in this version. Please use CertPem and KeyPem for other key algorithms.");
+        }
+
+        var memoryStream = new MemoryStream();
+        using (var streamWriter = new StreamWriter(memoryStream))
+        {
+          var pemWriter = new PemWriter(streamWriter);
+          pemWriter.WriteObject(DotNetUtilities.GetRsaKeyPair(rsaKey)
+                                               .Private);
+        }
+
+        var keyPem = Encoding.ASCII.GetString(memoryStream.GetBuffer())
+                             .Trim();
+        memoryStream.Close();
+
+        return new KeyCertificatePair(certPem,
+                                      keyPem);
+      }
+
+      if (string.IsNullOrEmpty(optionsGrpcClient.CertPem) || string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
+      {
+        throw new InvalidOperationException("Cannot find requested certificate from options");
+      }
+
+      return new KeyCertificatePair(File.ReadAllText(optionsGrpcClient.CertPem),
+                                    File.ReadAllText(optionsGrpcClient.KeyPem));
     }
   }
 }

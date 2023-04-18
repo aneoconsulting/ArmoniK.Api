@@ -59,5 +59,10 @@ namespace ArmoniK.Api.Client.Options
     ///   Path to the certificate file in p12/pfx format
     /// </summary>
     public string CertP12 { get; set; } = "";
+
+    /// <summary>
+    ///   Should the client use mTLS, defaults to false
+    /// </summary>
+    public bool mTLS { get; set; }
   }
 }
