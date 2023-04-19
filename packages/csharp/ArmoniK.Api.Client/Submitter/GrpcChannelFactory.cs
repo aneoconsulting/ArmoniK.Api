@@ -22,9 +22,11 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -53,6 +55,114 @@ namespace ArmoniK.Api.Client.Submitter
   [PublicAPI]
   public static class GrpcChannelFactory
   {
+    private static string GetRootCertificates()
+    {
+      var builder = new StringBuilder();
+      var store   = new X509Store(StoreName.Root);
+      store.Open(OpenFlags.ReadOnly);
+      foreach (var mCert in store.Certificates)
+      {
+        builder.AppendLine($"# Issuer: {mCert.Issuer}\n# Subject: {mCert.Subject}\n# Label: {mCert.FriendlyName}\n# Serial: {mCert.SerialNumber}\n# SHA1 Fingerprint: {mCert.GetCertHashString()}\n{ExportToPem(mCert)}\n");
+      }
+
+      return builder.ToString();
+    }
+
+    private static string ExportToPem(X509Certificate2 cert)
+      => $"-----BEGIN CERTIFICATE-----\n{Convert.ToBase64String(cert.GetRawCertData(), Base64FormattingOptions.InsertLineBreaks)}\n-----END CERTIFICATE-----";
+
+    public static X509Certificate2? GetServerCertificate(Uri        uri,
+                                                         GrpcClient optionsGrpcClient)
+    {
+      var request = (HttpWebRequest)WebRequest.Create(uri);
+      request.ServerCertificateValidationCallback = (_,
+                                                     _,
+                                                     _,
+                                                     _) => true;
+      if (optionsGrpcClient.HasClientCertificate)
+      {
+        request.ClientCertificates.Add(GetCertificate(optionsGrpcClient));
+      }
+
+      var response = (HttpWebResponse)request.GetResponse();
+      response.Close();
+      return request.ServicePoint.Certificate == null
+               ? null
+               : new X509Certificate2(request.ServicePoint.Certificate.GetRawCertData(),
+                                      "",
+                                      X509KeyStorageFlags.Exportable);
+    }
+
+    public static string? GetOverrideTargetName(GrpcClient        optionsGrpcClient,
+                                                X509Certificate2? serverCert)
+    {
+      if (!optionsGrpcClient.AllowUnsafeConnection)
+      {
+        return null;
+      }
+
+      return optionsGrpcClient.OverrideTargetName != GrpcClient.OverrideTargetNameAutomatic
+               ? optionsGrpcClient.OverrideTargetName
+               : serverCert?.GetNameInfo(X509NameType.SimpleName,
+                                         false);
+    }
+
+    /// <summary>
+    ///   Creates the GrpcChannel for .Net Framework.
+    /// </summary>
+    /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
+    /// <returns>
+    ///   The initialized Channel
+    /// </returns>
+    private static Channel CreateFrameworkChannel(GrpcClient optionsGrpcClient)
+    {
+      Environment.SetEnvironmentVariable("GRPC_DNS_RESOLVER",
+                                         "native");
+      var uri = new Uri(optionsGrpcClient.Endpoint!);
+
+      if (uri.Scheme != Uri.UriSchemeHttps)
+      {
+        return new Channel(uri.Host,
+                           uri.Port,
+                           ChannelCredentials.Insecure);
+      }
+
+      if (optionsGrpcClient.AllowUnsafeConnection)
+      {
+        var serverCert = GetServerCertificate(uri,
+                                              optionsGrpcClient);
+        var credentials = new SslCredentials(serverCert == null
+                                               ? null
+                                               : ExportToPem(serverCert),
+                                             optionsGrpcClient.HasClientCertificate
+                                               ? GetKeyCertificatePair(optionsGrpcClient)
+                                               : null,
+                                             _ => true);
+        return new Channel(uri.Host,
+                           uri.Port,
+                           credentials,
+                           new List<ChannelOption>
+                           {
+                             new("grpc.ssl_target_name_override",
+                                 GetOverrideTargetName(optionsGrpcClient,
+                                                       serverCert)),
+                           });
+      }
+
+      var ca = string.IsNullOrEmpty(optionsGrpcClient.CaCert)
+                 ? GetRootCertificates()
+                 : File.ReadAllText(optionsGrpcClient.CaCert);
+      var certKeyPair = optionsGrpcClient.HasClientCertificate
+                          ? GetKeyCertificatePair(optionsGrpcClient)
+                          : null;
+
+      return new Channel(uri.Host,
+                         uri.Port,
+                         new SslCredentials(ca,
+                                            certKeyPair,
+                                            null));
+    }
+
     /// <summary>
     ///   Creates the GrpcChannel
     /// </summary>
@@ -61,11 +171,30 @@ namespace ArmoniK.Api.Client.Submitter
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient)
+    public static ChannelBase CreateChannel(GrpcClient optionsGrpcClient)
     {
       if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
       {
         throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
+      }
+
+      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
+      {
+        // .NET Framework cannot use Grpc.Net.Client.GrpcChannel as it doesn't support Http2 with this framework
+        return CreateFrameworkChannel(optionsGrpcClient);
+      }
+
+      if (!string.IsNullOrWhiteSpace(optionsGrpcClient.CaCert) && !optionsGrpcClient.AllowUnsafeConnection)
+      {
+        /* You cannot give a root certificate directly using the C# implementation, thus you have to either :
+         - Add the CA to the trusted root store
+         - Somehow validate the certificate with a custom root, but it's difficult :
+             - https://stackoverflow.com/questions/13103295/bouncy-castle-this-certificate-has-an-invalid-digital-signature
+             - https://www.meziantou.net/custom-certificate-validation-in-dotnet.htm
+         The issue being that the server certificate is considered to not have a valid signature, and I'm not sure how to handle it
+        */
+        Console.Error.WriteLine("WARNING : Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
+        return CreateFrameworkChannel(optionsGrpcClient);
       }
 
       var uri = new Uri(optionsGrpcClient.Endpoint!);
@@ -88,7 +217,7 @@ namespace ArmoniK.Api.Client.Submitter
 
       if (uri.Scheme == Uri.UriSchemeHttps)
       {
-        if (optionsGrpcClient.mTLS)
+        if (optionsGrpcClient.HasClientCertificate)
         {
           httpHandler.ClientCertificates.Add(GetCertificate(optionsGrpcClient));
         }
@@ -162,9 +291,9 @@ namespace ArmoniK.Api.Client.Submitter
     {
       if (!string.IsNullOrEmpty(optionsGrpcClient.CertP12))
       {
-        var cert = new X509Certificate2(optionsGrpcClient.CertP12);
-        var certPem =
-          $"-----BEGIN CERTIFICATE-----\n{Convert.ToBase64String(cert.GetRawCertData(), Base64FormattingOptions.InsertLineBreaks)}\n-----END CERTIFICATE-----";
+        var cert = new X509Certificate2(optionsGrpcClient.CertP12,
+                                        "",
+                                        X509KeyStorageFlags.Exportable);
 
         if (cert.GetRSAPrivateKey() is not RSA rsaKey)
         {
@@ -184,7 +313,7 @@ namespace ArmoniK.Api.Client.Submitter
                              .Trim();
         memoryStream.Close();
 
-        return new KeyCertificatePair(certPem,
+        return new KeyCertificatePair(ExportToPem(cert),
                                       keyPem);
       }
 
