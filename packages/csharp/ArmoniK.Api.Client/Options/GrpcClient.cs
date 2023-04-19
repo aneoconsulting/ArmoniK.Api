@@ -36,6 +36,12 @@ namespace ArmoniK.Api.Client.Options
     public const string SettingSection = nameof(GrpcClient);
 
     /// <summary>
+    ///   Constant used in OverrideTargetName to make it automatic. May incur a performance cost. This is only used when
+    ///   AllowUnsafeConnection is true and only when the runtime is .NET Framework.
+    /// </summary>
+    public const string OverrideTargetNameAutomatic = "OVERRIDE_TARGET_NAME_AUTOMATIC";
+
+    /// <summary>
     ///   Endpoint for sending requests
     /// </summary>
     public string? Endpoint { get; set; }
@@ -61,8 +67,18 @@ namespace ArmoniK.Api.Client.Options
     public string CertP12 { get; set; } = "";
 
     /// <summary>
-    ///   Should the client use mTLS, defaults to false
+    ///   Path to the Certificate Authority file in pem format
     /// </summary>
-    public bool mTLS { get; set; }
+    public string CaCert { get; set; } = "";
+
+    /// <summary>
+    ///   Override the endpoint name during SSL verification. This option is only used when AllowUnsafeConnection is true and
+    ///   only when the runtime is .NET Framework.
+    ///   Automatic target name by default. Should be overriden by the right name to reduce performance cost.
+    /// </summary>
+    public string OverrideTargetName { get; set; } = OverrideTargetNameAutomatic;
+
+    public bool HasClientCertificate
+      => !string.IsNullOrWhiteSpace(CertP12) || !(string.IsNullOrWhiteSpace(CertPem) || string.IsNullOrWhiteSpace(KeyPem));
   }
 }
