@@ -55,6 +55,10 @@ namespace ArmoniK.Api.Client.Submitter
   [PublicAPI]
   public static class GrpcChannelFactory
   {
+    /// <summary>
+    ///   Get the root certificates from the OS trusted store
+    /// </summary>
+    /// <returns>Root certificates in pem format</returns>
     private static string GetRootCertificates()
     {
       var builder = new StringBuilder();
@@ -65,12 +69,25 @@ namespace ArmoniK.Api.Client.Submitter
         builder.AppendLine($"# Issuer: {mCert.Issuer}\n# Subject: {mCert.Subject}\n# Label: {mCert.FriendlyName}\n# Serial: {mCert.SerialNumber}\n# SHA1 Fingerprint: {mCert.GetCertHashString()}\n{ExportToPem(mCert)}\n");
       }
 
+      store.Close();
       return builder.ToString();
     }
 
+    /// <summary>
+    ///   Exports a certificate to pem format
+    /// </summary>
+    /// <param name="cert">Certificate to export</param>
+    /// <returns>Certificate in pem formatted string</returns>
     private static string ExportToPem(X509Certificate2 cert)
       => $"-----BEGIN CERTIFICATE-----\n{Convert.ToBase64String(cert.GetRawCertData(), Base64FormattingOptions.InsertLineBreaks)}\n-----END CERTIFICATE-----";
 
+    /// <summary>
+    ///   Sends a web request to the server to acquire its certificate
+    /// </summary>
+    /// <param name="uri">Uri of the server</param>
+    /// <param name="optionsGrpcClient">Client options</param>
+    /// <returns>The server's certificate, null if it doesn't have one</returns>
+    /// <remarks>The given certificate should not be used when SSL validation is active</remarks>
     public static X509Certificate2? GetServerCertificate(Uri        uri,
                                                          GrpcClient optionsGrpcClient)
     {
@@ -93,6 +110,21 @@ namespace ArmoniK.Api.Client.Submitter
                                       X509KeyStorageFlags.Exportable);
     }
 
+    /// <summary>
+    ///   Gets the target name to look for during the Grpc.Core internal ssl verification.
+    ///   This should only be used when when overall ssl verification is turned off
+    /// </summary>
+    /// <param name="optionsGrpcClient">Client options</param>
+    /// <param name="serverCert">Server certificate</param>
+    /// <returns>
+    ///   Target name to override, null if the SSL verification is on or if <paramref name="serverCert" /> doesn't have
+    ///   a common name
+    /// </returns>
+    /// <remarks>
+    ///   If <paramref name="optionsGrpcClient.OverrideTargetName" /> is
+    ///   <see cref="GrpcClient.OverrideTargetNameAutomatic" /> and SSL verification is turned off, this will output the
+    ///   <paramref name="serverCert" /> common name. Otherwise it output the target name in the options
+    /// </remarks>
     public static string? GetOverrideTargetName(GrpcClient        optionsGrpcClient,
                                                 X509Certificate2? serverCert)
     {
@@ -120,6 +152,7 @@ namespace ArmoniK.Api.Client.Submitter
                                          "native");
       var uri = new Uri(optionsGrpcClient.Endpoint!);
 
+      // Simple credentials when requesting an unencrypted connection
       if (uri.Scheme != Uri.UriSchemeHttps)
       {
         return new Channel(uri.Host,
@@ -127,6 +160,7 @@ namespace ArmoniK.Api.Client.Submitter
                            ChannelCredentials.Insecure);
       }
 
+      // If SSL verification is disabled, load the server certificate as root certificate
       if (optionsGrpcClient.AllowUnsafeConnection)
       {
         var serverCert = GetServerCertificate(uri,
@@ -143,12 +177,14 @@ namespace ArmoniK.Api.Client.Submitter
                            credentials,
                            new List<ChannelOption>
                            {
+                             // Internal SSL verification of the Grpc.Core library cannot be turned off during the handshake, thus we need to override the name to look up
                              new("grpc.ssl_target_name_override",
                                  GetOverrideTargetName(optionsGrpcClient,
                                                        serverCert)),
                            });
       }
 
+      // SSL verification is enabled, we need to load the CA root certificate either from a file or from the OS store, as the library does not load it by itself
       var ca = string.IsNullOrEmpty(optionsGrpcClient.CaCert)
                  ? GetRootCertificates()
                  : File.ReadAllText(optionsGrpcClient.CaCert);
@@ -244,10 +280,30 @@ namespace ArmoniK.Api.Client.Submitter
                                     channelOptions);
     }
 
+    /// <summary>
+    ///   Get the certificate in PFX format from the given options.
+    ///   Loads the certificate file directly if <paramref name="optionsGrpcClient.CertP12" /> is specified, otherwise creates
+    ///   it from the pem formatted files <paramref name="optionsGrpcClient.CertPem" /> and
+    ///   <paramref name="optionsGrpcClient.KeyPem" />
+    /// </summary>
+    /// <param name="optionsGrpcClient">Client option</param>
+    /// <returns>The PFX formatted client certificate</returns>
+    /// <exception cref="FileNotFoundException">
+    ///   The P12 certificate is specified but not found, or either the Pem cert or key
+    ///   are not found
+    /// </exception>
+    /// <exception cref="InvalidOperationException">No certificate was specified in options</exception>
+    /// <exception cref="CryptographicException">The key could not be retrieved from the key file</exception>
     public static X509Certificate2 GetCertificate(GrpcClient optionsGrpcClient)
     {
       if (!string.IsNullOrEmpty(optionsGrpcClient.CertP12))
       {
+        if (!File.Exists(optionsGrpcClient.CertP12))
+        {
+          throw new FileNotFoundException("Couldn't find specified P12 client certificate",
+                                          optionsGrpcClient.CertP12);
+        }
+
         return new X509Certificate2(optionsGrpcClient.CertP12);
       }
 
@@ -269,7 +325,7 @@ namespace ArmoniK.Api.Client.Submitter
                                            Encoding.UTF8))
       {
         var pemReader = new PemReader(reader);
-        var keyPair   = pemReader.ReadObject() as AsymmetricCipherKeyPair ?? throw new KeyException("Key could not be retrieved from file");
+        var keyPair   = pemReader.ReadObject() as AsymmetricCipherKeyPair ?? throw new CryptographicException("Key could not be retrieved from file");
         store.SetKeyEntry("alias",
                           new AsymmetricKeyEntry(keyPair.Private),
                           new X509CertificateEntry[]
@@ -287,6 +343,13 @@ namespace ArmoniK.Api.Client.Submitter
                                   X509KeyStorageFlags.Exportable);
     }
 
+    /// <summary>
+    ///   Get the certificate and key pair in Pem format from the options
+    /// </summary>
+    /// <param name="optionsGrpcClient">Client options</param>
+    /// <returns>The certificate and key pair</returns>
+    /// <exception cref="CryptographicException">Raised when the key in the P12 certificate is not a RSA key</exception>
+    /// <exception cref="InvalidOperationException">No certificate was specified in options</exception>
     public static KeyCertificatePair GetKeyCertificatePair(GrpcClient optionsGrpcClient)
     {
       if (!string.IsNullOrEmpty(optionsGrpcClient.CertP12))
