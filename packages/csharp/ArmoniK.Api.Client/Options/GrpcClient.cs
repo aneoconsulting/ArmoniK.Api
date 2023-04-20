@@ -36,12 +36,6 @@ namespace ArmoniK.Api.Client.Options
     public const string SettingSection = nameof(GrpcClient);
 
     /// <summary>
-    ///   Constant used in OverrideTargetName to make it automatic. May incur a performance cost. This is only used when
-    ///   AllowUnsafeConnection is true and only when the runtime is .NET Framework.
-    /// </summary>
-    public const string OverrideTargetNameAutomatic = "OVERRIDE_TARGET_NAME_AUTOMATIC";
-
-    /// <summary>
     ///   Endpoint for sending requests
     /// </summary>
     public string? Endpoint { get; set; }
@@ -76,7 +70,7 @@ namespace ArmoniK.Api.Client.Options
     ///   only when the runtime is .NET Framework.
     ///   Automatic target name by default. Should be overriden by the right name to reduce performance cost.
     /// </summary>
-    public string OverrideTargetName { get; set; } = OverrideTargetNameAutomatic;
+    public string OverrideTargetName { get; set; } = "";
 
     /// <summary>
     ///   True if the options specify a client certificate
