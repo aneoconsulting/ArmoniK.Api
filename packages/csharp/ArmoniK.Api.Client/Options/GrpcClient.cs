@@ -78,6 +78,9 @@ namespace ArmoniK.Api.Client.Options
     /// </summary>
     public string OverrideTargetName { get; set; } = OverrideTargetNameAutomatic;
 
+    /// <summary>
+    ///   True if the options specify a client certificate
+    /// </summary>
     public bool HasClientCertificate
       => !string.IsNullOrWhiteSpace(CertP12) || !(string.IsNullOrWhiteSpace(CertPem) || string.IsNullOrWhiteSpace(KeyPem));
   }
