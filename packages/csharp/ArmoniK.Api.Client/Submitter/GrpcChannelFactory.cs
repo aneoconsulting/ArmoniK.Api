@@ -123,8 +123,8 @@ namespace ArmoniK.Api.Client.Submitter
     ///   a common name
     /// </returns>
     /// <remarks>
-    ///   If <paramref name="optionsGrpcClient.OverrideTargetName" /> is
-    ///   <see cref="GrpcClient.OverrideTargetNameAutomatic" /> and SSL verification is turned off, this will output the
+    ///   If <paramref name="optionsGrpcClient.OverrideTargetName" /> is empty and SSL verification is turned off, this will
+    ///   output the
     ///   <paramref name="serverCert" /> common name. Otherwise it output the target name in the options
     /// </remarks>
     public static string? GetOverrideTargetName(GrpcClient        optionsGrpcClient,
@@ -135,10 +135,10 @@ namespace ArmoniK.Api.Client.Submitter
         return null;
       }
 
-      return optionsGrpcClient.OverrideTargetName != GrpcClient.OverrideTargetNameAutomatic
-               ? optionsGrpcClient.OverrideTargetName
-               : serverCert?.GetNameInfo(X509NameType.SimpleName,
-                                         false);
+      return string.IsNullOrEmpty(optionsGrpcClient.OverrideTargetName)
+               ? serverCert?.GetNameInfo(X509NameType.SimpleName,
+                                         false)
+               : optionsGrpcClient.OverrideTargetName;
     }
 
     /// <summary>
@@ -152,7 +152,7 @@ namespace ArmoniK.Api.Client.Submitter
     {
       Environment.SetEnvironmentVariable("GRPC_DNS_RESOLVER",
                                          "native");
-      var uri = new Uri(optionsGrpcClient.Endpoint!);
+      var uri = new Uri(optionsGrpcClient.Endpoint ?? "");
 
       // Simple credentials when requesting an unencrypted connection
       if (uri.Scheme != Uri.UriSchemeHttps)
