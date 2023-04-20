@@ -39,6 +39,8 @@ using Grpc.Net.Client;
 
 using JetBrains.Annotations;
 
+using Microsoft.Extensions.Logging;
+
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
@@ -203,11 +205,13 @@ namespace ArmoniK.Api.Client.Submitter
     ///   Creates the GrpcChannel
     /// </summary>
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
+    /// <param name="logger">Optional logger</param>
     /// <returns>
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    public static ChannelBase CreateChannel(GrpcClient optionsGrpcClient)
+    public static ChannelBase CreateChannel(GrpcClient optionsGrpcClient,
+                                            ILogger?   logger = null)
     {
       if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
       {
@@ -229,7 +233,7 @@ namespace ArmoniK.Api.Client.Submitter
              - https://www.meziantou.net/custom-certificate-validation-in-dotnet.htm
          The issue being that the server certificate is considered to not have a valid signature, and I'm not sure how to handle it
         */
-        Console.Error.WriteLine("WARNING : Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
+        logger?.LogWarning("Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
         return CreateFrameworkChannel(optionsGrpcClient);
       }
 
