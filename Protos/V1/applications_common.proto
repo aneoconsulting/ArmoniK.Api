@@ -32,7 +32,6 @@ message ListApplicationsRequest {
   int32 page = 1; /** The page number. Start at 0. */
   int32 page_size = 2; /** Number of items per page. */
 
-
   string order_by = 3; /** The order by. */
   order_direction.OrderDirection order = 4; /** The order. */
 
