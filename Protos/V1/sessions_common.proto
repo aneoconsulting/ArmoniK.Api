@@ -55,7 +55,7 @@ message ListSessionsRequest {
   string order_by = 3; /** The order by. */
   order_direction.OrderDirection order = 4; /** The order. */
 
-  map<string, string> filters = 5; /** The filters. */
+  map<string, string> filters = 6; /** The filters. */
 
   /**
    * Flag to tell if server must return task options in summary sessions
