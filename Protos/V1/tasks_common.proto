@@ -7,6 +7,7 @@ package armonik.api.grpc.v1.tasks;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "order_direction.proto";
 import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
@@ -80,63 +81,10 @@ message ListTasksRequest {
   int32 page = 1; /** The page number. Start at 0.*/
   int32 page_size = 2; /** The page size. */
 
-  /**
-   * Represents a filter with every available fields.
-   *
-   * Every field can be used as the same time.
-   */
-  message Filter {
-    string session_id = 1; /** The session ID of related tasks. */
-    repeated task_status.TaskStatus status = 2; /** Use the differents status of a task to filter tasks having one of the requested status. */
-    google.protobuf.Timestamp created_after = 3; /** Use the creation date of a task to filter tasks created after the input. */
-    google.protobuf.Timestamp created_before = 4; /** Use the creation date of a task to filter tasks created before the input. */
-    google.protobuf.Timestamp started_after = 5; /** Use the start date of a task to filter tasks started after the input. */
-    google.protobuf.Timestamp started_before = 6; /** Use the start date of a task to filter tasks started before the input. */
-    google.protobuf.Timestamp ended_after = 7; /** Use the end date of a task to filter tasks ended after the input. */
-    google.protobuf.Timestamp ended_before = 8; /** Use the end date of a task to filter tasks ended before the input. */
-  }
+  string order_by = 3; /** The order by. */
+  order_direction.OrderDirection order = 4; /** The order. */
 
-  /** The filter.
-   *
-   * Must be set for every request but can be empty.
-   */
-  Filter filter = 3;
-
-  /**
-   * Represents every available field to use in order to sort tasks.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_TASK_ID = 1; /** The task ID. */
-    ORDER_BY_FIELD_SESSION_ID = 2; /** The session ID. */
-    ORDER_BY_FIELD_STATUS = 3; /** The task status. */
-    ORDER_BY_FIELD_CREATED_AT = 4; /** The task creation date. */
-    ORDER_BY_FIELD_STARTED_AT = 5; /** The task start date. */
-    ORDER_BY_FIELD_ENDED_AT = 6; /** The task end date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. Do not use. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
-   * Represents the sort object.
-   */
-  message Sort {
-    OrderByField field = 1; /** The field to order by. */
-    OrderDirection direction = 2; /** The order direction. */
-  }
-
-  /** The sort.
-   *
-   * Must be set for every request.
-   */
-  Sort sort = 4;
+  map<string, string> filters = 5; /** The filters. */
 
   // Request error message in case of error in task
   bool with_errors = 5;

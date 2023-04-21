@@ -7,6 +7,7 @@ package armonik.api.grpc.v1.sessions;
 
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "order_direction.proto";
 import "session_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
@@ -51,61 +52,10 @@ message ListSessionsRequest {
   int32 page = 1; /** The page number. Start at 0. */
   int32 page_size = 2; /** The page size. */
 
-  /**
-   * Represents a filter with all available fields.
-   *
-   * Any fields can be used at the same time.
-   */
-  message Filter {
-    string application_name = 1; /** The application name. */
-    string application_version = 2; /** The application version. */
-    string session_id = 3; /** The session ID. */
-    google.protobuf.Timestamp created_after = 4; /** Use the creation date of a session to filter sessions created after the input. */
-    google.protobuf.Timestamp created_before = 5; /** Use the creation date of a session to filter sessions created before the input. */
-    google.protobuf.Timestamp cancelled_after = 6; /** Use the cancellation date of a session to filter sessions cancelled after the input. */
-    google.protobuf.Timestamp cancelled_before = 7; /** Use the cancellation date of a session to filter sessions cancelled before the input. */
-    session_status.SessionStatus status = 8; /** The session status. */
-  }
+  string order_by = 3; /** The order by. */
+  order_direction.OrderDirection order = 4; /** The order. */
 
-  /** The filter.
-   *
-   * Must be set for every request but allowed to be empty.
-   */
-  Filter filter = 3;
-
-  /**
-   * Represents every available field to use in order to sort sessions.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_SESSION_ID = 1; /** The session ID. */
-    ORDER_BY_FIELD_STATUS = 2; /** The session status. */
-    ORDER_BY_FIELD_CREATED_AT = 3; /** The creation date. */
-    ORDER_BY_FIELD_CANCELLED_AT = 4; /** The cancellation date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
-   * Represents the sort object.
-   */
-  message Sort {
-    OrderByField field = 1; /** The field to order by. */
-    OrderDirection direction = 2; /** The order direction. */
-  }
-
-  /** The sort.
-   *
-   * Must be set for every request.
-   */
-  Sort sort = 4;
+  map<string, string> filters = 5; /** The filters. */
 
   /**
    * Flag to tell if server must return task options in summary sessions

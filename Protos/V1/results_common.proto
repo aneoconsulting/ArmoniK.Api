@@ -4,6 +4,7 @@ package armonik.api.grpc.v1.results;
 
 import "google/protobuf/timestamp.proto";
 import "result_status.proto";
+import "order_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
 
@@ -29,61 +30,10 @@ message ListResultsRequest {
   int32 page = 1; /** The page number. Start at 0. */
   int32 page_size = 2; /** The page size. */
 
-  /**
-   * Represents a filter with all available fields.
-   *
-   * Any fields can be used at the same time.
-   */
-  message Filter {
-    string session_id = 1; /** The session ID. */
-    string name = 2; /** The result name. */
-    string owner_task_id = 3; /** The owner task ID. */
-    result_status.ResultStatus status = 4; /** The result status. */
-    google.protobuf.Timestamp created_after = 5; /** Use the creation date of a result to filter results created after the input. */
-    google.protobuf.Timestamp created_before = 6; /** Use the creation date of a result to filter results created before the input. */
-  }
+  string order_by = 3; /** The order by. */
+  order_direction.OrderDirection order = 4; /** The order. */
 
-  /**
-   * The filter.
-   *
-   * Must be set for every request but allowed to be empty.
-   */
-  Filter filter = 3;
-
-  /**
-   * Represents every available field to use in order to sort results.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_SESSION_ID = 1; /** The session ID. */
-    ORDER_BY_FIELD_NAME = 2; /** The result name. */
-    ORDER_BY_FIELD_OWNER_TASK_ID = 3; /** The owner task ID. */
-    ORDER_BY_FIELD_STATUS = 4; /** The result status. */
-    ORDER_BY_FIELD_CREATED_AT = 5; /** The result creation date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
-   * Represents the sort object.
-   */
-  message Sort {
-    OrderByField field = 1; /** The field to order by. */
-    OrderDirection direction = 2; /** The order direction. */
-  }
-
-  /** The sort.
-   *
-   * Must be set for every request.
-   */
-  Sort sort = 4;
+  map<string, string> filters = 5; /** The filters. */
 }
 
 /**

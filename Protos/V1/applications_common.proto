@@ -6,6 +6,7 @@ syntax = "proto3";
 package armonik.api.grpc.v1.applications;
 
 import "objects.proto";
+import "order_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
@@ -31,57 +32,11 @@ message ListApplicationsRequest {
   int32 page = 1; /** The page number. Start at 0. */
   int32 page_size = 2; /** Number of items per page. */
 
-  /**
-   * Represents a filter with all available fields.
-   *
-   * Any fields can be used at the same time.
-   */
-  message Filter {
-    string name = 1; /** Application name. */
-    string version = 2; /** Application version. */
-    string namespace = 3; /** Application namespace. */
-    string service = 4; /** Application service. */
-  }
 
-  /** The filter.
-   *
-   * Must be set for every request but allowed to be empty.
-   */
-  Filter filter = 3;
+  string order_by = 3; /** The order by. */
+  order_direction.OrderDirection order = 4; /** The order. */
 
-  /**
-   * Represents every available field to use in order to sort applications.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_NAME = 1; /** Application name. */
-    ORDER_BY_FIELD_VERSION = 2; /** Application version. */
-    ORDER_BY_FIELD_NAMESPACE = 3; /** Application namespace. */
-    ORDER_BY_FIELD_SERVICE = 4; /** Application service. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
-   * Represents the sort object.
-   */
-  message Sort {
-    repeated OrderByField fields = 1; /** Fields to order by. */
-    OrderDirection direction = 2; /** The order direction. */
-  }
-
-  /** The sort.
-   *
-   * Must be set for every request.
-   */
-  Sort sort = 4;
+  map<string, string> filters = 5; /** The filters. */
 }
 
 /**
