@@ -59,5 +59,23 @@ namespace ArmoniK.Api.Client.Options
     ///   Path to the certificate file in p12/pfx format
     /// </summary>
     public string CertP12 { get; set; } = "";
+
+    /// <summary>
+    ///   Path to the Certificate Authority file in pem format
+    /// </summary>
+    public string CaCert { get; set; } = "";
+
+    /// <summary>
+    ///   Override the endpoint name during SSL verification. This option is only used when AllowUnsafeConnection is true and
+    ///   only when the runtime is .NET Framework.
+    ///   Automatic target name by default. Should be overriden by the right name to reduce performance cost.
+    /// </summary>
+    public string OverrideTargetName { get; set; } = "";
+
+    /// <summary>
+    ///   True if the options specify a client certificate
+    /// </summary>
+    public bool HasClientCertificate
+      => !string.IsNullOrWhiteSpace(CertP12) || !(string.IsNullOrWhiteSpace(CertPem) || string.IsNullOrWhiteSpace(KeyPem));
   }
 }
