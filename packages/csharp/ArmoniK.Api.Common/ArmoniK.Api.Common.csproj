@@ -18,13 +18,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="ArmoniK.Utils" Version="0.0.1-SNAPSHOT.89.3c250f5" />
     <PackageReference Include="Google.Protobuf" Version="3.21.7" />
     <PackageReference Include="Grpc.Net.Client" Version="2.49.0" />
     <PackageReference Include="Grpc.Tools" Version="2.49.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
+    <PackageReference Include="JetBrains.Annotations" Version="2022.3.1" />
   </ItemGroup>
 
   <ItemGroup>
