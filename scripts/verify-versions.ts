@@ -10,6 +10,7 @@ import {
 import { _readAndFind } from "./versions/_readAndFind";
 
 const versions = new Map<string, string>();
+const [, , ...args] = process.argv;
 
 consola.info("Finding JS projects versions");
 jsFiles.forEach(_readAndFind(jsPattern, versions));
@@ -34,6 +35,12 @@ if (uniqueVersions.length > 1) {
   });
   process.exit(1);
 } else {
+  if (args.length > 0) {
+    if (uniqueVersions[0] != args[0]) {
+      consola.fatal(`Found ${uniqueVersions[0]} for all projects but does not match expected ${args[0]}`);
+      process.exit(1);
+    }
+  }
   consola.success(`Found ${uniqueVersions[0]} for all projects`);
   process.exit(0);
 }
