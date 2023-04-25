@@ -16,7 +16,7 @@ message ListVersionsRequest {}
  * Response to list versions.
  */
 message ListVersionsResponse {
-    string armonik = 1;
-    string core = 2;
-    // We can add more versions here.
+  string armonik = 1;
+  string core = 2;
+  // We can add more versions here.
 }
