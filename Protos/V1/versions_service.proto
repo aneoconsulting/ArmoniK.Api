@@ -17,5 +17,5 @@ service Versions {
   /**
    * Get all versions.
    */
-  rpc ListVersions (ListVersionsRequest) returns (ListVersionsResponse) {}
+  rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse) {}
 }
