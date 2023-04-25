@@ -1,7 +1,6 @@
 {
-    "recommendations": [
-        "zxh404.vscode-proto3",
-        "dotjoshjohnson.xml",
-        "redhat.vscode-yaml"
-    ]
+  "recommendations": [
+    "zxh404.vscode-proto3",
+    "dotjoshjohnson.xml",
+  ]
 }
