@@ -36,8 +36,8 @@ message TaskRaw {
   google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp started_at = 13; /** The task start date. */
   google.protobuf.Timestamp ended_at = 14; /** The task end date. Also used when task failed. */
-  google.protobuf.Duration duration = 16; /** The task duration. Between the creation date and the end date. */
-  google.protobuf.Duration calculation_duration = 17; /** The task calculated duration. Between the start date and the end date. */
+  google.protobuf.Duration duration = 20; /** The task duration. Between the creation date and the end date. */
+  google.protobuf.Duration calculation_duration = 21; /** The task calculated duration. Between the start date and the end date. */
   google.protobuf.Timestamp pod_ttl = 15; /** The pod TTL (Time To Live). */
 
   /**
