@@ -9,6 +9,8 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
+  # We need to verify the version in some packages with the tag in order to have the same version in all packages (python, csharp, angular, web).
+  # Some packages use an internal version (like csharp, angular and web) and some use the tag version (like python).
   verify-versions:
     name: Verify Versions
     runs-on: ubuntu-latest
