@@ -377,6 +377,7 @@ dist
 
 !packages/common
 !packages/csharp
+!packages/cpp
 !packages/python
 !packages/angular
 !packages/web

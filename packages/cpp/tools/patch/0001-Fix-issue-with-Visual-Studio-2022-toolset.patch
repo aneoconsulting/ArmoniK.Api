@@ -1,0 +1,30 @@
+From 1f49415e5470105b3b32e0c26eb9786abe077801 Mon Sep 17 00:00:00 2001
+From: ddubuc <ddubuc@aneo.fr>
+Date: Sat, 29 Apr 2023 11:58:53 +0200
+Subject: [PATCH] Fix issue with Visual Studio 2022 toolset
+
+---
+ src/crypto/internal.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/crypto/internal.h b/src/crypto/internal.h
+index a4cd92912..195730c9c 100644
+--- a/src/crypto/internal.h
++++ b/src/crypto/internal.h
+@@ -127,10 +127,13 @@
+ 
+ #if !defined(__cplusplus)
+ #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
++#if !defined(_MSC_VER) || defined(_MSC_VER) && !defined(__clang__) && \
++    _MSC_VER == 1928
+ #include <stdalign.h>
+ #elif defined(_MSC_VER) && !defined(__clang__)
+ #define alignas(x) __declspec(align(x))
+ #define alignof __alignof
++#endif
+ #else
+ // With the exception of MSVC, we require C11 to build the library. C11 is a
+ // prerequisite for improved refcounting performance. All our supported C
+-- 
+2.25.1
+
