@@ -214,10 +214,12 @@ namespace armonik::api::common::serilog
     logging_level level = logging_level::debug;
     logging_level level_serilog = logging_level::verbose;
 
+    logging_format format_mode = logging_format::CONSOLE;
+
     /**
       @brief Default constructor.
     */
-    serilog()
+    serilog(logging_format l_format_mode = logging_format::CONSOLE) : format_mode(l_format_mode)
     {
       initialize(name_);
     }
@@ -227,7 +229,7 @@ namespace armonik::api::common::serilog
       @param name The name of the logger.
       @param properties A vector of properties.
     */
-    serilog(const char* name, serilog_properties_vector_t&& properties) : properties_(std::move(properties))
+    serilog(const char* name, serilog_properties_vector_t&& properties, logging_format l_format_mode = logging_format::CONSOLE) : properties_(std::move(properties)), format_mode(l_format_mode)
     {
       initialize(name);
     }
@@ -237,7 +239,9 @@ namespace armonik::api::common::serilog
       @param name The name of the logger.
       @param property_pair A single property pair.
     */
-    serilog(const char* name, serilog_properties_pair_t&& property_pair) : properties_({std::move(property_pair)})
+    serilog(const char* name, 
+            serilog_properties_pair_t&& property_pair, 
+            logging_format l_format_mode = logging_format::CONSOLE) : properties_({std::move(property_pair)}), format_mode(l_format_mode)
     {
       initialize(name);
     }
@@ -246,7 +250,7 @@ namespace armonik::api::common::serilog
       @brief Constructor that takes a name.
       @param name The name of the logger.
     */
-    explicit serilog(const char* name)
+    explicit serilog(const char* name, logging_format l_format_mode = logging_format::CONSOLE) : format_mode(l_format_mode)
     {
       initialize(name);
     }
@@ -258,7 +262,8 @@ namespace armonik::api::common::serilog
       @param serilog_logging_level The logging level for Serilog output.
     */
     explicit serilog(const char* name, const logging_level console_logging_level,
-                     const logging_level serilog_logging_level)
+                     const logging_level serilog_logging_level,
+                     logging_format l_format_mode = logging_format::CONSOLE) : format_mode(l_format_mode)
     {
       initialize(name);
       level = console_logging_level;
@@ -273,15 +278,21 @@ namespace armonik::api::common::serilog
       enrich_.clear();
       if (!static_instance_)
       {
+        //std::cout << "Remove last dynamic object" << std::endl;
         std::lock_guard<std::mutex> guard(logs_mutex_);
+        //std::cout << "Get logs_mutex_ OK" << std::endl;
         unregister_logger(this);
+
+        //std::cout << "unregister logger OK" << std::endl;
         shared_instance().transfer_logs(serilog_dispatch_queue_);
+        shared_instance().format_mode = format_mode;
+        //std::cout << "transfer logger OK" << std::endl;
         return;
       }
       s_terminating_ = true;
       std::unique_lock<std::mutex> lock{s_thread_finished_mutex_};
       s_thread_finished_.wait(lock);
-      std::cout << std::string{"Destroy serilog"} << std::endl;
+      //std::cout << std::string{"Destroy serilog"} << std::endl;
     }
 
     serilog(serilog const&) = delete;
@@ -311,8 +322,13 @@ namespace armonik::api::common::serilog
 
           while (!logger->serilog_dispatch_queue_.empty())
           {
-            has_data = true;
-            string_stream << logger->serilog_dispatch_queue_.back()->to_raw_json_entry() << "\n";
+            //std::cout << "new message : " << logger->format_mode << std::endl;
+            if (logger->format_mode == logging_format::SEQ)
+            {
+              has_data = true;
+              string_stream << logger->serilog_dispatch_queue_.back()->to_raw_json_entry() << "\n";
+            }
+            
             delete logger->serilog_dispatch_queue_.back();
             logger->serilog_dispatch_queue_.pop_back();
           }
@@ -330,10 +346,12 @@ namespace armonik::api::common::serilog
         catch (const std::exception& e)
         {
           log_error("Error while trying to ingest logs:", {{"What", utils::json_string{e.what()}}});
+          throw;
         }
       }
     }
 
+private:
     static void init(const logging_level verbosity, const logging_level serilog_verbosity,
                      const size_t dispatch_interval = 1000)
     {
@@ -343,9 +361,11 @@ namespace armonik::api::common::serilog
       base_level = verbosity;
       base_level_serilog = serilog_verbosity;
       _s_dispatch_interval = std::chrono::milliseconds(dispatch_interval);
+      //std::cout << "start serilog thread" << std::endl;
       shared_instance().start_thread();
     }
 
+public:
     void add_property(std::string key, utils::json_string val)
     {
       properties_.emplace_back(std::move(key), std::move(val));
@@ -689,7 +709,7 @@ namespace armonik::api::common::serilog
     {
       s_initialized_ = false;
       s_terminating_ = false;
-      base_level = logging_level::verbose;
+      base_level = logging_level::fatal;
       base_level_serilog = logging_level::verbose;
       _s_dispatch_interval = std::chrono::milliseconds(100);
       static_instance_ = true;
@@ -701,11 +721,13 @@ namespace armonik::api::common::serilog
      */
     static void send_events_loop_handler()
     {
+      //std::cout << "starting serilog thread" << std::endl;
       while (!s_terminating_)
       {
         std::this_thread::sleep_for(_s_dispatch_interval);
         send_events_handler();
       }
+      //std::cout << "ending serilog thread" << std::endl;
       s_thread_finished_.notify_all();
     }
 
@@ -823,7 +845,7 @@ namespace armonik::api::common::serilog
         serilog_dispatch_queue_.push_back(entry);
       }
 
-      if (entry->context.level >= level)
+      if (entry->context.level >= level && format_mode == logging_format::CONSOLE)
       {
         static constexpr char esc_char = 27;
         std::stringstream ss;
@@ -880,11 +902,14 @@ namespace armonik::api::common::serilog
     static void unregister_logger(serilog* logger)
     {
       std::lock_guard<std::mutex> guard(s_loggers_mutex_);
-      if (const auto pos = std::find_if(_s_loggers.begin(), _s_loggers.end(), [&](auto& l_logger)
+      const auto pos = std::find_if(_s_loggers.begin(), _s_loggers.end(), [&](auto& l_logger)
       {
         return logger == l_logger;
-      }); pos != _s_loggers.end())
+      });
+
+      if (pos != _s_loggers.end())
       {
+        //std::cout << "Delete logger found" << std::endl;
         _s_loggers.erase(pos);
       }
     }
@@ -899,6 +924,7 @@ namespace armonik::api::common::serilog
       level_serilog = base_level_serilog;
       std::strcpy(name_, name);
       register_logger(this);
+      shared_instance().init(level, level_serilog);
     }
   };
 }

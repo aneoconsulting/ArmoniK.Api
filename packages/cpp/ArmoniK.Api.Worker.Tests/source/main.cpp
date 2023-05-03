@@ -39,6 +39,7 @@ public:
   {
     logger.info("Build Service WorkerServiceImpl");
     logger.add_property("class", "WorkerServiceImpl");
+    logger.add_property("Worker", "ArmoniK.Api.Cpp");
   }
 
   /**
@@ -55,7 +56,7 @@ public:
                  ::armonik::api::grpc::v1::worker::ProcessReply* response) override
   {
     // Implementation of the Process method
-    logger.info("Receive new request");
+    logger.info("Receive new request From C++ Worker");
     auto output = armonik::api::grpc::v1::Output();
     *output.mutable_ok() = armonik::api::grpc::v1::Empty();
 
