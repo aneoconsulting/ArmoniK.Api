@@ -188,7 +188,7 @@ std::future<CreateTaskReply> SubmitterClientExt::create_tasks_async(const std::s
     }
     else
     {
-      throw std::exception("Fail to get service configuration");
+      throw std::runtime_error("Fail to get service configuration");
     }
 
     auto reply = new CreateTaskReply();
@@ -220,7 +220,7 @@ std::future<CreateTaskReply> SubmitterClientExt::create_tasks_async(const std::s
       std::stringstream message;
       message << "Error: " << status.error_code() << ": "
         << status.error_message() << ". details : " << status.error_details() << std::endl;
-      throw std::exception(message.str().c_str(), status.error_code());
+      throw std::runtime_error(message.str().c_str());
     }
 
     auto response = CreateTaskReply(*reply);
@@ -271,7 +271,7 @@ std::vector<std::string> SubmitterClientExt::submit_tasks_with_dependencies(Sess
   switch (createTaskReply.Response_case())
   {
   case CreateTaskReply::RESPONSE_NOT_SET:
-    throw std::exception("Issue with Server !");
+    throw std::runtime_error("Issue with Server !");
   case CreateTaskReply::kCreationStatusList:
     {
       auto task_reply_creation_statuses = createTaskReply.creation_status_list().creation_statuses();
@@ -285,7 +285,7 @@ std::vector<std::string> SubmitterClientExt::submit_tasks_with_dependencies(Sess
   case CreateTaskReply::kError:
     std::stringstream message;
     message << "Error while creating tasks ! : Error Message : " << createTaskReply.error() << std::endl;
-    throw std::exception(message.str().c_str());
+    throw std::runtime_error(message.str().c_str());
   }
   return task_ids;
 }
