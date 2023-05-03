@@ -37,20 +37,42 @@ WORKDIR /tmp/grpc
 RUN git submodule update --init
 RUN mkdir -p cmake/build && \
     cd cmake/build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/app/install \
+    cmake -DCMAKE_INSTALL_PREFIX=/app/grpc \
     -DgRPC_INSTALL=ON \
     -DCMAKE_BUILD_TYPE=Release       \
     ../.. && \
     make -j $(nproc) && \
     make install && \
-    ln -sf /app/install/lib/libgrpc++.so /app/install/lib/libgrpc++.so.1 && \
-    ln -sf /app/install/lib/libgrpc++_reflection.so /app/install/lib/libgrpc++_reflection.so.1
-    
+    ln -sf /app/grpc/lib/libgrpc++.so /app/grpc/lib/libgrpc++.so.1 && \
+    ln -sf /app/grpc/lib/libgrpc++_reflection.so /app/grpc/lib/libgrpc++_reflection.so.1
+
 # Build protobuf
 ENV protobuf_BUILD_TESTS=OFF
 
-WORKDIR /app/build
+ENV PATH="/app/install/lib:$PATH"
+ENV PATH="/app/install/bin:$PATH"
 
-ENTRYPOINT ["bash", "-c", "cmake -DCMAKE_INSTALL_PREFIX=/app/install ../ && cmake --build /app/build --target install"]
-#ENTRYPOINT ["cmake", "-DCMAKE_INSTALL_PREFIX=/app/install", "../", "&&", "bash"]
+RUN echo $PATH
+# WORKDIR /app/source
+
+# COPY ArmoniK.Api.Common ./ArmoniK.Api.Common
+# COPY ArmoniK.Api.Client ./ArmoniK.Api.Client
+# COPY ArmoniK.Api.Worker ./ArmoniK.Api.Worker
+
+# COPY ArmoniK.Api.Tests ./ArmoniK.Api.Tests
+# COPY ArmoniK.Api.Worker.Tests ./ArmoniK.Api.Worker.Tests
+# COPY CMakeLists.txt ./CMakeLists.txt
+
+# WORKDIR /app/proto
+# COPY ./Protos /app/proto
+
+WORKDIR /app/build
+# RUN cmake "-DCMAKE_INSTALL_PREFIX=/app/install" /app/source/
+# RUN make -j $(nproc) install
+# RUN ls /app/source
+# RUN cat /app/source/CMakeLists.txt
+
+
+CMD ["bash", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_CLIENT=ON /app/source/ && make -j $(nproc) install"]
+
 #ENTRYPOINT ["bash"]

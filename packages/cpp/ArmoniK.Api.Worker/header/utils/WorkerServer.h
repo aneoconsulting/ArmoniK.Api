@@ -43,8 +43,6 @@ namespace armonik::api::worker
     WorkerServer(std::shared_ptr<common::utils::IConfiguration> configuration) : configuration_(
       std::move(configuration))
     {
-      common::serilog::serilog::init(common::serilog::logging_level::debug, common::serilog::logging_level::verbose);
-
       logger.enrich([&](common::serilog::serilog_context& ctx)
       {
         ctx.add("threadId", std::this_thread::get_id());

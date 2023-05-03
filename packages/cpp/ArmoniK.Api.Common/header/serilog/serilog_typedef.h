@@ -26,4 +26,10 @@ namespace armonik::api::common::serilog
     error = 4,   ///< Error logging level
     fatal = 5    ///< Fatal logging level (highest)
   };
+
+  enum logging_format
+  {
+    CONSOLE = 0,
+    SEQ = 1,
+  };
 }

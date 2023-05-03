@@ -74,17 +74,18 @@ std::shared_ptr<SessionContext> createSession(const std::string& server_address)
 
 int main(int argc, char** argv)
 {
-  serilog log;
-  serilog::init(logging_level::debug, logging_level::verbose);
+  serilog log(logging_format::SEQ);
   
+  std::cout << "Serilog closed" << std::endl;
+ 
   log.enrich([&](serilog_context& ctx) {
-    ctx.add("EnrichedThreadId", std::this_thread::get_id());
+    ctx.add("threadid", std::this_thread::get_id());
     });
   log.enrich([&](serilog_context& ctx) {
-    ctx.add("EnrichedFieldValue", 1);
+    ctx.add("fieldTestValue", 1);
 
     });
-  log.add_property("AddedProperty", time(nullptr));
+  log.add_property("time", time(nullptr));
 
   // Call the createSession function with the server address
   ::putenv("GRPC_DNS_RESOLVER=native");
@@ -92,8 +93,6 @@ int main(int argc, char** argv)
   std::cout << "Starting client..." << std::endl;
   std::string server_address = "ddu-srv-wsl:5001";
   auto session_context = createSession(server_address);
-  std::tuple payload = std::make_tuple<std::string, std::vector<char>, std::vector<std::string>>(
-    armonik::api::common::utils::GuuId::generate_uuid(), {'a', 'r', 'm', 'o', 'n', 'i', 'k'}, {});
 
   try
   {
@@ -107,16 +106,18 @@ int main(int argc, char** argv)
     const auto task_ids = SubmitterClientExt::submit_tasks_with_dependencies(*session_context, payloads, 5);
     for (const auto& task_id : task_ids)
     {
-      std::cout << "Generate task_ids : " << task_id << std::endl;
+      std::stringstream out;
+      out <<  "Generate task_ids : " <<  task_id;
+      log.info(out.str());
     }
   }
   catch (std::exception& e)
   {
-    std::cerr << e.what() << std::endl;
+    log.error(e.what());
+    throw;
   }
 
- 
+  log.info("Stopping client...OK");
 
-  std::cout << "Stooping client..." << std::endl;
   return 0;
 }
