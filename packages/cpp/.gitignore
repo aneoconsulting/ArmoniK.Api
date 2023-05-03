@@ -1,0 +1,8 @@
+pkg/
+source/Protos
+build/
+*.egg-info
+**/*build
+**/*.obj
+**/*.o
+**/install

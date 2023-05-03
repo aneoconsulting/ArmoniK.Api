@@ -1,0 +1,72 @@
+# Use the latest version of Alpine as the base image
+FROM centos:latest
+ARG GRPC_VERSION=v1.54.0
+
+# Install dependencies
+RUN yum update && apk install -y \
+    git \
+    gcc \
+    g++ \
+    build-base \
+    autoconf \
+    automake \
+    libtool \
+    curl \
+    cmake \ 
+    protobuf \
+    protobuf-dev \
+    grpc \
+    grpc-dev \
+    c-ares \
+    c-ares-dev \
+    make \
+    unzip \
+    linux-headers
+
+RUN apt-get update \
+  && apt-get -y install build-essential \
+  && apt-get install -y wget \
+  && rm -rf /var/lib/apt/lists/* \
+  && wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1-Linux-x86_64.sh \
+      -q -O /tmp/cmake-install.sh \
+      && chmod u+x /tmp/cmake-install.sh \
+      && mkdir /opt/cmake-3.24.1 \
+      && /tmp/cmake-install.sh --skip-license --prefix=/opt/cmake-3.24.1 \
+      && rm /tmp/cmake-install.sh \
+      && ln -s /opt/cmake-3.24.1/bin/* /usr/local/bin
+
+# Clone and build protobuf from its GitHub repository
+#VOLUME ["/app"]
+
+# Set the working directory to /app
+#WORKDIR /app
+
+# Set source of proto the volume mount point
+#VOLUME ["/proto"]
+
+# Set output build of Armonik.API
+#VOLUME ["/build"]
+
+# Clone repositories
+WORKDIR /tmp
+RUN git clone -b $GRPC_VERSION https://github.com/grpc/grpc
+
+# Build gRPC
+WORKDIR /tmp/grpc
+RUN git submodule update --init
+RUN mkdir -p cmake/build && \
+    cd cmake/build && \
+    cmake ../.. && \
+    make -j $(nproc) && \
+    make install && \
+    ln -sf /usr/local/lib/libgrpc++.so /usr/local/lib/libgrpc++.so.1 && \
+    ln -sf /usr/local/lib/libgrpc++_reflection.so /usr/local/lib/libgrpc++_reflection.so.1
+
+# Build protobuf
+ENV protobuf_BUILD_TESTS=OFF
+
+WORKDIR /app/build
+
+ENTRYPOINT ["bash", "-c", "cmake -DCMAKE_INSTALL_PREFIX=/app/install ../ && cmake --build /app/build --target install"]
+#ENTRYPOINT ["cmake", "-DCMAKE_INSTALL_PREFIX=/app/install", "../", "&&", "bash"]
+#ENTRYPOINT ["bash"]

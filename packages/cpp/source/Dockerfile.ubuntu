@@ -1,0 +1,56 @@
+# Use the latest version of Alpine as the base image
+FROM ubuntu:20.04
+
+ARG GRPC_VERSION=v1.54.0
+
+# Install dependencies
+RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt update && apt install -y \
+    git \
+    gcc \
+    g++ \
+    autoconf \
+    automake \
+    libtool \
+    curl \
+    make \
+    unzip
+
+RUN apt-get update \
+  && apt-get -y install build-essential \
+  && apt-get install -y wget \
+  && rm -rf /var/lib/apt/lists/* \
+  && wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1-Linux-x86_64.sh \
+      -q -O /tmp/cmake-install.sh \
+      && chmod u+x /tmp/cmake-install.sh \
+      && mkdir /opt/cmake-3.24.1 \
+      && /tmp/cmake-install.sh --skip-license --prefix=/opt/cmake-3.24.1 \
+      && rm /tmp/cmake-install.sh \
+      && ln -s /opt/cmake-3.24.1/bin/* /usr/local/bin
+
+
+# Clone repositories
+WORKDIR /tmp
+RUN git clone -b $GRPC_VERSION https://github.com/grpc/grpc
+
+# Build gRPC
+WORKDIR /tmp/grpc
+RUN git submodule update --init
+RUN mkdir -p cmake/build && \
+    cd cmake/build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/app/install \
+    -DgRPC_INSTALL=ON \
+    -DCMAKE_BUILD_TYPE=Release       \
+    ../.. && \
+    make -j $(nproc) && \
+    make install && \
+    ln -sf /app/install/lib/libgrpc++.so /app/install/lib/libgrpc++.so.1 && \
+    ln -sf /app/install/lib/libgrpc++_reflection.so /app/install/lib/libgrpc++_reflection.so.1
+    
+# Build protobuf
+ENV protobuf_BUILD_TESTS=OFF
+
+WORKDIR /app/build
+
+ENTRYPOINT ["bash", "-c", "cmake -DCMAKE_INSTALL_PREFIX=/app/install ../ && cmake --build /app/build --target install"]
+#ENTRYPOINT ["cmake", "-DCMAKE_INSTALL_PREFIX=/app/install", "../", "&&", "bash"]
+#ENTRYPOINT ["bash"]
