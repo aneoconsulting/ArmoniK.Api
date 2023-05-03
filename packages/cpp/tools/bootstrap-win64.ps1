@@ -1,6 +1,6 @@
 # Set directory for installation - Chocolatey does not lock
 # down the directory if not the default
-$InstallDir="$pwd\tools\win64"
+$InstallDir="$pwd\win64"
 $env:VS100COMNTOOLS="C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools"
 
 # Vérifier si le répertoire d'installation de nasm existe
@@ -81,7 +81,7 @@ Set-Location -Path $BuildDir
 Import-Module "$env:VS100COMNTOOLS\Microsoft.VisualStudio.DevShell.dll"
 
 # Lancer CMake pour générer les fichiers de configuration de Visual Studio
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$InstallDir" -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF .. -G "Visual Studio 17 2022"
+cmake -DCMAKE_INSTALL_PREFIX="$InstallDir" -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF .. -G "Visual Studio 17 2022"
 
 # Compiler le projet en mode Release
 cmake --build . --config Release

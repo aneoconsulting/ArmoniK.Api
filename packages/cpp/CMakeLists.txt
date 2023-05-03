@@ -7,12 +7,17 @@ if (UNIX)
 
     set(BUILD_DIR "/app/build")
     set(PROTO_FILES_DIR "/app/proto")
-
+    list(APPEND CMAKE_PREFIX_PATH "/app/grpc/lib/cmake/")
+    list(APPEND CMAKE_PREFIX_PATH "/app/grpc/lib/cmake/grpc")
+    list(APPEND CMAKE_PREFIX_PATH "/app/grpc/lib/cmake/protobuf")
+    list(APPEND CMAKE_PREFIX_PATH "/app/grpc/lib/cmake/absl")
+    list(APPEND CMAKE_PREFIX_PATH "/app/grpc/lib/cmake/c-ares")
+    list(APPEND CMAKE_PREFIX_PATH "/app/grpc/lib/cmake/re2")
 elseif (WIN32)
 
-    set(BUILD_DIR "${CMAKE_SOURCE_DIR}/../build")
-    set(PROTO_FILES_DIR "${CMAKE_SOURCE_DIR}/../../../Protos/V1")
-    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/../tools/win64/lib/cmake/grpc")
+    set(BUILD_DIR "${CMAKE_SOURCE_DIR}/build")
+    set(PROTO_FILES_DIR "${CMAKE_SOURCE_DIR}/../../Protos/V1")
+    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/tools/win64/lib/cmake/grpc")
 
 endif (UNIX)
 
