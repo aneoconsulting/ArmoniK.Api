@@ -123,9 +123,9 @@ message CreateResultsMetaDataResponse {
 */
 message SubmitTasksRequest {
   message TaskCreation {
-    repeated string expected_output_keys = 1; /** Unique ID of the results that will be produced by the task. Results are created using ResultsService. */
-    repeated string data_dependencies = 2; /** Unique ID of the results that will be used as datadependencies. Results are created using ResultsService. */
-    string payload_id = 3; /** Unique ID of the result that will be used as payload. Results are created using ResultsService. */
+    repeated string expected_output_keys = 1; /** Unique ID of the results that will be produced by the task. Results must be created using ResultsService. */
+    repeated string data_dependencies = 2; /** Unique ID of the results that will be used as datadependencies. Results must be created using ResultsService. */
+    string payload_id = 3; /** Unique ID of the result that will be used as payload. Result must be created using ResultsService. */
     TaskOptions task_options = 4; /** Optionnal task options. */
   }
 
