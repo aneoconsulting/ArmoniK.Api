@@ -157,6 +157,20 @@ message ListTasksResponse {
 }
 
 /**
+ * Response to list tasks.
+ *
+ * Use pagination, filtering and sorting from the request.
+ * Return a list of formated tasks.
+ */
+message ListTasksRawResponse {
+  repeated TaskRaw tasks = 1; /** The list of tasks. */
+
+  int32 page = 2; /** The page number. Start at 0. */
+  int32 page_size = 3; /** The page size. */
+  int32 total = 4; /** The total number of tasks. */
+}
+
+/**
  * Request for getting a single task.
  */
 message GetTaskRequest {
@@ -220,4 +234,39 @@ message CountTasksByStatusRequest {}
  */
 message CountTasksByStatusResponse {
   repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 objct by tasks status. */
+}
+
+/**
+* Request to create tasks.
+*/
+message SubmitTasksRequest {
+  message TaskCreation {
+    repeated string expected_output_keys = 1; /** Unique ID of the results that will be produced by the task. Results should be created using ResultsService. */
+    repeated string data_dependencies = 2; /** Unique ID of the results that will be used as datadependencies. Results should be created using ResultsService. */
+    string payload_id = 3; /** Unique ID of the result that will be used as payload. Result should created using ResultsService. */
+    TaskOptions task_options = 4; /** Optionnal task options. */
+  }
+
+  string session_id = 1; /** The session ID. */
+  TaskOptions task_options = 2; /** The options for the tasks. Each task will have the same. Options are merged with the one from the session. */
+  repeated TaskCreation task_creations = 3; /** Task creation requests. */
+}
+
+/**
+* Response to create tasks.
+*
+* expected_output_ids and data_dependencies must be created through ResultsService.
+*
+* Remark : this may have to be enriched to a better management of errors but
+* will the client application be able to manage a missing data dependency or expected output ?
+*/
+message SubmitTasksResponse {
+  message TaskInfo {
+    string task_id = 1; /** The task ID. */
+    repeated string expected_output_ids = 2; /** The expected output IDs. A task have expected output IDs. */
+    repeated string data_dependencies = 3; /** The data dependencies IDs (inputs). A task have data dependencies. */
+    string payload_id = 4; /** Unique ID of the result that will be used as payload. Result should created using ResultsService. */
+  }
+
+  repeated TaskInfo task_infos = 1; /** List of task infos if submission successful, else throw gRPC exception. */
 }

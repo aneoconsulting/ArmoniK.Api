@@ -53,9 +53,10 @@ message CreateLargeTaskRequest {
 
 message CreateTaskReply {
   message TaskInfo {
-    string task_id = 1;
-    repeated string expected_output_keys = 2;
-    repeated string data_dependencies = 3;
+    string task_id = 1; /** Unique ID of the created task. */
+    repeated string expected_output_keys = 2; /** Unique ID of the result that will be used as expected output. Results should already exist. */
+    repeated string data_dependencies = 3; /** Unique ID of the result that will be used as data dependency. Results should already exist. */
+    string payload_id = 4; /** Unique ID of the result that will be used as payload. Result associated to the payload is created implicitly. */
   }
 
   message CreationStatus {
