@@ -6,3 +6,5 @@ build/
 **/*.obj
 **/*.o
 **/install
+**/win64
+**/tools/tools

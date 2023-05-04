@@ -26,5 +26,9 @@
 **/.vscode
 **/Api
 **/.docs
+**/out
+**/grpc
+**/win64
+**/tools/tools
 
 
