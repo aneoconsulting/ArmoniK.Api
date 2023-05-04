@@ -136,6 +136,20 @@ public class TaskHandler : ITaskHandler
     => throw new NotImplementedException();
 
   /// <inheritdoc />
+  public async Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results)
+    => await client_.CreateResultsMetaDataAsync(new CreateResultsMetaDataRequest
+                                                {
+                                                  CommunicationToken = Token,
+                                                  Results =
+                                                  {
+                                                    results,
+                                                  },
+                                                  SessionId = sessionId_,
+                                                })
+                    .ConfigureAwait(false);
+
+
+  /// <inheritdoc />
   public async Task SendResult(string key,
                                byte[] data)
   {
@@ -205,6 +219,74 @@ public class TaskHandler : ITaskHandler
 
   public ValueTask DisposeAsync()
     => ValueTask.CompletedTask;
+
+  /// <inheritdoc />
+  public async Task<SubmitTasksResponse> SubmitTasksAsync(IEnumerable<SubmitTasksRequest.Types.TaskCreation> taskCreations,
+                                                          TaskOptions?                                       submissionTaskOptions)
+    => await client_.SubmitTasksAsync(new SubmitTasksRequest
+                                      {
+                                        CommunicationToken = Token,
+                                        SessionId          = sessionId_,
+                                        TaskCreations =
+                                        {
+                                          taskCreations,
+                                        },
+                                        TaskOptions = submissionTaskOptions,
+                                      })
+                    .ConfigureAwait(false);
+
+  /// <inheritdoc />
+  public async Task<CreateResultsResponse> CreateResultsAsync(IEnumerable<CreateResultsRequest.Types.ResultCreate> results)
+    => await client_.CreateResultsAsync(new CreateResultsRequest
+                                        {
+                                          CommunicationToken = Token,
+                                          SessionId          = sessionId_,
+                                          Results =
+                                          {
+                                            results,
+                                          },
+                                        })
+                    .ConfigureAwait(false);
+
+  public async Task<UploadResultDataResponse> UploadResultData(string key,
+                                                               byte[] data)
+  {
+    var stream = client_.UploadResultData();
+
+    await stream.RequestStream.WriteAsync(new UploadResultDataRequest
+                                          {
+                                            Id = new UploadResultDataRequest.Types.ResultIdentifier
+                                                 {
+                                                   ResultId  = key,
+                                                   SessionId = sessionId_,
+                                                 },
+                                            CommunicationToken = Token,
+                                          })
+                .ConfigureAwait(false);
+
+    var start = 0;
+    while (start < data.Length)
+    {
+      var chunkSize = Math.Min(Configuration!.DataChunkMaxSize,
+                               data.Length - start);
+
+      await stream.RequestStream.WriteAsync(new UploadResultDataRequest
+                                            {
+                                              CommunicationToken = Token,
+                                              DataChunk = UnsafeByteOperations.UnsafeWrap(data.AsMemory()
+                                                                                              .Slice(start,
+                                                                                                     chunkSize)),
+                                            })
+                  .ConfigureAwait(false);
+
+      start += chunkSize;
+    }
+
+    await stream.RequestStream.CompleteAsync()
+                .ConfigureAwait(false);
+
+    return await stream.ResponseAsync.ConfigureAwait(false);
+  }
 
   public static async Task<TaskHandler> Create(IAsyncStreamReader<ProcessRequest> requestStream,
                                                Agent.AgentClient                  agentClient,
