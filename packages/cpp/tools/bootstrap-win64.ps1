@@ -3,15 +3,19 @@
 $InstallDir="$pwd\win64"
 $env:VS100COMNTOOLS="C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools"
 
+$env:ChocolateyInstall="$InstallDir"
+$env:Path += ";$InstallDir\bin"
+$env:Path += ";$InstallDir"
+
+
+Invoke-Item "RefreshEnv.cmd"
+
 # Check if the installation directory for nasm exists
 if (!(Test-Path $InstallDir -PathType Container)) {
     # Create the installation directory for nasm if it does not exist
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 }
 
-$env:ChocolateyInstall="$InstallDir"
-$env:Path += ";$InstallDir\bin"
-$env:Path += ";$InstallDir"
 
 # If your PowerShell Execution policy is restrictive, you may
 # not be able to get around that. Try setting your session to
@@ -50,20 +54,23 @@ $env:Path += ";$InstallDir\bin\nasm-2.16.01"
 # Clone grpc
 $GrpcDir = ".\grpc"
 if (!(Test-Path $GrpcDir -PathType Container)) {
-    git clone -b v1.54.0 https://github.com/grpc/grpc.git .\tools\grpc
+    git clone -b v1.54.0 https://github.com/grpc/grpc.git $GrpcDir
+    # Change to the grpc directory
+    Set-Location -Path $GrpcDir
+
+    # Update submodules
+    git submodule update --init
 }
-
-# Change to the grpc directory
-Set-Location -Path $GrpcDir
-
-# Update submodules
-git submodule update --init
-
+else 
+{
+    # Change to the grpc directory
+    Set-Location -Path $GrpcDir
+}
 # Apply the patch for boringssl if necessary
 $BoringSSLDir = ".\third_party\boringssl-with-bazel"
 Set-Location -Path $BoringSSLDir
 $PatchFile = "..\..\..\patch\0001-Fix-issue-with-Visual-Studio-2022-toolset.patch"
-if (!(git apply --check ..\..\$PatchFile)) {
+if (!(git apply --check $PatchFile)) {
     git apply $PatchFile
 }
 Set-Location -Path ..\..
