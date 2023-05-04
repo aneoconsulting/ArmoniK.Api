@@ -74,7 +74,7 @@ std::shared_ptr<SessionContext> createSession(const std::string& server_address)
 
 int main(int argc, char** argv)
 {
-  serilog log(logging_format::SEQ);
+  serilog log(logging_format::CONSOLE);
   
   std::cout << "Serilog closed" << std::endl;
  
