@@ -107,10 +107,15 @@ The worker image is a Docker image that is built specifically to be deployed in 
 
 The build-worker.sh script does the following:
 
-Sets the image tag for the Docker image.
-Determines the absolute paths of the necessary directories (script, working, and root directories).
-Changes to the root directory where the Protos are located.
-Builds the worker Docker image using the Dockerfile.worker file.
+- Sets the image tag for the Docker image.
+
+- Determines the absolute paths of the necessary directories (script, working, and root directories).
+
+- Changes to the root directory where the Protos are located.
+
+- Builds the worker Docker image using the Dockerfile.worker file.
+
+Now you should have the final image 
 
 3. Once the worker image has been built, you can use the following command to list all the Docker images available on your system:
 
