@@ -48,21 +48,21 @@ if (!(Test-Path "$InstallDir\bin\nasm-2.16.01\nasm.exe")) {
 $env:Path += ";$InstallDir\bin\nasm-2.16.01"
 
 # Clone grpc
-$GrpcDir = ".\tools\grpc"
+$GrpcDir = ".\grpc"
 if (!(Test-Path $GrpcDir -PathType Container)) {
     git clone -b v1.54.0 https://github.com/grpc/grpc.git .\tools\grpc
 }
 
 # Change to the grpc directory
-Set-Location -Path .\tools\grpc
+Set-Location -Path $GrpcDir
 
 # Update submodules
 git submodule update --init
 
 # Apply the patch for boringssl if necessary
-$PatchFile = "..\patch\0001-Fix-issue-with-Visual-Studio-2022-toolset.patch"
 $BoringSSLDir = ".\third_party\boringssl-with-bazel"
 Set-Location -Path $BoringSSLDir
+$PatchFile = "..\..\..\patch\0001-Fix-issue-with-Visual-Studio-2022-toolset.patch"
 if (!(git apply --check ..\..\$PatchFile)) {
     git apply $PatchFile
 }
