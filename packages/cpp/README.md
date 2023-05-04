@@ -1,0 +1,122 @@
+# I. Compilation of ArmoniK.Api.cpp Client and Server on Linux using Docker
+
+In order to compile the client and server on Linux, we use a Docker image to set up the necessary environment and dependencies. This ensures a consistent and clean environment for compilation.
+
+## Prerequisites
+
+1. Install Docker on your Linux system. Follow the instructions on the [official Docker documentation](https://docs.docker.com/engine/install/).
+
+2. Clone the repository containing the source code and the necessary scripts.
+
+## Compilation Steps for Linux
+
+1. Open a terminal in the root directory of the cloned repository.
+
+2. Run the `compile.sh` script:
+
+```bash
+./compile.sh
+```
+
+The compile.sh script does the following:
+
+- Sets the image tag for the Docker image.
+
+- Determines the absolute paths of the necessary directories (working, proto, build, and install directories).
+
+- Checks if the Docker image exists. If not, it builds the Docker image using the Dockerfile.ubuntu file.
+
+- Compiles the project source using the Docker image.
+Once the compilation is complete, the compiled binaries will be located in the install directory.
+
+Now you have successfully compiled the client and server on Linux using Docker.
+
+## Compiling the Client and Server on Windows with bootstrap-win64.ps1
+This guide explains how to compile the Armonik API client and server on Windows using the bootstrap-win64.ps1 script.
+
+## Prerequisites
+Before getting started, make sure you have the following tools and packages installed on your machine:
+- PowerShell
+- Visual Studio 2022
+- Git
+
+Before getting started, you will need PowerShell and be inform that the script will install localy in the folder tools/win64 all prerequisites excepting Visual Studio 2022 and CMake plugins :
+
+- Chocolatey package manager
+- Grpc 1.54.0 built from source
+- CMake
+- NASM
+
+## Compilation Steps for windows
+Follow these steps to compile the Armonik API client and server:
+
+- From a powershell, go to the folder package/cpp/tools 
+
+```powershell
+cd packages\cpp/tools
+```
+
+- Run the bootstrap-win64.ps1 script using the command 
+```powershell 
+.\bootstrap-win64.ps1
+```
+This will install the required dependencies and compile the Armonik API client and server.
+
+Wait for the script to complete. This may take some time, depending on the speed of your machine and the size of the project.
+
+Once the script has completed, you should see the compiled output in the install directory. From the root folder of repository ArmoniK.API
+```powershell
+cd packages\cpp\tools\win64
+```
+
+## Troubleshooting
+If you encounter any issues during the compilation process, try the following troubleshooting steps:
+
+- Make sure you have all the prerequisites installed correctly.
+Check that you are running PowerShell as an administrator.
+- Verify that the paths to your installation directories and tools are correct in the bootstrap-win64.ps1 script.
+- If you encounter an error related to boringssl, remove the patch provided in the bootstrap-win64.ps1 script before running the script.
+
+## Conclusion
+Compiling the Armonik API client and server on Windows can be a complex process, but the bootstrap-win64.ps1 script makes it much simpler.
+
+By following the steps outlined in this guide, you should be able to compile the project successfully and start using the Armonik API on Windows.
+
+
+# II. Compilation of the Worker ArmoniK.Api.cpp Image for Deployment in Armonik Infrastructure
+
+## Compilation of the Worker Image for Deployment in Armonik Infrastructure
+
+The worker image is a Docker image that is built specifically to be deployed in the Armonik infrastructure. This image contains the necessary dependencies and configurations for the worker to function correctly.
+
+## Prerequisites
+
+1. Install Docker on your Linux system. Follow the instructions on the [official Docker documentation](https://docs.docker.com/engine/install/).
+
+2. Clone the repository containing the source code and the necessary scripts.
+
+## Compilation Steps
+
+1. Open a terminal in the root directory of the cloned repository.
+
+2. Run the `build-worker.sh` script:
+
+```bash
+./build-worker.sh
+```
+
+The build-worker.sh script does the following:
+
+Sets the image tag for the Docker image.
+Determines the absolute paths of the necessary directories (script, working, and root directories).
+Changes to the root directory where the Protos are located.
+Builds the worker Docker image using the Dockerfile.worker file.
+
+3. Once the worker image has been built, you can use the following command to list all the Docker images available on your system:
+
+```bash
+docker images | grep armonik-api-cpp
+```
+The worker image should be listed with the specified image tag (e.g., armonik-api-cpp:v0.1).
+
+Now you have successfully compiled the worker image for deployment in the Armonik infrastructure.

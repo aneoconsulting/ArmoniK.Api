@@ -35,7 +35,7 @@ public:
   /**
    * @brief Constructs a WorkerServiceImpl object.
    */
-  WorkerServiceImpl()
+  WorkerServiceImpl() : logger(armonik::api::common::serilog::logging_format::SEQ)
   {
     logger.info("Build Service WorkerServiceImpl");
     logger.add_property("class", "WorkerServiceImpl");
