@@ -1,4 +1,4 @@
-# Use the latest version of Alpine as the base image
+# Use the latest version of Ubuntu 20.04 as the base image
 FROM ubuntu:20.04
 
 ARG GRPC_VERSION=v1.54.0
@@ -15,20 +15,22 @@ RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt update && apt instal
     make \
     unzip
 
+# Install build-essential and wget, then clean up apt cache to reduce image size
 RUN apt-get update \
   && apt-get -y install build-essential \
   && apt-get install -y wget \
   && rm -rf /var/lib/apt/lists/* \
+  # Download and install CMake
   && wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1-Linux-x86_64.sh \
       -q -O /tmp/cmake-install.sh \
       && chmod u+x /tmp/cmake-install.sh \
       && mkdir /opt/cmake-3.24.1 \
       && /tmp/cmake-install.sh --skip-license --prefix=/opt/cmake-3.24.1 \
       && rm /tmp/cmake-install.sh \
+      # Create symlinks for the CMake binary
       && ln -s /opt/cmake-3.24.1/bin/* /usr/local/bin
 
-
-# Clone repositories
+# Clone the gRPC repository
 WORKDIR /tmp
 RUN git clone -b $GRPC_VERSION https://github.com/grpc/grpc
 
@@ -43,36 +45,25 @@ RUN mkdir -p cmake/build && \
     ../.. && \
     make -j $(nproc) && \
     make install && \
+    # Create symlinks for the gRPC libraries
     ln -sf /app/grpc/lib/libgrpc++.so /app/grpc/lib/libgrpc++.so.1 && \
     ln -sf /app/grpc/lib/libgrpc++_reflection.so /app/grpc/lib/libgrpc++_reflection.so.1
 
-# Build protobuf
+# Set environment variables for protobuf
 ENV protobuf_BUILD_TESTS=OFF
 
+# Update PATH with the new directories
 ENV PATH="/app/install/lib:$PATH"
 ENV PATH="/app/install/bin:$PATH"
 
+# Print the PATH variable
 RUN echo $PATH
-# WORKDIR /app/source
 
-# COPY ArmoniK.Api.Common ./ArmoniK.Api.Common
-# COPY ArmoniK.Api.Client ./ArmoniK.Api.Client
-# COPY ArmoniK.Api.Worker ./ArmoniK.Api.Worker
-
-# COPY ArmoniK.Api.Tests ./ArmoniK.Api.Tests
-# COPY ArmoniK.Api.Worker.Tests ./ArmoniK.Api.Worker.Tests
-# COPY CMakeLists.txt ./CMakeLists.txt
-
-# WORKDIR /app/proto
-# COPY ./Protos /app/proto
-
+# Set the working directory for building protobuf
 WORKDIR /app/build
-# RUN cmake "-DCMAKE_INSTALL_PREFIX=/app/install" /app/source/
-# RUN make -j $(nproc) install
-# RUN ls /app/source
-# RUN cat /app/source/CMakeLists.txt
 
-
+# Set the default command to build the client using CMake and make
 CMD ["bash", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_CLIENT=ON /app/source/ && make -j $(nproc) install"]
 
-#ENTRYPOINT ["bash"]
+# Uncomment the line below if you want the container to start in the bash shell by default
+# ENTRYPOINT ["bash"]
