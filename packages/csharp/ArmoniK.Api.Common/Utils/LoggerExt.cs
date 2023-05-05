@@ -27,6 +27,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 
+using ArmoniK.Utils;
+
 using JetBrains.Annotations;
 
 using Microsoft.Extensions.Logging;
@@ -98,7 +100,7 @@ public static class LoggerExt
   {
     if (!logger.IsEnabled(level))
     {
-      return Disposable.Empty;
+      return Deferrer.Empty;
     }
 
     var stopWatch = Stopwatch.StartNew();
@@ -130,17 +132,19 @@ public static class LoggerExt
       scope.Dispose();
     }
 
-    return Disposable.Create(() =>
-                             {
-                               using (scope)
-                               {
-                                 logger.Log(level,
-                                            "Leaving {classFilePath}.{functionName} - {Id} in {duration}",
-                                            classFilePath,
-                                            functionName,
-                                            id,
-                                            stopWatch.Elapsed);
-                               }
-                             });
+    return new Deferrer(() =>
+                        {
+                          using (scope)
+                          {
+                            var elapsed = stopWatch.Elapsed;
+                            logger.Log(level,
+                                       "Leaving {classFilePath}.{functionName} - {Id} in {duration} ( {milliseconds} ms )",
+                                       classFilePath,
+                                       functionName,
+                                       id,
+                                       elapsed,
+                                       elapsed.TotalMilliseconds);
+                          }
+                        });
   }
 }

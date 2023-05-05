@@ -14,7 +14,7 @@
     <Nullable>enable</Nullable>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
     <Optimize>true</Optimize>
-    <PackageVersion>3.6.0</PackageVersion>
+    <PackageVersion>3.8.1</PackageVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -24,11 +24,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Grpc.Core" Version="2.46.6" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
-    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
+    <PackageReference Include="JetBrains.Annotations" Version="2022.3.1" />
+    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
-    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.49.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.49.1">
+    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.52.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.54.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -42,7 +44,7 @@
     <Protobuf Include="..\..\..\Protos\V1\submitter_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\submitter_service.proto</Link>
     </Protobuf>
-     <Protobuf Include="..\..\..\Protos\V1\applications_service.proto" GrpcServices="Client">
+    <Protobuf Include="..\..\..\Protos\V1\applications_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\applications_service.proto</Link>
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\sessions_service.proto" GrpcServices="Client">
@@ -54,7 +56,7 @@
     <Protobuf Include="..\..\..\Protos\V1\results_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\results_service.proto</Link>
     </Protobuf>
-     <Protobuf Include="..\..\..\Protos\V1\auth_service.proto" GrpcServices="Client">
+    <Protobuf Include="..\..\..\Protos\V1\auth_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\auth_service.proto</Link>
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\partitions_service.proto" GrpcServices="Client">

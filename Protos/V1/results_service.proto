@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.results;
 
+import "objects.proto";
 import "results_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
@@ -19,4 +20,35 @@ service Results {
    * Get the id of the task that should produce the result
    */
   rpc GetOwnerTaskId(GetOwnerTaskIdRequest) returns (GetOwnerTaskIdResponse);
+
+  /**
+   * Create the metadata of multiple results at once
+   * Data have to be uploaded separately
+   */
+  rpc CreateResultsMetaData(CreateResultsMetaDataRequest) returns (CreateResultsMetaDataResponse) {}
+
+  /**
+   * Create one result with data included in the request
+   */
+  rpc CreateResults(CreateResultsRequest) returns (CreateResultsResponse) {}
+
+  /**
+   * Upload data for result with stream
+   */
+  rpc UploadResultData(stream UploadResultDataRequest) returns (UploadResultDataResponse) {}
+
+  /**
+   * Retrieve data
+   */
+  rpc DownloadResultData(DownloadResultDataRequest) returns (stream DownloadResultDataResponse) {}
+
+  /**
+   * Delete data from multiple results
+   */
+  rpc DeleteResultsData(DeleteResultsDataRequest) returns (DeleteResultsDataResponse) {}
+
+  /**
+  * Get the configuration of the service
+  */
+  rpc GetServiceConfiguration(Empty) returns (ResultsServiceConfigurationResponse);
 }

@@ -41,9 +41,10 @@ message Output {
 }
 
 message TaskRequest {
-  repeated string expected_output_keys = 1;
-  repeated string data_dependencies = 2;
-  bytes payload = 3;
+  repeated string expected_output_keys = 1; /** Given names to the expected outputs that will be created implicitly. IDs are returned after task creation */
+  repeated string data_dependencies = 2; /** IDs of the results that will be used as data dependency. */
+  bytes payload = 3; /** Content of the payload for the task. */
+  string payload_name = 4; /** Name that will be associated to the result created for the payload. Optionnal */
 }
 
 message InitKeyedDataStream {
@@ -61,8 +62,8 @@ message DataChunk {
 }
 
 message TaskRequestHeader {
-  repeated string expected_output_keys = 1;
-  repeated string data_dependencies = 2;
+  repeated string expected_output_keys = 1; /** Given names to the expected outputs that will be created implicitly. IDs are returned after task creation */
+  repeated string data_dependencies = 2; /** IDs of the results that will be used as data dependency. */
 }
 
 message InitTaskRequest {
