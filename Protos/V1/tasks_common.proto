@@ -70,8 +70,8 @@ message TaskSummary {
   google.protobuf.Timestamp created_at = 5; /** The task creation date. */
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
-  google.protobuf.Duration duration = 15; /** The task duration. Between the creation date and the end date. */
-  google.protobuf.Duration calculation_duration = 16; /** The task calculated duration. Between the start date and the end date. */
+  google.protobuf.Duration creation_to_end_duration = 15; /** The task duration. Between the creation date and the end date. */
+  google.protobuf.Duration processing_to_end_duration = 16; /** The task calculated duration. Between the start date and the end date. */
 
   string error = 8; /** The error message. Only set if task have failed. */
 }
