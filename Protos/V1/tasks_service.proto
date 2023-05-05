@@ -19,6 +19,11 @@ service Tasks {
   rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {}
 
   /**
+   * Get a tasks list using pagination, filters and sorting with complete metada.
+   */
+  rpc ListTasksRaw(ListTasksRequest) returns (ListTasksRawResponse) {}
+
+  /**
    * Get a task by its id.
    */
   rpc GetTask(GetTaskRequest) returns (GetTaskResponse) {}
@@ -37,4 +42,9 @@ service Tasks {
    * Get count from tasks status.
    */
   rpc CountTasksByStatus(CountTasksByStatusRequest) returns (CountTasksByStatusResponse) {}
+
+  /**
+   * Create tasks metadata and submit task for processing.
+   */
+  rpc SubmitTasks(SubmitTasksRequest) returns (SubmitTasksResponse) {}
 }

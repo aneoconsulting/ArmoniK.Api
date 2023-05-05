@@ -7,6 +7,27 @@ import "agent_common.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
 
 service Agent {
+  /**
+   * Create the metadata of multiple results at once
+   * Data have to be uploaded separately
+   */
+  rpc CreateResultsMetaData(CreateResultsMetaDataRequest) returns (CreateResultsMetaDataResponse) {}
+
+  /**
+    * Create one result with data included in the request
+    */
+  rpc CreateResults(CreateResultsRequest) returns (CreateResultsResponse) {}
+
+  /**
+    * Upload data for result with stream
+    */
+  rpc UploadResultData(stream UploadResultDataRequest) returns (UploadResultDataResponse) {}
+
+  /**
+   * Create tasks metadata and submit task for processing.
+   */
+  rpc SubmitTasks(SubmitTasksRequest) returns (SubmitTasksResponse) {}
+
   rpc CreateTask(stream CreateTaskRequest) returns (CreateTaskReply);
   rpc GetResourceData(DataRequest) returns (stream DataReply);
   rpc GetCommonData(DataRequest) returns (stream DataReply);
