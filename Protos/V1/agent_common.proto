@@ -2,7 +2,9 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.agent;
 
+import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "result_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
 
@@ -16,14 +18,15 @@ message CreateTaskRequest {
     DataChunk task_payload = 3;
   }
 
-  string communication_token = 4;
+  string communication_token = 4; /** Communication token received by the worker during task processing */
 }
 
 message CreateTaskReply {
   message TaskInfo {
-    string task_id = 1;
-    repeated string expected_output_keys = 2;
-    repeated string data_dependencies = 3;
+    string task_id = 1; /** The task ID. */
+    repeated string expected_output_keys = 2; /** The expected output IDs. A task have expected output IDs. */
+    repeated string data_dependencies = 3; /** The data dependencies IDs (inputs). A task have data dependencies. */
+    string payload_id = 4; /** Unique ID of the result that will be used as payload. Results are created implicitly. */
   }
 
   message CreationStatus {
@@ -41,11 +44,11 @@ message CreateTaskReply {
     CreationStatusList creation_status_list = 1;
     string error = 2;
   }
-  string communication_token = 4;
+  string communication_token = 4; /** Communication token received by the worker during task processing */
 }
 
 message DataRequest {
-  string communication_token = 1;
+  string communication_token = 1; /** Communication token received by the worker during task processing */
   string key = 2;
 }
 
@@ -57,7 +60,7 @@ message DataReply {
       string error = 3;
     }
   }
-  string communication_token = 1;
+  string communication_token = 1; /** Communication token received by the worker during task processing */
   oneof type {
     Init init = 2;
     DataChunk data = 3;
@@ -70,13 +73,145 @@ message Result {
     InitKeyedDataStream init = 1;
     DataChunk data = 2;
   }
-  string communication_token = 3;
+  string communication_token = 3; /** Communication token received by the worker during task processing */
 }
 
 message ResultReply {
-  string communication_token = 3;
+  string communication_token = 3; /** Communication token received by the worker during task processing */
   oneof type {
     Empty Ok = 1;
     string Error = 2;
   }
+}
+
+/*
+* Request for creating results without data
+*/
+message CreateResultsMetaDataRequest {
+  /**
+  * A result to create.
+  */
+  message ResultCreate {
+    string name = 1; /** The result name. Given by the client. */
+  }
+  repeated ResultCreate results = 1; /** The list of results to create. */
+  string session_id = 2; /** The session in which create results. */
+  string communication_token = 3; /** Communication token received by the worker during task processing */
+}
+
+/**
+* Result metadata
+*/
+message ResultMetaData {
+  string session_id = 1; /** The session ID. */
+  string result_id = 2; /** The result ID. */
+  string name = 3; /** The result name. */
+  result_status.ResultStatus status = 4; /** The result status. */
+  google.protobuf.Timestamp created_at = 5; /** The result creation date. */
+}
+
+/*
+* Response for creating results without data
+*/
+message CreateResultsMetaDataResponse {
+  repeated ResultMetaData results = 1; /** The list of metadata results that were created. */
+  string communication_token = 2; /** Communication token received by the worker during task processing */
+}
+
+/**
+* Request to create tasks.
+*/
+message SubmitTasksRequest {
+  message TaskCreation {
+    repeated string expected_output_keys = 1; /** Unique ID of the results that will be produced by the task. Results must be created using ResultsService. */
+    repeated string data_dependencies = 2; /** Unique ID of the results that will be used as datadependencies. Results must be created using ResultsService. */
+    string payload_id = 3; /** Unique ID of the result that will be used as payload. Result must be created using ResultsService. */
+    TaskOptions task_options = 4; /** Optionnal task options. */
+  }
+
+  string session_id = 1; /** The session ID. */
+  TaskOptions task_options = 2; /** The options for the tasks. Each task will have the same. Options are merged with the one from the session. */
+  repeated TaskCreation task_creations = 3; /** Task creation requests. */
+  string communication_token = 4; /** Communication token received by the worker during task processing */
+}
+
+/**
+* Response to create tasks.
+*
+* expected_output_ids and data_dependencies must be created through ResultsService.
+*
+* Remark : this may have to be enriched to a better management of errors but
+* will the client application be able to manage a missing data dependency or expected output ?
+*/
+message SubmitTasksResponse {
+  message TaskInfo {
+    string task_id = 1; /** The task ID. */
+    repeated string expected_output_ids = 2; /** The expected output IDs. A task has expected output IDs. */
+    repeated string data_dependencies = 3; /** The data dependencies IDs (inputs). A task has data dependencies. */
+    string payload_id = 4; /** Unique ID of the result that will be used as payload. Results are created implicitly. */
+  }
+
+  repeated TaskInfo task_infos = 1; /** List of task infos if submission successful, else throw gRPC exception. */
+  string communication_token = 2; /** Communication token received by the worker during task processing */
+}
+
+/*
+* Request for creating results without data
+*/
+message CreateResultsRequest {
+  /**
+  * A result to create.
+  */
+  message ResultCreate {
+    string name = 1; /** The result name. Given by the client. */
+    bytes data = 2; /** The actual data of the result. */
+  }
+  repeated ResultCreate results = 1; /** The results to create. */
+  string session_id = 2; /** The session in which create results. */
+  string communication_token = 3; /** Communication token received by the worker during task processing */
+}
+
+/*
+* Response for creating results without data
+*/
+message CreateResultsResponse {
+  repeated ResultMetaData results = 1; /** The raw results that were created. */
+  string communication_token = 2; /** Communication token received by the worker during task processing */
+}
+
+/*
+* Request for uploading results data through stream.
+* Data must be sent in multiple chunks.
+* Only one result can be uploaded.
+*/
+message UploadResultDataRequest {
+  /**
+  * The metadata to identify the result to update.
+  */
+  message ResultIdentifier {
+    string session_id = 1; /** The session of the result. */
+    string result_id = 2; /** The ID of the result. */
+  }
+
+  /**
+  * The possible messages that constitute a UploadResultDataRequest
+  * They should be sent in the following order:
+  * - id
+  * - data_chunk (stream can have multiple data_chunk messages that represent data divided in several parts)
+  *
+  * Data chunk cannot exceed the size returned by the GetServiceConfiguration rpc method
+  */
+  oneof type {
+    ResultIdentifier id = 1; /** The identifier of the result to which add data. */
+    bytes data_chunk = 2; /** A chunk of data. */
+  }
+  string communication_token = 4; /** Communication token received by the worker during task processing */
+}
+
+/*
+* Response for uploading data with stream for result
+*/
+message UploadResultDataResponse {
+  string result_id = 1; /** The Id of the result to which data were added */
+  string communication_token = 2; /** Communication token received by the worker during task processing */
 }

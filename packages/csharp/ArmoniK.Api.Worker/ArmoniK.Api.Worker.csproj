@@ -16,7 +16,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
-    <PackageVersion>3.6.0</PackageVersion>
+    <PackageVersion>3.8.1</PackageVersion>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -25,7 +26,6 @@
 
   <ItemGroup>
     <PackageReference Include="Grpc.Net.Client" Version="2.49.0" />
-    <PackageReference Include="JetBrains.Annotations" Version="2022.1.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.1" />
     <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.49.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="5.0.1" />
