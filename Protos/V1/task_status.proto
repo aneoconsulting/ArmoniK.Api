@@ -22,4 +22,5 @@ enum TaskStatus {
   TASK_STATUS_CANCELLED = 8; /** Task is cancelled. */
   TASK_STATUS_PROCESSING = 9; /** Task is being processed. */
   TASK_STATUS_PROCESSED = 10; /** Task is processed. */
+  TASK_STATUS_RETRIED = 11; /** Task is retried. */
 }
