@@ -1,25 +1,25 @@
-const baseURL = process.env.NODE_ENV === "production" ? "/ArmoniK.Api/" : "/";
+const baseURL = process.env.NODE_ENV === 'production' ? '/ArmoniK.Api/' : '/'
 
 export default defineNuxtConfig({
   app: {
-    baseURL: baseURL,
+    baseURL,
     head: {
       link: [
         {
           rel: 'icon',
           type: 'image/ico',
-          href: `${baseURL}favicon.ico`,
+          href: `${baseURL}favicon.ico`
         }
       ]
     }
   },
 
-  extends: "@aneoconsultingfr/armonik-docs-theme",
+  extends: '@aneoconsultingfr/armonik-docs-theme',
 
   runtimeConfig: {
     public: {
       siteName: 'ArmoniK.Api',
-      siteDescription: 'API for ArmoniK',
+      siteDescription: 'API for ArmoniK'
     }
-  },
-});
+  }
+})
