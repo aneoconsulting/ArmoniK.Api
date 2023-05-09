@@ -1,3 +1,5 @@
+<!-- @case-police-ignore Api -->
+
 # ArmoniK.Api Docs
 
 Docs for ArmoniK.Api
@@ -13,11 +15,13 @@ npm install
 ## Usage
 
 To run the docs locally, run the following command:
+
 ```bash
 npm run dev
 ```
 
 To build the docs, run the following command:
+
 ```bash
 npm run generate
 ```
