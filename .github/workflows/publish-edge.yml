@@ -67,7 +67,6 @@ jobs:
           dotnet-version: 6.x
 
       - name: Generate Version
-        if: github.ref == 'refs/heads/main'
         run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_ENV
 
       - name: Build the package
