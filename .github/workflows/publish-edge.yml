@@ -20,6 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       # Install the .NET Core workload
@@ -88,6 +89,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - run: npm i -g @antfu/ni pnpm
@@ -125,6 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - run: npm i -g @antfu/ni pnpm
