@@ -67,7 +67,8 @@ jobs:
           dotnet-version: 6.x
 
       - name: Generate Version
-        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest)" >> $GITHUB_ENV
+        if: github.ref == 'refs/heads/main'
+        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_ENV
 
       - name: Build the package
         run: |
@@ -108,7 +109,7 @@ jobs:
         run: cd packages/angular && nr proto:generate:linux
 
       - name: Update version
-        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest)
+        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
 
       - name: Build package
         run: cd packages/angular && nr build
@@ -151,7 +152,7 @@ jobs:
         run: cd packages/web && nr build
 
       - name: Update version
-        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest)
+        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
 
       - name: Release package
         run: nr ci:publish-edge web
