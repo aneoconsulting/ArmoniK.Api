@@ -8,6 +8,7 @@ package armonik.api.grpc.v1.tasks;
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
+import "sort_direction.proto";
 import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
@@ -76,6 +77,22 @@ message TaskSummary {
   string error = 8; /** The error message. Only set if task have failed. */
 }
 
+// TODO: Implements new filters using these fields.
+/**
+ * Represents every available field in a task summary.
+ */
+enum TaskSummaryField {
+  TASK_SUMMARY_FIELD_TASK_ID = 0; /** The task ID. */
+  TASK_SUMMARY_FIELD_SESSION_ID = 1; /** The session ID. */
+  TASK_SUMMARY_FIELD_STATUS = 2; /** The task status. */
+  TASK_SUMMARY_FIELD_CREATED_AT = 3; /** The task creation date. */
+  TASK_SUMMARY_FIELD_STARTED_AT = 4; /** The task start date. */
+  TASK_SUMMARY_FIELD_ENDED_AT = 5; /** The task end date. */
+  TASK_SUMMARY_FIELD_CREATION_TO_END_DURATION = 6; /** The task duration. Between the creation date and the end date. */
+  TASK_SUMMARY_FIELD_PROCESSING_TO_END_DURATION = 7; /** The task calculated duration. Between the start date and the end date. */
+  TASK_SUMMARY_FIELD_ERROR = 8; /** The error message. Only set if task have failed. */
+}
+
 /**
  * Request to list tasks.
  *
@@ -108,33 +125,11 @@ message ListTasksRequest {
   Filter filter = 3;
 
   /**
-   * Represents every available field to use in order to sort tasks.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_TASK_ID = 1; /** The task ID. */
-    ORDER_BY_FIELD_SESSION_ID = 2; /** The session ID. */
-    ORDER_BY_FIELD_STATUS = 3; /** The task status. */
-    ORDER_BY_FIELD_CREATED_AT = 4; /** The task creation date. */
-    ORDER_BY_FIELD_STARTED_AT = 5; /** The task start date. */
-    ORDER_BY_FIELD_ENDED_AT = 6; /** The task end date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. Do not use. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
    * Represents the sort object.
    */
   message Sort {
-    OrderByField field = 1; /** The field to order by. */
-    OrderDirection direction = 2; /** The order direction. */
+    TaskSummaryField field = 1; /** The field to sort on. */
+    sort_direction.SortDirection direction = 2; /** The sort direction. */
   }
 
   /** The sort.

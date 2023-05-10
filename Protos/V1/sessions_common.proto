@@ -9,6 +9,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";
+import "sort_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
@@ -45,6 +46,19 @@ message SessionSummary {
   TaskOptions options = 5; /** The default task options. */
 }
 
+// TODO: Implements new filters using these fields.
+/**
+ * Represents every available field in a session summary.
+ */
+enum SessionSummaryField {
+  SESSION_SUMMARY_FIELD_SESSION_ID = 0; /** The session ID. */
+  SESSION_SUMMARY_FIELD_STATUS = 1; /** The session status. */
+  SESSION_SUMMARY_FIELD_CREATED_AT = 2; /** The creation date. */
+  SESSION_SUMMARY_FIELD_CANCELLED_AT = 3; /** The cancellation date. */
+  SESSION_SUMMARY_FIELD_DURATION = 4; /** The duration. */
+  SESSION_SUMMARY_FIELD_OPTIONS = 5; /** The default task options. */
+}
+
 /**
  * Request to list sessions.
  *
@@ -77,31 +91,11 @@ message ListSessionsRequest {
   Filter filter = 3;
 
   /**
-   * Represents every available field to use in order to sort sessions.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_SESSION_ID = 1; /** The session ID. */
-    ORDER_BY_FIELD_STATUS = 2; /** The session status. */
-    ORDER_BY_FIELD_CREATED_AT = 3; /** The creation date. */
-    ORDER_BY_FIELD_CANCELLED_AT = 4; /** The cancellation date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
    * Represents the sort object.
    */
   message Sort {
-    OrderByField field = 1; /** The field to order by. */
-    OrderDirection direction = 2; /** The order direction. */
+    SessionSummaryField field = 1; /** The field to sort on. */
+    sort_direction.SortDirection direction = 2; /** The sort direction. */
   }
 
   /** The sort.
