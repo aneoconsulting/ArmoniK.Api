@@ -9,7 +9,21 @@ on:
       - main
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    name: Version
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Generate Version
+      # Print to the summary
+        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_STEP_SUMMARY
   tests:
+    name: Tests
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
