@@ -22,7 +22,6 @@ message ApplicationRaw {
   string service = 4; /** Application service used in the excecuted class. */
 }
 
-
 // TODO: Implements new filters using these fields.
 /**
  * Represents every available field in an application.
