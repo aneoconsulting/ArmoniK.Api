@@ -5,5 +5,8 @@
         "--proto_path=${workspaceRoot}/Protos/V1",
         "--csharp_out=${workspaceRoot}/gen/csharp"
     ]
-}
+},
+"cSpell.words": [
+  "Armoni"
+]
 }
