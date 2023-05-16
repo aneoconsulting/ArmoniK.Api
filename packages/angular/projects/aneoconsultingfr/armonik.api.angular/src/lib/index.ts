@@ -28,7 +28,8 @@ export {
   GetSessionRequest,
   GetSessionResponse,
   ListSessionsRequest,
-  ListSessionsResponse
+  ListSessionsResponse,
+  SessionRaw,
 } from "./generated/sessions-common.pb";
 export { SessionsClient } from "./generated/sessions-service.pbsc";
 export { TaskStatus } from "./generated/task-status.pb";
