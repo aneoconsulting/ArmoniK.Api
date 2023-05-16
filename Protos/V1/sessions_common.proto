@@ -24,6 +24,9 @@ message SessionRaw {
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
   google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled'. */
+
+  string application_name = 8; /** The application name. */
+  string application_version = 9; /** The application version. */
 }
 
 /**
