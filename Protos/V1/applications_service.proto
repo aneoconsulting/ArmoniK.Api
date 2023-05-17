@@ -14,7 +14,7 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
  */
 service Applications {
   /**
-   * Get a applications list using pagination, filters and sorting;
+   * Get a applications list using pagination, filters and sorting.
    */
   rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse) {}
 
