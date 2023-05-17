@@ -99,6 +99,21 @@ message ListApplicationsResponse {
 }
 
 /**
+ * Request to get an application.
+ */
+message GetApplicationRequest {
+  string name = 1; /** Application name. Must fail when name is empty. */
+  string version = 2; /** Application version. Must fail when version is emtpy. */
+}
+
+/**
+ * Response to get an application.
+ */
+message GetApplicationResponse {
+  ApplicationRaw application = 1; /** The application. */
+}
+
+/**
   * Request to get count from tasks status by application.
   */
 message CountTasksByStatusRequest {

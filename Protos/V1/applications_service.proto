@@ -19,6 +19,11 @@ service Applications {
   rpc ListApplications(ListApplicationsRequest) returns (ListApplicationsResponse) {}
 
   /**
+   * Get a application by id.
+   */
+  rpc GetApplication(GetApplicationRequest) returns (GetApplicationResponse) {}
+
+  /**
    * Get count from tasks by status using an application.
    */
   rpc CountTasksByStatus(CountTasksByStatusRequest) returns (CountTasksByStatusResponse) {}
