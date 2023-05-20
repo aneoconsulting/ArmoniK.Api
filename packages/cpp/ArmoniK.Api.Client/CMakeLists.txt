@@ -16,12 +16,25 @@ find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
+SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
+SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
+
+FILE(GLOB_RECURSE SRC_CLIENT_FILES ${SOURCES_FILES_DIR}/*.cpp)
+FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
+
 
 file(MAKE_DIRECTORY ${BUILD_DIR}/${PROJECT_NAME})
 
-add_library(${PROJECT_NAME} STATIC ${PROTO_FILES})
+add_library(${PROJECT_NAME} STATIC ${PROTO_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure Armonik.Api.Common)
+
+target_include_directories(${PROJECT_NAME}
+                           PUBLIC
+                           "$<BUILD_INTERFACE:${HEADER_FILES_DIR}>"
+                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+)
+
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
