@@ -16,6 +16,7 @@ RUN apk update && apk add --no-cache \
     c-ares \
     c-ares-dev \
     make \
+    cmake \
     unzip \
     linux-headers
 
@@ -65,7 +66,23 @@ RUN make -j $(nproc) install
 
 # Start with the latest Alpine base image for the final stage
 FROM alpine:3.14
-
+# Install all the necessary dependencies required for the build process
+# These include tools and libraries for building and compiling the source code
+RUN apk update && apk add --no-cache \
+    git \
+    gcc \
+    g++ \
+    build-base \
+    autoconf \
+    automake \
+    libtool \
+    curl \
+    c-ares \
+    c-ares-dev \
+    make \
+    cmake \
+    unzip \
+    linux-headers
 # Create a non-root user and group for running the application
 # This is a security best practice to avoid running applications as the root user
 RUN addgroup -g 5000 -S armonikuser && adduser -D -h /home/armonikuser  -u 5000 -G armonikuser --shell /bin/sh armonikuser && mkdir /cache && chown armonikuser: /cache
