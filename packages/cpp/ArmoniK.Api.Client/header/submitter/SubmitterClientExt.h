@@ -17,13 +17,29 @@
   */
 class SubmitterClientExt
 {
-  /**
-   * @brief Creates a new session with the control plane.
-   * @param control_plane_url The URL of the control plane.
-   */
-  void create_session(const std::string& control_plane_url);
+private:
+
+  grpc::ClientContext context_;
+  std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::Stub> stub_;
+
+
 
 public:
+  /**
+   * @brief Creates a new session with the control plane.
+   * @param task_options The task options.
+   * @param partition_ids The partition ids.
+   */
+    std::string create_session(armonik::api::grpc::v1::TaskOptions task_options,
+                            const std::vector<std::string>& partition_ids);
+
+  /**
+   * @brief Cancels a created session.
+   * @param session_id The id of the session to be canceled.
+   */
+  void cancel_session(const std::string& session_id);
+
+
 
   /**
    * @brief Converts task requests into a vector of future large task request objects.
@@ -75,4 +91,18 @@ public:
     std::vector<std::tuple<std::string, std::vector<char>, std::
     vector<std::string>>> payloads_with_dependencies,
     int max_retries);
+
+    /**
+   * @brief Get  result without streaming.
+   * @param channel The gRPC channel to communicate with the server.
+   * @param session_id The session ID.
+   * @param task_options The task options.
+   * @param result_requests The vector of result requests.
+   * @return A vector containting the data associated to the result
+   */
+  static std::future<std::vector<int8_t>> get_result_async(
+    const std::shared_ptr<grpc::Channel>& channel,
+    std::string& session_id, const armonik::api::grpc::v1::TaskOptions& task_options,
+    const armonik::api::grpc::v1::ResultRequest& result_requests);
+
 };
