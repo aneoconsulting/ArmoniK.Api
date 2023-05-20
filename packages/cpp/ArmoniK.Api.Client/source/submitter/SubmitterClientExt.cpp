@@ -21,17 +21,50 @@ using armonik::api::grpc::v1::submitter::CreateSessionReply;
 using armonik::api::grpc::v1::submitter::Submitter;
 using armonik::api::grpc::v1::TaskOptions;
 using armonik::api::grpc::v1::TaskRequest;
+using armonik::api::grpc::v1::ResultRequest;
 using namespace armonik::api::grpc::v1::submitter;
 
 /**
  * @brief Create a new session.
- *
- * @param control_plane_url The control plane URL.
+ * @param partition_ids The partitions ids.
+ * @param task_options The task options.
  */
-void SubmitterClientExt::create_session(const std::string& control_plane_url)
+std::string SubmitterClientExt::create_session(TaskOptions task_options,
+                                               const std::vector<std::string>& partition_ids = {"default"})
 {
-  // Implementation of create_session
+  CreateSessionRequest request;
+  request.set_allocated_default_task_option(&task_options);
+  for (const auto& partition_id : partition_ids)
+  {
+    request.add_partition_ids(partition_id);
+  }
+  CreateSessionReply reply;
+  Status status = stub_->CreateSession(&context_, request, &reply);
+  if (status.ok())
+  {
+    return reply.session_id();
+  }
+  std::cout << "CreateSession rpc failed: " << status.error_message()
+    << std::endl;
+  return "";
 }
+
+/**
+ * @brief Cancel a session.
+ *
+ * @param session_id The session id.
+ */
+void SubmitterClientExt::cancel_session(const std::string& session_id)
+{
+  armonik::api::grpc::v1::Session request;
+
+  request.set_id(session_id);
+
+  armonik::api::grpc::v1::Empty reply;
+
+  stub_->CancelSession(&context_, request, &reply);
+}
+
 
 /**
  * @brief Convert task_requests to request_stream.
@@ -42,10 +75,11 @@ void SubmitterClientExt::create_session(const std::string& control_plane_url)
  * @param chunk_max_size Maximum chunk size.
  * @return A vector of futures containing CreateLargeTaskRequest objects.
  */
-auto SubmitterClientExt::to_request_stream(const std::vector<TaskRequest>& task_requests,
-                                           std::string& session_id, const TaskOptions& task_options,
-                                           const size_t chunk_max_size) -> std::vector<std::future<std::vector<
-  CreateLargeTaskRequest>>>
+std::vector<std::future<std::vector<
+  CreateLargeTaskRequest>>> SubmitterClientExt::to_request_stream(const std::vector<TaskRequest>& task_requests,
+                                                                  std::string& session_id,
+                                                                  const TaskOptions& task_options,
+                                                                  const size_t chunk_max_size)
 {
   std::vector<std::future<std::vector<CreateLargeTaskRequest>>> async_chunk_payload_tasks;
   async_chunk_payload_tasks.push_back(std::async([session_id, task_options]()
@@ -281,7 +315,7 @@ std::vector<std::string> SubmitterClientExt::submit_tasks_with_dependencies(Sess
                      [](const CreateTaskReply_CreationStatus& x) { return x.task_info().task_id(); });
       break;
     }
-  
+
   case CreateTaskReply::kError:
     std::stringstream message;
     message << "Error while creating tasks ! : Error Message : " << createTaskReply.error() << std::endl;
@@ -289,3 +323,95 @@ std::vector<std::string> SubmitterClientExt::submit_tasks_with_dependencies(Sess
   }
   return task_ids;
 }
+
+
+/**
+ * @brief Asynchronously create tasks.
+ *
+ * @param channel The shared_ptr to the gRPC channel.
+ * @param session_id The session ID.
+ * @param task_options The TaskOptions object.
+ * @param result_requests A vector of ResultRequest objects.
+ * @return A future containing data result.
+ */
+std::future<std::vector<int8_t>> SubmitterClientExt::get_result_async(const std::shared_ptr<grpc::Channel>& channel,
+                                                                      std::string& session_id,
+                                                                      const TaskOptions& task_options,
+                                                                      const ResultRequest&
+                                                                      result_requests)
+{
+  return std::async(std::launch::async, [channel, &result_requests, &session_id, &task_options]()
+  {
+    armonik::api::grpc::v1::submitter::ResultReply result_writer;
+    grpc::ClientContext* context_configuration;
+    auto client = Submitter::NewStub(channel);
+
+    auto streamingCall = client->TryGetResultStream(context_configuration, result_requests);
+
+
+    size_t size;
+
+    if (streamingCall)
+    {
+      size = result_requests.ByteSizeLong();
+    }
+    else
+    {
+      throw std::runtime_error("Fail to get result");
+    }
+
+    std::vector<int8_t> result_data;
+    for (size_t count = 0; count < size; count++)
+    {
+      streamingCall->WaitForInitialMetadata();
+      streamingCall->Read(&result_writer);
+      std::string dataString;
+      switch (result_writer.type_case())
+      {
+      case result_writer.kResult:
+        dataString = result_writer.result().data();
+        for (size_t i = 0; i <dataString.length() ; i++) 
+        {
+          result_data.push_back(dataString[i]);
+        }
+        break;
+      case result_writer.kError:
+        throw std::runtime_error("Error in task ");
+        break;
+      case result_writer.kNotCompletedTask:
+        throw std::runtime_error("Task not completed");
+        break;
+      case result_writer.TYPE_NOT_SET:
+        throw std::runtime_error("Issue with the Server");
+        break;
+      default:
+        throw std::runtime_error("Unknown return type !");
+        break;
+      }
+
+    }
+
+    return result_data;
+  });
+}
+
+/*
+std::future<CreateTaskReply> SubmitterClientExt::list_tasks(const std::shared_ptr<grpc::Channel>& channel,
+                                                              std::string& session_id,
+                                                              const TaskOptions& task_options,
+                                                              const std::vector<TaskRequest>&
+                                                              task_requests)
+{
+
+}
+
+
+std::future<CreateTaskReply> SubmitterClientExt::task_status(const std::shared_ptr<grpc::Channel>& channel,
+                                                              std::string& session_id,
+                                                              const TaskOptions& task_options,
+                                                              const std::vector<TaskRequest>&
+                                                              task_requests)
+{
+
+}                                                             
+*/
