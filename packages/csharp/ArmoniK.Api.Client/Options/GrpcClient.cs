@@ -94,7 +94,6 @@ namespace ArmoniK.Api.Client.Options
     /// </summary>
     public int MaxIdleTime { get; set; } = 5;
 
-
     /// <summary>
     ///   MaxAttempts is a property that gets and sets the maximum number of attempts to retry an operation.
     /// </summary>
