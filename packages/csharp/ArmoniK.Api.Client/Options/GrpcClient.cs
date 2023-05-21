@@ -72,10 +72,42 @@ namespace ArmoniK.Api.Client.Options
     /// </summary>
     public string OverrideTargetName { get; set; } = "";
 
+
     /// <summary>
     ///   True if the options specify a client certificate
     /// </summary>
     public bool HasClientCertificate
       => !string.IsNullOrWhiteSpace(CertP12) || !(string.IsNullOrWhiteSpace(CertPem) || string.IsNullOrWhiteSpace(KeyPem));
+
+    /// <summary>
+    ///   KeepAliveTime is the time in milliseconds after which the connection will be kept alive.
+    /// </summary>
+    public int KeepAliveTime { get; set; } = 30000;
+
+    /// <summary>
+    ///   KeepAliveTimeInterval is the interval in milliseconds at which the connection will be kept alive.
+    /// </summary>
+    public int KeepAliveTimeInterval { get; set; } = 30000;
+
+    /// <summary>
+    ///   MaxIdleTime is the maximum idle time in minutes after which the connection will be closed.
+    /// </summary>
+    public int MaxIdleTime { get; set; } = 5;
+
+
+    /// <summary>
+    /// MaxAttempts is a property that gets and sets the maximum number of attempts to retry an operation.
+    /// </summary>
+    public int MaxAttempts { get; set; } = 5;
+
+    /// <summary>
+    /// InitialBackOff is a property that gets and sets the initial backOff time in seconds for retrying an operation.
+    /// </summary>
+    public int InitialBackOff { get; set; } = 1;
+
+    /// <summary>
+    /// MaxBackOff is a property that gets and sets the maximum backOff time in seconds for retrying an operation.
+    /// </summary>
+    public int MaxBackOff { get; set; } = 5;
   }
 }

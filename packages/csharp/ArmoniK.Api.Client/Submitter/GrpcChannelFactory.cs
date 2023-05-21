@@ -36,6 +36,7 @@ using ArmoniK.Api.Client.Options;
 
 using Grpc.Core;
 using Grpc.Net.Client;
+using Grpc.Net.Client.Configuration;
 
 using JetBrains.Annotations;
 
@@ -275,11 +276,52 @@ namespace ArmoniK.Api.Client.Submitter
         }
       }
 
+      var httpClient = new HttpClient(httpHandler);
+      var sp         = ServicePointManager.FindServicePoint(new Uri(optionsGrpcClient.Endpoint!));
+
+      sp.SetTcpKeepAlive(true,
+                         optionsGrpcClient.KeepAliveTime,
+                         optionsGrpcClient.KeepAliveTimeInterval);
+
+      sp.MaxIdleTime = (int)TimeSpan.FromMinutes(optionsGrpcClient.MaxIdleTime)
+                                    .TotalMilliseconds;
+
+      var defaultMethodConfig = new MethodConfig
+                                {
+                                  Names =
+                                  {
+                                    MethodName.Default,
+                                  },
+                                  RetryPolicy = new RetryPolicy
+                                                {
+                                                  MaxAttempts       = optionsGrpcClient.MaxAttempts,
+                                                  InitialBackoff    = TimeSpan.FromSeconds(optionsGrpcClient.InitialBackOff),
+                                                  MaxBackoff        = TimeSpan.FromSeconds(optionsGrpcClient.MaxBackOff),
+                                                  BackoffMultiplier = 1.5,
+                                                  RetryableStatusCodes =
+                                                  {
+                                                    StatusCode.Unavailable,
+                                                    StatusCode.Aborted,
+                                                    StatusCode.Unknown,
+                                                  },
+                                                },
+                                };
+
       var channelOptions = new GrpcChannelOptions
                            {
-                             Credentials = credentials,
-                             HttpHandler = httpHandler,
+                             Credentials       = credentials,
+                             HttpHandler       = httpHandler,
+                             HttpClient        = httpClient,
+                             DisposeHttpClient = true,
+                             ServiceConfig = new ServiceConfig
+                                             {
+                                               MethodConfigs =
+                                               {
+                                                 defaultMethodConfig
+                                               },
+                                             },
                            };
+
       return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
                                     channelOptions);
     }
