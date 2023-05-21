@@ -96,17 +96,17 @@ namespace ArmoniK.Api.Client.Options
 
 
     /// <summary>
-    /// MaxAttempts is a property that gets and sets the maximum number of attempts to retry an operation.
+    ///   MaxAttempts is a property that gets and sets the maximum number of attempts to retry an operation.
     /// </summary>
     public int MaxAttempts { get; set; } = 5;
 
     /// <summary>
-    /// InitialBackOff is a property that gets and sets the initial backOff time in seconds for retrying an operation.
+    ///   InitialBackOff is a property that gets and sets the initial backOff time in seconds for retrying an operation.
     /// </summary>
     public int InitialBackOff { get; set; } = 1;
 
     /// <summary>
-    /// MaxBackOff is a property that gets and sets the maximum backOff time in seconds for retrying an operation.
+    ///   MaxBackOff is a property that gets and sets the maximum backOff time in seconds for retrying an operation.
     /// </summary>
     public int MaxBackOff { get; set; } = 5;
   }
