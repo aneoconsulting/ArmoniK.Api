@@ -317,7 +317,7 @@ namespace ArmoniK.Api.Client.Submitter
                                              {
                                                MethodConfigs =
                                                {
-                                                 defaultMethodConfig
+                                                 defaultMethodConfig,
                                                },
                                              },
                            };
