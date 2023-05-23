@@ -17,6 +17,11 @@ service Results {
   rpc ListResults(ListResultsRequest) returns (ListResultsResponse) {}
 
   /**
+   * Get a result by id.
+   */
+  rpc GetResult(GetResultRequest) returns (GetResultResponse) {}
+
+  /**
    * Get the id of the task that should produce the result
    */
   rpc GetOwnerTaskId(GetOwnerTaskIdRequest) returns (GetOwnerTaskIdResponse);
