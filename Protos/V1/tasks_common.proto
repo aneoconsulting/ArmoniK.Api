@@ -94,20 +94,54 @@ message TaskSummary {
   google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
 }
 
-// TODO: Implements new filters using these fields.
 /**
  * Represents every available field in a task summary.
  */
 enum TaskSummaryField {
   TASK_SUMMARY_FIELD_TASK_ID = 0; /** The task ID. */
   TASK_SUMMARY_FIELD_SESSION_ID = 1; /** The session ID. */
+  TASK_SUMMARY_FIELD_OWNER_POD_ID = 9; /** The owner pod ID. */
+  TASK_SUMMARY_FIELD_INITIAL_TASK_ID = 10; /** The initial task ID. Set when a task is submitted independantly of retries. */
   TASK_SUMMARY_FIELD_STATUS = 2; /** The task status. */
   TASK_SUMMARY_FIELD_CREATED_AT = 3; /** The task creation date. */
+  TASK_SUMMARY_FIELD_SUBMITTED_AT = 11; /** The task submission date. */
   TASK_SUMMARY_FIELD_STARTED_AT = 4; /** The task start date. */
   TASK_SUMMARY_FIELD_ENDED_AT = 5; /** The task end date. */
   TASK_SUMMARY_FIELD_CREATION_TO_END_DURATION = 6; /** The task duration. Between the creation date and the end date. */
   TASK_SUMMARY_FIELD_PROCESSING_TO_END_DURATION = 7; /** The task calculated duration. Between the start date and the end date. */
+  TASK_SUMMARY_FIELD_POD_TTL = 12; /** The pod TTL (Time To Live). */
+  TASK_SUMMARY_POD_HOSTNAME = 13; /** The hostname of the container running the task. */
+  TASK_SUMMARY_RECEIVED_AT = 14; /** When the task is received by the agent. */
+  TASK_SUMMARY_ACQUIRED_AT = 15; /** When the task is acquired by the agent. */
   TASK_SUMMARY_FIELD_ERROR = 8; /** The error message. Only set if task have failed. */
+}
+
+/**
+ * Represents a field in a task option.
+ */
+enum TaskOptionField {
+  TASK_OPTION_FIELD_MAX_DURATION = 0;
+  TASK_OPTION_FIELD_MAX_RETRIES = 1;
+  TASK_OPTION_FIELD_PRIORITY = 2;
+  TASK_OPTION_FIELD_PARTITION_ID = 3;
+  TASK_OPTION_FIELD_APPLICATION_NAME = 4;
+  TASK_OPTION_FIELD_APPLICATION_VERSION = 5;
+  TASK_OPTION_FIELD_APPLICATION_NAMESPACE = 6;
+  TASK_OPTION_FIELD_APPLICATION_SERVICE = 7;
+  TASK_OPTION_FIELD_ENGINE_TYPE = 8;
+}
+
+/**
+ * Represents a generic field in a task option.
+ */
+message TaskOptionGenericField {
+  map<string, string> fields = 1; /** The generic fields. */
+}
+
+message TaskField {
+  oneof field {
+    TaskSummaryField task_summary_field = 1; /** The task summary field. */
+  }
 }
 
 /**
@@ -145,7 +179,7 @@ message ListTasksRequest {
    * Represents the sort object.
    */
   message Sort {
-    TaskSummaryField field = 1; /** The field to sort on. */
+    TaskField field = 1; /** The field to sort on. */
     sort_direction.SortDirection direction = 2; /** The sort direction. */
   }
 
