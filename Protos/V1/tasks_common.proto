@@ -68,7 +68,7 @@ message TaskSummary {
   string owner_pod_id = 10; /** The owner pod ID. */
 
   string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
-  int64 count_parent_task_ids = 8; /** Count the parent task IDs. A tasks can be a child of another task. */
+  int64 count_parent_task_ids = 21; /** Count the parent task IDs. A tasks can be a child of another task. */
   int64 count_data_dependencies = 11; /** Count the data dependencies. A task have data dependencies. */
   int64 count_expected_output_ids = 13; /** Count the expected output IDs. A task have expected output IDs. */
   int64 count_retry_of_ids = 14; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
@@ -86,15 +86,7 @@ message TaskSummary {
   google.protobuf.Duration processing_to_end_duration = 16; /** The task calculated duration. Between the start date and the end date. */
   google.protobuf.Timestamp pod_ttl = 20; /** The pod TTL (Time To Live). */
 
-  /**
-   * Represents the task output.
-   */
-  message Output {
-    bool success = 1; /** To know if a task have failed or succeed. */
-    string error = 2; /** The error message. Only set if task have failed. */
-  }
-
-  Output output = 21; /** The task output. */
+  string error = 8; /** The error message. Only set if task have failed. */
 
   string pod_hostname = 17; /** The hostname of the container running the task. */
   google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
