@@ -68,7 +68,7 @@ message TaskSummary {
   string owner_pod_id = 10; /** The owner pod ID. */
 
   string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
-  int64 count_tparent_task_ids = 8; /** Count the parent task IDs. A tasks can be a child of another task. */
+  int64 count_parent_task_ids = 8; /** Count the parent task IDs. A tasks can be a child of another task. */
   int64 count_data_dependencies = 11; /** Count the data dependencies. A task have data dependencies. */
   int64 count_expected_output_ids = 13; /** Count the expected output IDs. A task have expected output IDs. */
   int64 count_retry_of_ids = 7; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
