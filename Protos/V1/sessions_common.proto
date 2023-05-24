@@ -28,6 +28,25 @@ message SessionRaw {
 }
 
 /**
+ * Represents every available field in a session raw.
+ */
+enum SessionRawField {
+  SESSION_RAW_FIELD_SESSION_ID = 0;
+  SESSION_RAW_FIELD_STATUS = 1;
+  SESSION_RAW_FIELD_PARTITION_IDS = 2;
+  SESSION_RAW_FIELD_OPTIONS = 3;
+  SESSION_RAW_FIELD_CREATED_AT = 4;
+  SESSION_RAW_FIELD_CANCELLED_AT = 5;
+  SESSION_RAW_FIELD_DURATION = 6;
+}
+
+message SessionField {
+  oneof field {
+    SessionRawField session_raw_field = 1;
+  }
+}
+
+/**
  * Request to list sessions.
  *
  * Use pagination, filtering and sorting.
@@ -62,7 +81,7 @@ message ListSessionsRequest {
    * Represents the sort object.
    */
   message Sort {
-    SessionSummaryField field = 1; /** The field to sort on. */
+    SessionField field = 1; /** The field to sort on. */
     sort_direction.SortDirection direction = 2; /** The sort direction. */
   }
 
