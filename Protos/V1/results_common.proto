@@ -103,6 +103,20 @@ message ListResultsResponse {
   int32 total = 4; /** The total number of results. */
 }
 
+/**
+ * Request to get an result.
+ */
+message GetResultRequest {
+  string result_id = 1; /** Result id. Must fail when name is empty. **/
+}
+
+/**
+ * Response to get an result.
+ */
+message GetResultResponse {
+  ResultRaw result = 1; /** The result. */
+}
+
 /*
 *  Request for getting the id of the task that should create this result
 */

@@ -23,6 +23,7 @@ message TaskRaw {
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   string owner_pod_id = 3; /** The owner pod ID. */
 
+  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
   repeated string parent_task_ids = 4; /** The parent task IDs. A tasks can be a child of another task. */
   repeated string data_dependencies = 5; /** The data dependencies. A task have data dependencies. */
   repeated string expected_output_ids = 6; /** The expected output IDs. A task have expected output IDs. */
@@ -65,16 +66,32 @@ message TaskRaw {
 message TaskSummary {
   string id = 1; /** The task ID. */
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
-  TaskOptions options = 3; /** The task options. */
+  string owner_pod_id = 10; /** The owner pod ID. */
+
+  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
+  int64 count_parent_task_ids = 21; /** Count the parent task IDs. A tasks can be a child of another task. */
+  int64 count_data_dependencies = 11; /** Count the data dependencies. A task have data dependencies. */
+  int64 count_expected_output_ids = 13; /** Count the expected output IDs. A task have expected output IDs. */
+  int64 count_retry_of_ids = 14; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
+
   task_status.TaskStatus status = 4; /** The task status. */
+  string status_message = 9; /** The status message. */
+
+  TaskOptions options = 3; /** The task options. */
 
   google.protobuf.Timestamp created_at = 5; /** The task creation date. */
+  google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
   google.protobuf.Duration creation_to_end_duration = 15; /** The task duration. Between the creation date and the end date. */
   google.protobuf.Duration processing_to_end_duration = 16; /** The task calculated duration. Between the start date and the end date. */
+  google.protobuf.Timestamp pod_ttl = 20; /** The pod TTL (Time To Live). */
 
   string error = 8; /** The error message. Only set if task have failed. */
+
+  string pod_hostname = 17; /** The hostname of the container running the task. */
+  google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
+  google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
 }
 
 // TODO: Implements new filters using these fields.
