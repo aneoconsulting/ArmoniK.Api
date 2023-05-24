@@ -22,15 +22,20 @@ message ApplicationRaw {
   string service = 4; /** Application service used in the excecuted class. */
 }
 
-// TODO: Implements new filters using these fields.
 /**
  * Represents every available field in an application.
  */
-enum ApplicationField {
+enum ApplicationRawField {
   APPLICATION_FIELD_NAME = 0; /** Application name. */
   APPLICATION_FIELD_VERSION = 1; /** Application version. */
   APPLICATION_FIELD_NAMESPACE = 2; /** Application namespace. */
   APPLICATION_FIELD_SERVICE = 3; /** Application service. */
+}
+
+message ApplicationField {
+  oneof field {
+    ApplicationRawField application_field = 1;
+  }
 }
 
 /**
