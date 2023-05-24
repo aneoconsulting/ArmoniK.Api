@@ -21,11 +21,10 @@ message PartitionRaw {
   int64 priority = 6; /** The priority of the partition. */
 }
 
-// TODO: Implements new filters usgin these fields.
 /**
  * Represents every available field in a partition.
  */
-enum PartitionField {
+enum PartitionRawField {
   PARTITION_FIELD_UNSPECIFIED = 0; /** Unspecified. */
   PARTITION_FIELD_ID = 1; /** The partition ID. */
   PARTITION_FIELD_PARENT_PARTITION_ID = 2; /** The parent partition ID. */
@@ -33,6 +32,12 @@ enum PartitionField {
   PARTITION_FIELD_POD_MAX = 4; /** The maximum number of pods that can be used by sessions using the partition. */
   PARTITION_FIELD_PREEMPTION_PERCENTAGE = 5; /** The percentage of the partition that can be preempted. */
   PARTITION_FIELD_PRIORITY = 6; /** The priority of the partition. */
+}
+
+message PartitionField {
+  oneof field {
+    PartitionRawField partition_raw_field = 1; /** The partition raw field. */
+  }
 }
 
 /**
