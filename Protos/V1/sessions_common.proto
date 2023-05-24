@@ -15,8 +15,6 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
 /**
  * A raw session object.
- *
- * Used when a single session is returned.
  */
 message SessionRaw {
   string session_id = 1; /** The session ID. */
@@ -27,36 +25,6 @@ message SessionRaw {
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
   google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled'. */
-}
-
-/**
- * A summary session object.
- *
- * Does not contain all the fields of the object.
- * Used when a list of sessions is returned.
- */
-message SessionSummary {
-  string session_id = 1; /** The session ID. */
-
-  session_status.SessionStatus status = 2; /** The session status. */
-  google.protobuf.Timestamp created_at = 3; /** The creation date. */
-  google.protobuf.Timestamp cancelled_at = 4; /** The cancellation date. Only set when status is 'cancelled'. */
-  google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled'. */
-
-  TaskOptions options = 5; /** The default task options. */
-}
-
-// TODO: Implements new filters using these fields.
-/**
- * Represents every available field in a session summary.
- */
-enum SessionSummaryField {
-  SESSION_SUMMARY_FIELD_SESSION_ID = 0; /** The session ID. */
-  SESSION_SUMMARY_FIELD_STATUS = 1; /** The session status. */
-  SESSION_SUMMARY_FIELD_CREATED_AT = 2; /** The creation date. */
-  SESSION_SUMMARY_FIELD_CANCELLED_AT = 3; /** The cancellation date. */
-  SESSION_SUMMARY_FIELD_DURATION = 4; /** The duration. */
-  SESSION_SUMMARY_FIELD_OPTIONS = 5; /** The default task options. */
 }
 
 /**
@@ -117,7 +85,7 @@ message ListSessionsRequest {
  * Return a list of summary sessions.
  */
 message ListSessionsResponse {
-  repeated SessionSummary sessions = 1; /** The list of sessions. */
+  repeated SessionRaw sessions = 1; /** The list of sessions. */
 
   int32 page = 2; /** The current page. Start at 0. */
   int32 page_size = 3; /** The page size. */

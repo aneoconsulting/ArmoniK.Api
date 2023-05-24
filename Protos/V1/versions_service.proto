@@ -1,0 +1,21 @@
+/**
+ * Versions related methods within a service.
+ * This service will be used to get the version of infrastructure components from outside the cluster.
+ */
+syntax = "proto3";
+
+package armonik.api.grpc.v1.versions;
+
+import "versions_common.proto";
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Versions";
+
+/**
+ * Service for handling versions.
+ */
+service Versions {
+  /**
+   * Get all versions.
+   */
+  rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse) {}
+}
