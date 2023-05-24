@@ -93,9 +93,5 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
-      <GrpcServices>Message</GrpcServices>
-      <ProtoCompile>True</ProtoCompile>
-    </Protobuf>
   </ItemGroup>
-
 </Project>
