@@ -71,7 +71,7 @@ message TaskSummary {
   int64 count_parent_task_ids = 8; /** Count the parent task IDs. A tasks can be a child of another task. */
   int64 count_data_dependencies = 11; /** Count the data dependencies. A task have data dependencies. */
   int64 count_expected_output_ids = 13; /** Count the expected output IDs. A task have expected output IDs. */
-  int64 count_retry_of_ids = 7; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
+  int64 count_retry_of_ids = 14; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
 
   task_status.TaskStatus status = 4; /** The task status. */
   string status_message = 9; /** The status message. */
