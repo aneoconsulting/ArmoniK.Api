@@ -17,5 +17,6 @@ message ListVersionsRequest {}
  */
 message ListVersionsResponse {
   string core = 1;
+  string api = 2;
   // We can add more versions here.
 }
