@@ -16,7 +16,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
-    <PackageVersion>3.5.3</PackageVersion>
+    <PackageVersion>3.8.1</PackageVersion>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -61,6 +62,9 @@
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\events_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\events_service.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\versions_service.proto" GrpcServices="Both">
+      <Link>gRPC\Protos\versions_service.proto</Link>
     </Protobuf>
   </ItemGroup>
 

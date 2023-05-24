@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.tasks;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "task_status.proto";
@@ -21,6 +22,7 @@ message TaskRaw {
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   string owner_pod_id = 3; /** The owner pod ID. */
 
+  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
   repeated string parent_task_ids = 4; /** The parent task IDs. A tasks can be a child of another task. */
   repeated string data_dependencies = 5; /** The data dependencies. A task have data dependencies. */
   repeated string expected_output_ids = 6; /** The expected output IDs. A task have expected output IDs. */
@@ -35,6 +37,8 @@ message TaskRaw {
   google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp started_at = 13; /** The task start date. */
   google.protobuf.Timestamp ended_at = 14; /** The task end date. Also used when task failed. */
+  google.protobuf.Duration creation_to_end_duration = 20; /** The task duration. Between the creation date and the end date. */
+  google.protobuf.Duration processing_to_end_duration = 21; /** The task calculated duration. Between the start date and the end date. */
   google.protobuf.Timestamp pod_ttl = 15; /** The pod TTL (Time To Live). */
 
   /**
@@ -61,14 +65,32 @@ message TaskRaw {
 message TaskSummary {
   string id = 1; /** The task ID. */
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
-  TaskOptions options = 3; /** The task options. */
+  string owner_pod_id = 10; /** The owner pod ID. */
+
+  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
+  int64 count_parent_task_ids = 21; /** Count the parent task IDs. A tasks can be a child of another task. */
+  int64 count_data_dependencies = 11; /** Count the data dependencies. A task have data dependencies. */
+  int64 count_expected_output_ids = 13; /** Count the expected output IDs. A task have expected output IDs. */
+  int64 count_retry_of_ids = 14; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
+
   task_status.TaskStatus status = 4; /** The task status. */
+  string status_message = 9; /** The status message. */
+
+  TaskOptions options = 3; /** The task options. */
 
   google.protobuf.Timestamp created_at = 5; /** The task creation date. */
+  google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
+  google.protobuf.Duration creation_to_end_duration = 15; /** The task duration. Between the creation date and the end date. */
+  google.protobuf.Duration processing_to_end_duration = 16; /** The task calculated duration. Between the start date and the end date. */
+  google.protobuf.Timestamp pod_ttl = 20; /** The pod TTL (Time To Live). */
 
   string error = 8; /** The error message. Only set if task have failed. */
+
+  string pod_hostname = 17; /** The hostname of the container running the task. */
+  google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
+  google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
 }
 
 /**
@@ -157,6 +179,20 @@ message ListTasksResponse {
 }
 
 /**
+ * Response to list tasks.
+ *
+ * Use pagination, filtering and sorting from the request.
+ * Return a list of formated tasks.
+ */
+message ListTasksRawResponse {
+  repeated TaskRaw tasks = 1; /** The list of tasks. */
+
+  int32 page = 2; /** The page number. Start at 0. */
+  int32 page_size = 3; /** The page size. */
+  int32 total = 4; /** The total number of tasks. */
+}
+
+/**
  * Request for getting a single task.
  */
 message GetTaskRequest {
@@ -220,4 +256,39 @@ message CountTasksByStatusRequest {}
  */
 message CountTasksByStatusResponse {
   repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 objct by tasks status. */
+}
+
+/**
+* Request to create tasks.
+*/
+message SubmitTasksRequest {
+  message TaskCreation {
+    repeated string expected_output_keys = 1; /** Unique ID of the results that will be produced by the task. Results should be created using ResultsService. */
+    repeated string data_dependencies = 2; /** Unique ID of the results that will be used as datadependencies. Results should be created using ResultsService. */
+    string payload_id = 3; /** Unique ID of the result that will be used as payload. Result should created using ResultsService. */
+    TaskOptions task_options = 4; /** Optionnal task options. */
+  }
+
+  string session_id = 1; /** The session ID. */
+  TaskOptions task_options = 2; /** The options for the tasks. Each task will have the same. Options are merged with the one from the session. */
+  repeated TaskCreation task_creations = 3; /** Task creation requests. */
+}
+
+/**
+* Response to create tasks.
+*
+* expected_output_ids and data_dependencies must be created through ResultsService.
+*
+* Remark : this may have to be enriched to a better management of errors but
+* will the client application be able to manage a missing data dependency or expected output ?
+*/
+message SubmitTasksResponse {
+  message TaskInfo {
+    string task_id = 1; /** The task ID. */
+    repeated string expected_output_ids = 2; /** The expected output IDs. A task have expected output IDs. */
+    repeated string data_dependencies = 3; /** The data dependencies IDs (inputs). A task have data dependencies. */
+    string payload_id = 4; /** Unique ID of the result that will be used as payload. Result should created using ResultsService. */
+  }
+
+  repeated TaskInfo task_infos = 1; /** List of task infos if submission successful, else throw gRPC exception. */
 }

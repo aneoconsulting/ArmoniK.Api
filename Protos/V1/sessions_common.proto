@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.sessions;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";
@@ -13,8 +14,6 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
 /**
  * A raw session object.
- *
- * Used when a single session is returned.
  */
 message SessionRaw {
   string session_id = 1; /** The session ID. */
@@ -24,22 +23,7 @@ message SessionRaw {
 
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
-}
-
-/**
- * A summary session object.
- *
- * Does not contain all the fields of the object.
- * Used when a list of sessions is returned.
- */
-message SessionSummary {
-  string session_id = 1; /** The session ID. */
-
-  session_status.SessionStatus status = 2; /** The session status. */
-  google.protobuf.Timestamp created_at = 3; /** The creation date. */
-  google.protobuf.Timestamp cancelled_at = 4; /** The cancellation date. Only set when status is 'cancelled'. */
-
-  TaskOptions options = 5; /** The default task options. */
+  google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled'. */
 }
 
 /**
@@ -120,7 +104,7 @@ message ListSessionsRequest {
  * Return a list of summary sessions.
  */
 message ListSessionsResponse {
-  repeated SessionSummary sessions = 1; /** The list of sessions. */
+  repeated SessionRaw sessions = 1; /** The list of sessions. */
 
   int32 page = 2; /** The current page. Start at 0. */
   int32 page_size = 3; /** The page size. */

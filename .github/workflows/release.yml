@@ -9,7 +9,33 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
+  # We need to verify the version in some packages with the tag in order to have the same version in all packages (python, csharp, angular, web).
+  # Some packages use an internal version (like csharp, angular and web) and some use the tag version (like python).
+  verify-versions:
+    name: Verify Versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - run: npm i -g pnpm @antfu/ni
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: nci
+
+      - name: Verify Versions
+        run: nr verify-versions ${{ github.ref_name }}
+
   release-csharp-packages:
+    needs: [verify-versions]
     name: Release C# Packages
     runs-on: ubuntu-latest
     strategy:
@@ -45,6 +71,7 @@ jobs:
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
   release-python-package:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -55,6 +82,7 @@ jobs:
       - name: pip update and add build package
         run: |
           cd ./packages/python
+          export RELEASE=true
           bash proto2python.sh ~/pyvenv
 
       - name: Upload as artifact
@@ -70,15 +98,8 @@ jobs:
           print_hash: true
           packages_dir: packages/python/pkg/
 
-      - name: Publish to PyPITest
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.DEV_PYPI_API_TOKEN }}
-          print_hash: true
-          packages_dir: packages/python/pkg/
-          repository_url: https://test.pypi.org/legacy/
-
   release-angular-packages:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -111,6 +132,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-web-packages:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -146,6 +168,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   update-changelog:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

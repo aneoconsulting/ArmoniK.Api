@@ -10,13 +10,12 @@ import {
 import { _readAndFind } from "./versions/_readAndFind";
 
 const versions = new Map<string, string>();
+const [, , ...args] = process.argv;
 
 consola.info("Finding JS projects versions");
 jsFiles.forEach(_readAndFind(jsPattern, versions));
 consola.info("Finding C# projects versions");
 csharpFiles.forEach(_readAndFind(csharpPattern, versions));
-consola.info("Finding Python projects versions");
-pythonFiles.forEach(_readAndFind(pythonPattern, versions));
 
 const versionsArray = [...versions.values()];
 const uniqueVersions = [...new Set(versionsArray)];
@@ -34,6 +33,9 @@ if (uniqueVersions.length > 1) {
   uniqueVersions.forEach((version) => {
     consola.info(version, filesPerVersion.get(version));
   });
+  process.exit(1);
+} else if(args.length > 0 && uniqueVersions[0] != args[0]) {
+  consola.fatal(`Found ${uniqueVersions[0]} for all projects but does not match expected ${args[0]}`);
   process.exit(1);
 } else {
   consola.success(`Found ${uniqueVersions[0]} for all projects`);

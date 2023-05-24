@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
-//
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// 
+// Copyright (C) ANEO, 2021-2023. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -23,8 +23,11 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
+
+using ArmoniK.Utils;
 
 using JetBrains.Annotations;
 
@@ -97,8 +100,10 @@ public static class LoggerExt
   {
     if (!logger.IsEnabled(level))
     {
-      return Disposable.Empty;
+      return Deferrer.Empty;
     }
+
+    var stopWatch = Stopwatch.StartNew();
 
     var properties = new List<ValueTuple<string, object>>
                      {
@@ -127,16 +132,19 @@ public static class LoggerExt
       scope.Dispose();
     }
 
-    return Disposable.Create(() =>
-                             {
-                               using (scope)
-                               {
-                                 logger.Log(level,
-                                            "Leaving {classFilePath}.{functionName} - {Id}",
-                                            classFilePath,
-                                            functionName,
-                                            id);
-                               }
-                             });
+    return new Deferrer(() =>
+                        {
+                          using (scope)
+                          {
+                            var elapsed = stopWatch.Elapsed;
+                            logger.Log(level,
+                                       "Leaving {classFilePath}.{functionName} - {Id} in {duration} ( {milliseconds} ms )",
+                                       classFilePath,
+                                       functionName,
+                                       id,
+                                       elapsed,
+                                       elapsed.TotalMilliseconds);
+                          }
+                        });
   }
 }
