@@ -65,5 +65,8 @@
     <Protobuf Include="..\..\..\Protos\V1\events_service.proto" GrpcServices="Client">
       <Link>gRPC\Protos\events_service.proto</Link>
     </Protobuf>
+      <Protobuf Include="..\..\..\Protos\V1\versions_service.proto" GrpcServices="Client">
+      <Link>gRPC\Protos\versions_service.proto</Link>
+    </Protobuf>
   </ItemGroup>
 </Project>

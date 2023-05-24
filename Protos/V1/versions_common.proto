@@ -1,0 +1,22 @@
+/**
+ * Message describing versions.
+ */
+syntax = "proto3";
+
+package armonik.api.grpc.v1.versions;
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Versions";
+
+/**
+ * Request to list versions.
+ */
+message ListVersionsRequest {}
+
+/**
+ * Response to list versions.
+ */
+message ListVersionsResponse {
+  string core = 1;
+  string api = 2;
+  // We can add more versions here.
+}
