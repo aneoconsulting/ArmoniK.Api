@@ -42,7 +42,7 @@ std::shared_ptr<SessionContext> createSession(const std::string& server_address)
   task_options.mutable_max_duration()->set_nanos(0);
   task_options.set_max_retries(3);
   task_options.set_priority(1);
-  task_options.set_partition_id("default");
+  task_options.set_partition_id("cpp");
   task_options.set_application_name("my-app");
   task_options.set_application_version("1.0");
   task_options.set_application_namespace("my-namespace");
@@ -50,7 +50,7 @@ std::shared_ptr<SessionContext> createSession(const std::string& server_address)
   task_options.set_engine_type("Unified");
 
   *request.mutable_default_task_option() = task_options;
-
+  request.add_partition_ids(task_options.partition_id());
   // Send the CreateSession request to the server and get the response
   auto session_context = std::make_shared<SessionContext>(channel, task_options);
 
@@ -91,14 +91,14 @@ int main(int argc, char** argv)
   ::putenv("GRPC_DNS_RESOLVER=native");
 
   std::cout << "Starting client..." << std::endl;
-  std::string server_address = "ddu-srv-wsl:5001";
+  std::string server_address = "172.30.39.223:5001";
   auto session_context = createSession(server_address);
 
   try
   {
     std::vector<std::tuple<std::string, std::vector<char>, std::vector<std::string>>> payloads;
 
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 10; i++)
     {
       payloads.push_back(std::make_tuple<std::string, std::vector<char>, std::vector<std::string>>(
         armonik::api::common::utils::GuuId::generate_uuid(), { 'a', 'r', 'm', 'o', 'n', 'i', 'k' }, {}));

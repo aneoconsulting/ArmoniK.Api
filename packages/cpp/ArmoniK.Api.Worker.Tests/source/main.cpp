@@ -59,9 +59,12 @@ public:
     logger.info("Receive new request From C++ Worker");
     auto output = armonik::api::grpc::v1::Output();
     *output.mutable_ok() = armonik::api::grpc::v1::Empty();
-
+    ProcessRequest req;
+    reader->Read(&req);
     *response->mutable_output() = output;
 
+    logger.info("Finish call C++");
+    
     return grpc::Status::OK;
   }
 
