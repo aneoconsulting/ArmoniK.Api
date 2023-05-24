@@ -113,7 +113,7 @@ message ListResultsResponse {
  * Request to get an result.
  */
 message GetResultRequest {
-  string result_id = 1; /** Result name. Must fail when name is empty. **/
+  string result_id = 1; /** Result id. Must fail when name is empty. **/
 }
 
 /**
