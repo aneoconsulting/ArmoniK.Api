@@ -97,10 +97,10 @@ jobs:
           submodules: true
 
       - name: Run clang-format
-          uses: jidicula/clang-format-action@v4.11.0
-          with:
-            clang-format-version: '13'
-            check-path: ${{ matrix.path }}
+        uses: jidicula/clang-format-action@v4.11.0
+        with:
+          clang-format-version: '13'
+          check-path: ${{ matrix.path }}
 
       - name: Check Diff
         run: |
