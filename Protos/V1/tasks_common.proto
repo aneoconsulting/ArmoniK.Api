@@ -98,8 +98,8 @@ message TaskSummary {
  * Represents every available field in a task summary.
  */
 enum TaskSummaryField {
-  TASK_SUMMARY_FIELD_UNSPECIFIED = 16; /** Unspecified */
-  TASK_SUMMARY_FIELD_TASK_ID = 0; /** The task ID. */
+  TASK_SUMMARY_FIELD_UNSPECIFIED = 0; /** Unspecified */
+  TASK_SUMMARY_FIELD_TASK_ID = 16; /** The task ID. */
   TASK_SUMMARY_FIELD_SESSION_ID = 1; /** The session ID. */
   TASK_SUMMARY_FIELD_OWNER_POD_ID = 9; /** The owner pod ID. */
   TASK_SUMMARY_FIELD_INITIAL_TASK_ID = 10; /** The initial task ID. Set when a task is submitted independantly of retries. */
