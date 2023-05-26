@@ -141,6 +141,8 @@ message TaskOptionGenericField {
 message TaskField {
   oneof field {
     TaskSummaryField task_summary_field = 1; /** The task summary field. */
+    TaskOptionField task_option_field = 2; /** The task option field. */
+    TaskOptionGenericField task_option_generic_field = 3; /** The task option generic field. */
   }
 }
 
