@@ -40,7 +40,7 @@ enum ResultRawField {
 
 message ResultField {
   oneof field {
-    ResultRawField field = 1; /** The field to use to sort results. */
+    ResultRawField result_raw_field = 1; /** The field to use to sort results. */
   }
 }
 
