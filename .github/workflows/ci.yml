@@ -83,11 +83,12 @@ jobs:
     strategy:
       matrix:
         path:
-          - packages/cpp/ArmoniK.Api.Client
-          - packages/cpp/ArmoniK.Api.Common
-          - packages/cpp/ArmoniK.Api.Worker
-          - packages/cpp/ArmoniK.Api.Tests
-          - packages/cpp/ArmoniK.Api.Worker.Tests
+          - "packages/cpp/ArmoniK.Api.Client"
+          - "packages/cpp/ArmoniK.Api.Common"
+          - "packages/cpp/ArmoniK.Api.Worker"
+          - "packages/cpp/ArmoniK.Api.Tests"
+          - "packages/cpp/ArmoniK.Api.Worker.Tests"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -116,15 +117,15 @@ jobs:
             exit 1
           fi
 
-    - name: Generate patch
-      if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
-      run: |
-        git diff > patch-cpp.diff
-    - uses: actions/upload-artifact@v3
-      if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
-      with:
-        name: patch-cpp
-        path: ./patch-cpp.diff
+      - name: Generate patch
+        if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
+        run: |
+          git diff > patch-cpp.diff
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
+        with:
+          name: patch-cpp
+          path: ./patch-cpp.diff
 
   format-protobuf:
     name: Format Protobuf
