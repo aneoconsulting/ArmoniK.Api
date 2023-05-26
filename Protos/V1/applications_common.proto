@@ -26,10 +26,11 @@ message ApplicationRaw {
  * Represents every available field in an application.
  */
 enum ApplicationRawField {
-  APPLICATION_RAW_FIELD_NAME = 0; /** Application name. */
-  APPLICATION_RAW_FIELD_VERSION = 1; /** Application version. */
-  APPLICATION_RAW_FIELD_NAMESPACE = 2; /** Application namespace. */
-  APPLICATION_RAW_FIELD_SERVICE = 3; /** Application service. */
+  APPLICATION_RAW_FIELD_UNSPECIFIED = 0; /** Unspecified */
+  APPLICATION_RAW_FIELD_NAME = 1; /** Application name. */
+  APPLICATION_RAW_FIELD_VERSION = 2; /** Application version. */
+  APPLICATION_RAW_FIELD_NAMESPACE = 3; /** Application namespace. */
+  APPLICATION_RAW_FIELD_SERVICE = 4; /** Application service. */
 }
 
 message ApplicationField {
