@@ -1,3 +1,4 @@
+export { SortDirection } from "./generated/sort-direction.pb";
 export {
   ApplicationRaw,
   ListApplicationsRequest,

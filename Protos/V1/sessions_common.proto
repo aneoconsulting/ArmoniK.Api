@@ -9,6 +9,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";
+import "sort_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
@@ -24,6 +25,26 @@ message SessionRaw {
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
   google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled'. */
+}
+
+/**
+ * Represents every available field in a session raw.
+ */
+enum SessionRawField {
+  SESSION_RAW_FIELD_UNSPECIFIED = 0;
+  SESSION_RAW_FIELD_SESSION_ID = 1;
+  SESSION_RAW_FIELD_STATUS = 2;
+  SESSION_RAW_FIELD_PARTITION_IDS = 3;
+  SESSION_RAW_FIELD_OPTIONS = 4;
+  SESSION_RAW_FIELD_CREATED_AT = 5;
+  SESSION_RAW_FIELD_CANCELLED_AT = 6;
+  SESSION_RAW_FIELD_DURATION = 7;
+}
+
+message SessionField {
+  oneof field {
+    SessionRawField session_raw_field = 1;
+  }
 }
 
 /**
@@ -58,31 +79,11 @@ message ListSessionsRequest {
   Filter filter = 3;
 
   /**
-   * Represents every available field to use in order to sort sessions.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_SESSION_ID = 1; /** The session ID. */
-    ORDER_BY_FIELD_STATUS = 2; /** The session status. */
-    ORDER_BY_FIELD_CREATED_AT = 3; /** The creation date. */
-    ORDER_BY_FIELD_CANCELLED_AT = 4; /** The cancellation date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
    * Represents the sort object.
    */
   message Sort {
-    OrderByField field = 1; /** The field to order by. */
-    OrderDirection direction = 2; /** The order direction. */
+    SessionField field = 1; /** The field to sort on. */
+    sort_direction.SortDirection direction = 2; /** The sort direction. */
   }
 
   /** The sort.
