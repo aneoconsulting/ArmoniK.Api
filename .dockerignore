@@ -3,7 +3,7 @@
 
 # Allow files and directories
 # Example : 
-#!**/ArmoniK.Api.Common
+# !**/ArmoniK.Api.Common
 
 # Ignore unnecessary files inside allowed directories
 # This should go after the allowed directories
@@ -30,5 +30,30 @@
 **/grpc
 **/win64
 **/tools/tools
+**/.classpath
+**/.dockerignore
+**/Dockerfile
+**/.env
+**/.gitignore
+**/.project
+**/.settings
+**/.toolstarget
+**/.idea
+**/*.*proj.user
+**/*.dbmdl
+**/*.dump
+**/*.jfm
+**/azds.yaml
+**/charts
+**/docker-compose*
+docker-compose
+**/node_modules
+**/secrets.dev.yaml
+**/values.dev.yaml
+LICENSE
+README.md
+**/publish
+terraform
+tmp
 
 
