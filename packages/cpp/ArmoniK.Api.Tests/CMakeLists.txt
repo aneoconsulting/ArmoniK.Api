@@ -20,7 +20,7 @@ add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure Armonik.Api.Client Armonik.Api.Common GTest::gtest_main)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure Armonik.Api.Client Armonik.Api.Common GTest::gtest_main GTest::gmock_main)
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
