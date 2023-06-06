@@ -2,7 +2,7 @@
   "name": "@aneoconsultingfr/armonik.api",
   "version": "3.8.1",
   "description": "gRPC API to interact with ArmoniK built for the web",
-  "packageManager": "pnpm@8.1.0",
+  "packageManager": "pnpm@8.6.1",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
