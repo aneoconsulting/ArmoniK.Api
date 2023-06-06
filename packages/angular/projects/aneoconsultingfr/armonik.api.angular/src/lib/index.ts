@@ -1,9 +1,12 @@
+export { SortDirection } from "./generated/sort-direction.pb";
 export {
-  ApplicationRaw,
   ListApplicationsRequest,
   ListApplicationsResponse,
   CountTasksByStatusRequest as CountTasksByStatusApplicationRequest,
   CountTasksByStatusResponse as CountTasksByStatusApplicationResponse,
+  ApplicationRaw,
+  ApplicationField,
+  ApplicationRawField
 } from "./generated/applications-common.pb";
 export { ApplicationsClient } from "./generated/applications-service.pbsc";
 export {
@@ -18,7 +21,9 @@ export {
   GetOwnerTaskIdResponse,
   ListResultsRequest,
   ListResultsResponse,
-  ResultRaw
+  ResultRaw,
+  ResultField,
+  ResultRawField,
 } from "./generated/results-common.pb";
 export { ResultsClient } from "./generated/results-service.pbsc";
 export { SessionStatus } from "./generated/session-status.pb";
@@ -29,7 +34,11 @@ export {
   GetSessionResponse,
   ListSessionsRequest,
   ListSessionsResponse,
+  CountTasksByStatusRequest as CountTasksByStatusSessionRequest,
+  CountTasksByStatusResponse as CountTasksByStatusSessionResponse,
   SessionRaw,
+  SessionRawField,
+  SessionField
 } from "./generated/sessions-common.pb";
 export { SessionsClient } from "./generated/sessions-service.pbsc";
 export { TaskStatus } from "./generated/task-status.pb";
@@ -53,7 +62,9 @@ export {
   GetPartitionResponse,
   ListPartitionsRequest,
   ListPartitionsResponse,
-  PartitionRaw
+  PartitionRaw,
+  PartitionRawField,
+  PartitionField,
 } from "./generated/partitions-common.pb"
 export { PartitionsClient } from "./generated/partitions-service.pbsc"
 export { StatusCount } from "./generated/objects.pb"
