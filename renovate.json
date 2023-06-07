@@ -16,6 +16,20 @@
       ]
     },
     {
+      "groupName": "nuget packages",
+      "groupSlug": "nuget",
+      "matchDatasources": [
+        "nuget"
+      ]
+    },
+    {
+      "groupName": "python packages",
+      "groupSlug": "pypi",
+      "matchDatasources": [
+        "pypi"
+      ]
+    },
+    {
       "groupName": "github actions",
       "groupSlug": "github-actions",
       "matchDatasources": [
