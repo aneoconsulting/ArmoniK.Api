@@ -87,6 +87,7 @@ def test_armonik_submitter_should_create_session(task_options, partitions):
     submitter = ArmoniKSubmitter(channel)
     session_id = submitter.create_session(default_task_options=task_options, partition_ids=partitions)
     assert session_id == "SessionId"
+    assert inner.create_session
     assert inner.create_session.default_task_option.priority == task_options.priority
     assert len(inner.create_session.partition_ids) == 0 if partitions is None else list(inner.create_session.partition_ids) == partitions
     assert len(inner.create_session.default_task_option.options) == len(task_options.options)
@@ -243,6 +244,7 @@ def test_armonik_submitter_should_get_result(stream):
     result = submitter.get_result("SessionId", "ResultId")
     assert result is not None
     assert len(result) > 0
+    assert inner.result_request
     assert inner.result_request.result_id == "ResultId"
     assert inner.result_request.session == "SessionId"
 
@@ -265,6 +267,7 @@ def test_armonik_submitter_get_result_should_none(stream):
     submitter = ArmoniKSubmitter(channel)
     result = submitter.get_result("SessionId", "ResultId")
     assert result is None
+    assert inner.result_request
     assert inner.result_request.result_id == "ResultId"
     assert inner.result_request.session == "SessionId"
 

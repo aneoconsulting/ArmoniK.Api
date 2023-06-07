@@ -43,6 +43,7 @@ def test_tasks_get_task_should_succeed():
     assert task.id == "TaskId"
     assert task.session_id == "SessionId"
     assert task.parent_task_ids == ["ParentTaskId"]
+    assert task.output
     assert task.output.success
 
 
@@ -58,4 +59,5 @@ def test_task_refresh():
     assert current.id == "TaskId"
     assert current.session_id == "SessionId"
     assert current.parent_task_ids == ["ParentTaskId"]
+    assert current.output
     assert current.output.success
