@@ -1,8 +1,8 @@
 import uuid
-from typing import Optional, Dict, List, Tuple, Union
+from typing import Optional, Dict, List, Tuple, Union, cast
 
 from ..common import TaskOptions, TaskDefinition, Task
-from ..protogen.common.agent_common_pb2 import Result, CreateTaskRequest
+from ..protogen.common.agent_common_pb2 import Result, CreateTaskRequest, CreateResultsMetaDataRequest, CreateResultsMetaDataResponse
 from ..protogen.common.objects_pb2 import TaskRequest, InitKeyedDataStream, DataChunk, InitTaskRequest, TaskRequestHeader, Configuration
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
 
@@ -35,12 +35,12 @@ class TaskHandler:
             raise ValueError("Expected a Compute request type with InitRequest to start the stream.")
 
         init_request = current.compute.init_request
-        self.session_id: str = init_request.session_id
-        self.task_id: str = init_request.task_id
-        self.task_options: TaskOptions = TaskOptions.from_message(init_request.task_options)
+        self.session_id = init_request.session_id
+        self.task_id = init_request.task_id
+        self.task_options = TaskOptions.from_message(init_request.task_options)
         self.expected_results = list(init_request.expected_output_keys)
         self.configuration = init_request.configuration
-        self.token: str = current.communication_token
+        self.token = current.communication_token
 
         datachunk = init_request.payload
         self.payload.extend(datachunk.data)
@@ -98,7 +98,7 @@ class TaskHandler:
             task_request.data_dependencies.extend(t.data_dependencies)
             task_request.payload = t.payload
             task_requests.append(task_request)
-
+        assert self.configuration is not None
         create_tasks_reply = self._client.CreateTask(_to_request_stream(task_requests, self.token, task_options.to_message() if task_options is not None else None, self.configuration.data_chunk_max_size))
         ret = create_tasks_reply.WhichOneof("Response")
         if ret is None or ret == "error":
@@ -115,14 +115,6 @@ class TaskHandler:
             raise Exception("Unknown value")
         return tasks_created, tasks_creation_failed
 
-    def request_output_id(self) -> str:
-        """Request an output id
-
-                Returns:
-                    Output id
-        """
-        return f"{self.token}%{uuid.uuid4()}"
-
     def send_result(self, key: str, data: Union[bytes, bytearray]) -> None:
         """ Send task result
 
@@ -132,6 +124,7 @@ class TaskHandler:
         """
         def result_stream():
             res = Result(communication_token=self.token, init=InitKeyedDataStream(key=key))
+            assert self.configuration is not None
             yield res
             start = 0
             data_len = len(data)
@@ -148,6 +141,10 @@ class TaskHandler:
         result_reply = self._client.SendResult(result_stream())
         if result_reply.WhichOneof("type") == "error":
             raise Exception(f"Cannot send result id={key}")
+    
+    def get_results_ids(self, names : List[str]) -> Dict[str, str]:
+        return {r.name : r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name = n) for n in names], session_id=self.session_id, communication_token=self.token))).results}
+
 
 
 def _to_request_stream_internal(request, communication_token, is_last, chunk_max_size):

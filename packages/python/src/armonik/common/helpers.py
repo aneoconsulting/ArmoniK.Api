@@ -1,5 +1,5 @@
 from datetime import timedelta, datetime, timezone
-from typing import List, Optional, cast
+from typing import List, Optional
 
 import google.protobuf.duration_pb2 as duration
 import google.protobuf.timestamp_pb2 as timestamp

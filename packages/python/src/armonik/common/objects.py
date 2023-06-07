@@ -19,7 +19,7 @@ class TaskOptions:
     application_namespace: Optional[str] = None
     application_service: Optional[str] = None
     engine_type: Optional[str] = None
-    options: Optional[Dict] = field(default_factory=dict)
+    options: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_message(cls, task_options):
@@ -66,7 +66,7 @@ class Output:
 @dataclass()
 class TaskDefinition:
     payload: bytes
-    expected_output_ids: List[str]
+    expected_output_ids: List[str] = field(default_factory=list)
     data_dependencies: List[str] = field(default_factory=list)
 
     def __post_init__(self):
@@ -79,10 +79,10 @@ class Task:
     id: Optional[str] = None
     session_id: Optional[str] = None
     owner_pod_id: Optional[str] = None
-    parent_task_ids: Optional[List[str]] = None
-    data_dependencies: Optional[List[str]] = None
-    expected_output_ids: Optional[List[str]] = None
-    retry_of_ids: Optional[List[str]] = None
+    parent_task_ids: List[str] = field(default_factory=list)
+    data_dependencies: List[str] = field(default_factory=list)
+    expected_output_ids: List[str] = field(default_factory=list)
+    retry_of_ids: List[str] = field(default_factory=list)
     status: TaskStatus = TaskStatus.UNSPECIFIED
     status_message: Optional[str] = None
     options: Optional[TaskOptions] = None
@@ -102,13 +102,13 @@ class Task:
         Args:
             task_client: ArmoniKTasks client
         """
-        result = task_client.get_task(self.id)
+        result : "Task" = task_client.get_task(self.id)
         self.session_id = result.session_id
         self.owner_pod_id = result.owner_pod_id
-        self.parent_task_ids = list(result.parent_task_ids)
-        self.data_dependencies = list(result.data_dependencies)
-        self.expected_output_ids = list(result.expected_output_ids)
-        self.retry_of_ids = list(result.retry_of_ids)
+        self.parent_task_ids = result.parent_task_ids
+        self.data_dependencies = result.data_dependencies
+        self.expected_output_ids = result.expected_output_ids
+        self.retry_of_ids = result.retry_of_ids
         self.status = TaskStatus(result.status)
         self.status_message = result.status_message
         self.options = result.options
@@ -121,6 +121,7 @@ class Task:
         self.pod_hostname = result.pod_hostname
         self.received_at = result.received_at
         self.acquired_at = result.acquired_at
+        self.is_init = True
 
     @classmethod
     def from_message(cls, task_raw: TaskRaw) -> "Task":
@@ -134,7 +135,7 @@ class Task:
             retry_of_ids=list(task_raw.retry_of_ids),
             status=TaskStatus(task_raw.status),
             status_message=task_raw.status_message,
-            options=task_raw.options,
+            options=TaskOptions.from_message(task_raw.options),
             created_at=timestamp_to_datetime(task_raw.created_at),
             submitted_at=timestamp_to_datetime(task_raw.submitted_at),
             started_at=timestamp_to_datetime(task_raw.started_at),

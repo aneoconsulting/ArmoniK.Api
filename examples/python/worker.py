@@ -4,7 +4,7 @@ import os
 import grpc
 from armonik.worker import ArmoniKWorker, TaskHandler, ClefLogger
 from armonik.common import Output, TaskDefinition
-from typing import List, Union
+from typing import List, Union, cast
 
 from common import Payload, Result
 
@@ -24,14 +24,14 @@ def processor(task_handler: TaskHandler) -> Output:
 
     if isinstance(payload.values[0], str):
         # Aggregation task
-        results = [Result.deserialize(task_handler.data_dependencies[r]).value for r in payload.values]
+        results = [Result.deserialize(task_handler.data_dependencies[r]).value for r in cast(List[str], payload.values)]
         task_handler.send_result(task_handler.expected_results[0], Result(aggregate(results)).serialize())
         logger.info(f"Aggregated {len(results)} values")
         return Output()
 
     if len(payload.values) <= 1 or len(payload.values) <= payload.subtask_threshold:
         # Compute
-        task_handler.send_result(task_handler.expected_results[0], Result(aggregate(payload.values)).serialize())
+        task_handler.send_result(task_handler.expected_results[0], Result(aggregate(cast(List[float], payload.values))).serialize())
         logger.info(f"Computed {len(payload.values)} values")
         return Output()
 
@@ -40,11 +40,13 @@ def processor(task_handler: TaskHandler) -> Output:
     # Split payload in half
     lower = payload.values[:pivot]
     upper = payload.values[pivot:]
+    # Create sub-results
+    subresults = task_handler.get_results_ids([f"{task_handler.task_id}_lower", f"{task_handler.task_id}_upper"])
     subtasks = []
-    for vals in [lower, upper]:
+    for result_id, vals in [(subresults[f"{task_handler.task_id}_lower"], lower), (subresults[f"{task_handler.task_id}_upper"],upper)]:
         # Create new payloads and task definitions
         new_payload = Payload(values=vals, subtask_threshold=payload.subtask_threshold).serialize()
-        subtasks.append(TaskDefinition(payload=new_payload, expected_output_ids=[task_handler.request_output_id()]))
+        subtasks.append(TaskDefinition(payload=new_payload, expected_output_ids=[result_id]))
     # Create the aggregation task
     aggregate_dependencies = [s.expected_output_ids[0] for s in subtasks]
     subtasks.append(TaskDefinition(Payload(values=aggregate_dependencies).serialize(), expected_output_ids=task_handler.expected_results, data_dependencies=aggregate_dependencies))

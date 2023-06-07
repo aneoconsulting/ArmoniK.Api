@@ -1,6 +1,6 @@
 import traceback
 from concurrent import futures
-from typing import Callable
+from typing import Callable, Union
 
 import grpc
 from grpc import Channel
@@ -45,7 +45,7 @@ class ArmoniKWorker(WorkerServicer):
         server.start()
         server.wait_for_termination()
 
-    def Process(self, request_iterator, context) -> ProcessReply:
+    def Process(self, request_iterator, context) -> Union[ProcessReply, None]:
         try:
             self._logger.debug("Received task")
             task_handler = TaskHandler.create(request_iterator, self._client)
