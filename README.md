@@ -1,5 +1,7 @@
 # ArmoniK.Api
 
+Update to try auto-assign
+
 | Javascript |   C#   | Python |
 | :--------: | :----: | :----: |
 | [![NPM version](https://img.shields.io/npm/v/@aneoconsultingfr/armonik.api.angular?color=fe5001&label=Angular)](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api.angular) | [![Nuget version](https://img.shields.io/nuget/v/ArmoniK.Api.Client?color=fe5001&label=Client)](https://www.nuget.org/packages/ArmoniK.Api.Client) | [![PyPI version](https://img.shields.io/pypi/v/armonik?color=fe5001&label=armonik)](https://pypi.org/project/armonik/) |
