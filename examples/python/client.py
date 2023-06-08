@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import grpc
 import argparse
-from armonik.client import ArmoniKSubmitter
+from typing import cast
+from armonik.client import ArmoniKSubmitter, ArmoniKResult
 from armonik.common import TaskDefinition, TaskOptions
-from datetime import timedelta
+from datetime import timedelta, datetime
 from common import Payload, Result
 
 
@@ -18,23 +19,32 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+    print("Hello ArmoniK Python Example !")
     # Open a channel to the control plane
     with grpc.insecure_channel(args.endpoint) as channel:
         # Create a task submitting client
         client = ArmoniKSubmitter(channel)
+        # Create the results client
+        results_client = ArmoniKResult(channel)
         # Default task options to be used in a session
-        default_task_options = TaskOptions(max_duration=timedelta(seconds=300), priority=1, max_retries=5)
+        default_task_options = TaskOptions(max_duration=timedelta(seconds=300), priority=1, max_retries=5, partition_id=args.partition)
         # Create a session
         session_id = client.create_session(default_task_options=default_task_options, partition_ids=[args.partition] if args.partition is not None else None)
+        print(f"Session {session_id} has been created")
         try:
             # Create the payload
             payload = Payload([i for i in range(args.nfirst)] if args.values is None else args.values)
+            # Create the result
+            result_name = f"main_result_{int(datetime.now().timestamp())}"
+            result_id = results_client.get_results_ids(session_id, [result_name])[result_name]
             # Define the task with the payload
-            task_definition = TaskDefinition(payload.serialize(), expected_output_ids=[client.request_output_id(session_id)])
+            task_definition = TaskDefinition(payload.serialize(), expected_output_ids=[result_id])
             # Submit the task
             submitted_tasks, submission_errors = client.submit(session_id, [task_definition])
             for e in submission_errors:
                 print(f"Submission error : {e}")
+
+            print(f"Main tasks have been sent")
 
             for t in submitted_tasks:
                 # Wait for the result to be available
@@ -45,7 +55,7 @@ def main():
                     continue
                 if reply.is_available():
                     # Result is available, get the result
-                    result_payload = Result.deserialize(client.get_result(session_id, result_id=t.expected_output_ids[0]))
+                    result_payload = Result.deserialize(cast(bytes, client.get_result(session_id, result_id=t.expected_output_ids[0])))
                     print(f"Result : {result_payload.value}")
                 else:
                     # Result is in error
@@ -54,6 +64,9 @@ def main():
         except KeyboardInterrupt:
             # If we stop the script, cancel the session
             client.cancel_session(session_id)
+            print("Session has been cancelled")
+        finally:
+            print("Good bye !")
 
 
 if __name__ == "__main__":
