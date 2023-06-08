@@ -94,7 +94,7 @@ class ClefLogger:
         """
         self.log(logging.ERROR, message, exc_info=exc_info, **kwargs)
 
-    def log(self, level: int, message: str, exc_info: Union[BaseException, Tuple[Type[BaseException], BaseException, Optional[TracebackType]], bool, None] = None, **kwargs):
+    def log(self, level: int, message: str, exc_info: Union[BaseException, Union[Tuple[Union[Type[BaseException], None], Union[BaseException, None], Optional[TracebackType]], None], bool, None] = None, **kwargs):
         """ Log a message
 
         Args:
@@ -115,8 +115,7 @@ class ClefLogger:
                         exc_info = sys.exc_info()
                     elif isinstance(exc_info, BaseException):
                         exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
-                    exc_info = "\n".join(traceback.format_exception(*exc_info))
-                    payload["@x"] = exc_info
+                    payload["@x"] = "\n".join(traceback.format_exception(*exc_info))
                 for k, v in kwargs:
                     if k.startswith("@"):
                         k = "@"+k
