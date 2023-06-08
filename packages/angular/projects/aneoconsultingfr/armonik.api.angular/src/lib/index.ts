@@ -21,6 +21,8 @@ export {
   GetOwnerTaskIdResponse,
   ListResultsRequest,
   ListResultsResponse,
+  GetResultRequest,
+  GetResultResponse,
   ResultRaw,
   ResultField,
   ResultRawField,
