@@ -19,7 +19,7 @@
       "groupName": "docs npm packages",
       "groupSlug": "docs-npm",
       "matchPaths": [
-        "docs/**"
+        ".docs/**"
       ],
       "matchDatasources": [
         "npm"
