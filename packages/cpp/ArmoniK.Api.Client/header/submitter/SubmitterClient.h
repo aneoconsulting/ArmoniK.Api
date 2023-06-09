@@ -12,16 +12,6 @@
 
 #include "SessionContext.h"
 
-
-class ISubmitterClient
-{
-public:
-
-  virtual ~ISubmitterClient(){}
-  virtual std::string create_session(armonik::api::grpc::v1::TaskOptions task_options,
-                                      const std::vector<std::string>& partition_ids) = 0;
-};
-
  /**
   * @brief The SubmitterClientExt class provides methods to create and manage task submissions.
   */
@@ -31,20 +21,34 @@ private:
 
   grpc::ClientContext context_;
   armonik::api::grpc::v1::submitter::Submitter::StubInterface* stub_;
-  // std::shared_ptr<armonik::api::grpc::v1::submitter::Submitter::Stub> stub_;
+  // std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::StubInterface> stub_;
   
 
 
 public:
 
-  /*
-  */
+  /**
+   * @brief Construct a new Submitter Client object by default
+   * 
+   */
   SubmitterClient() = default;
-  SubmitterClient(std::shared_ptr<armonik::api::grpc::v1::submitter::Submitter::Stub> stub);
+  // SubmitterClient(std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::StubInterface> stub);
+
+  /**
+   * @brief Construct a new Submitter Client:: Submitter Client object
+   * 
+   * @param stub the gRPC client stub 
+   */
   SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::StubInterface* stub);
 
-
+  /**
+   * @brief Initializes task options creates channel with server address
+   * 
+   * @param channel The gRPC channel to communicate with the server.
+   * @param task_options The task options.
+   */
   static void init(std::shared_ptr<grpc::Channel>& channel, armonik::api::grpc::v1::TaskOptions& task_options);
+  
   /**
    * @brief Creates a new session with the control plane.
    * @param task_options The task options.
@@ -57,7 +61,7 @@ public:
    * @brief Cancels a created session.
    * @param session_id The id of the session to be canceled.
    */
-  void cancel_session(const std::string& session_id);
+  bool cancel_session(const std::string& session_id);
 
 
 
@@ -95,7 +99,7 @@ public:
    * @param task_requests The vector of task requests.
    * @return A future create task reply object.
    */
-  static std::future<armonik::api::grpc::v1::submitter::CreateTaskReply> create_tasks_async(
+  std::future<armonik::api::grpc::v1::submitter::CreateTaskReply> create_tasks_async(
     const std::shared_ptr<grpc::Channel>& channel,
     std::string& session_id, const armonik::api::grpc::v1::TaskOptions& task_options,
     const std::vector<armonik::api::grpc::v1::TaskRequest>& task_requests);
@@ -107,22 +111,19 @@ public:
    * @param max_retries The maximum number of retries for submitting tasks.
    * @return A vector of submitted task IDs.
    */
-  static std::vector<std::string> submit_tasks_with_dependencies(SessionContext& session_context,
+  std::vector<std::string> submit_tasks_with_dependencies(SessionContext& session_context,
     std::vector<std::tuple<std::string, std::vector<char>, std::
     vector<std::string>>> payloads_with_dependencies,
     int max_retries);
 
     /**
-   * @brief Get  result without streaming.
+   * @brief Get result without streaming.
    * @param channel The gRPC channel to communicate with the server.
-   * @param session_id The session ID.
-   * @param task_options The task options.
    * @param result_requests The vector of result requests.
    * @return A vector containting the data associated to the result
    */
-  static std::future<std::vector<int8_t>> get_result_async(
+  std::future<std::vector<int8_t>> get_result_async(
     const std::shared_ptr<grpc::Channel>& channel,
-    std::string& session_id, const armonik::api::grpc::v1::TaskOptions& task_options,
     const armonik::api::grpc::v1::ResultRequest& result_requests);
 
 };
