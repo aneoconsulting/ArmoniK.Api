@@ -16,6 +16,16 @@
       ]
     },
     {
+      "groupName": "docs npm packages",
+      "groupSlug": "docs-npm",
+      "matchPaths": [
+        ".docs/**"
+      ],
+      "matchDatasources": [
+        "npm"
+      ]
+    },
+    {
       "groupName": "nuget packages",
       "groupSlug": "nuget",
       "matchDatasources": [
@@ -35,6 +45,6 @@
       "matchDatasources": [
         "github-tags"
       ]
-    }
+    },
   ]
 }
