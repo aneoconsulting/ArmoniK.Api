@@ -24,21 +24,27 @@ using armonik::api::grpc::v1::TaskRequest;
 using armonik::api::grpc::v1::ResultRequest;
 using namespace armonik::api::grpc::v1::submitter;
 
-/*
-*/
-/*SubmitterClient::SubmitterClient(std::shared_ptr<armonik::api::grpc::v1::submitter::Submitter::Stub> stub)
-{
-  stub_ = stub;
-}*/
-
+/**
+ * @brief Construct a new Submitter Client:: Submitter Client object
+ * 
+ * @param stub the gRPC client stub 
+ */
 SubmitterClient::SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::StubInterface* stub)
 {
   stub_ = stub;
 }
 
+/**
+ * @brief Initializes task options creates channel with server address
+ * 
+ * @param channel The gRPC channel to communicate with the server.
+ * @param task_options The task options.
+ */
 void SubmitterClient::init(std::shared_ptr<Channel>& channel, TaskOptions& task_options)
 {
   channel = grpc::CreateChannel("172.30.39.223:5001", grpc::InsecureChannelCredentials());
+
+  // stub_ = Submitter::NewStub(channel);
 
   task_options.mutable_options()->insert({ "key1", "value1" });
   task_options.mutable_options()->insert({ "key2", "value2" });
@@ -70,8 +76,7 @@ std::string SubmitterClient::create_session(TaskOptions task_options,
   }
   CreateSessionReply reply;
   
-  Status status = stub_->CreateSession(&context_, request, &reply);
-  std::cout << "create_session response: " << reply.session_id() << std::endl;
+   Status status = stub_->CreateSession(&context_, request, &reply);
   if (status.ok())
   {
     return reply.session_id();
@@ -86,7 +91,7 @@ std::string SubmitterClient::create_session(TaskOptions task_options,
  *
  * @param session_id The session id.
  */
-void SubmitterClient::cancel_session(const std::string& session_id)
+bool SubmitterClient::cancel_session(const std::string& session_id)
 {
   armonik::api::grpc::v1::Session request;
 
@@ -94,7 +99,15 @@ void SubmitterClient::cancel_session(const std::string& session_id)
 
   armonik::api::grpc::v1::Empty reply;
 
-  stub_->CancelSession(&context_, request, &reply);
+  Status status = stub_->CancelSession(&context_, request, &reply);
+
+  if (status.ok())
+  {
+    return TRUE;
+  }
+  std::cout << "CancelSession rpc failed: " << status.error_message()
+    << std::endl;
+  return FALSE;
 }
 
 
@@ -239,13 +252,13 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(const std::shar
                                                                     const std::vector<TaskRequest>&
                                                                     task_requests)
 {
-  return std::async(std::launch::async, [channel, &task_requests, &session_id, &task_options]()
+  return std::async(std::launch::async, [this, channel, &task_requests, &session_id, &task_options]()
   {
     armonik::api::grpc::v1::Configuration config_response;
     grpc::ClientContext context_configuration;
     auto client = Submitter::NewStub(channel);
 
-    const auto config_status = client->GetServiceConfiguration(&context_configuration, armonik::api::grpc::v1::Empty(),
+    const auto config_status = stub_->GetServiceConfiguration(&context_configuration, armonik::api::grpc::v1::Empty(),
                                                                &config_response);
     size_t chunk = 0;
     if (config_status.ok())
@@ -263,7 +276,7 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(const std::shar
       new armonik::api::grpc::v1::submitter::CreateTaskReply_CreationStatusList());
     grpc::ClientContext context_client_writer;
     std::unique_ptr stream(
-      client->CreateLargeTasks(&context_client_writer, reply));
+      stub_->CreateLargeTasks(&context_client_writer, reply));
 
     //task_chunk_stream(task_requests, )
     std::vector<std::future<CreateLargeTaskRequest>> async_task_requests;
@@ -312,7 +325,6 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
 {
   std::vector<std::string> task_ids;
   std::vector<TaskRequest> requests;
-
   for (auto& payload : payloads_with_dependencies)
   {
     TaskRequest request;
@@ -333,7 +345,9 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
 
   const CreateTaskReply createTaskReply = tasks_async.get();
 
+  
 
+  
   switch (createTaskReply.Response_case())
   {
   case CreateTaskReply::RESPONSE_NOT_SET:
@@ -367,27 +381,34 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
  * @return A future containing data result.
  */
 std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const std::shared_ptr<grpc::Channel>& channel,
-                                                                      std::string& session_id,
-                                                                      const TaskOptions& task_options,
                                                                       const ResultRequest&
                                                                       result_requests)
 {
-  return std::async(std::launch::async, [channel, &result_requests, &session_id, &task_options]()
+  return std::async(std::launch::async, [channel, &result_requests]()
   {
     armonik::api::grpc::v1::submitter::ResultReply result_writer;
-    grpc::ClientContext* context_configuration;
+    grpc::ClientContext context_configuration;
+    grpc::ClientContext context_result;
+    armonik::api::grpc::v1::Configuration config_response;
     auto client = Submitter::NewStub(channel);
 
-    auto streamingCall = client->TryGetResultStream(context_configuration, result_requests);
+    const auto config_status = client->GetServiceConfiguration(&context_configuration, armonik::api::grpc::v1::Empty(),
+      &config_response);
 
-
-    size_t size;
-
-    if (streamingCall)
+    size_t size = 0;
+    if (config_status.ok())
     {
-      size = result_requests.ByteSizeLong();
+      size = config_response.data_chunk_max_size();
     }
     else
+    {
+      throw std::runtime_error("Fail to get service configuration");
+    }
+
+    auto streamingCall = client->TryGetResultStream(&context_result, result_requests);
+    
+
+    if (!streamingCall)
     {
       throw std::runtime_error("Fail to get result");
     }
@@ -400,20 +421,20 @@ std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const std::sh
       std::string dataString;
       switch (result_writer.type_case())
       {
-      case result_writer.kResult:
+      case ResultReply::kResult:
         dataString = result_writer.result().data();
         for (size_t i = 0; i < dataString.length(); i++)
         {
           result_data.push_back(dataString[i]);
         }
         break;
-      case result_writer.kError:
+      case ResultReply::kError:
         throw std::runtime_error("Error in task ");
         break;
-      case result_writer.kNotCompletedTask:
+      case ResultReply::kNotCompletedTask:
         throw std::runtime_error("Task not completed");
         break;
-      case result_writer.TYPE_NOT_SET:
+      case ResultReply::TYPE_NOT_SET:
         throw std::runtime_error("Issue with the Server");
         break;
       default:
