@@ -72,7 +72,6 @@ target_include_directories(${PROJECT_NAME}
 
 
 
-
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})
 set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION 0)
 set_property(TARGET ${PROJECT_NAME} PROPERTY
