@@ -21,12 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
           node-version: "18"
           cache: "pnpm"
@@ -37,14 +37,14 @@ jobs:
         # This will be used to avoid the use of the docker image to generate the documentation if the proto files have not changed
       - name: Cache Generated Docs from Protos
         id: proto-cache
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3
         with:
           path: .docs/content/api/*.md
           key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
 
       - name: Generate protobuf documentation
         if: steps.proto-cache.outputs.cache-hit != 'true'
-        uses: addnab/docker-run-action@v3
+        uses: addnab/docker-run-action@4f65fabd2431ebc8d299f8e5a018d79a769ae185 # v3
         with:
           image: pseudomuto/protoc-gen-doc
           options: -v ${{ github.workspace }}/.docs/content/api:/out -v ${{ github.workspace }}/Protos/V1:/protos
@@ -65,12 +65,12 @@ jobs:
     needs: [generate-proto-docs]
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
 
       # Restore API proto documentation
       - name: Cache Generated Docs from Protos
         id: proto-cache
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3
         with:
           path: .docs/content/api/*.md
           key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
@@ -78,7 +78,7 @@ jobs:
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
           node-version: "18"
           cache: "pnpm"
@@ -96,7 +96,7 @@ jobs:
         run: cd .docs && nr generate
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@64bcae551a7b18bcb9a09042ddf1960979799187 # v1
         with:
           path: .docs/.output/public
 
@@ -110,4 +110,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@af48cf94a42f2c634308b1c9dc0151830b6f190a # v2
