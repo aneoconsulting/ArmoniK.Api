@@ -330,10 +330,12 @@ namespace ArmoniK.Api.Client.Submitter
       {
         var                      pemReader = new PemReader(reader);
         AsymmetricCipherKeyPair? keyPair;
+        object?                  keyRaw;
         do
         {
-          keyPair = pemReader.ReadObject() as AsymmetricCipherKeyPair;
-        } while (keyPair == null);
+          keyRaw  = pemReader.ReadObject();
+          keyPair = keyRaw as AsymmetricCipherKeyPair;
+        } while (keyPair == null && keyRaw != null);
 
         if (keyPair == null)
         {
