@@ -328,8 +328,18 @@ namespace ArmoniK.Api.Client.Submitter
       using (var reader = new StreamReader(optionsGrpcClient.KeyPem,
                                            Encoding.UTF8))
       {
-        var pemReader = new PemReader(reader);
-        var keyPair   = pemReader.ReadObject() as AsymmetricCipherKeyPair ?? throw new CryptographicException("Key could not be retrieved from file");
+        var                      pemReader = new PemReader(reader);
+        AsymmetricCipherKeyPair? keyPair;
+        do
+        {
+          keyPair = pemReader.ReadObject() as AsymmetricCipherKeyPair;
+        } while (keyPair == null);
+
+        if (keyPair == null)
+        {
+          throw new CryptographicException("Key could not be retrieved from file");
+        }
+
         store.SetKeyEntry("alias",
                           new AsymmetricKeyEntry(keyPair.Private),
                           new X509CertificateEntry[]
