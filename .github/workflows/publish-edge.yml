@@ -9,33 +9,24 @@ on:
       - main
 
 jobs:
-  create-version:
-    name: Create Version
+  version:
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsultingfr'
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
+    name: Version
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - name: Git Version
-        id: version
-        uses: codacy/git-version@2.7.1
-        with:
-          minor-identifier: "feat:"
-          release-branch: release
-          dev-branch: main
-
-      - name: Print version
-        run: |
-          echo ${{ steps.version.outputs.version }} >> $GITHUB_STEP_SUMMARY
-
+      - name: Generate Version
+      # Print to the summary
+        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_STEP_SUMMARY
   tests:
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsultingfr'
+    name: Tests
     runs-on: ubuntu-latest
-    needs: create-version
     strategy:
       fail-fast: false
       matrix:
@@ -43,13 +34,14 @@ jobs:
           - packages/csharp/ArmoniK.Api.Tests
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
       # Install the .NET Core workload
       - name: Install .NET Core
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v3
         with:
           dotnet-version: 6.x
 
@@ -67,11 +59,9 @@ jobs:
           reporter: dotnet-trx
 
   release-csharp-packages:
-    needs: [create-version, tests]
+    needs: [tests]
     name: Release C# Packages
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.create-version.outputs.version }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
@@ -84,14 +74,18 @@ jobs:
           - packages/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
       - name: Install .NET Core
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v3
         with:
           dotnet-version: 6.x
+
+      - name: Generate Version
+        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_ENV
 
       - name: Build the package
         run: |
@@ -107,19 +101,17 @@ jobs:
 
   release-angular-package:
     if: github.ref == 'refs/heads/main'
-    needs: [create-version]
     name: Release Angular Package
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.create-version.outputs.version }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - run: npm i -g @antfu/ni pnpm
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
           node-version: 18
           cache: pnpm
@@ -135,7 +127,7 @@ jobs:
         run: cd packages/angular && nr proto:generate:linux
 
       - name: Update version
-        run: nr update-versions $VERSION
+        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
 
       - name: Build package
         run: cd packages/angular && nr build
@@ -147,19 +139,17 @@ jobs:
 
   release-web-package:
     if: github.ref == 'refs/heads/main'
-    needs: [create-version]
     name: Release Web Package
     runs-on: ubuntu-latest
-    env:
-      VERSION: ${{ needs.create-version.outputs.version }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
+          ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - run: npm i -g @antfu/ni pnpm
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
           node-version: 18
           cache: pnpm
@@ -181,7 +171,7 @@ jobs:
         run: cd packages/web && nr build
 
       - name: Update version
-        run: nr update-versions $VERSION
+        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
 
       - name: Release package
         run: nr ci:publish-edge web
@@ -189,13 +179,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-python-package:
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsultingfr'
     name: Release Python Package
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: packages/python
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
           fetch-depth: 0
 
@@ -203,24 +194,24 @@ jobs:
         run: bash proto2python.sh ~/pyvenv
 
       - name: Upload as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
         with:
           name: python-packages
           path: packages/python/pkg/
-      
+
       - name: Publish to PyPITest
         if: github.ref != 'refs/heads/main'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.DEV_PYPI_API_TOKEN }}
-          print_hash: true
-          packages_dir: packages/python/pkg/
-          repository_url: https://test.pypi.org/legacy/
-  
+          print-hash: true
+          packages-dir: packages/python/pkg/
+          repository-url: https://test.pypi.org/legacy/
+
       - name: Publish to PyPI
         if: github.ref == 'refs/heads/main'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-          print_hash: true
-          packages_dir: packages/python/pkg/
+          print-hash: true
+          packages-dir: packages/python/pkg/

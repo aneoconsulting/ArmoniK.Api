@@ -9,7 +9,33 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
+  # We need to verify the version in some packages with the tag in order to have the same version in all packages (python, csharp, angular, web).
+  # Some packages use an internal version (like csharp, angular and web) and some use the tag version (like python).
+  verify-versions:
+    name: Verify Versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
+        with:
+          fetch-depth: 0
+
+      - run: npm i -g pnpm @antfu/ni
+
+      - name: Setup Node.js
+        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+        with:
+          node-version: 18.x
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: nci
+
+      - name: Verify Versions
+        run: nr verify-versions ${{ github.ref_name }}
+
   release-csharp-packages:
+    needs: [verify-versions]
     name: Release C# Packages
     runs-on: ubuntu-latest
     strategy:
@@ -23,12 +49,12 @@ jobs:
           - packages/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
           fetch-depth: 0
 
       - name: Install .NET Core
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v3
         with:
           dotnet-version: 6.x
 
@@ -45,10 +71,11 @@ jobs:
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
   release-python-package:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
           fetch-depth: 0
 
@@ -59,7 +86,7 @@ jobs:
           bash proto2python.sh ~/pyvenv
 
       - name: Upload as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
         with:
           name: python-packages
           path: packages/python/pkg/
@@ -72,15 +99,16 @@ jobs:
           packages_dir: packages/python/pkg/
 
   release-angular-packages:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
           node-version: 18
           cache: pnpm
@@ -104,15 +132,16 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-web-packages:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
           node-version: 18
           cache: pnpm
@@ -139,14 +168,15 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   update-changelog:
+    needs: [verify-versions]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
           fetch-depth: 0
 
       - name: Set node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
         with:
           node-version: 18
 

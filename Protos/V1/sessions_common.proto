@@ -5,16 +5,16 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.sessions;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";
+import "sort_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
 /**
  * A raw session object.
- *
- * Used when a single session is returned.
  */
 message SessionRaw {
   string session_id = 1; /** The session ID. */
@@ -24,22 +24,27 @@ message SessionRaw {
 
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
+  google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled'. */
 }
 
 /**
- * A summary session object.
- *
- * Does not contain all the fields of the object.
- * Used when a list of sessions is returned.
+ * Represents every available field in a session raw.
  */
-message SessionSummary {
-  string session_id = 1; /** The session ID. */
+enum SessionRawField {
+  SESSION_RAW_FIELD_UNSPECIFIED = 0;
+  SESSION_RAW_FIELD_SESSION_ID = 1;
+  SESSION_RAW_FIELD_STATUS = 2;
+  SESSION_RAW_FIELD_PARTITION_IDS = 3;
+  SESSION_RAW_FIELD_OPTIONS = 4;
+  SESSION_RAW_FIELD_CREATED_AT = 5;
+  SESSION_RAW_FIELD_CANCELLED_AT = 6;
+  SESSION_RAW_FIELD_DURATION = 7;
+}
 
-  session_status.SessionStatus status = 2; /** The session status. */
-  google.protobuf.Timestamp created_at = 3; /** The creation date. */
-  google.protobuf.Timestamp cancelled_at = 4; /** The cancellation date. Only set when status is 'cancelled'. */
-
-  TaskOptions options = 5; /** The default task options. */
+message SessionField {
+  oneof field {
+    SessionRawField session_raw_field = 1;
+  }
 }
 
 /**
@@ -74,31 +79,11 @@ message ListSessionsRequest {
   Filter filter = 3;
 
   /**
-   * Represents every available field to use in order to sort sessions.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_SESSION_ID = 1; /** The session ID. */
-    ORDER_BY_FIELD_STATUS = 2; /** The session status. */
-    ORDER_BY_FIELD_CREATED_AT = 3; /** The creation date. */
-    ORDER_BY_FIELD_CANCELLED_AT = 4; /** The cancellation date. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
    * Represents the sort object.
    */
   message Sort {
-    OrderByField field = 1; /** The field to order by. */
-    OrderDirection direction = 2; /** The order direction. */
+    SessionField field = 1; /** The field to sort on. */
+    sort_direction.SortDirection direction = 2; /** The sort direction. */
   }
 
   /** The sort.
@@ -120,7 +105,7 @@ message ListSessionsRequest {
  * Return a list of summary sessions.
  */
 message ListSessionsResponse {
-  repeated SessionSummary sessions = 1; /** The list of sessions. */
+  repeated SessionRaw sessions = 1; /** The list of sessions. */
 
   int32 page = 2; /** The current page. Start at 0. */
   int32 page_size = 3; /** The page size. */

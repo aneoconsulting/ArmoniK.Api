@@ -111,4 +111,44 @@ public interface ITaskHandler : IAsyncDisposable
   /// <returns></returns>
   Task SendResult(string key,
                   byte[] data);
+
+  /// <summary>
+  ///   Create results metadata
+  /// </summary>
+  /// <param name="results">The collection of results to be created</param>
+  /// <returns>
+  ///   The result creation response
+  /// </returns>
+  Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results);
+
+  /// <summary>
+  ///   Submit tasks with existing payloads (results)
+  /// </summary>
+  /// <param name="taskCreations">The requests to create tasks</param>
+  /// <param name="submissionTaskOptions">optional tasks for the whole submission</param>
+  /// <returns>
+  ///   The task submission response
+  /// </returns>
+  Task<SubmitTasksResponse> SubmitTasksAsync(IEnumerable<SubmitTasksRequest.Types.TaskCreation> taskCreations,
+                                             TaskOptions?                                       submissionTaskOptions);
+
+  /// <summary>
+  ///   Create results from metadata and data in an unique request
+  /// </summary>
+  /// <param name="results">The results to create</param>
+  /// <returns>
+  ///   The task submission response
+  /// </returns>
+  Task<CreateResultsResponse> CreateResultsAsync(IEnumerable<CreateResultsRequest.Types.ResultCreate> results);
+
+  /// <summary>
+  ///   Upload data to an existing result
+  /// </summary>
+  /// <param name="key">The result Id</param>
+  /// <param name="data">The data to submit for the given result</param>
+  /// <returns>
+  ///   The upload data response
+  /// </returns>
+  Task<UploadResultDataResponse> UploadResultData(string key,
+                                                  byte[] data);
 }

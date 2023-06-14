@@ -3,7 +3,7 @@ import json
 
 
 class Payload:
-    def __init__(self, values: List[Union[int, float, str]], subtask_threshold=2):
+    def __init__(self, values: List[Union[float, str]], subtask_threshold=2):
         """
         Creates a payload with a value list and a threshold
         :param values: Values to compute if it's a list of float. If it's a list of strings, corresponds to the results' keys to aggregate

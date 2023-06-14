@@ -232,17 +232,6 @@ class ArmoniKSubmitter:
             return ResultAvailability(errors=[e.detail for e in response.error.errors])
         return None
 
-    def request_output_id(self, session_id: str) -> str:
-        """Request an output id
-
-        Args:
-            session_id: Session Id
-
-        Returns:
-            Output id
-        """
-        return f"{session_id}%{uuid.uuid4()}"
-
 
 def _to_request_stream_internal(request: TaskRequest, is_last: bool, chunk_max_size: int) -> Generator[CreateLargeTaskRequest, None, None]:
     """ Generate the CreateLargeTaskRequests for the given request

@@ -6,6 +6,7 @@ syntax = "proto3";
 package armonik.api.grpc.v1.applications;
 
 import "objects.proto";
+import "sort_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 
@@ -17,9 +18,25 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 message ApplicationRaw {
   string name = 1; /** Application name. */
   string version = 2; /** Application version. */
-
   string namespace = 3; /** Application namespace used in the excecuted class. */
   string service = 4; /** Application service used in the excecuted class. */
+}
+
+/**
+ * Represents every available field in an application.
+ */
+enum ApplicationRawField {
+  APPLICATION_RAW_FIELD_UNSPECIFIED = 0; /** Unspecified */
+  APPLICATION_RAW_FIELD_NAME = 1; /** Application name. */
+  APPLICATION_RAW_FIELD_VERSION = 2; /** Application version. */
+  APPLICATION_RAW_FIELD_NAMESPACE = 3; /** Application namespace. */
+  APPLICATION_RAW_FIELD_SERVICE = 4; /** Application service. */
+}
+
+message ApplicationField {
+  oneof field {
+    ApplicationRawField application_field = 1;
+  }
 }
 
 /**
@@ -50,31 +67,11 @@ message ListApplicationsRequest {
   Filter filter = 3;
 
   /**
-   * Represents every available field to use in order to sort applications.
-   */
-  enum OrderByField {
-    ORDER_BY_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_BY_FIELD_NAME = 1; /** Application name. */
-    ORDER_BY_FIELD_VERSION = 2; /** Application version. */
-    ORDER_BY_FIELD_NAMESPACE = 3; /** Application namespace. */
-    ORDER_BY_FIELD_SERVICE = 4; /** Application service. */
-  }
-
-  /**
-   * Represents every available order directions.
-   */
-  enum OrderDirection {
-    ORDER_DIRECTION_UNSPECIFIED = 0; /** Unspecified. */
-    ORDER_DIRECTION_ASC = 1; /** Ascending. */
-    ORDER_DIRECTION_DESC = 2; /** Descending. */
-  }
-
-  /**
    * Represents the sort object.
    */
   message Sort {
-    repeated OrderByField fields = 1; /** Fields to order by. */
-    OrderDirection direction = 2; /** The order direction. */
+    repeated ApplicationField fields = 1; /** Fields to order by. */
+    sort_direction.SortDirection direction = 2; /** The order direction. */
   }
 
   /** The sort.
