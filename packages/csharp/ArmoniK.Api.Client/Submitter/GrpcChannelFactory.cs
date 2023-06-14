@@ -328,14 +328,12 @@ namespace ArmoniK.Api.Client.Submitter
       using (var reader = new StreamReader(optionsGrpcClient.KeyPem,
                                            Encoding.UTF8))
       {
-        var                      pemReader = new PemReader(reader);
-        AsymmetricCipherKeyPair? keyPair;
-        object?                  keyRaw;
+        var     pemReader = new PemReader(reader);
+        object? keyPair;
         do
         {
-          keyRaw  = pemReader.ReadObject();
-          keyPair = keyRaw as AsymmetricCipherKeyPair;
-        } while (keyPair == null && keyRaw != null);
+          keyPair = pemReader.ReadObject();
+        } while (keyPair != null && keyPair is not AsymmetricCipherKeyPair && keyPair is not AsymmetricKeyParameter);
 
         if (keyPair == null)
         {
@@ -343,7 +341,7 @@ namespace ArmoniK.Api.Client.Submitter
         }
 
         store.SetKeyEntry("alias",
-                          new AsymmetricKeyEntry(keyPair.Private),
+                          new AsymmetricKeyEntry((keyPair as AsymmetricCipherKeyPair)?.Private ?? keyPair as AsymmetricKeyParameter),
                           new X509CertificateEntry[]
                           {
                             new(cert),
