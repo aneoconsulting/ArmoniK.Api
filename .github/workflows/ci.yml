@@ -1,9 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [ '**' ]
-    
+  pull_request:
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -81,14 +80,6 @@ jobs:
     name: Format C++
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      matrix:
-        path:
-          - "packages/cpp/ArmoniK.Api.Client"
-          - "packages/cpp/ArmoniK.Api.Common"
-          - "packages/cpp/ArmoniK.Api.Worker"
-          - "packages/cpp/ArmoniK.Api.Tests"
-          - "packages/cpp/ArmoniK.Api.Worker.Tests"
 
     steps:
       - name: Checkout
@@ -96,20 +87,20 @@ jobs:
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
-          submodules: true
 
       - name: Run clang-format
-        uses: jidicula/clang-format-action@v4.11.0
-        with:
-          clang-format-version: '13'
-          check-path: ${{ matrix.path }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
 
       - name: Check Diff
+        id: check-diff
         run: |
+          git ls-files *.{c,h,hpp,cpp,cc} | xargs clang-format -style=google -i
           DIFF="$(git diff --name-only)"
 
           if [ -z "$DIFF" ]; then
-            echo "OK: Format is clean"
+          echo "OK: Format is clean"
           else
             echo "Error: Format was not clean"
             echo "List of files:"
@@ -242,3 +233,23 @@ jobs:
         with:
           name: code-coverage-report-xml
           path: packages/python/coverage.xml
+
+  build-cpp-packages:
+    name: Release C++ Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Build the package
+        run: |
+          cd packages/cpp/tools/
+          ./compile.sh
+
+      - name: Run the client
+        run: |
+          cd ../build/Armonik.Api.Client.Tests
+          ./Armonik.Api.Client.Tests
