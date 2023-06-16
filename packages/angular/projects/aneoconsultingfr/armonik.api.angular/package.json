@@ -1,6 +1,6 @@
 {
   "name": "@aneoconsultingfr/armonik.api.angular",
-  "version": "3.8.1",
+  "version": "3.8.2",
   "description": "gRPC API to interact with ArmoniK built for Angular",
   "peerDependencies": {
     "@angular/common": "^16.0.1",
