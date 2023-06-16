@@ -1,0 +1,6 @@
+{
+  "/armonik.api.grpc.v1": {
+    "target": "<ip>:<port>",
+    "secure": false
+  }
+}
