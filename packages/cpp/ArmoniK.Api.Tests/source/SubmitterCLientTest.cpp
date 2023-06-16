@@ -15,6 +15,7 @@
 
 #include "utils/GuuId.h"
 #include "utils/StringsUtils.h"
+#include "utils/EnvConfiguration.h"
 #include "serilog/serilog.h"
 
 using grpc::Channel;
@@ -24,102 +25,107 @@ using armonik::api::grpc::v1::submitter::CreateSessionRequest;
 using armonik::api::grpc::v1::submitter::CreateSessionReply;
 using armonik::api::grpc::v1::submitter::Submitter;
 using armonik::api::grpc::v1::TaskOptions;
+using armonik::api::common::utils::IConfiguration;
+using namespace armonik::api::common::utils;
 
 using ::testing::AtLeast;
 using ::testing::_;
 
 using namespace armonik::api::common::serilog;
 
+/**
+ * @brief Initializes task options creates channel with server address
+ *
+ * @param channel The gRPC channel to communicate with the server.
+ * @param default_task_options The default task options.
+ */
+void init(std::shared_ptr<Channel>& channel,
+                           TaskOptions& default_task_options) {
+
+  EnvConfiguration configuration;
+  // auto server = std::make_shared<EnvConfiguration>(configuration_t);
+
+  configuration.add_json_configuration("appsetting.json")
+                  .add_env_configuration();
+
+  std::string server_address = configuration.get("ArmoniK_Client_Server");
+
+  std::cout << " Server address " << server_address << std::endl;
+
+  channel =
+      grpc::CreateChannel(server_address,
+                                grpc::InsecureChannelCredentials());
+
+  // stub_ = Submitter::NewStub(channel);
+
+  default_task_options.mutable_options()->insert({"key1", "value1"});
+  default_task_options.mutable_options()->insert({"key2", "value2"});
+  default_task_options.mutable_max_duration()->set_seconds(3600);
+  default_task_options.mutable_max_duration()->set_nanos(0);
+  default_task_options.set_max_retries(3);
+  default_task_options.set_priority(1);
+  default_task_options.set_partition_id("cpp");
+  default_task_options.set_application_name("my-app");
+  default_task_options.set_application_version("1.0");
+  default_task_options.set_application_namespace("my-namespace");
+  default_task_options.set_application_service("my-service");
+  default_task_options.set_engine_type("Unified");
+}
 
 TEST(testMock, createSession)
 {
-  MockStubInterface stub;
+  // MockStubInterface stub;
+  std::shared_ptr<Channel> channel;
 
   ClientContext context;
   CreateSessionReply reply;
   CreateSessionRequest request;
 
-  const std::vector<std::string>& partition_ids = { "default" };
-
+  const std::vector<std::string>& partition_ids = { "cpp" };
 
   TaskOptions task_options;
-
-  std::shared_ptr<Channel> channel = grpc::CreateChannel("172.30.39.223:5001", grpc::InsecureChannelCredentials());
-
-  task_options.mutable_options()->insert({ "key1", "value1" });
-  task_options.mutable_options()->insert({ "key2", "value2" });
-  task_options.mutable_max_duration()->set_seconds(3600);
-  task_options.mutable_max_duration()->set_nanos(0);
-  task_options.set_max_retries(3);
-  task_options.set_priority(1);
-  task_options.set_partition_id("cpp");
-  task_options.set_application_name("my-app");
-  task_options.set_application_version("1.0");
-  task_options.set_application_namespace("my-namespace");
-  task_options.set_application_service("my-service");
-  task_options.set_engine_type("Unified");
-
+  init(channel, task_options);
 
   ASSERT_EQ(task_options.partition_id(), "cpp");
-
-
-  EXPECT_CALL(stub, CreateSession(_,_,_)).Times(AtLeast(1));
-
-  
-
  
-  SubmitterClient submitter(&stub);
+
+  std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
+  // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
+  SubmitterClient submitter(std::move(stub));
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   std::cout << "create_session response: " << session_id << std::endl;
 
-
-  ASSERT_TRUE(session_id.empty());
+  ASSERT_FALSE(session_id.empty());
 }
 
 
 
 TEST(testMock, cancleSession)
 {
-  MockStubInterface stub;
+  // MockStubInterface stub;
+  std::shared_ptr<Channel> channel;
+  ;
 
   ClientContext context;
   CreateSessionReply reply;
   CreateSessionRequest request;
 
-  const std::vector<std::string>& partition_ids = { "default" };
+  const std::vector<std::string>& partition_ids = { "cpp" };
 
 
   TaskOptions task_options;
+  init(channel, task_options);
 
-  std::shared_ptr<Channel> channel = grpc::CreateChannel("172.30.39.223:5001", grpc::InsecureChannelCredentials());
+  // EXPECT_CALL(*stub, CancelSession(_, _, _)).Times(AtLeast(1));
 
-  task_options.mutable_options()->insert({ "key1", "value1" });
-  task_options.mutable_options()->insert({ "key2", "value2" });
-  task_options.mutable_max_duration()->set_seconds(3600);
-  task_options.mutable_max_duration()->set_nanos(0);
-  task_options.set_max_retries(3);
-  task_options.set_priority(1);
-  task_options.set_partition_id("cpp");
-  task_options.set_application_name("my-app");
-  task_options.set_application_version("1.0");
-  task_options.set_application_namespace("my-namespace");
-  task_options.set_application_service("my-service");
-  task_options.set_engine_type("Unified");
-  
-
-  EXPECT_CALL(stub, CancelSession(_, _, _)).Times(AtLeast(1));
-
-
-
-
-  SubmitterClient submitter(&stub);
+  std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
+  SubmitterClient submitter(std::move(stub));
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   std::cout << "create_session response: " << session_id << std::endl;
 
-
-  ASSERT_TRUE(session_id.empty());
+  ASSERT_FALSE(session_id.empty());
 
   ASSERT_TRUE(submitter.cancel_session(session_id));
 
@@ -142,63 +148,38 @@ TEST(testMock, submitTask)
     });
   log.add_property("time", time(nullptr));
 
-  // Call the createSession function with the server address
   ::putenv("GRPC_DNS_RESOLVER=native");
-
-
+  
   std::cout << "Starting client..." << std::endl;
-  std::string server_address = "172.30.39.223:5001";
 
   CreateSessionRequest request;
   TaskOptions task_options;
 
-  std::shared_ptr<Channel> channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  std::shared_ptr<Channel> channel;
+  init(channel, task_options);
 
-  MockStubInterface stub;
-  std::unique_ptr<Submitter::Stub> ptr_test = Submitter::NewStub(channel);
-
-  task_options.mutable_options()->insert({ "key1", "value1" });
-  task_options.mutable_options()->insert({ "key2", "value2" });
-  task_options.mutable_max_duration()->set_seconds(3600);
-  task_options.mutable_max_duration()->set_nanos(0);
-  task_options.set_max_retries(3);
-  task_options.set_priority(1);
-  task_options.set_partition_id("cpp");
-  task_options.set_application_name("my-app");
-  task_options.set_application_version("1.0");
-  task_options.set_application_namespace("my-namespace");
-  task_options.set_application_service("my-service");
-  task_options.set_engine_type("Unified");
-
+  // MockStubInterface stub;
+  std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
 
   *request.mutable_default_task_option() = task_options;
   request.add_partition_ids(task_options.partition_id());
 
   auto session_context = std::make_shared<SessionContext>(channel, task_options);
 
-  // stub = reinterpret_cast<MockStubInterface*>(ptr_test.release());
-
-  EXPECT_CALL(stub, CreateSession(_, _, _)).Times(AtLeast(1));
-  EXPECT_CALL(stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
-  EXPECT_CALL(stub, CreateLargeTasksRaw(_, _)).Times(AtLeast(1));
+  // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
+  // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
+  // EXPECT_CALL(*stub, CreateLargeTasksRaw(_, _)).Times(AtLeast(1));
 
   CreateSessionReply reply;
   grpc::ClientContext context;
-  //Status status = ptr_test->CreateSession(&context, request, &reply);
 
-
-
-
-  // stub = reinterpret_cast<MockStubInterface*> (Submitter::NewStub(channel).release());
-
-
-  SubmitterClient submitter(ptr_test.release());
-  const std::vector<std::string>& partition_ids = { "default" };
+  SubmitterClient submitter(std::move(stub));
+  const std::vector<std::string>& partition_ids = { "cpp" };
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
-  session_context->set_session_id(reply.session_id());
+  session_context->set_session_id(session_id);
 
-  ASSERT_TRUE(reply.session_id().empty());
+  ASSERT_FALSE(session_id.empty());
 
   try
   {
@@ -229,7 +210,8 @@ TEST(testMock, submitTask)
 
 TEST(testMock, getResult)
 {
-  MockStubInterface stub;
+  // MockStubInterface stub;
+  std::shared_ptr<Channel> channel;
 
   CreateSessionReply reply;
   CreateSessionRequest request;
@@ -240,16 +222,14 @@ TEST(testMock, getResult)
   TaskOptions task_options;
   armonik::api::grpc::v1::ResultRequest result_request;
 
-  std::shared_ptr<Channel> channel = grpc::CreateChannel("172.30.39.223:5001", grpc::InsecureChannelCredentials());
+  init(channel, task_options);
+  // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
+  // EXPECT_CALL(*stub, TryGetResultStreamRaw(_, _)).Times(AtLeast(1));
 
+  std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
+  SubmitterClient submitter(std::move(stub));
 
-  EXPECT_CALL(stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
-  EXPECT_CALL(stub, TryGetResultStreamRaw(_, _)).Times(AtLeast(1));
-
-
-  SubmitterClient submitter(&stub);
-
-  auto result = submitter.get_result_async(channel, result_request);
+  auto result = submitter.get_result_async(result_request);
 
   ASSERT_FALSE(result.get().empty());
 }
