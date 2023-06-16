@@ -19,7 +19,9 @@ file(GLOB PROTO_FILES
 "${PROTO_FILES_DIR}/worker_common.proto"
 "${PROTO_FILES_DIR}/results_common.proto"
 "${PROTO_FILES_DIR}/partitions_common.proto"
-"${PROTO_FILES_DIR}/events_common.proto")
+"${PROTO_FILES_DIR}/events_common.proto"
+"${PROTO_FILES_DIR}/versions_common.proto"
+"${PROTO_FILES_DIR}/sort_direction.proto")
 
 set(CMAKE_FIND_DEBUG_MODE FALSE)
 # Trouver les packages requis

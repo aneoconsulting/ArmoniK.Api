@@ -10,7 +10,8 @@ file(GLOB PROTO_FILES
 "${PROTO_FILES_DIR}/results_service.proto"
 "${PROTO_FILES_DIR}/auth_service.proto"
 "${PROTO_FILES_DIR}/partitions_service.proto"
-"${PROTO_FILES_DIR}/events_service.proto")
+"${PROTO_FILES_DIR}/events_service.proto"
+"${PROTO_FILES_DIR}/versions_service.proto")
 
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
