@@ -17,18 +17,7 @@ RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt update && apt instal
 
 # Install build-essential and wget, then clean up apt cache to reduce image size
 RUN apt-get update \
-  && apt-get -y install build-essential \
-  && apt-get install -y wget \
-  && rm -rf /var/lib/apt/lists/* \
-  # Download and install CMake
-  && wget https://github.com/Kitware/CMake/releases/download/v3.24.1/cmake-3.24.1-Linux-x86_64.sh \
-      -q -O /tmp/cmake-install.sh \
-      && chmod u+x /tmp/cmake-install.sh \
-      && mkdir /opt/cmake-3.24.1 \
-      && /tmp/cmake-install.sh --skip-license --prefix=/opt/cmake-3.24.1 \
-      && rm /tmp/cmake-install.sh \
-      # Create symlinks for the CMake binary
-      && ln -s /opt/cmake-3.24.1/bin/* /usr/local/bin
+  apt-get install build-essential wget cmake
 
 # Clone the gRPC repository
 WORKDIR /tmp
