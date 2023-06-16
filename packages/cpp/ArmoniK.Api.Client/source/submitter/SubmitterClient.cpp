@@ -10,6 +10,8 @@
 
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
+#include "sessions_common.pb.h"
+#include "sessions_service.grpc.pb.h"
 #include "objects.grpc.pb.h"
 
 
@@ -29,54 +31,27 @@ using namespace armonik::api::grpc::v1::submitter;
  * 
  * @param stub the gRPC client stub 
  */
-SubmitterClient::SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::StubInterface* stub)
-{
-  stub_ = stub;
-}
-
-/**
- * @brief Initializes task options creates channel with server address
- * 
- * @param channel The gRPC channel to communicate with the server.
- * @param task_options The task options.
- */
-void SubmitterClient::init(std::shared_ptr<Channel>& channel, TaskOptions& task_options)
-{
-  channel = grpc::CreateChannel("172.30.39.223:5001", grpc::InsecureChannelCredentials());
-
-  // stub_ = Submitter::NewStub(channel);
-
-  task_options.mutable_options()->insert({ "key1", "value1" });
-  task_options.mutable_options()->insert({ "key2", "value2" });
-  task_options.mutable_max_duration()->set_seconds(3600);
-  task_options.mutable_max_duration()->set_nanos(0);
-  task_options.set_max_retries(3);
-  task_options.set_priority(1);
-  task_options.set_partition_id("cpp");
-  task_options.set_application_name("my-app");
-  task_options.set_application_version("1.0");
-  task_options.set_application_namespace("my-namespace");
-  task_options.set_application_service("my-service");
-  task_options.set_engine_type("Unified");
+SubmitterClient::SubmitterClient(std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::StubInterface> stub) {
+  stub_ = std::move(stub);
 }
 
 /**
  * @brief Create a new session.
  * @param partition_ids The partitions ids.
- * @param task_options The task options.
+ * @param default_task_options The default task options.
  */
-std::string SubmitterClient::create_session(TaskOptions task_options,
-                                               const std::vector<std::string>& partition_ids = {"default"})
+std::string SubmitterClient::create_session(TaskOptions default_task_options,
+                                            const std::vector<std::string>& partition_ids = {"default"})
 {
   CreateSessionRequest request;
-  *request.mutable_default_task_option() = task_options;
+  *request.mutable_default_task_option() = default_task_options;
   for (const auto& partition_id : partition_ids)
   {
     request.add_partition_ids(partition_id);
   }
   CreateSessionReply reply;
   
-   Status status = stub_->CreateSession(&context_, request, &reply);
+  Status status = stub_->CreateSession(&context_, request, &reply);
   if (status.ok())
   {
     return reply.session_id();
@@ -91,15 +66,20 @@ std::string SubmitterClient::create_session(TaskOptions task_options,
  *
  * @param session_id The session id.
  */
-bool SubmitterClient::cancel_session(const std::string& session_id)
+bool SubmitterClient::cancel_session(std::string_view session_id)
 {
-  armonik::api::grpc::v1::Session request;
+  std::shared_ptr<Channel> channel = grpc::CreateChannel(
+      "172.30.39.223:5001",
+                                grpc::InsecureChannelCredentials());
+  auto stub = armonik::api::grpc::v1::sessions::Sessions::NewStub(channel);
+  armonik::api::grpc::v1::sessions::CancelSessionRequest request;
 
-  request.set_id(session_id);
+  request.set_session_id(static_cast<std::string>(session_id));
 
-  armonik::api::grpc::v1::Empty reply;
+  armonik::api::grpc::v1::sessions::CancelSessionResponse reply;
+  grpc::ClientContext context;
 
-  Status status = stub_->CancelSession(&context_, request, &reply);
+  Status status = stub->CancelSession(&context, request, &reply);
 
   if (status.ok())
   {
@@ -240,23 +220,20 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
 /**
  * @brief Asynchronously create tasks.
  *
- * @param channel The shared_ptr to the gRPC channel.
  * @param session_id The session ID.
  * @param task_options The TaskOptions object.
  * @param task_requests A vector of TaskRequest objects.
  * @return A future containing a CreateTaskReply object.
  */
-std::future<CreateTaskReply> SubmitterClient::create_tasks_async(const std::shared_ptr<grpc::Channel>& channel,
-                                                                    std::string& session_id,
+std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& session_id,
                                                                     const TaskOptions& task_options,
                                                                     const std::vector<TaskRequest>&
                                                                     task_requests)
 {
-  return std::async(std::launch::async, [this, channel, &task_requests, &session_id, &task_options]()
+  return std::async(std::launch::async, [this, &task_requests, &session_id, &task_options]()
   {
     armonik::api::grpc::v1::Configuration config_response;
     grpc::ClientContext context_configuration;
-    auto client = Submitter::NewStub(channel);
 
     const auto config_status = stub_->GetServiceConfiguration(&context_configuration, armonik::api::grpc::v1::Empty(),
                                                                &config_response);
@@ -340,7 +317,7 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
     requests.push_back(request);
   }
 
-  auto tasks_async = create_tasks_async(session_context.get_channel(), session_context.get_session_id(),
+  auto tasks_async = create_tasks_async(session_context.get_session_id(),
                                         session_context.get_task_options(), requests);
 
   const CreateTaskReply createTaskReply = tasks_async.get();
@@ -374,25 +351,19 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
 /**
  * @brief Asynchronously create tasks.
  *
- * @param channel The shared_ptr to the gRPC channel.
- * @param session_id The session ID.
- * @param task_options The TaskOptions object.
  * @param result_requests A vector of ResultRequest objects.
  * @return A future containing data result.
  */
-std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const std::shared_ptr<grpc::Channel>& channel,
-                                                                      const ResultRequest&
-                                                                      result_requests)
+std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const ResultRequest& result_requests)
 {
-  return std::async(std::launch::async, [channel, &result_requests]()
+  return std::async(std::launch::async, [this, &result_requests]()
   {
     armonik::api::grpc::v1::submitter::ResultReply result_writer;
     grpc::ClientContext context_configuration;
     grpc::ClientContext context_result;
     armonik::api::grpc::v1::Configuration config_response;
-    auto client = Submitter::NewStub(channel);
 
-    const auto config_status = client->GetServiceConfiguration(&context_configuration, armonik::api::grpc::v1::Empty(),
+    const auto config_status = stub_->GetServiceConfiguration(&context_configuration, armonik::api::grpc::v1::Empty(),
       &config_response);
 
     size_t size = 0;
@@ -405,7 +376,7 @@ std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const std::sh
       throw std::runtime_error("Fail to get service configuration");
     }
 
-    auto streamingCall = client->TryGetResultStream(&context_result, result_requests);
+    auto streamingCall = stub_->TryGetResultStream(&context_result, result_requests);
     
 
     if (!streamingCall)
