@@ -97,3 +97,12 @@ public:
   MOCK_METHOD((::grpc::ClientAsyncReaderWriterInterface< ::armonik::api::grpc::v1::submitter::WatchResultRequest, ::armonik::api::grpc::v1::submitter::WatchResultStream>*), PrepareAsyncWatchResultsRaw, (::grpc::ClientContext* context, ::grpc::CompletionQueue* cq));
 };
 
+/**
+ * @brief Initializes task options creates channel with server address
+ *
+ * @param channel The gRPC channel to communicate with the server.
+ * @param default_task_options The default task options.
+ */
+void init(std::shared_ptr<grpc::Channel>& channel,
+          armonik::api::grpc::v1::TaskOptions& task_options);
+
