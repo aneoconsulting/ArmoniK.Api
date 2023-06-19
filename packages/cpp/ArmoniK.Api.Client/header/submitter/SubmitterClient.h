@@ -10,7 +10,6 @@
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
 
-#include "SessionContext.h"
 
 struct payload_data {
   std::string keys;
@@ -27,7 +26,6 @@ class SubmitterClient
 private:
 
   grpc::ClientContext context_;
-  //armonik::api::grpc::v1::submitter::Submitter::StubInterface* stub_;
   std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::StubInterface> stub_;
   
 
@@ -103,7 +101,7 @@ public:
    * @return A vector of submitted task IDs.
    */
   std::tuple<std::vector<std::string>, std::vector<std::string>> submit_tasks_with_dependencies(
-      SessionContext& session_context,
+      std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
       std::vector<payload_data> payloads_with_dependencies,
     int max_retries);
 

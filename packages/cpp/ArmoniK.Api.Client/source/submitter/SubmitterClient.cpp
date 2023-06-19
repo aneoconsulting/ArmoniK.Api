@@ -292,17 +292,17 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& se
 /**
  * @brief Submit tasks with dependencies.
  *
- * @param session_context The SessionContext object.
+ * @param session_id The session ID.
+ * @param task_options The task options
  * @param payloads_with_dependencies A vector of tuples containing task payload and its dependencies.
  * @param max_retries Maximum number of retries.
  * @return A vector of task IDs.
  */
 std::tuple<std::vector<std::string>,
     std::vector<std::string>> SubmitterClient::submit_tasks_with_dependencies(
-        SessionContext& session_context,
-    std::vector<payload_data>
-                                                                            payloads_with_dependencies,
-                                                                            int max_retries = 5)
+    std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
+    std::vector<payload_data> payloads_with_dependencies,
+        int max_retries = 5)
 {
   std::vector<std::string> task_ids;
   std::vector<std::string> failed_task_ids;
@@ -322,8 +322,8 @@ std::tuple<std::vector<std::string>,
     requests.push_back(request);
   }
 
-  auto tasks_async = create_tasks_async(session_context.get_session_id(),
-                                        session_context.get_task_options(), requests);
+  auto tasks_async = create_tasks_async(session_id,
+                                        task_options, requests);
 
   const CreateTaskReply createTaskReply = tasks_async.get();
 
