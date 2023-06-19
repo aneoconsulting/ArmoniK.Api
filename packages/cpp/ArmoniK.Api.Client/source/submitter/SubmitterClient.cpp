@@ -300,9 +300,7 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& se
 std::tuple<std::vector<std::string>,
     std::vector<std::string>> SubmitterClient::submit_tasks_with_dependencies(
         SessionContext& session_context,
-                                                                            std::vector<std::tuple<
-                                                                              std::string, std::vector<char>,
-                                                                              std::vector<std::string>>>
+    std::vector<payload_data>
                                                                             payloads_with_dependencies,
                                                                             int max_retries = 5)
 {
@@ -312,14 +310,14 @@ std::tuple<std::vector<std::string>,
   for (auto& payload : payloads_with_dependencies)
   {
     TaskRequest request;
-    auto& bytes = std::get<1>(payload);
+    auto& bytes = payload.payload;
 
     //TODO : Avoid copy of payload here. Play with std::vector<char> and an allocated char
-    request.add_expected_output_keys(std::get<0>(payload));
+    request.add_expected_output_keys(payload.keys);
 
     *request.mutable_payload() = std::string(bytes.begin(), bytes.end());
 
-    *request.mutable_data_dependencies() = {std::get<2>(payload).begin(), std::get<2>(payload).end()};
+    *request.mutable_data_dependencies() = {payload.dependencies.begin(), payload.dependencies.end()};
 
     requests.push_back(request);
   }

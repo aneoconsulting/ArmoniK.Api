@@ -183,12 +183,15 @@ TEST(testMock, submitTask)
 
   try
   {
-    std::vector<std::tuple<std::string, std::vector<char>, std::vector<std::string>>> payloads;
+    std::vector<payload_data> payloads;
 
     for (int i = 0; i < 10; i++)
     {
-      payloads.push_back(std::make_tuple<std::string, std::vector<char>, std::vector<std::string>>(
-        armonik::api::common::utils::GuuId::generate_uuid(), { 'a', 'r', 'm', 'o', 'n', 'i', 'k' }, {}));
+      payload_data data;
+      data.keys = armonik::api::common::utils::GuuId::generate_uuid();
+      data.payload = {'a', 'r', 'm', 'o', 'n', 'i', 'k'};
+      data.dependencies = {};
+      payloads.push_back(data);
     }
     const auto [task_ids, failed_task_ids] =
         submitter.submit_tasks_with_dependencies(*session_context, payloads, 5);

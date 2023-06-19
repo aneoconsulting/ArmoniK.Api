@@ -12,6 +12,13 @@
 
 #include "SessionContext.h"
 
+struct payload_data {
+  std::string keys;
+  std::vector<char> payload;
+  std::vector<std::string> dependencies;
+};
+
+
  /**
   * @brief The SubmitterClientExt class provides methods to create and manage task submissions.
   */
@@ -97,8 +104,7 @@ public:
    */
   std::tuple<std::vector<std::string>, std::vector<std::string>> submit_tasks_with_dependencies(
       SessionContext& session_context,
-    std::vector<std::tuple<std::string, std::vector<char>, std::
-    vector<std::string>>> payloads_with_dependencies,
+      std::vector<payload_data> payloads_with_dependencies,
     int max_retries);
 
     /**
@@ -110,3 +116,5 @@ public:
     const armonik::api::grpc::v1::ResultRequest& result_request);
 
 };
+
+
