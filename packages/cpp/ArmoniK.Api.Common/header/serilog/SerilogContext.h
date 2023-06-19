@@ -17,19 +17,19 @@ namespace armonik::api::common::serilog
      * @param index_ The index of the desired properties pair.
      * @return A constant reference to the properties pair at the specified index.
      */
-    const serilog_properties_pair_t& operator[](size_t index_) const
+    const serilog_properties_pair_t& operator[](size_t index) const
     {
-      return _properties[index_];
+      return _properties[index];
     }
 
     /**
      * @brief Appends properties from another Serilog properties vector to this context.
      * @param other_ The other Serilog properties vector to append.
      */
-    void append(const serilog_properties_vector_t& other_)
+    void append(const serilog_properties_vector_t& other)
     {
-      if (other_.empty()) return;
-      _properties.insert(_properties.end(), other_.begin(), other_.end());
+      if (other.empty()) return;
+      _properties.insert(_properties.end(), other.begin(), other.end());
     }
 
     /**
@@ -37,9 +37,9 @@ namespace armonik::api::common::serilog
      * @param index_ The index of the desired properties pair.
      * @return A reference to the properties pair at the specified index.
      */
-    serilog_properties_pair_t& operator[](size_t index_)
+    serilog_properties_pair_t& operator[](size_t index)
     {
-      return _properties[index_];
+      return _properties[index];
     }
 
     /**
@@ -65,20 +65,9 @@ namespace armonik::api::common::serilog
      * @param parameters A vector of Serilog properties pairs.
      * @param logger_name The name of the logger.
      */
-    serilog_context(const logging_level level, serilog_properties_vector_t&& parameters,
+    serilog_context(const logging_level level, serilog_properties_vector_t parameters,
       const char* logger_name) : level(
         level), logger_name(logger_name), _properties(std::move(parameters))
-    {
-    }
-
-    /**
-     * @brief Constructor for the serilog_context struct with copy semantics for parameters.
-     * @param level The logging level for this context.
-     * @param parameters A vector of Serilog properties pairs.
-     * @param logger_name The name of the logger.
-     */
-    serilog_context(const logging_level level, const serilog_properties_vector_t& parameters, const char* logger_name)
-      : level(level), logger_name(logger_name), _properties(parameters)
     {
     }
 
@@ -87,9 +76,9 @@ namespace armonik::api::common::serilog
      * @param key_ The key of the properties pair.
      * @param value_ The value of the properties pair.
      */
-    void add(std::string key_, utils::json_string value_)
+    void add(std::string key, utils::json_string value)
     {
-      _properties.emplace_back(std::move(key_), std::move(value_));
+      _properties.emplace_back(std::move(key), std::move(value));
     }
 
     logging_level level; ///< The logging level for this context.
