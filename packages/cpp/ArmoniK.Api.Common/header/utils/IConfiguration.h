@@ -73,11 +73,5 @@ namespace armonik::api::common::utils
      * @return A ComputePlane object representing the current configuration.
      */
     options::ComputePlane get_compute_plane();
-
-  protected:
-    /**
-     * @brief Storage for the key-value pairs.
-     */
-    std::unordered_map<std::string, std::string> options_;
   };
 }

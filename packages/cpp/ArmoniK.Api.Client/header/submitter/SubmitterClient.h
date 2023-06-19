@@ -101,7 +101,7 @@ public:
    */
   std::future<armonik::api::grpc::v1::submitter::CreateTaskReply> create_tasks_async(
     std::string& session_id, const armonik::api::grpc::v1::TaskOptions& task_options,
-    const std::vector<armonik::api::grpc::v1::TaskRequest>& task_requests);
+    const std::vector<armonik::api::grpc::v1::TaskRequest> task_requests);
 
   /**
    * @brief Submits tasks with dependencies to the session context.
@@ -110,17 +110,18 @@ public:
    * @param max_retries The maximum number of retries for submitting tasks.
    * @return A vector of submitted task IDs.
    */
-  std::vector<std::string> submit_tasks_with_dependencies(SessionContext& session_context,
+  std::tuple<std::vector<std::string>, std::vector<std::string>> submit_tasks_with_dependencies(
+      SessionContext& session_context,
     std::vector<std::tuple<std::string, std::vector<char>, std::
     vector<std::string>>> payloads_with_dependencies,
     int max_retries);
 
     /**
    * @brief Get result without streaming.
-   * @param result_requests The vector of result requests.
+   * @param result_request The vector of result requests.
    * @return A vector containing the data associated to the result
    */
-  std::future<std::vector<int8_t>> get_result_async(
-    const armonik::api::grpc::v1::ResultRequest& result_requests);
+  std::future<std::vector<std::byte>> get_result_async(
+    const armonik::api::grpc::v1::ResultRequest& result_request);
 
 };

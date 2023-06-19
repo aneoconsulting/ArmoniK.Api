@@ -52,13 +52,15 @@ std::string SubmitterClient::create_session(TaskOptions default_task_options,
   CreateSessionReply reply;
   
   Status status = stub_->CreateSession(&context_, request, &reply);
-  if (status.ok())
+  if (!status.ok())
   {
-    return reply.session_id();
+    std::stringstream message;
+    message << "Error: " << status.error_code() << ": " << status.error_message()
+            << ". details : " << status.error_details() << std::endl;
+    std::cout << "CreateSession rpc failed: " << std::endl;
+    throw std::runtime_error(message.str().c_str());
   }
-  std::cout << "CreateSession rpc failed: " << status.error_message()
-    << std::endl;
-  return "";
+  return reply.session_id();
 }
 
 /**
@@ -81,13 +83,16 @@ bool SubmitterClient::cancel_session(std::string_view session_id)
 
   Status status = stub->CancelSession(&context, request, &reply);
 
-  if (status.ok())
+  if (!status.ok())
   {
-    return TRUE;
+    std::stringstream message;
+    message << "Error: " << status.error_code() << ": " << status.error_message()
+            << ". details : " << status.error_details() << std::endl;
+    std::cout << "CreateSession rpc failed: " << std::endl;
+    throw std::runtime_error(message.str().c_str());
   }
-  std::cout << "CancelSession rpc failed: " << status.error_message()
-    << std::endl;
-  return FALSE;
+  
+  return true;
 }
 
 
@@ -122,11 +127,10 @@ std::vector<std::future<std::vector<
 
   for (auto task_request = task_requests.begin(); task_request != task_requests.end(); ++task_request)
   {
-    const bool is_last = task_request == task_requests.end() - 1 ? true : false;
+    const bool is_last = task_request == task_requests.end() - 1;
 
     async_chunk_payload_tasks.push_back(task_chunk_stream(*task_request, is_last, chunk_max_size));
   }
-  std::vector<std::future<CreateLargeTaskRequest>> requests;
 
   return async_chunk_payload_tasks;
 }
@@ -227,10 +231,10 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
  */
 std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& session_id,
                                                                     const TaskOptions& task_options,
-                                                                    const std::vector<TaskRequest>&
+                                                                    const std::vector<TaskRequest>
                                                                     task_requests)
 {
-  return std::async(std::launch::async, [this, &task_requests, &session_id, &task_options]()
+  return std::async(std::launch::async, [this, task_requests, &session_id, &task_options]()
   {
     armonik::api::grpc::v1::Configuration config_response;
     grpc::ClientContext context_configuration;
@@ -293,7 +297,9 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& se
  * @param max_retries Maximum number of retries.
  * @return A vector of task IDs.
  */
-std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(SessionContext& session_context,
+std::tuple<std::vector<std::string>,
+    std::vector<std::string>> SubmitterClient::submit_tasks_with_dependencies(
+        SessionContext& session_context,
                                                                             std::vector<std::tuple<
                                                                               std::string, std::vector<char>,
                                                                               std::vector<std::string>>>
@@ -301,6 +307,7 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
                                                                             int max_retries = 5)
 {
   std::vector<std::string> task_ids;
+  std::vector<std::string> failed_task_ids;
   std::vector<TaskRequest> requests;
   for (auto& payload : payloads_with_dependencies)
   {
@@ -333,9 +340,16 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
     {
       auto task_reply_creation_statuses = createTaskReply.creation_status_list().creation_statuses();
 
-      std::transform(task_reply_creation_statuses.begin(), task_reply_creation_statuses.end(),
-                     std::back_inserter(task_ids),
-                     [](const CreateTaskReply_CreationStatus& x) { return x.task_info().task_id(); });
+      for (auto& task_created: task_reply_creation_statuses)
+      {
+        if (task_created.Status_case() == CreateTaskReply_CreationStatus::kTaskInfo)
+        {
+          task_ids.push_back(task_created.task_info().task_id());
+        } else
+        {
+          failed_task_ids.push_back(task_created.task_info().task_id());
+        }
+      }
       break;
     }
 
@@ -344,19 +358,19 @@ std::vector<std::string> SubmitterClient::submit_tasks_with_dependencies(Session
     message << "Error while creating tasks ! : Error Message : " << createTaskReply.error() << std::endl;
     throw std::runtime_error(message.str().c_str());
   }
-  return task_ids;
+  return std::make_tuple(task_ids, failed_task_ids);
 }
 
 
 /**
- * @brief Asynchronously create tasks.
+ * @brief Asynchronously gets tasks.
  *
  * @param result_requests A vector of ResultRequest objects.
  * @return A future containing data result.
  */
-std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const ResultRequest& result_requests)
+std::future<std::vector<std::byte>> SubmitterClient::get_result_async(const ResultRequest& result_request)
 {
-  return std::async(std::launch::async, [this, &result_requests]()
+  return std::async(std::launch::async, [this, &result_request]()
   {
     armonik::api::grpc::v1::submitter::ResultReply result_writer;
     grpc::ClientContext context_configuration;
@@ -376,7 +390,7 @@ std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const ResultR
       throw std::runtime_error("Fail to get service configuration");
     }
 
-    auto streamingCall = stub_->TryGetResultStream(&context_result, result_requests);
+    auto streamingCall = stub_->TryGetResultStream(&context_result, result_request);
     
 
     if (!streamingCall)
@@ -384,7 +398,7 @@ std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const ResultR
       throw std::runtime_error("Fail to get result");
     }
 
-    std::vector<int8_t> result_data;
+    std::vector<std::byte> result_data;
     for (size_t count = 0; count < size; count++)
     {
       streamingCall->WaitForInitialMetadata();
@@ -394,10 +408,10 @@ std::future<std::vector<int8_t>> SubmitterClient::get_result_async(const ResultR
       {
       case ResultReply::kResult:
         dataString = result_writer.result().data();
-        for (size_t i = 0; i < dataString.length(); i++)
-        {
-          result_data.push_back(dataString[i]);
-        }
+        result_data.resize(dataString.length());
+        std::transform(dataString.begin(), dataString.end(),
+                       result_data.begin(),
+                       [](char c) { return std::byte(c); });
         break;
       case ResultReply::kError:
         throw std::runtime_error("Error in task ");

@@ -50,5 +50,11 @@ namespace armonik::api::common::utils
     void set(const IConfiguration& other) override
     {
     }
+
+  protected:
+    /**
+     * @brief Storage for the key-value pairs.
+     */
+    std::unordered_map<std::string, std::string> options_;
   };
 }
