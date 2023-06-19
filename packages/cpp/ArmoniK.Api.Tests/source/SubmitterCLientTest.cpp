@@ -101,7 +101,7 @@ TEST(testMock, createSession)
 
 
 
-TEST(testMock, cancleSession)
+TEST(testMock, cancelSession)
 {
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
@@ -190,11 +190,18 @@ TEST(testMock, submitTask)
       payloads.push_back(std::make_tuple<std::string, std::vector<char>, std::vector<std::string>>(
         armonik::api::common::utils::GuuId::generate_uuid(), { 'a', 'r', 'm', 'o', 'n', 'i', 'k' }, {}));
     }
-    const auto task_ids = submitter.submit_tasks_with_dependencies(*session_context, payloads, 5);
+    const auto [task_ids, failed_task_ids] =
+        submitter.submit_tasks_with_dependencies(*session_context, payloads, 5);
     for (const auto& task_id : task_ids)
     {
       std::stringstream out;
       out << "Generate task_ids : " << task_id;
+      log.info(out.str());
+    }
+    for (const auto& failed_task_id : failed_task_ids)
+    {
+      std::stringstream out;
+      out << "Failed task_ids : " << failed_task_id;
       log.info(out.str());
     }
   }
@@ -216,7 +223,7 @@ TEST(testMock, getResult)
   CreateSessionReply reply;
   CreateSessionRequest request;
 
-  const std::vector<std::string>& partition_ids = { "default" };
+  const std::vector<std::string>& partition_ids = { "cpp" };
 
 
   TaskOptions task_options;
