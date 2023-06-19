@@ -9,7 +9,6 @@
 
 #include "SubmitterClientTest.h"
 
-#include "submitter/SessionContext.h"
 #include "submitter/SubmitterClient.h"
 #include "submitter_service.grpc.pb.h"
 
@@ -164,8 +163,6 @@ TEST(testMock, submitTask)
   *request.mutable_default_task_option() = task_options;
   request.add_partition_ids(task_options.partition_id());
 
-  auto session_context = std::make_shared<SessionContext>(task_options);
-
   // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
   // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
   // EXPECT_CALL(*stub, CreateLargeTasksRaw(_, _)).Times(AtLeast(1));
@@ -176,8 +173,6 @@ TEST(testMock, submitTask)
   SubmitterClient submitter(std::move(stub));
   const std::vector<std::string>& partition_ids = { "cpp" };
   std::string session_id = submitter.create_session(task_options, partition_ids);
-
-  session_context->set_session_id(session_id);
 
   ASSERT_FALSE(session_id.empty());
 
@@ -194,7 +189,7 @@ TEST(testMock, submitTask)
       payloads.push_back(data);
     }
     const auto [task_ids, failed_task_ids] =
-        submitter.submit_tasks_with_dependencies(*session_context, payloads, 5);
+        submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
     for (const auto& task_id : task_ids)
     {
       std::stringstream out;
