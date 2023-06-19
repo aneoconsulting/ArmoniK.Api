@@ -1,9 +1,7 @@
 #include "submitter/SessionContext.h"
 
-SessionContext::SessionContext(std::shared_ptr<grpc::Channel> channel,
-                               armonik::api::grpc::v1::TaskOptions task_options) : task_options_(
-    std::move(task_options)),
-  channel_(std::move(channel))
+SessionContext::SessionContext(armonik::api::grpc::v1::TaskOptions task_options) : task_options_(
+    std::move(task_options))
 {
 }
 
