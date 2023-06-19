@@ -19,7 +19,7 @@ public:
    * @param channel A shared pointer to the gRPC channel.
    * @param task_options Task options for the session.
    */
-  SessionContext(std::shared_ptr<grpc::Channel> channel, armonik::api::grpc::v1::TaskOptions task_options);
+  SessionContext(armonik::api::grpc::v1::TaskOptions task_options);
 
   /**
    * @brief Gets the session ID for the current session.
@@ -42,16 +42,8 @@ public:
    */
   auto get_task_options() -> armonik::api::grpc::v1::TaskOptions& { return task_options_; }
 
-  /**
-   * @brief Gets the gRPC channel for the current session.
-   *
-   * @return A shared pointer to the gRPC channel.
-   */
-  auto get_channel() -> std::shared_ptr<grpc::Channel> { return channel_; }
-
 private:
   std::string session_id_; ///< The session ID for the current session.
   armonik::api::grpc::v1::TaskOptions task_options_; ///< The task options for the current session.
-  std::shared_ptr<grpc::Channel> channel_; ///< A shared pointer to the gRPC channel.
 
 };

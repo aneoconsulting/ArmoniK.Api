@@ -164,7 +164,7 @@ TEST(testMock, submitTask)
   *request.mutable_default_task_option() = task_options;
   request.add_partition_ids(task_options.partition_id());
 
-  auto session_context = std::make_shared<SessionContext>(channel, task_options);
+  auto session_context = std::make_shared<SessionContext>(task_options);
 
   // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
   // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
