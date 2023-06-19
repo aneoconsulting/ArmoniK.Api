@@ -28,27 +28,12 @@ private:
 public:
 
   /**
-   * @brief Construct a new Submitter Client object by default
+   * @brief Construct a new Submitter Client object
    * 
    */
-  SubmitterClient() = default;
   SubmitterClient(std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::StubInterface> stub);
 
-  /**
-   * @brief Construct a new Submitter Client:: Submitter Client object
-   * 
-   * @param stub the gRPC client stub 
-   */
-  //SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::StubInterface* stub);
 
-  /**
-   * @brief Initializes task options creates channel with server address
-   * 
-   * @param channel The gRPC channel to communicate with the server.
-   * @param task_options The task options.
-   */
-  static void init(std::shared_ptr<grpc::Channel>& channel, armonik::api::grpc::v1::TaskOptions& task_options);
-  
   /**
    * @brief Creates a new session with the control plane.
    * @param default_task_options The default task options.
