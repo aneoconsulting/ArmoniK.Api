@@ -37,13 +37,11 @@ RUN mkdir -p cmake/build && \
     make install && \
     ln -sf /app/install/lib/libgrpc++.so /app/install/lib/libgrpc++.so.1 && \
     ln -sf /app/install/lib/libgrpc++_reflection.so /app/install/lib/libgrpc++_reflection.so.1
+    rm -rf /tmp/grpc
 
 # Update the PATH environment variable to include the gRPC libraries and binaries
 ENV PATH="/app/install/lib:$PATH"
 ENV PATH="/app/install/bin:$PATH"
-
-# Remove the gRPC source folder to save space in the final image
-RUN rm -rf /tmp/grpc
 
 # Display the updated PATH environment variable
 RUN echo $PATH

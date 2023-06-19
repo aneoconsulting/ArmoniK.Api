@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Declare a variable that will store the image tag for our Docker image
-IMAGE_TAG="armonik-api-cpp:v0.1"
+IMAGE_TAG="armonik-api-cpp:0.1.0"
 
 # Determine the full path of the script being executed
 script_path=$(readlink -f "${BASH_SOURCE:-$0}")
