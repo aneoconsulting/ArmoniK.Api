@@ -398,7 +398,7 @@ First, we need to create a `proxy.conf.json` file in `src` folder of our project
 ```json [proxy.conf.json]
 {
   "/armonik.api.grpc.v1": {
-    "target": "<ip:port>", // Replace <ip:port> by the IP and port of your ArmoniK server.
+    "target": "http://<ip:port>", // Replace <ip:port> by the IP and port of your ArmoniK server.
     "secure": false
   }
 }
