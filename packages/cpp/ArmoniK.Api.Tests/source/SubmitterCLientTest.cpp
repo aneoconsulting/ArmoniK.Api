@@ -99,9 +99,7 @@ TEST(testMock, submitTask) {
   std::cout << "Serilog closed" << std::endl;
 
   log.enrich([&](serilog_context &ctx) { ctx.add("threadid", std::this_thread::get_id()); });
-  log.enrich([&](serilog_context &ctx) {
-    ctx.add("fieldTestValue", 1);
-  });
+  log.enrich([&](serilog_context &ctx) { ctx.add("fieldTestValue", 1); });
   log.add_property("time", time(nullptr));
 
   ::putenv("GRPC_DNS_RESOLVER=native");
