@@ -16,7 +16,7 @@ RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt update && apt instal
     unzip
 
 # Install build-essential and wget, then clean up apt cache to reduce image size
-RUN apt-get update \
+RUN apt-get update && \
   apt-get install build-essential wget cmake -y
 
 # Clone the gRPC repository
