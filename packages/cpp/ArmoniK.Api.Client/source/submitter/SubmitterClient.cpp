@@ -10,8 +10,6 @@
 
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
-#include "sessions_common.pb.h"
-#include "sessions_service.grpc.pb.h"
 #include "objects.grpc.pb.h"
 
 
@@ -41,7 +39,7 @@ SubmitterClient::SubmitterClient(std::unique_ptr<armonik::api::grpc::v1::submitt
  * @param default_task_options The default task options.
  */
 std::string SubmitterClient::create_session(TaskOptions default_task_options,
-                                            const std::vector<std::string>& partition_ids = {"default"})
+                                            const std::vector<std::string>& partition_ids = {})
 {
   CreateSessionRequest request;
   *request.mutable_default_task_option() = default_task_options;
@@ -64,39 +62,6 @@ std::string SubmitterClient::create_session(TaskOptions default_task_options,
 }
 
 /**
- * @brief Cancel a session.
- *
- * @param session_id The session id.
- */
-bool SubmitterClient::cancel_session(std::string_view session_id)
-{
-  std::shared_ptr<Channel> channel = grpc::CreateChannel(
-      "172.30.39.223:5001",
-                                grpc::InsecureChannelCredentials());
-  auto stub = armonik::api::grpc::v1::sessions::Sessions::NewStub(channel);
-  armonik::api::grpc::v1::sessions::CancelSessionRequest request;
-
-  request.set_session_id(static_cast<std::string>(session_id));
-
-  armonik::api::grpc::v1::sessions::CancelSessionResponse reply;
-  grpc::ClientContext context;
-
-  Status status = stub->CancelSession(&context, request, &reply);
-
-  if (!status.ok())
-  {
-    std::stringstream message;
-    message << "Error: " << status.error_code() << ": " << status.error_message()
-            << ". details : " << status.error_details() << std::endl;
-    std::cout << "CreateSession rpc failed: " << std::endl;
-    throw std::runtime_error(message.str().c_str());
-  }
-  
-  return true;
-}
-
-
-/**
  * @brief Convert task_requests to request_stream.
  *
  * @param task_requests A vector of TaskRequest objects.
@@ -107,8 +72,8 @@ bool SubmitterClient::cancel_session(std::string_view session_id)
  */
 std::vector<std::future<std::vector<
   CreateLargeTaskRequest>>> SubmitterClient::to_request_stream(const std::vector<TaskRequest>& task_requests,
-                                                                  std::string& session_id,
-                                                                  const TaskOptions& task_options,
+                                                                  std::string session_id,
+                                                                  TaskOptions task_options,
                                                                   const size_t chunk_max_size)
 {
   std::vector<std::future<std::vector<CreateLargeTaskRequest>>> async_chunk_payload_tasks;
@@ -230,8 +195,8 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
  * @return A future containing a CreateTaskReply object.
  */
 std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& session_id,
-                                                                    const TaskOptions& task_options,
-                                                                    const std::vector<TaskRequest>
+                                                                    TaskOptions& task_options,
+                                                                    const std::vector<TaskRequest>&
                                                                     task_requests)
 {
   return std::async(std::launch::async, [this, task_requests, &session_id, &task_options]()

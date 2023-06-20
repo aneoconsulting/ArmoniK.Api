@@ -70,13 +70,13 @@ namespace armonik::api::worker
       worker_server->logger.info("Creating worker");
       common::options::ComputePlane compute_plane(*configuration);
 
-      worker_server->builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
+      worker_server->builder_.AddListeningPort(std::string(compute_plane.get_server_address()), ::grpc::InsecureServerCredentials());
       worker_server->builder_.SetMaxReceiveMessageSize(-1);
 
       worker_server->logger.info("Initialize and register worker");
 
       // Create a gRPC channel to communicate with the server
-      worker_server->channel = CreateChannel(compute_plane.get_agent_address(), ::grpc::InsecureChannelCredentials());
+      worker_server->channel = CreateChannel(std::string(compute_plane.get_agent_address()), ::grpc::InsecureChannelCredentials());
 
       // Create a stub for the Submitter service
       worker_server->agent_stub = Agent::NewStub(worker_server->channel);

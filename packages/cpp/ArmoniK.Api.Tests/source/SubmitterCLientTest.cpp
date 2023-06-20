@@ -99,38 +99,6 @@ TEST(testMock, createSession)
 }
 
 
-
-TEST(testMock, cancelSession)
-{
-  // MockStubInterface stub;
-  std::shared_ptr<Channel> channel;
-  ;
-
-  ClientContext context;
-  CreateSessionReply reply;
-  CreateSessionRequest request;
-
-  const std::vector<std::string>& partition_ids = { "cpp" };
-
-
-  TaskOptions task_options;
-  init(channel, task_options);
-
-  // EXPECT_CALL(*stub, CancelSession(_, _, _)).Times(AtLeast(1));
-
-  std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
-  SubmitterClient submitter(std::move(stub));
-  std::string session_id = submitter.create_session(task_options, partition_ids);
-
-  std::cout << "create_session response: " << session_id << std::endl;
-
-  ASSERT_FALSE(session_id.empty());
-
-  ASSERT_TRUE(submitter.cancel_session(session_id));
-
-}
-
-
 TEST(testMock, submitTask)
 {
   

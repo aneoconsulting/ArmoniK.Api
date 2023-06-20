@@ -26,9 +26,7 @@ namespace armonik::api::common::utils
     /**
      * @brief Default constructor.
      */
-    IConfiguration()
-    {
-    }
+   IConfiguration() = default;
 
     /**
      * @brief Default virtual destructor.
