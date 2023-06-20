@@ -26,7 +26,7 @@ namespace armonik::api::common::options
      * @brief Returns the server address.
      * @return A reference to the server address string.
      */
-    std::string& get_server_address()
+    std::string_view get_server_address() const
     {
       return worker_address_;
     }
@@ -35,43 +35,33 @@ namespace armonik::api::common::options
      * @brief Sets the worker address with the given socket address.
      * @param socket_address The socket address to set for the worker.
      */
-    void set_worker_address(const std::string& socket_address)
+    void set_worker_address(std::string socket_address)
     {
-      if (socket_address.find("unix:") == std::string::npos)
+      if (socket_address.find("unix:") != 0)
       {
-        std::stringstream out;
-        out << "unix:" << socket_address;
-        worker_address_ = out.str();
+        socket_address.insert(0, "unix:");
       }
-      else
-      {
-        worker_address_ = socket_address;
-      }
+      worker_address_ = std::move(socket_address);
     }
 
     /**
      * @brief Sets the agent address with the given agent address.
      * @param agent_address The agent address to set for the agent.
      */
-    void set_agent_address(const std::string& agent_address)
+    void set_agent_address(std::string agent_address)
     {
-      if (agent_address.find("unix:") == std::string::npos)
+      if (agent_address.find("unix:") != 0)
       {
-        std::stringstream out;
-        out << "unix:" << agent_address;
-        agent_address_ = out.str();
+        agent_address.insert(0, "unix:");
       }
-      else
-      {
-        agent_address_ = agent_address;
-      }
+      agent_address_ = std::move(agent_address);
     }
 
     /**
      * @brief Returns the agent address.
      * @return A reference to the agent address string.
      */
-    std::string& get_agent_address()
+    std::string_view get_agent_address() const
     {
       return agent_address_;
     }

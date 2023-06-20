@@ -48,13 +48,6 @@ public:
       armonik::api::grpc::v1::TaskOptions default_task_options,
                             const std::vector<std::string>& partition_ids);
 
-  /**
-   * @brief Cancels a created session.
-   * @param session_id The id of the session to be canceled.
-   */
-  bool cancel_session(std::string_view session_id);
-
-
 
   /**
    * @brief Converts task requests into a vector of future large task request objects.
@@ -66,8 +59,8 @@ public:
    */
   static auto to_request_stream(
     const std::vector<armonik::api::grpc::v1::TaskRequest>& task_requests,
-    std::string& session_id,
-    const armonik::api::grpc::v1::TaskOptions& task_options,
+    std::string session_id,
+    armonik::api::grpc::v1::TaskOptions task_options,
     size_t chunk_max_size)->std::vector<std::future<std::vector<armonik::api::grpc::v1::submitter::
     CreateLargeTaskRequest>>>;
 
@@ -90,12 +83,13 @@ public:
    * @return A future create task reply object.
    */
   std::future<armonik::api::grpc::v1::submitter::CreateTaskReply> create_tasks_async(
-    std::string& session_id, const armonik::api::grpc::v1::TaskOptions& task_options,
-    const std::vector<armonik::api::grpc::v1::TaskRequest> task_requests);
+    std::string& session_id, armonik::api::grpc::v1::TaskOptions& task_options,
+    const std::vector<armonik::api::grpc::v1::TaskRequest>& task_requests);
 
   /**
    * @brief Submits tasks with dependencies to the session context.
-   * @param session_context The session context.
+   * @param session_id The session id.
+   * @param task_options The task options.
    * @param payloads_with_dependencies A vector of tuples containing the payload, its data, and its dependencies.
    * @param max_retries The maximum number of retries for submitting tasks.
    * @return A vector of submitted task IDs.
