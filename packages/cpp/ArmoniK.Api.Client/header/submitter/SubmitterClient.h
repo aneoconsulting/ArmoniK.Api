@@ -83,7 +83,7 @@ public:
    * @return A future create task reply object.
    */
   std::future<armonik::api::grpc::v1::submitter::CreateTaskReply> create_tasks_async(
-    std::string& session_id, armonik::api::grpc::v1::TaskOptions& task_options,
+    std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
     const std::vector<armonik::api::grpc::v1::TaskRequest>& task_requests);
 
   /**
@@ -96,7 +96,7 @@ public:
    */
   std::tuple<std::vector<std::string>, std::vector<std::string>> submit_tasks_with_dependencies(
       std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
-      std::vector<payload_data> payloads_with_dependencies,
+      const std::vector<payload_data>& payloads_with_dependencies,
     int max_retries);
 
     /**

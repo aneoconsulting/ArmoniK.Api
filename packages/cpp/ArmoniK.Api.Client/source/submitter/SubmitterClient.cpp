@@ -42,7 +42,7 @@ std::string SubmitterClient::create_session(TaskOptions default_task_options,
                                             const std::vector<std::string>& partition_ids = {})
 {
   CreateSessionRequest request;
-  *request.mutable_default_task_option() = default_task_options;
+  *request.mutable_default_task_option() = std::move(default_task_options);
   for (const auto& partition_id : partition_ids)
   {
     request.add_partition_ids(partition_id);
@@ -77,16 +77,18 @@ std::vector<std::future<std::vector<
                                                                   const size_t chunk_max_size)
 {
   std::vector<std::future<std::vector<CreateLargeTaskRequest>>> async_chunk_payload_tasks;
-  async_chunk_payload_tasks.push_back(std::async([session_id, task_options]()
+  async_chunk_payload_tasks.push_back(
+      std::async([session_id = std::move(session_id),
+                  task_options = std::move(task_options)]()mutable
   {
     CreateLargeTaskRequest_InitRequest create_large_task_request_init;
-    create_large_task_request_init.set_session_id(session_id);
-    *create_large_task_request_init.mutable_task_options() = task_options;
+        create_large_task_request_init.set_session_id(std::move(session_id));
+    *create_large_task_request_init.mutable_task_options() = std::move(task_options);
 
     CreateLargeTaskRequest create_large_task_request;
-    *create_large_task_request.mutable_init_request() = create_large_task_request_init;
+    *create_large_task_request.mutable_init_request() = std::move(create_large_task_request_init);
 
-    return std::vector{create_large_task_request};
+    return std::vector{std::move(create_large_task_request)};
   }));
 
 
@@ -122,13 +124,13 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
                                             task_request.data_dependencies().end());
     header.mutable_expected_output_keys()->Add(task_request.expected_output_keys().begin(),
                                                task_request.expected_output_keys().end());
-    *header_task_request.mutable_header() = header;
+    *header_task_request.mutable_header() = std::move(header);
 
     CreateLargeTaskRequest create_init_task_request;
-    *create_init_task_request.mutable_init_task() = header_task_request;
+    *create_init_task_request.mutable_init_task() = std::move(header_task_request);
 
     //Add init task request
-    requests.push_back(create_init_task_request);
+    requests.push_back(std::move(create_init_task_request));
 
 
     //TODO : Need to stop when future is canceled with std::atomic<bool>
@@ -140,8 +142,8 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
 
       armonik::api::grpc::v1::DataChunk task_payload;
       *task_payload.mutable_data() = {};
-      *empty_task_request.mutable_task_payload() = task_payload;
-      requests.push_back(empty_task_request);
+      *empty_task_request.mutable_task_payload() = std::move(task_payload);
+      requests.push_back(std::move(empty_task_request));
     }
 
     size_t start = 0;
@@ -157,9 +159,9 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
       armonik::api::grpc::v1::DataChunk task_payload;
 
       *task_payload.mutable_data() = task_request.payload().substr(start, chunk_size);
-      *chunk_task_request.mutable_task_payload() = task_payload;
+      *chunk_task_request.mutable_task_payload() = std::move(task_payload);
 
-      requests.push_back(chunk_task_request);
+      requests.push_back(std::move(chunk_task_request));
 
       start += chunk_size;
     }
@@ -168,8 +170,8 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
     armonik::api::grpc::v1::DataChunk end_payload;
 
     end_payload.set_data_complete(true);
-    *complete_task_request.mutable_task_payload() = end_payload;
-    requests.push_back(complete_task_request);
+    *complete_task_request.mutable_task_payload() = std::move(end_payload);
+    requests.push_back(std::move(complete_task_request));
 
     if (is_last)
     {
@@ -177,9 +179,9 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
       armonik::api::grpc::v1::InitTaskRequest init_task_request;
 
       init_task_request.set_last_task(true);
-      *last_task_request.mutable_init_task() = init_task_request;
+      *last_task_request.mutable_init_task() = std::move(init_task_request);
 
-      requests.push_back(last_task_request);
+      requests.push_back(std::move(last_task_request));
     }
 
     return requests;
@@ -194,12 +196,14 @@ std::future<std::vector<CreateLargeTaskRequest>> SubmitterClient::task_chunk_str
  * @param task_requests A vector of TaskRequest objects.
  * @return A future containing a CreateTaskReply object.
  */
-std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& session_id,
-                                                                    TaskOptions& task_options,
+std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string session_id,
+                                                                    TaskOptions task_options,
                                                                     const std::vector<TaskRequest>&
                                                                     task_requests)
 {
-  return std::async(std::launch::async, [this, task_requests, &session_id, &task_options]()
+  return std::async(std::launch::async, [this, task_requests,
+                                         session_id = std::move(session_id),
+                                         task_options = std::move(task_options)]()mutable
   {
     armonik::api::grpc::v1::Configuration config_response;
     grpc::ClientContext context_configuration;
@@ -216,19 +220,19 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& se
       throw std::runtime_error("Fail to get service configuration");
     }
 
-    auto reply = new CreateTaskReply();
+    CreateTaskReply reply{};
 
-    reply->set_allocated_creation_status_list(
+    reply.set_allocated_creation_status_list(
       new armonik::api::grpc::v1::submitter::CreateTaskReply_CreationStatusList());
     grpc::ClientContext context_client_writer;
     std::unique_ptr stream(
-      stub_->CreateLargeTasks(&context_client_writer, reply));
+      stub_->CreateLargeTasks(&context_client_writer, &reply));
 
     //task_chunk_stream(task_requests, )
     std::vector<std::future<CreateLargeTaskRequest>> async_task_requests;
     std::vector<std::future<CreateLargeTaskRequest>> create_large_task_requests;
     auto create_task_request_async = to_request_stream(
-      task_requests, session_id, task_options, chunk);
+      task_requests, std::move(session_id), std::move(task_options), chunk);
 
     for (auto& f : create_task_request_async)
     {
@@ -248,9 +252,7 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& se
       throw std::runtime_error(message.str().c_str());
     }
 
-    auto response = CreateTaskReply(*reply);
-    delete reply;
-    return response;
+    return reply;
   });
 }
 
@@ -266,7 +268,7 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string& se
 std::tuple<std::vector<std::string>,
     std::vector<std::string>> SubmitterClient::submit_tasks_with_dependencies(
     std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
-    std::vector<payload_data> payloads_with_dependencies,
+    const std::vector<payload_data>& payloads_with_dependencies,
         int max_retries = 5)
 {
   std::vector<std::string> task_ids;
@@ -284,16 +286,13 @@ std::tuple<std::vector<std::string>,
 
     *request.mutable_data_dependencies() = {payload.dependencies.begin(), payload.dependencies.end()};
 
-    requests.push_back(request);
+    requests.push_back(std::move(request));
   }
 
-  auto tasks_async = create_tasks_async(session_id,
-                                        task_options, requests);
+  auto tasks_async = create_tasks_async(std::move(session_id),
+                                        std::move(task_options), requests);
 
   const CreateTaskReply createTaskReply = tasks_async.get();
-
-  
-
   
   switch (createTaskReply.Response_case())
   {
@@ -321,14 +320,14 @@ std::tuple<std::vector<std::string>,
     message << "Error while creating tasks ! : Error Message : " << createTaskReply.error() << std::endl;
     throw std::runtime_error(message.str().c_str());
   }
-  return std::make_tuple(task_ids, failed_task_ids);
+  return std::make_tuple(std::move(task_ids), std::move(failed_task_ids));
 }
 
 
 /**
  * @brief Asynchronously gets tasks.
  *
- * @param result_requests A vector of ResultRequest objects.
+ * @param result_request A vector of ResultRequest objects.
  * @return A future containing data result.
  */
 std::future<std::vector<std::byte>> SubmitterClient::get_result_async(const ResultRequest& result_request)
@@ -372,46 +371,24 @@ std::future<std::vector<std::byte>> SubmitterClient::get_result_async(const Resu
       case ResultReply::kResult:
         dataString = result_writer.result().data();
         result_data.resize(dataString.length());
-        std::transform(dataString.begin(), dataString.end(),
-                       result_data.begin(),
-                       [](char c) { return std::byte(c); });
+        std::memcpy(result_data.data(), dataString.data(), dataString.size());
+        
         break;
       case ResultReply::kError:
         throw std::runtime_error("Error in task ");
-        break;
+       
       case ResultReply::kNotCompletedTask:
         throw std::runtime_error("Task not completed");
-        break;
+        
       case ResultReply::TYPE_NOT_SET:
         throw std::runtime_error("Issue with the Server");
-        break;
+        
       default:
         throw std::runtime_error("Unknown return type !");
-        break;
+        
       }
     }
 
     return result_data;
   });
 }
-
-/*
-std::future<CreateTaskReply> SubmitterClient::list_tasks(const std::shared_ptr<grpc::Channel>& channel,
-                                                              std::string& session_id,
-                                                              const TaskOptions& task_options,
-                                                              const std::vector<TaskRequest>&
-                                                              task_requests)
-{
-
-}
-
-
-std::future<CreateTaskReply> SubmitterClient::task_status(const std::shared_ptr<grpc::Channel>& channel,
-                                                              std::string& session_id,
-                                                              const TaskOptions& task_options,
-                                                              const std::vector<TaskRequest>&
-                                                              task_requests)
-{
-
-}                                                             
-*/
