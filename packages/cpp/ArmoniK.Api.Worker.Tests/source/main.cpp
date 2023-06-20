@@ -4,20 +4,20 @@
 
 #include <grpc++/grpc++.h>
 
-#include "objects.pb.h"
 #include "grpcpp/support/sync_stream.h"
+#include "objects.pb.h"
 
+#include "utils/RootConfiguration.h"
+#include "utils/WorkerServer.h"
 #include "worker_common.grpc.pb.h"
 #include "worker_service.grpc.pb.h"
-#include "utils/WorkerServer.h"
-#include "utils/RootConfiguration.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using armonik::api::grpc::v1::TaskOptions;
 using armonik::api::common::utils::IConfiguration;
+using armonik::api::grpc::v1::TaskOptions;
 
 using namespace armonik::api::grpc::v1::worker;
 using namespace armonik::api::worker;
@@ -26,8 +26,7 @@ using namespace armonik::api::common::utils;
 /**
  * @brief Implements the Worker service.
  */
-class WorkerServiceImpl final : public Worker::Service
-{
+class WorkerServiceImpl final : public Worker::Service {
 private:
   armonik::api::common::serilog::serilog logger;
 
@@ -35,8 +34,7 @@ public:
   /**
    * @brief Constructs a WorkerServiceImpl object.
    */
-  WorkerServiceImpl() : logger(armonik::api::common::serilog::logging_format::SEQ)
-  {
+  WorkerServiceImpl() : logger(armonik::api::common::serilog::logging_format::SEQ) {
     logger.info("Build Service WorkerServiceImpl");
     logger.add_property("class", "WorkerServiceImpl");
     logger.add_property("Worker", "ArmoniK.Api.Cpp");
@@ -51,10 +49,9 @@ public:
    *
    * @return The status of the method.
    */
-  Status Process(::grpc::ServerContext* context,
-                 ::grpc::ServerReader<::armonik::api::grpc::v1::worker::ProcessRequest>* reader,
-                 ::armonik::api::grpc::v1::worker::ProcessReply* response) override
-  {
+  Status Process(::grpc::ServerContext *context,
+                 ::grpc::ServerReader<::armonik::api::grpc::v1::worker::ProcessRequest> *reader,
+                 ::armonik::api::grpc::v1::worker::ProcessReply *response) override {
     // Implementation of the Process method
     logger.info("Receive new request From C++ Worker");
     auto output = armonik::api::grpc::v1::Output();
@@ -64,7 +61,7 @@ public:
     *response->mutable_output() = output;
 
     logger.info("Finish call C++");
-    
+
     return grpc::Status::OK;
   }
 
@@ -77,9 +74,8 @@ public:
    *
    * @return The status of the method.
    */
-  Status HealthCheck(::grpc::ServerContext* context, const ::armonik::api::grpc::v1::Empty* request,
-                     ::armonik::api::grpc::v1::worker::HealthCheckReply* response) override
-  {
+  Status HealthCheck(::grpc::ServerContext *context, const ::armonik::api::grpc::v1::Empty *request,
+                     ::armonik::api::grpc::v1::worker::HealthCheckReply *response) override {
     // Implementation of the HealthCheck method
     logger.info("HealthCheck request OK");
 
@@ -89,8 +85,7 @@ public:
   }
 };
 
-int main(int argc, char** argv)
-{
+int main(int argc, char **argv) {
   std::cout << "Starting C++ worker..." << std::endl;
 
   std::shared_ptr<IConfiguration> config = std::make_shared<RootConfiguration>();
