@@ -96,7 +96,7 @@ jobs:
       - name: Check Diff
         id: check-diff
         run: |
-          git ls-files *.{c,h,hpp,cpp,cc} | xargs clang-format -style=google -i
+          git ls-files *.{c,h,hpp,cpp,cc} | xargs clang-format -style=file:.clang-format -i
           DIFF="$(git diff --name-only)"
 
           if [ -z "$DIFF" ]; then
