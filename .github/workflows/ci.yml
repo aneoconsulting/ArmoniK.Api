@@ -96,6 +96,7 @@ jobs:
       - name: Check Diff
         id: check-diff
         run: |
+          cd packages/cpp
           git ls-files *.{c,h,hpp,cpp,cc} | xargs clang-format -style=file:.clang-format -i
           DIFF="$(git diff --name-only)"
 
