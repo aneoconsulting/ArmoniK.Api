@@ -4,7 +4,7 @@
 
 #include <grpc++/grpc++.h>
 
-#include <gmock/gmock.h> 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "SubmitterClientTest.h"
@@ -12,23 +12,23 @@
 #include "submitter/SubmitterClient.h"
 #include "submitter_service.grpc.pb.h"
 
+#include "serilog/serilog.h"
+#include "utils/EnvConfiguration.h"
 #include "utils/GuuId.h"
 #include "utils/StringsUtils.h"
-#include "utils/EnvConfiguration.h"
-#include "serilog/serilog.h"
 
+using armonik::api::common::utils::IConfiguration;
+using armonik::api::grpc::v1::TaskOptions;
+using armonik::api::grpc::v1::submitter::CreateSessionReply;
+using armonik::api::grpc::v1::submitter::CreateSessionRequest;
+using armonik::api::grpc::v1::submitter::Submitter;
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using armonik::api::grpc::v1::submitter::CreateSessionRequest;
-using armonik::api::grpc::v1::submitter::CreateSessionReply;
-using armonik::api::grpc::v1::submitter::Submitter;
-using armonik::api::grpc::v1::TaskOptions;
-using armonik::api::common::utils::IConfiguration;
 using namespace armonik::api::common::utils;
 
-using ::testing::AtLeast;
 using ::testing::_;
+using ::testing::AtLeast;
 
 using namespace armonik::api::common::serilog;
 
@@ -38,22 +38,18 @@ using namespace armonik::api::common::serilog;
  * @param channel The gRPC channel to communicate with the server.
  * @param default_task_options The default task options.
  */
-void init(std::shared_ptr<Channel>& channel,
-                           TaskOptions& default_task_options) {
+void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) {
 
   EnvConfiguration configuration;
   // auto server = std::make_shared<EnvConfiguration>(configuration_t);
 
-  configuration.add_json_configuration("appsetting.json")
-                  .add_env_configuration();
+  configuration.add_json_configuration("appsetting.json").add_env_configuration();
 
   std::string server_address = configuration.get("ArmoniK_Client_Server");
 
   std::cout << " Server address " << server_address << std::endl;
 
-  channel =
-      grpc::CreateChannel(server_address,
-                                grpc::InsecureChannelCredentials());
+  channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
 
   // stub_ = Submitter::NewStub(channel);
 
@@ -71,8 +67,7 @@ void init(std::shared_ptr<Channel>& channel,
   default_task_options.set_engine_type("Unified");
 }
 
-TEST(testMock, createSession)
-{
+TEST(testMock, createSession) {
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
 
@@ -80,13 +75,12 @@ TEST(testMock, createSession)
   CreateSessionReply reply;
   CreateSessionRequest request;
 
-  const std::vector<std::string>& partition_ids = { "cpp" };
+  const std::vector<std::string> &partition_ids = {"cpp"};
 
   TaskOptions task_options;
   init(channel, task_options);
 
   ASSERT_EQ(task_options.partition_id(), "cpp");
- 
 
   std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
   // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
@@ -98,25 +92,20 @@ TEST(testMock, createSession)
   ASSERT_FALSE(session_id.empty());
 }
 
+TEST(testMock, submitTask) {
 
-TEST(testMock, submitTask)
-{
-  
   serilog log(logging_format::CONSOLE);
 
   std::cout << "Serilog closed" << std::endl;
 
-  log.enrich([&](serilog_context& ctx) {
-    ctx.add("threadid", std::this_thread::get_id());
-    });
-  log.enrich([&](serilog_context& ctx) {
+  log.enrich([&](serilog_context &ctx) { ctx.add("threadid", std::this_thread::get_id()); });
+  log.enrich([&](serilog_context &ctx) {
     ctx.add("fieldTestValue", 1);
-
-    });
+  });
   log.add_property("time", time(nullptr));
 
   ::putenv("GRPC_DNS_RESOLVER=native");
-  
+
   std::cout << "Starting client..." << std::endl;
 
   CreateSessionRequest request;
@@ -139,17 +128,15 @@ TEST(testMock, submitTask)
   grpc::ClientContext context;
 
   SubmitterClient submitter(std::move(stub));
-  const std::vector<std::string>& partition_ids = { "cpp" };
+  const std::vector<std::string> &partition_ids = {"cpp"};
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   ASSERT_FALSE(session_id.empty());
 
-  try
-  {
+  try {
     std::vector<payload_data> payloads;
 
-    for (int i = 0; i < 10; i++)
-    {
+    for (int i = 0; i < 10; i++) {
       payload_data data;
       data.keys = armonik::api::common::utils::GuuId::generate_uuid();
       data.payload = {'a', 'r', 'm', 'o', 'n', 'i', 'k'};
@@ -158,39 +145,31 @@ TEST(testMock, submitTask)
     }
     const auto [task_ids, failed_task_ids] =
         submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
-    for (const auto& task_id : task_ids)
-    {
+    for (const auto &task_id : task_ids) {
       std::stringstream out;
       out << "Generate task_ids : " << task_id;
       log.info(out.str());
     }
-    for (const auto& failed_task_id : failed_task_ids)
-    {
+    for (const auto &failed_task_id : failed_task_ids) {
       std::stringstream out;
       out << "Failed task_ids : " << failed_task_id;
       log.info(out.str());
     }
-  }
-  catch (std::exception& e)
-  {
+  } catch (std::exception &e) {
     log.error(e.what());
     throw;
   }
   log.info("Stopping client...OK");
-
 }
 
-
-TEST(testMock, getResult)
-{
+TEST(testMock, getResult) {
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
 
   CreateSessionReply reply;
   CreateSessionRequest request;
 
-  const std::vector<std::string>& partition_ids = { "cpp" };
-
+  const std::vector<std::string> &partition_ids = {"cpp"};
 
   TaskOptions task_options;
   armonik::api::grpc::v1::ResultRequest result_request;
