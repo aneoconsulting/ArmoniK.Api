@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <iomanip>
 #include <sstream>
 
 /** @namespace armonik::api::common::utils
