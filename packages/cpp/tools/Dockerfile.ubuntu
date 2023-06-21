@@ -16,27 +16,11 @@ RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt update && apt instal
     unzip
 
 # Install build-essential and wget, then clean up apt cache to reduce image size
-RUN apt-get update && \
+RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-get update && \
   apt-get install build-essential wget cmake -y
 
-# Clone the gRPC repository
-WORKDIR /tmp
-RUN git clone -b $GRPC_VERSION https://github.com/grpc/grpc
-
-# Build gRPC
-WORKDIR /tmp/grpc
-RUN git submodule update --init
-RUN mkdir -p cmake/build && \
-    cd cmake/build && \
-    cmake -DCMAKE_INSTALL_PREFIX=/app/grpc \
-    -DgRPC_INSTALL=ON \
-    -DCMAKE_BUILD_TYPE=Release       \
-    ../.. && \
-    make -j $(nproc) && \
-    make install && \
-    # Create symlinks for the gRPC libraries
-    ln -sf /app/grpc/lib/libgrpc++.so /app/grpc/lib/libgrpc++.so.1 && \
-    ln -sf /app/grpc/lib/libgrpc++_reflection.so /app/grpc/lib/libgrpc++_reflection.so.1
+# Pull the gRPC cxx image
+FROM grpc/cxx:latest
 
 # Set environment variables for protobuf
 ENV protobuf_BUILD_TESTS=OFF
