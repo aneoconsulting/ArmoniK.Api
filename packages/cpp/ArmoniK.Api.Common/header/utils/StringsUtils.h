@@ -98,7 +98,7 @@ struct json_string {
   explicit json_string(int8_t &&value) : str_val(std::to_string(value)) {}
 
   /** @brief Constructs a JSON
-    ** @brief Constructs a JSON-safe string object from an rvalue int32_t
+   ** @brief Constructs a JSON-safe string object from an rvalue int32_t
    *  @param value An rvalue int32_t object
    */
   explicit json_string(int32_t &&value) : str_val(std::to_string(value)) {}
