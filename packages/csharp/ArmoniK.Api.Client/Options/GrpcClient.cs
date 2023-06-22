@@ -102,6 +102,12 @@ namespace ArmoniK.Api.Client.Options
     public int MaxAttempts { get; set; } = 5;
 
     /// <summary>
+    ///   The backoff will be multiplied by this multiplier after each retry attempt and will increase exponentially when the
+    ///   multiplier is greater than 1.
+    /// </summary>
+    public double BackoffMultiplier { get; set; } = 1.5;
+
+    /// <summary>
     ///   InitialBackOff is a property that gets and sets the initial backOff time for retrying an operation.
     /// </summary>
     public TimeSpan InitialBackOff { get; set; } = TimeSpan.FromSeconds(1);

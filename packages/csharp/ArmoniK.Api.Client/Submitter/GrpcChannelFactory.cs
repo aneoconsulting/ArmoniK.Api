@@ -296,7 +296,7 @@ namespace ArmoniK.Api.Client.Submitter
                                                   MaxAttempts       = optionsGrpcClient.MaxAttempts,
                                                   InitialBackoff    = optionsGrpcClient.InitialBackOff,
                                                   MaxBackoff        = optionsGrpcClient.MaxBackOff,
-                                                  BackoffMultiplier = 1.5,
+                                                  BackoffMultiplier = optionsGrpcClient.BackoffMultiplier,
                                                   RetryableStatusCodes =
                                                   {
                                                     StatusCode.Unavailable,
