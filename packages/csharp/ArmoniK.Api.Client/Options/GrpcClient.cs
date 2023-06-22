@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
 //
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// Copyright (C) ANEO, 2021-2023. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -20,6 +20,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+using System;
 
 using ArmoniK.Api.Client.Submitter;
 
@@ -80,19 +82,19 @@ namespace ArmoniK.Api.Client.Options
       => !string.IsNullOrWhiteSpace(CertP12) || !(string.IsNullOrWhiteSpace(CertPem) || string.IsNullOrWhiteSpace(KeyPem));
 
     /// <summary>
-    ///   KeepAliveTime is the time in milliseconds after which the connection will be kept alive.
+    ///   KeepAliveTime is the time after which the connection will be kept alive.
     /// </summary>
-    public int KeepAliveTime { get; set; } = 30000;
+    public TimeSpan KeepAliveTime { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    ///   KeepAliveTimeInterval is the interval in milliseconds at which the connection will be kept alive.
+    ///   KeepAliveTimeInterval is the interval at which the connection will be kept alive.
     /// </summary>
-    public int KeepAliveTimeInterval { get; set; } = 30000;
+    public TimeSpan KeepAliveTimeInterval { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
-    ///   MaxIdleTime is the maximum idle time in minutes after which the connection will be closed.
+    ///   MaxIdleTime is the maximum idle time after which the connection will be closed.
     /// </summary>
-    public int MaxIdleTime { get; set; } = 5;
+    public TimeSpan MaxIdleTime { get; set; } = TimeSpan.FromMinutes(5);
 
     /// <summary>
     ///   MaxAttempts is a property that gets and sets the maximum number of attempts to retry an operation.
@@ -100,13 +102,13 @@ namespace ArmoniK.Api.Client.Options
     public int MaxAttempts { get; set; } = 5;
 
     /// <summary>
-    ///   InitialBackOff is a property that gets and sets the initial backOff time in seconds for retrying an operation.
+    ///   InitialBackOff is a property that gets and sets the initial backOff time for retrying an operation.
     /// </summary>
-    public int InitialBackOff { get; set; } = 1;
+    public TimeSpan InitialBackOff { get; set; } = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    ///   MaxBackOff is a property that gets and sets the maximum backOff time in seconds for retrying an operation.
+    ///   MaxBackOff is a property that gets and sets the maximum backOff time for retrying an operation.
     /// </summary>
-    public int MaxBackOff { get; set; } = 5;
+    public TimeSpan MaxBackOff { get; set; } = TimeSpan.FromSeconds(5);
   }
 }

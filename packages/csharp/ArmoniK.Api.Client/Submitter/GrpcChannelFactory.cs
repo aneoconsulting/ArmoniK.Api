@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
 //
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// Copyright (C) ANEO, 2021-2023. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -280,11 +280,10 @@ namespace ArmoniK.Api.Client.Submitter
       var sp         = ServicePointManager.FindServicePoint(new Uri(optionsGrpcClient.Endpoint!));
 
       sp.SetTcpKeepAlive(true,
-                         optionsGrpcClient.KeepAliveTime,
-                         optionsGrpcClient.KeepAliveTimeInterval);
+                         (int)optionsGrpcClient.KeepAliveTime.TotalMilliseconds,
+                         (int)optionsGrpcClient.KeepAliveTimeInterval.TotalMilliseconds);
 
-      sp.MaxIdleTime = (int)TimeSpan.FromMinutes(optionsGrpcClient.MaxIdleTime)
-                                    .TotalMilliseconds;
+      sp.MaxIdleTime = (int)optionsGrpcClient.MaxIdleTime.TotalMilliseconds;
 
       var defaultMethodConfig = new MethodConfig
                                 {
@@ -295,8 +294,8 @@ namespace ArmoniK.Api.Client.Submitter
                                   RetryPolicy = new RetryPolicy
                                                 {
                                                   MaxAttempts       = optionsGrpcClient.MaxAttempts,
-                                                  InitialBackoff    = TimeSpan.FromSeconds(optionsGrpcClient.InitialBackOff),
-                                                  MaxBackoff        = TimeSpan.FromSeconds(optionsGrpcClient.MaxBackOff),
+                                                  InitialBackoff    = optionsGrpcClient.InitialBackOff,
+                                                  MaxBackoff        = optionsGrpcClient.MaxBackOff,
                                                   BackoffMultiplier = 1.5,
                                                   RetryableStatusCodes =
                                                   {
