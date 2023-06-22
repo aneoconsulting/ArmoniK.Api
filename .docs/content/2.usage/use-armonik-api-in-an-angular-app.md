@@ -4,7 +4,7 @@ description: This page will guide you through the process of using ArmoniK API i
 
 # Use ArmoniK API in an Angular App
 
-TThe purpose of this guide is to explain how to use ArmoniK API in an Angular App. We will guide you through the process of creating a new Angular App and install ArmoniK API in it and use it.
+The purpose of this guide is to explain how to use ArmoniK API in an Angular App. You will be guided you through the process of creating a new Angular App and install ArmoniK API in it and use it.
 
 At the end of the guide, you will have a working Angular App that uses ArmoniK API and you will be able to use it as a starting point for your own project or to contribute to the ArmoniK Admin GUI!
 
@@ -111,7 +111,7 @@ You can read more about `@aneoconsultingfr/armonik.api.angular` in the [package 
 
 ## Configure the Angular App
 
-In order to be able to call some gRPC services, we need to configure the Angular App to use gRPC. In the config file, we will import the providers from the `@ngx-grpc/core` and `@ngx-grpc/grpc-web-client` packages.
+In order to be able to call some gRPC services, you need to configure the Angular App to use gRPC. In the config file, you will import the providers from the `@ngx-grpc/core` and `@ngx-grpc/grpc-web-client` packages.
 
 In the `src/app/app.config.ts` file, you should add the following content:
 
@@ -128,11 +128,11 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
-That's it! Now, we are ready to do some gRPC calls!
+That's it! Now, you are ready to do some gRPC calls!
 
 ## Call the gRPC services
 
-In this section, we will get partitions  ArmoniK.
+In this section, you will get partitions ArmoniK.
 
 ::alert{type="info"}
 We chose ListPartitionsservice as it is a simple service and the data feedback is sure to happen. You may use another service if you so choose. If you do, we recommend to [run some samples](https://aneoconsulting.github.io/ArmoniK/installation/linux/verify-installation#samples) in ArmoniK to make sure that the service will return some data.
@@ -140,13 +140,13 @@ We chose ListPartitionsservice as it is a simple service and the data feedback i
 
 ### Create the service
 
-First, we need to create a folder to store our services.
+First, you need to create a folder to store our services.
 
 ```bash
 mkdir src/app/services
 ```
 
-Then, we can create a new file `src/app/services/partitions-grpc.service.ts` and create a service:
+Then, you can create a new file `src/app/services/partitions-grpc.service.ts` and create a service:
 
 ```typescript [partitions-grpc.service.ts]
 import { Injectable } from '@angular/core';
@@ -160,7 +160,7 @@ export class PartitionsGrpcService {
 In Angular, it is a convention to add the `.service` suffix in the filename and to name the service with the suffix `Service`.
 ::
 
-Then, we will inject our `ResultClient` in the service:
+Then, you will inject the `ResultClient` in the service:
 
 ```typescript [partitions-grpc.service.ts]
 import { Injectable, inject } from '@angular/core';
@@ -173,10 +173,10 @@ export class PartitionsGrpcService {
 ```
 
 ::alert{type="info"}
-We use the [`inject`](https://angular.io/api/core/inject) function to inject the `ResultsClient` in the service. We can also use the constructor to inject the client but it is not recommended because it will make the service harder to test. Using the `inject` method allow us to harmonize the way we inject the dependencies in our services, components, etc.
+You use the [`inject`](https://angular.io/api/core/inject) function to inject the `ResultsClient` in the service. You can also use the constructor to inject the client but it is not recommended because it will make the service harder to test. Using the `inject` method allow us to harmonize the way you inject the dependencies in services, components, etc.
 ::
 
-Then, we can create a method to call the `listPartitions` service:
+Then, you can create a method to call the `listPartitions` service:
 
 ```typescript [partitions-grpc.service.ts]
 import { Injectable, inject } from '@angular/core';
@@ -195,7 +195,7 @@ export class PartitionsGrpcService {
 }
 ```
 
-_Voilà!_ We have created our first gRPC service! Now, we can use it in our component.
+_Voilà!_ You've created our first gRPC service! Now, we can use it in our component.
 
 ### Create the component
 
@@ -203,7 +203,7 @@ _Voilà!_ We have created our first gRPC service! Now, we can use it in our comp
 In order to simplify this guide, will use the `AppComponent` to call the service. In a real application, you should create a dedicated component using the router.
 ::
 
-For this guide, we will display the result in a list, having a loading indicator, a button to refresh the list and an error message if the call failed (printed in the console).
+For this guide, you will display the result in a list, having a loading indicator, a button to refresh the list and an error message if the call failed (printed in the console).
 
 #### Display partitions
 
@@ -221,7 +221,7 @@ First, let's create the list using HTML:
 You must add this code in the `template` property of the `@Component` decorator.
 ::
 
-Then, we must update our component with some properties and methods:
+Then, you must update our component with some properties and methods:
 
 ```typescript [app.component.ts]
 import { PartitionRaw } from '@aneoconsultingfr/armonik.api.angular';
@@ -239,7 +239,7 @@ export class AppComponent {
 }
 ```
 
-Finally., we must import `ngFor` in the `imports` property of the `@Component` decorator:
+Finally., you must import `ngFor` in the `imports` property of the `@Component` decorator:
 
 ```typescript [app.component.ts]
 import { Component } from '@angular/core';
@@ -255,7 +255,7 @@ import { NgFor } from '@angular/common';
 
 #### Display the loading indicator
 
-We will use the `*ngIf` directive to display the loading indicator:
+You will use the `*ngIf` directive to display the loading indicator:
 
 ```html [app.component.ts]
 <div *ngIf="loading">
@@ -267,7 +267,7 @@ We will use the `*ngIf` directive to display the loading indicator:
 You must add this code in the `template` property of the `@Component` decorator.
 ::
 
-Then, we must update our component with some properties and methods:
+Then, you must update the component with some properties and methods:
 
 ```typescript [app.component.ts]
 @Component({
@@ -280,10 +280,10 @@ export class AppComponent {
 ```
 
 ::alert{type="info"}
-By default, the loading indicator will be displayed because data will be fetched on page initialization. We will hide it when the call is done.
+By default, the loading indicator will be displayed because data will be fetched on page initialization. You will hide it when the call is done.
 ::
 
-Finally, we must import `ngIf` in the `imports` property of the `@Component` decorator:
+Finally, you must import `ngIf` in the `imports` property of the `@Component` decorator:
 
 ```typescript [app.component.ts]
 import { Component } from '@angular/core';
@@ -299,7 +299,7 @@ import { NgIf } from '@angular/common';
 
 #### Display the refresh button
 
-We will use the `button` element to display the refresh button:
+You will use the `button` element to display the refresh button:
 
 ```html [app.component.ts]
 <button (click)="refresh()">Refresh</button>
@@ -309,7 +309,7 @@ We will use the `button` element to display the refresh button:
 You must add this code in the `template` property of the `@Component` decorator.
 ::
 
-Then, we must update our component with some properties and methods:
+Then, you must update our component with some properties and methods:
 
 ```typescript [app.component.ts]
 @Component({
@@ -318,16 +318,16 @@ Then, we must update our component with some properties and methods:
 export class AppComponent {
   // ...
   refresh(): void {
-    // We will use this method later, when we will call the gRPC service.
+    // You will use this method later, when you will call the gRPC service.
   }
 }
 ```
 
 ### Use the service
 
-Now that we have created our service and our component, we are ready to use them together.
+Now that you've created our service and our component, you are ready to use them together.
 
-First, we need to inject the service in the component:
+First, you need to inject the service in the component:
 
 ```typescript [app.component.ts]
 import { Component } from '@angular/core';
@@ -358,22 +358,22 @@ import { merge, startWith, switchMap } from 'rxjs';
 })
 export class AppComponent implements AfterViewInit {
   // ...
-  ngAfterViewInit(): void { // We use the AfterViewInit lifecycle hook in order to be sure that the view is initialized.
+  ngAfterViewInit(): void { // You use the AfterViewInit lifecycle hook in order to be sure that the view is initialized.
 
-    merge() // We use the merge operator to call the service when the component is initialized and when the user click on the refresh button (implemented later).
+    merge() // You use the merge operator to call the service when the component is initialized and when the user click on the refresh button (implemented later).
       .pipe(
-        startWith({}), // We use the startWith operator to call the service when the component is initialized.
-        switchMap(() => { // We use the switchMap operator to cancel the previous call when the user click on the refresh button.
-          this.loading = true; // We display the loading indicator while the call is in progress.
+        startWith({}), // You use the startWith operator to call the service when the component is initialized.
+        switchMap(() => { // You use the switchMap operator to cancel the previous call when the user click on the refresh button.
+          this.loading = true; // You display the loading indicator while the call is in progress.
           return this.#partitionsGrpcService.list$();
         }),
       )
       .subscribe(
         (response) => {
-          this.loading = false; // We hide the loading indicator when the call is done.
+          this.loading = false; // You hide the loading indicator when the call is done.
 
           if (response.partitions) {
-            this.partitions = response.partitions; // We update the partitions list.
+            this.partitions = response.partitions; // You update the partitions list.
           }
         }
       );
@@ -389,11 +389,11 @@ app.component.ts:45
   POST http://localhost:4200/armonik.api.grpc.v1.partitions.Partitions/ListPartitions 404 (Not Found)
 ```
 
-In fact, we have to use a proxy in order to redirect the gRPC call to the gRPC server (ArmoniK in our case).
+In fact, you have to use a proxy in order to redirect the gRPC call to the gRPC server (ArmoniK in our case).
 
 #### Create the proxy
 
-First, we need to create a `proxy.conf.json` file in `src` folder of our project:
+First, you need to create a `proxy.conf.json` file in `src` folder of our project:
 
 ```json [proxy.conf.json]
 {
@@ -408,7 +408,7 @@ First, we need to create a `proxy.conf.json` file in `src` folder of our project
 We recommend to add this file to your `.gitignore` file. In fact, this file is specific to your local environment. In order to provide a template for your team, you can create a `proxy.conf.json.example` file and add it to your repository.
 ::
 
-Then, we must update our config file `angular.json` in order to use the proxy:
+Then, you must update our config file `angular.json` in order to use the proxy:
 
 ```json [angular.json]
 {
@@ -430,7 +430,7 @@ Then, we must update our config file `angular.json` in order to use the proxy:
 }
 ```
 
-Now, we can restart our dev server:
+Now, you can restart our dev server:
 
 ```bash
 pnpm run start
@@ -448,11 +448,11 @@ If you look at the console, you will see another error:
 }
 ```
 
-But that's a good error ! It means that we have successfully called the gRPC server.
+But that's a good error ! It means that you have successfully called the gRPC server.
 
 #### Fix the error
 
-For simplicity, we will update the service directly. In a real world scenario, we should pass params through the method.
+For simplicity, you will update the service directly. In a real world scenario, you should pass params through the method.
 
 ```diff [partitions-grpc.service.ts]
   list$(/** You should pass params here in a real world app. */): Observable<ListPartitionsResponse> {
@@ -478,13 +478,13 @@ For simplicity, we will update the service directly. In a real world scenario, w
   }
 ```
 
-And _voilà_! We have successfully called the gRPC server and displayed the result in our Angular app.
+And _voilà_! You have successfully called the gRPC server and displayed the result in our Angular app.
 
 You must see the loading indicator disappear and the partitions list displayed (with only one partition named `default`).
 
 #### Add the refresh button
 
-Now, we want to be able to refresh data when the user clicks on the refresh button. In order to do so, we will use a new subject and emit a value when the user clicks on the button.
+Now, you want to be able to refresh data when the user clicks on the refresh button. In order to do so, you will use a new subject and emit a value when the user clicks on the button.
 
 ```typescript [app.component.ts]
 import { Component, AfterViewInit } from '@angular/core';
@@ -499,7 +499,7 @@ export class AppComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     merge(
-      this.#refresh$, // We add the refresh$ subject to the merge function.
+      this.#refresh$, // You add the refresh$ subject to the merge function.
       // The usage of the merge function allow us be able to have multiple sources of data like a manual refresh, a timer, etc.
     )
       .pipe(
@@ -542,7 +542,7 @@ Here are some ideas:
 
 ## Conclusion
 
-In this tutorial, we have seen how to create a simple Angular app which fetch data from the ArmoniK API. We have seen how to use the gRPC client generated by the ArmoniK API and how to use the RxJS operators to handle the data flow. We have also seen how to use a proxy in order to redirect the gRPC call to the gRPC server (ArmoniK in our case). Finally, we have seen how to use the merge operator to handle multiple sources of data. We hope that this tutorial will help you to create your own GUI for the ArmoniK API.
+In this tutorial, you've seen how to create a simple Angular app which fetch data from the ArmoniK API. You have seen how to use the gRPC client generated by the ArmoniK API and how to use the RxJS operators to handle the data flow. We have also seen how to use a proxy in order to redirect the gRPC call to the gRPC server (ArmoniK in our case). Finally, you have seen how to use the merge operator to handle multiple sources of data. We hope that this tutorial will help you to create your own GUI for the ArmoniK API.
 
 Feel free to open an issue if you have any question or if you want to suggest an improvement or a PR if you want to contribute to this tutorial.
 
