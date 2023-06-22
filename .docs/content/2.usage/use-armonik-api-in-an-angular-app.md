@@ -4,7 +4,7 @@ description: This page will guide you through the process of using ArmoniK API i
 
 # Use ArmoniK API in an Angular App
 
-The purpose of this guide is to show you how to use ArmoniK API in an Angular App. We will guide you through the process of creating a new Angular App and install ArmoniK API in it and use it.
+TThe purpose of this guide is to explain how to use ArmoniK API in an Angular App. We will guide you through the process of creating a new Angular App and install ArmoniK API in it and use it.
 
 At the end of the guide, you will have a working Angular App that uses ArmoniK API and you will be able to use it as a starting point for your own project or to contribute to the ArmoniK Admin GUI!
 
@@ -46,7 +46,7 @@ Then, you can create a new Angular App using the following command:
 ng new --standalone --routing=false --inline-style --inline-template --skip-tests --style=css --skip-install armonik-api-angular
 ```
 
-Then you can go to the newly created folder:
+Then, go to the newly created folder:
 
 ```bash
 cd armonik-api-angular
@@ -113,7 +113,7 @@ You can read more about `@aneoconsultingfr/armonik.api.angular` in the [package 
 
 In order to be able to call some gRPC services, we need to configure the Angular App to use gRPC. In the config file, we will import the providers from the `@ngx-grpc/core` and `@ngx-grpc/grpc-web-client` packages.
 
-In the `src/app/app.config.ts` file, you can add the following content:
+In the `src/app/app.config.ts` file, you should add the following content:
 
 ```typescript [app.config.ts]
 import { ApplicationConfig, importProvidersFrom } from '@angular/core';
@@ -135,7 +135,7 @@ That's it! Now, we are ready to do some gRPC calls!
 In this section, we will get partitions  ArmoniK.
 
 ::alert{type="info"}
-We could have used any other service. We chose to use the `ListPartitions` service because it is a simple service and we are sure that it will return data. If you want to use another service, you can but it's recommended to [run some samples](https://aneoconsulting.github.io/ArmoniK/installation/linux/verify-installation#samples) in ArmoniK to make sure that the service will return some data.
+We chose ListPartitionsservice as it is a simple service and the data feedback is sure to happen. You may use another service if you so choose. If you do, we recommend to [run some samples](https://aneoconsulting.github.io/ArmoniK/installation/linux/verify-installation#samples) in ArmoniK to make sure that the service will return some data.
 ::
 
 ### Create the service
@@ -157,7 +157,7 @@ export class PartitionsGrpcService {
 ```
 
 ::alert{type="info"}
-In Angular, it's a convention to add the `.service` suffix in the filename and to name the service with the suffix `Service`.
+In Angular, it is a convention to add the `.service` suffix in the filename and to name the service with the suffix `Service`.
 ::
 
 Then, we will inject our `ResultClient` in the service:
@@ -280,7 +280,7 @@ export class AppComponent {
 ```
 
 ::alert{type="info"}
-By default, the loading indicator will be displayed because data will be fetch on page initialization. We will hide it when the call is done.
+By default, the loading indicator will be displayed because data will be fetched on page initialization. We will hide it when the call is done.
 ::
 
 Finally, we must import `ngIf` in the `imports` property of the `@Component` decorator:
@@ -389,7 +389,7 @@ app.component.ts:45
   POST http://localhost:4200/armonik.api.grpc.v1.partitions.Partitions/ListPartitions 404 (Not Found)
 ```
 
-If fact, we have to use a proxy in order to redirect the gRPC call to the gRPC server (ArmoniK in our case).
+In fact, we have to use a proxy in order to redirect the gRPC call to the gRPC server (ArmoniK in our case).
 
 #### Create the proxy
 
@@ -480,11 +480,11 @@ For simplicity, we will update the service directly. In a real world scenario, w
 
 And _voilà_! We have successfully called the gRPC server and displayed the result in our Angular app.
 
-You must see the loading indicator disappear and the partitions list displayed (with only a partition named `default`).
+You must see the loading indicator disappear and the partitions list displayed (with only one partition named `default`).
 
 #### Add the refresh button
 
-Now, we want to be able to refresh data when the user click on the refresh button. In order to do that, we will use a new subject and emit a value when the user click on the button. The merge function will then be used to
+Now, we want to be able to refresh data when the user clicks on the refresh button. In order to do so, we will use a new subject and emit a value when the user clicks on the button.
 
 ```typescript [app.component.ts]
 import { Component, AfterViewInit } from '@angular/core';
@@ -535,7 +535,7 @@ Now, you can continue to explore the ArmoniK API and create your own GUI.
 
 Here are some ideas:
 
-- Use a router to navigate between the different pages which fetch data from the ArmoniK API.
+- Use a router to navigate between the different pages. Each page could display a different resource (partitions, tasks, etc.).
 - Add some styles to your app.
 - Add a auto-refresh feature to automatically refresh data every X seconds.
 - ...
