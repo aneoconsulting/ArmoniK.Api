@@ -173,7 +173,7 @@ export class PartitionsGrpcService {
 ```
 
 ::alert{type="info"}
-We use the [`inject`](https://angular.io/api/core/inject) function to inject the `ResultsClient` in the service. We can also use the constructor to inject the client but it's not recommended because it will make the service harder to test and using the `inject` method allow us to harmonize the way we inject the dependencies in our services, components, etc.
+We use the [`inject`](https://angular.io/api/core/inject) function to inject the `ResultsClient` in the service. We can also use the constructor to inject the client but it is not recommended because it will make the service harder to test. Using the `inject` method allow us to harmonize the way we inject the dependencies in our services, components, etc.
 ::
 
 Then, we can create a method to call the `listPartitions` service:
