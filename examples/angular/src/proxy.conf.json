@@ -1,0 +1,6 @@
+{
+  "/armonik.api.grpc.v1": {
+    "target": "http://172.30.34.216:5000",
+    "secure": false
+  }
+}
