@@ -70,3 +70,5 @@ export {
 } from "./generated/partitions-common.pb"
 export { PartitionsClient } from "./generated/partitions-service.pbsc"
 export { StatusCount } from "./generated/objects.pb"
+export { ListVersionsRequest, ListVersionsResponse } from "./generated/versions-common.pb"
+export { VersionsClient } from "./generated/versions-service.pbsc"
