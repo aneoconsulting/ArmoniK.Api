@@ -19,4 +19,20 @@ service Partitions {
    * Get a partition by its ID.
    */
   rpc GetPartition(GetPartitionRequest) returns (GetPartitionResponse) {}
+
+  /**
+   * Update a partition by its ID.
+   * Null or empty (or -1 for integers) data means that tehy will not be updated
+   */
+  rpc UpdatePartitions(UpdatePartitionsRequest) returns (UpdatePartitionsResponse) {}
+
+  /**
+   * Delete a list of partition by ID.
+   */
+  rpc DeletePartitions(DeletePartitionsRequest) returns (DeletePartitionsResponse) {}
+
+  /**
+   * Create partitions and return their IDs.
+   */
+  rpc CreatePartitions(CreatePartitionsRequest) returns (CreatePartitionsResponse) {}
 }
