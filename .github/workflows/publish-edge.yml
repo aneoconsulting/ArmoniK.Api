@@ -10,7 +10,7 @@ on:
 
 jobs:
   version:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsultingfr'
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     runs-on: ubuntu-latest
     name: Version
     steps:
@@ -24,7 +24,7 @@ jobs:
       # Print to the summary
         run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_STEP_SUMMARY
   tests:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsultingfr'
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Tests
     runs-on: ubuntu-latest
     strategy:
@@ -179,7 +179,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-python-package:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsultingfr'
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Release Python Package
     runs-on: ubuntu-latest
     defaults:
