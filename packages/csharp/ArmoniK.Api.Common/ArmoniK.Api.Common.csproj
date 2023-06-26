@@ -21,7 +21,7 @@
     <PackageReference Include="ArmoniK.Utils" Version="0.2.0" />
     <PackageReference Include="Google.Protobuf" Version="3.23.3" />
     <PackageReference Include="Grpc.Net.Client" Version="2.54.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.55.1">
+    <PackageReference Include="Grpc.Tools" Version="2.56.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -53,7 +53,7 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
-      <Protobuf Include="..\..\..\Protos\V1\auth_common.proto" Link="auth_common.proto">
+    <Protobuf Include="..\..\..\Protos\V1\auth_common.proto" Link="auth_common.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
