@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
 //
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// Copyright (C) ANEO, 2021-2023. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -36,6 +36,7 @@ using ArmoniK.Api.Client.Options;
 
 using Grpc.Core;
 using Grpc.Net.Client;
+using Grpc.Net.Client.Configuration;
 
 using JetBrains.Annotations;
 
@@ -275,11 +276,51 @@ namespace ArmoniK.Api.Client.Submitter
         }
       }
 
+      var httpClient = new HttpClient(httpHandler);
+      var sp         = ServicePointManager.FindServicePoint(new Uri(optionsGrpcClient.Endpoint!));
+
+      sp.SetTcpKeepAlive(true,
+                         (int)optionsGrpcClient.KeepAliveTime.TotalMilliseconds,
+                         (int)optionsGrpcClient.KeepAliveTimeInterval.TotalMilliseconds);
+
+      sp.MaxIdleTime = (int)optionsGrpcClient.MaxIdleTime.TotalMilliseconds;
+
+      var defaultMethodConfig = new MethodConfig
+                                {
+                                  Names =
+                                  {
+                                    MethodName.Default,
+                                  },
+                                  RetryPolicy = new RetryPolicy
+                                                {
+                                                  MaxAttempts       = optionsGrpcClient.MaxAttempts,
+                                                  InitialBackoff    = optionsGrpcClient.InitialBackOff,
+                                                  MaxBackoff        = optionsGrpcClient.MaxBackOff,
+                                                  BackoffMultiplier = optionsGrpcClient.BackoffMultiplier,
+                                                  RetryableStatusCodes =
+                                                  {
+                                                    StatusCode.Unavailable,
+                                                    StatusCode.Aborted,
+                                                    StatusCode.Unknown,
+                                                  },
+                                                },
+                                };
+
       var channelOptions = new GrpcChannelOptions
                            {
-                             Credentials = credentials,
-                             HttpHandler = httpHandler,
+                             Credentials       = credentials,
+                             HttpHandler       = httpHandler,
+                             HttpClient        = httpClient,
+                             DisposeHttpClient = true,
+                             ServiceConfig = new ServiceConfig
+                                             {
+                                               MethodConfigs =
+                                               {
+                                                 defaultMethodConfig,
+                                               },
+                                             },
                            };
+
       return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
                                     channelOptions);
     }
@@ -328,10 +369,22 @@ namespace ArmoniK.Api.Client.Submitter
       using (var reader = new StreamReader(optionsGrpcClient.KeyPem,
                                            Encoding.UTF8))
       {
-        var pemReader = new PemReader(reader);
-        var keyPair   = pemReader.ReadObject() as AsymmetricCipherKeyPair ?? throw new CryptographicException("Key could not be retrieved from file");
+        var                     pemReader = new PemReader(reader);
+        AsymmetricKeyParameter? key;
+
+        do
+        {
+          key = pemReader.ReadObject() switch
+                {
+                  null                            => throw new CryptographicException("Key could not be retrieved from file"),
+                  AsymmetricCipherKeyPair keyPair => keyPair.Private,
+                  AsymmetricKeyParameter keyParam => keyParam,
+                  _                               => null,
+                };
+        } while (key is null);
+
         store.SetKeyEntry("alias",
-                          new AsymmetricKeyEntry(keyPair.Private),
+                          new AsymmetricKeyEntry(key),
                           new X509CertificateEntry[]
                           {
                             new(cert),
