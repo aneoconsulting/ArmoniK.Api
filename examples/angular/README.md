@@ -2,7 +2,7 @@
 
 This is a demo to explain the use of ArmoniK Api for Angular.
 
-Please, refer to the documentation to get more information about the usage of the library. We write a special guide to help you to use ArmoniK Api with Angular.
+Please refer to the documentation to get more information about the use of the library. You will find a guide on how to use ArmoniK API with Angular.
 
 ## How to run
 
