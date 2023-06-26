@@ -309,7 +309,6 @@ namespace ArmoniK.Api.Client.Submitter
       var channelOptions = new GrpcChannelOptions
                            {
                              Credentials       = credentials,
-                             HttpHandler       = httpHandler,
                              HttpClient        = httpClient,
                              DisposeHttpClient = true,
                              ServiceConfig = new ServiceConfig
