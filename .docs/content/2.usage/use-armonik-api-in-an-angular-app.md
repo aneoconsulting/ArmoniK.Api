@@ -29,7 +29,7 @@ Before you start, make sure you have the following:
 - [ArmoniK] up and running on your machine. Follow the [installation guide](https://aneoconsulting.github.io/ArmoniK/installation) to install ArmoniK if you haven't done it yet.
 
 ::alert{type="info"}
-Please, be aware to install the latest LTS version of Node.js.
+Please make sure you have the latest LTS version of Node.js installed.
 ::
 
 ## Create a new Angular App
@@ -221,7 +221,7 @@ First, let's create the list using HTML:
 You must add this code in the `template` property of the `@Component` decorator.
 ::
 
-Then, you must update our component with some properties and methods:
+Then, you must update the component with some properties and methods:
 
 ```typescript [app.component.ts]
 import { PartitionRaw } from '@aneoconsultingfr/armonik.api.angular';
