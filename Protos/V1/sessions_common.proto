@@ -10,7 +10,6 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";
 import "sort_direction.proto";
-import "tasks_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
@@ -40,6 +39,29 @@ enum SessionRawField {
   SESSION_RAW_FIELD_CREATED_AT = 5;
   SESSION_RAW_FIELD_CANCELLED_AT = 6;
   SESSION_RAW_FIELD_DURATION = 7;
+}
+
+/**
+ * Represents a field in a task option.
+ */
+enum TaskOptionField {
+  TASK_OPTION_FIELD_UNSPECIFIED = 0;
+  TASK_OPTION_FIELD_MAX_DURATION = 1;
+  TASK_OPTION_FIELD_MAX_RETRIES = 2;
+  TASK_OPTION_FIELD_PRIORITY = 3;
+  TASK_OPTION_FIELD_PARTITION_ID = 4;
+  TASK_OPTION_FIELD_APPLICATION_NAME = 5;
+  TASK_OPTION_FIELD_APPLICATION_VERSION = 6;
+  TASK_OPTION_FIELD_APPLICATION_NAMESPACE = 7;
+  TASK_OPTION_FIELD_APPLICATION_SERVICE = 8;
+  TASK_OPTION_FIELD_ENGINE_TYPE = 9;
+}
+
+/**
+ * Represents a generic field in a task option.
+ */
+message TaskOptionGenericField {
+  string field = 1; /** The generic field. */
 }
 
 message SessionField {
