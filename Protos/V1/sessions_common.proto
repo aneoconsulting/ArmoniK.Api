@@ -10,6 +10,7 @@ import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "session_status.proto";
 import "sort_direction.proto";
+import "tasks_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
@@ -44,6 +45,8 @@ enum SessionRawField {
 message SessionField {
   oneof field {
     SessionRawField session_raw_field = 1;
+    tasks_common.TaskOptionField task_option_field = 2; /** The task option field. */
+    tasks_common.TaskOptionGenericField task_option_generic_field = 3; /** The task option generic field. */
   }
 }
 
