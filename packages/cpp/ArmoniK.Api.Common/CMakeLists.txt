@@ -10,18 +10,7 @@ set(PROTO_FILES
     "result_status.proto"
     "task_status.proto"
     "session_status.proto"
-    "sort_direction.proto"
-    "applications_common.proto"
-    "auth_common.proto"
-    "sessions_common.proto"
-    "submitter_common.proto"
-    "tasks_common.proto"
-    "results_common.proto"
-    "partitions_common.proto"
-    "events_common.proto"
-    "versions_common.proto"
-    "agent_common.proto"
-    "worker_common.proto")
+    "sort_direction.proto")
 
 foreach(file ${PROTO_FILES})
     configure_file("${PROTO_FILES_DIR}/${file}" "${BUILD_DIR}/${PROJECT_NAME}/${file}" COPYONLY)
