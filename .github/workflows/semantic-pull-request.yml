@@ -9,10 +9,6 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha }}
-  cancel-in-progress: true
-
 jobs:
   main:
     permissions:
