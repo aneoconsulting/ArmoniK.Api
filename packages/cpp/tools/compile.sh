@@ -51,4 +51,4 @@ fi
 
 # Compile the project source using the Docker image
 echo "Compiling project source"
-docker run -v ${proto_dir}:/app/proto -v ${working_dir}:/app/source -v ${build_dir}:/app/build -v ${install_dir}:/app/install --rm -it ${IMAGE_TAG}
+docker run -v ${proto_dir}:/app/proto -v ${working_dir}:/app/source -v ${install_dir}:/app/install --rm -it ${IMAGE_TAG}

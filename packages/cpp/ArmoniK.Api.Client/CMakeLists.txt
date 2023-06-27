@@ -1,19 +1,40 @@
-set(PROJECT_NAME Armonik.Api.Client)
-set(NAMESPACE Armonik::Api::Client)
+set(PROJECT_NAME ArmoniK.Api.Client)
+set(NAMESPACE ArmoniK::Api::Client)
 set(version 0.1.0)
 
-file(GLOB PROTO_FILES 
-"${PROTO_FILES_DIR}/submitter_service.proto"
-"${PROTO_FILES_DIR}/applications_service.proto"
-"${PROTO_FILES_DIR}/sessions_service.proto"
-"${PROTO_FILES_DIR}/tasks_service.proto"
-"${PROTO_FILES_DIR}/results_service.proto"
-"${PROTO_FILES_DIR}/auth_service.proto"
-"${PROTO_FILES_DIR}/partitions_service.proto"
-"${PROTO_FILES_DIR}/events_service.proto"
-"${PROTO_FILES_DIR}/versions_service.proto")
+set(PROTO_FILES 
+    "submitter_service.proto"
+    "applications_service.proto"
+    "sessions_service.proto"
+    # "tasks_service.proto" Name conflict with grpc generated files ListTasks and ListTasksRaw (grpc add the suffix RAW to all interfaces)
+    "results_service.proto"
+    "auth_service.proto"
+    "partitions_service.proto"
+    "events_service.proto"
+    "versions_service.proto")
 
-find_package(Protobuf CONFIG REQUIRED)
+set(PROTO_DEPS
+    "applications_common.proto"
+    "session_status.proto"
+    "auth_common.proto"
+    "sessions_common.proto"
+    "submitter_common.proto"
+    "tasks_common.proto"
+    "results_common.proto"
+    "partitions_common.proto"
+    "events_common.proto"
+    "versions_common.proto"
+    "sort_direction.proto"
+    "objects.proto"
+    "result_status.proto"
+    "task_status.proto")
+
+foreach(file ${PROTO_FILES} ${PROTO_DEPS})
+    configure_file("${PROTO_FILES_DIR}/${file}" "${BUILD_DIR}/${PROJECT_NAME}/${file}" COPYONLY)
+endforeach()
+list(TRANSFORM PROTO_FILES PREPEND ${BUILD_DIR}/${PROJECT_NAME}/)
+
+find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
@@ -28,7 +49,7 @@ file(MAKE_DIRECTORY ${BUILD_DIR}/${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} STATIC ${PROTO_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure Armonik.Api.Common)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common)
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC
@@ -42,7 +63,7 @@ set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 protobuf_generate(
     TARGET ${PROJECT_NAME}
     OUT_VAR PROTO_GENERATED_FILES
-    IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+    IMPORT_DIRS ${BUILD_DIR}/${PROJECT_NAME}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
 
@@ -55,7 +76,7 @@ protobuf_generate(
     GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
     PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}"
     # PLUGIN_OPTIONS "generate_mock_code=true"
-    IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+    IMPORT_DIRS ${BUILD_DIR}/${PROJECT_NAME}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)

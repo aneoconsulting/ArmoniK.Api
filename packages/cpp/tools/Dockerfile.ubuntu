@@ -1,26 +1,18 @@
 # Use the latest version of Ubuntu 20.04 as the base image
-FROM ubuntu:20.04
-
-ARG GRPC_VERSION=v1.54.0
+FROM ubuntu:23.04
 
 # Install dependencies
-RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt update && apt install -y \
-    git \
+RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-get install -y \
     gcc \
     g++ \
-    autoconf \
-    automake \
-    libtool \
-    curl \
     make \
-    unzip
-
-# Install build-essential and wget, then clean up apt cache to reduce image size
-RUN DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-get update && \
-  apt-get install build-essential wget cmake -y
-
-# Pull the gRPC cxx image
-FROM grpc/cxx:latest
+    build-essential \
+    cmake \
+    libc-ares-dev \
+    protobuf-compiler-grpc \
+    grpc-proto \
+    libgrpc-dev \
+    libgrpc++-dev
 
 # Set environment variables for protobuf
 ENV protobuf_BUILD_TESTS=OFF
@@ -36,7 +28,7 @@ RUN echo $PATH
 WORKDIR /app/build
 
 # Set the default command to build the client using CMake and make
-CMD ["bash", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_CLIENT=ON /app/source/ && make -j $(nproc) install"]
+CMD ["bash", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_TEST=OFF /app/source/ && make -j $(nproc) install"]
 
 # Uncomment the line below if you want the container to start in the bash shell by default
 # ENTRYPOINT ["bash"]

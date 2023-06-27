@@ -2,37 +2,41 @@
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
-set(PROJECT_NAME Armonik.Api.Common)
-set(NAMESPACE Armonik::Api::Common)
+set(PROJECT_NAME ArmoniK.Api.Common)
+set(NAMESPACE ArmoniK::Api::Common)
 
-file(GLOB PROTO_FILES 
-"${PROTO_FILES_DIR}/objects.proto"
-"${PROTO_FILES_DIR}/result_status.proto"
-"${PROTO_FILES_DIR}/task_status.proto"
-"${PROTO_FILES_DIR}/applications_common.proto"
-"${PROTO_FILES_DIR}/session_status.proto"
-"${PROTO_FILES_DIR}/agent_common.proto"
-"${PROTO_FILES_DIR}/auth_common.proto"
-"${PROTO_FILES_DIR}/sessions_common.proto"
-"${PROTO_FILES_DIR}/submitter_common.proto"
-"${PROTO_FILES_DIR}/tasks_common.proto"
-"${PROTO_FILES_DIR}/worker_common.proto"
-"${PROTO_FILES_DIR}/results_common.proto"
-"${PROTO_FILES_DIR}/partitions_common.proto"
-"${PROTO_FILES_DIR}/events_common.proto"
-"${PROTO_FILES_DIR}/versions_common.proto"
-"${PROTO_FILES_DIR}/sort_direction.proto")
+set(PROTO_FILES
+    "objects.proto"
+    "result_status.proto"
+    "task_status.proto"
+    "session_status.proto"
+    "sort_direction.proto"
+    "applications_common.proto"
+    "auth_common.proto"
+    "sessions_common.proto"
+    "submitter_common.proto"
+    "tasks_common.proto"
+    "results_common.proto"
+    "partitions_common.proto"
+    "events_common.proto"
+    "versions_common.proto"
+    "agent_common.proto"
+    "worker_common.proto")
+
+foreach(file ${PROTO_FILES})
+    configure_file("${PROTO_FILES_DIR}/${file}" "${BUILD_DIR}/${PROJECT_NAME}/${file}" COPYONLY)
+endforeach()
+list(TRANSFORM PROTO_FILES PREPEND ${BUILD_DIR}/${PROJECT_NAME}/)
 
 set(CMAKE_FIND_DEBUG_MODE FALSE)
 # Trouver les packages requis
-find_package(Protobuf CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 set(CMAKE_FIND_DEBUG_MODE FALSE)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
-
 
 FILE(GLOB_RECURSE SRC_CLIENT_FILES ${SOURCES_FILES_DIR}/*.cpp)
 FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
@@ -42,13 +46,13 @@ file(MAKE_DIRECTORY ${BUILD_DIR}/${PROJECT_NAME})
 add_library(${PROJECT_NAME} STATIC ${PROTO_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure)
-set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
+set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
 protobuf_generate(
     TARGET ${PROJECT_NAME}
     OUT_VAR PROTO_GENERATED_FILES
-    IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+    IMPORT_DIRS ${BUILD_DIR}/${PROJECT_NAME}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
 
@@ -61,7 +65,7 @@ protobuf_generate(
     GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
     PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}"
     # PLUGIN_OPTIONS "generate_mock_code=true"
-    IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+    IMPORT_DIRS ${BUILD_DIR}/${PROJECT_NAME}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 
 set_source_files_properties(${PROTO_BINARY_DIR} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
@@ -71,8 +75,6 @@ target_include_directories(${PROJECT_NAME}
                            "$<BUILD_INTERFACE:${PROTO_BINARY_DIR}>"
                            "$<BUILD_INTERFACE:${HEADER_FILES_DIR}>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-
-
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})
 set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION 0)

@@ -1,47 +1,57 @@
-set(PROJECT_NAME Armonik.Api.Worker)
-set(NAMESPACE Armonik::Api::Worker)
+set(PROJECT_NAME ArmoniK.Api.Worker)
+set(NAMESPACE ArmoniK::Api::Worker)
 set(version 0.1.0)
 
-file(GLOB PROTO_FILES 
-"${PROTO_FILES_DIR}/worker_service.proto"
-"${PROTO_FILES_DIR}/agent_service.proto")
+set(PROTO_FILES 
+    "worker_service.proto"
+    "agent_service.proto")
 
-#list(PREPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/lib/cmake/Armonik.Api.Common")
-#message(STATUS "Add path to Armonik.Api.Common [${CMAKE_INSTALL_PREFIX}/lib/cmake/Armonik.Api.Common]")
-#set(CMAKE_FIND_DEBUG_MODE FALSE)
-#find_package(Armonik.Api.Common)
-#set(CMAKE_FIND_DEBUG_MODE FALSE)
+set(PROTO_DEPS 
+    "objects.proto"
+    "result_status.proto"
+    "task_status.proto"
+    "session_status.proto"
+    "agent_common.proto"
+    "worker_common.proto"
+    "sort_direction.proto")
+
+foreach(file ${PROTO_FILES} ${PROTO_DEPS})
+    configure_file("${PROTO_FILES_DIR}/${file}" "${BUILD_DIR}/${PROJECT_NAME}/${file}" COPYONLY)
+endforeach()
+list(TRANSFORM PROTO_FILES PREPEND ${BUILD_DIR}/${PROJECT_NAME}/)
+
+set(CMAKE_FIND_DEBUG_MODE FALSE)
 # Trouver les packages requis
-find_package(Protobuf CONFIG REQUIRED)
+find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
 
-
 FILE(GLOB_RECURSE SRC_CLIENT_FILES ${SOURCES_FILES_DIR}/*.cpp)
 FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
-
 
 file(MAKE_DIRECTORY ${BUILD_DIR}/${PROJECT_NAME})
 
 add_library(${PROJECT_NAME} STATIC ${PROTO_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure Armonik.Api.Common)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common)
 
 target_include_directories(${PROJECT_NAME}
-    PRIVATE
-    "$<TARGET_PROPERTY:Armonik.Api.Common,INTERFACE_INCLUDE_DIRECTORIES>"
+    PUBLIC
+    "$<BUILD_INTERFACE:${BUILD_DIR}/ArmoniK.Api.Common>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+    "$<TARGET_PROPERTY:ArmoniK.Api.Common,INTERFACE_INCLUDE_DIRECTORIES>"
 )
 
-set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
+set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
 protobuf_generate(
     TARGET ${PROJECT_NAME}
     OUT_VAR PROTO_GENERATED_FILES
-    IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+    IMPORT_DIRS ${BUILD_DIR}/${PROJECT_NAME}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
 
@@ -54,7 +64,7 @@ protobuf_generate(
     GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
     PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}"
     # PLUGIN_OPTIONS "generate_mock_code=true"
-    IMPORT_DIRS ${PROTO_IMPORT_DIRS}
+    IMPORT_DIRS ${BUILD_DIR}/${PROJECT_NAME}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
@@ -68,10 +78,6 @@ target_include_directories(${PROJECT_NAME}
                             PUBLIC
                             "$<BUILD_INTERFACE:${HEADER_FILES_DIR}>"
                             "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
-
-
-
-
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})
 set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION 0)
