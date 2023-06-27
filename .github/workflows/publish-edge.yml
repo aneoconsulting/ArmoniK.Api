@@ -13,16 +13,20 @@ jobs:
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     runs-on: ubuntu-latest
     name: Version
+    outputs:
+      version: ${{ steps.genver.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
-
       - name: Generate Version
+        id: genver
+        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> "$GITHUB_OUTPUT"
+      - name: Summary version
       # Print to the summary
-        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_STEP_SUMMARY
+        run: echo "VERSION={{ steps.genver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
   tests:
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Tests
@@ -59,7 +63,8 @@ jobs:
           reporter: dotnet-trx
 
   release-csharp-packages:
-    needs: [tests]
+    needs: [tests, version]
+    if: contains( ${{ needs.version.outputs.version }} , "-")
     name: Release C# Packages
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -85,7 +90,7 @@ jobs:
           dotnet-version: 6.x
 
       - name: Generate Version
-        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_ENV
+        run: echo "VERSION=${{ needs.version.outputs.version }}" >> $GITHUB_ENV
 
       - name: Build the package
         run: |
@@ -100,7 +105,8 @@ jobs:
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
   release-angular-package:
-    if: github.ref == 'refs/heads/main'
+    needs: [version]
+    if: github.ref == 'refs/heads/main' && contains( ${{ needs.version.outputs.version }} , "-")
     name: Release Angular Package
     runs-on: ubuntu-latest
     steps:
@@ -127,7 +133,7 @@ jobs:
         run: cd packages/angular && nr proto:generate:linux
 
       - name: Update version
-        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
+        run: nr update-versions ${{ needs.version.outputs.version }}
 
       - name: Build package
         run: cd packages/angular && nr build
@@ -138,7 +144,8 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-web-package:
-    if: github.ref == 'refs/heads/main'
+    needs: [version]
+    if: github.ref == 'refs/heads/main' && contains( ${{ needs.version.outputs.version }} , "-")
     name: Release Web Package
     runs-on: ubuntu-latest
     steps:
@@ -171,7 +178,7 @@ jobs:
         run: cd packages/web && nr build
 
       - name: Update version
-        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
+        run: nr update-versions ${{ needs.version.outputs.version }}
 
       - name: Release package
         run: nr ci:publish-edge web
@@ -179,7 +186,8 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-python-package:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
+    needs: [version]
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting' && contains( ${{ needs.version.outputs.version }} , "-")
     name: Release Python Package
     runs-on: ubuntu-latest
     defaults:
