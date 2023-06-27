@@ -10,6 +10,13 @@
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
 
+/**
+ * @brief Data structure for task payload
+ * @param keys The expected output keys
+ * @param payload The task payload
+ * @param dependencies The dependencies of the task
+ * 
+ */
 struct payload_data {
   std::string keys;
   std::vector<char> payload;
