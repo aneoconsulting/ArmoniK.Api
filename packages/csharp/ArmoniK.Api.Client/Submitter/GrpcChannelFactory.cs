@@ -33,6 +33,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 using ArmoniK.Api.Client.Options;
+using ArmoniK.Api.Client.Utils;
 
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -146,21 +147,34 @@ namespace ArmoniK.Api.Client.Submitter
     ///   Creates the GrpcChannel for .Net Framework.
     /// </summary>
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
+    /// <param name="serviceConfig">Grpc service configuration</param>
     /// <returns>
     ///   The initialized Channel
     /// </returns>
-    private static Channel CreateFrameworkChannel(GrpcClient optionsGrpcClient)
+    private static Channel CreateFrameworkChannel(GrpcClient    optionsGrpcClient,
+                                                  ServiceConfig serviceConfig)
     {
       Environment.SetEnvironmentVariable("GRPC_DNS_RESOLVER",
                                          "native");
       var uri = new Uri(optionsGrpcClient.Endpoint ?? "");
+
+      var channel_options = new List<ChannelOption>
+                            {
+                              new("grpc.keepalive_time_ms",
+                                  (int)optionsGrpcClient.KeepAliveTime.TotalMilliseconds),
+                              new("grpc.max_connection_idle_ms",
+                                  (int)optionsGrpcClient.MaxIdleTime.TotalMilliseconds),
+                              new("grpc.service_config",
+                                  serviceConfig.ToJson()),
+                            };
 
       // Simple credentials when requesting an unencrypted connection
       if (uri.Scheme != Uri.UriSchemeHttps)
       {
         return new Channel(uri.Host,
                            uri.Port,
-                           ChannelCredentials.Insecure);
+                           ChannelCredentials.Insecure,
+                           channel_options);
       }
 
       // If SSL verification is disabled, load the server certificate as root certificate
@@ -175,16 +189,15 @@ namespace ArmoniK.Api.Client.Submitter
                                                ? GetKeyCertificatePair(optionsGrpcClient)
                                                : null,
                                              _ => true);
+
+        // Internal SSL verification of the Grpc.Core library cannot be turned off during the handshake, thus we need to override the name to look up
+        channel_options.Add(new ChannelOption("grpc.ssl_target_name_override",
+                                              GetOverrideTargetName(optionsGrpcClient,
+                                                                    serverCert)));
         return new Channel(uri.Host,
                            uri.Port,
                            credentials,
-                           new List<ChannelOption>
-                           {
-                             // Internal SSL verification of the Grpc.Core library cannot be turned off during the handshake, thus we need to override the name to look up
-                             new("grpc.ssl_target_name_override",
-                                 GetOverrideTargetName(optionsGrpcClient,
-                                                       serverCert)),
-                           });
+                           channel_options);
       }
 
       // SSL verification is enabled, we need to load the CA root certificate either from a file or from the OS store, as the library does not load it by itself
@@ -199,7 +212,8 @@ namespace ArmoniK.Api.Client.Submitter
                          uri.Port,
                          new SslCredentials(ca,
                                             certKeyPair,
-                                            null));
+                                            null),
+                         channel_options);
     }
 
     /// <summary>
@@ -219,10 +233,38 @@ namespace ArmoniK.Api.Client.Submitter
         throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
       }
 
+      var serviceConfig = new ServiceConfig
+                          {
+                            MethodConfigs =
+                            {
+                              new MethodConfig
+                              {
+                                Names =
+                                {
+                                  MethodName.Default,
+                                },
+                                RetryPolicy = new RetryPolicy
+                                              {
+                                                MaxAttempts       = optionsGrpcClient.MaxAttempts,
+                                                InitialBackoff    = optionsGrpcClient.InitialBackOff,
+                                                MaxBackoff        = optionsGrpcClient.MaxBackOff,
+                                                BackoffMultiplier = optionsGrpcClient.BackoffMultiplier,
+                                                RetryableStatusCodes =
+                                                {
+                                                  StatusCode.Unavailable,
+                                                  StatusCode.Aborted,
+                                                  StatusCode.Unknown,
+                                                },
+                                              },
+                              },
+                            },
+                          };
+
       if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
       {
         // .NET Framework cannot use Grpc.Net.Client.GrpcChannel as it doesn't support Http2 with this framework
-        return CreateFrameworkChannel(optionsGrpcClient);
+        return CreateFrameworkChannel(optionsGrpcClient,
+                                      serviceConfig);
       }
 
       if (!string.IsNullOrWhiteSpace(optionsGrpcClient.CaCert) && !optionsGrpcClient.AllowUnsafeConnection)
@@ -235,7 +277,8 @@ namespace ArmoniK.Api.Client.Submitter
          The issue being that the server certificate is considered to not have a valid signature, and I'm not sure how to handle it
         */
         logger?.LogWarning("Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
-        return CreateFrameworkChannel(optionsGrpcClient);
+        return CreateFrameworkChannel(optionsGrpcClient,
+                                      serviceConfig);
       }
 
       var uri = new Uri(optionsGrpcClient.Endpoint!);
@@ -285,39 +328,12 @@ namespace ArmoniK.Api.Client.Submitter
 
       sp.MaxIdleTime = (int)optionsGrpcClient.MaxIdleTime.TotalMilliseconds;
 
-      var defaultMethodConfig = new MethodConfig
-                                {
-                                  Names =
-                                  {
-                                    MethodName.Default,
-                                  },
-                                  RetryPolicy = new RetryPolicy
-                                                {
-                                                  MaxAttempts       = optionsGrpcClient.MaxAttempts,
-                                                  InitialBackoff    = optionsGrpcClient.InitialBackOff,
-                                                  MaxBackoff        = optionsGrpcClient.MaxBackOff,
-                                                  BackoffMultiplier = optionsGrpcClient.BackoffMultiplier,
-                                                  RetryableStatusCodes =
-                                                  {
-                                                    StatusCode.Unavailable,
-                                                    StatusCode.Aborted,
-                                                    StatusCode.Unknown,
-                                                  },
-                                                },
-                                };
-
       var channelOptions = new GrpcChannelOptions
                            {
                              Credentials       = credentials,
                              HttpClient        = httpClient,
                              DisposeHttpClient = true,
-                             ServiceConfig = new ServiceConfig
-                                             {
-                                               MethodConfigs =
-                                               {
-                                                 defaultMethodConfig,
-                                               },
-                                             },
+                             ServiceConfig     = serviceConfig,
                            };
 
       return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
