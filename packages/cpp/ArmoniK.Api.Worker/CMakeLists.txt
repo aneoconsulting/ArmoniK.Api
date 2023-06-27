@@ -4,15 +4,15 @@ set(version 0.1.0)
 
 set(PROTO_FILES 
     "worker_service.proto"
-    "agent_service.proto")
+    "agent_service.proto"
+    "agent_common.proto"
+    "worker_common.proto")
 
 set(PROTO_DEPS 
     "objects.proto"
     "result_status.proto"
     "task_status.proto"
     "session_status.proto"
-    "agent_common.proto"
-    "worker_common.proto"
     "sort_direction.proto")
 
 foreach(file ${PROTO_FILES} ${PROTO_DEPS})

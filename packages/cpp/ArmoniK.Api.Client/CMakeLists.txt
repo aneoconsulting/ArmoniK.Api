@@ -11,11 +11,7 @@ set(PROTO_FILES
     "auth_service.proto"
     "partitions_service.proto"
     "events_service.proto"
-    "versions_service.proto")
-
-set(PROTO_DEPS
-    "applications_common.proto"
-    "session_status.proto"
+    "versions_service.proto"
     "auth_common.proto"
     "sessions_common.proto"
     "submitter_common.proto"
@@ -24,6 +20,10 @@ set(PROTO_DEPS
     "partitions_common.proto"
     "events_common.proto"
     "versions_common.proto"
+    "applications_common.proto")
+
+set(PROTO_DEPS
+    "session_status.proto"
     "sort_direction.proto"
     "objects.proto"
     "result_status.proto"
