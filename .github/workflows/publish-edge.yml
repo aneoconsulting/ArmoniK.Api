@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  version:
+  genversion:
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     runs-on: ubuntu-latest
     name: Version
@@ -26,7 +26,20 @@ jobs:
         run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> "$GITHUB_OUTPUT"
       - name: Summary version
       # Print to the summary
-        run: echo "VERSION={{ steps.genver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        run: echo "VERSION=${{ steps.genver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+  version:
+    if: contains( ${{ needs.genversion.outputs.version }} , "-")
+    needs: [genversion]
+    runs-on: ubuntu-latest
+    name: Check Version
+    outputs:
+      version: ${{ steps.outver.outputs.version }}
+    steps:
+      - name: Output Version
+        id: outver
+        run: echo "VERSION=${{ needs.genversion.outputs.version }}" >> "$GITHUB_OUTPUT"
+
   tests:
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Tests
@@ -64,7 +77,6 @@ jobs:
 
   release-csharp-packages:
     needs: [tests, version]
-    if: contains( ${{ needs.version.outputs.version }} , "-")
     name: Release C# Packages
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -89,16 +101,13 @@ jobs:
         with:
           dotnet-version: 6.x
 
-      - name: Generate Version
-        run: echo "VERSION=${{ needs.version.outputs.version }}" >> $GITHUB_ENV
-
       - name: Build the package
         run: |
           dotnet build ${{ matrix.package }} -c Release
 
       - name: Pack the package
         run: |
-          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=${{ needs.version.outputs.version }}
           ls /tmp/packages
 
       - name: Push the package
@@ -106,7 +115,7 @@ jobs:
 
   release-angular-package:
     needs: [version]
-    if: github.ref == 'refs/heads/main' && contains( ${{ needs.version.outputs.version }} , "-")
+    if: github.ref == 'refs/heads/main'
     name: Release Angular Package
     runs-on: ubuntu-latest
     steps:
@@ -145,7 +154,7 @@ jobs:
 
   release-web-package:
     needs: [version]
-    if: github.ref == 'refs/heads/main' && contains( ${{ needs.version.outputs.version }} , "-")
+    if: github.ref == 'refs/heads/main'
     name: Release Web Package
     runs-on: ubuntu-latest
     steps:
@@ -187,7 +196,7 @@ jobs:
 
   release-python-package:
     needs: [version]
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting' && contains( ${{ needs.version.outputs.version }} , "-")
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Release Python Package
     runs-on: ubuntu-latest
     defaults:
