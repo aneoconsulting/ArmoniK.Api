@@ -1,0 +1,65 @@
+﻿// This file is part of the ArmoniK project
+//
+// Copyright (C) ANEO, 2021-2023.All rights reserved.
+//   W.Kirschenmann   <wkirschenmann@aneo.fr>
+//   J.Gurhem         <jgurhem@aneo.fr>
+//   D.Dubuc          <ddubuc@aneo.fr>
+//   L.Ziane Khodja   <lzianekhodja@aneo.fr>
+//   F.Lemaitre       <flemaitre@aneo.fr>
+//   S.Djebbar        <sdjebbar@aneo.fr>
+//   J.Fonseca        <jfonseca@aneo.fr>
+//
+// This program is free software:you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published
+// by the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY, without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.If not, see <http://www.gnu.org/licenses/>.
+
+using ArmoniK.Api.gRPC.V1;
+using ArmoniK.Api.gRPC.V1.Events;
+
+using Grpc.Core;
+
+namespace ArmoniK.Api.Mock.Services;
+
+public class EventsService : Events.EventsBase
+{
+  public CallCount Calls = new();
+
+
+  /// <inheritdocs />
+  public override async Task GetEvents(EventSubscriptionRequest                       request,
+                                       IServerStreamWriter<EventSubscriptionResponse> responseStream,
+                                       ServerCallContext                              context)
+  {
+    Interlocked.Add(ref Calls.GetEvents,
+                    1);
+    await responseStream.WriteAsync(new EventSubscriptionResponse
+                                    {
+                                      SessionId = "session-id",
+                                      NewResult = new EventSubscriptionResponse.Types.NewResult
+                                                  {
+                                                    ResultId = "result-id",
+                                                    OwnerId  = "owner-id",
+                                                    Status   = ResultStatus.Created,
+                                                  },
+                                    })
+                        .ConfigureAwait(false);
+  }
+
+  public struct CallCount
+  {
+    public int GetEvents = 0;
+
+    public CallCount()
+    {
+    }
+  }
+}
