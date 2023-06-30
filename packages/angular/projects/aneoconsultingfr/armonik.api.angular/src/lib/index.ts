@@ -58,7 +58,7 @@ export {
   TaskRaw,
   TaskSummary,
   TaskField,
-  PartitionField,
+  TaskSummaryField,
   TaskOptionField,
   TaskOptionGenericField,
 } from "./generated/tasks-common.pb";
