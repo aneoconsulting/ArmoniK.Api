@@ -70,6 +70,7 @@ export {
   ListPartitionsResponse,
   PartitionRaw,
   PartitionRawField,
+  PartitionField,
 } from "./generated/partitions-common.pb"
 export { PartitionsClient } from "./generated/partitions-service.pbsc"
 export { StatusCount } from "./generated/objects.pb"
