@@ -1,0 +1,11 @@
+pkg/
+source/Protos
+build/
+*.egg-info
+**/*build
+**/*.obj
+**/*.o
+**/install
+**/win64
+**/tools/tools
+**/tools/grpc
