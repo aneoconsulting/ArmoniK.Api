@@ -57,7 +57,10 @@ export {
   CountTasksByStatusResponse,
   TaskRaw,
   TaskSummary,
-  TaskSummaryField,
+  TaskField,
+  PartitionField,
+  TaskOptionField,
+  TaskOptionGenericField,
 } from "./generated/tasks-common.pb";
 export { TasksClient } from "./generated/tasks-service.pbsc";
 export {
@@ -67,10 +70,6 @@ export {
   ListPartitionsResponse,
   PartitionRaw,
   PartitionRawField,
-  TaskField,
-  PartitionField,
-  TaskOptionField,
-  TaskOptionGenericField,
 } from "./generated/partitions-common.pb"
 export { PartitionsClient } from "./generated/partitions-service.pbsc"
 export { StatusCount } from "./generated/objects.pb"
