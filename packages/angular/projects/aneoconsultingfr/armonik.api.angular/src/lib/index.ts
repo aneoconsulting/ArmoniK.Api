@@ -56,7 +56,8 @@ export {
   CountTasksByStatusRequest,
   CountTasksByStatusResponse,
   TaskRaw,
-  TaskSummary
+  TaskSummary,
+  TaskSummaryField,
 } from "./generated/tasks-common.pb";
 export { TasksClient } from "./generated/tasks-service.pbsc";
 export {
@@ -66,16 +67,18 @@ export {
   ListPartitionsResponse,
   PartitionRaw,
   PartitionRawField,
+  TaskField,
   PartitionField,
+  TaskOptionField,
+  TaskOptionGenericField,
 } from "./generated/partitions-common.pb"
 export { PartitionsClient } from "./generated/partitions-service.pbsc"
 export { StatusCount } from "./generated/objects.pb"
 export { ListVersionsRequest, ListVersionsResponse } from "./generated/versions-common.pb"
 export { VersionsClient } from "./generated/versions-service.pbsc"
 export { TaskOptions } from "./generated/objects.pb"
-export { 
+export {
   EventSubscriptionRequest,
-  EventSubscriptionResponse 
+  EventSubscriptionResponse
  } from './generated/events-common.pb'
 export { EventsClient } from "./generated/events-service.pbsc"
-
