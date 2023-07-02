@@ -56,7 +56,11 @@ export {
   CountTasksByStatusRequest,
   CountTasksByStatusResponse,
   TaskRaw,
-  TaskSummary
+  TaskSummary,
+  TaskField,
+  TaskSummaryField,
+  TaskOptionField,
+  TaskOptionGenericField,
 } from "./generated/tasks-common.pb";
 export { TasksClient } from "./generated/tasks-service.pbsc";
 export {
