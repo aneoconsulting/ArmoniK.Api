@@ -77,8 +77,3 @@ export { StatusCount } from "./generated/objects.pb"
 export { ListVersionsRequest, ListVersionsResponse } from "./generated/versions-common.pb"
 export { VersionsClient } from "./generated/versions-service.pbsc"
 export { TaskOptions } from "./generated/objects.pb"
-export {
-  EventSubscriptionRequest,
-  EventSubscriptionResponse
- } from './generated/events-common.pb'
-export { EventsClient } from "./generated/events-service.pbsc"
