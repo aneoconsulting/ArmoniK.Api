@@ -9,20 +9,37 @@ on:
       - main
 
 jobs:
-  version:
+  genversion:
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     runs-on: ubuntu-latest
     name: Version
+    outputs:
+      version: ${{ steps.genver.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
-
       - name: Generate Version
+        id: genver
+        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> "$GITHUB_OUTPUT"
+      - name: Summary version
       # Print to the summary
-        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_STEP_SUMMARY
+        run: echo "VERSION=${{ steps.genver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+
+  version:
+    if: contains( ${{ needs.genversion.outputs.version }} , "-")
+    needs: [genversion]
+    runs-on: ubuntu-latest
+    name: Check Version
+    outputs:
+      version: ${{ steps.outver.outputs.version }}
+    steps:
+      - name: Output Version
+        id: outver
+        run: echo "VERSION=${{ needs.genversion.outputs.version }}" >> "$GITHUB_OUTPUT"
+
   tests:
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Tests
@@ -59,7 +76,7 @@ jobs:
           reporter: dotnet-trx
 
   release-csharp-packages:
-    needs: [tests]
+    needs: [tests, version]
     name: Release C# Packages
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -84,22 +101,20 @@ jobs:
         with:
           dotnet-version: 6.x
 
-      - name: Generate Version
-        run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> $GITHUB_ENV
-
       - name: Build the package
         run: |
           dotnet build ${{ matrix.package }} -c Release
 
       - name: Pack the package
         run: |
-          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=$VERSION
+          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages -p:PackageVersion=${{ needs.version.outputs.version }}
           ls /tmp/packages
 
       - name: Push the package
         run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
 
   release-angular-package:
+    needs: [version]
     if: github.ref == 'refs/heads/main'
     name: Release Angular Package
     runs-on: ubuntu-latest
@@ -127,7 +142,7 @@ jobs:
         run: cd packages/angular && nr proto:generate:linux
 
       - name: Update version
-        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
+        run: nr update-versions ${{ needs.version.outputs.version }}
 
       - name: Build package
         run: cd packages/angular && nr build
@@ -138,6 +153,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-web-package:
+    needs: [version]
     if: github.ref == 'refs/heads/main'
     name: Release Web Package
     runs-on: ubuntu-latest
@@ -171,7 +187,7 @@ jobs:
         run: cd packages/web && nr build
 
       - name: Update version
-        run: nr update-versions $(npx @aneoconsultingfr/generate-next-version@latest --edge)
+        run: nr update-versions ${{ needs.version.outputs.version }}
 
       - name: Release package
         run: nr ci:publish-edge web
@@ -179,6 +195,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-python-package:
+    needs: [version]
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Release Python Package
     runs-on: ubuntu-latest
