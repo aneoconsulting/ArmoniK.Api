@@ -41,6 +41,7 @@ set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 protobuf_generate(
     TARGET ${PROJECT_NAME}
     OUT_VAR PROTO_GENERATED_FILES
+    APPEND_PATH "./"
     IMPORT_DIRS ${BUILD_DIR}/${PROJECT_NAME}
     PROTOC_OUT_DIR "${PROTO_BINARY_DIR}")
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
@@ -50,6 +51,7 @@ get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 protobuf_generate(
     TARGET ${PROJECT_NAME}
     OUT_VAR PROTO_GENERATED_FILES
+    APPEND_PATH "./"
     LANGUAGE grpc
     GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
     PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}"

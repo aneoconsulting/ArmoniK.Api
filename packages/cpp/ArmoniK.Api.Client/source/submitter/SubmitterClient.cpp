@@ -10,7 +10,9 @@
 
 #include "objects.grpc.pb.h"
 #include "submitter_common.pb.h"
+#include "submitter_service.pb.h"
 #include "submitter_service.grpc.pb.h"
+#include "sessions_common.pb.h"
 
 using armonik::api::grpc::v1::ResultRequest;
 using armonik::api::grpc::v1::TaskOptions;

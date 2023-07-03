@@ -23,10 +23,11 @@ public:
    * @return The value of the environment variable, or an empty string if not found
    */
   [[nodiscard]] std::string get(const std::string &string) const override {
-    std::string value = std::getenv(string.c_str());
-    if (!value.empty()) {
-      return value;
+
+    if (const char *c_val = std::getenv(string.c_str()); c_val != nullptr) {
+      return c_val;
     }
+
     throw std::runtime_error("Can't get server address !");
   }
 
