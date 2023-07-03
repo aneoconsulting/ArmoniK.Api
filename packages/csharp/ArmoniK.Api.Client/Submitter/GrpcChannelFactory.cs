@@ -319,8 +319,11 @@ namespace ArmoniK.Api.Client.Submitter
         }
       }
 
-      var httpClient = new HttpClient(httpHandler);
-      var sp         = ServicePointManager.FindServicePoint(new Uri(optionsGrpcClient.Endpoint!));
+      var httpClient = new HttpClient(httpHandler)
+                       {
+                         Timeout = optionsGrpcClient.RequestTimeout,
+                       };
+      var sp = ServicePointManager.FindServicePoint(new Uri(optionsGrpcClient.Endpoint!));
 
       sp.SetTcpKeepAlive(true,
                          (int)optionsGrpcClient.KeepAliveTime.TotalMilliseconds,
