@@ -230,5 +230,5 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-          print_hash: true
-          packages_dir: packages/python/pkg/
+          print-hash: true
+          packages-dir: packages/python/pkg/
