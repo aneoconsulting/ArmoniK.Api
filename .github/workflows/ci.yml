@@ -96,7 +96,7 @@ jobs:
       - name: Check Diff
         id: check-diff
         run: |
-          git ls-files *.{c,h,hpp,cpp,cc} | xargs clang-format -style=google -i
+          git ls-files *.{c,h,hpp,cpp,cc} | xargs clang-format -style=file:.clang-format -i
           DIFF="$(git diff --name-only)"
 
           if [ -z "$DIFF" ]; then
@@ -235,7 +235,7 @@ jobs:
           path: packages/python/coverage.xml
 
   build-cpp-packages:
-    name: Release C++ Packages
+    name: Build C++ Packages
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
