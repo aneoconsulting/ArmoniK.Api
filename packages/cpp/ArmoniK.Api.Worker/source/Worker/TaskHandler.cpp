@@ -1,8 +1,8 @@
 #include "Worker/TaskHandler.h"
 
+#include <future>
 #include <sstream>
 #include <string>
-#include <future>
 
 #include "agent_common.pb.h"
 #include "agent_service.grpc.pb.h"
@@ -25,7 +25,7 @@ using namespace armonik::api::grpc::v1::agent;
 
 /**
  * @brief Construct a new Task Handler object
- * 
+ *
  * @param client the agent client
  * @param request_iterator The request iterator
  */
@@ -37,7 +37,7 @@ TaskHandler::TaskHandler(std::unique_ptr<Agent::Stub> client,
 
 /**
  * @brief Initialise the task handler
- * 
+ *
  */
 void TaskHandler::init() {
   ProcessRequest Request;
@@ -89,7 +89,7 @@ void TaskHandler::init() {
 
     auto payload_data = new std::byte[size];
     int address = 0;
-    for (auto iter = chuncks.begin(); iter != chuncks.end(); iter++){
+    for (auto iter = chuncks.begin(); iter != chuncks.end(); iter++) {
       std::string temp_str = *iter;
 
       for (size_t i = 0; i < temp_str.length(); i++) {
@@ -153,7 +153,7 @@ void TaskHandler::init() {
         }
       }
 
-      data_dependencies.push_back(reinterpret_cast<std::byte*>(data));
+      data_dependencies.push_back(reinterpret_cast<std::byte *>(data));
     }
 
   } while (!init_data.key().empty());
@@ -161,14 +161,14 @@ void TaskHandler::init() {
 
 /**
  * @brief Create a task_chunk_stream.
- * 
+ *
  * @param task_request a task request
  * @param is_last A boolean indicating if this is the last request.
  * @param chunk_max_size Maximum chunk size.
- * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>> 
+ * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
  */
-std::future<std::vector<CreateTaskRequest>> TaskHandler::task_chunk_stream(TaskRequest task_request,
-                                                                           bool is_last, size_t chunk_max_size) {
+std::future<std::vector<CreateTaskRequest>> TaskHandler::task_chunk_stream(TaskRequest task_request, bool is_last,
+                                                                           size_t chunk_max_size) {
   return std::async(std::launch::async, [task_request = std::move(task_request), chunk_max_size, is_last]() {
     std::vector<CreateTaskRequest> requests;
     armonik::api::grpc::v1::InitTaskRequest header_task_request;
@@ -235,18 +235,18 @@ std::future<std::vector<CreateTaskRequest>> TaskHandler::task_chunk_stream(TaskR
 
 /**
  * @brief Convert task_requests to request_stream.
- * 
+ *
  * @param task_requests List of task requests
  * @param task_options The Task Options used for this batch of tasks
  * @param chunk_max_size Maximum chunk size.
- * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>> 
+ * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
  */
 std::vector<std::future<std::vector<CreateTaskRequest>>>
 TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests, TaskOptions task_options,
                                const size_t chunk_max_size) {
   std::vector<std::future<std::vector<CreateTaskRequest>>> async_chunk_payload_tasks;
 
-  async_chunk_payload_tasks.push_back(std::async([task_options = std::move(task_options)]()mutable {
+  async_chunk_payload_tasks.push_back(std::async([task_options = std::move(task_options)]() mutable {
     CreateTaskRequest_InitRequest create_task_request_init;
     *create_task_request_init.mutable_task_options() = std::move(task_options);
 
@@ -273,10 +273,8 @@ TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests, Ta
  */
 std::future<CreateTaskReply> TaskHandler::create_tasks_async(TaskOptions task_options,
                                                              const std::vector<TaskRequest> &task_requests) {
-  return std::async(std::launch::async, [this, &task_requests, &task_options]()mutable {
-
+  return std::async(std::launch::async, [this, &task_requests, &task_options]() mutable {
     size_t chunk = config_.data_chunk_max_size();
-
 
     CreateTaskReply reply{};
 
@@ -339,7 +337,7 @@ std::future<std::vector<ResultReply>> TaskHandler::send_result(std::string key, 
       std::string data_str;
       int count = 0;
       for (int i = start; i < start + chunck; i++) {
-        data_str[count++] = static_cast<char>(data[i]); 
+        data_str[count++] = static_cast<char>(data[i]);
       }
 
       *result_msg.mutable_data() = std::move(data_str);
@@ -372,12 +370,11 @@ std::future<std::vector<ResultReply>> TaskHandler::send_result(std::string key, 
     delete reply;
     return result;
   });
-
 }
 
 /**
  * @brief Get the result ids object
- * 
+ *
  * @param results The results data
  * @return std::vector<std::string> list of result ids
  */

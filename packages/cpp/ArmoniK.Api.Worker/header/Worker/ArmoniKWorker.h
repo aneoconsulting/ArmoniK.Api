@@ -28,9 +28,9 @@ public:
     logger_.add_property("Worker", "ArmoniK.Api.Cpp");
   }
 
-  grpc::Status Process(
-      std::unique_ptr<Agent::Stub> agent,
-      std::unique_ptr<grpc::ClientReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator);
+  grpc::Status
+  Process(std::unique_ptr<Agent::Stub> agent,
+          std::unique_ptr<grpc::ClientReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator);
 
   grpc::Status HealthCheck(::grpc::ServerContext *context, const ::armonik::api::grpc::v1::Empty *request,
                            ::armonik::api::grpc::v1::worker::HealthCheckReply *response) override;
