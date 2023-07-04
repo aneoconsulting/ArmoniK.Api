@@ -27,11 +27,10 @@ private:
   std::string token_;
   armonik::api::grpc::v1::Configuration config_;
 
-
 public:
   /**
    * @brief Construct a new Task Handler object
-   * 
+   *
    * @param client the agent client
    * @param request_iterator The request iterator
    */
@@ -40,28 +39,28 @@ public:
 
   /**
    * @brief Initialise the task handler
-   * 
+   *
    */
   void init();
 
   /**
    * @brief Create a task_chunk_stream.
-   * 
+   *
    * @param task_request a task request
    * @param is_last A boolean indicating if this is the last request.
    * @param chunk_max_size Maximum chunk size.
-   * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>> 
+   * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
    */
   static std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
   task_chunk_stream(armonik::api::grpc::v1::TaskRequest task_request, bool is_last, size_t chunk_max_size);
 
   /**
    * @brief Convert task_requests to request_stream.
-   * 
+   *
    * @param task_requests List of task requests
    * @param task_options The Task Options used for this batch of tasks
    * @param chunk_max_size Maximum chunk size.
-   * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>> 
+   * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
    */
   static auto to_request_stream(const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests,
                                 armonik::api::grpc::v1::TaskOptions task_options, size_t chunk_max_size)
@@ -84,12 +83,12 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<std::vector<armonik::api::grpc::v1::agent::ResultReply>>
-  send_result(std::string key, std::vector<std::byte> &data);
+  std::future<std::vector<armonik::api::grpc::v1::agent::ResultReply>> send_result(std::string key,
+                                                                                   std::vector<std::byte> &data);
 
   /**
    * @brief Get the result ids object
-   * 
+   *
    * @param results The results data
    * @return std::vector<std::string> list of result ids
    */
