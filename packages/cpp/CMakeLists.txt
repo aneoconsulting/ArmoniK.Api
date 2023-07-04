@@ -11,6 +11,8 @@ elseif (WIN32)
     set(BUILD_DIR "${CMAKE_SOURCE_DIR}/build")
     set(PROTO_FILES_DIR "${CMAKE_SOURCE_DIR}/../../Protos/V1")
     list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/tools/win64/lib/cmake/grpc")
+    list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/tools/win64/cmake")
+    set(Protobuf_USE_STATIC_LIBS ON)
 endif (UNIX)
 
 option(BUILD_TEST OFF)
