@@ -32,35 +32,35 @@ public:
   /**
    * @brief Construct a new Task Handler object
    * 
-   * @param client 
-   * @param request_iterator 
+   * @param client the agent client
+   * @param request_iterator The request iterator
    */
   TaskHandler(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> client,
               std::unique_ptr<grpc::ClientReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator);
 
   /**
-   * @brief 
+   * @brief Initialise the task handler
    * 
    */
   void init();
 
   /**
-   * @brief 
+   * @brief Create a task_chunk_stream.
    * 
-   * @param task_request 
-   * @param is_last 
-   * @param chunk_max_size 
+   * @param task_request a task request
+   * @param is_last A boolean indicating if this is the last request.
+   * @param chunk_max_size Maximum chunk size.
    * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>> 
    */
   static std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
   task_chunk_stream(armonik::api::grpc::v1::TaskRequest task_request, bool is_last, size_t chunk_max_size);
 
   /**
-   * @brief 
+   * @brief Convert task_requests to request_stream.
    * 
-   * @param task_requests 
-   * @param task_options 
-   * @param chunk_max_size 
+   * @param task_requests List of task requests
+   * @param task_options The Task Options used for this batch of tasks
+   * @param chunk_max_size Maximum chunk size.
    * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>> 
    */
   static auto to_request_stream(const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests,
@@ -69,26 +69,30 @@ public:
 
   /**
    * @brief Create a tasks async object
-   * @param channel
-   * @param session_id
-   * @param task_options
-   * @param task_requests
-   * @return std::future<armonik::api::grpc::v1::agent::CreateTaskReply>
+   * @param task_options The Task Options used for this batch of tasks
+   * @param task_requests List of task requests
+   * @return Successfully sent task
    */
   std::future<armonik::api::grpc::v1::agent::CreateTaskReply>
-  create_tasks_async(std::string &session_id,
-                     armonik::api::grpc::v1::TaskOptions task_options,
+  create_tasks_async(armonik::api::grpc::v1::TaskOptions task_options,
                      const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests);
 
   /**
-   * @brief 
-   * 
-   * @param channel 
-   * @param data 
-   * @return std::future<std::vector<armonik::api::grpc::v1::agent::ResultReply>> 
+   * @brief Send task result
+   *
+   * @param key the key of result
+   * @param data The result data
+   * @return A future containing a vector of ResultReply
    */
   std::future<std::vector<armonik::api::grpc::v1::agent::ResultReply>>
-  send_result(std::vector<std::byte> &data);
+  send_result(std::string key, std::vector<std::byte> &data);
 
-  std::vector<std::string> get_result_ids(std::vector<std::string> results);
+  /**
+   * @brief Get the result ids object
+   * 
+   * @param results The results data
+   * @return std::vector<std::string> list of result ids
+   */
+  std::vector<std::string>
+  get_result_ids(std::vector<armonik::api::grpc::v1::agent::CreateResultsMetaDataRequest_ResultCreate> results);
 };
