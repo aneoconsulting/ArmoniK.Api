@@ -23,13 +23,22 @@ using grpc::ClientContext;
 using grpc::Status;
 using namespace armonik::api::grpc::v1::agent;
 
+/**
+ * @brief Construct a new Task Handler object
+ * 
+ * @param client the agent client
+ * @param request_iterator The request iterator
+ */
 TaskHandler::TaskHandler(std::unique_ptr<Agent::Stub> client,
                          std::unique_ptr<grpc::ClientReader<ProcessRequest>> request_iterator) {
   stub_ = std::move(client);
   request_iterator_ = std::move(request_iterator);
 }
 
-
+/**
+ * @brief Initialise the task handler
+ * 
+ */
 void TaskHandler::init() {
   ProcessRequest Request;
   std::unique_ptr<grpc::ClientReader<ProcessRequest>> request_iterator;
@@ -150,6 +159,14 @@ void TaskHandler::init() {
   } while (!init_data.key().empty());
 }
 
+/**
+ * @brief Create a task_chunk_stream.
+ * 
+ * @param task_request a task request
+ * @param is_last A boolean indicating if this is the last request.
+ * @param chunk_max_size Maximum chunk size.
+ * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>> 
+ */
 std::future<std::vector<CreateTaskRequest>> TaskHandler::task_chunk_stream(TaskRequest task_request,
                                                                            bool is_last, size_t chunk_max_size) {
   return std::async(std::launch::async, [task_request = std::move(task_request), chunk_max_size, is_last]() {
@@ -216,6 +233,14 @@ std::future<std::vector<CreateTaskRequest>> TaskHandler::task_chunk_stream(TaskR
   });
 }
 
+/**
+ * @brief Convert task_requests to request_stream.
+ * 
+ * @param task_requests List of task requests
+ * @param task_options The Task Options used for this batch of tasks
+ * @param chunk_max_size Maximum chunk size.
+ * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>> 
+ */
 std::vector<std::future<std::vector<CreateTaskRequest>>>
 TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests, TaskOptions task_options,
                                const size_t chunk_max_size) {
@@ -240,9 +265,15 @@ TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests, Ta
   return async_chunk_payload_tasks;
 }
 
-std::future<CreateTaskReply> TaskHandler::create_tasks_async(std::string &session_id, TaskOptions task_options,
+/**
+ * @brief Create a tasks async object
+ * @param task_options The Task Options used for this batch of tasks
+ * @param task_requests List of task requests
+ * @return Successfully sent task
+ */
+std::future<CreateTaskReply> TaskHandler::create_tasks_async(TaskOptions task_options,
                                                              const std::vector<TaskRequest> &task_requests) {
-  return std::async(std::launch::async, [this, &task_requests, &session_id, &task_options]()mutable {
+  return std::async(std::launch::async, [this, &task_requests, &task_options]()mutable {
 
     size_t chunk = config_.data_chunk_max_size();
 
@@ -274,8 +305,15 @@ std::future<CreateTaskReply> TaskHandler::create_tasks_async(std::string &sessio
   });
 }
 
-std::future<std::vector<ResultReply>> TaskHandler::send_result(std::vector<std::byte> &data) {
-  return std::async(std::launch::async, [this, data]() {
+/**
+ * @brief Send task result
+ *
+ * @param key the key of result
+ * @param data The result data
+ * @return A future containing a vector of ResultReply
+ */
+std::future<std::vector<ResultReply>> TaskHandler::send_result(std::string key, std::vector<std::byte> &data) {
+  return std::async(std::launch::async, [this, key, data]() {
     std::vector<ResultReply> result;
 
     grpc::ClientContext context_client_writer;
@@ -288,6 +326,9 @@ std::future<std::vector<ResultReply>> TaskHandler::send_result(std::vector<std::
     size_t start = 0;
 
     auto stream = stub_->SendResult(&context_client_writer, reply);
+
+    Result init_msg;
+    init_msg.mutable_init()->set_key(key);
 
     while (start < data_size) {
       chunck = std::min(max_chunck, data_size - start);
@@ -334,17 +375,29 @@ std::future<std::vector<ResultReply>> TaskHandler::send_result(std::vector<std::
 
 }
 
-std::vector<std::string> TaskHandler::get_result_ids(std::vector<std::string> results) {
+/**
+ * @brief Get the result ids object
+ * 
+ * @param results The results data
+ * @return std::vector<std::string> list of result ids
+ */
+std::vector<std::string> TaskHandler::get_result_ids(std::vector<CreateResultsMetaDataRequest_ResultCreate> results) {
   std::vector<std::string> result_ids;
 
   grpc::ClientContext context_client_writer;
   CreateResultsMetaDataRequest request;
   CreateResultsMetaDataResponse reply;
 
-  request.mutable_results();
+  *request.mutable_results() = {results.begin(), results.end()};
   request.set_session_id(session_id_);
 
-  Status status = stub_->CreateResultsMetaData(&context_client_writer, std::move(request), &reply);
+  Status status = stub_->CreateResultsMetaData(&context_client_writer, request, &reply);
+
+  auto results_reply = reply.results();
+
+  for (auto &result_reply : results_reply) {
+    result_ids.push_back(result_reply.result_id());
+  }
 
   return result_ids;
 }
