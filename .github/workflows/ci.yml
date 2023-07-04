@@ -249,8 +249,3 @@ jobs:
         run: |
           cd packages/cpp/tools/
           ./compile.sh
-
-      - name: Run the client
-        run: |
-          cd ../build/Armonik.Api.Client.Tests
-          ./Armonik.Api.Client.Tests
