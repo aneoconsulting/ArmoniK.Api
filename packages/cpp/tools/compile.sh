@@ -38,4 +38,4 @@ if [ -z "$(docker images -q "${IMAGE_TAG}" 2> /dev/null)" ]; then
 fi
 
 # Compile the project source using the Docker image
-docker run -v "${proto_dir}:/app/proto" -v "${working_dir}:/app/source" -v "${install_dir}:/app/install" --rm "${IMAGE_TAG}"
+docker run -v "${proto_dir}:/app/proto" -v "${working_dir}:/app/source" -v "${install_dir}:/app/install" -v "${working_dir}/build:/app/build" --rm "${IMAGE_TAG}"
