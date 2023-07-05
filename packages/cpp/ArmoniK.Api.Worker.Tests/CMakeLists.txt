@@ -1,5 +1,5 @@
-set(PROJECT_NAME Armonik.Api.Worker.Tests)
-set(NAMESPACE Armonik::Api::Worker::Tests)
+set(PROJECT_NAME ArmoniK.Api.Worker.Tests)
+set(NAMESPACE ArmoniK::Api::Worker::Tests)
 
 # Trouver les packages requis
 find_package(Protobuf REQUIRED)
@@ -19,7 +19,7 @@ add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure Armonik.Api.Worker Armonik.Api.Common)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Worker ArmoniK.Api.Common)
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
