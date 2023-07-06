@@ -1,5 +1,7 @@
 @PACKAGE_INIT@
 
-include("${CMAKE_INSTALL_PREFIX}/lib/cmake/Armonik.Api.Common/Armonik.Api.CommonTargets.cmake")
+set_and_check(ARMONIK_INSTALL_PREFIX "@PACKAGE_CMAKE_INSTALL_PREFIX@")
+
+include("${ARMONIK_INSTALL_PREFIX}/lib/cmake/Armonik.Api.Common/Armonik.Api.CommonTargets.cmake")
 
 check_required_components(Armonik.Api.Common)
