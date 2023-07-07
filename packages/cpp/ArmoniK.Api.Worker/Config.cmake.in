@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_INSTALL_PREFIX}/lib/cmake/Armonik.Api.Client/Armonik.Api.ClientTargets.cmake")
+
+check_required_components(Armonik.Api.Client)

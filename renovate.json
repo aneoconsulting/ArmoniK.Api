@@ -26,6 +26,26 @@
       ]
     },
     {
+      "groupName": " angular npm packages",
+      "groupSlug": "angular-npm",
+      "matchPaths": [
+        "packages/angular/**"
+      ],
+      "matchDatasources": [
+        "npm"
+      ]
+    },
+    {
+      "groupName": " web npm packages",
+      "groupSlug": "web-npm",
+      "matchPaths": [
+        "packages/web/**"
+      ],
+      "matchDatasources": [
+        "npm"
+      ]
+    },
+    {
       "groupName": "nuget packages",
       "groupSlug": "nuget",
       "matchDatasources": [
