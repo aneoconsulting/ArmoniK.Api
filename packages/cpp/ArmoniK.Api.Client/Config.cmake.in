@@ -4,5 +4,6 @@ set_and_check(ARMONIK_INSTALL_PREFIX "@PACKAGE_CMAKE_INSTALL_PREFIX@")
 
 include("${ARMONIK_INSTALL_PREFIX}/lib/cmake/Armonik.Api.Client/Armonik.Api.ClientTargets.cmake")
 
-
 check_required_components(Armonik.Api.Client)
+
+include_directories("${ARMONIK_INSTALL_PREFIX}/include/armonik/client")
