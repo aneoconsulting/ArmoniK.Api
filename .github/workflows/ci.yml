@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           fetch-depth: 0
 
@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -76,13 +76,57 @@ jobs:
             exit 1
           fi
 
+  format-cpp:
+    name: Format C++
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Run clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Check Diff
+        id: check-diff
+        run: |
+          cd packages/cpp
+          git ls-files *.{c,h,hpp,cpp,cc} | xargs clang-format -style=file:.clang-format -i
+          DIFF="$(git diff --name-only)"
+
+          if [ -z "$DIFF" ]; then
+          echo "OK: Format is clean"
+          else
+            echo "Error: Format was not clean"
+            echo "List of files:"
+            echo "$DIFF"
+            git diff
+            exit 1
+          fi
+
+      - name: Generate patch
+        if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
+        run: |
+          git diff > patch-cpp.diff
+      - uses: actions/upload-artifact@v3
+        if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
+        with:
+          name: patch-cpp
+          path: ./patch-cpp.diff
+
   format-protobuf:
     name: Format Protobuf
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -98,7 +142,7 @@ jobs:
       run:
         working-directory: packages/web
     steps:
-      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
+      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           fetch-depth: 0
 
@@ -129,7 +173,7 @@ jobs:
       run:
         working-directory: packages/angular
     steps:
-      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
+      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           fetch-depth: 0
 
@@ -160,7 +204,7 @@ jobs:
       run:
         working-directory: packages/python
     steps:
-      - uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3
+      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           fetch-depth: 0
 
@@ -190,3 +234,18 @@ jobs:
         with:
           name: code-coverage-report-xml
           path: packages/python/coverage.xml
+
+  build-cpp-packages:
+    name: Build C++ Packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Build the package
+        run: |
+          cd packages/cpp/tools/
+          ./compile.sh
