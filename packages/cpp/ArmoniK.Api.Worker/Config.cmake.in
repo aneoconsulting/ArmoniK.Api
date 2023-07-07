@@ -5,3 +5,5 @@ set_and_check(ARMONIK_INSTALL_PREFIX "@PACKAGE_CMAKE_INSTALL_PREFIX@")
 include("${ARMONIK_INSTALL_PREFIX}/lib/cmake/Armonik.Api.Worker/Armonik.Api.WorkerTargets.cmake")
 
 check_required_components(Armonik.Api.Worker)
+
+include_directories("${ARMONIK_INSTALL_PREFIX}/include/armonik/worker")
