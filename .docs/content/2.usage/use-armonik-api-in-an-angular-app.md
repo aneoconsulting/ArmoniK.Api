@@ -461,8 +461,10 @@ For simplicity, you will update the service directly. In a real world scenario, 
 +     page: 0,
 +     pageSize: 10,
 +     sort: {
-+       direction: ListPartitionsRequest.OrderDirection.ORDER_DIRECTION_ASC,
-+       field: ListPartitionsRequest.OrderByField.ORDER_BY_FIELD_ID
++       direction: SortDirection.SORT_DIRECTION_ASC,
++       field: {
++         sessionRawField: SessionRawField.SESSION_RAW_FIELD_SESSION_ID
++       },
 +     },
 +     filter: {
 +       id: '',
