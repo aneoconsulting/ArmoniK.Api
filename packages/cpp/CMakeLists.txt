@@ -33,4 +33,3 @@ if (BUILD_TEST OR WIN32)
     add_subdirectory(ArmoniK.Api.Tests) 
 endif()
 
-
