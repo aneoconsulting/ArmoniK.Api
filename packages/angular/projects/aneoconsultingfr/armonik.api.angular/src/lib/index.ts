@@ -25,6 +25,7 @@ export {
   GetResultRequest,
   GetResultResponse,
   ResultRaw,
+  ResultRawEnumField,
   ResultField,
   ResultRawField,
 } from "./generated/results-common.pb";
