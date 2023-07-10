@@ -72,6 +72,7 @@ export {
   ListPartitionsRequest,
   ListPartitionsResponse,
   PartitionRaw,
+  PartitionRawEnumField,
   PartitionRawField,
   PartitionField,
 } from "./generated/partitions-common.pb"
