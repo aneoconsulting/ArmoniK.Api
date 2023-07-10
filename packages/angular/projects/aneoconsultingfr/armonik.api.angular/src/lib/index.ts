@@ -5,6 +5,7 @@ export {
   CountTasksByStatusRequest as CountTasksByStatusApplicationRequest,
   CountTasksByStatusResponse as CountTasksByStatusApplicationResponse,
   ApplicationRaw,
+  ApplicationRawEnumField,
   ApplicationField,
   ApplicationRawField
 } from "./generated/applications-common.pb";
