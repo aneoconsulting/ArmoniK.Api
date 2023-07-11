@@ -21,6 +21,21 @@ set(CMAKE_FIND_DEBUG_MODE FALSE)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
+
+include(FetchContent)
+
+FetchContent_Declare(
+  simdjson
+  GIT_REPOSITORY https://github.com/simdjson/simdjson.git
+  GIT_SHALLOW TRUE
+  GIT_TAG tags/v3.2.1
+  )
+
+FetchContent_GetProperties(simdjson)
+if(NOT simdjson_POPULATED)
+    FetchContent_Populate(simdjson)
+endif()
+
 set(CMAKE_FIND_DEBUG_MODE FALSE)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
@@ -31,9 +46,10 @@ FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
 
 file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR})
 
-add_library(${PROJECT_NAME} STATIC ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
+add_library(${PROJECT_NAME} STATIC ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES} ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp ${simdjson_SOURCE_DIR}/singleheader/simdjson.h)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure)
+
 set(PROTO_BINARY_DIR "${PROJECT_BUILD_DIR}")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
@@ -50,6 +66,7 @@ get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC
+                           "$<BUILD_INTERFACE:${simdjson_SOURCE_DIR}/singleheader/>"
                            "$<BUILD_INTERFACE:${PROJECT_BUILD_DIR}>"
                            "$<BUILD_INTERFACE:${HEADER_FILES_DIR}>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
@@ -75,7 +92,7 @@ set(PROTO_GENERATED_HEADERS ${PROTO_GENERATED_FILES})
 list(FILTER PROTO_GENERATED_HEADERS INCLUDE REGEX .*\.h )
 
 install(FILES ${PROTO_GENERATED_HEADERS}  DESTINATION ${ARMONIK_INSTALL_INCLUDE_DIR})
-install(FILES ${HEADER_CLIENT_FILES} DESTINATION ${ARMONIK_INSTALL_INCLUDE_DIR})
+install(DIRECTORY ${HEADER_FILES_DIR}/ DESTINATION ${ARMONIK_INSTALL_INCLUDE_DIR} FILES_MATCHING PATTERN "*.h")
 
 install(EXPORT ${PROJECT_NAME}Targets
         FILE ${PROJECT_NAME}Targets.cmake
