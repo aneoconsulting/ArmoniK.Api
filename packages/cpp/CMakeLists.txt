@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.22)
 
 set(version 0.1.0)
 
@@ -32,5 +32,4 @@ if (BUILD_TEST OR WIN32)
     add_subdirectory(ArmoniK.Api.Worker.Tests)
     add_subdirectory(ArmoniK.Api.Tests) 
 endif()
-
 

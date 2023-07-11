@@ -8,7 +8,7 @@
 #include <sstream>
 #include <string>
 
-#include "objects.grpc.pb.h"
+#include "objects.pb.h"
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
 
