@@ -25,13 +25,13 @@ message PartitionRaw {
  * Represents every available field in a partition.
  */
 enum PartitionRawEnumField {
-  PARTITION_RAW_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-  PARTITION_RAW_FIELD_ID = 1; /** The partition ID. */
-  PARTITION_RAW_FIELD_PARENT_PARTITION_IDS = 2; /** The parent partition IDs. */
-  PARTITION_RAW_FIELD_POD_RESERVED = 3; /** Whether the partition is reserved for pods. */
-  PARTITION_RAW_FIELD_POD_MAX = 4; /** The maximum number of pods that can be used by sessions using the partition. */
-  PARTITION_RAW_FIELD_PREEMPTION_PERCENTAGE = 5; /** The percentage of the partition that can be preempted. */
-  PARTITION_RAW_FIELD_PRIORITY = 6; /** The priority of the partition. */
+  PARTITION_RAW_ENUM_FIELD_UNSPECIFIED = 0; /** Unspecified. */
+  PARTITION_RAW_ENUM_FIELD_ID = 1; /** The partition ID. */
+  PARTITION_RAW_ENUM_FIELD_PARENT_PARTITION_IDS = 2; /** The parent partition IDs. */
+  PARTITION_RAW_ENUM_FIELD_POD_RESERVED = 3; /** Whether the partition is reserved for pods. */
+  PARTITION_RAW_ENUM_FIELD_POD_MAX = 4; /** The maximum number of pods that can be used by sessions using the partition. */
+  PARTITION_RAW_ENUM_FIELD_PREEMPTION_PERCENTAGE = 5; /** The percentage of the partition that can be preempted. */
+  PARTITION_RAW_ENUM_FIELD_PRIORITY = 6; /** The priority of the partition. */
 }
 
 /**
