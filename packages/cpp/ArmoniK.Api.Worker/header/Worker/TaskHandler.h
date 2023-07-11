@@ -19,11 +19,13 @@ class TaskHandler {
 private:
   grpc::ClientContext context_;
   std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> stub_;
-  std::unique_ptr<grpc::ClientReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator_;
+  std::shared_ptr<grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator_;
   std::string session_id_;
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
   google::protobuf::RepeatedPtrField<std::string> expected_result_;
+  std::vector<std::byte> payload_;
+  std::vector<std::byte> data_dependencies_;
   std::string token_;
   armonik::api::grpc::v1::Configuration config_;
 
@@ -35,7 +37,7 @@ public:
    * @param request_iterator The request iterator
    */
   TaskHandler(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> client,
-              std::unique_ptr<grpc::ClientReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator);
+              std::shared_ptr<grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator);
 
   /**
    * @brief Initialise the task handler
