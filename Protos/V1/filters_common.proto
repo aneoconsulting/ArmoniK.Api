@@ -1,0 +1,87 @@
+enum FilterStringRange {
+  FILTER_STRING_RANGE_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_STRING_RANGE_EQUAL = 1; /** Equal */
+  FILTER_STRING_RANGE_NOT_EQUAL = 2; /** Not equal */
+  FILTER_STRING_RANGE_CONTAINS = 3; /** Contains */
+  FILTER_STRING_RANGE_NOT_CONTAINS = 4; /** Not contains */
+  FILTER_STRING_RANGE_STARTS_WITH = 5; /** Starts with */
+  FILTER_STRING_RANGE_ENDS_WITH = 6; /** Ends with */
+}
+
+message FilterString {
+  ApplicationRawEnumField field = 1; /** The field to filter. */
+  string value = 2; /** The value to filter. */
+  FilterStringRange range = 3; /** The range to filter. */
+}
+
+enum FilterNumberRange {
+  FILTER_NUMBER_RANGE_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_NUMBER_RANGE_LESS_THAN = 1; /** Less than */
+  FILTER_NUMBER_RANGE_LESS_THAN_OR_EQUAL = 2; /** Less than or equal */
+  FILTER_NUMBER_RANGE_EQUAL = 3; /** Equal */
+  FILTER_NUMBER_RANGE_NOT_EQUAL = 4; /** Not equal */
+  FILTER_NUMBER_RANGE_GREATER_THAN_OR_EQUAL = 5; /** Greater than or equal */
+  FILTER_NUMBER_RANGE_GREATER_THAN = 6; /** Greater than */
+}
+
+message FilterNumber {
+  ApplicationRawEnumField field = 1; /** The field to filter. */
+  int32 value = 2; /** The value to filter. */
+  FilterNumberRange range = 3; /** The range to filter. */
+}
+
+enum FilterDateRange {
+  FILTER_DATE_RANGE_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_DATE_RANGE_BEFORE = 1; /** Before */
+  FILTER_DATE_RANGE_BEFORE_OR_EQUAL = 2; /** Before or equal */
+  FILTER_DATE_RANGE_EQUAL = 3; /** Equal */
+  FILTER_DATE_RANGE_AFTER_OR_EQUAL = 4; /** After or equal */
+  FILTER_DATE_RANGE_AFTER = 5; /** After */
+}
+
+message FilterDate {
+  ApplicationRawEnumField field = 1; /** The field to filter. */
+  google.protobuf.Timestamp value = 2; /** The value to filter. */
+  FilterDateRange range = 3; /** The range to filter. */
+}
+
+message FilterBoolean {
+  ApplicationRawEnumField field = 1; /** The field to filter. */
+  bool value = 2; /** The value to filter. */
+}
+
+enum FilterArrayRange {
+  FILTER_ARRAY_RANGE_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_ARRAY_RANGE_CONTAINS = 1; /** Contains */
+  FILTER_ARRAY_RANGE_NOT_CONTAINS = 2; /** Not contains */
+}
+
+message FilterArray {
+  ApplicationRawEnumField field = 1; /** The field to filter. */
+  repeated string values = 2; /** The values to filter. */
+  FilterArrayRange range = 3; /** The range to filter. */
+}
+
+message FilterField {
+  oneof filter {
+    FilterString filter_string = 1;
+    FilterNumber filter_number = 2;
+    FilterDate filter_date = 3;
+    FilterBoolean filter_boolean = 4;
+    FilterArray filter_array = 5;
+  }
+}
+
+message FiltersAnd {
+  repeated FilterField filters = 1; /** The filters to apply. */
+}
+
+message FiltersOr {
+  repeated FilterAnd filters = 1; /** The filters to apply. */
+}
+
+message XYZ {
+
+  FiltersOr filters = 3; /** The filters to apply. */
+
+}
