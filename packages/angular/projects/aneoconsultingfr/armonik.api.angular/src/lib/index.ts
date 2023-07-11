@@ -41,7 +41,11 @@ export {
   CountTasksByStatusRequest as CountTasksByStatusSessionRequest,
   CountTasksByStatusResponse as CountTasksByStatusSessionResponse,
   SessionRaw,
+  SessionRawEnumField,
   SessionRawField,
+  TaskOptionEnumField as SessionTaskOptionEnumField,
+  TaskOptionField as SessionTaskOptionField,
+  TaskOptionGenericField as SessionTaskOptionGenericField,
   SessionField
 } from "./generated/sessions-common.pb";
 export { SessionsClient } from "./generated/sessions-service.pbsc";
