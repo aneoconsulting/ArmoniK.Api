@@ -30,7 +30,7 @@ using namespace armonik::api::grpc::v1::agent;
  * @param request_iterator The request iterator
  */
 TaskHandler::TaskHandler(std::unique_ptr<Agent::Stub> client,
-                         std::unique_ptr<grpc::ClientReader<ProcessRequest>> request_iterator) {
+                         std::shared_ptr<grpc::ServerReader<ProcessRequest>> request_iterator) {
   stub_ = std::move(client);
   request_iterator_ = std::move(request_iterator);
 }
@@ -41,9 +41,8 @@ TaskHandler::TaskHandler(std::unique_ptr<Agent::Stub> client,
  */
 void TaskHandler::init() {
   ProcessRequest Request;
-  std::unique_ptr<grpc::ClientReader<ProcessRequest>> request_iterator;
-  request_iterator->Read(&Request);
-  if (!request_iterator->Read(&Request)) {
+  // bool status = request_iterator_->Read(&Request);
+  if (!request_iterator_->Read(&Request)) {
     throw std::runtime_error("Request stream ended unexpectedly.");
   }
 
@@ -58,56 +57,41 @@ void TaskHandler::init() {
   token_ = Request.communication_token();
   config_ = init_request.configuration();
 
-  std::vector<std::byte> payload;
-  if (init_request.payload().data_complete()) {
-    std::string temp = init_request.payload().data();
-    payload.resize(temp.length());
-    for (size_t i = 0; i < temp.length(); i++) {
-      payload[i] = static_cast<std::byte>(temp[i]);
+  std::vector<std::string> chunks;
+  auto datachunk = init_request.payload();
+
+  chunks.push_back(datachunk.data());
+
+  while (!datachunk.data_complete()) {
+    if (!request_iterator_->Read(&Request)) {
+      throw std::runtime_error("Request stream ended unexpectedly.");
+    }
+    if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kPayload) {
+      throw std::runtime_error("Expected a Compute request type with Payload to continue the stream.");
     }
 
-  } else {
-    std::vector<std::string> chuncks;
-    auto datachunck = init_request.payload();
-
-    chuncks.push_back(datachunck.data());
-
-    while (!datachunck.data_complete()) {
-      if (request_iterator->Read(&Request)) {
-        throw std::runtime_error("Request stream ended unexpectedly.");
+    datachunk = Request.compute().payload();
+    if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
+      payload_.reserve(payload_.size() + datachunk.data().size());
+      for(auto c : datachunk.data()){
+        payload_.push_back(std::byte(c));
       }
-      if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kPayload) {
-        throw std::runtime_error("Expected a Compute request type with Payload to continue the stream.");
-      }
-
-      datachunck = Request.compute().payload();
-
-      chuncks.push_back(datachunck.data());
     }
 
-    size_t size = chuncks.size();
-
-    auto payload_data = new std::byte[size];
-    int address = 0;
-    for (auto iter = chuncks.begin(); iter != chuncks.end(); iter++) {
-      std::string temp_str = *iter;
-
-      for (size_t i = 0; i < temp_str.length(); i++) {
-        payload_data[i + address] = static_cast<std::byte>(temp_str[i]);
-      }
-      address += temp_str.length();
+    if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
+      throw std::runtime_error("Expected a Compute request type with a DataChunk Payload to continue the stream.");
     }
 
-    payload.resize(size);
-    std::copy_n(payload_data, size, std::back_inserter(payload));
+    if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
+      break;
+    }
+
   }
-
-  std::vector<std::byte *> data_dependencies;
-
+  
   armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::InitData init_data;
 
   do {
-    if (request_iterator->Read(&Request)) {
+    if (!request_iterator_->Read(&Request)) {
       throw std::runtime_error("Request stream ended unexpectedly.");
     }
     if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kInitData) {
@@ -116,44 +100,40 @@ void TaskHandler::init() {
 
     init_data = Request.compute().init_data();
     if (!init_data.key().empty()) {
-      std::vector<std::string> chuncks;
+      std::vector<std::string> chunks_dep;
+      ProcessRequest dep_request;
       while (true) {
-        if (request_iterator->Read(&Request)) {
+        if (!request_iterator_->Read(&dep_request)) {
           throw std::runtime_error("Request stream ended unexpectedly.");
         }
-        if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kData) {
+        if (dep_request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kData) {
           throw std::runtime_error("Expected a Compute request type with Data to continue the stream.");
         }
 
-        auto datachunck = Request.compute().data();
-        if (datachunck.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
-          chuncks.push_back(datachunck.data());
+        auto datachunk = dep_request.compute().data();
+        if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
+          data_dependencies_.reserve(data_dependencies_.size() + datachunk.data().size());
+          for(auto c : datachunk.data()){
+            data_dependencies_.push_back(std::byte(c));
+          }
         }
 
-        if (datachunck.type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
+        if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
           throw std::runtime_error("Expected a Compute request type with a DataChunk Payload to continue the stream.");
         }
 
-        if (datachunck.type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
+        if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
           break;
         }
       }
 
-      size_t size = chuncks.size();
-
-      auto data = new int8_t[size];
-
-      size_t start = 0;
-
-      for (size_t count = 0; count <= size; count++) {
-        std::string temp_str = chuncks[count];
-
-        for (size_t i = 0; i < temp_str.length(); i++) {
-          data[i + count * size] = temp_str[i];
+      for (auto&& chunk : chunks_dep) {
+        data_dependencies_.reserve(data_dependencies_.size()+chunk.size());
+        for(auto c : chunk){
+          data_dependencies_.push_back(std::byte(c));
         }
       }
 
-      data_dependencies.push_back(reinterpret_cast<std::byte *>(data));
     }
 
   } while (!init_data.key().empty());
@@ -318,8 +298,8 @@ std::future<std::vector<ResultReply>> TaskHandler::send_result(std::string key, 
 
     auto reply = new ResultReply;
 
-    size_t chunck;
-    size_t max_chunck = config_.data_chunk_max_size();
+    size_t chunk;
+    size_t max_chunk = config_.data_chunk_max_size();
     const size_t data_size = data.size();
     size_t start = 0;
 
@@ -329,14 +309,14 @@ std::future<std::vector<ResultReply>> TaskHandler::send_result(std::string key, 
     init_msg.mutable_init()->set_key(key);
 
     while (start < data_size) {
-      chunck = std::min(max_chunck, data_size - start);
+      chunk = std::min(max_chunk, data_size - start);
 
       Result msg;
 
       armonik::api::grpc::v1::DataChunk result_msg;
       std::string data_str;
       int count = 0;
-      for (int i = start; i < start + chunck; i++) {
+      for (int i = start; i < start + chunk; i++) {
         data_str[count++] = static_cast<char>(data[i]);
       }
 
@@ -346,7 +326,7 @@ std::future<std::vector<ResultReply>> TaskHandler::send_result(std::string key, 
 
       stream->Write(msg);
 
-      start += chunck;
+      start += chunk;
     }
 
     armonik::api::grpc::v1::DataChunk result_completed;

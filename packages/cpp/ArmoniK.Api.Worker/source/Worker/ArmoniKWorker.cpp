@@ -27,22 +27,45 @@ using namespace armonik::api::worker;
 using namespace armonik::api::common::utils;
 
 /**
+ * @brief Constructs a ArmoniKWorker object.
+ */
+ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
+                            void (*processing_function)(TaskHandler task_handler))
+  : logger_(armonik::api::common::serilog::logging_format::SEQ) {
+  logger_.info("Build Service ArmoniKWorker");
+  logger_.add_property("class", "ArmoniKWorker");
+  logger_.add_property("Worker", "ArmoniK.Api.Cpp");
+  agent_ = std::move(agent);
+  processing_function_ = processing_function;
+}
+
+/**
  * @brief Implements the Process method of the Worker service.
  *
- * @param agent The agent object.
- * @param request_iterator The request iterator
+ * @param context The ServerContext object.
+ * @param reader The request iterator
+ * @param response The ProcessReply object.
  *
  * @return The status of the method.
  */
-Status ArmoniKWorker::Process(std::unique_ptr<Agent::Stub> agent,
-                              std::unique_ptr<grpc::ClientReader<ProcessRequest>> request_iterator) {
+Status ArmoniKWorker::Process(::grpc::ServerContext *context,
+                       ::grpc::ServerReader<ProcessRequest> *reader,
+                       ::armonik::api::grpc::v1::worker::ProcessReply *response) {
 
-  logger_.info("Receive new request From C++ Worker");
-  TaskHandler taskHandler(std::move(agent), std::move(request_iterator));
-  taskHandler.init();
-  std::string key;
-  std::vector<std::byte> data{'a'};
-  auto result = taskHandler.send_result(key, data);
+  logger_.info("Receive new request From C++ real Worker");
+
+  auto output = armonik::api::grpc::v1::Output();
+  *output.mutable_ok() = armonik::api::grpc::v1::Empty();
+  // ProcessRequest req;
+  // reader->Read(&req);
+  *response->mutable_output() = output;
+
+  std::shared_ptr<grpc::ServerReader<ProcessRequest>> request_iterator =
+      std::make_shared<grpc::ServerReader<ProcessRequest>>(*reader);
+
+  TaskHandler task_handler(std::move(agent_), request_iterator);
+
+  task_handler.init();  
 
   logger_.info("Finish call C++");
 
