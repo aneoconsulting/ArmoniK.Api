@@ -37,8 +37,8 @@ public:
    * @return The status of the method.
    */
   grpc::Status Process(::grpc::ServerContext *context,
-               ::grpc::ServerReader<::armonik::api::grpc::v1::worker::ProcessRequest> *reader,
-               ::armonik::api::grpc::v1::worker::ProcessReply *response) override;
+                       ::grpc::ServerReader<::armonik::api::grpc::v1::worker::ProcessRequest> *reader,
+                       ::armonik::api::grpc::v1::worker::ProcessReply *response) override;
 
   /**
    * @brief Implements the HealthCheck method of the Worker service.

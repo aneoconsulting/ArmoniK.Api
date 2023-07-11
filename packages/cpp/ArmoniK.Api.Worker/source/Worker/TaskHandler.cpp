@@ -73,7 +73,7 @@ void TaskHandler::init() {
     datachunk = Request.compute().payload();
     if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
       payload_.reserve(payload_.size() + datachunk.data().size());
-      for(auto c : datachunk.data()){
+      for (auto c : datachunk.data()) {
         payload_.push_back(std::byte(c));
       }
     }
@@ -85,9 +85,8 @@ void TaskHandler::init() {
     if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
       break;
     }
-
   }
-  
+
   armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::InitData init_data;
 
   do {
@@ -113,7 +112,7 @@ void TaskHandler::init() {
         auto datachunk = dep_request.compute().data();
         if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
           data_dependencies_.reserve(data_dependencies_.size() + datachunk.data().size());
-          for(auto c : datachunk.data()){
+          for (auto c : datachunk.data()) {
             data_dependencies_.push_back(std::byte(c));
           }
         }
@@ -127,13 +126,12 @@ void TaskHandler::init() {
         }
       }
 
-      for (auto&& chunk : chunks_dep) {
-        data_dependencies_.reserve(data_dependencies_.size()+chunk.size());
-        for(auto c : chunk){
+      for (auto &&chunk : chunks_dep) {
+        data_dependencies_.reserve(data_dependencies_.size() + chunk.size());
+        for (auto c : chunk) {
           data_dependencies_.push_back(std::byte(c));
         }
       }
-
     }
 
   } while (!init_data.key().empty());

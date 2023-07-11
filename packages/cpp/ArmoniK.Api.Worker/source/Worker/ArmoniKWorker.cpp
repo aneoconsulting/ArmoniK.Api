@@ -30,8 +30,8 @@ using namespace armonik::api::common::utils;
  * @brief Constructs a ArmoniKWorker object.
  */
 ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                            void (*processing_function)(TaskHandler task_handler))
-  : logger_(armonik::api::common::serilog::logging_format::SEQ) {
+                             void (*processing_function)(TaskHandler task_handler))
+    : logger_(armonik::api::common::serilog::logging_format::SEQ) {
   logger_.info("Build Service ArmoniKWorker");
   logger_.add_property("class", "ArmoniKWorker");
   logger_.add_property("Worker", "ArmoniK.Api.Cpp");
@@ -48,9 +48,8 @@ ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agen
  *
  * @return The status of the method.
  */
-Status ArmoniKWorker::Process(::grpc::ServerContext *context,
-                       ::grpc::ServerReader<ProcessRequest> *reader,
-                       ::armonik::api::grpc::v1::worker::ProcessReply *response) {
+Status ArmoniKWorker::Process(::grpc::ServerContext *context, ::grpc::ServerReader<ProcessRequest> *reader,
+                              ::armonik::api::grpc::v1::worker::ProcessReply *response) {
 
   logger_.info("Receive new request From C++ real Worker");
 
@@ -65,7 +64,7 @@ Status ArmoniKWorker::Process(::grpc::ServerContext *context,
 
   TaskHandler task_handler(std::move(agent_), request_iterator);
 
-  task_handler.init();  
+  task_handler.init();
 
   logger_.info("Finish call C++");
 
