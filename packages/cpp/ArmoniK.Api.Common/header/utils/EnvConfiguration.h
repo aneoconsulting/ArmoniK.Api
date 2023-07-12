@@ -1,3 +1,5 @@
+#pragma once
+
 /**
  * @file EnvConfiguration.h
  * @brief Header file for the EnvConfiguration class
@@ -15,32 +17,8 @@ public:
   /**
    * @brief Default constructor
    */
-  EnvConfiguration() = default;
-
-  /**
-   * @brief Gets the value of an environment variable
-   * @param string The name of the environment variable
-   * @return The value of the environment variable, or an empty string if not found
-   */
-  [[nodiscard]] std::string get(const std::string &string) const override {
-    std::string value = std::getenv(string.c_str());
-    if (!value.empty()) {
-      return value;
-    }
-    throw std::runtime_error("Can't get server address !");
+  EnvConfiguration(){
+      add_env_configuration();
   }
-
-  /**
-   * @brief Sets the value of an environment variable
-   * @param string The name of the environment variable
-   * @param value The value to set
-   */
-  void set(const std::string &string, const std::string &value) override {}
-
-  /**
-   * @brief Copies the values of another IConfiguration object into this one
-   * @param other The IConfiguration object to copy from
-   */
-  void set(const IConfiguration &other) override {}
 };
 } // namespace armonik::api::common::utils
