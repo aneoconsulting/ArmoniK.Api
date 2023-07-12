@@ -24,12 +24,11 @@ find_package(Threads)
 
 include(FetchContent)
 
-FetchContent_Declare(
-  simdjson
-  GIT_REPOSITORY https://github.com/simdjson/simdjson.git
-  GIT_SHALLOW TRUE
-  GIT_TAG tags/v3.2.1
-  )
+FETCHCONTENT_DECLARE(
+        simdjson
+        URL https://github.com/simdjson/simdjson/archive/refs/tags/v3.2.1.tar.gz
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
 
 FetchContent_GetProperties(simdjson)
 if(NOT simdjson_POPULATED)

@@ -1,5 +1,6 @@
 #pragma once
 #include <sstream>
+#include <utils/IConfiguration.h>
 
 /**
  * @brief The armonik namespace contains classes and functions related to the Armonik API.

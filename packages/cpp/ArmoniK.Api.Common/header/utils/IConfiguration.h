@@ -6,8 +6,10 @@
 #pragma once
 
 #include <memory>
+#include <set>
 #include <string>
-#include <unordered_map>
+#include <map>
+#include <vector>
 
 namespace armonik::api::common::options {
 class ComputePlane;
@@ -35,20 +37,26 @@ public:
    * @param string Key to look up.
    * @return The value associated with the key, as a string.
    */
-  [[nodiscard]] virtual std::string get(const std::string &string) const = 0;
+  [[nodiscard]] std::string get(const std::string &string) const;
 
   /**
    * @brief Set the value associated with the given key.
    * @param string Key to set the value for.
    * @param value Value to set for the key.
    */
-  virtual void set(const std::string &string, const std::string &value) = 0;
+  void set(const std::string &string, const std::string &value);
 
   /**
    * @brief Set the values from another IConfiguration object.
    * @param other IConfiguration object to copy values from.
    */
-  virtual void set(const IConfiguration &other) = 0;
+  void set(const IConfiguration &other);
+
+  /**
+   * @brief List defined values of this configuration.
+   * @note Does not include environment variables
+   */
+  [[nodiscard]] const std::map<std::string, std::string>& list() const;
 
   /**
    * @brief Add JSON configuration from a file.
@@ -68,5 +76,13 @@ public:
    * @return A ComputePlane object representing the current configuration.
    */
   options::ComputePlane get_compute_plane();
+
+private:
+  /**
+   * @brief Storage for the key-value pairs.
+   */
+  std::map<std::string, std::string> options_;
+  std::set<std::string> above_env_keys_;
+  bool use_environment_ = false;
 };
 } // namespace armonik::api::common::utils

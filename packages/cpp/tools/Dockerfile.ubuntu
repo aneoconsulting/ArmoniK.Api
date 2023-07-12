@@ -12,8 +12,7 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-ge
     protobuf-compiler-grpc \
     grpc-proto \
     libgrpc-dev \
-    libgrpc++-dev \
-	git
+    libgrpc++-dev
 
 # Set environment variables for protobuf
 ENV protobuf_BUILD_TESTS=OFF
@@ -24,7 +23,6 @@ ENV PATH="/app/install/bin:$PATH"
 
 # Print the PATH variable
 RUN echo $PATH
-RUN git config --global --add safe.directory '*'
 
 # Set the working directory for building protobuf
 WORKDIR /app/build
