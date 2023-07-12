@@ -9,7 +9,7 @@
 
 #include "utils/RootConfiguration.h"
 #include "utils/WorkerServer.h"
-#include "worker_common.grpc.pb.h"
+#include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
 #include "Worker/ArmoniKWorker.h"
