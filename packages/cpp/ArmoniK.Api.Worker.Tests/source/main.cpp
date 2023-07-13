@@ -9,7 +9,7 @@
 
 #include "utils/RootConfiguration.h"
 #include "utils/WorkerServer.h"
-#include "worker_common.grpc.pb.h"
+#include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
 #include "Worker/ArmoniKWorker.h"
@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
   config->set("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock");
 
   config->get_compute_plane();
-  WorkerServer::create<ArmoniKWorker, bool>(config)->run();
+  WorkerServer::create<ArmoniK::Api::Worker::ArmoniKWorker, bool>(config)->run();
 
   std::cout << "Stooping Server..." << std::endl;
   return 0;

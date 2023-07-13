@@ -14,6 +14,8 @@
 
 #include "Worker/TaskHandler.h"
 
+namespace API_WORKER_NAMESPACE{
+  
 class ArmoniKWorker final : public armonik::api::grpc::v1::worker::Worker::Service {
 private:
   armonik::api::common::serilog::serilog logger_;
@@ -52,3 +54,5 @@ public:
   grpc::Status HealthCheck(::grpc::ServerContext *context, const ::armonik::api::grpc::v1::Empty *request,
                            ::armonik::api::grpc::v1::worker::HealthCheckReply *response) override;
 };
+
+} // namespace API_WORKER_NAMESPACE

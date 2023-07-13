@@ -28,14 +28,14 @@ using namespace armonik::api::grpc::v1::submitter;
  *
  * @param stub the gRPC client stub
  */
-SubmitterClient::SubmitterClient(std::unique_ptr<Submitter::StubInterface> stub) { stub_ = std::move(stub); }
+API_CLIENT_NAMESPACE::SubmitterClient::SubmitterClient(std::unique_ptr<Submitter::StubInterface> stub) { stub_ = std::move(stub); }
 
 /**
  * @brief Create a new session.
  * @param partition_ids The partitions ids.
  * @param default_task_options The default task options.
  */
-std::string SubmitterClient::create_session(TaskOptions default_task_options,
+std::string API_CLIENT_NAMESPACE::SubmitterClient::create_session(TaskOptions default_task_options,
                                             const std::vector<std::string> &partition_ids = {}) {
   CreateSessionRequest request;
   *request.mutable_default_task_option() = std::move(default_task_options);
@@ -65,7 +65,7 @@ std::string SubmitterClient::create_session(TaskOptions default_task_options,
  * @return A vector of futures containing CreateLargeTaskRequest objects.
  */
 std::vector<std::future<std::vector<CreateLargeTaskRequest>>>
-SubmitterClient::to_request_stream(const std::vector<TaskRequest> &task_requests, std::string session_id,
+API_CLIENT_NAMESPACE::SubmitterClient::to_request_stream(const std::vector<TaskRequest> &task_requests, std::string session_id,
                                    TaskOptions task_options, const size_t chunk_max_size) {
   std::vector<std::future<std::vector<CreateLargeTaskRequest>>> async_chunk_payload_tasks;
   async_chunk_payload_tasks.push_back(
@@ -98,7 +98,7 @@ SubmitterClient::to_request_stream(const std::vector<TaskRequest> &task_requests
  * @return A future containing a vector of CreateLargeTaskRequest objects.
  */
 std::future<std::vector<CreateLargeTaskRequest>>
-SubmitterClient::task_chunk_stream(const TaskRequest &task_request, bool is_last, size_t chunk_max_size) {
+API_CLIENT_NAMESPACE::SubmitterClient::task_chunk_stream(const TaskRequest &task_request, bool is_last, size_t chunk_max_size) {
   return std::async(std::launch::async, [&task_request, chunk_max_size, is_last]() {
     std::vector<CreateLargeTaskRequest> requests;
     armonik::api::grpc::v1::InitTaskRequest header_task_request;
@@ -172,7 +172,7 @@ SubmitterClient::task_chunk_stream(const TaskRequest &task_request, bool is_last
  * @param task_requests A vector of TaskRequest objects.
  * @return A future containing a CreateTaskReply object.
  */
-std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string session_id, TaskOptions task_options,
+std::future<CreateTaskReply> API_CLIENT_NAMESPACE::SubmitterClient::create_tasks_async(std::string session_id, TaskOptions task_options,
                                                                  const std::vector<TaskRequest> &task_requests) {
   return std::async(std::launch::async, [this, task_requests, session_id = std::move(session_id),
                                          task_options = std::move(task_options)]() mutable {
@@ -230,7 +230,7 @@ std::future<CreateTaskReply> SubmitterClient::create_tasks_async(std::string ses
  * @return A vector of task IDs.
  */
 std::tuple<std::vector<std::string>, std::vector<std::string>>
-SubmitterClient::submit_tasks_with_dependencies(std::string session_id, TaskOptions task_options,
+API_CLIENT_NAMESPACE::SubmitterClient::submit_tasks_with_dependencies(std::string session_id, TaskOptions task_options,
                                                 const std::vector<payload_data> &payloads_with_dependencies,
                                                 int max_retries = 5) {
   std::vector<std::string> task_ids;
@@ -283,7 +283,7 @@ SubmitterClient::submit_tasks_with_dependencies(std::string session_id, TaskOpti
  * @param result_request A vector of ResultRequest objects.
  * @return A future containing data result.
  */
-std::future<std::vector<std::byte>> SubmitterClient::get_result_async(const ResultRequest &result_request) {
+std::future<std::vector<std::byte>> API_CLIENT_NAMESPACE::SubmitterClient::get_result_async(const ResultRequest &result_request) {
   return std::async(std::launch::async, [this, &result_request]() {
     ResultReply result_writer;
     ClientContext context_configuration;
