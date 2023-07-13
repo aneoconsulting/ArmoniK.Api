@@ -30,7 +30,7 @@ using namespace armonik::api::grpc::v1::agent;
  * @param request_iterator The request iterator
  */
 API_WORKER_NAMESPACE::TaskHandler::TaskHandler(std::unique_ptr<Agent::Stub> client,
-                         std::shared_ptr<grpc::ServerReader<ProcessRequest>> request_iterator) {
+                                               std::shared_ptr<grpc::ServerReader<ProcessRequest>> request_iterator) {
   stub_ = std::move(client);
   request_iterator_ = std::move(request_iterator);
 }
@@ -145,8 +145,8 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
  * @param chunk_max_size Maximum chunk size.
  * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
  */
-std::future<std::vector<CreateTaskRequest>> API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, bool is_last,
-                                                                           size_t chunk_max_size) {
+std::future<std::vector<CreateTaskRequest>>
+API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, bool is_last, size_t chunk_max_size) {
   return std::async(std::launch::async, [task_request = std::move(task_request), chunk_max_size, is_last]() {
     std::vector<CreateTaskRequest> requests;
     armonik::api::grpc::v1::InitTaskRequest header_task_request;
@@ -220,8 +220,8 @@ std::future<std::vector<CreateTaskRequest>> API_WORKER_NAMESPACE::TaskHandler::t
  * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
  */
 std::vector<std::future<std::vector<CreateTaskRequest>>>
-API_WORKER_NAMESPACE::TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests, TaskOptions task_options,
-                               const size_t chunk_max_size) {
+API_WORKER_NAMESPACE::TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests,
+                                                     TaskOptions task_options, const size_t chunk_max_size) {
   std::vector<std::future<std::vector<CreateTaskRequest>>> async_chunk_payload_tasks;
 
   async_chunk_payload_tasks.push_back(std::async([task_options = std::move(task_options)]() mutable {
@@ -249,8 +249,9 @@ API_WORKER_NAMESPACE::TaskHandler::to_request_stream(const std::vector<TaskReque
  * @param task_requests List of task requests
  * @return Successfully sent task
  */
-std::future<CreateTaskReply> API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
-                                                             const std::vector<TaskRequest> &task_requests) {
+std::future<CreateTaskReply>
+API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
+                                                      const std::vector<TaskRequest> &task_requests) {
   return std::async(std::launch::async, [this, &task_requests, &task_options]() mutable {
     size_t chunk = config_.data_chunk_max_size();
 
@@ -288,7 +289,8 @@ std::future<CreateTaskReply> API_WORKER_NAMESPACE::TaskHandler::create_tasks_asy
  * @param data The result data
  * @return A future containing a vector of ResultReply
  */
-std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_result(std::string key, std::vector<std::byte> &data) {
+std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_result(std::string key,
+                                                                                     std::vector<std::byte> &data) {
   return std::async(std::launch::async, [this, key, data]() {
     std::vector<ResultReply> result;
 
@@ -356,7 +358,8 @@ std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_re
  * @param results The results data
  * @return std::vector<std::string> list of result ids
  */
-std::vector<std::string> API_WORKER_NAMESPACE::TaskHandler::get_result_ids(std::vector<CreateResultsMetaDataRequest_ResultCreate> results) {
+std::vector<std::string>
+API_WORKER_NAMESPACE::TaskHandler::get_result_ids(std::vector<CreateResultsMetaDataRequest_ResultCreate> results) {
   std::vector<std::string> result_ids;
 
   grpc::ClientContext context_client_writer;
