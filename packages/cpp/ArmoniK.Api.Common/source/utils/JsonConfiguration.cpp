@@ -10,7 +10,7 @@ using namespace simdjson;
  * @param prefix Prefix for the key
  * @param element json element
  */
-void populate(armonik::api::common::utils::JsonConfiguration &config, const std::string &prefix,
+void populate(armonik::api::common::utils::IConfiguration &config, const std::string &prefix,
               const dom::element &element) {
   switch (element.type()) {
   case dom::element_type::ARRAY: {
@@ -33,14 +33,22 @@ void populate(armonik::api::common::utils::JsonConfiguration &config, const std:
 }
 
 armonik::api::common::utils::JsonConfiguration::JsonConfiguration(const std::string &json_path) {
-  dom::parser parser;
-  populate(*this, "", parser.load(json_path));
+  fromPath(*this, json_path);
 }
 
 armonik::api::common::utils::JsonConfiguration
 armonik::api::common::utils::JsonConfiguration::fromString(const std::string &json_string) {
   JsonConfiguration config;
+  fromString(config, json_string);
+  return std::move(config);
+}
+void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::common::utils::IConfiguration &config,
+                                                              std::string_view filepath) {
+  dom::parser parser;
+  populate(config, "", parser.load(std::string(filepath)));
+}
+void armonik::api::common::utils::JsonConfiguration::fromString(armonik::api::common::utils::IConfiguration &config,
+                                                                const std::string &json_string) {
   dom::parser parser;
   populate(config, "", parser.parse(padded_string(json_string)));
-  return std::move(config);
 }

@@ -7,7 +7,7 @@
 #include "grpcpp/support/sync_stream.h"
 #include "objects.pb.h"
 
-#include "utils/RootConfiguration.h"
+#include "utils/IConfiguration.h"
 #include "utils/WorkerServer.h"
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
