@@ -42,10 +42,10 @@ armonik::api::common::utils::JsonConfiguration::fromString(const std::string &js
   fromString(config, json_string);
   return std::move(config);
 }
-void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::common::utils::IConfiguration &config,
-                                                              const std::string &filepath) {
+void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::common::utils::IConfiguration config,
+                                                              std::string_view filepath) {
   dom::parser parser;
-  populate(config, "", parser.load(filepath));
+  populate(std::move(config), "", parser.load(filepath));
 }
 void armonik::api::common::utils::JsonConfiguration::fromString(armonik::api::common::utils::IConfiguration &config,
                                                                 const std::string &json_string) {

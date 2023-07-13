@@ -64,7 +64,7 @@ public:
    * @param file_path Path to the JSON file.
    * @return Reference to the current IConfiguration object.
    */
-  IConfiguration &add_json_configuration(const std::string &file_path);
+  IConfiguration &add_json_configuration(std::string_view file_path);
 
   /**
    * @brief Add environment variable configuration.
