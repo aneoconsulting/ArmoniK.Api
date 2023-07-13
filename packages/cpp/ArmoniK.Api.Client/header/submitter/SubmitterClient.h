@@ -10,7 +10,7 @@
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
 
-namespace API_CLIENT_NAMESPACE{
+namespace API_CLIENT_NAMESPACE {
 
 /**
  * @brief Data structure for task payload

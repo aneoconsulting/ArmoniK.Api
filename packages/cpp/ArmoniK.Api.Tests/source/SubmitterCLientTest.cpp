@@ -102,7 +102,7 @@ TEST(testMock, submitTask) {
   log.enrich([&](serilog_context &ctx) { ctx.add("fieldTestValue", 1); });
   log.add_property("time", time(nullptr));
 
-  ::putenv((char*)"GRPC_DNS_RESOLVER=native");
+  ::putenv((char *)"GRPC_DNS_RESOLVER=native");
 
   std::cout << "Starting client..." << std::endl;
 

@@ -14,8 +14,8 @@
 
 #include "Worker/TaskHandler.h"
 
-namespace API_WORKER_NAMESPACE{
-  
+namespace API_WORKER_NAMESPACE {
+
 class ArmoniKWorker final : public armonik::api::grpc::v1::worker::Worker::Service {
 private:
   armonik::api::common::serilog::serilog logger_;

@@ -30,7 +30,7 @@ using namespace armonik::api::common::utils;
  * @brief Constructs a ArmoniKWorker object.
  */
 API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                             void (*processing_function)(TaskHandler task_handler))
+                                                   void (*processing_function)(TaskHandler task_handler))
     : logger_(armonik::api::common::serilog::logging_format::SEQ) {
   logger_.info("Build Service ArmoniKWorker");
   logger_.add_property("class", "ArmoniKWorker");
@@ -48,8 +48,9 @@ API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api:
  *
  * @return The status of the method.
  */
-Status API_WORKER_NAMESPACE::ArmoniKWorker::Process(::grpc::ServerContext *context, ::grpc::ServerReader<ProcessRequest> *reader,
-                              ::armonik::api::grpc::v1::worker::ProcessReply *response) {
+Status API_WORKER_NAMESPACE::ArmoniKWorker::Process(::grpc::ServerContext *context,
+                                                    ::grpc::ServerReader<ProcessRequest> *reader,
+                                                    ::armonik::api::grpc::v1::worker::ProcessReply *response) {
 
   logger_.info("Receive new request From C++ real Worker");
 
@@ -80,8 +81,9 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process(::grpc::ServerContext *conte
  *
  * @return The status of the method.
  */
-Status API_WORKER_NAMESPACE::ArmoniKWorker::HealthCheck(::grpc::ServerContext *context, const ::armonik::api::grpc::v1::Empty *request,
-                                  ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
+Status API_WORKER_NAMESPACE::ArmoniKWorker::HealthCheck(::grpc::ServerContext *context,
+                                                        const ::armonik::api::grpc::v1::Empty *request,
+                                                        ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
   // Implementation of the HealthCheck method
   logger_.info("HealthCheck request OK");
 
