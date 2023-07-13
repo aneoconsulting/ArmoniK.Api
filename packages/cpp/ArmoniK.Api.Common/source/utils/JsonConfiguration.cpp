@@ -33,7 +33,7 @@ void populate(armonik::api::common::utils::IConfiguration &config, const std::st
 }
 
 armonik::api::common::utils::JsonConfiguration::JsonConfiguration(const std::string &json_path) {
-    fromPath(*this, json_path);
+  fromPath(*this, json_path);
 }
 
 armonik::api::common::utils::JsonConfiguration

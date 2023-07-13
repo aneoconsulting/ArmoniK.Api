@@ -17,8 +17,6 @@ public:
   /**
    * @brief Default constructor
    */
-  EnvConfiguration(){
-      add_env_configuration();
-  }
+  EnvConfiguration() { add_env_configuration(); }
 };
 } // namespace armonik::api::common::utils
