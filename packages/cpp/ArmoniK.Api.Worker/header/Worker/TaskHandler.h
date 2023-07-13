@@ -8,6 +8,8 @@
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
+namespace API_WORKER_NAMESPACE {
+
 // #include "SessionContext.h"
 
 /**
@@ -64,9 +66,9 @@ public:
    * @param chunk_max_size Maximum chunk size.
    * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
    */
-  static auto to_request_stream(const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests,
-                                armonik::api::grpc::v1::TaskOptions task_options, size_t chunk_max_size)
-      -> std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>;
+  static std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
+  to_request_stream(const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests,
+                    armonik::api::grpc::v1::TaskOptions task_options, size_t chunk_max_size);
 
   /**
    * @brief Create a tasks async object
@@ -97,3 +99,5 @@ public:
   std::vector<std::string>
   get_result_ids(std::vector<armonik::api::grpc::v1::agent::CreateResultsMetaDataRequest_ResultCreate> results);
 };
+
+} // namespace API_WORKER_NAMESPACE

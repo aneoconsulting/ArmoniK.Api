@@ -22,6 +22,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
+target_compile_definitions(${PROJECT_NAME} PUBLIC API_TEST_NAMESPACE=${NAMESPACE})
+
 target_include_directories(${PROJECT_NAME}
                            PUBLIC
                            "$<BUILD_INTERFACE:${HEADER_FILES_DIR}>"
@@ -40,6 +42,7 @@ include(FetchContent)
 FetchContent_Declare(
     googletest
     URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
