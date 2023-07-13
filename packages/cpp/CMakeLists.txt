@@ -29,6 +29,7 @@ add_subdirectory(ArmoniK.Api.Client)
 
 
 if (BUILD_TEST OR WIN32)
+    set(BUILD_DIR "/app/buildtest")
     add_subdirectory(ArmoniK.Api.Worker.Tests)
     add_subdirectory(ArmoniK.Api.Tests) 
 endif()

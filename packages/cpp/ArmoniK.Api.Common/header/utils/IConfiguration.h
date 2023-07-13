@@ -5,13 +5,16 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
-#include <unordered_map>
+#include <vector>
 
 namespace armonik::api::common::options {
 class ComputePlane;
-}
+class ControlPlane;
+} // namespace armonik::api::common::options
 
 namespace armonik::api::common::utils {
 /**
@@ -35,27 +38,33 @@ public:
    * @param string Key to look up.
    * @return The value associated with the key, as a string.
    */
-  [[nodiscard]] virtual std::string get(const std::string &string) const = 0;
+  [[nodiscard]] std::string get(const std::string &string) const;
 
   /**
    * @brief Set the value associated with the given key.
    * @param string Key to set the value for.
    * @param value Value to set for the key.
    */
-  virtual void set(const std::string &string, const std::string &value) = 0;
+  void set(const std::string &string, const std::string &value);
 
   /**
    * @brief Set the values from another IConfiguration object.
    * @param other IConfiguration object to copy values from.
    */
-  virtual void set(const IConfiguration &other) = 0;
+  void set(const IConfiguration &other);
+
+  /**
+   * @brief List defined values of this configuration.
+   * @note Does not include environment variables
+   */
+  [[nodiscard]] const std::map<std::string, std::string> &list() const;
 
   /**
    * @brief Add JSON configuration from a file.
    * @param file_path Path to the JSON file.
    * @return Reference to the current IConfiguration object.
    */
-  IConfiguration &add_json_configuration(const std::string &file_path);
+  IConfiguration &add_json_configuration(std::string_view file_path);
 
   /**
    * @brief Add environment variable configuration.
@@ -68,5 +77,19 @@ public:
    * @return A ComputePlane object representing the current configuration.
    */
   options::ComputePlane get_compute_plane();
+
+  /**
+   * @brief Get the current ControlPlane configuration
+   * @return A ControlPlane object
+   */
+  options::ControlPlane get_control_plane();
+
+private:
+  /**
+   * @brief Storage for the key-value pairs.
+   */
+  std::map<std::string, std::string> options_;
+  std::set<std::string> above_env_keys_;
+  bool use_environment_ = false;
 };
 } // namespace armonik::api::common::utils
