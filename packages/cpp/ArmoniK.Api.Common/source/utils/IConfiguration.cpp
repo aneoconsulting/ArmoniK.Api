@@ -5,7 +5,7 @@
 #include "utils/JsonConfiguration.h"
 
 namespace armonik::api::common::utils {
-IConfiguration &IConfiguration::add_json_configuration(const std::string &file_path) {
+IConfiguration &IConfiguration::add_json_configuration(std::string_view file_path) {
   JsonConfiguration::fromPath(*this, file_path);
   return *this;
 }
