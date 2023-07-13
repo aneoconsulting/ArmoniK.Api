@@ -5,15 +5,16 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
-#include <map>
 #include <vector>
 
 namespace armonik::api::common::options {
 class ComputePlane;
-}
+class ControlPlane;
+} // namespace armonik::api::common::options
 
 namespace armonik::api::common::utils {
 /**
@@ -56,7 +57,7 @@ public:
    * @brief List defined values of this configuration.
    * @note Does not include environment variables
    */
-  [[nodiscard]] const std::map<std::string, std::string>& list() const;
+  [[nodiscard]] const std::map<std::string, std::string> &list() const;
 
   /**
    * @brief Add JSON configuration from a file.
@@ -76,6 +77,12 @@ public:
    * @return A ComputePlane object representing the current configuration.
    */
   options::ComputePlane get_compute_plane();
+
+  /**
+   * @brief Get the current ControlPlane configuration
+   * @return A ControlPlane object
+   */
+  options::ControlPlane get_control_plane();
 
 private:
   /**
