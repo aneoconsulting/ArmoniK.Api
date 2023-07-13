@@ -10,6 +10,8 @@
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
 
+namespace API_CLIENT_NAMESPACE{
+
 /**
  * @brief Data structure for task payload
  * @param keys The expected output keys
@@ -98,3 +100,5 @@ public:
    */
   std::future<std::vector<std::byte>> get_result_async(const armonik::api::grpc::v1::ResultRequest &result_request);
 };
+
+} // namespace API_CLIENT_NAMESPACE

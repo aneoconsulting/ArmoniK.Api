@@ -33,6 +33,8 @@ add_library(${PROJECT_NAME} STATIC ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} 
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common ${PROTO_TARGET})
 
+target_compile_definitions(${PROJECT_NAME} PUBLIC API_WORKER_NAMESPACE=${NAMESPACE})
+
 target_include_directories(${PROJECT_NAME}
     PUBLIC
     "$<BUILD_INTERFACE:${BUILD_DIR}/ArmoniK.Api.Common>"
