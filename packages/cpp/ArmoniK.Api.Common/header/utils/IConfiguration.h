@@ -76,13 +76,13 @@ public:
    * @brief Get the current ComputePlane configuration.
    * @return A ComputePlane object representing the current configuration.
    */
-  options::ComputePlane get_compute_plane();
+  [[nodiscard]] options::ComputePlane get_compute_plane() const;
 
   /**
    * @brief Get the current ControlPlane configuration
    * @return A ControlPlane object
    */
-  options::ControlPlane get_control_plane();
+  [[nodiscard]] options::ControlPlane get_control_plane() const;
 
 private:
   /**

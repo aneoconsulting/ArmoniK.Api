@@ -24,7 +24,7 @@ public:
    * @brief Returns the server address.
    * @return A reference to the server address string.
    */
-  std::string_view get_server_address() const { return worker_address_; }
+  [[nodiscard]] std::string_view get_server_address() const { return worker_address_; }
 
   /**
    * @brief Sets the worker address with the given socket address.
@@ -52,7 +52,7 @@ public:
    * @brief Returns the agent address.
    * @return A reference to the agent address string.
    */
-  std::string_view get_agent_address() const { return agent_address_; }
+  [[nodiscard]] std::string_view get_agent_address() const { return agent_address_; }
 
 private:
   std::string worker_address_; ///< The worker address string.
