@@ -1,0 +1,2 @@
+This project uses simdjson (https://github.com/simdjson/simdjson) from The simdjson authors under Apache 2.0 license (https://www.apache.org/licenses/LICENSE-2.0)
+

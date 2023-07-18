@@ -3,7 +3,6 @@
  * @file JsonConfiguration.h
  * @brief Definition of a JSON configuration class that inherits from IConfiguration.
  */
-
 #include "utils/IConfiguration.h"
 
 namespace armonik::api::common::utils {
@@ -12,31 +11,18 @@ namespace armonik::api::common::utils {
  * @brief JSON configuration class that inherits from IConfiguration.
  */
 class JsonConfiguration : public IConfiguration {
+private:
+  JsonConfiguration() = default;
+
 public:
   /**
-   * @brief Constructor that takes a JSON string.
-   * @param string JSON string to be used for configuration.
+   * @brief Constructor that takes a JSON file path.
+   * @param filepath JSON file path to be used for configuration.
    */
-  explicit JsonConfiguration(const std::string &string) {}
+  explicit JsonConfiguration(const std::string &filepath);
 
-  /**
-   * @brief Get the value associated with the given key.
-   * @param string Key to look up.
-   * @return The value associated with the key, as a string.
-   */
-  [[nodiscard]] std::string get(const std::string &string) const override { return ""; }
-
-  /**
-   * @brief Set the value associated with the given key.
-   * @param string Key to set the value for.
-   * @param value Value to set for the key.
-   */
-  void set(const std::string &string, const std::string &value) override {}
-
-  /**
-   * @brief Set the values from another IConfiguration object.
-   * @param other IConfiguration object to copy values from.
-   */
-  void set(const IConfiguration &other) override {}
+  static void fromPath(IConfiguration &config, std::string_view filepath);
+  static JsonConfiguration fromString(const std::string &json_string);
+  static void fromString(IConfiguration &config, const std::string &json_string);
 };
 } // namespace armonik::api::common::utils

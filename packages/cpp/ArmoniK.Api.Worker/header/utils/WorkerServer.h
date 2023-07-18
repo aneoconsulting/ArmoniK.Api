@@ -75,7 +75,7 @@ public:
     // Create a stub for the Submitter service
     worker_server->agent_stub = Agent::NewStub(worker_server->channel);
 
-    worker_server->builder_.RegisterService(new Worker());
+    worker_server->builder_.RegisterService(new Worker(std::move(worker_server->agent_stub), nullptr));
     worker_server->logger.info("Finish to register new worker");
 
     return worker_server;

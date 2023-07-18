@@ -37,5 +37,9 @@ if [ -z "$(docker images -q "${IMAGE_TAG}" 2> /dev/null)" ]; then
   docker build -t "${IMAGE_TAG}" -f tools/Dockerfile.ubuntu .
 fi
 
+mkdir -p ${working_dir}/build
+mkdir -p ${working_dir}/buildtest
+mkdir -p ${install_dir}
+
 # Compile the project source using the Docker image
-docker run -v "${proto_dir}:/app/proto" -v "${working_dir}:/app/source" -v "${install_dir}:/app/install" -v "${working_dir}/build:/app/build" --rm "${IMAGE_TAG}"
+docker run -v "${proto_dir}:/app/proto" -v "${working_dir}:/app/source" -v "${install_dir}:/app/install" -v "${working_dir}/build:/app/build" -v "${working_dir}/buildtest:/app/buildtest" --rm "${IMAGE_TAG}"

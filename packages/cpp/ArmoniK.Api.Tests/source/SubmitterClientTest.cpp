@@ -84,7 +84,7 @@ TEST(testMock, createSession) {
 
   std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
   // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
-  SubmitterClient submitter(std::move(stub));
+  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub));
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   std::cout << "create_session response: " << session_id << std::endl;
@@ -102,7 +102,7 @@ TEST(testMock, submitTask) {
   log.enrich([&](serilog_context &ctx) { ctx.add("fieldTestValue", 1); });
   log.add_property("time", time(nullptr));
 
-  ::putenv("GRPC_DNS_RESOLVER=native");
+  ::putenv((char *)"GRPC_DNS_RESOLVER=native");
 
   std::cout << "Starting client..." << std::endl;
 
@@ -125,17 +125,17 @@ TEST(testMock, submitTask) {
   CreateSessionReply reply;
   grpc::ClientContext context;
 
-  SubmitterClient submitter(std::move(stub));
+  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub));
   const std::vector<std::string> &partition_ids = {"cpp"};
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   ASSERT_FALSE(session_id.empty());
 
   try {
-    std::vector<payload_data> payloads;
+    std::vector<ArmoniK::Api::Client::payload_data> payloads;
 
     for (int i = 0; i < 10; i++) {
-      payload_data data;
+      ArmoniK::Api::Client::payload_data data;
       data.keys = armonik::api::common::utils::GuuId::generate_uuid();
       data.payload = {'a', 'r', 'm', 'o', 'n', 'i', 'k'};
       data.dependencies = {};
@@ -177,7 +177,7 @@ TEST(testMock, getResult) {
   // EXPECT_CALL(*stub, TryGetResultStreamRaw(_, _)).Times(AtLeast(1));
 
   std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
-  SubmitterClient submitter(std::move(stub));
+  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub));
 
   auto result = submitter.get_result_async(result_request);
 
