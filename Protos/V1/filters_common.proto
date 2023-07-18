@@ -31,18 +31,4 @@ enum FilterArrayRange {
   FILTER_ARRAY_RANGE_UNSPECIFIED = 0; /** Unspecified */
   FILTER_ARRAY_RANGE_CONTAINS = 1; /** Contains */
   FILTER_ARRAY_RANGE_NOT_CONTAINS = 2; /** Not contains */
-}
-
-message FiltersAnd {
-  repeated FilterField filters = 1; /** The filters to apply. */
-}
-
-message FiltersOr {
-  repeated FilterAnd filters = 1; /** The filters to apply. */
-}
-
-message XYZ {
-
-  FiltersOr filters = 3; /** The filters to apply. */
-
-}
+}}
