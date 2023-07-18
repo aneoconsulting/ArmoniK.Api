@@ -9,9 +9,9 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "objects.proto";
 import "sort_direction.proto";
-import "task_fields.proto";
-import "task_filters.proto";
 import "task_status.proto";
+import "tasks_fields.proto";
+import "tasks_filters.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
 
