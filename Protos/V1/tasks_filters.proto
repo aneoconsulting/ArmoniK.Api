@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.tasks;
 
-import "google/protobuf/timestamp.proto";
 import "filters_common.proto";
+import "google/protobuf/timestamp.proto";
 import "tasks_fields.proto";
 
 option csharp_namespace = "Armonik.Api.Grpc.V1.Tasks";
