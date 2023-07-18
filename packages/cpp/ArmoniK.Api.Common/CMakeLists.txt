@@ -12,7 +12,10 @@ set(PROTO_FILES
     "result_status.proto"
     "task_status.proto"
     "session_status.proto"
-    "sort_direction.proto")
+    "sort_direction.proto"
+    "tasks_fields.proto"
+    "tasks_filters.proto"
+    "filters_common.proto")
 
 list(TRANSFORM PROTO_FILES PREPEND "${PROTO_FILES_DIR}/")
 
