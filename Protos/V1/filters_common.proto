@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package armonik.api.gRPC.v1;
+package armonik.api.grpc.v1;
 
-option csharp_namespace = "Armonik.Api.Grpc.V1";
+option csharp_namespace = "Armonik.Api.gRPC.V1.Tasks";
 
 enum FilterStringRange {
   FILTER_STRING_RANGE_UNSPECIFIED = 0; /** Unspecified */
