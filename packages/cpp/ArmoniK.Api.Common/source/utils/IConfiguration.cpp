@@ -16,7 +16,7 @@ IConfiguration &IConfiguration::add_env_configuration() {
   return *this;
 }
 
-options::ComputePlane IConfiguration::get_compute_plane() { return *this; }
+options::ComputePlane IConfiguration::get_compute_plane() const { return *this; }
 
 void IConfiguration::set(const IConfiguration &other) {
   for (auto &&[key, value] : other.list()) {
@@ -42,6 +42,6 @@ std::string IConfiguration::get(const std::string &string) const {
 }
 
 const std::map<std::string, std::string> &IConfiguration::list() const { return options_; }
-options::ControlPlane IConfiguration::get_control_plane() { return *this; }
+options::ControlPlane IConfiguration::get_control_plane() const { return *this; }
 
 } // namespace armonik::api::common::utils
