@@ -2,38 +2,39 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.tasks;
 
+import "google/protobuf/timestamp.proto";
 import "filters_common.proto";
 import "tasks_fields.proto";
 
 option csharp_namespace = "Armonik.Api.Grpc.V1.Tasks";
 
 message FilterString {
-  tasks_fields.TaskField field = 1;
+  TaskField field = 1;
   string value = 2;
-  filters_common.FilterStringRange range = 3;
+  FilterStringRange range = 3;
 }
 
 message FilterNumber {
-  tasks_fields.TaskField field = 1;
+  TaskField field = 1;
   int64 value = 2;
-  filters_common.FilterNumberRange range = 3;
+  FilterNumberRange range = 3;
 }
 
 message FilterDate {
-  tasks_fields.TaskField field = 1;
+  TaskField field = 1;
   google.protobuf.Timestamp value = 2;
-  filters_common.FilterDateRange range = 3;
+  FilterDateRange range = 3;
 }
 
 message FilterBoolean {
-  tasks_fields.TaskField field = 1;
+  TaskField field = 1;
   bool value = 2;
 }
 
 message FilterArray {
-  tasks_fields.TaskField field = 1;
+  TaskField field = 1;
   string value = 2;
-  filters_common.FilterArrayRange range = 3;
+  FilterArrayRange range = 3;
 }
 
 message FilterField {
@@ -51,11 +52,11 @@ message FiltersAnd {
 }
 
 message FiltersOr {
-  repeated FiltersField filters = 1;
+  repeated FiltersAnd filters = 1;
 }
 
 message Filters {
-  FilterOr filters = 1;
+  FiltersOr filters = 1;
 }
 
 // TODO: I think that we could add a duration filter.

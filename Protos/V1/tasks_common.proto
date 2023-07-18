@@ -105,13 +105,13 @@ message ListTasksRequest {
   int32 page = 1; /** The page number. Start at 0.*/
   int32 page_size = 2; /** The page size. */
 
-  task_filters.Filters filters = 3; /** The filters. */
+  Filters filters = 3; /** The filters. */
 
   /**
    * Represents the sort object.
    */
   message Sort {
-    task_fields.TaskField field = 1; /** The field to sort on. */
+    TaskField field = 1; /** The field to sort on. */
     sort_direction.SortDirection direction = 2; /** The sort direction. */
   }
 
