@@ -11,7 +11,7 @@ public:
     user_cert_pem_path_ = config.get(UserCertKey);
     user_key_pem_path_ = config.get(UserKeyKey);
     user_p12_path_ = config.get(UserP12Key);
-    ca_cert_perm_path_ = config.get(CaCertKey);
+    ca_cert_pem_path_ = config.get(CaCertKey);
     sslValidation_ = config.get(SSLValidationKey) != "disable";
   }
 
@@ -19,7 +19,7 @@ public:
   [[nodiscard]] std::string_view getUserCertPemPath() const { return user_cert_pem_path_; }
   [[nodiscard]] std::string_view getUserKeyPemPath() const { return user_key_pem_path_; }
   [[nodiscard]] std::string_view getUserP12Path() const { return user_p12_path_; }
-  [[nodiscard]] std::string_view getCaCertPermPath() const { return ca_cert_perm_path_; }
+  [[nodiscard]] std::string_view getCaCertPemPath() const { return ca_cert_pem_path_; }
   [[nodiscard]] bool isSslValidation() const { return sslValidation_; }
 
   static constexpr char EndpointKey[] = "Grpc__EndPoint";
@@ -34,7 +34,7 @@ private:
   std::string user_cert_pem_path_;
   std::string user_key_pem_path_;
   std::string user_p12_path_;
-  std::string ca_cert_perm_path_;
+  std::string ca_cert_pem_path_;
   bool sslValidation_;
 };
 } // namespace armonik::api::common::options
