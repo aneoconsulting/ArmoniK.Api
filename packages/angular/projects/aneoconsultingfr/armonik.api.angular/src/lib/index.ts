@@ -63,13 +63,32 @@ export {
   CountTasksByStatusResponse,
   TaskRaw,
   TaskSummary,
+} from "./generated/tasks-common.pb";
+export {
   TaskField,
   TaskOptionEnumField,
   TaskSummaryEnumField,
   TaskSummaryField,
   TaskOptionField,
   TaskOptionGenericField,
-} from "./generated/tasks-common.pb";
+} from "./generated/tasks-fields.pb";
+export {
+  FilterArray as TaskFilterArray,
+  FilterBoolean as TaskFilterBoolean,
+  FilterDate as TaskFilterDate,
+  FilterField as TaskFilterField,
+  FilterNumber as TaskFilterNumber,
+  FilterString as TaskFilterString,
+  Filters as TaskFilters,
+  FiltersAnd as TaskFiltersAnd,
+  FiltersOr as TaskFiltersOr,
+} from "./generated/tasks-filters.pb";
+export {
+  FilterArrayRange,
+  FilterDateRange,
+  FilterNumberRange,
+  FilterStringRange,
+} from "./generated/filters-common.pb";
 export { TasksClient } from "./generated/tasks-service.pbsc";
 export {
   GetPartitionRequest,
