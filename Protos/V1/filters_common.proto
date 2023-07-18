@@ -37,4 +37,4 @@ enum FilterArrayRange {
   FILTER_ARRAY_RANGE_UNSPECIFIED = 0; /** Unspecified */
   FILTER_ARRAY_RANGE_CONTAINS = 1; /** Contains */
   FILTER_ARRAY_RANGE_NOT_CONTAINS = 2; /** Not contains */
-}}
+}
