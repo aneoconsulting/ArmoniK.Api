@@ -38,3 +38,9 @@ enum FilterArrayRange {
   FILTER_ARRAY_RANGE_CONTAINS = 1; /** Contains */
   FILTER_ARRAY_RANGE_NOT_CONTAINS = 2; /** Not contains */
 }
+
+enum FilterStatusRange {
+  FILTER_STATUS_RANGE_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_STATUS_RANGE_EQUAL = 1; /** Equal */
+  FILTER_STATUS_RANGE_NOT_EQUAL = 2; /** Not equal */
+}

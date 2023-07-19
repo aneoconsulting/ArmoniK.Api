@@ -4,6 +4,7 @@ package armonik.api.grpc.v1.sessions;
 
 import "filters_common.proto";
 import "google/protobuf/timestamp.proto";
+import "session_status.proto";
 import "sessions_fields.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
@@ -37,6 +38,12 @@ message FilterArray {
   FilterArrayRange range = 3;
 }
 
+message FilterStatus {
+  SessionField field = 1;
+  session_status.SessionStatus value = 2;
+  FilterStatusRange range = 3;
+}
+
 message FilterField {
   oneof filter {
     FilterString string = 1;
@@ -44,6 +51,7 @@ message FilterField {
     FilterDate date = 3;
     FilterBoolean boolean = 4;
     FilterArray array = 5;
+    FilterStatus status = 6;
   }
 }
 
