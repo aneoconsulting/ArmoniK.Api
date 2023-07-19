@@ -15,6 +15,14 @@ set(PROTO_FILES
     "sort_direction.proto"
     "tasks_fields.proto"
     "tasks_filters.proto"
+    "applications_fields.proto"
+    "applications_filters.proto"
+    "sessions_fields.proto"
+    "sessions_filters.proto"
+    "results_fields.proto"
+    "results_filters.proto"
+    "partitions_fields.proto"
+    "partitions_filters.proto"
     "filters_common.proto")
 
 list(TRANSFORM PROTO_FILES PREPEND "${PROTO_FILES_DIR}/")

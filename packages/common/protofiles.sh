@@ -12,4 +12,10 @@ armonik_common_files=("objects.proto" "task_status.proto" "session_status.proto"
                       "result_status.proto" "agent_common.proto" "sessions_common.proto"  \
                       "submitter_common.proto"  "tasks_common.proto"  "worker_common.proto" \
                       "results_common.proto" "applications_common.proto" "auth_common.proto" \
-                      "events_common.proto" "partitions_common.proto" "sort_direction.proto" "versions_common.proto" "tasks_fields.proto" "tasks_filters.proto" "filters_common.proto")
+                      "events_common.proto" "partitions_common.proto" "sort_direction.proto" \
+                      "versions_common.proto" "tasks_fields.proto" "tasks_filters.proto" \
+                      "sessions_fields.proto" "sessions_filters.proto" \
+                      "applications_fields.proto" "applications_filters.proto" \
+                      "partitions_fields.proto" "partitions_filters.proto" \
+                      "results_fields.proto" "results_filters.proto" \
+                      "filters_common.proto")

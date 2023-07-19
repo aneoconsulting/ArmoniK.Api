@@ -101,6 +101,38 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\sessions_fields.proto" Link="sessions_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\sessions_filters.proto" Link="sessions_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\applications_fields.proto" Link="applications_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\applications_filters.proto" Link="applications_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\partitions_fields.proto" Link="partitions_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\partitions_filters.proto" Link="partitions_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\results_fields.proto" Link="results_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\results_filters.proto" Link="results_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\filters_common.proto" Link="filters_common.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
