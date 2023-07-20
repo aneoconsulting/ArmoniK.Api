@@ -2,7 +2,7 @@
   "name": "@aneoconsultingfr/armonik.api",
   "version": "3.10.0",
   "description": "gRPC API to interact with ArmoniK built for the web",
-  "packageManager": "pnpm@8.6.5",
+  "packageManager": "pnpm@8.6.9",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -42,7 +42,7 @@
   },
   "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
   "devDependencies": {
-    "ts-proto": "^1.150.1",
+    "ts-proto": "^1.156.0",
     "tsup": "^6.7.0",
     "typescript": "^4.9.5"
   },
