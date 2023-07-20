@@ -1,6 +1,6 @@
 {
   "name": "armonik.api",
-  "packageManager": "pnpm@8.6.5",
+  "packageManager": "pnpm@8.6.9",
   "scripts": {
     "ci:publish": "zx scripts/publish.mjs",
     "ci:publish-edge": "zx scripts/publish-edge.mjs",
@@ -8,18 +8,18 @@
     "verify-versions": "jiti ./scripts/verify-versions.ts"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.60.1",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
     "consola": "^2.15.3",
-    "eslint": "^8.44.0",
+    "eslint": "^8.45.0",
     "eslint-config-standard-with-typescript": "^32.0.0",
     "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-n": "^15.7.0",
     "eslint-plugin-promise": "^6.1.1",
     "glob": "^8.1.0",
-    "jiti": "^1.18.2",
+    "jiti": "^1.19.1",
     "pathe": "^1.1.1",
     "tslib": "^2.6.0",
     "typescript": "^4.9.5",
-    "zx": "^7.2.2"
+    "zx": "^7.2.3"
   }
 }
