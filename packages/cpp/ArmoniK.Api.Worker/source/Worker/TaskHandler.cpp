@@ -382,63 +382,51 @@ API_WORKER_NAMESPACE::TaskHandler::get_result_ids(std::vector<CreateResultsMetaD
 
 /**
  * @brief Get the Session Id object
- * 
- * @return std::string 
+ *
+ * @return std::string
  */
-std::string API_WORKER_NAMESPACE::TaskHandler::getSessionId(){
-  return session_id_;
-}
+std::string API_WORKER_NAMESPACE::TaskHandler::getSessionId() { return session_id_; }
 
 /**
  * @brief Get the Task Id object
- * 
- * @return std::string 
+ *
+ * @return std::string
  */
-std::string API_WORKER_NAMESPACE::TaskHandler::getTaskId(){
-  return task_id_;
-}
+std::string API_WORKER_NAMESPACE::TaskHandler::getTaskId() { return task_id_; }
 
 /**
  * @brief Get the Payload object
- * 
- * @return std::vector<std::byte> 
+ *
+ * @return std::vector<std::byte>
  */
-std::vector<std::byte> API_WORKER_NAMESPACE::TaskHandler::getPayload(){
-  return payload_;
-}
+std::vector<std::byte> API_WORKER_NAMESPACE::TaskHandler::getPayload() { return payload_; }
 
 /**
  * @brief Get the Data Dependencies object
- * 
- * @return std::vector<std::byte> 
+ *
+ * @return std::vector<std::byte>
  */
-std::vector<std::byte> API_WORKER_NAMESPACE::TaskHandler::getDataDependencies(){
-  return data_dependencies_;
-}
+std::vector<std::byte> API_WORKER_NAMESPACE::TaskHandler::getDataDependencies() { return data_dependencies_; }
 
 /**
  * @brief Get the Task Options object
- * 
- * @return armonik::api::grpc::v1::TaskOptions 
+ *
+ * @return armonik::api::grpc::v1::TaskOptions
  */
-armonik::api::grpc::v1::TaskOptions API_WORKER_NAMESPACE::TaskHandler::getTaskOptions(){
-  return task_options_;
-}
+armonik::api::grpc::v1::TaskOptions API_WORKER_NAMESPACE::TaskHandler::getTaskOptions() { return task_options_; }
 
 /**
  * @brief Get the Expected Results object
- * 
- * @return google::protobuf::RepeatedPtrField<std::string> 
+ *
+ * @return google::protobuf::RepeatedPtrField<std::string>
  */
-google::protobuf::RepeatedPtrField<std::string> API_WORKER_NAMESPACE::TaskHandler::getExpectedResults(){
+google::protobuf::RepeatedPtrField<std::string> API_WORKER_NAMESPACE::TaskHandler::getExpectedResults() {
   return expected_result_;
 }
 
 /**
  * @brief Get the Configuration object
- * 
- * @return armonik::api::grpc::v1::Configuration 
+ *
+ * @return armonik::api::grpc::v1::Configuration
  */
-armonik::api::grpc::v1::Configuration API_WORKER_NAMESPACE::TaskHandler::getConfiguration(){
-  return  config_;
-}
+armonik::api::grpc::v1::Configuration API_WORKER_NAMESPACE::TaskHandler::getConfiguration() { return config_; }
