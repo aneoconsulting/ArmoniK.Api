@@ -98,6 +98,53 @@ public:
    */
   std::vector<std::string>
   get_result_ids(std::vector<armonik::api::grpc::v1::agent::CreateResultsMetaDataRequest_ResultCreate> results);
+
+  /**
+   * @brief Get the Session Id object
+   * 
+   * @return std::string 
+   */
+  std::string getSessionId();
+
+  /**
+   * @brief Get the Task Id object
+   * 
+   * @return std::string 
+   */
+  std::string getTaskId();
+  /**
+   * @brief Get the Payload object
+   * 
+   * @return std::vector<std::byte> 
+   */
+  std::vector<std::byte> getPayload();
+  /**
+   * @brief Get the Data Dependencies object
+   * 
+   * @return std::vector<std::byte> 
+   */
+  std::vector<std::byte> getDataDependencies();
+
+  /**
+   * @brief Get the Task Options object
+   * 
+   * @return armonik::api::grpc::v1::TaskOptions 
+   */
+  armonik::api::grpc::v1::TaskOptions getTaskOptions();
+
+  /**
+   * @brief Get the Expected Results object
+   * 
+   * @return google::protobuf::RepeatedPtrField<std::string> 
+   */
+  google::protobuf::RepeatedPtrField<std::string> getExpectedResults();
+
+  /**
+   * @brief Get the Configuration object
+   * 
+   * @return armonik::api::grpc::v1::Configuration 
+   */
+  armonik::api::grpc::v1::Configuration getConfiguration();
 };
 
 } // namespace API_WORKER_NAMESPACE
