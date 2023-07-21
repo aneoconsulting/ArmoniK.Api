@@ -4,7 +4,7 @@
 #include "options/ControlPlane.h"
 #include "utils/JsonConfiguration.h"
 
-namespace armonik::api::common::utils {
+namespace API_COMMON_NAMESPACE::utils {
 IConfiguration &IConfiguration::add_json_configuration(std::string_view file_path) {
   JsonConfiguration::fromPath(*this, file_path);
   return *this;
@@ -44,4 +44,4 @@ std::string IConfiguration::get(const std::string &string) const {
 const std::map<std::string, std::string> &IConfiguration::list() const { return options_; }
 options::ControlPlane IConfiguration::get_control_plane() const { return *this; }
 
-} // namespace armonik::api::common::utils
+} // namespace API_COMMON_NAMESPACE::utils

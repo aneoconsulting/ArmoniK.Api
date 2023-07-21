@@ -12,18 +12,23 @@
 #include "worker_service.grpc.pb.h"
 
 #include "Worker/ArmoniKWorker.h"
+#include "Worker/ProcessStatus.h"
 #include "Worker/TaskHandler.h"
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using armonik::api::common::utils::IConfiguration;
+using ArmoniK::Api::Common::utils::IConfiguration;
 using armonik::api::grpc::v1::TaskOptions;
 
 using namespace armonik::api::grpc::v1::worker;
-using namespace armonik::api::worker;
-using namespace armonik::api::common::utils;
+using namespace ArmoniK::Api::Common::utils;
+
+ArmoniK::Api::Worker::ProcessStatus computer(ArmoniK::Api::Worker::TaskHandler &handler) {
+  handler.send_result(handler.getExpectedResults()[0], "test");
+  return ArmoniK::Api::Worker::ProcessStatus::OK;
+}
 
 int main(int argc, char **argv) {
   std::cout << "Starting C++ worker..." << std::endl;
@@ -33,8 +38,7 @@ int main(int argc, char **argv) {
   config->set("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock");
   config->set("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock");
 
-  config->get_compute_plane();
-  WorkerServer::create<ArmoniK::Api::Worker::ArmoniKWorker, bool>(config)->run();
+  ArmoniK::Api::Worker::WorkerServer::create<ArmoniK::Api::Worker::ArmoniKWorker>(config, &computer)->run();
 
   std::cout << "Stooping Server..." << std::endl;
   return 0;

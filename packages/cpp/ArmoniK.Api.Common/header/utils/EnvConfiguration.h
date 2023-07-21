@@ -7,7 +7,7 @@
 
 #include "utils/IConfiguration.h"
 
-namespace armonik::api::common::utils {
+namespace API_COMMON_NAMESPACE::utils {
 /**
  * @class EnvConfiguration
  * @brief An implementation of IConfiguration that handles environment variables
@@ -19,4 +19,4 @@ public:
    */
   EnvConfiguration() { add_env_configuration(); }
 };
-} // namespace armonik::api::common::utils
+} // namespace API_COMMON_NAMESPACE::utils

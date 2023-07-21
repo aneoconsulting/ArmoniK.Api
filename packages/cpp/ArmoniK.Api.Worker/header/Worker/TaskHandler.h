@@ -56,7 +56,8 @@ public:
    * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
    */
   static std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
-  task_chunk_stream(armonik::api::grpc::v1::TaskRequest task_request, bool is_last, size_t chunk_max_size);
+  task_chunk_stream(armonik::api::grpc::v1::TaskRequest task_request, bool is_last, const std::string &token,
+                    size_t chunk_max_size);
 
   /**
    * @brief Convert task_requests to request_stream.
@@ -68,7 +69,7 @@ public:
    */
   static std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
   to_request_stream(const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests,
-                    armonik::api::grpc::v1::TaskOptions task_options, size_t chunk_max_size);
+                    armonik::api::grpc::v1::TaskOptions task_options, const std::string &token, size_t chunk_max_size);
 
   /**
    * @brief Create a tasks async object
@@ -87,8 +88,8 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<std::vector<armonik::api::grpc::v1::agent::ResultReply>> send_result(std::string key,
-                                                                                   std::vector<std::byte> &data);
+  std::future<std::vector<armonik::api::grpc::v1::agent::ResultReply>> send_result(const std::string &key,
+                                                                                   const std::string &data);
 
   /**
    * @brief Get the result ids object

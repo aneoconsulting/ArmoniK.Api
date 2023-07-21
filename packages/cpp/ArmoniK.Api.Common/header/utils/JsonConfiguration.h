@@ -5,7 +5,7 @@
  */
 #include "utils/IConfiguration.h"
 
-namespace armonik::api::common::utils {
+namespace API_COMMON_NAMESPACE::utils {
 /**
  * @class JsonConfiguration
  * @brief JSON configuration class that inherits from IConfiguration.
@@ -25,4 +25,4 @@ public:
   static JsonConfiguration fromString(const std::string &json_string);
   static void fromString(IConfiguration &config, const std::string &json_string);
 };
-} // namespace armonik::api::common::utils
+} // namespace API_COMMON_NAMESPACE::utils

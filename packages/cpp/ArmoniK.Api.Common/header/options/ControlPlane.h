@@ -3,7 +3,7 @@
 
 #include "utils/IConfiguration.h"
 
-namespace armonik::api::common::options {
+namespace API_COMMON_NAMESPACE::options {
 class ControlPlane {
 public:
   ControlPlane(const utils::IConfiguration &config) {
@@ -37,6 +37,6 @@ private:
   std::string ca_cert_pem_path_;
   bool sslValidation_;
 };
-} // namespace armonik::api::common::options
+} // namespace API_COMMON_NAMESPACE::options
 
 #endif // ARMONIK_API_CONTROLPLANE_H

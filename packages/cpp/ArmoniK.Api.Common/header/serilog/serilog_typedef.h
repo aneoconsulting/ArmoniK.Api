@@ -3,9 +3,9 @@
 #include "utils/StringsUtils.h"
 #include <vector>
 
-/// @namespace armonik::api::common::serilog
+/// @namespace API_COMMON_NAMESPACE::serilog
 /// @brief A namespace for serilog functionality in the Armonik API
-namespace armonik::api::common::serilog {
+namespace API_COMMON_NAMESPACE::serilog {
 /// @typedef serilog_properties_pair_t
 /// @brief A pair containing a string as a key and a json_string as a value for serilog properties
 using serilog_properties_pair_t = std::pair<std::string, utils::json_string>;
@@ -34,4 +34,4 @@ enum logging_format {
   CONSOLE = 0,
   SEQ = 1,
 };
-} // namespace armonik::api::common::serilog
+} // namespace API_COMMON_NAMESPACE::serilog
