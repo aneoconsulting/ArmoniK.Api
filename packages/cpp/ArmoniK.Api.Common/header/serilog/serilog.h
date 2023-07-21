@@ -22,7 +22,7 @@
 #include "serilog/serilog_typedef.h"
 #include "utils/StringsUtils.h"
 
-namespace armonik::api::common::serilog
+namespace API_COMMON_NAMESPACE::serilog
 /**
 
 @brief Increments the logging level.
@@ -807,4 +807,4 @@ private:
     shared_instance().init(level, level_serilog);
   }
 };
-} // namespace armonik::api::common::serilog
+} // namespace API_COMMON_NAMESPACE::serilog

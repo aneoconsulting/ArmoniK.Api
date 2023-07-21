@@ -1,6 +1,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include <grpc++/grpc++.h>
 
@@ -19,24 +20,24 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using armonik::api::common::utils::IConfiguration;
+using ArmoniK::Api::Common::utils::IConfiguration;
 using armonik::api::grpc::v1::TaskOptions;
 
 using namespace armonik::api::grpc::v1::worker;
-using namespace armonik::api::worker;
-using namespace armonik::api::common::utils;
+using namespace ArmoniK::Api::Common::utils;
 
 /**
  * @brief Constructs a ArmoniKWorker object.
  */
-API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                                                   void (*processing_function)(TaskHandler task_handler))
-    : logger_(armonik::api::common::serilog::logging_format::SEQ) {
+API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(
+    std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
+    std::function<ProcessStatus(TaskHandler &handler)> processing_function)
+    : logger_(ArmoniK::Api::Common::serilog::logging_format::SEQ) {
   logger_.info("Build Service ArmoniKWorker");
   logger_.add_property("class", "ArmoniKWorker");
   logger_.add_property("Worker", "ArmoniK.Api.Cpp");
   agent_ = std::move(agent);
-  processing_function_ = processing_function;
+  processing_function_ = std::move(processing_function);
 }
 
 /**
@@ -48,26 +49,31 @@ API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api:
  *
  * @return The status of the method.
  */
-Status API_WORKER_NAMESPACE::ArmoniKWorker::Process(::grpc::ServerContext *context,
+Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::ServerContext *context,
                                                     ::grpc::ServerReader<ProcessRequest> *reader,
                                                     ::armonik::api::grpc::v1::worker::ProcessReply *response) {
 
   logger_.info("Receive new request From C++ real Worker");
 
-  auto output = armonik::api::grpc::v1::Output();
-  *output.mutable_ok() = armonik::api::grpc::v1::Empty();
-  // ProcessRequest req;
-  // reader->Read(&req);
-  *response->mutable_output() = output;
+  // Encapsulate the pointer without deleting it out of scope
+  std::shared_ptr<grpc::ServerReader<ProcessRequest>> iterator(reader, [](void *) {});
 
-  std::shared_ptr<grpc::ServerReader<ProcessRequest>> request_iterator =
-      std::make_shared<grpc::ServerReader<ProcessRequest>>(*reader);
-
-  TaskHandler task_handler(std::move(agent_), request_iterator);
+  TaskHandler task_handler(std::move(agent_), iterator);
 
   task_handler.init();
 
+  auto status = processing_function_(task_handler);
+
   logger_.info("Finish call C++");
+
+  armonik::api::grpc::v1::Output output;
+  if (status.ok()) {
+    *output.mutable_ok() = armonik::api::grpc::v1::Empty();
+  } else {
+    output.mutable_error()->set_details(status.details());
+  }
+
+  *response->mutable_output() = output;
 
   return grpc::Status::OK;
 }
@@ -81,8 +87,8 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process(::grpc::ServerContext *conte
  *
  * @return The status of the method.
  */
-Status API_WORKER_NAMESPACE::ArmoniKWorker::HealthCheck(::grpc::ServerContext *context,
-                                                        const ::armonik::api::grpc::v1::Empty *request,
+Status API_WORKER_NAMESPACE::ArmoniKWorker::HealthCheck([[maybe_unused]] ::grpc::ServerContext *context,
+                                                        [[maybe_unused]] const ::armonik::api::grpc::v1::Empty *request,
                                                         ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
   // Implementation of the HealthCheck method
   logger_.info("HealthCheck request OK");

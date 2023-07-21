@@ -8,10 +8,10 @@
 #include <iomanip>
 #include <sstream>
 
-/** @namespace armonik::api::common::utils
+/** @namespace API_COMMON_NAMESPACE::utils
  *  @brief A namespace for common utility structures used within the Armonik API
  */
-namespace armonik::api::common::utils {
+namespace API_COMMON_NAMESPACE::utils {
 /** @struct string_tools
  *  @brief A structure containing static string utility methods
  */
@@ -130,4 +130,4 @@ struct json_string {
 
   std::string str_val; ///< The JSON-safe string value
 };
-} // namespace armonik::api::common::utils
+} // namespace API_COMMON_NAMESPACE::utils

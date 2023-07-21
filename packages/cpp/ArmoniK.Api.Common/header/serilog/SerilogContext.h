@@ -4,7 +4,7 @@
 /**
  * @brief This namespace encapsulates the Serilog logging system used in the Armonik API.
  */
-namespace armonik::api::common::serilog {
+namespace API_COMMON_NAMESPACE::serilog {
 /**
  * @brief A struct representing a Serilog context with support for adding and retrieving properties.
  */
@@ -74,4 +74,4 @@ private:
   serilog_properties_vector_t _properties;
   ///< The vector of Serilog properties pairs.
 };
-} // namespace armonik::api::common::serilog
+} // namespace API_COMMON_NAMESPACE::serilog

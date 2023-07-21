@@ -17,7 +17,7 @@
 #include "utils/GuuId.h"
 #include "utils/StringsUtils.h"
 
-using armonik::api::common::utils::IConfiguration;
+using ArmoniK::Api::Common::utils::IConfiguration;
 using armonik::api::grpc::v1::TaskOptions;
 using armonik::api::grpc::v1::submitter::CreateSessionReply;
 using armonik::api::grpc::v1::submitter::CreateSessionRequest;
@@ -25,12 +25,12 @@ using armonik::api::grpc::v1::submitter::Submitter;
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using namespace armonik::api::common::utils;
+using namespace ArmoniK::Api::Common::utils;
 
 using ::testing::_;
 using ::testing::AtLeast;
 
-using namespace armonik::api::common::serilog;
+using namespace ArmoniK::Api::Common::serilog;
 
 /**
  * @brief Initializes task options creates channel with server address
@@ -136,7 +136,7 @@ TEST(testMock, submitTask) {
 
     for (int i = 0; i < 10; i++) {
       ArmoniK::Api::Client::payload_data data;
-      data.keys = armonik::api::common::utils::GuuId::generate_uuid();
+      data.keys = ArmoniK::Api::Common::utils::GuuId::generate_uuid();
       data.payload = {'a', 'r', 'm', 'o', 'n', 'i', 'k'};
       data.dependencies = {};
       payloads.push_back(data);
