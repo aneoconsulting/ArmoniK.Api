@@ -4,6 +4,7 @@
   "scripts": {
     "ci:publish": "zx scripts/publish.mjs",
     "ci:publish-edge": "zx scripts/publish-edge.mjs",
+    "ci:publish-angular-pr": "zx scripts/publish-angular-pr",
     "update-versions": "jiti ./scripts/update-versions.ts",
     "verify-versions": "jiti ./scripts/verify-versions.ts"
   },
