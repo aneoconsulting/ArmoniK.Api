@@ -1,5 +1,5 @@
 #include "Worker/TaskHandler.h"
-
+#include "exceptions/ArmoniKApiException.h"
 #include <future>
 #include <sstream>
 #include <string>
@@ -41,7 +41,6 @@ API_WORKER_NAMESPACE::TaskHandler::TaskHandler(std::unique_ptr<Agent::Stub> clie
  */
 void API_WORKER_NAMESPACE::TaskHandler::init() {
   ProcessRequest Request;
-  // bool status = request_iterator_->Read(&Request);
   if (!request_iterator_->Read(&Request)) {
     throw std::runtime_error("Request stream ended unexpectedly.");
   }
@@ -146,8 +145,9 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
  * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
  */
 std::future<std::vector<CreateTaskRequest>>
-API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, bool is_last, size_t chunk_max_size) {
-  return std::async(std::launch::async, [task_request = std::move(task_request), chunk_max_size, is_last]() {
+API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, bool is_last, const std::string &token,
+                                                     size_t chunk_max_size) {
+  return std::async(std::launch::async, [task_request = std::move(task_request), chunk_max_size, is_last, token]() {
     std::vector<CreateTaskRequest> requests;
     armonik::api::grpc::v1::InitTaskRequest header_task_request;
     armonik::api::grpc::v1::TaskRequestHeader header;
@@ -160,6 +160,7 @@ API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, b
 
     CreateTaskRequest create_init_task_request;
     *create_init_task_request.mutable_init_task() = std::move(header_task_request);
+    create_init_task_request.set_communication_token(token);
 
     requests.push_back(std::move(create_init_task_request));
 
@@ -169,6 +170,7 @@ API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, b
       armonik::api::grpc::v1::DataChunk task_payload;
       *task_payload.mutable_data() = {};
       *empty_task_request.mutable_task_payload() = std::move(task_payload);
+      empty_task_request.set_communication_token(token);
       requests.push_back(std::move(empty_task_request));
     }
 
@@ -184,6 +186,7 @@ API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, b
 
       *task_payload.mutable_data() = task_request.payload().substr(start, chunk_size);
       *chunk_task_request.mutable_task_payload() = std::move(task_payload);
+      chunk_task_request.set_communication_token(token);
 
       requests.push_back(std::move(chunk_task_request));
 
@@ -195,6 +198,7 @@ API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, b
 
     end_payload.set_data_complete(true);
     *complete_task_request.mutable_task_payload() = std::move(end_payload);
+    complete_task_request.set_communication_token(token);
     requests.push_back(std::move(complete_task_request));
 
     if (is_last) {
@@ -203,6 +207,7 @@ API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, b
 
       init_task_request.set_last_task(true);
       *last_task_request.mutable_init_task() = std::move(init_task_request);
+      last_task_request.set_communication_token(token);
 
       requests.push_back(std::move(last_task_request));
     }
@@ -221,23 +226,25 @@ API_WORKER_NAMESPACE::TaskHandler::task_chunk_stream(TaskRequest task_request, b
  */
 std::vector<std::future<std::vector<CreateTaskRequest>>>
 API_WORKER_NAMESPACE::TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests,
-                                                     TaskOptions task_options, const size_t chunk_max_size) {
+                                                     TaskOptions task_options, const std::string &token,
+                                                     const size_t chunk_max_size) {
   std::vector<std::future<std::vector<CreateTaskRequest>>> async_chunk_payload_tasks;
 
-  async_chunk_payload_tasks.push_back(std::async([task_options = std::move(task_options)]() mutable {
+  async_chunk_payload_tasks.push_back(std::async([task_options = std::move(task_options), token]() mutable {
     CreateTaskRequest_InitRequest create_task_request_init;
     *create_task_request_init.mutable_task_options() = std::move(task_options);
 
     CreateTaskRequest create_task_request;
     *create_task_request.mutable_init_request() = std::move(create_task_request_init);
+    create_task_request.set_communication_token(token);
 
     return std::vector{std::move(create_task_request)};
   }));
 
   for (auto task_request = task_requests.begin(); task_request != task_requests.end(); ++task_request) {
-    const bool is_last = task_request == task_requests.end() - 1 ? true : false;
+    const bool is_last = task_request == task_requests.end() - 1;
 
-    async_chunk_payload_tasks.push_back(task_chunk_stream(*task_request, is_last, chunk_max_size));
+    async_chunk_payload_tasks.push_back(task_chunk_stream(*task_request, is_last, token, chunk_max_size));
   }
 
   return async_chunk_payload_tasks;
@@ -261,7 +268,7 @@ API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
     grpc::ClientContext context_client_writer;
     auto stream(stub_->CreateTask(&context_client_writer, &reply));
 
-    auto create_task_request_async = to_request_stream(task_requests, std::move(task_options), chunk);
+    auto create_task_request_async = to_request_stream(task_requests, std::move(task_options), token_, chunk);
 
     for (auto &f : create_task_request_async) {
       for (auto &create_task_request : f.get()) {
@@ -289,53 +296,45 @@ API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
  * @param data The result data
  * @return A future containing a vector of ResultReply
  */
-std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_result(std::string key,
-                                                                                     std::vector<std::byte> &data) {
+std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_result(const std::string &key,
+                                                                                     const std::string &data) {
   return std::async(std::launch::async, [this, key, data]() {
     std::vector<ResultReply> result;
 
     grpc::ClientContext context_client_writer;
 
-    auto reply = new ResultReply;
+    ResultReply reply;
 
-    size_t chunk;
     size_t max_chunk = config_.data_chunk_max_size();
     const size_t data_size = data.size();
     size_t start = 0;
 
-    auto stream = stub_->SendResult(&context_client_writer, reply);
+    auto stream = stub_->SendResult(&context_client_writer, &reply);
 
     Result init_msg;
     init_msg.mutable_init()->set_key(key);
+    init_msg.set_communication_token(token_);
+
+    stream->Write(init_msg);
 
     while (start < data_size) {
-      chunk = std::min(max_chunk, data_size - start);
+      size_t chunkSize = std::min(max_chunk, data_size - start);
 
       Result msg;
-
-      armonik::api::grpc::v1::DataChunk result_msg;
-      std::string data_str;
-      int count = 0;
-      for (int i = start; i < start + chunk; i++) {
-        data_str[count++] = static_cast<char>(data[i]);
-      }
-
-      *result_msg.mutable_data() = std::move(data_str);
-
-      *msg.mutable_data() = std::move(result_msg);
+      msg.set_communication_token(token_);
+      auto chunk = msg.mutable_data();
+      chunk->mutable_data()->resize(chunkSize);
+      std::memcpy(chunk->mutable_data()->data(), data.c_str() + start, chunkSize);
 
       stream->Write(msg);
 
-      start += chunk;
+      start += chunkSize;
     }
 
-    armonik::api::grpc::v1::DataChunk result_completed;
-    result_completed.set_data_complete(true);
-
     Result end_msg;
-    *end_msg.mutable_data() = std::move(result_completed);
-
-    stream->Write(std::move(end_msg));
+    end_msg.set_communication_token(token_);
+    end_msg.mutable_data()->set_data_complete(true);
+    stream->Write(end_msg);
 
     stream->WritesDone();
     grpc::Status status = stream->Finish();
@@ -344,10 +343,8 @@ std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_re
       std::stringstream message;
       message << "Error: " << status.error_code() << ": " << status.error_message()
               << ". details: " << status.error_details() << std::endl;
-      throw std::runtime_error(message.str().c_str());
+      throw ArmoniK::Api::Common::exceptions::ArmoniKApiException(message.str());
     }
-
-    delete reply;
     return result;
   });
 }

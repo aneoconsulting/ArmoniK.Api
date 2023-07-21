@@ -11,12 +11,12 @@
 #include <string>
 #include <vector>
 
-namespace armonik::api::common::options {
+namespace API_COMMON_NAMESPACE::options {
 class ComputePlane;
 class ControlPlane;
-} // namespace armonik::api::common::options
+} // namespace API_COMMON_NAMESPACE::options
 
-namespace armonik::api::common::utils {
+namespace API_COMMON_NAMESPACE::utils {
 /**
  * @class IConfiguration
  * @brief Interface for a configuration class that stores and manages key-value pairs.
@@ -92,4 +92,4 @@ private:
   std::set<std::string> above_env_keys_;
   bool use_environment_ = false;
 };
-} // namespace armonik::api::common::utils
+} // namespace API_COMMON_NAMESPACE::utils

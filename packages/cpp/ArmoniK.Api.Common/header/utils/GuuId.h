@@ -10,9 +10,9 @@
 #include <random>
 
 /**
- * @brief The armonik::api::common::utils namespace provides utility classes and functions for the Armonik API.
+ * @brief The API_COMMON_NAMESPACE::utils namespace provides utility classes and functions for the Armonik API.
  */
-namespace armonik::api::common::utils {
+namespace API_COMMON_NAMESPACE::utils {
 /**
  * @class GuuId
  * @brief The GuuId class provides a static method for generating UUIDs.
@@ -44,4 +44,4 @@ public:
     return uuid;
   }
 };
-} // namespace armonik::api::common::utils
+} // namespace API_COMMON_NAMESPACE::utils

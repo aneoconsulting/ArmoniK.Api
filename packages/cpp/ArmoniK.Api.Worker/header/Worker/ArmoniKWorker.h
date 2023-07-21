@@ -12,22 +12,23 @@
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
+#include "ProcessStatus.h"
 #include "Worker/TaskHandler.h"
 
 namespace API_WORKER_NAMESPACE {
 
 class ArmoniKWorker final : public armonik::api::grpc::v1::worker::Worker::Service {
 private:
-  armonik::api::common::serilog::serilog logger_;
+  ArmoniK::Api::Common::serilog::serilog logger_;
   std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent_;
-  void (*processing_function_)(TaskHandler taskHandler);
+  std::function<ProcessStatus(TaskHandler &handler)> processing_function_;
 
 public:
   /**
    * @brief Constructs a ArmoniKWorker object.
    */
   ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                void (*processing_function)(TaskHandler task_handler));
+                std::function<ProcessStatus(TaskHandler &handler)> processing_function);
 
   /**
    * @brief Implements the Process method of the Worker service.

@@ -13,6 +13,8 @@
 #include "agent_common.pb.h"
 #include "agent_service.grpc.pb.h"
 
+#include "Worker/ProcessStatus.h"
+#include "Worker/TaskHandler.h"
 #include "options/ComputePlane.h"
 #include "serilog/SerilogContext.h"
 #include "serilog/serilog.h"
@@ -20,27 +22,27 @@
 
 using namespace armonik::api::grpc::v1::agent;
 
-namespace armonik::api::worker {
+namespace API_WORKER_NAMESPACE {
 /**
  * @class WorkerServer
  * @brief Represents the worker server for ArmoniK API.
  */
 class WorkerServer {
 public:
-  common::serilog::serilog logger;
+  Common::serilog::serilog logger;
 
 private:
   ::grpc::ServerBuilder builder_;
-  std::shared_ptr<common::utils::IConfiguration> configuration_;
+  std::shared_ptr<Common::utils::IConfiguration> configuration_;
 
 public:
   /**
    * @brief Constructor for the WorkerServer class.
    * @param configuration A shared pointer to the IConfiguration object.
    */
-  WorkerServer(std::shared_ptr<common::utils::IConfiguration> configuration)
+  WorkerServer(std::shared_ptr<ArmoniK::Api::Common::utils::IConfiguration> configuration)
       : configuration_(std::move(configuration)) {
-    logger.enrich([&](common::serilog::serilog_context &ctx) { ctx.add("threadId", std::this_thread::get_id()); });
+    logger.enrich([&](Common::serilog::serilog_context &ctx) { ctx.add("threadId", std::this_thread::get_id()); });
 
     logger.add_property("container", "ArmoniK.Worker");
   }
@@ -48,19 +50,18 @@ public:
   /**
    * @brief Create a WorkerServer instance with the given configuration.
    * @tparam Worker The worker class to be used
-   * @tparam Collection The collection class to be used
+   * @tparam Args Argument types to construct the worker, apart from the agent stub
    * @param configuration Shared pointer to the IConfiguration object
-   * @param service_configurator Function pointer for the service configurator
+   * @param args Arguments to construct the worker, apart from the agent stub
    * @return A shared pointer to the created WorkerServer instance
    */
-  template <class Worker, class Collection>
-  static std::shared_ptr<WorkerServer>
-  create(const std::shared_ptr<common::utils::IConfiguration> configuration,
-         [[maybe_unused]] std::function<void(Collection &collection)> service_configurator = nullptr) {
-    configuration->add_json_configuration("appsetting.json").add_env_configuration();
+  template <class Worker, typename... Args>
+  static std::shared_ptr<WorkerServer> create(const std::shared_ptr<Common::utils::IConfiguration> configuration,
+                                              Args... args) {
+    configuration->add_json_configuration("appsettings.json").add_env_configuration();
     auto worker_server = std::make_shared<WorkerServer>(configuration);
     worker_server->logger.info("Creating worker");
-    common::options::ComputePlane compute_plane(*configuration);
+    Common::options::ComputePlane compute_plane(*configuration);
 
     worker_server->builder_.AddListeningPort(std::string(compute_plane.get_server_address()),
                                              ::grpc::InsecureServerCredentials());
@@ -75,7 +76,7 @@ public:
     // Create a stub for the Submitter service
     worker_server->agent_stub = Agent::NewStub(worker_server->channel);
 
-    worker_server->builder_.RegisterService(new Worker(std::move(worker_server->agent_stub), nullptr));
+    worker_server->builder_.RegisterService(new Worker(std::move(worker_server->agent_stub), args...));
     worker_server->logger.info("Finish to register new worker");
 
     return worker_server;
@@ -90,4 +91,4 @@ public:
     instance_server->Wait();
   }
 };
-} // namespace armonik::api::worker
+} // namespace API_WORKER_NAMESPACE

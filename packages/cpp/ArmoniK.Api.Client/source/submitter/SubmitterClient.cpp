@@ -8,6 +8,9 @@
 #include <sstream>
 #include <string>
 
+#include "exceptions/ArmoniKApiException.h"
+#include "exceptions/ArmoniKTaskError.h"
+#include "exceptions/ArmoniKTaskNotCompletedException.h"
 #include "objects.pb.h"
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
@@ -243,15 +246,14 @@ API_CLIENT_NAMESPACE::SubmitterClient::submit_tasks_with_dependencies(
   std::vector<TaskRequest> requests;
   for (auto &payload : payloads_with_dependencies) {
     TaskRequest request;
-    auto &bytes = payload.payload;
 
     request.add_expected_output_keys(payload.keys);
 
-    *request.mutable_payload() = std::string(bytes.begin(), bytes.end());
+    *request.mutable_payload() = payload.payload;
 
     *request.mutable_data_dependencies() = {payload.dependencies.begin(), payload.dependencies.end()};
 
-    requests.push_back(std::move(request));
+    requests.push_back(request);
   }
 
   auto tasks_async = create_tasks_async(std::move(session_id), std::move(task_options), requests);
@@ -288,54 +290,44 @@ API_CLIENT_NAMESPACE::SubmitterClient::submit_tasks_with_dependencies(
  * @param result_request A vector of ResultRequest objects.
  * @return A future containing data result.
  */
-std::future<std::vector<std::byte>>
-API_CLIENT_NAMESPACE::SubmitterClient::get_result_async(const ResultRequest &result_request) {
+std::future<std::string> API_CLIENT_NAMESPACE::SubmitterClient::get_result_async(const ResultRequest &result_request) {
   return std::async(std::launch::async, [this, &result_request]() {
-    ResultReply result_writer;
-    ClientContext context_configuration;
+    ResultReply reply;
     ClientContext context_result;
-    armonik::api::grpc::v1::Configuration config_response;
-
-    const auto config_status =
-        stub_->GetServiceConfiguration(&context_configuration, armonik::api::grpc::v1::Empty(), &config_response);
-
-    size_t size = 0;
-    if (config_status.ok()) {
-      size = config_response.data_chunk_max_size();
-    } else {
-      throw std::runtime_error("Fail to get service configuration");
-    }
 
     auto streamingCall = stub_->TryGetResultStream(&context_result, result_request);
 
-    if (!streamingCall) {
-      throw std::runtime_error("Fail to get result");
-    }
-
-    std::vector<std::byte> result_data;
-    for (size_t count = 0; count < size; count++) {
-      streamingCall->WaitForInitialMetadata();
-      streamingCall->Read(&result_writer);
-      std::string dataString;
-      switch (result_writer.type_case()) {
+    std::string result_data;
+    bool dataComplete = false;
+    while (streamingCall->Read(&reply)) {
+      size_t offset = result_data.size();
+      switch (reply.type_case()) {
       case ResultReply::kResult:
-        dataString = result_writer.result().data();
-        result_data.resize(dataString.length());
-        std::memcpy(result_data.data(), dataString.data(), dataString.size());
-
+        switch (reply.result().type_case()) {
+        case armonik::api::grpc::v1::DataChunk::kData:
+          result_data.resize(offset + reply.result().data().size());
+          std::memcpy(result_data.data() + offset, reply.result().data().data(), reply.result().data().size());
+          dataComplete = false; // Setting to false in case we receive stuff out of order
+          break;
+        case armonik::api::grpc::v1::DataChunk::kDataComplete:
+          dataComplete = true;
+          break;
+        case armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET:
+          throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Issue with server, invalid data chunk");
+        }
         break;
       case ResultReply::kError:
-        throw std::runtime_error("Error in task ");
-
+        throw ArmoniK::Api::Common::exceptions::ArmoniKTaskError("Can't get result because it's in error",
+                                                                 reply.error());
       case ResultReply::kNotCompletedTask:
-        throw std::runtime_error("Task not completed");
-
+        throw ArmoniK::Api::Common::exceptions::ArmoniKTaskNotCompletedException(reply.not_completed_task());
       case ResultReply::TYPE_NOT_SET:
-        throw std::runtime_error("Issue with the Server");
-
-      default:
-        throw std::runtime_error("Unknown return type !");
+        throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Issue with server, invalid reply");
       }
+    }
+
+    if (!dataComplete) {
+      throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Retrieved data is incomplete");
     }
 
     return result_data;

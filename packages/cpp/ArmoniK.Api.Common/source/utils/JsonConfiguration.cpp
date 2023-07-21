@@ -1,5 +1,6 @@
 
 #include "utils/JsonConfiguration.h"
+#include <iostream>
 #include <simdjson.h>
 
 using namespace simdjson;
@@ -10,7 +11,7 @@ using namespace simdjson;
  * @param prefix Prefix for the key
  * @param element json element
  */
-void populate(armonik::api::common::utils::IConfiguration &config, const std::string &prefix,
+void populate(API_COMMON_NAMESPACE::utils::IConfiguration &config, const std::string &prefix,
               const dom::element &element) {
   switch (element.type()) {
   case dom::element_type::ARRAY: {
@@ -32,22 +33,28 @@ void populate(armonik::api::common::utils::IConfiguration &config, const std::st
   }
 }
 
-armonik::api::common::utils::JsonConfiguration::JsonConfiguration(const std::string &json_path) {
+API_COMMON_NAMESPACE::utils::JsonConfiguration::JsonConfiguration(const std::string &json_path) {
   fromPath(*this, json_path);
 }
 
-armonik::api::common::utils::JsonConfiguration
-armonik::api::common::utils::JsonConfiguration::fromString(const std::string &json_string) {
+API_COMMON_NAMESPACE::utils::JsonConfiguration
+API_COMMON_NAMESPACE::utils::JsonConfiguration::fromString(const std::string &json_string) {
   JsonConfiguration config;
   fromString(config, json_string);
-  return std::move(config);
+  return config;
 }
-void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::common::utils::IConfiguration &config,
+void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromPath(API_COMMON_NAMESPACE::utils::IConfiguration &config,
                                                               std::string_view filepath) {
   dom::parser parser;
-  populate(config, "", parser.load(std::string(filepath)));
+  dom::element elem;
+  try {
+    elem = parser.load(std::string(filepath));
+  } catch (const std::exception &e) {
+    std::cerr << "Unable to load json file " << filepath << " : " << e.what();
+  }
+  populate(config, "", elem);
 }
-void armonik::api::common::utils::JsonConfiguration::fromString(armonik::api::common::utils::IConfiguration &config,
+void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromString(API_COMMON_NAMESPACE::utils::IConfiguration &config,
                                                                 const std::string &json_string) {
   dom::parser parser;
   populate(config, "", parser.parse(padded_string(json_string)));
