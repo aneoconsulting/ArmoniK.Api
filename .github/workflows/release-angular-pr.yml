@@ -65,5 +65,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `:rocket: Release triggered! You can now install [@aneoconsultingfr/armonik.api.angular@pr-${{ github.event.issue.number }}](https://www.npmjs.com/package/nuxt3/v/pr-${{ github.event.issue.number }})`
+              body: `:rocket: Release triggered! You can now install [@aneoconsultingfr/armonik.api.angular@pr-${{ github.event.issue.number }}](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api.angular/v/pr-${{ github.event.issue.number }})`
             })
