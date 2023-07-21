@@ -75,6 +75,12 @@ list(APPEND PROTO_GENERATED_FILES ${PROTO_GENERATED_MESSAGES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common)
 
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+else()
+    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
+endif()
+
 target_compile_definitions(${PROJECT_NAME} PUBLIC API_CLIENT_NAMESPACE=${NAMESPACE})
 
 target_include_directories(${PROJECT_NAME}
