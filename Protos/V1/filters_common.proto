@@ -4,43 +4,43 @@ package armonik.api.grpc.v1;
 
 option csharp_namespace = "Armonik.Api.gRPC.V1";
 
-enum FilterStringRange {
-  FILTER_STRING_RANGE_UNSPECIFIED = 0; /** Unspecified */
-  FILTER_STRING_RANGE_EQUAL = 1; /** Equal */
-  FILTER_STRING_RANGE_NOT_EQUAL = 2; /** Not equal */
-  FILTER_STRING_RANGE_CONTAINS = 3; /** Contains */
-  FILTER_STRING_RANGE_NOT_CONTAINS = 4; /** Not contains */
-  FILTER_STRING_RANGE_STARTS_WITH = 5; /** Starts with */
-  FILTER_STRING_RANGE_ENDS_WITH = 6; /** Ends with */
+enum FilterStringOperator {
+  FILTER_STRING_OPERATOR_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_STRING_OPERATOR_EQUAL = 1; /** Equal */
+  FILTER_STRING_OPERATOR_NOT_EQUAL = 2; /** Not equal */
+  FILTER_STRING_OPERATOR_CONTAINS = 3; /** Contains */
+  FILTER_STRING_OPERATOR_NOT_CONTAINS = 4; /** Not contains */
+  FILTER_STRING_OPERATOR_STARTS_WITH = 5; /** Starts with */
+  FILTER_STRING_OPERATOR_ENDS_WITH = 6; /** Ends with */
 }
 
-enum FilterNumberRange {
-  FILTER_NUMBER_RANGE_UNSPECIFIED = 0; /** Unspecified */
-  FILTER_NUMBER_RANGE_LESS_THAN = 1; /** Less than */
-  FILTER_NUMBER_RANGE_LESS_THAN_OR_EQUAL = 2; /** Less than or equal */
-  FILTER_NUMBER_RANGE_EQUAL = 3; /** Equal */
-  FILTER_NUMBER_RANGE_NOT_EQUAL = 4; /** Not equal */
-  FILTER_NUMBER_RANGE_GREATER_THAN_OR_EQUAL = 5; /** Greater than or equal */
-  FILTER_NUMBER_RANGE_GREATER_THAN = 6; /** Greater than */
+enum FilterNumberOperator {
+  FILTER_NUMBER_OPERATOR_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_NUMBER_OPERATOR_LESS_THAN = 1; /** Less than */
+  FILTER_NUMBER_OPERATOR_LESS_THAN_OR_EQUAL = 2; /** Less than or equal */
+  FILTER_NUMBER_OPERATOR_EQUAL = 3; /** Equal */
+  FILTER_NUMBER_OPERATOR_NOT_EQUAL = 4; /** Not equal */
+  FILTER_NUMBER_OPERATOR_GREATER_THAN_OR_EQUAL = 5; /** Greater than or equal */
+  FILTER_NUMBER_OPERATOR_GREATER_THAN = 6; /** Greater than */
 }
 
-enum FilterDateRange {
-  FILTER_DATE_RANGE_UNSPECIFIED = 0; /** Unspecified */
-  FILTER_DATE_RANGE_BEFORE = 1; /** Before */
-  FILTER_DATE_RANGE_BEFORE_OR_EQUAL = 2; /** Before or equal */
-  FILTER_DATE_RANGE_EQUAL = 3; /** Equal */
-  FILTER_DATE_RANGE_AFTER_OR_EQUAL = 4; /** After or equal */
-  FILTER_DATE_RANGE_AFTER = 5; /** After */
+enum FilterDateOperator {
+  FILTER_DATE_OPERATOR_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_DATE_OPERATOR_BEFORE = 1; /** Before */
+  FILTER_DATE_OPERATOR_BEFORE_OR_EQUAL = 2; /** Before or equal */
+  FILTER_DATE_OPERATOR_EQUAL = 3; /** Equal */
+  FILTER_DATE_OPERATOR_AFTER_OR_EQUAL = 4; /** After or equal */
+  FILTER_DATE_OPERATOR_AFTER = 5; /** After */
 }
 
-enum FilterArrayRange {
-  FILTER_ARRAY_RANGE_UNSPECIFIED = 0; /** Unspecified */
-  FILTER_ARRAY_RANGE_CONTAINS = 1; /** Contains */
-  FILTER_ARRAY_RANGE_NOT_CONTAINS = 2; /** Not contains */
+enum FilterArrayOperator {
+  FILTER_ARRAY_OPERATOR_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_ARRAY_OPERATOR_CONTAINS = 1; /** Contains */
+  FILTER_ARRAY_OPERATOR_NOT_CONTAINS = 2; /** Not contains */
 }
 
-enum FilterStatusRange {
-  FILTER_STATUS_RANGE_UNSPECIFIED = 0; /** Unspecified */
-  FILTER_STATUS_RANGE_EQUAL = 1; /** Equal */
-  FILTER_STATUS_RANGE_NOT_EQUAL = 2; /** Not equal */
+enum FilterStatusOperator {
+  FILTER_STATUS_OPERATOR_UNSPECIFIED = 0; /** Unspecified */
+  FILTER_STATUS_OPERATOR_EQUAL = 1; /** Equal */
+  FILTER_STATUS_OPERATOR_NOT_EQUAL = 2; /** Not equal */
 }

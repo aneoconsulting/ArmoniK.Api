@@ -11,19 +11,19 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
 message FilterString {
   ApplicationField field = 1;
   string value = 2;
-  FilterStringRange range = 3;
+  FilterStringOperator operator = 3;
 }
 
 message FilterNumber {
   ApplicationField field = 1;
   int64 value = 2;
-  FilterNumberRange range = 3;
+  FilterNumberOperator operator = 3;
 }
 
 message FilterDate {
   ApplicationField field = 1;
   google.protobuf.Timestamp value = 2;
-  FilterDateRange range = 3;
+  FilterDateOperator operator = 3;
 }
 
 message FilterBoolean {
@@ -34,7 +34,7 @@ message FilterBoolean {
 message FilterArray {
   ApplicationField field = 1;
   string value = 2;
-  FilterArrayRange range = 3;
+  FilterArrayOperator operator = 3;
 }
 
 message FilterField {
