@@ -49,10 +49,10 @@ void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromPath(API_COMMON_NAMESPA
   dom::element elem;
   try {
     elem = parser.load(std::string(filepath));
+    populate(config, "", elem);
   } catch (const std::exception &e) {
     std::cerr << "Unable to load json file " << filepath << " : " << e.what();
   }
-  populate(config, "", elem);
 }
 void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromString(API_COMMON_NAMESPACE::utils::IConfiguration &config,
                                                                 const std::string &json_string) {

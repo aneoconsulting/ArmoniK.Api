@@ -100,6 +100,9 @@ public:
    * @return A vector containing the data associated to the result
    */
   std::future<std::string> get_result_async(const armonik::api::grpc::v1::ResultRequest &result_request);
+
+  std::map<std::string, armonik::api::grpc::v1::result_status::ResultStatus>
+  get_result_status(const std::string &session_id, const std::vector<std::string> &result_ids);
 };
 
 } // namespace API_CLIENT_NAMESPACE

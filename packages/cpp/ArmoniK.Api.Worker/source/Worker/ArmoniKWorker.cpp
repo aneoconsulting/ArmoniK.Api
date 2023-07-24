@@ -29,9 +29,8 @@ using namespace ArmoniK::Api::Common::utils;
 /**
  * @brief Constructs a ArmoniKWorker object.
  */
-API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(
-    std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-    std::function<ProcessStatus(TaskHandler &handler)> processing_function)
+API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
+                                                   std::function<ProcessStatus(TaskHandler &)> processing_function)
     : logger_(ArmoniK::Api::Common::serilog::logging_format::SEQ) {
   logger_.info("Build Service ArmoniKWorker");
   logger_.add_property("class", "ArmoniKWorker");
@@ -57,12 +56,23 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
 
   // Encapsulate the pointer without deleting it out of scope
   std::shared_ptr<grpc::ServerReader<ProcessRequest>> iterator(reader, [](void *) {});
+  std::shared_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent(agent_.get(), [](void *) {});
 
-  TaskHandler task_handler(std::move(agent_), iterator);
+  TaskHandler task_handler(agent, iterator);
 
   task_handler.init();
 
-  auto status = processing_function_(task_handler);
+  std::cout << "Created task handler" << std::endl;
+
+  ProcessStatus status;
+  if (processing_function_ == nullptr) {
+    std::cout << "No processing function" << std::endl;
+  } else {
+    std::cout << "Processing function is ok" << std::endl;
+    status = processing_function_(task_handler);
+  }
+
+  std::cout << "Processed" << std::endl;
 
   logger_.info("Finish call C++");
 
