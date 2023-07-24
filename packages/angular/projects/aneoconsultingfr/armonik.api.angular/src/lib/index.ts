@@ -32,9 +32,9 @@ export {
 } from './generated/events-common.pb';
 export { EventsClient } from "./generated/events-service.pbsc";
 export {
-  FilterArrayRange,
-  FilterDateRange,
-  FilterNumberRange, FilterStatusRange, FilterStringRange
+  FilterArrayOperator,
+  FilterDateOperator,
+  FilterNumberOperator, FilterStatusOperator, FilterStringOperator
 } from "./generated/filters-common.pb";
 export { StatusCount, TaskOptions } from "./generated/objects.pb";
 export {
