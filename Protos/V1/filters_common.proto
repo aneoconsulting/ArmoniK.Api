@@ -31,6 +31,7 @@ enum FilterDateOperator {
   FILTER_DATE_OPERATOR_EQUAL = 3; /** Equal */
   FILTER_DATE_OPERATOR_AFTER_OR_EQUAL = 4; /** After or equal */
   FILTER_DATE_OPERATOR_AFTER = 5; /** After */
+  FILTER_DATE_OPERATOR_NOT_EQUAL = 6; /** Not equal */
 }
 
 enum FilterArrayOperator {
