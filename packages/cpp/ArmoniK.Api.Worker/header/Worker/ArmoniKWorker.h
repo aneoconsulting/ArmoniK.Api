@@ -21,14 +21,14 @@ class ArmoniKWorker final : public armonik::api::grpc::v1::worker::Worker::Servi
 private:
   ArmoniK::Api::Common::serilog::serilog logger_;
   std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent_;
-  std::function<ProcessStatus(TaskHandler &handler)> processing_function_;
+  std::function<ProcessStatus(TaskHandler &)> processing_function_;
 
 public:
   /**
    * @brief Constructs a ArmoniKWorker object.
    */
   ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                std::function<ProcessStatus(TaskHandler &handler)> processing_function);
+                std::function<ProcessStatus(TaskHandler &)> processing_function);
 
   /**
    * @brief Implements the Process method of the Worker service.

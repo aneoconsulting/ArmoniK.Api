@@ -29,7 +29,7 @@ using namespace armonik::api::grpc::v1::agent;
  * @param client the agent client
  * @param request_iterator The request iterator
  */
-API_WORKER_NAMESPACE::TaskHandler::TaskHandler(std::unique_ptr<Agent::Stub> client,
+API_WORKER_NAMESPACE::TaskHandler::TaskHandler(std::shared_ptr<Agent::Stub> client,
                                                std::shared_ptr<grpc::ServerReader<ProcessRequest>> request_iterator) {
   stub_ = std::move(client);
   request_iterator_ = std::move(request_iterator);
@@ -296,11 +296,9 @@ API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
  * @param data The result data
  * @return A future containing a vector of ResultReply
  */
-std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_result(const std::string &key,
-                                                                                     const std::string &data) {
+std::future<ResultReply> API_WORKER_NAMESPACE::TaskHandler::send_result(const std::string &key,
+                                                                        const std::string &data) {
   return std::async(std::launch::async, [this, key, data]() {
-    std::vector<ResultReply> result;
-
     grpc::ClientContext context_client_writer;
 
     ResultReply reply;
@@ -345,7 +343,7 @@ std::future<std::vector<ResultReply>> API_WORKER_NAMESPACE::TaskHandler::send_re
               << ". details: " << status.error_details() << std::endl;
       throw ArmoniK::Api::Common::exceptions::ArmoniKApiException(message.str());
     }
-    return result;
+    return reply;
   });
 }
 

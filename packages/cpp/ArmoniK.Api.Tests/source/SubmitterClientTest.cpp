@@ -17,6 +17,10 @@
 #include "utils/GuuId.h"
 #include "utils/StringsUtils.h"
 
+#include "results_common.pb.h"
+#include "results_service.grpc.pb.h"
+#include "submitter/ResultsClient.h"
+
 using ArmoniK::Api::Common::utils::IConfiguration;
 using armonik::api::grpc::v1::TaskOptions;
 using armonik::api::grpc::v1::submitter::CreateSessionReply;
@@ -59,7 +63,7 @@ void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) 
   default_task_options.mutable_max_duration()->set_nanos(0);
   default_task_options.set_max_retries(3);
   default_task_options.set_priority(1);
-  default_task_options.set_partition_id("cpp");
+  default_task_options.set_partition_id("");
   default_task_options.set_application_name("my-app");
   default_task_options.set_application_version("1.0");
   default_task_options.set_application_namespace("my-namespace");
@@ -75,12 +79,12 @@ TEST(testMock, createSession) {
   CreateSessionReply reply;
   CreateSessionRequest request;
 
-  const std::vector<std::string> &partition_ids = {"cpp"};
+  const std::vector<std::string> &partition_ids = {""};
 
   TaskOptions task_options;
   init(channel, task_options);
 
-  ASSERT_EQ(task_options.partition_id(), "cpp");
+  ASSERT_EQ(task_options.partition_id(), "");
 
   std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
   // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
@@ -126,17 +130,29 @@ TEST(testMock, submitTask) {
   grpc::ClientContext context;
 
   ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub));
-  const std::vector<std::string> &partition_ids = {"cpp"};
+  const std::vector<std::string> &partition_ids = {""};
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   ASSERT_FALSE(session_id.empty());
+
+  ArmoniK::Api::Client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  std::vector<std::string> names;
+  names.reserve(10);
+  for (int i = 0; i < 10; i++) {
+    names.push_back(ArmoniK::Api::Common::utils::GuuId::generate_uuid());
+  }
+  auto result_mapping = results.create_results(session_id, names);
+  int j = 0;
+  for (auto &&[k, v] : result_mapping) {
+    names[j++] = v;
+  }
 
   try {
     std::vector<ArmoniK::Api::Client::payload_data> payloads;
 
     for (int i = 0; i < 10; i++) {
       ArmoniK::Api::Client::payload_data data;
-      data.keys = ArmoniK::Api::Common::utils::GuuId::generate_uuid();
+      data.keys = names[i];
       data.payload = {'a', 'r', 'm', 'o', 'n', 'i', 'k'};
       data.dependencies = {};
       payloads.push_back(data);
@@ -148,16 +164,70 @@ TEST(testMock, submitTask) {
       out << "Generate task_ids : " << task_id;
       log.info(out.str());
     }
+
     for (const auto &failed_task_id : failed_task_ids) {
       std::stringstream out;
       out << "Failed task_ids : " << failed_task_id;
       log.info(out.str());
+      throw;
     }
   } catch (std::exception &e) {
     log.error(e.what());
     throw;
   }
   log.info("Stopping client...OK");
+}
+
+TEST(testMock, testWorker) {
+  std::shared_ptr<Channel> channel;
+
+  CreateSessionReply reply;
+  CreateSessionRequest request;
+
+  const std::vector<std::string> &partition_ids = {""};
+
+  TaskOptions task_options;
+
+  init(channel, task_options);
+
+  auto stub = armonik::api::grpc::v1::results::Results::NewStub(channel);
+
+  grpc::ClientContext context;
+
+  std::unique_ptr<Submitter::StubInterface> stub_client = Submitter::NewStub(channel);
+  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub_client));
+  std::string session_id = submitter.create_session(task_options, partition_ids);
+
+  auto name = "test";
+
+  armonik::api::grpc::v1::results::CreateResultsMetaDataRequest request_create;
+  request_create.set_session_id(session_id);
+  ArmoniK::Api::Client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto mapping = results.create_results(session_id, {name});
+  ASSERT_TRUE(mapping.size() == 1);
+
+  std::vector<ArmoniK::Api::Client::payload_data> payloads;
+  ArmoniK::Api::Client::payload_data data;
+  data.keys = mapping[name];
+  data.payload = "armonik";
+  data.dependencies = {};
+  payloads.push_back(data);
+  const auto [task_ids, failed] = submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
+
+  while (true) {
+    auto status = submitter.get_result_status(session_id, {mapping[name]})[mapping[name]];
+    if (status == armonik::api::grpc::v1::result_status::RESULT_STATUS_COMPLETED ||
+        status == armonik::api::grpc::v1::result_status::RESULT_STATUS_ABORTED) {
+      ASSERT_NE(armonik::api::grpc::v1::result_status::RESULT_STATUS_ABORTED, status);
+      break;
+    }
+  }
+
+  armonik::api::grpc::v1::ResultRequest result_request;
+  result_request.set_session(session_id);
+  result_request.set_result_id(mapping[name]);
+  auto result_payload = submitter.get_result_async(result_request).get();
+  ASSERT_TRUE(!result_payload.empty());
 }
 
 TEST(testMock, getResult) {
@@ -167,19 +237,40 @@ TEST(testMock, getResult) {
   CreateSessionReply reply;
   CreateSessionRequest request;
 
-  const std::vector<std::string> &partition_ids = {"cpp"};
+  const std::vector<std::string> &partition_ids = {""};
 
   TaskOptions task_options;
   armonik::api::grpc::v1::ResultRequest result_request;
 
   init(channel, task_options);
+
+  auto stub = armonik::api::grpc::v1::results::Results::NewStub(channel);
+
+  grpc::ClientContext context;
+
+  std::unique_ptr<Submitter::StubInterface> stub_client = Submitter::NewStub(channel);
+  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub_client));
+  std::string session_id = submitter.create_session(task_options, partition_ids);
+
+  auto name = "test";
+
+  armonik::api::grpc::v1::results::CreateResultsMetaDataRequest request_create;
+  request_create.set_session_id(session_id);
+  ArmoniK::Api::Client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto mapping = results.create_results(session_id, {name});
+  ASSERT_TRUE(mapping.size() == 1);
+
+  std::string payload = "TestPayload";
+  results.upload_result_data(session_id, mapping[name], payload);
+
   // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
   // EXPECT_CALL(*stub, TryGetResultStreamRaw(_, _)).Times(AtLeast(1));
 
-  std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
-  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub));
+  result_request.set_result_id(mapping[name]);
+  result_request.set_session(session_id);
 
-  auto result = submitter.get_result_async(result_request);
+  auto result = submitter.get_result_async(result_request).get();
 
-  ASSERT_FALSE(result.get().empty());
+  ASSERT_FALSE(result.empty());
+  ASSERT_EQ(payload, result);
 }

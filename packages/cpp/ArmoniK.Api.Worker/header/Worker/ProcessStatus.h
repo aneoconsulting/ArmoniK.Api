@@ -7,10 +7,9 @@
 namespace API_WORKER_NAMESPACE {
 class ProcessStatus {
 public:
-  explicit ProcessStatus(std::string error_message = "") {
-    ok_ = false;
-    details_ = std::move(error_message);
-  }
+  ProcessStatus() : ProcessStatus(true, "") {}
+  explicit ProcessStatus(const char *error_message) : ProcessStatus(false, std::string(error_message)) {}
+  explicit ProcessStatus(std::string error_message) : ProcessStatus(false, std::move(error_message)) {}
 
   [[nodiscard]] bool ok() const { return ok_; }
   [[nodiscard]] const std::string &details() const { return details_; }

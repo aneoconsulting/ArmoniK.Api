@@ -333,3 +333,26 @@ std::future<std::string> API_CLIENT_NAMESPACE::SubmitterClient::get_result_async
     return result_data;
   });
 }
+std::map<std::string, armonik::api::grpc::v1::result_status::ResultStatus>
+ArmoniK::Api::Client::SubmitterClient::get_result_status(const std::string &session_id,
+                                                         const std::vector<std::string> &result_ids) {
+  grpc::ClientContext context;
+  armonik::api::grpc::v1::submitter::GetResultStatusRequest request;
+  armonik::api::grpc::v1::submitter::GetResultStatusReply reply;
+
+  request.set_session_id(session_id);
+  request.mutable_result_ids()->Add(result_ids.begin(), result_ids.end());
+
+  auto status = stub_->GetResultStatus(&context, request, &reply);
+  if (!status.ok()) {
+    throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Couldn't get result status : " +
+                                                                status.error_message());
+  }
+
+  std::map<std::string, armonik::api::grpc::v1::result_status::ResultStatus> statuses;
+  for (auto &&id_status : reply.id_statuses()) {
+    statuses[id_status.result_id()] = id_status.status();
+  }
+
+  return statuses;
+}
