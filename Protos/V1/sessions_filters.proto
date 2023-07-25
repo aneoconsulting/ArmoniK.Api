@@ -56,15 +56,11 @@ message FilterField {
 }
 
 message FiltersAnd {
-  repeated FilterField filters = 1;
-}
-
-message FiltersOr {
-  repeated FiltersAnd filters = 1;
+  repeated FilterField and = 1;
 }
 
 message Filters {
-  FiltersOr filters = 1;
+  repeated FiltersAnd or = 1;
 }
 
 // TODO: I think that we could add a duration filter.

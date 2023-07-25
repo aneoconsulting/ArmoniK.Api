@@ -7,7 +7,6 @@ package armonik.api.grpc.v1.applications;
 
 import "applications_fields.proto";
 import "applications_filters.proto";
-import "objects.proto";
 import "sort_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
@@ -62,19 +61,4 @@ message ListApplicationsResponse {
   int32 page = 2; /** The current page. Start at 0. */
   int32 page_size = 3; /** Number of items per page. */
   int32 total = 4; /** Total number of items. */
-}
-
-/**
-  * Request to get count from tasks status by application.
-  */
-message CountTasksByStatusRequest {
-  string name = 1; /** Application name. Must fail when name is empty. */
-  string version = 2; /** Application version. Must fail when version is emtpy. */
-}
-
-/**
- * Response to get count from tasks status by application.
- */
-message CountTasksByStatusResponse {
-  repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 object by task status. */
 }
