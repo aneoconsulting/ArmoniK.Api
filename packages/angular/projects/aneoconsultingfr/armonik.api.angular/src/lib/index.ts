@@ -1,6 +1,5 @@
 export {
-  ApplicationRaw, CountTasksByStatusRequest as CountTasksByStatusApplicationRequest,
-  CountTasksByStatusResponse as CountTasksByStatusApplicationResponse, ListApplicationsRequest,
+  ApplicationRaw, ListApplicationsRequest,
   ListApplicationsResponse
 } from "./generated/applications-common.pb";
 export {
@@ -17,7 +16,6 @@ export {
   FilterString as ApplicationFilterString,
   Filters as ApplicationFilters,
   FiltersAnd as ApplicationFiltersAnd,
-  FiltersOr as ApplicationFiltersOr
 } from "./generated/applications-filters.pb";
 export { ApplicationsClient } from "./generated/applications-service.pbsc";
 export {
@@ -57,7 +55,6 @@ export {
   FilterString as PartitionFilterString,
   Filters as PartitionFilters,
   FiltersAnd as PartitionFiltersAnd,
-  FiltersOr as PartitionFiltersOr
 } from "./generated/partitions-filters.pb";
 export { PartitionsClient } from "./generated/partitions-service.pbsc";
 export { ResultStatus } from "./generated/result-status.pb";
@@ -78,7 +75,6 @@ export {
   FilterField as ResultFilterField,
   FilterNumber as ResultFilterNumber, FilterStatus as ResultFilterStatus, FilterString as ResultFilterString, Filters as ResultFilters,
   FiltersAnd as ResultFiltersAnd,
-  FiltersOr as ResultFiltersOr
 } from "./generated/results-filters.pb";
 export { ResultsClient } from "./generated/results-service.pbsc";
 export { SessionStatus } from "./generated/session-status.pb";
@@ -104,7 +100,6 @@ export {
   FilterField as SessionFilterField,
   FilterNumber as SessionFilterNumber, FilterStatus as SessionFilterStatus, FilterString as SessionFilterString, Filters as SessionFilters,
   FiltersAnd as SessionFiltersAnd,
-  FiltersOr as SessionFiltersOr
 } from "./generated/sessions-filters.pb";
 export { SessionsClient } from "./generated/sessions-service.pbsc";
 export { SortDirection } from "./generated/sort-direction.pb";
@@ -133,7 +128,6 @@ export {
   FilterField as TaskFilterField,
   FilterNumber as TaskFilterNumber, FilterStatus as TaskFilterStatus, FilterString as TaskFilterString, Filters as TaskFilters,
   FiltersAnd as TaskFiltersAnd,
-  FiltersOr as TaskFiltersOr
 } from "./generated/tasks-filters.pb";
 export { TasksClient } from "./generated/tasks-service.pbsc";
 export { ListVersionsRequest, ListVersionsResponse } from "./generated/versions-common.pb";
