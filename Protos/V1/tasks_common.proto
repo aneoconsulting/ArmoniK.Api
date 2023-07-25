@@ -210,7 +210,9 @@ message GetResultIdsResponse {
 /**
  * Request to get count from tasks by status
  */
-message CountTasksByStatusRequest {}
+message CountTasksByStatusRequest {
+  Filters filters = 1; /** The filters. */
+}
 
 /**
  * Response to get count from tasks by status
