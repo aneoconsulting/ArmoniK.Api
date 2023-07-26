@@ -29,14 +29,12 @@ using namespace ArmoniK::Api::Common::utils;
 /**
  * @brief Constructs a ArmoniKWorker object.
  */
-API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                                                   std::function<ProcessStatus(TaskHandler &)> processing_function)
+API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
     : logger_(ArmoniK::Api::Common::serilog::logging_format::SEQ) {
   logger_.info("Build Service ArmoniKWorker");
   logger_.add_property("class", "ArmoniKWorker");
   logger_.add_property("Worker", "ArmoniK.Api.Cpp");
   agent_ = std::move(agent);
-  processing_function_ = std::move(processing_function);
 }
 
 /**
@@ -62,7 +60,7 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
 
   task_handler.init();
 
-  ProcessStatus status = processing_function_(task_handler);
+  ProcessStatus status = Execute(task_handler);
 
   logger_.debug("Finish call C++");
 

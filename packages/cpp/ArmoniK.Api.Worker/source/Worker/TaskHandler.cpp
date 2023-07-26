@@ -289,8 +289,7 @@ API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
  * @param data The result data
  * @return A future containing a vector of ResultReply
  */
-std::future<ResultReply> API_WORKER_NAMESPACE::TaskHandler::send_result(const std::string &key,
-                                                                        const std::string &data) {
+std::future<ResultReply> API_WORKER_NAMESPACE::TaskHandler::send_result(const std::string &key, std::string_view data) {
   return std::async(std::launch::async, [this, key, data]() {
     grpc::ClientContext context_client_writer;
 
@@ -315,7 +314,7 @@ std::future<ResultReply> API_WORKER_NAMESPACE::TaskHandler::send_result(const st
       msg.set_communication_token(token_);
       auto chunk = msg.mutable_data();
       chunk->mutable_data()->resize(chunkSize);
-      std::memcpy(chunk->mutable_data()->data(), data.c_str() + start, chunkSize);
+      std::memcpy(chunk->mutable_data()->data(), data.data() + start, chunkSize);
 
       stream->Write(msg);
 
