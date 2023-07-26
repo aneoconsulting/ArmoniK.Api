@@ -52,7 +52,7 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
                                                     ::grpc::ServerReader<ProcessRequest> *reader,
                                                     ::armonik::api::grpc::v1::worker::ProcessReply *response) {
 
-  logger_.info("Receive new request From C++ real Worker");
+  logger_.debug("Receive new request From C++ Worker");
 
   // Encapsulate the pointer without deleting it out of scope
   std::shared_ptr<grpc::ServerReader<ProcessRequest>> iterator(reader, [](void *) {});
@@ -62,19 +62,9 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
 
   task_handler.init();
 
-  std::cout << "Created task handler" << std::endl;
+  ProcessStatus status = processing_function_(task_handler);
 
-  ProcessStatus status;
-  if (processing_function_ == nullptr) {
-    std::cout << "No processing function" << std::endl;
-  } else {
-    std::cout << "Processing function is ok" << std::endl;
-    status = processing_function_(task_handler);
-  }
-
-  std::cout << "Processed" << std::endl;
-
-  logger_.info("Finish call C++");
+  logger_.debug("Finish call C++");
 
   armonik::api::grpc::v1::Output output;
   if (status.ok()) {
@@ -101,7 +91,7 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::HealthCheck([[maybe_unused]] ::grpc:
                                                         [[maybe_unused]] const ::armonik::api::grpc::v1::Empty *request,
                                                         ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
   // Implementation of the HealthCheck method
-  logger_.info("HealthCheck request OK");
+  logger_.debug("HealthCheck request OK");
 
   response->set_status(HealthCheckReply_ServingStatus_SERVING);
 
