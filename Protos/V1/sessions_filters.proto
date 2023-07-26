@@ -3,55 +3,25 @@ syntax = "proto3";
 package armonik.api.grpc.v1.sessions;
 
 import "filters_common.proto";
-import "google/protobuf/timestamp.proto";
-import "session_status.proto";
 import "sessions_fields.proto";
+import "session_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
-message FilterString {
-  SessionField field = 1;
-  string value = 2;
-  FilterStringOperator operator = 3;
-}
-
-message FilterNumber {
-  SessionField field = 1;
-  int64 value = 2;
-  FilterNumberOperator operator = 3;
-}
-
-message FilterDate {
-  SessionField field = 1;
-  google.protobuf.Timestamp value = 2;
-  FilterDateOperator operator = 3;
-}
-
-message FilterBoolean {
-  SessionField field = 1;
-  bool value = 2;
-}
-
-message FilterArray {
-  SessionField field = 1;
-  string value = 2;
-  FilterArrayOperator operator = 3;
-}
-
 message FilterStatus {
-  SessionField field = 1;
-  session_status.SessionStatus value = 2;
-  FilterStatusOperator operator = 3;
+  session_status.SessionStatus value = 1;
+  FilterStatusOperator operator = 2;
 }
 
 message FilterField {
-  oneof filter {
-    FilterString string = 1;
-    FilterNumber number = 2;
-    FilterDate date = 3;
-    FilterBoolean boolean = 4;
-    FilterArray array = 5;
-    FilterStatus status = 6;
+  SessionField field = 1;
+  oneof value_condition {
+    FilterString filter_string = 2;
+    FilterNumber filter_number = 3;
+    FilterBoolean filter_boolean = 4;
+    FilterStatus filter_status = 5;
+    FilterDate filter_date = 6;
+    FilterArray filter_array = 7;
   }
 }
 

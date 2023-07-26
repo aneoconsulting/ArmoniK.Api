@@ -8,12 +8,7 @@ export {
   ApplicationRawField
 } from "./generated/applications-fields.pb";
 export {
-  FilterArray as ApplicationFilterArray,
-  FilterBoolean as ApplicationFilterBoolean,
-  FilterDate as ApplicationFilterDate,
   FilterField as ApplicationFilterField,
-  FilterNumber as ApplicationFilterNumber,
-  FilterString as ApplicationFilterString,
   Filters as ApplicationFilters,
   FiltersAnd as ApplicationFiltersAnd,
 } from "./generated/applications-filters.pb";
@@ -32,7 +27,13 @@ export { EventsClient } from "./generated/events-service.pbsc";
 export {
   FilterArrayOperator,
   FilterDateOperator,
-  FilterNumberOperator, FilterStatusOperator, FilterStringOperator
+  FilterNumberOperator, FilterStatusOperator, FilterStringOperator,
+  FilterArray,
+  FilterBoolean,
+  FilterDate,
+  FilterNumber,
+  FilterStatus,
+  FilterString,
 } from "./generated/filters-common.pb";
 export { StatusCount, TaskOptions } from "./generated/objects.pb";
 export {
@@ -47,12 +48,7 @@ export {
   PartitionRawField
 } from "./generated/partitions-fields.pb";
 export {
-  FilterArray as PartitionFilterArray,
-  FilterBoolean as PartitionFilterBoolean,
-  FilterDate as PartitionFilterDate,
   FilterField as PartitionFilterField,
-  FilterNumber as PartitionFilterNumber,
-  FilterString as PartitionFilterString,
   Filters as PartitionFilters,
   FiltersAnd as PartitionFiltersAnd,
 } from "./generated/partitions-filters.pb";
@@ -69,12 +65,10 @@ export {
   ResultRawField
 } from "./generated/results-fields.pb";
 export {
-  FilterArray as ResultFilterArray,
-  FilterBoolean as ResultFilterBoolean,
-  FilterDate as ResultFilterDate,
   FilterField as ResultFilterField,
-  FilterNumber as ResultFilterNumber, FilterStatus as ResultFilterStatus, FilterString as ResultFilterString, Filters as ResultFilters,
+  Filters as ResultFilters,
   FiltersAnd as ResultFiltersAnd,
+  FilterStatus as ResultFilterStatus
 } from "./generated/results-filters.pb";
 export { ResultsClient } from "./generated/results-service.pbsc";
 export { SessionStatus } from "./generated/session-status.pb";
@@ -94,12 +88,10 @@ export {
   TaskOptionGenericField as SessionTaskOptionGenericField
 } from "./generated/sessions-fields.pb";
 export {
-  FilterArray as SessionFilterArray,
-  FilterBoolean as SessionFilterBoolean,
-  FilterDate as SessionFilterDate,
   FilterField as SessionFilterField,
-  FilterNumber as SessionFilterNumber, FilterStatus as SessionFilterStatus, FilterString as SessionFilterString, Filters as SessionFilters,
+  Filters as SessionFilters,
   FiltersAnd as SessionFiltersAnd,
+  FilterStatus as SessionFilterStatus
 } from "./generated/sessions-filters.pb";
 export { SessionsClient } from "./generated/sessions-service.pbsc";
 export { SortDirection } from "./generated/sort-direction.pb";
@@ -122,12 +114,10 @@ export {
   TaskSummaryField
 } from "./generated/tasks-fields.pb";
 export {
-  FilterArray as TaskFilterArray,
-  FilterBoolean as TaskFilterBoolean,
-  FilterDate as TaskFilterDate,
   FilterField as TaskFilterField,
-  FilterNumber as TaskFilterNumber, FilterStatus as TaskFilterStatus, FilterString as TaskFilterString, Filters as TaskFilters,
+  Filters as TaskFilters,
   FiltersAnd as TaskFiltersAnd,
+  FilterStatus as TaskFilterStatus
 } from "./generated/tasks-filters.pb";
 export { TasksClient } from "./generated/tasks-service.pbsc";
 export { ListVersionsRequest, ListVersionsResponse } from "./generated/versions-common.pb";

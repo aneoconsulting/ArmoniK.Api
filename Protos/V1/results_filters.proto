@@ -3,57 +3,25 @@ syntax = "proto3";
 package armonik.api.grpc.v1.results;
 
 import "filters_common.proto";
-import "google/protobuf/timestamp.proto";
-import "result_status.proto";
 import "results_fields.proto";
+import "result_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
 
-message FilterString {
-  ResultField field = 1;
-  string value = 2;
-  FilterStringOperator operator = 3;
-}
-
-message FilterNumber {
-  ResultField field = 1;
-  int64 value = 2;
-  FilterNumberOperator operator = 3;
-}
-
-message FilterDate {
-  ResultField field = 1;
-  google.protobuf.Timestamp value = 2;
-  FilterDateOperator operator = 3;
-}
-
-message FilterBoolean {
-  ResultField field = 1;
-  bool value = 2;
-}
-
-message FilterArray {
-  ResultField field = 1;
-  string value = 2;
-  FilterArrayOperator operator = 3;
-}
-
 message FilterStatus {
-  ResultField field = 1;
-  result_status.ResultStatus value = 2;
-  FilterStatusOperator operator = 3;
+  result_status.ResultStatus value = 1;
+  FilterStatusOperator operator = 2;
 }
 
 message FilterField {
-  oneof filter {
-    FilterString string = 1;
-    FilterNumber number = 2;
-    FilterDate date = 3;
-    FilterBoolean boolean = 4;
-    FilterArray array = 5;
-    FilterStatus status = 6;
+  ResultField field = 1;
+  oneof value_condition {
+    FilterString filter_string = 2;
+    FilterDate filter_date = 3;
+    FilterArray filter_array = 4;
+    FilterStatus filter_status = 5;
   }
-}
+  }
 
 message FiltersAnd {
   repeated FilterField and = 1;
