@@ -34,9 +34,7 @@ RUN echo $PATH
 # Copy the application source files into the image
 WORKDIR /app/source
 COPY ./packages/cpp/ArmoniK.Api.Common ./ArmoniK.Api.Common
-COPY ./packages/cpp/ArmoniK.Api.Client ./ArmoniK.Api.Client
 COPY ./packages/cpp/ArmoniK.Api.Worker ./ArmoniK.Api.Worker
-COPY ./packages/cpp/ArmoniK.Api.Tests ./ArmoniK.Api.Tests
 COPY ./packages/cpp/ArmoniK.Api.Worker.Tests ./ArmoniK.Api.Worker.Tests
 COPY ./packages/cpp/CMakeLists.txt ./
 
@@ -46,7 +44,7 @@ COPY ./Protos/V1/ /app/proto
 
 # Build the application using the copied source files and protobuf definitions
 WORKDIR /app/builder
-RUN cmake "-DCMAKE_INSTALL_PREFIX=/app/install" "-DBUILD_TEST=ON" /app/source/
+RUN cmake "-DCMAKE_INSTALL_PREFIX=/app/install" "-DBUILD_TEST=ON" "-DBUILD_CLIENT=OFF" "-DBUILD_WORKER=ON" /app/source/
 RUN make -j $(nproc) install
 
 # Start with the latest Alpine base image for the final stage

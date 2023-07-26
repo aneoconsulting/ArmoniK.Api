@@ -28,9 +28,12 @@ using namespace ArmoniK::Api::Common::utils;
 
 ArmoniK::Api::Worker::ProcessStatus computer(ArmoniK::Api::Worker::TaskHandler &handler) {
   std::cout << "Call computer" << std::endl;
+  std::cout << "SizePayload : " << handler.getPayload().size() << "\nSize DD : " << handler.getDataDependencies().size()
+            << "\n Expected results : " << handler.getExpectedResults().size() << std::endl;
+
   try {
     if (!handler.getExpectedResults().empty()) {
-      auto res = handler.send_result(handler.getExpectedResults()[0], "test").get();
+      auto res = handler.send_result(handler.getExpectedResults()[0], handler.getPayload()).get();
       if (res.has_error()) {
         throw ArmoniK::Api::Common::exceptions::ArmoniKApiException(res.error());
       }
