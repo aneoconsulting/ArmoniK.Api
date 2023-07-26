@@ -88,7 +88,7 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(const std::string &key, const std::string &data);
+  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(const std::string &key, std::string_view data);
 
   /**
    * @brief Get the result ids object

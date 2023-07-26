@@ -56,7 +56,7 @@ public:
    * @return A shared pointer to the created WorkerServer instance
    */
   template <class Worker, typename... Args>
-  static std::shared_ptr<WorkerServer> create(const std::shared_ptr<Common::utils::IConfiguration> configuration,
+  static std::shared_ptr<WorkerServer> create(const std::shared_ptr<Common::utils::IConfiguration> &configuration,
                                               Args... args) {
     configuration->add_json_configuration("appsettings.json").add_env_configuration();
     auto worker_server = std::make_shared<WorkerServer>(configuration);

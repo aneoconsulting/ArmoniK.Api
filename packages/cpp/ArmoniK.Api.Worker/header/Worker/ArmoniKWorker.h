@@ -17,18 +17,16 @@
 
 namespace API_WORKER_NAMESPACE {
 
-class ArmoniKWorker final : public armonik::api::grpc::v1::worker::Worker::Service {
+class ArmoniKWorker : public armonik::api::grpc::v1::worker::Worker::Service {
 private:
   ArmoniK::Api::Common::serilog::serilog logger_;
   std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent_;
-  std::function<ProcessStatus(TaskHandler &)> processing_function_;
 
 public:
   /**
    * @brief Constructs a ArmoniKWorker object.
    */
-  ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                std::function<ProcessStatus(TaskHandler &)> processing_function);
+  ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent);
 
   /**
    * @brief Implements the Process method of the Worker service.
@@ -42,6 +40,13 @@ public:
   grpc::Status Process(::grpc::ServerContext *context,
                        ::grpc::ServerReader<::armonik::api::grpc::v1::worker::ProcessRequest> *reader,
                        ::armonik::api::grpc::v1::worker::ProcessReply *response) override;
+
+  /**
+   * @brief Function which does the actual work
+   * @param taskHandler Task handler
+   * @return Process status
+   */
+  virtual ProcessStatus Execute(TaskHandler &taskHandler) = 0;
 
   /**
    * @brief Implements the HealthCheck method of the Worker service.
