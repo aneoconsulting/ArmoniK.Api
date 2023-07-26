@@ -59,7 +59,8 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
   std::vector<std::string> chunks;
   auto datachunk = init_request.payload();
 
-  chunks.push_back(datachunk.data());
+  payload_.resize(datachunk.data().size());
+  std::memcpy(payload_.data(), datachunk.data().data(), datachunk.data().size());
 
   while (!datachunk.data_complete()) {
     if (!request_iterator_->Read(&Request)) {
@@ -71,10 +72,9 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
 
     datachunk = Request.compute().payload();
     if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
-      payload_.reserve(payload_.size() + datachunk.data().size());
-      for (auto c : datachunk.data()) {
-        payload_.push_back(std::byte(c));
-      }
+      size_t prev_size = payload_.size();
+      payload_.resize(payload_.size() + datachunk.data().size());
+      std::memcpy(payload_.data() + prev_size, datachunk.data().data(), datachunk.data().size());
     }
 
     if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
@@ -97,10 +97,11 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
     }
 
     init_data = Request.compute().init_data();
-    if (!init_data.key().empty()) {
-      std::vector<std::string> chunks_dep;
-      ProcessRequest dep_request;
+    if (init_data.type_case() == armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest_InitData::kKey) {
+      const std::string &key = init_data.key();
+      std::string data_dep;
       while (true) {
+        ProcessRequest dep_request;
         if (!request_iterator_->Read(&dep_request)) {
           throw std::runtime_error("Request stream ended unexpectedly.");
         }
@@ -108,12 +109,11 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
           throw std::runtime_error("Expected a Compute request type with Data to continue the stream.");
         }
 
-        auto datachunk = dep_request.compute().data();
-        if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
-          data_dependencies_.reserve(data_dependencies_.size() + datachunk.data().size());
-          for (auto c : datachunk.data()) {
-            data_dependencies_.push_back(std::byte(c));
-          }
+        auto chunk = dep_request.compute().data();
+        if (chunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
+          size_t prevSize = data_dep.size();
+          data_dep.resize(prevSize + chunk.data().size());
+          std::memcpy(data_dep.data() + prevSize, chunk.data().data(), chunk.data().size());
         }
 
         if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
@@ -124,16 +124,9 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
           break;
         }
       }
-
-      for (auto &&chunk : chunks_dep) {
-        data_dependencies_.reserve(data_dependencies_.size() + chunk.size());
-        for (auto c : chunk) {
-          data_dependencies_.push_back(std::byte(c));
-        }
-      }
+      data_dependencies_[key] = data_dep;
     }
-
-  } while (!init_data.key().empty());
+  } while (init_data.type_case() == armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest_InitData::kKey);
 }
 
 /**
@@ -394,14 +387,16 @@ std::string API_WORKER_NAMESPACE::TaskHandler::getTaskId() { return task_id_; }
  *
  * @return std::vector<std::byte>
  */
-std::vector<std::byte> API_WORKER_NAMESPACE::TaskHandler::getPayload() { return payload_; }
+std::string API_WORKER_NAMESPACE::TaskHandler::getPayload() { return payload_; }
 
 /**
  * @brief Get the Data Dependencies object
  *
  * @return std::vector<std::byte>
  */
-std::vector<std::byte> API_WORKER_NAMESPACE::TaskHandler::getDataDependencies() { return data_dependencies_; }
+std::map<std::string, std::string> API_WORKER_NAMESPACE::TaskHandler::getDataDependencies() {
+  return data_dependencies_;
+}
 
 /**
  * @brief Get the Task Options object

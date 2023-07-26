@@ -47,9 +47,9 @@ void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) 
   EnvConfiguration configuration;
   // auto server = std::make_shared<EnvConfiguration>(configuration_t);
 
-  configuration.add_json_configuration("appsetting.json").add_env_configuration();
+  configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
-  std::string server_address = configuration.get("ArmoniK_Client_Server");
+  std::string server_address = configuration.get("Grpc__EndPoint");
 
   std::cout << " Server address " << server_address << std::endl;
 
@@ -61,7 +61,7 @@ void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) 
   default_task_options.mutable_options()->insert({"key2", "value2"});
   default_task_options.mutable_max_duration()->set_seconds(3600);
   default_task_options.mutable_max_duration()->set_nanos(0);
-  default_task_options.set_max_retries(3);
+  default_task_options.set_max_retries(1);
   default_task_options.set_priority(1);
   default_task_options.set_partition_id("");
   default_task_options.set_application_name("my-app");
