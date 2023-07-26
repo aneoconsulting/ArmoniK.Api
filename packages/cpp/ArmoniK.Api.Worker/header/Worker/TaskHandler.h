@@ -26,8 +26,8 @@ private:
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
   google::protobuf::RepeatedPtrField<std::string> expected_result_;
-  std::vector<std::byte> payload_;
-  std::vector<std::byte> data_dependencies_;
+  std::string payload_;
+  std::map<std::string, std::string> data_dependencies_;
   std::string token_;
   armonik::api::grpc::v1::Configuration config_;
 
@@ -117,13 +117,13 @@ public:
    *
    * @return std::vector<std::byte>
    */
-  std::vector<std::byte> getPayload();
+  std::string getPayload();
   /**
    * @brief Get the Data Dependencies object
    *
    * @return std::vector<std::byte>
    */
-  std::vector<std::byte> getDataDependencies();
+  std::map<std::string, std::string> getDataDependencies();
 
   /**
    * @brief Get the Task Options object
