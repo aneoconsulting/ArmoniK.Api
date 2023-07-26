@@ -80,6 +80,11 @@ message FilterStatus {
   FilterStatusOperator operator = 4;
 }
 
+enum FilterBooleanOperator {
+  FILTER_BOOLEAN_OPERATOR_IS = 0; /** Is */
+}
+
 message FilterBoolean {
   bool value = 1;
+  FilterBooleanOperator operator = 2;
 }
