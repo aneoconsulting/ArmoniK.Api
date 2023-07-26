@@ -43,8 +43,8 @@
   "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
   "devDependencies": {
     "ts-proto": "^1.156.0",
-    "tsup": "^6.7.0",
-    "typescript": "^4.9.5"
+    "tsup": "^7.1.0",
+    "typescript": "^5.1.6"
   },
   "dependencies": {
     "protobufjs": "^7.2.4",
