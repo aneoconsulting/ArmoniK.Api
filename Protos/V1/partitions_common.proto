@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.partitions;
 
+import "partitions_fields.proto";
+import "partitions_filters.proto";
 import "sort_direction.proto";
 
 option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
@@ -22,59 +24,13 @@ message PartitionRaw {
 }
 
 /**
- * Represents every available field in a partition.
- */
-enum PartitionRawEnumField {
-  PARTITION_RAW_ENUM_FIELD_UNSPECIFIED = 0; /** Unspecified. */
-  PARTITION_RAW_ENUM_FIELD_ID = 1; /** The partition ID. */
-  PARTITION_RAW_ENUM_FIELD_PARENT_PARTITION_IDS = 2; /** The parent partition IDs. */
-  PARTITION_RAW_ENUM_FIELD_POD_RESERVED = 3; /** Whether the partition is reserved for pods. */
-  PARTITION_RAW_ENUM_FIELD_POD_MAX = 4; /** The maximum number of pods that can be used by sessions using the partition. */
-  PARTITION_RAW_ENUM_FIELD_PREEMPTION_PERCENTAGE = 5; /** The percentage of the partition that can be preempted. */
-  PARTITION_RAW_ENUM_FIELD_PRIORITY = 6; /** The priority of the partition. */
-}
-
-/**
- * This message is used to wrap the enum in order to facilitate the 'oneOf' generation.
- */
-message PartitionRawField {
-  PartitionRawEnumField field = 1;
-}
-
-message PartitionField {
-  oneof field {
-    PartitionRawField partition_raw_field = 1; /** The partition raw field. */
-  }
-}
-
-/**
  * Request to list partitions.
  */
 message ListPartitionsRequest {
   int32 page = 1; /** The page number. Start at 0. */
   int32 page_size = 2; /** The number of items per page. */
 
-  /**
-   * Represents a filter with all available fields.
-   *
-   * Any fields can be used at the same time.
-   */
-  message Filter {
-    string id = 1; /** The partition ID. */
-    string parent_partition_id = 2; /** The parent partition ID. */
-    int32 pod_reserved = 3; /** Whether the partition is reserved for pods. */
-    int32 pod_max = 4; /** The maximum number of pods that can be used by sessions using the partition. */
-
-    int32 preemption_percentage = 5; /** The percentage of the partition that can be preempted. */
-    int32 priority = 6; /** The priority of the partition. */
-  }
-
-  /**
-   * The filter.
-   *
-   * Must be set for every request but allowed to be empty.
-   */
-  Filter filter = 3;
+  Filters filters = 3; /** The filter. */
 
   /**
    * Represents the sort object.
