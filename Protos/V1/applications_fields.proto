@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.applications;
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
+
+/**
+ * Represents every available field in an application.
+ */
+enum ApplicationRawEnumField {
+  APPLICATION_RAW_ENUM_FIELD_UNSPECIFIED = 0; /** Unspecified */
+  APPLICATION_RAW_ENUM_FIELD_NAME = 1; /** Application name. */
+  APPLICATION_RAW_ENUM_FIELD_VERSION = 2; /** Application version. */
+  APPLICATION_RAW_ENUM_FIELD_NAMESPACE = 3; /** Application namespace. */
+  APPLICATION_RAW_ENUM_FIELD_SERVICE = 4; /** Application service. */
+}
+
+/**
+ * This message is used to wrap the enum in order to facilitate the 'oneOf' generation.
+ */
+message ApplicationRawField {
+  ApplicationRawEnumField field = 1;
+}
+
+message ApplicationField {
+  oneof field {
+    ApplicationRawField application_field = 1;
+  }
+}

@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.partitions;
+
+import "filters_common.proto";
+import "partitions_fields.proto";
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
+
+message FilterField {
+  PartitionField field = 1;
+  oneof value_condition {
+    FilterString filter_string = 2;
+    FilterNumber filter_number = 3;
+    FilterBoolean filter_boolean = 4;
+    FilterArray filter_array = 5;
+  }
+}
+
+message FiltersAnd {
+  repeated FilterField and = 1;
+}
+
+message Filters {
+  repeated FiltersAnd or = 1;
+}
+
+// TODO: I think that we could add a duration filter.
