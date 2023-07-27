@@ -74,8 +74,7 @@ export { ResultsClient } from "./generated/results-service.pbsc";
 export { SessionStatus } from "./generated/session-status.pb";
 export {
   CancelSessionRequest,
-  CancelSessionResponse, CountTasksByStatusRequest as CountTasksByStatusSessionRequest,
-  CountTasksByStatusResponse as CountTasksByStatusSessionResponse, GetSessionRequest,
+  CancelSessionResponse, GetSessionRequest,
   GetSessionResponse,
   ListSessionsRequest,
   ListSessionsResponse, SessionRaw
