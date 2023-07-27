@@ -13,9 +13,17 @@ public:
 
   [[nodiscard]] bool ok() const { return ok_; }
   [[nodiscard]] const std::string &details() const { return details_; }
+  void set_ok() {
+    ok_ = true;
+    details_.clear();
+  }
+  void set_error(const std::string &details) {
+    ok_ = false;
+    details_ = details;
+  }
 
-  static const ProcessStatus PROCESS_OK;
-  static const ProcessStatus PROCESS_ERROR;
+  static const ProcessStatus Ok;
+  static const ProcessStatus Error;
 
 private:
   explicit ProcessStatus(bool ok, std::string error_message = "") {

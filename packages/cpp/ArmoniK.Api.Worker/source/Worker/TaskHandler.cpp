@@ -48,17 +48,19 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
   if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kInitRequest) {
     throw std::runtime_error("Expected a Compute request type with InitRequest to start the stream.");
   }
-  auto &init_request = Request.compute().init_request();
-  session_id_ = init_request.session_id();
-  task_id_ = init_request.task_id();
-  task_options_ = init_request.task_options();
-  expected_result_.assign(init_request.expected_output_keys().begin(), init_request.expected_output_keys().end());
+  auto init_request = Request.mutable_compute()->mutable_init_request();
+  session_id_ = init_request->session_id();
+  task_id_ = init_request->task_id();
+  task_options_ = init_request->task_options();
+  expected_result_.assign(std::make_move_iterator(init_request->mutable_expected_output_keys()->begin()),
+                          std::make_move_iterator(init_request->mutable_expected_output_keys()->end()));
   token_ = Request.communication_token();
-  config_ = init_request.configuration();
+  config_ = init_request->configuration();
 
   std::vector<std::string> chunks;
-  auto datachunk = init_request.payload();
 
+  auto datachunk = init_request->payload();
+  payload_.clear();
   payload_.resize(datachunk.data().size());
   std::memcpy(payload_.data(), datachunk.data().data(), datachunk.data().size());
 
