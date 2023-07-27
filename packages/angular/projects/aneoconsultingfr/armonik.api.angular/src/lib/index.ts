@@ -32,7 +32,6 @@ export {
   FilterBoolean,
   FilterDate,
   FilterNumber,
-  FilterStatus,
   FilterString,
 } from "./generated/filters-common.pb";
 export { StatusCount, TaskOptions } from "./generated/objects.pb";
