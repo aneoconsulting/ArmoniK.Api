@@ -33,6 +33,7 @@ export {
   FilterDate,
   FilterNumber,
   FilterString,
+  FilterBooleanOperator,
 } from "./generated/filters-common.pb";
 export { StatusCount, TaskOptions } from "./generated/objects.pb";
 export {
