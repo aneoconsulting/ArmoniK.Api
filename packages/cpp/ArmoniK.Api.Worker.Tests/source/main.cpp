@@ -50,17 +50,18 @@ public:
       return ArmoniK::Api::Worker::ProcessStatus(e.what());
     }
 
-    return ArmoniK::Api::Worker::ProcessStatus::OK;
+    return ArmoniK::Api::Worker::ProcessStatus::Ok;
   }
 };
 
 int main(int argc, char **argv) {
   std::cout << "Starting C++ worker..." << std::endl;
 
-  std::shared_ptr<IConfiguration> config = std::make_shared<IConfiguration>();
+  IConfiguration config;
+  config.add_json_configuration("appsettings.json").add_env_configuration();
 
-  config->set("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock");
-  config->set("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock");
+  config.set("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock");
+  config.set("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock");
 
   try {
     ArmoniK::Api::Worker::WorkerServer::create<Computer>(config)->run();
