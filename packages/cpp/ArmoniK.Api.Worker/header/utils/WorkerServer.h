@@ -33,18 +33,32 @@ public:
 
 private:
   ::grpc::ServerBuilder builder_;
-  std::shared_ptr<Common::utils::IConfiguration> configuration_;
+  Common::utils::IConfiguration configuration_;
+  std::unique_ptr<::grpc::Server> instance_server; ///< Unique pointer to the gRPC server instance
+  std::shared_ptr<::grpc::Channel> channel;        ///< Shared pointer to the gRPC channel
+  std::unique_ptr<Agent::Stub> agent_stub;         ///< Proxy to communicate with the agent
 
 public:
   /**
    * @brief Constructor for the WorkerServer class.
    * @param configuration A shared pointer to the IConfiguration object.
    */
-  WorkerServer(std::shared_ptr<ArmoniK::Api::Common::utils::IConfiguration> configuration)
-      : configuration_(std::move(configuration)) {
+  WorkerServer(const ArmoniK::Api::Common::utils::IConfiguration &configuration) : configuration_(configuration) {
     logger.enrich([&](Common::serilog::serilog_context &ctx) { ctx.add("threadId", std::this_thread::get_id()); });
-
     logger.add_property("container", "ArmoniK.Worker");
+    logger.info("Creating worker");
+    Common::options::ComputePlane compute_plane(configuration);
+
+    builder_.AddListeningPort(std::string(compute_plane.get_server_address()), ::grpc::InsecureServerCredentials());
+    builder_.SetMaxReceiveMessageSize(-1);
+
+    logger.info("Initialize and register worker");
+
+    // Create a gRPC channel to communicate with the server
+    channel = CreateChannel(std::string(compute_plane.get_agent_address()), ::grpc::InsecureChannelCredentials());
+
+    // Create a stub for the Submitter service
+    agent_stub = Agent::NewStub(channel);
   }
 
   /**
@@ -56,35 +70,28 @@ public:
    * @return A shared pointer to the created WorkerServer instance
    */
   template <class Worker, typename... Args>
-  static std::shared_ptr<WorkerServer> create(const std::shared_ptr<Common::utils::IConfiguration> &configuration,
-                                              Args... args) {
-    configuration->add_json_configuration("appsettings.json").add_env_configuration();
+  static std::shared_ptr<WorkerServer> create(const Common::utils::IConfiguration &configuration, Args... args) {
     auto worker_server = std::make_shared<WorkerServer>(configuration);
-    worker_server->logger.info("Creating worker");
-    Common::options::ComputePlane compute_plane(*configuration);
-
-    worker_server->builder_.AddListeningPort(std::string(compute_plane.get_server_address()),
-                                             ::grpc::InsecureServerCredentials());
-    worker_server->builder_.SetMaxReceiveMessageSize(-1);
-
-    worker_server->logger.info("Initialize and register worker");
-
-    // Create a gRPC channel to communicate with the server
-    worker_server->channel =
-        CreateChannel(std::string(compute_plane.get_agent_address()), ::grpc::InsecureChannelCredentials());
-
-    // Create a stub for the Submitter service
-    worker_server->agent_stub = Agent::NewStub(worker_server->channel);
-
     worker_server->builder_.RegisterService(new Worker(std::move(worker_server->agent_stub), args...));
     worker_server->logger.info("Finish to register new worker");
 
     return worker_server;
   }
 
-  std::unique_ptr<::grpc::Server> instance_server; ///< Unique pointer to the gRPC server instance
-  std::shared_ptr<::grpc::Channel> channel;        ///< Shared pointer to the gRPC channel
-  std::unique_ptr<Agent::Stub> agent_stub;         ///< Proxy to communicate with the agent
+  /**
+   * @brief Create a WorkerServer instance with the given configuration.
+   * @tparam Worker The worker class to be used
+   * @param configuration Shared pointer to the IConfiguration object
+   * @return A shared pointer to the created WorkerServer instance
+   */
+  template <class Worker>
+  static std::shared_ptr<WorkerServer> create(const Common::utils::IConfiguration &configuration) {
+    auto worker_server = std::make_shared<WorkerServer>(configuration);
+    worker_server->builder_.RegisterService(new Worker(std::move(worker_server->agent_stub)));
+    worker_server->logger.info("Finish to register new worker");
+
+    return worker_server;
+  }
 
   void run() {
     instance_server = builder_.BuildAndStart();
