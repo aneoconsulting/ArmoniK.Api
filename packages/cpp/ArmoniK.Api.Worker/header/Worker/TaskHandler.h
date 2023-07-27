@@ -25,7 +25,7 @@ private:
   std::string session_id_;
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
-  google::protobuf::RepeatedPtrField<std::string> expected_result_;
+  std::vector<std::string> expected_result_;
   std::string payload_;
   std::map<std::string, std::string> data_dependencies_;
   std::string token_;
@@ -104,47 +104,47 @@ public:
    *
    * @return std::string
    */
-  std::string getSessionId();
+  const std::string &getSessionId() const;
 
   /**
    * @brief Get the Task Id object
    *
    * @return std::string
    */
-  std::string getTaskId();
+  const std::string &getTaskId() const;
   /**
    * @brief Get the Payload object
    *
    * @return std::vector<std::byte>
    */
-  std::string getPayload();
+  const std::string &getPayload() const;
   /**
    * @brief Get the Data Dependencies object
    *
    * @return std::vector<std::byte>
    */
-  std::map<std::string, std::string> getDataDependencies();
+  const std::map<std::string, std::string> &getDataDependencies() const;
 
   /**
    * @brief Get the Task Options object
    *
    * @return armonik::api::grpc::v1::TaskOptions
    */
-  armonik::api::grpc::v1::TaskOptions getTaskOptions();
+  const armonik::api::grpc::v1::TaskOptions &getTaskOptions() const;
 
   /**
    * @brief Get the Expected Results object
    *
    * @return google::protobuf::RepeatedPtrField<std::string>
    */
-  google::protobuf::RepeatedPtrField<std::string> getExpectedResults();
+  const std::vector<std::string> &getExpectedResults() const;
 
   /**
    * @brief Get the Configuration object
    *
    * @return armonik::api::grpc::v1::Configuration
    */
-  armonik::api::grpc::v1::Configuration getConfiguration();
+  const armonik::api::grpc::v1::Configuration &getConfiguration() const;
 };
 
 } // namespace API_WORKER_NAMESPACE

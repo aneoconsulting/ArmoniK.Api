@@ -52,7 +52,7 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
   session_id_ = init_request.session_id();
   task_id_ = init_request.task_id();
   task_options_ = init_request.task_options();
-  expected_result_ = init_request.expected_output_keys();
+  expected_result_.assign(init_request.expected_output_keys().begin(), init_request.expected_output_keys().end());
   token_ = Request.communication_token();
   config_ = init_request.configuration();
 
@@ -372,28 +372,28 @@ API_WORKER_NAMESPACE::TaskHandler::get_result_ids(std::vector<CreateResultsMetaD
  *
  * @return std::string
  */
-std::string API_WORKER_NAMESPACE::TaskHandler::getSessionId() { return session_id_; }
+const std::string &API_WORKER_NAMESPACE::TaskHandler::getSessionId() const { return session_id_; }
 
 /**
  * @brief Get the Task Id object
  *
  * @return std::string
  */
-std::string API_WORKER_NAMESPACE::TaskHandler::getTaskId() { return task_id_; }
+const std::string &API_WORKER_NAMESPACE::TaskHandler::getTaskId() const { return task_id_; }
 
 /**
  * @brief Get the Payload object
  *
  * @return std::vector<std::byte>
  */
-std::string API_WORKER_NAMESPACE::TaskHandler::getPayload() { return payload_; }
+const std::string &API_WORKER_NAMESPACE::TaskHandler::getPayload() const { return payload_; }
 
 /**
  * @brief Get the Data Dependencies object
  *
  * @return std::vector<std::byte>
  */
-std::map<std::string, std::string> API_WORKER_NAMESPACE::TaskHandler::getDataDependencies() {
+const std::map<std::string, std::string> &API_WORKER_NAMESPACE::TaskHandler::getDataDependencies() const {
   return data_dependencies_;
 }
 
@@ -402,14 +402,16 @@ std::map<std::string, std::string> API_WORKER_NAMESPACE::TaskHandler::getDataDep
  *
  * @return armonik::api::grpc::v1::TaskOptions
  */
-armonik::api::grpc::v1::TaskOptions API_WORKER_NAMESPACE::TaskHandler::getTaskOptions() { return task_options_; }
+const armonik::api::grpc::v1::TaskOptions &API_WORKER_NAMESPACE::TaskHandler::getTaskOptions() const {
+  return task_options_;
+}
 
 /**
  * @brief Get the Expected Results object
  *
  * @return google::protobuf::RepeatedPtrField<std::string>
  */
-google::protobuf::RepeatedPtrField<std::string> API_WORKER_NAMESPACE::TaskHandler::getExpectedResults() {
+const std::vector<std::string> &API_WORKER_NAMESPACE::TaskHandler::getExpectedResults() const {
   return expected_result_;
 }
 
@@ -418,4 +420,6 @@ google::protobuf::RepeatedPtrField<std::string> API_WORKER_NAMESPACE::TaskHandle
  *
  * @return armonik::api::grpc::v1::Configuration
  */
-armonik::api::grpc::v1::Configuration API_WORKER_NAMESPACE::TaskHandler::getConfiguration() { return config_; }
+const armonik::api::grpc::v1::Configuration &API_WORKER_NAMESPACE::TaskHandler::getConfiguration() const {
+  return config_;
+}
