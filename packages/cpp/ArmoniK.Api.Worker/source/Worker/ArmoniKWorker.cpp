@@ -59,19 +59,22 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
   TaskHandler task_handler(agent, iterator);
 
   task_handler.init();
+  try {
+    ProcessStatus status = Execute(task_handler);
 
-  ProcessStatus status = Execute(task_handler);
+    logger_.debug("Finish call C++");
 
-  logger_.debug("Finish call C++");
+    armonik::api::grpc::v1::Output output;
+    if (status.ok()) {
+      *output.mutable_ok() = armonik::api::grpc::v1::Empty();
+    } else {
+      output.mutable_error()->set_details(status.details());
+    }
 
-  armonik::api::grpc::v1::Output output;
-  if (status.ok()) {
-    *output.mutable_ok() = armonik::api::grpc::v1::Empty();
-  } else {
-    output.mutable_error()->set_details(status.details());
+    *response->mutable_output() = output;
+  } catch (const std::exception &e) {
+    return {grpc::StatusCode::UNAVAILABLE, "Error processing task", e.what()};
   }
-
-  *response->mutable_output() = output;
 
   return grpc::Status::OK;
 }
