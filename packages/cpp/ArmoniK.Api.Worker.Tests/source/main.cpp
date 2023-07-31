@@ -26,9 +26,9 @@ using armonik::api::grpc::v1::TaskOptions;
 using namespace armonik::api::grpc::v1::worker;
 using namespace ArmoniK::Api::Common::utils;
 
-class Computer final : public ArmoniK::Api::Worker::ArmoniKWorker {
+class TestWorker : public ArmoniK::Api::Worker::ArmoniKWorker {
 public:
-  explicit Computer(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
+  explicit TestWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
       : ArmoniKWorker(std::move(agent)) {}
 
   ArmoniK::Api::Worker::ProcessStatus Execute(ArmoniK::Api::Worker::TaskHandler &taskHandler) override {
@@ -64,7 +64,7 @@ int main(int argc, char **argv) {
   config.set("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock");
 
   try {
-    ArmoniK::Api::Worker::WorkerServer::create<Computer>(config)->run();
+    ArmoniK::Api::Worker::WorkerServer::create<TestWorker>(config)->run();
   } catch (const std::exception &e) {
     std::cout << "Error in worker" << e.what() << std::endl;
   }
