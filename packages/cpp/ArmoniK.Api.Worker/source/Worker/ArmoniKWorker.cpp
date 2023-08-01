@@ -64,7 +64,7 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
     if (status.ok()) {
       *output.mutable_ok() = armonik::api::grpc::v1::Empty();
     } else {
-      output.mutable_error()->set_details(status.details());
+      output.mutable_error()->set_details(std::move(status).details());
     }
     *response->mutable_output() = std::move(output);
   } catch (const std::exception &e) {

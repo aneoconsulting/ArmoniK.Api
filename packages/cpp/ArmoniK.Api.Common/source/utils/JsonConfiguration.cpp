@@ -33,16 +33,6 @@ void populate(API_COMMON_NAMESPACE::utils::Configuration &config, const std::str
   }
 }
 
-API_COMMON_NAMESPACE::utils::JsonConfiguration::JsonConfiguration(const std::string &json_path) {
-  fromPath(*this, json_path);
-}
-
-API_COMMON_NAMESPACE::utils::JsonConfiguration
-API_COMMON_NAMESPACE::utils::JsonConfiguration::fromString(const std::string &json_string) {
-  JsonConfiguration config;
-  fromString(config, json_string);
-  return config;
-}
 void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromPath(API_COMMON_NAMESPACE::utils::Configuration &config,
                                                               std::string_view filepath) {
   dom::parser parser;
@@ -55,7 +45,7 @@ void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromPath(API_COMMON_NAMESPA
   }
 }
 void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromString(API_COMMON_NAMESPACE::utils::Configuration &config,
-                                                                const std::string &json_string) {
+                                                                std::string_view json_string) {
   dom::parser parser;
   populate(config, "", parser.parse(padded_string(json_string)));
 }
