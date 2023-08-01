@@ -12,7 +12,8 @@ public:
   explicit ProcessStatus(std::string error_message) : ProcessStatus(false, std::move(error_message)) {}
 
   [[nodiscard]] bool ok() const { return ok_; }
-  [[nodiscard]] const std::string &details() const { return details_; }
+  [[nodiscard]] const std::string &details() const & { return details_; }
+  [[nodiscard]] std::string &&details() && { return std::move(details_); }
   void set_ok() {
     ok_ = true;
     details_.clear();

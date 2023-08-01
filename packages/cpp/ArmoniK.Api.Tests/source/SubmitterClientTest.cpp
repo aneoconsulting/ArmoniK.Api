@@ -44,7 +44,7 @@ using namespace ArmoniK::Api::Common::serilog;
  */
 void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) {
 
-  EnvConfiguration configuration;
+  Configuration configuration;
   // auto server = std::make_shared<EnvConfiguration>(configuration_t);
 
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
