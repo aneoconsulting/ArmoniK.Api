@@ -1,12 +1,12 @@
 #ifndef ARMONIK_API_CONTROLPLANE_H
 #define ARMONIK_API_CONTROLPLANE_H
 
-#include "utils/IConfiguration.h"
+#include "utils/Configuration.h"
 
 namespace API_COMMON_NAMESPACE::options {
 class ControlPlane {
 public:
-  ControlPlane(const utils::IConfiguration &config) {
+  ControlPlane(const utils::Configuration &config) {
     endpoint_ = config.get(EndpointKey);
     user_cert_pem_path_ = config.get(UserCertKey);
     user_key_pem_path_ = config.get(UserKeyKey);

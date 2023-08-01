@@ -21,7 +21,7 @@
 #include "results_service.grpc.pb.h"
 #include "submitter/ResultsClient.h"
 
-using ArmoniK::Api::Common::utils::IConfiguration;
+using ArmoniK::Api::Common::utils::Configuration;
 using armonik::api::grpc::v1::TaskOptions;
 using armonik::api::grpc::v1::submitter::CreateSessionReply;
 using armonik::api::grpc::v1::submitter::CreateSessionRequest;

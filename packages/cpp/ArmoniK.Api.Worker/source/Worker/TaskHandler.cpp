@@ -29,11 +29,9 @@ using namespace armonik::api::grpc::v1::agent;
  * @param client the agent client
  * @param request_iterator The request iterator
  */
-API_WORKER_NAMESPACE::TaskHandler::TaskHandler(std::shared_ptr<Agent::Stub> client,
-                                               std::shared_ptr<grpc::ServerReader<ProcessRequest>> request_iterator) {
-  stub_ = std::move(client);
-  request_iterator_ = std::move(request_iterator);
-}
+API_WORKER_NAMESPACE::TaskHandler::TaskHandler(Agent::Stub &client,
+                                               grpc::ServerReader<ProcessRequest> &request_iterator)
+    : stub_(client), request_iterator_(request_iterator) {}
 
 /**
  * @brief Initialise the task handler
@@ -41,70 +39,65 @@ API_WORKER_NAMESPACE::TaskHandler::TaskHandler(std::shared_ptr<Agent::Stub> clie
  */
 void API_WORKER_NAMESPACE::TaskHandler::init() {
   ProcessRequest Request;
-  if (!request_iterator_->Read(&Request)) {
+  if (!request_iterator_.Read(&Request)) {
     throw std::runtime_error("Request stream ended unexpectedly.");
   }
 
   if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kInitRequest) {
     throw std::runtime_error("Expected a Compute request type with InitRequest to start the stream.");
   }
-  auto init_request = Request.mutable_compute()->mutable_init_request();
+  auto *init_request = Request.mutable_compute()->mutable_init_request();
   session_id_ = init_request->session_id();
   task_id_ = init_request->task_id();
   task_options_ = init_request->task_options();
   expected_result_.assign(std::make_move_iterator(init_request->mutable_expected_output_keys()->begin()),
                           std::make_move_iterator(init_request->mutable_expected_output_keys()->end()));
   token_ = Request.communication_token();
-  config_ = init_request->configuration();
+  config_ = std::move(*init_request->mutable_configuration());
 
   std::vector<std::string> chunks;
 
-  auto datachunk = init_request->payload();
-  payload_.clear();
-  payload_.resize(datachunk.data().size());
-  std::memcpy(payload_.data(), datachunk.data().data(), datachunk.data().size());
+  auto *datachunk = &init_request->payload();
+  payload_.resize(datachunk->data().size());
+  std::memcpy(payload_.data(), datachunk->data().data(), datachunk->data().size());
 
-  while (!datachunk.data_complete()) {
-    if (!request_iterator_->Read(&Request)) {
+  while (!datachunk->data_complete()) {
+    if (!request_iterator_.Read(&Request)) {
       throw std::runtime_error("Request stream ended unexpectedly.");
     }
     if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kPayload) {
       throw std::runtime_error("Expected a Compute request type with Payload to continue the stream.");
     }
 
-    datachunk = Request.compute().payload();
-    if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
+    datachunk = &Request.compute().payload();
+    if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::kData) {
       size_t prev_size = payload_.size();
-      payload_.resize(payload_.size() + datachunk.data().size());
-      std::memcpy(payload_.data() + prev_size, datachunk.data().data(), datachunk.data().size());
-    }
-
-    if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
+      payload_.resize(payload_.size() + datachunk->data().size());
+      std::memcpy(payload_.data() + prev_size, datachunk->data().data(), datachunk->data().size());
+    } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
       throw std::runtime_error("Expected a Compute request type with a DataChunk Payload to continue the stream.");
-    }
-
-    if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
+    } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
       break;
     }
   }
 
-  armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::InitData init_data;
+  armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::InitData *init_data;
 
   do {
-    if (!request_iterator_->Read(&Request)) {
+    if (!request_iterator_.Read(&Request)) {
       throw std::runtime_error("Request stream ended unexpectedly.");
     }
     if (Request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kInitData) {
       throw std::runtime_error("Expected a Compute request type with InitData to continue the stream.");
     }
 
-    init_data = Request.compute().init_data();
-    if (init_data.type_case() == armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest_InitData::kKey) {
-      const std::string &key = init_data.key();
+    init_data = Request.mutable_compute()->mutable_init_data();
+    if (init_data->type_case() == armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest_InitData::kKey) {
+      const std::string &key = init_data->key();
       std::string data_dep;
       while (true) {
         ProcessRequest dep_request;
-        if (!request_iterator_->Read(&dep_request)) {
+        if (!request_iterator_.Read(&dep_request)) {
           throw std::runtime_error("Request stream ended unexpectedly.");
         }
         if (dep_request.compute().type_case() != armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest::kData) {
@@ -116,19 +109,15 @@ void API_WORKER_NAMESPACE::TaskHandler::init() {
           size_t prevSize = data_dep.size();
           data_dep.resize(prevSize + chunk.data().size());
           std::memcpy(data_dep.data() + prevSize, chunk.data().data(), chunk.data().size());
-        }
-
-        if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
+        } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
           throw std::runtime_error("Expected a Compute request type with a DataChunk Payload to continue the stream.");
-        }
-
-        if (datachunk.type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
+        } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
           break;
         }
       }
       data_dependencies_[key] = data_dep;
     }
-  } while (init_data.type_case() == armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest_InitData::kKey);
+  } while (init_data->type_case() == armonik::api::grpc::v1::worker::ProcessRequest_ComputeRequest_InitData::kKey);
 }
 
 /**
@@ -261,7 +250,7 @@ API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
 
     reply.set_allocated_creation_status_list(new armonik::api::grpc::v1::agent::CreateTaskReply_CreationStatusList());
     grpc::ClientContext context_client_writer;
-    auto stream(stub_->CreateTask(&context_client_writer, &reply));
+    auto stream(stub_.CreateTask(&context_client_writer, &reply));
 
     auto create_task_request_async = to_request_stream(task_requests, std::move(task_options), token_, chunk);
 
@@ -291,8 +280,8 @@ API_WORKER_NAMESPACE::TaskHandler::create_tasks_async(TaskOptions task_options,
  * @param data The result data
  * @return A future containing a vector of ResultReply
  */
-std::future<ResultReply> API_WORKER_NAMESPACE::TaskHandler::send_result(const std::string &key, std::string_view data) {
-  return std::async(std::launch::async, [this, key, data]() {
+std::future<ResultReply> API_WORKER_NAMESPACE::TaskHandler::send_result(std::string key, std::string_view data) {
+  return std::async(std::launch::async, [this, key = std::move(key), data]() mutable {
     grpc::ClientContext context_client_writer;
 
     ResultReply reply;
@@ -301,10 +290,10 @@ std::future<ResultReply> API_WORKER_NAMESPACE::TaskHandler::send_result(const st
     const size_t data_size = data.size();
     size_t start = 0;
 
-    auto stream = stub_->SendResult(&context_client_writer, &reply);
+    auto stream = stub_.SendResult(&context_client_writer, &reply);
 
     Result init_msg;
-    init_msg.mutable_init()->set_key(key);
+    init_msg.mutable_init()->set_key(std::move(key));
     init_msg.set_communication_token(token_);
 
     stream->Write(init_msg);
@@ -358,7 +347,7 @@ API_WORKER_NAMESPACE::TaskHandler::get_result_ids(std::vector<CreateResultsMetaD
   *request.mutable_results() = {results.begin(), results.end()};
   request.set_session_id(session_id_);
 
-  Status status = stub_->CreateResultsMetaData(&context_client_writer, request, &reply);
+  Status status = stub_.CreateResultsMetaData(&context_client_writer, request, &reply);
 
   auto results_reply = reply.results();
 
