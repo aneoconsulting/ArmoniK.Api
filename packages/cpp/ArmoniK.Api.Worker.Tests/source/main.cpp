@@ -20,7 +20,7 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using ArmoniK::Api::Common::utils::IConfiguration;
+using ArmoniK::Api::Common::utils::Configuration;
 using armonik::api::grpc::v1::TaskOptions;
 
 using namespace armonik::api::grpc::v1::worker;
@@ -57,7 +57,7 @@ public:
 int main(int argc, char **argv) {
   std::cout << "Starting C++ worker..." << std::endl;
 
-  IConfiguration config;
+  Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
 
   config.set("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock");

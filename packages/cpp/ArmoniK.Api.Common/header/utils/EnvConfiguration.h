@@ -5,14 +5,14 @@
  * @brief Header file for the EnvConfiguration class
  */
 
-#include "utils/IConfiguration.h"
+#include "utils/Configuration.h"
 
 namespace API_COMMON_NAMESPACE::utils {
 /**
  * @class EnvConfiguration
- * @brief An implementation of IConfiguration that handles environment variables
+ * @brief An implementation of Configuration that handles environment variables
  */
-class EnvConfiguration : public IConfiguration {
+class EnvConfiguration : public Configuration {
 public:
   /**
    * @brief Default constructor

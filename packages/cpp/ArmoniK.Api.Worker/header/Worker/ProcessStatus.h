@@ -17,9 +17,9 @@ public:
     ok_ = true;
     details_.clear();
   }
-  void set_error(const std::string &details) {
+  void set_error(std::string details) {
     ok_ = false;
-    details_ = details;
+    details_ = std::move(details);
   }
 
   static const ProcessStatus Ok;

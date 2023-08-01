@@ -20,8 +20,8 @@ class TaskHandler {
 
 private:
   grpc::ClientContext context_;
-  std::shared_ptr<armonik::api::grpc::v1::agent::Agent::Stub> stub_;
-  std::shared_ptr<grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator_;
+  armonik::api::grpc::v1::agent::Agent::Stub &stub_;
+  grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator_;
   std::string session_id_;
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
@@ -38,8 +38,8 @@ public:
    * @param client the agent client
    * @param request_iterator The request iterator
    */
-  TaskHandler(std::shared_ptr<armonik::api::grpc::v1::agent::Agent::Stub> client,
-              std::shared_ptr<grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator);
+  TaskHandler(armonik::api::grpc::v1::agent::Agent::Stub &client,
+              grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator);
 
   /**
    * @brief Initialise the task handler
@@ -88,7 +88,7 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(const std::string &key, std::string_view data);
+  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(std::string key, std::string_view data);
 
   /**
    * @brief Get the result ids object
