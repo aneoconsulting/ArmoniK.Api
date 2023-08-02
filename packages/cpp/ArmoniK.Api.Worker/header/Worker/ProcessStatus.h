@@ -12,10 +12,19 @@ public:
   explicit ProcessStatus(std::string error_message) : ProcessStatus(false, std::move(error_message)) {}
 
   [[nodiscard]] bool ok() const { return ok_; }
-  [[nodiscard]] const std::string &details() const { return details_; }
+  [[nodiscard]] const std::string &details() const & { return details_; }
+  [[nodiscard]] std::string &&details() && { return std::move(details_); }
+  void set_ok() {
+    ok_ = true;
+    details_.clear();
+  }
+  void set_error(std::string details) {
+    ok_ = false;
+    details_ = std::move(details);
+  }
 
-  static const ProcessStatus OK;
-  static const ProcessStatus ERROR;
+  static const ProcessStatus Ok;
+  static const ProcessStatus Error;
 
 private:
   explicit ProcessStatus(bool ok, std::string error_message = "") {

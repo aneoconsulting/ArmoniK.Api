@@ -8,7 +8,7 @@
 #include "grpcpp/support/sync_stream.h"
 #include "objects.pb.h"
 
-#include "utils/IConfiguration.h"
+#include "utils/Configuration.h"
 #include "utils/WorkerServer.h"
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
@@ -20,7 +20,7 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using ArmoniK::Api::Common::utils::IConfiguration;
+using ArmoniK::Api::Common::utils::Configuration;
 using armonik::api::grpc::v1::TaskOptions;
 
 using namespace armonik::api::grpc::v1::worker;
@@ -29,14 +29,12 @@ using namespace ArmoniK::Api::Common::utils;
 /**
  * @brief Constructs a ArmoniKWorker object.
  */
-API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent,
-                                                   std::function<ProcessStatus(TaskHandler &)> processing_function)
+API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
     : logger_(ArmoniK::Api::Common::serilog::logging_format::SEQ) {
   logger_.info("Build Service ArmoniKWorker");
   logger_.add_property("class", "ArmoniKWorker");
   logger_.add_property("Worker", "ArmoniK.Api.Cpp");
   agent_ = std::move(agent);
-  processing_function_ = std::move(processing_function);
 }
 
 /**
@@ -54,26 +52,24 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
 
   logger_.debug("Receive new request From C++ Worker");
 
-  // Encapsulate the pointer without deleting it out of scope
-  std::shared_ptr<grpc::ServerReader<ProcessRequest>> iterator(reader, [](void *) {});
-  std::shared_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent(agent_.get(), [](void *) {});
-
-  TaskHandler task_handler(agent, iterator);
+  TaskHandler task_handler(*agent_, *reader);
 
   task_handler.init();
+  try {
+    ProcessStatus status = Execute(task_handler);
 
-  ProcessStatus status = processing_function_(task_handler);
+    logger_.debug("Finish call C++");
 
-  logger_.debug("Finish call C++");
-
-  armonik::api::grpc::v1::Output output;
-  if (status.ok()) {
-    *output.mutable_ok() = armonik::api::grpc::v1::Empty();
-  } else {
-    output.mutable_error()->set_details(status.details());
+    armonik::api::grpc::v1::Output output;
+    if (status.ok()) {
+      *output.mutable_ok() = armonik::api::grpc::v1::Empty();
+    } else {
+      output.mutable_error()->set_details(std::move(status).details());
+    }
+    *response->mutable_output() = std::move(output);
+  } catch (const std::exception &e) {
+    return {grpc::StatusCode::UNAVAILABLE, "Error processing task", e.what()};
   }
-
-  *response->mutable_output() = output;
 
   return grpc::Status::OK;
 }

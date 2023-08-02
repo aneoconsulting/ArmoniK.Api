@@ -1,6 +1,6 @@
 #pragma once
 #include <sstream>
-#include <utils/IConfiguration.h>
+#include <utils/Configuration.h>
 
 /**
  * @brief The armonik namespace contains classes and functions related to the Armonik API.
@@ -13,9 +13,9 @@ class ComputePlane {
 public:
   /**
    * @brief Constructs a ComputePlane object with the given configuration.
-   * @param configuration The IConfiguration object containing address information.
+   * @param configuration The Configuration object containing address information.
    */
-  ComputePlane(const utils::IConfiguration &configuration) {
+  ComputePlane(const utils::Configuration &configuration) {
     set_worker_address(configuration.get("ComputePlane__WorkerChannel__Address"));
     set_agent_address(configuration.get(std::string("ComputePlane__AgentChannel__Address")));
   }
@@ -24,7 +24,7 @@ public:
    * @brief Returns the server address.
    * @return A reference to the server address string.
    */
-  [[nodiscard]] std::string_view get_server_address() const { return worker_address_; }
+  [[nodiscard]] const std::string &get_server_address() const { return worker_address_; }
 
   /**
    * @brief Sets the worker address with the given socket address.
@@ -52,7 +52,7 @@ public:
    * @brief Returns the agent address.
    * @return A reference to the agent address string.
    */
-  [[nodiscard]] std::string_view get_agent_address() const { return agent_address_; }
+  [[nodiscard]] const std::string &get_agent_address() const { return agent_address_; }
 
 private:
   std::string worker_address_; ///< The worker address string.

@@ -5,18 +5,13 @@
  * @brief Header file for the EnvConfiguration class
  */
 
-#include "utils/IConfiguration.h"
+#include "utils/Configuration.h"
 
-namespace API_COMMON_NAMESPACE::utils {
-/**
- * @class EnvConfiguration
- * @brief An implementation of IConfiguration that handles environment variables
- */
-class EnvConfiguration : public IConfiguration {
-public:
-  /**
-   * @brief Default constructor
-   */
-  EnvConfiguration() { add_env_configuration(); }
-};
-} // namespace API_COMMON_NAMESPACE::utils
+namespace API_COMMON_NAMESPACE::utils::EnvConfiguration {
+inline void fromEnv(Configuration &config) { config.add_env_configuration(); }
+inline Configuration fromEnv() {
+  Configuration config;
+  config.add_env_configuration();
+  return config;
+}
+} // namespace API_COMMON_NAMESPACE::utils::EnvConfiguration
