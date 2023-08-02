@@ -20,12 +20,12 @@ class TaskHandler {
 
 private:
   grpc::ClientContext context_;
-  std::shared_ptr<armonik::api::grpc::v1::agent::Agent::Stub> stub_;
-  std::shared_ptr<grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator_;
+  armonik::api::grpc::v1::agent::Agent::Stub &stub_;
+  grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator_;
   std::string session_id_;
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
-  google::protobuf::RepeatedPtrField<std::string> expected_result_;
+  std::vector<std::string> expected_result_;
   std::string payload_;
   std::map<std::string, std::string> data_dependencies_;
   std::string token_;
@@ -38,8 +38,8 @@ public:
    * @param client the agent client
    * @param request_iterator The request iterator
    */
-  TaskHandler(std::shared_ptr<armonik::api::grpc::v1::agent::Agent::Stub> client,
-              std::shared_ptr<grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest>> request_iterator);
+  TaskHandler(armonik::api::grpc::v1::agent::Agent::Stub &client,
+              grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator);
 
   /**
    * @brief Initialise the task handler
@@ -88,7 +88,7 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(const std::string &key, const std::string &data);
+  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(std::string key, std::string_view data);
 
   /**
    * @brief Get the result ids object
@@ -104,47 +104,47 @@ public:
    *
    * @return std::string
    */
-  std::string getSessionId();
+  const std::string &getSessionId() const;
 
   /**
    * @brief Get the Task Id object
    *
    * @return std::string
    */
-  std::string getTaskId();
+  const std::string &getTaskId() const;
   /**
    * @brief Get the Payload object
    *
    * @return std::vector<std::byte>
    */
-  std::string getPayload();
+  const std::string &getPayload() const;
   /**
    * @brief Get the Data Dependencies object
    *
    * @return std::vector<std::byte>
    */
-  std::map<std::string, std::string> getDataDependencies();
+  const std::map<std::string, std::string> &getDataDependencies() const;
 
   /**
    * @brief Get the Task Options object
    *
    * @return armonik::api::grpc::v1::TaskOptions
    */
-  armonik::api::grpc::v1::TaskOptions getTaskOptions();
+  const armonik::api::grpc::v1::TaskOptions &getTaskOptions() const;
 
   /**
    * @brief Get the Expected Results object
    *
    * @return google::protobuf::RepeatedPtrField<std::string>
    */
-  google::protobuf::RepeatedPtrField<std::string> getExpectedResults();
+  const std::vector<std::string> &getExpectedResults() const;
 
   /**
    * @brief Get the Configuration object
    *
    * @return armonik::api::grpc::v1::Configuration
    */
-  armonik::api::grpc::v1::Configuration getConfiguration();
+  const armonik::api::grpc::v1::Configuration &getConfiguration() const;
 };
 
 } // namespace API_WORKER_NAMESPACE

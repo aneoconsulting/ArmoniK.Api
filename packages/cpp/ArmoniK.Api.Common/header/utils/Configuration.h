@@ -1,5 +1,5 @@
 /**
- * @file IConfiguration.h
+ * @file Configuration.h
  * @brief Interface for a configuration class that stores and manages key-value pairs.
  */
 
@@ -18,21 +18,18 @@ class ControlPlane;
 
 namespace API_COMMON_NAMESPACE::utils {
 /**
- * @class IConfiguration
+ * @class Configuration
  * @brief Interface for a configuration class that stores and manages key-value pairs.
  */
-class IConfiguration {
+class Configuration {
 public:
-  /**
-   * @brief Default constructor.
-   */
-  IConfiguration() = default;
+  Configuration() noexcept = default;
+  Configuration(const Configuration &) = default;
+  Configuration(Configuration &&) noexcept = default;
 
-  /**
-   * @brief Default virtual destructor.
-   */
-  virtual ~IConfiguration() = default;
-
+  Configuration &operator=(const Configuration &) = default;
+  Configuration &operator=(Configuration &&) noexcept = default;
+  ~Configuration() = default;
   /**
    * @brief Get the value associated with the given key.
    * @param string Key to look up.
@@ -48,10 +45,10 @@ public:
   void set(const std::string &string, const std::string &value);
 
   /**
-   * @brief Set the values from another IConfiguration object.
-   * @param other IConfiguration object to copy values from.
+   * @brief Set the values from another Configuration object.
+   * @param other Configuration object to copy values from.
    */
-  void set(const IConfiguration &other);
+  void set(const Configuration &other);
 
   /**
    * @brief List defined values of this configuration.
@@ -62,15 +59,15 @@ public:
   /**
    * @brief Add JSON configuration from a file.
    * @param file_path Path to the JSON file.
-   * @return Reference to the current IConfiguration object.
+   * @return Reference to the current Configuration object.
    */
-  IConfiguration &add_json_configuration(std::string_view file_path);
+  Configuration &add_json_configuration(std::string_view file_path);
 
   /**
    * @brief Add environment variable configuration.
-   * @return Reference to the current IConfiguration object.
+   * @return Reference to the current Configuration object.
    */
-  IConfiguration &add_env_configuration();
+  Configuration &add_env_configuration();
 
   /**
    * @brief Get the current ComputePlane configuration.
