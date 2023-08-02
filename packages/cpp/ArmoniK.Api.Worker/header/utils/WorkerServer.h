@@ -33,7 +33,6 @@ public:
 
 private:
   ::grpc::ServerBuilder builder_;
-  Common::utils::Configuration configuration_;
   std::unique_ptr<::grpc::Server> instance_server; ///< Unique pointer to the gRPC server instance
   std::shared_ptr<::grpc::Channel> channel;        ///< Shared pointer to the gRPC channel
 
@@ -42,11 +41,11 @@ public:
    * @brief Constructor for the WorkerServer class.
    * @param configuration A shared pointer to the Configuration object.
    */
-  explicit WorkerServer(Common::utils::Configuration configuration) : configuration_(std::move(configuration)) {
+  explicit WorkerServer(const Common::utils::Configuration &configuration) {
     logger.enrich([](Common::serilog::serilog_context &ctx) { ctx.add("threadId", std::this_thread::get_id()); });
     logger.add_property("container", "ArmoniK.Worker");
     logger.info("Creating worker");
-    Common::options::ComputePlane compute_plane(configuration_);
+    Common::options::ComputePlane compute_plane(configuration);
 
     builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
     builder_.SetMaxReceiveMessageSize(-1);
