@@ -802,7 +802,10 @@ private:
   void initialize(const char *name) {
     level = base_level;
     level_serilog = base_level_serilog;
-    std::strcpy(name_, name);
+    if (name != name_) {
+      std::strcpy(name_, name);
+    }
+
     register_logger(this);
     shared_instance().init(level, level_serilog);
   }

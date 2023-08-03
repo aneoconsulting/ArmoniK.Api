@@ -25,6 +25,32 @@ include(CMakePackageConfigHelpers)
 
 set(CMAKE_CXX_STANDARD 17)
 
+function(setup_options project_name_param)
+
+file(READ /etc/issue ${PROJECT_NAME}_ETCISSUE_CONTENT)
+string(FIND "${${project_name_param}_ETCISSUE_CONTENT}" "Alpine" IS_ALPINE)
+
+if(MSVC)
+    target_compile_options(${project_name_param} PRIVATE /W4)
+else()
+    if(CMAKE_BUILD_TYPE MATCHES DEBUG AND IS_ALPINE EQUAL -1)
+        target_compile_options(${project_name_param} PRIVATE -Wall -Wextra -Wpedantic -fsanitize=undefined,address)
+    else ()
+        target_compile_options(${project_name_param} PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+endif()
+
+if(IS_ALPINE EQUAL -1)
+    message(STATUS "Not found Alpine distribution " ${IS_ALPINE})
+else()
+    message(STATUS "Found Alpine distribution " ${IS_ALPINE})
+endif()
+
+if(CMAKE_BUILD_TYPE MATCHES DEBUG AND IS_ALPINE EQUAL -1)
+    target_link_options(${project_name_param} PRIVATE -fsanitize=undefined,address)
+endif()
+endfunction()
+
 add_subdirectory(ArmoniK.Api.Common)
 if(BUILD_WORKER)
     add_subdirectory(ArmoniK.Api.Worker)
