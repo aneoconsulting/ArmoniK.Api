@@ -42,11 +42,7 @@ target_include_directories(${PROJECT_NAME}
     "$<TARGET_PROPERTY:ArmoniK.Api.Common,INTERFACE_INCLUDE_DIRECTORIES>"
 )
 
-if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4)
-else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra)
-endif()
+setup_options(${PROJECT_NAME})
 
 set(PROTO_BINARY_DIR "${PROJECT_BUILD_DIR}")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
