@@ -72,4 +72,3 @@ if (BUILD_TEST)
         add_subdirectory(ArmoniK.Api.Tests)
     endif()
 endif()
-
