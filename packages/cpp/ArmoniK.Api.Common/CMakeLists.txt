@@ -38,7 +38,6 @@ include(FetchContent)
 FETCHCONTENT_DECLARE(
         simdjson
         URL https://github.com/simdjson/simdjson/archive/refs/tags/v3.2.1.tar.gz
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
 FetchContent_GetProperties(simdjson)

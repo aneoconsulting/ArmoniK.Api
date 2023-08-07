@@ -33,9 +33,7 @@ cd -
 cd "${working_dir}"
 
 # Check if the Docker image exists, and if not, build it
-if [ -z "$(docker images -q "${IMAGE_TAG}" 2> /dev/null)" ]; then
-  docker build -t "${IMAGE_TAG}" -f tools/Dockerfile.ubuntu .
-fi
+docker build -t "${IMAGE_TAG}" -f tools/Dockerfile.ubuntu .
 
 mkdir -p ${working_dir}/build
 mkdir -p ${working_dir}/buildtest
