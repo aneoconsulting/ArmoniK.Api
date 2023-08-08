@@ -5,10 +5,13 @@
  */
 
 namespace API_COMMON_NAMESPACE::logger {
-class Logger;
-class LocalLogger;
-class Context;
+class ILogger;
 class IFormatter;
 class IWriter;
+
+class Context;
+class Logger;
+class LocalLogger;
+
 enum class Level;
-}
+} // namespace API_COMMON_NAMESPACE::logger

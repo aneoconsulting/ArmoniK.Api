@@ -18,8 +18,8 @@ static const std::function<std::string()> empty_func = []() { return std::string
 // Construct a LocalLogger (called from Logger)
 LocalLogger::LocalLogger(IWriter *writer, IFormatter *formatter, const Context *global_context, Context local_context,
                          Level level)
-    : writer_(writer), formatter_(formatter), global_context_(global_context), local_context_(std::move(local_context)),
-      level_(level) {}
+    : ILogger(level), writer_(writer), formatter_(formatter), global_context_(global_context),
+      local_context_(std::move(local_context)) {}
 
 // Default destructor
 LocalLogger::~LocalLogger() = default;

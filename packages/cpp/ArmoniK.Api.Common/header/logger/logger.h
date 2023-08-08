@@ -7,26 +7,22 @@
 #include <memory>
 #include <string_view>
 
+#include "base.h"
 #include "context.h"
 #include "fwd.h"
 #include "level.h"
 #include "local_logger.h"
 
 namespace API_COMMON_NAMESPACE::logger {
-
-class IWriter;
-class IFormatter;
-
 /**
- * @brief Logger.
+ * @brief Default Logger.
  */
-class Logger {
+class Logger : public ILogger {
 private:
   std::unique_ptr<IWriter> writer_;
   std::unique_ptr<IFormatter> formatter_;
   Context global_context_;
   std::map<std::string, std::function<std::string()>> local_context_generator_;
-  Level level_;
 
 public:
   /**
@@ -52,24 +48,11 @@ public:
    */
   Logger &operator=(Logger &&other) noexcept = default;
   /**
-   * @brief Destrcutor.
+   * @brief Destructor.
    */
   ~Logger();
 
 public:
-  /**
-   * @brief Set the logging level.
-   * @param level Logging level.
-   * @attention Not thread safe.
-   */
-  void set_level(Level level) noexcept { level_ = level; }
-  /**
-   * @brief Get the current logging level.
-   * @return The current logging level.
-   * @attention Not thread safe.
-   */
-  Level get_level() const noexcept { return level_; }
-
   /**
    * @brief Add a new global context entry.
    * @param key Name of the entry.
@@ -120,59 +103,9 @@ public:
 
 public:
   /**
-   * @brief Write a new message to the log.
-   * @param level Logging level to use for this message.
-   * @param message Message to log.
-   * @param message_context Context specific for this message.
+   * @copydoc ILogger::log()
+   * @details Thread-safe.
    */
-  void log(Level level, std::string_view message, const Context &message_context = {}) const;
-  /**
-   * @brief Write a new message to the log with verbose log level.
-   * @param message Message to log.
-   * @param message_context Context specific for this message.
-   */
-  void verbose(std::string_view message, const Context &message_context = {}) const {
-    log(Level::Verbose, message, message_context);
-  }
-  /**
-   * @brief Write a new message to the log with debug log level.
-   * @param message Message to log.
-   * @param message_context Context specific for this message.
-   */
-  void debug(std::string_view message, const Context &message_context = {}) const {
-    log(Level::Debug, message, message_context);
-  }
-  /**
-   * @brief Write a new message to the log with info log level.
-   * @param message Message to log.
-   * @param message_context Context specific for this message.
-   */
-  void info(std::string_view message, const Context &message_context = {}) const {
-    log(Level::Info, message, message_context);
-  }
-  /**
-   * @brief Write a new message to the log with warning log level.
-   * @param message Message to log.
-   * @param message_context Context specific for this message.
-   */
-  void warning(std::string_view message, const Context &message_context = {}) const {
-    log(Level::Warning, message, message_context);
-  }
-  /**
-   * @brief Write a new message to the log with error log level.
-   * @param message Message to log.
-   * @param message_context Context specific for this message.
-   */
-  void error(std::string_view message, const Context &message_context = {}) const {
-    log(Level::Error, message, message_context);
-  }
-  /**
-   * @brief Write a new message to the log with fatal log level.
-   * @param message Message to log.
-   * @param message_context Context specific for this message.
-   */
-  void fatal(std::string_view message, const Context &message_context = {}) const {
-    log(Level::Fatal, message, message_context);
-  }
+  void log(Level level, std::string_view message, const Context &message_context = {}) override;
 };
 } // namespace API_COMMON_NAMESPACE::logger
