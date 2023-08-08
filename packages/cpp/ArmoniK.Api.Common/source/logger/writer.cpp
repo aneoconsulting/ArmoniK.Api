@@ -27,7 +27,7 @@ private:
 public:
   void write(Level level, std::string_view message) override {
     std::lock_guard<std::mutex> lock_guard{mutex_};
-    (level < Warning ? std::cout : std::cerr) << message << std::endl;
+    (level < Level::Warning ? std::cout : std::cerr) << message << std::endl;
   }
 };
 
