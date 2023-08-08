@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.22)
-
+if (POLICY CMP0135)
+    cmake_policy(SET CMP0135 OLD)
+endif ()
 set(version 0.1.0)
 
 set(SOLUTION_NAME ArmoniK.Api)
