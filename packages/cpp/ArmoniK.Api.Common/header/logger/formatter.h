@@ -20,6 +20,6 @@ public:
 };
 
 std::unique_ptr<IFormatter> formatter_clef();
-std::unique_ptr<IFormatter> formatter_clef(bool styling = false);
+std::unique_ptr<IFormatter> formatter_plain(bool styling = false);
 
 } // namespace API_COMMON_NAMESPACE::logger

@@ -15,9 +15,8 @@
 
 #include "Worker/ProcessStatus.h"
 #include "Worker/TaskHandler.h"
+#include "logger/logger.h"
 #include "options/ComputePlane.h"
-#include "serilog/SerilogContext.h"
-#include "serilog/serilog.h"
 #include "utils/Configuration.h"
 
 using namespace armonik::api::grpc::v1::agent;
@@ -29,7 +28,7 @@ namespace API_WORKER_NAMESPACE {
  */
 class WorkerServer {
 public:
-  Common::serilog::serilog logger;
+  Common::logger::Logger logger;
 
 private:
   ::grpc::ServerBuilder builder_;
@@ -41,9 +40,14 @@ public:
    * @brief Constructor for the WorkerServer class.
    * @param configuration A shared pointer to the Configuration object.
    */
-  explicit WorkerServer(const Common::utils::Configuration &configuration) {
-    logger.enrich([](Common::serilog::serilog_context &ctx) { ctx.add("threadId", std::this_thread::get_id()); });
-    logger.add_property("container", "ArmoniK.Worker");
+  explicit WorkerServer(const Common::utils::Configuration &configuration)
+      : logger(Common::logger::writer_console(), Common::logger::formatter_clef()) {
+    logger.local_context_generator_add("threadId", []() {
+      std::stringstream ss;
+      ss << std::this_thread::get_id();
+      return ss.str();
+    });
+    logger.global_context_add("container", "ArmoniK.Worker");
     logger.info("Creating worker");
     Common::options::ComputePlane compute_plane(configuration);
 

@@ -30,10 +30,10 @@ using namespace ArmoniK::Api::Common::utils;
  * @brief Constructs a ArmoniKWorker object.
  */
 API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
-    : logger_(ArmoniK::Api::Common::serilog::logging_format::SEQ) {
+    : logger_(ArmoniK::Api::Common::logger::writer_console(), ArmoniK::Api::Common::logger::formatter_clef()) {
   logger_.info("Build Service ArmoniKWorker");
-  logger_.add_property("class", "ArmoniKWorker");
-  logger_.add_property("Worker", "ArmoniK.Api.Cpp");
+  logger_.global_context_add("class", "ArmoniKWorker");
+  logger_.global_context_add("Worker", "ArmoniK.Api.Cpp");
   agent_ = std::move(agent);
 }
 
