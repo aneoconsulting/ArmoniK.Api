@@ -27,11 +27,11 @@ const std::string &LocalLogger::context_get(const std::string &key) const {
 }
 void LocalLogger::context_remove(const std::string &key) { local_context_.erase(key); }
 
-void LocalLogger::log(Level level, std::string_view message, const Context &message_context = {}) {
+void LocalLogger::log(Level level, std::string_view message, const Context &message_context) {
   if (level < level_) {
     return;
   }
-  auto formatted = formatter_->format(message, *global_context_, local_context_, message_context);
-  writer_->write(formatted);
+  auto formatted = formatter_->format(level_, message, *global_context_, local_context_, message_context);
+  writer_->write(level_, formatted);
 }
 } // namespace API_COMMON_NAMESPACE::logger

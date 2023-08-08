@@ -11,7 +11,7 @@ static const std::string empty_string{};
 static const std::function<std::string()> empty_func = []() { return std::string(); };
 } // namespace
 
-Logger::Logger(std::unique_ptr<IWriter> writer, std::unique_ptr<IFormatter> formatter, Level level = Info)
+Logger::Logger(std::unique_ptr<IWriter> writer, std::unique_ptr<IFormatter> formatter, Level level)
     : writer_(std::move(writer)), formatter_(std::move(formatter)), level_(level) {}
 Logger::~Logger() = default;
 
@@ -39,14 +39,14 @@ const std::function<std::string()> &Logger::local_context_generator_get(const st
 }
 void Logger::local_context_generator_remove(const std::string &key) { local_context_generator_.erase(key); }
 
-LocalLogger Logger::local(Context local_context = {}) {
+LocalLogger Logger::local(Context local_context) {
   for (auto &&[key, generator] : local_context_generator_) {
     local_context[key] = generator();
   }
   return LocalLogger(writer_.get(), formatter_.get(), &global_context_, std::move(local_context), level_);
 }
 
-void Logger::log(Level level, std::string_view message, const Context &message_context = {}) {
+void Logger::log(Level level, std::string_view message, const Context &message_context) {
   if (level < level_) {
     return;
   }
