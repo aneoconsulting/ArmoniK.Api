@@ -38,7 +38,6 @@ include(FetchContent)
 FETCHCONTENT_DECLARE(
         simdjson
         URL https://github.com/simdjson/simdjson/archive/refs/tags/v3.2.1.tar.gz
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 
 FetchContent_GetProperties(simdjson)
@@ -119,7 +118,7 @@ install(EXPORT ${PROJECT_NAME}Targets
 configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
   "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
   INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-  PATH_VARS CMAKE_INSTALL_PREFIX
+  PATH_VARS CMAKE_INSTALL_PREFIX CMAKE_INSTALL_LIBDIR
 )
 
 install(FILES
