@@ -3,7 +3,9 @@
  * @file level.h
  */
 
-enum Level {
+#include <string_view>
+
+enum class Level {
   Verbose = 0,
   Debug = 1,
   Info = 2,
@@ -14,17 +16,17 @@ enum Level {
 
 std::string_view level_name(Level level) {
   switch (level) {
-  case Verbose:
+  case Level::Verbose:
     return "Verbose";
-  case Debug:
+  case Level::Debug:
     return "Debug";
-  case Info:
+  case Level::Info:
     return "Info";
-  case Warning:
+  case Level::Warning:
     return "Warning";
-  case Error:
+  case Level::Error:
     return "Error";
-  case Fatal:
+  case Level::Fatal:
     return "Fatal";
   default:
     return "Unknown";
