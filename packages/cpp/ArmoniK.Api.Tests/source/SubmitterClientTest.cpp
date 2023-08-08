@@ -12,10 +12,11 @@
 #include "submitter/SubmitterClient.h"
 #include "submitter_service.grpc.pb.h"
 
-#include "serilog/serilog.h"
+#include "logger/formatter.h"
+#include "logger/logger.h"
+#include "logger/writer.h"
 #include "utils/EnvConfiguration.h"
 #include "utils/GuuId.h"
-#include "utils/StringsUtils.h"
 
 #include "results_common.pb.h"
 #include "results_service.grpc.pb.h"
@@ -34,7 +35,7 @@ using namespace ArmoniK::Api::Common::utils;
 using ::testing::_;
 using ::testing::AtLeast;
 
-using namespace ArmoniK::Api::Common::serilog;
+namespace logger = ArmoniK::Api::Common::logger;
 
 /**
  * @brief Initializes task options creates channel with server address
@@ -98,13 +99,22 @@ TEST(testMock, createSession) {
 
 TEST(testMock, submitTask) {
 
-  serilog log(logging_format::CONSOLE);
+  logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
 
   std::cout << "Serilog closed" << std::endl;
 
-  log.enrich([&](serilog_context &ctx) { ctx.add("threadid", std::this_thread::get_id()); });
-  log.enrich([&](serilog_context &ctx) { ctx.add("fieldTestValue", 1); });
-  log.add_property("time", time(nullptr));
+  log.local_context_generator_add("threadid", []() {
+    std::stringstream ss;
+    ss << std::this_thread::get_id();
+    return ss.str();
+  });
+
+  log.local_context_generator_add("fieldTestValue", []() { return "1"; });
+  log.global_context_add("time", []() {
+    std::stringstream ss;
+    ss << time(nullptr);
+    return ss.str();
+  }());
 
   ::putenv((char *)"GRPC_DNS_RESOLVER=native");
 
