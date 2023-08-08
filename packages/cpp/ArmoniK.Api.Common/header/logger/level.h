@@ -43,4 +43,4 @@ std::string_view level_name(Level level) {
     return "Unknown";
   }
 }
-}
+} // namespace API_COMMON_NAMESPACE::logger
