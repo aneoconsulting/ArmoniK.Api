@@ -28,7 +28,7 @@ RUN echo $PATH
 WORKDIR /app/build
 
 # Set the default command to build the client using CMake and make
-CMD ["bash", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_TEST=OFF /app/source/ && make -j $(nproc) install"]
+CMD ["bash", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/proto -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_TEST=OFF /app/source/ && make -j $(nproc) install"]
 
 # Uncomment the line below if you want the container to start in the bash shell by default
 # ENTRYPOINT ["bash"]
