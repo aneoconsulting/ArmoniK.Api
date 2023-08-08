@@ -1,5 +1,0 @@
-@PACKAGE_INIT@
-
-include("${CMAKE_INSTALL_PREFIX}/lib/cmake/ArmoniK.Api.Tests/ArmoniK.Api.TestsTargets.cmake")
-
-check_required_components(ArmoniK.Api.Tests)
