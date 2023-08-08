@@ -1,6 +1,7 @@
 #pragma once
 /**
- * @file parameter.h
+ * @file context.h
+ * @brief Logger context.
  */
 
 #include <map>
@@ -8,6 +9,10 @@
 
 namespace API_COMMON_NAMESPACE::logger {
 
+/**
+ * @class Context
+ * @brief Logger context.
+ */
 class Context : public std::map<std::string, std::string> {
 public:
   using std::map<std::string, std::string>::map;

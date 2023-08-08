@@ -15,7 +15,9 @@
 
 #include "Worker/ProcessStatus.h"
 #include "Worker/TaskHandler.h"
+#include "logger/formatter.h"
 #include "logger/logger.h"
+#include "logger/writer.h"
 #include "options/ComputePlane.h"
 #include "utils/Configuration.h"
 

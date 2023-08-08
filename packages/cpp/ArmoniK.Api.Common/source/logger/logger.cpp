@@ -1,8 +1,10 @@
-#include "logger/logger.h"
+
 #include "logger/context.h"
 #include "logger/formatter.h"
 #include "logger/local_logger.h"
 #include "logger/writer.h"
+
+#include "logger/logger.h"
 
 namespace API_COMMON_NAMESPACE::logger {
 
@@ -39,14 +41,14 @@ const std::function<std::string()> &Logger::local_context_generator_get(const st
 }
 void Logger::local_context_generator_remove(const std::string &key) { local_context_generator_.erase(key); }
 
-LocalLogger Logger::local(Context local_context) {
+LocalLogger Logger::local(Context local_context) const {
   for (auto &&[key, generator] : local_context_generator_) {
     local_context[key] = generator();
   }
   return LocalLogger(writer_.get(), formatter_.get(), &global_context_, std::move(local_context), level_);
 }
 
-void Logger::log(Level level, std::string_view message, const Context &message_context) {
+void Logger::log(Level level, std::string_view message, const Context &message_context) const {
   if (level < level_) {
     return;
   }
