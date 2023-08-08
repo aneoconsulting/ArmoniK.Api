@@ -11,7 +11,6 @@
 #include "level.h"
 
 namespace API_COMMON_NAMESPACE::logger {
-
 /**
  * @interface IWriter
  * @brief Writer interface to use by a logger.
