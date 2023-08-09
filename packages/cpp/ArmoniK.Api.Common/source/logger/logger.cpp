@@ -75,4 +75,7 @@ void Logger::log(Level level, std::string_view message, const Context &message_c
   }
   local().log(level, message, message_context);
 }
+
+// Interface destructor
+ILogger::~ILogger() = default;
 } // namespace API_COMMON_NAMESPACE::logger
