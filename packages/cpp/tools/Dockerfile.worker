@@ -19,13 +19,13 @@ RUN apk update && apk add --no-cache \
     cmake \
     unzip \
     linux-headers \ 
-	grpc \
-	grpc-dev \
-	protobuf \
-	protobuf-dev
+    grpc \
+    grpc-dev \
+    protobuf \
+    protobuf-dev
 
 # Update the PATH environment variable to include the gRPC libraries and binaries
-ENV PATH="/app/install/lib:$PATH"
+ENV LD_LIBRARY_PATH="/app/install/lib:$LD_LIBRARY_PATH"
 ENV PATH="/app/install/bin:$PATH"
 
 # Display the updated PATH environment variable
@@ -44,7 +44,7 @@ COPY ./Protos/V1/ /app/proto
 
 # Build the application using the copied source files and protobuf definitions
 WORKDIR /app/builder
-RUN cmake "-DCMAKE_INSTALL_PREFIX=/app/install" "-DBUILD_TEST=ON" "-DBUILD_CLIENT=OFF" "-DBUILD_WORKER=ON" /app/source/
+RUN cmake -DCMAKE_INSTALL_PREFIX="/app/install" -DPROTO_FILES_DIR="/app/proto" -DBUILD_TEST=ON -DBUILD_CLIENT=OFF -DBUILD_WORKER=ON /app/source/
 RUN make -j $(nproc) install
 
 # Start with the latest Alpine base image for the final stage
@@ -66,9 +66,9 @@ RUN apk update && apk add --no-cache \
     cmake \
     unzip \
     linux-headers \
-	libprotobuf \
-	grpc \ 
-	grpc-cpp
+    libprotobuf \
+    grpc \ 
+    grpc-cpp
 	
 # Create a non-root user and group for running the application
 # This is a security best practice to avoid running applications as the root user
@@ -79,13 +79,9 @@ USER armonikuser
 COPY --from=builder /app /app
 
 # Update the PATH environment variable to include the application libraries and binaries
-ENV PATH="/app/install/lib:$PATH"
+ENV LD_LIBRARY_PATH="/app/install/lib:$LD_LIBRARY_PATH"
 ENV PATH="/app/install/bin:$PATH"
 
 # Set the entrypoint for the application's test executable
 # This is the command that will be executed when the container is run
 ENTRYPOINT ["/app/install/bin/ArmoniK.Api.Worker.Tests"]
-
-# Uncomment the line below if you want to run a shell instead of the application's test executable
-# This can be useful for debugging purposes
-# ENTRYPOINT ["bash"]
