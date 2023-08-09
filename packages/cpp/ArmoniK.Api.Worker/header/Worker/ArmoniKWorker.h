@@ -20,7 +20,7 @@ namespace API_WORKER_NAMESPACE {
 
 class ArmoniKWorker : public armonik::api::grpc::v1::worker::Worker::Service {
 private:
-  ArmoniK::Api::Common::serilog::serilog logger_;
+  ArmoniK::Api::Common::logger::Logger logger_;
   std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent_;
 
 public:
