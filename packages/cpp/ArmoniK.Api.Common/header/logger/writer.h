@@ -27,7 +27,7 @@ public:
    * @param level Log level to use for this message.
    * @param formatted formatted message to write.
    */
-  virtual void write(Level level, std::string_view formatted);
+  virtual void write(Level level, std::string_view formatted) = 0;
 };
 
 /**

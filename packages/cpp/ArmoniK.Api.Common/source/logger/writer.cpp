@@ -53,4 +53,7 @@ public:
 
 std::unique_ptr<IWriter> writer_console() { return std::make_unique<ConsoleWriter>(); }
 std::unique_ptr<IWriter> writer_file(std::ostream &out) { return std::make_unique<FileWriter>(out); }
+
+// Interface destructor
+IWriter::~IWriter() = default;
 } // namespace API_COMMON_NAMESPACE::logger

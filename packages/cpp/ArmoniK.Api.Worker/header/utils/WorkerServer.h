@@ -7,6 +7,8 @@
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
 #include <memory>
+#include <sstream>
+#include <thread>
 
 #include "grpcpp/server_builder.h"
 

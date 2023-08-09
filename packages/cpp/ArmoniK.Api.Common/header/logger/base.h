@@ -31,7 +31,7 @@ protected:
 
 public:
   /**
-   * @brief Destrcutor.
+   * @brief Destructor.
    */
   virtual ~ILogger();
 

@@ -25,7 +25,7 @@ enum class Level {
  * @param level Log level to convert.
  * @return String view representing the log level.
  */
-std::string_view level_name(Level level) {
+constexpr std::string_view level_name(Level level) {
   switch (level) {
   case Level::Verbose:
     return "Verbose";
