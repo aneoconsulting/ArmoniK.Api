@@ -29,9 +29,13 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class EventsService : Events.EventsBase
+public class EventsService : Events.EventsBase, ICountingService
 {
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
 
   /// <inheritdocs />
@@ -39,7 +43,7 @@ public class EventsService : Events.EventsBase
                                        IServerStreamWriter<EventSubscriptionResponse> responseStream,
                                        ServerCallContext                              context)
   {
-    Interlocked.Add(ref Calls.GetEvents,
+    Interlocked.Add(ref calls_.GetEvents,
                     1);
     await responseStream.WriteAsync(new EventSubscriptionResponse
                                     {
@@ -54,7 +58,7 @@ public class EventsService : Events.EventsBase
                         .ConfigureAwait(false);
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int GetEvents = 0;
 

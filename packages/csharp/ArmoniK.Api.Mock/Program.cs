@@ -24,6 +24,7 @@
 
 using System.Text;
 
+using ArmoniK.Api.Mock;
 using ArmoniK.Api.Mock.Services;
 
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -84,33 +85,26 @@ app.MapGet("/",
            ()
              => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
 app.MapGet("/calls.json",
-           async context =>
-           {
-             var body = JsonConvert.SerializeObject(new
-                                                    {
-                                                      Agent = app.Services.GetService<AgentService>()
-                                                                 ?.Calls,
-                                                      Applications = app.Services.GetService<ApplicationsService>()
-                                                                        ?.Calls,
-                                                      Auth = app.Services.GetService<AuthService>()
-                                                                ?.Calls,
-                                                      Events = app.Services.GetService<EventsService>()
-                                                                  ?.Calls,
-                                                      PartitionsService = app.Services.GetService<PartitionsService>()
-                                                                             ?.Calls,
-                                                      Results = app.Services.GetService<ResultsService>()
-                                                                   ?.Calls,
-                                                      Sessions = app.Services.GetService<SessionsService>()
-                                                                    ?.Calls,
-                                                      Submitter = app.Services.GetService<SubmitterService>()
-                                                                     ?.Calls,
-                                                      Tasks = app.Services.GetService<TasksService>()
-                                                                 ?.Calls,
-                                                      Versions = app.Services.GetService<VersionsService>()
-                                                                    ?.Calls,
-                                                    });
-             context.Response.ContentType = "application/json";
-             await context.Response.Body.WriteAsync(Encoding.ASCII.GetBytes(body));
-           });
+           Calls);
+app.MapPost("/calls.json",
+            Calls);
 
 app.Run();
+
+async Task<byte[]> ReadAll(Stream stream)
+{
+  await using var ms = new MemoryStream();
+  await stream.CopyToAsync(ms);
+  return ms.ToArray();
+}
+
+async Task Calls(HttpContext context)
+{
+  var requestBody = Encoding.ASCII.GetString(await ReadAll(context.Request.Body));
+  var exclude = string.IsNullOrWhiteSpace(requestBody)
+                  ? null
+                  : JsonConvert.DeserializeObject<Dictionary<string, HashSet<string>>>(requestBody);
+  var body = JsonConvert.SerializeObject(app.Services.GetCounters(exclude));
+  context.Response.ContentType = "application/json";
+  await context.Response.Body.WriteAsync(Encoding.ASCII.GetBytes(body));
+}

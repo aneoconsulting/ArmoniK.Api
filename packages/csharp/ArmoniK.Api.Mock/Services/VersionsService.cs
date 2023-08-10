@@ -28,19 +28,23 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class VersionsService : Versions.VersionsBase
+public class VersionsService : Versions.VersionsBase, ICountingService
 {
   private static readonly string ApiVersion = typeof(Versions.VersionsBase).Assembly.GetName()
                                                                            .Version!.ToString();
 
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
 
   /// <inheritdocs />
   public override Task<ListVersionsResponse> ListVersions(ListVersionsRequest request,
                                                           ServerCallContext   context)
   {
-    Interlocked.Add(ref Calls.ListVersions,
+    Interlocked.Add(ref calls_.ListVersions,
                     1);
     return Task.FromResult(new ListVersionsResponse
                            {
@@ -49,7 +53,7 @@ public class VersionsService : Versions.VersionsBase
                            });
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int ListVersions = 0;
 

@@ -29,7 +29,7 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class SessionsService : Sessions.SessionsBase
+public class SessionsService : Sessions.SessionsBase, ICountingService
 {
   private static readonly SessionRaw MockSession = new()
                                                    {
@@ -37,13 +37,17 @@ public class SessionsService : Sessions.SessionsBase
                                                      Status    = SessionStatus.Cancelled,
                                                    };
 
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
   /// <inheritdoc />
   public override Task<CancelSessionResponse> CancelSession(CancelSessionRequest request,
                                                             ServerCallContext    context)
   {
-    Interlocked.Add(ref Calls.CancelSession,
+    Interlocked.Add(ref calls_.CancelSession,
                     1);
     return Task.FromResult(new CancelSessionResponse
                            {
@@ -55,7 +59,7 @@ public class SessionsService : Sessions.SessionsBase
   public override Task<GetSessionResponse> GetSession(GetSessionRequest request,
                                                       ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.GetSession,
+    Interlocked.Add(ref calls_.GetSession,
                     1);
     return Task.FromResult(new GetSessionResponse
                            {
@@ -67,7 +71,7 @@ public class SessionsService : Sessions.SessionsBase
   public override Task<ListSessionsResponse> ListSessions(ListSessionsRequest request,
                                                           ServerCallContext   context)
   {
-    Interlocked.Add(ref Calls.ListSessions,
+    Interlocked.Add(ref calls_.ListSessions,
                     1);
     return Task.FromResult(new ListSessionsResponse
                            {
@@ -81,12 +85,12 @@ public class SessionsService : Sessions.SessionsBase
   public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
                                                                       ServerCallContext         context)
   {
-    Interlocked.Add(ref Calls.CountTasksByStatus,
+    Interlocked.Add(ref calls_.CountTasksByStatus,
                     1);
     return Task.FromResult(new CountTasksByStatusResponse());
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int CancelSession      = 0;
     public int GetSession         = 0;

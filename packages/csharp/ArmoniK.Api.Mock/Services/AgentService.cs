@@ -29,15 +29,19 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class AgentService : Agent.AgentBase
+public class AgentService : Agent.AgentBase, ICountingService
 {
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
   /// <inheritdocs />
   public override Task<CreateTaskReply> CreateTask(IAsyncStreamReader<CreateTaskRequest> requestStream,
                                                    ServerCallContext                     context)
   {
-    Interlocked.Add(ref Calls.CreateTask,
+    Interlocked.Add(ref calls_.CreateTask,
                     1);
     return Task.FromResult(new CreateTaskReply
                            {
@@ -51,7 +55,7 @@ public class AgentService : Agent.AgentBase
                                            IServerStreamWriter<DataReply> responseStream,
                                            ServerCallContext              context)
   {
-    Interlocked.Add(ref Calls.GetCommonData,
+    Interlocked.Add(ref calls_.GetCommonData,
                     1);
     await responseStream.WriteAsync(new DataReply
                                     {
@@ -68,7 +72,7 @@ public class AgentService : Agent.AgentBase
                                            IServerStreamWriter<DataReply> responseStream,
                                            ServerCallContext              context)
   {
-    Interlocked.Add(ref Calls.GetDirectData,
+    Interlocked.Add(ref calls_.GetDirectData,
                     1);
     await responseStream.WriteAsync(new DataReply
                                     {
@@ -85,7 +89,7 @@ public class AgentService : Agent.AgentBase
                                              IServerStreamWriter<DataReply> responseStream,
                                              ServerCallContext              context)
   {
-    Interlocked.Add(ref Calls.GetResourceData,
+    Interlocked.Add(ref calls_.GetResourceData,
                     1);
     await responseStream.WriteAsync(new DataReply
                                     {
@@ -101,7 +105,7 @@ public class AgentService : Agent.AgentBase
   public override async Task<ResultReply> SendResult(IAsyncStreamReader<Result> requestStream,
                                                      ServerCallContext          context)
   {
-    Interlocked.Add(ref Calls.SendResult,
+    Interlocked.Add(ref calls_.SendResult,
                     1);
     await foreach (var _ in requestStream.ReadAllAsync())
     {
@@ -117,7 +121,7 @@ public class AgentService : Agent.AgentBase
   public override Task<CreateResultsMetaDataResponse> CreateResultsMetaData(CreateResultsMetaDataRequest request,
                                                                             ServerCallContext            context)
   {
-    Interlocked.Add(ref Calls.CreateResultsMetaData,
+    Interlocked.Add(ref calls_.CreateResultsMetaData,
                     1);
 
     return Task.FromResult(new CreateResultsMetaDataResponse
@@ -130,7 +134,7 @@ public class AgentService : Agent.AgentBase
   public override Task<SubmitTasksResponse> SubmitTasks(SubmitTasksRequest request,
                                                         ServerCallContext  context)
   {
-    Interlocked.Add(ref Calls.SubmitTasks,
+    Interlocked.Add(ref calls_.SubmitTasks,
                     1);
 
     return Task.FromResult(new SubmitTasksResponse
@@ -143,7 +147,7 @@ public class AgentService : Agent.AgentBase
   public override async Task<UploadResultDataResponse> UploadResultData(IAsyncStreamReader<UploadResultDataRequest> requestStream,
                                                                         ServerCallContext                           context)
   {
-    Interlocked.Add(ref Calls.UploadResultData,
+    Interlocked.Add(ref calls_.UploadResultData,
                     1);
     await foreach (var _ in requestStream.ReadAllAsync())
     {
@@ -160,7 +164,7 @@ public class AgentService : Agent.AgentBase
   public override Task<CreateResultsResponse> CreateResults(CreateResultsRequest request,
                                                             ServerCallContext    context)
   {
-    Interlocked.Add(ref Calls.CreateResults,
+    Interlocked.Add(ref calls_.CreateResults,
                     1);
 
     return Task.FromResult(new CreateResultsResponse
@@ -170,7 +174,7 @@ public class AgentService : Agent.AgentBase
   }
 
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int CreateTask            = 0;
     public int GetCommonData         = 0;
