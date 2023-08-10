@@ -45,7 +45,6 @@ FetchContent_GetProperties(simdjson)
 if(NOT simdjson_POPULATED)
     FetchContent_Populate(simdjson)
 endif()
-
 set(CMAKE_FIND_DEBUG_MODE FALSE)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")

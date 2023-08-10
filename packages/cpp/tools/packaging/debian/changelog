@@ -1,0 +1,5 @@
+libarmonik (3.11.0-1) unstable; urgency=low
+
+  * Initial Debian release (closes : #376)
+
+ -- ANEO Consulting <armonik-support@aneo.fr>  Thu, 10 Aug 2023 11:55:25 +0000
