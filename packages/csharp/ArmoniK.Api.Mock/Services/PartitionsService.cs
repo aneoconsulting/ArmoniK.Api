@@ -28,15 +28,19 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class PartitionsService : Partitions.PartitionsBase
+public class PartitionsService : Partitions.PartitionsBase, ICountingService
 {
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
   /// <inheritdocs />
   public override Task<GetPartitionResponse> GetPartition(GetPartitionRequest request,
                                                           ServerCallContext   context)
   {
-    Interlocked.Add(ref Calls.GetPartition,
+    Interlocked.Add(ref calls_.GetPartition,
                     1);
     return Task.FromResult(new GetPartitionResponse
                            {
@@ -56,7 +60,7 @@ public class PartitionsService : Partitions.PartitionsBase
   public override Task<ListPartitionsResponse> ListPartitions(ListPartitionsRequest request,
                                                               ServerCallContext     context)
   {
-    Interlocked.Add(ref Calls.ListPartitions,
+    Interlocked.Add(ref calls_.ListPartitions,
                     1);
     return Task.FromResult(new ListPartitionsResponse
                            {
@@ -66,7 +70,7 @@ public class PartitionsService : Partitions.PartitionsBase
                            });
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int GetPartition   = 0;
     public int ListPartitions = 0;

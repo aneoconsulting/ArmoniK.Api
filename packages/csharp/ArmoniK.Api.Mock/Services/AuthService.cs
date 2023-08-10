@@ -28,16 +28,20 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class AuthService : Authentication.AuthenticationBase
+public class AuthService : Authentication.AuthenticationBase, ICountingService
 {
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
 
   /// <inheritdocs />
   public override Task<GetCurrentUserResponse> GetCurrentUser(GetCurrentUserRequest request,
                                                               ServerCallContext     context)
   {
-    Interlocked.Add(ref Calls.GetCurrentUser,
+    Interlocked.Add(ref calls_.GetCurrentUser,
                     1);
     return Task.FromResult(new GetCurrentUserResponse
                            {
@@ -48,7 +52,7 @@ public class AuthService : Authentication.AuthenticationBase
                            });
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int GetCurrentUser = 0;
 

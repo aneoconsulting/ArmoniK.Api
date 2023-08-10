@@ -29,15 +29,19 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class SubmitterService : Submitter.SubmitterBase
+public class SubmitterService : Submitter.SubmitterBase, ICountingService
 {
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
   /// <inheritdoc />
   public override Task<Configuration> GetServiceConfiguration(Empty             request,
                                                               ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.GetServiceConfiguration,
+    Interlocked.Add(ref calls_.GetServiceConfiguration,
                     1);
     return Task.FromResult(new Configuration
                            {
@@ -49,7 +53,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<Empty> CancelSession(Session           request,
                                             ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.CancelSession,
+    Interlocked.Add(ref calls_.CancelSession,
                     1);
     return Task.FromResult(new Empty());
   }
@@ -58,7 +62,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<Empty> CancelTasks(TaskFilter        request,
                                           ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.CancelTasks,
+    Interlocked.Add(ref calls_.CancelTasks,
                     1);
     return Task.FromResult(new Empty());
   }
@@ -67,7 +71,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<CreateSessionReply> CreateSession(CreateSessionRequest request,
                                                          ServerCallContext    context)
   {
-    Interlocked.Add(ref Calls.CreateSession,
+    Interlocked.Add(ref calls_.CreateSession,
                     1);
     return Task.FromResult(new CreateSessionReply
                            {
@@ -79,7 +83,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<CreateTaskReply> CreateSmallTasks(CreateSmallTaskRequest request,
                                                          ServerCallContext      context)
   {
-    Interlocked.Add(ref Calls.CreateSmallTasks,
+    Interlocked.Add(ref calls_.CreateSmallTasks,
                     1);
     return Task.FromResult(new CreateTaskReply
                            {
@@ -93,7 +97,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override async Task<CreateTaskReply> CreateLargeTasks(IAsyncStreamReader<CreateLargeTaskRequest> requestStream,
                                                                ServerCallContext                          context)
   {
-    Interlocked.Add(ref Calls.CreateLargeTasks,
+    Interlocked.Add(ref calls_.CreateLargeTasks,
                     1);
     await foreach (var _ in requestStream.ReadAllAsync())
     {
@@ -110,7 +114,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<Count> CountTasks(TaskFilter        request,
                                          ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.CountTasks,
+    Interlocked.Add(ref calls_.CountTasks,
                     1);
     return Task.FromResult(new Count());
   }
@@ -120,7 +124,7 @@ public class SubmitterService : Submitter.SubmitterBase
                                                 IServerStreamWriter<ResultReply> responseStream,
                                                 ServerCallContext                context)
   {
-    Interlocked.Add(ref Calls.TryGetResultStream,
+    Interlocked.Add(ref calls_.TryGetResultStream,
                     1);
     await responseStream.WriteAsync(new ResultReply
                                     {
@@ -136,7 +140,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<Count> WaitForCompletion(WaitRequest       request,
                                                 ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.WaitForCompletion,
+    Interlocked.Add(ref calls_.WaitForCompletion,
                     1);
     return Task.FromResult(new Count());
   }
@@ -145,7 +149,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<Output> TryGetTaskOutput(TaskOutputRequest request,
                                                 ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.TryGetTaskOutput,
+    Interlocked.Add(ref calls_.TryGetTaskOutput,
                     1);
     return Task.FromResult(new Output
                            {
@@ -158,7 +162,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<AvailabilityReply> WaitForAvailability(ResultRequest     request,
                                                               ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.WaitForAvailability,
+    Interlocked.Add(ref calls_.WaitForAvailability,
                     1);
     return Task.FromResult(new AvailabilityReply
                            {
@@ -170,7 +174,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<GetTaskStatusReply> GetTaskStatus(GetTaskStatusRequest request,
                                                          ServerCallContext    context)
   {
-    Interlocked.Add(ref Calls.GetTaskStatus,
+    Interlocked.Add(ref calls_.GetTaskStatus,
                     1);
     return Task.FromResult(new GetTaskStatusReply());
   }
@@ -180,7 +184,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<GetResultStatusReply> GetResultStatus(GetResultStatusRequest request,
                                                              ServerCallContext      context)
   {
-    Interlocked.Add(ref Calls.GetResultStatus,
+    Interlocked.Add(ref calls_.GetResultStatus,
                     1);
     return Task.FromResult(new GetResultStatusReply());
   }
@@ -189,7 +193,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<TaskIdList> ListTasks(TaskFilter        request,
                                              ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.ListTasks,
+    Interlocked.Add(ref calls_.ListTasks,
                     1);
 
     return Task.FromResult(new TaskIdList());
@@ -199,7 +203,7 @@ public class SubmitterService : Submitter.SubmitterBase
   public override Task<SessionIdList> ListSessions(SessionFilter     request,
                                                    ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.ListSessions,
+    Interlocked.Add(ref calls_.ListSessions,
                     1);
     return Task.FromResult(new SessionIdList());
   }
@@ -219,7 +223,7 @@ public class SubmitterService : Submitter.SubmitterBase
     }
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int GetServiceConfiguration = 0;
     public int CancelSession           = 0;

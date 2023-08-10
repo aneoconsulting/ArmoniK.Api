@@ -28,15 +28,19 @@ using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class ApplicationsService : Applications.ApplicationsBase
+public class ApplicationsService : Applications.ApplicationsBase, ICountingService
 {
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
   /// <inheritdocs />
   public override Task<ListApplicationsResponse> ListApplications(ListApplicationsRequest request,
                                                                   ServerCallContext       context)
   {
-    Interlocked.Add(ref Calls.ListApplications,
+    Interlocked.Add(ref calls_.ListApplications,
                     1);
     return Task.FromResult(new ListApplicationsResponse
                            {
@@ -50,12 +54,12 @@ public class ApplicationsService : Applications.ApplicationsBase
   public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
                                                                       ServerCallContext         context)
   {
-    Interlocked.Add(ref Calls.CountTasksByStatus,
+    Interlocked.Add(ref calls_.CountTasksByStatus,
                     1);
     return Task.FromResult(new CountTasksByStatusResponse());
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int ListApplications   = 0;
     public int CountTasksByStatus = 0;

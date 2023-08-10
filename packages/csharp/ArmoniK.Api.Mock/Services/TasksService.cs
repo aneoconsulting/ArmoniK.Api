@@ -33,7 +33,7 @@ using TaskStatus = ArmoniK.Api.gRPC.V1.TaskStatus;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class TasksService : Tasks.TasksBase
+public class TasksService : Tasks.TasksBase, ICountingService
 {
   private static readonly TaskRaw MockTask = new()
                                              {
@@ -57,14 +57,18 @@ public class TasksService : Tasks.TasksBase
                                                          },
                                              };
 
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
 
   /// <inheritdocs />
   public override Task<GetTaskResponse> GetTask(GetTaskRequest    request,
                                                 ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.GetTask,
+    Interlocked.Add(ref calls_.GetTask,
                     1);
     return Task.FromResult(new GetTaskResponse
                            {
@@ -76,7 +80,7 @@ public class TasksService : Tasks.TasksBase
   public override Task<ListTasksResponse> ListTasks(ListTasksRequest  request,
                                                     ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.ListTasks,
+    Interlocked.Add(ref calls_.ListTasks,
                     1);
     return Task.FromResult(new ListTasksResponse
                            {
@@ -90,7 +94,7 @@ public class TasksService : Tasks.TasksBase
   public override Task<GetResultIdsResponse> GetResultIds(GetResultIdsRequest request,
                                                           ServerCallContext   context)
   {
-    Interlocked.Add(ref Calls.GetResultIds,
+    Interlocked.Add(ref calls_.GetResultIds,
                     1);
     return Task.FromResult(new GetResultIdsResponse());
   }
@@ -99,7 +103,7 @@ public class TasksService : Tasks.TasksBase
   public override Task<CancelTasksResponse> CancelTasks(CancelTasksRequest request,
                                                         ServerCallContext  context)
   {
-    Interlocked.Add(ref Calls.CancelTasks,
+    Interlocked.Add(ref calls_.CancelTasks,
                     1);
     return Task.FromResult(new CancelTasksResponse());
   }
@@ -108,7 +112,7 @@ public class TasksService : Tasks.TasksBase
   public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
                                                                       ServerCallContext         context)
   {
-    Interlocked.Add(ref Calls.CountTasksByStatus,
+    Interlocked.Add(ref calls_.CountTasksByStatus,
                     1);
     return Task.FromResult(new CountTasksByStatusResponse());
   }
@@ -117,7 +121,7 @@ public class TasksService : Tasks.TasksBase
   public override Task<ListTasksRawResponse> ListTasksRaw(ListTasksRequest  request,
                                                           ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.ListTasksRaw,
+    Interlocked.Add(ref calls_.ListTasksRaw,
                     1);
     return Task.FromResult(new ListTasksRawResponse
                            {
@@ -131,12 +135,12 @@ public class TasksService : Tasks.TasksBase
   public override Task<SubmitTasksResponse> SubmitTasks(SubmitTasksRequest request,
                                                         ServerCallContext  context)
   {
-    Interlocked.Add(ref Calls.SubmitTasks,
+    Interlocked.Add(ref calls_.SubmitTasks,
                     1);
     return Task.FromResult(new SubmitTasksResponse());
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int GetTask            = 0;
     public int ListTasks          = 0;

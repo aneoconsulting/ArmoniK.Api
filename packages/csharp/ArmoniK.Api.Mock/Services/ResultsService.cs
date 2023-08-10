@@ -31,7 +31,7 @@ using Results = ArmoniK.Api.gRPC.V1.Results.Results;
 
 namespace ArmoniK.Api.Mock.Services;
 
-public class ResultsService : Results.ResultsBase
+public class ResultsService : Results.ResultsBase, ICountingService
 {
   private static readonly ResultRaw MockResult = new()
                                                  {
@@ -42,14 +42,18 @@ public class ResultsService : Results.ResultsBase
                                                    OwnerTaskId = "owner-task-id",
                                                  };
 
-  public CallCount Calls = new();
+  private CallCount calls_ = new();
+
+  /// <inheritdocs />
+  public ICounter GetCounter()
+    => calls_;
 
 
   /// <inheritdocs />
   public override Task<GetOwnerTaskIdResponse> GetOwnerTaskId(GetOwnerTaskIdRequest request,
                                                               ServerCallContext     context)
   {
-    Interlocked.Add(ref Calls.GetOwnerTaskId,
+    Interlocked.Add(ref calls_.GetOwnerTaskId,
                     1);
     return Task.FromResult(new GetOwnerTaskIdResponse
                            {
@@ -61,7 +65,7 @@ public class ResultsService : Results.ResultsBase
   public override Task<ListResultsResponse> ListResults(ListResultsRequest request,
                                                         ServerCallContext  context)
   {
-    Interlocked.Add(ref Calls.ListResults,
+    Interlocked.Add(ref calls_.ListResults,
                     1);
     return Task.FromResult(new ListResultsResponse
                            {
@@ -75,7 +79,7 @@ public class ResultsService : Results.ResultsBase
   public override Task<CreateResultsMetaDataResponse> CreateResultsMetaData(CreateResultsMetaDataRequest request,
                                                                             ServerCallContext            context)
   {
-    Interlocked.Add(ref Calls.CreateResultsMetaData,
+    Interlocked.Add(ref calls_.CreateResultsMetaData,
                     1);
     return Task.FromResult(new CreateResultsMetaDataResponse());
   }
@@ -84,7 +88,7 @@ public class ResultsService : Results.ResultsBase
   public override Task<CreateResultsResponse> CreateResults(CreateResultsRequest request,
                                                             ServerCallContext    context)
   {
-    Interlocked.Add(ref Calls.CreateResults,
+    Interlocked.Add(ref calls_.CreateResults,
                     1);
     return Task.FromResult(new CreateResultsResponse());
   }
@@ -93,7 +97,7 @@ public class ResultsService : Results.ResultsBase
   public override Task<DeleteResultsDataResponse> DeleteResultsData(DeleteResultsDataRequest request,
                                                                     ServerCallContext        context)
   {
-    Interlocked.Add(ref Calls.DeleteResultsData,
+    Interlocked.Add(ref calls_.DeleteResultsData,
                     1);
     return Task.FromResult(new DeleteResultsDataResponse
                            {
@@ -106,7 +110,7 @@ public class ResultsService : Results.ResultsBase
                                           IServerStreamWriter<DownloadResultDataResponse> responseStream,
                                           ServerCallContext                               context)
   {
-    Interlocked.Add(ref Calls.DownloadResultData,
+    Interlocked.Add(ref calls_.DownloadResultData,
                     1);
     return Task.CompletedTask;
   }
@@ -115,7 +119,7 @@ public class ResultsService : Results.ResultsBase
   public override Task<ResultsServiceConfigurationResponse> GetServiceConfiguration(Empty             request,
                                                                                     ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.GetServiceConfiguration,
+    Interlocked.Add(ref calls_.GetServiceConfiguration,
                     1);
     return Task.FromResult(new ResultsServiceConfigurationResponse
                            {
@@ -128,7 +132,7 @@ public class ResultsService : Results.ResultsBase
   public override async Task<UploadResultDataResponse> UploadResultData(IAsyncStreamReader<UploadResultDataRequest> requestStream,
                                                                         ServerCallContext                           context)
   {
-    Interlocked.Add(ref Calls.UploadResultData,
+    Interlocked.Add(ref calls_.UploadResultData,
                     1);
 
     await foreach (var _ in requestStream.ReadAllAsync())
@@ -145,7 +149,7 @@ public class ResultsService : Results.ResultsBase
   public override Task<GetResultResponse> GetResult(GetResultRequest  request,
                                                     ServerCallContext context)
   {
-    Interlocked.Add(ref Calls.GetResult,
+    Interlocked.Add(ref calls_.GetResult,
                     1);
 
     return Task.FromResult(new GetResultResponse
@@ -154,7 +158,7 @@ public class ResultsService : Results.ResultsBase
                            });
   }
 
-  public struct CallCount
+  private struct CallCount : ICounter
   {
     public int GetOwnerTaskId          = 0;
     public int ListResults             = 0;
