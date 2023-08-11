@@ -7,4 +7,4 @@
 # debmake generated override targets
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DBUILD_WORKER=ON -DBUILD_CLIENT=ON -DFETCHCONTENT_FULLY_DISCONNECTED=OFF -DPROTO_FILES_DIR="$(shell pwd)/Protos"
+	dh_auto_configure -- -DBUILD_WORKER=ON -DBUILD_CLIENT=ON -DBUILD_SHARED_LIBS=ON -DFETCHCONTENT_FULLY_DISCONNECTED=OFF -DPROTO_FILES_DIR="$(shell pwd)/Protos"

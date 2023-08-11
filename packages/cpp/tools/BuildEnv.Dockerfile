@@ -19,7 +19,7 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-ge
     libgrpc-dev \
     libgrpc++-dev \
     libprotobuf-dev \
-    libfmt-dev \
+	libfmt-dev \
 	&& apt-get clean
 
 ENV protobuf_BUILD_TESTS=OFF

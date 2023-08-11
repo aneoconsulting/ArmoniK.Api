@@ -1,7 +1,11 @@
 import consola from "consola";
 import {
+  cppFiles,
+  cppPattern,
   csharpFiles,
   csharpPattern,
+  debFiles,
+  debPattern,
   jsFiles,
   jsPattern,
   pythonFiles,
@@ -16,6 +20,10 @@ consola.info("Finding JS projects versions");
 jsFiles.forEach(_readAndFind(jsPattern, versions));
 consola.info("Finding C# projects versions");
 csharpFiles.forEach(_readAndFind(csharpPattern, versions));
+consola.info("Finding Cpp projects versions");
+cppFiles.forEach(_readAndFind(cppPattern, versions));
+consola.info("Finding Deb projects versions");
+debFiles.forEach(_readAndFind(debPattern, versions));
 
 const versionsArray = [...versions.values()];
 const uniqueVersions = [...new Set(versionsArray)];
