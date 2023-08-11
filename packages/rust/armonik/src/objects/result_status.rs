@@ -47,3 +47,5 @@ impl From<v3::result_status::ResultStatus> for ResultStatus {
         }
     }
 }
+
+super::impl_convert!(ResultStatus : Option<v3::result_status::ResultStatus>);

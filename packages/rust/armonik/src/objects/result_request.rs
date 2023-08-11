@@ -23,3 +23,5 @@ impl From<v3::ResultRequest> for ResultRequest {
         }
     }
 }
+
+super::impl_convert!(ResultRequest : Option<v3::ResultRequest>);

@@ -11,8 +11,8 @@ pub struct TaskIdWithStatus {
 impl From<TaskIdWithStatus> for v3::TaskIdWithStatus {
     fn from(value: TaskIdWithStatus) -> Self {
         Self {
-            task_id: Some(value.id.into()),
-            status: v3::task_status::TaskStatus::from(value.status) as i32,
+            task_id: value.id.into(),
+            status: value.status as i32,
         }
     }
 }
@@ -20,8 +20,10 @@ impl From<TaskIdWithStatus> for v3::TaskIdWithStatus {
 impl From<v3::TaskIdWithStatus> for TaskIdWithStatus {
     fn from(value: v3::TaskIdWithStatus) -> Self {
         Self {
-            id: value.task_id.unwrap_or_default().into(),
+            id: value.task_id.into(),
             status: value.status.into(),
         }
     }
 }
+
+super::impl_convert!(TaskIdWithStatus : Option<v3::TaskIdWithStatus>);

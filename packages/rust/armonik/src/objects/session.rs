@@ -16,3 +16,5 @@ impl From<v3::Session> for Session {
         Self { id: value.id }
     }
 }
+
+super::impl_convert!(Session : Option<v3::Session>);

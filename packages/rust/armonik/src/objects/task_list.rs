@@ -22,3 +22,5 @@ impl From<v3::TaskList> for TaskList {
         }
     }
 }
+
+super::impl_convert!(TaskList : Option<v3::TaskList>);

@@ -11,7 +11,7 @@ pub struct StatusCount {
 impl From<StatusCount> for v3::StatusCount {
     fn from(value: StatusCount) -> Self {
         Self {
-            status: v3::task_status::TaskStatus::from(value.status) as i32,
+            status: value.status as i32,
             count: value.count,
         }
     }
@@ -25,3 +25,5 @@ impl From<v3::StatusCount> for StatusCount {
         }
     }
 }
+
+super::impl_convert!(StatusCount : Option<v3::StatusCount>);

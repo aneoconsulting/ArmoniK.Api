@@ -71,3 +71,5 @@ impl From<v3::TaskOptions> for TaskOptions {
         }
     }
 }
+
+super::impl_convert!(TaskOptions : Option<v3::TaskOptions>);

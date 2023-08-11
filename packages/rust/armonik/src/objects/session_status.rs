@@ -39,3 +39,5 @@ impl From<v3::session_status::SessionStatus> for SessionStatus {
         }
     }
 }
+
+super::impl_convert!(SessionStatus : Option<v3::session_status::SessionStatus>);

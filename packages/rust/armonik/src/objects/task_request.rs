@@ -29,3 +29,5 @@ impl From<v3::TaskRequest> for TaskRequest {
         }
     }
 }
+
+super::impl_convert!(TaskRequest : Option<v3::TaskRequest>);
