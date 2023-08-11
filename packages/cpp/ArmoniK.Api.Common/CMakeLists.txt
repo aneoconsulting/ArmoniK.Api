@@ -32,6 +32,7 @@ set(CMAKE_FIND_DEBUG_MODE FALSE)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
+find_package(fmt CONFIG REQUIRED)
 
 include(FetchContent)
 
@@ -45,12 +46,6 @@ if(NOT simdjson_POPULATED)
     FetchContent_Populate(simdjson)
 endif()
 
-FetchContent_Declare(
-        fmt
-        URL https://github.com/fmtlib/fmt/archive/refs/tags/10.0.0.tar.gz
-)
-FetchContent_MakeAvailable(fmt)
-
 set(CMAKE_FIND_DEBUG_MODE FALSE)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
@@ -63,8 +58,7 @@ file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR})
 
 add_library(${PROJECT_NAME} STATIC ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES} ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp ${simdjson_SOURCE_DIR}/singleheader/simdjson.h)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure)
-target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure fmt::fmt)
 target_compile_definitions(${PROJECT_NAME} PUBLIC API_COMMON_NAMESPACE=${NAMESPACE})
 
 setup_options(${PROJECT_NAME})
