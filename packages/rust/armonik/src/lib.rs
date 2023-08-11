@@ -1,5 +1,6 @@
 pub mod api;
 pub mod client;
+pub mod objects;
 
 pub use api::v3::{
     agent::{agent_client::*, agent_server::*},
