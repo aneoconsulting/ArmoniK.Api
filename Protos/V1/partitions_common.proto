@@ -6,7 +6,7 @@ import "partitions_fields.proto";
 import "partitions_filters.proto";
 import "sort_direction.proto";
 
-option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Partitions";
 
 /**
  * A raw partition object.

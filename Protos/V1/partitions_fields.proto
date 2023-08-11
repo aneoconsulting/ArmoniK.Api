@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1.partitions;
 
-option csharp_namespace = "Armonik.Api.Grpc.V1.Partitions";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Partitions";
 
 /**
  * Represents every available field in a partition.
