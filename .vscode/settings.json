@@ -9,6 +9,10 @@
   "cSpell.words": [
     "Armoni"
   ],
+  "[rust]": {
+    "editor.tabSize": 4
+  },
+  "rust-analyzer.cachePriming.enable": false,
   "rust-analyzer.linkedProjects": [
     "./packages/rust/armonik/Cargo.toml",
     "./packages/rust/armonik-client-test/Cargo.toml"
