@@ -94,7 +94,7 @@ public:
 };
 
 std::unique_ptr<IFormatter> formatter_clef() { return std::make_unique<ClefFormatter>(); }
-std::unique_ptr<IFormatter> formatter_clef(bool styling) { return std::make_unique<PlainFormatter>(styling); }
+std::unique_ptr<IFormatter> formatter_plain(bool styling) { return std::make_unique<PlainFormatter>(styling); }
 
 // Interface destructor
 IFormatter::~IFormatter() = default;
