@@ -16,7 +16,7 @@ impl From<Count> for v3::Count {
                 .values
                 .into_iter()
                 .map(|(status, count)| v3::StatusCount {
-                    status: v3::task_status::TaskStatus::from(status) as i32,
+                    status: status as i32,
                     count,
                 })
                 .collect(),
@@ -35,3 +35,5 @@ impl From<v3::Count> for Count {
         }
     }
 }
+
+super::impl_convert!(Count : Option<v3::Count>);

@@ -20,3 +20,5 @@ impl From<v3::TaskIdList> for TaskIdList {
         }
     }
 }
+
+super::impl_convert!(TaskIdList : Option<v3::TaskIdList>);

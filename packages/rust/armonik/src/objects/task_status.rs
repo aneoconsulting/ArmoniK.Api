@@ -75,3 +75,5 @@ impl From<v3::task_status::TaskStatus> for TaskStatus {
         }
     }
 }
+
+super::impl_convert!(TaskStatus : Option<v3::task_status::TaskStatus>);

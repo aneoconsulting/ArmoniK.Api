@@ -23,3 +23,5 @@ impl From<v3::TaskRequestHeader> for TaskRequestHeader {
         }
     }
 }
+
+super::impl_convert!(TaskRequestHeader : Option<v3::TaskRequestHeader>);

@@ -25,3 +25,5 @@ impl From<v3::TaskError> for TaskError {
         }
     }
 }
+
+super::impl_convert!(TaskError : Option<v3::TaskError>);

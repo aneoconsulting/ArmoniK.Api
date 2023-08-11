@@ -23,3 +23,5 @@ impl From<v3::TaskOutputRequest> for TaskOutputRequest {
         }
     }
 }
+
+super::impl_convert!(TaskOutputRequest : Option<v3::TaskOutputRequest>);

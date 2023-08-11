@@ -28,3 +28,5 @@ impl From<v3::Configuration> for Configuration {
         }
     }
 }
+
+super::impl_convert!(Configuration : Option<v3::Configuration>);
