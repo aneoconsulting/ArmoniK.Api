@@ -375,10 +375,14 @@ dist
 *.pbconf.ts
 *.pbsc.ts
 
+# Rust
+**/target
+
 !packages/common
 !packages/csharp
 !packages/cpp
 !packages/python
+!packages/rust
 !packages/angular
 !packages/web
 packages/web/LICENSE
