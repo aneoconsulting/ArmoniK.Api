@@ -8,7 +8,7 @@ package armonik.api.grpc.v1.versions;
 
 import "versions_common.proto";
 
-option csharp_namespace = "Armonik.Api.Grpc.V1.Versions";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Versions";
 
 /**
  * Service for handling versions.
