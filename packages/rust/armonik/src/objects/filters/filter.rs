@@ -2,7 +2,7 @@ use crate::api::v3;
 
 use super::{
     FilterArrayOperator, FilterBooleanOperator, FilterDateOperator, FilterNumberOperator,
-    FilterStringOperator,
+    FilterStatusOperator, FilterStringOperator,
 };
 
 macro_rules! impl_filter {
@@ -65,3 +65,9 @@ impl From<v3::FilterDate> for FilterDate {
 }
 
 super::super::impl_convert!(FilterDate : Option<v3::FilterDate>);
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct FilterStatus<T> {
+    pub value: T,
+    pub operator: FilterStatusOperator,
+}

@@ -1,11 +1,13 @@
 mod applications;
 mod auth;
 mod partitions;
+mod sessions;
 mod versions;
 
 pub use applications::ApplicationsClient;
 pub use auth::AuthClient;
 pub use partitions::PartitionsClient;
+pub use sessions::SessionsClient;
 pub use versions::VersionsClient;
 
 #[derive(Clone)]
@@ -42,6 +44,10 @@ where
 
     pub fn auth(&self) -> AuthClient<T> {
         AuthClient::new(self.channel.clone())
+    }
+
+    pub fn sessions(&self) -> SessionsClient<T> {
+        SessionsClient::new(self.channel.clone())
     }
 
     pub fn partitions(&self) -> PartitionsClient<T> {
