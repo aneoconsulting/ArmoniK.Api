@@ -9,6 +9,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get current user
     println!("{:?}", client.auth().current_user().await?);
 
+    // List sessions
+    println!("{:?}", client.sessions().list(Default::default()).await?);
+
     // List partitions
     let response = client
         .partitions()
