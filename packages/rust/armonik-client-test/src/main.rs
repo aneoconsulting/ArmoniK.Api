@@ -6,6 +6,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let response = client.versions().list().await?;
     println!("Core: {}\nAPI: {}", response.core, response.api);
 
+    // Get current user
+    println!("{:?}", client.auth().current_user().await?);
+
     // List partitions
     let response = client
         .partitions()
