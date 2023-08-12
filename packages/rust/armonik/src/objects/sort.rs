@@ -47,3 +47,9 @@ pub struct Sort<T> {
     pub field: T,
     pub direction: SortDirection,
 }
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SortMany<T> {
+    pub fields: Vec<T>,
+    pub direction: SortDirection,
+}

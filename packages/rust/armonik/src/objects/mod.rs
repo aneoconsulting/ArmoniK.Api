@@ -23,6 +23,9 @@ mod task_request;
 mod task_request_header;
 mod task_status;
 
+pub mod applications;
+pub mod auth;
+pub mod events;
 pub mod partitions;
 pub mod versions;
 
@@ -38,7 +41,7 @@ pub use result_request::ResultRequest;
 pub use result_status::ResultStatus;
 pub use session::Session;
 pub use session_status::SessionStatus;
-pub use sort::{Sort, SortDirection};
+pub use sort::{Sort, SortDirection, SortMany};
 pub use status_count::StatusCount;
 pub use task_error::TaskError;
 pub use task_id::TaskId;

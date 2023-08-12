@@ -9,6 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "../../../Protos/V1/applications_common.proto",
                 "../../../Protos/V1/applications_fields.proto",
                 "../../../Protos/V1/applications_filters.proto",
+                "../../../Protos/V1/applications_service.proto",
                 "../../../Protos/V1/auth_common.proto",
                 "../../../Protos/V1/auth_service.proto",
                 "../../../Protos/V1/events_common.proto",
