@@ -1,13 +1,13 @@
 use crate::api::v3;
 
-use super::{super::SortMany, ApplicationField, ApplicationFilters, ApplicationFiltersAnd};
+use super::{ApplicationFilters, ApplicationFiltersAnd, ApplicationRaw, ApplicationSort};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApplicationListRequest {
     pub page: i32,
     pub page_size: i32,
     pub filters: ApplicationFilters,
-    pub sort: SortMany<ApplicationField>,
+    pub sort: ApplicationSort,
 }
 
 impl Default for ApplicationListRequest {
@@ -44,7 +44,7 @@ impl From<v3::applications::ListApplicationsRequest> for ApplicationListRequest 
             page_size: value.page_size,
             filters: value.filters.into(),
             sort: match value.sort {
-                Some(sort) => SortMany {
+                Some(sort) => ApplicationSort {
                     fields: sort.fields.into_iter().map(Into::into).collect(),
                     direction: sort.direction.into(),
                 },
@@ -55,3 +55,46 @@ impl From<v3::applications::ListApplicationsRequest> for ApplicationListRequest 
 }
 
 super::super::impl_convert!(ApplicationListRequest : Option<v3::applications::ListApplicationsRequest>);
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApplicationListResponse {
+    pub applications: Vec<ApplicationRaw>,
+    pub page: i32,
+    pub page_size: i32,
+    pub total: i32,
+}
+
+impl Default for ApplicationListResponse {
+    fn default() -> Self {
+        Self {
+            applications: Vec::new(),
+            page: 0,
+            page_size: 100,
+            total: 0,
+        }
+    }
+}
+
+impl From<ApplicationListResponse> for v3::applications::ListApplicationsResponse {
+    fn from(value: ApplicationListResponse) -> Self {
+        Self {
+            applications: value.applications.into_iter().map(Into::into).collect(),
+            page: value.page,
+            page_size: value.page_size,
+            total: value.total,
+        }
+    }
+}
+
+impl From<v3::applications::ListApplicationsResponse> for ApplicationListResponse {
+    fn from(value: v3::applications::ListApplicationsResponse) -> Self {
+        Self {
+            applications: value.applications.into_iter().map(Into::into).collect(),
+            page: value.page,
+            page_size: value.page_size,
+            total: value.total,
+        }
+    }
+}
+
+super::super::impl_convert!(ApplicationListResponse : Option<v3::applications::ListApplicationsResponse>);

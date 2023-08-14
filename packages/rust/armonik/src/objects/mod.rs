@@ -27,6 +27,7 @@ pub mod applications;
 pub mod auth;
 pub mod events;
 pub mod partitions;
+pub mod results;
 pub mod sessions;
 pub mod versions;
 
