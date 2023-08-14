@@ -121,7 +121,7 @@ message CreateResultsMetaDataResponse {
 }
 
 /*
-* Request for creating results without data
+* Request for creating results with data
 */
 message CreateResultsRequest {
   /**
