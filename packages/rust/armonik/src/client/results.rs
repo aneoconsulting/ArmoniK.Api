@@ -34,12 +34,7 @@ where
         &mut self,
         request: ResultListRequest,
     ) -> Result<ResultListResponse, tonic::Status> {
-        Ok(self
-            .inner
-            .list_results(v3::results::ListResultsRequest::from(request))
-            .await?
-            .into_inner()
-            .into())
+        Ok(self.inner.list_results(request).await?.into_inner().into())
     }
 
     /// Get the id of the task that should produce the result.
@@ -60,7 +55,7 @@ where
     ) -> Result<GetOwnerTaskIdResponse, tonic::Status> {
         Ok(self
             .inner
-            .get_owner_task_id(v3::results::GetOwnerTaskIdRequest::from(request))
+            .get_owner_task_id(request)
             .await?
             .into_inner()
             .into())
@@ -74,7 +69,7 @@ where
     ) -> Result<CreateResultsMetadataResponse, tonic::Status> {
         Ok(self
             .inner
-            .create_results_meta_data(v3::results::CreateResultsMetaDataRequest::from(request))
+            .create_results_meta_data(request)
             .await?
             .into_inner()
             .into())
@@ -87,7 +82,7 @@ where
     ) -> Result<CreateResultsResponse, tonic::Status> {
         Ok(self
             .inner
-            .create_results(v3::results::CreateResultsRequest::from(request))
+            .create_results(request)
             .await?
             .into_inner()
             .into())
@@ -134,7 +129,7 @@ where
     ) -> Result<impl futures::Stream<Item = Result<Vec<u8>, tonic::Status>>, tonic::Status> {
         Ok(self
             .inner
-            .download_result_data(v3::results::DownloadResultDataRequest::from(request))
+            .download_result_data(request)
             .await?
             .into_inner()
             .map(|response| response.map(|response| response.data_chunk)))
@@ -147,7 +142,7 @@ where
     ) -> Result<DeleteResultsDataResponse, tonic::Status> {
         Ok(self
             .inner
-            .delete_results_data(v3::results::DeleteResultsDataRequest::from(request))
+            .delete_results_data(request)
             .await?
             .into_inner()
             .into())

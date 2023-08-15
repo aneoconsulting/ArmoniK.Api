@@ -57,6 +57,13 @@ pub use task_request_header::TaskRequestHeader;
 pub use task_status::TaskStatus;
 
 macro_rules! impl_convert {
+    ($A:ty : Request<$B:ty>) => {
+        impl tonic::IntoRequest<$B> for $A {
+            fn into_request(self) -> tonic::Request<$B> {
+                tonic::Request::new(self.into())
+            }
+        }
+    };
     ($A:ty : Option<$B:ty>) => {
         impl From<$A> for Option<$B> {
             fn from(value: $A) -> Self {
@@ -69,6 +76,8 @@ macro_rules! impl_convert {
                 value.map_or_else(Default::default, Into::into)
             }
         }
+
+        crate::impl_convert!($A : Request<$B>);
     };
 }
 pub(crate) use impl_convert;

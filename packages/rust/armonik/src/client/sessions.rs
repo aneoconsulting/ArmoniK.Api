@@ -28,12 +28,7 @@ where
         &mut self,
         request: SessionListRequest,
     ) -> Result<SessionListResponse, tonic::Status> {
-        Ok(self
-            .inner
-            .list_sessions(v3::sessions::ListSessionsRequest::from(request))
-            .await?
-            .into_inner()
-            .into())
+        Ok(self.inner.list_sessions(request).await?.into_inner().into())
     }
 
     /// Get a session by its id.
