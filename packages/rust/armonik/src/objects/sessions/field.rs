@@ -1,3 +1,5 @@
+use super::super::TaskOptionField;
+
 use crate::api::v3;
 
 /// Represents every available field in a session raw.
@@ -47,58 +49,6 @@ impl From<v3::sessions::SessionRawField> for SessionRawField {
 }
 
 super::super::impl_convert!(SessionRawField : Option<v3::sessions::SessionRawField>);
-
-/// Represents a field in a task option.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(i32)]
-pub enum TaskOptionField {
-    /// Unspecified.
-    #[default]
-    Unspecified = 0,
-    MaxDuration = 1,
-    MaxRetries = 2,
-    Priority = 3,
-    PartitionId = 4,
-    ApplicationName = 5,
-    ApplicationVersion = 6,
-    ApplicationNamespace = 7,
-    ApplicationService = 8,
-    ApplicationEngine = 9,
-}
-
-impl From<i32> for TaskOptionField {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::MaxDuration,
-            2 => Self::MaxRetries,
-            3 => Self::Priority,
-            4 => Self::PartitionId,
-            5 => Self::ApplicationName,
-            6 => Self::ApplicationVersion,
-            7 => Self::ApplicationNamespace,
-            8 => Self::ApplicationService,
-            9 => Self::ApplicationEngine,
-            _ => Self::Unspecified,
-        }
-    }
-}
-
-impl From<TaskOptionField> for v3::sessions::TaskOptionField {
-    fn from(value: TaskOptionField) -> Self {
-        Self {
-            field: value as i32,
-        }
-    }
-}
-
-impl From<v3::sessions::TaskOptionField> for TaskOptionField {
-    fn from(value: v3::sessions::TaskOptionField) -> Self {
-        value.field.into()
-    }
-}
-
-super::super::impl_convert!(TaskOptionField : Option<v3::sessions::TaskOptionField>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SessionField {

@@ -29,6 +29,7 @@ pub mod events;
 pub mod partitions;
 pub mod results;
 pub mod sessions;
+pub mod tasks;
 pub mod versions;
 
 pub use configuration::Configuration;
@@ -50,7 +51,7 @@ pub use task_id::TaskId;
 pub use task_id_list::TaskIdList;
 pub use task_id_with_status::TaskIdWithStatus;
 pub use task_list::TaskList;
-pub use task_options::TaskOptions;
+pub use task_options::{TaskOptionField, TaskOptions};
 pub use task_output_request::TaskOutputRequest;
 pub use task_request::TaskRequest;
 pub use task_request_header::TaskRequestHeader;

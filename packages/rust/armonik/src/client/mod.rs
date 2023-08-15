@@ -3,6 +3,7 @@ mod auth;
 mod partitions;
 mod results;
 mod sessions;
+mod tasks;
 mod versions;
 
 pub use applications::ApplicationsClient;
@@ -10,6 +11,7 @@ pub use auth::AuthClient;
 pub use partitions::PartitionsClient;
 pub use results::ResultsClient;
 pub use sessions::SessionsClient;
+pub use tasks::TasksClient;
 pub use versions::VersionsClient;
 
 #[derive(Clone)]
@@ -48,6 +50,10 @@ where
         AuthClient::new(self.channel.clone())
     }
 
+    pub fn partitions(&self) -> PartitionsClient<T> {
+        PartitionsClient::new(self.channel.clone())
+    }
+
     pub fn results(&self) -> ResultsClient<T> {
         ResultsClient::new(self.channel.clone())
     }
@@ -56,8 +62,8 @@ where
         SessionsClient::new(self.channel.clone())
     }
 
-    pub fn partitions(&self) -> PartitionsClient<T> {
-        PartitionsClient::new(self.channel.clone())
+    pub fn tasks(&self) -> TasksClient<T> {
+        TasksClient::new(self.channel.clone())
     }
 
     pub fn versions(&self) -> VersionsClient<T> {
