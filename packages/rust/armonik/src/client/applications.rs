@@ -28,7 +28,7 @@ where
     ) -> Result<ApplicationListResponse, tonic::Status> {
         Ok(self
             .inner
-            .list_applications(v3::applications::ListApplicationsRequest::from(request))
+            .list_applications(request)
             .await?
             .into_inner()
             .into())

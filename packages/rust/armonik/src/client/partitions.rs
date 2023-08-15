@@ -28,7 +28,7 @@ where
     ) -> Result<PartitionListResponse, tonic::Status> {
         Ok(self
             .inner
-            .list_partitions(v3::partitions::ListPartitionsRequest::from(request))
+            .list_partitions(request)
             .await?
             .into_inner()
             .into())

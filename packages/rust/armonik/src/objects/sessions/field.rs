@@ -127,7 +127,7 @@ impl From<SessionField> for v3::sessions::SessionField {
                 }
                 SessionField::TaskOptionGenericField(field) => {
                     v3::sessions::session_field::Field::TaskOptionGenericField(
-                        v3::sessions::TaskOptionGenericField { field: field },
+                        v3::sessions::TaskOptionGenericField { field },
                     )
                 }
             }),
