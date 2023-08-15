@@ -1,0 +1,37 @@
+use crate::api::v3;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Represents the task output.
+pub enum Output {
+    /// To know if a task have failed or succeed.
+    #[default]
+    Success,
+    /// The error message. Only set if task have failed.
+    Error(String),
+}
+
+impl From<Output> for v3::tasks::task_raw::Output {
+    fn from(value: Output) -> Self {
+        match value {
+            Output::Success => Self {
+                success: true,
+                ..Default::default()
+            },
+            Output::Error(message) => Self {
+                error: message,
+                ..Default::default()
+            },
+        }
+    }
+}
+
+impl From<v3::tasks::task_raw::Output> for Output {
+    fn from(value: v3::tasks::task_raw::Output) -> Self {
+        if value.success {
+            Self::Success
+        } else {
+            Self::Error(value.error)
+        }
+    }
+}
+super::super::impl_convert!(Output : Option<v3::tasks::task_raw::Output>);
