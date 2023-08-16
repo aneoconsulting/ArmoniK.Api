@@ -1,1 +1,1 @@
-export default 'Armonik.Api'
+export default 'ArmoniK.Api'
