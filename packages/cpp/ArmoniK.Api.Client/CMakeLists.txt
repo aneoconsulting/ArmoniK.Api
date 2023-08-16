@@ -4,18 +4,18 @@ set(version 0.1.0)
 set(ARMONIK_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/armonik/client)
 set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
-set(PROTO_FILES 
+set(PROTO_FILES
     "submitter_service.proto"
     "applications_service.proto"
     "sessions_service.proto"
-    #"tasks_service.proto" Name conflict with grpc generated files ListTasks and ListTasksRaw (grpc add the suffix RAW to all interfaces)
+    #"tasks_service.proto"
     "results_service.proto"
     "auth_service.proto"
     "partitions_service.proto"
     "events_service.proto"
     "versions_service.proto")
 
-set(PROTO_MESSAGES 
+set(PROTO_MESSAGES
     "auth_common.proto"
     "sessions_common.proto"
     "submitter_common.proto"
@@ -116,7 +116,7 @@ install(DIRECTORY ${HEADER_FILES_DIR}/ DESTINATION ${ARMONIK_INSTALL_INCLUDE_DIR
 install(EXPORT ${PROJECT_NAME}Targets
         FILE ${PROJECT_NAME}Targets.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-        
+
 )
 
 configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in
