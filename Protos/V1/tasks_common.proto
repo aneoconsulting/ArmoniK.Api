@@ -145,7 +145,7 @@ message ListTasksResponse {
  * Use pagination, filtering and sorting from the request.
  * Return a list of formated tasks.
  */
-message ListTasksRawResponse {
+message ListTasksDetailedResponse {
   repeated TaskDetailed tasks = 1; /** The list of tasks. */
 
   int32 page = 2; /** The page number. Start at 0. */
