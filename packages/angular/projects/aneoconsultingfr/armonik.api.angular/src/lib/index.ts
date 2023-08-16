@@ -103,7 +103,7 @@ export {
   GetTaskRequest,
   GetTaskResponse,
   ListTasksRequest,
-  ListTasksResponse, TaskRaw,
+  ListTasksResponse, TaskDetailed,
   TaskSummary
 } from "./generated/tasks-common.pb";
 export {
