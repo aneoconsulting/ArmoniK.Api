@@ -7,7 +7,6 @@ string(REGEX MATCHALL "[0-9]+" version_list ${version})
 list(GET version_list 0 version_major)
 list(GET version_list 1 version_minor)
 list(GET version_list 2 version_patch)
-
 message(STATUS "Version ${version}")
 
 set(SOLUTION_NAME ArmoniK.Api)
@@ -73,3 +72,6 @@ if (BUILD_TEST)
         add_subdirectory(ArmoniK.Api.Tests)
     endif()
 endif()
+
+include(Packaging.cmake)
+include(CPack)

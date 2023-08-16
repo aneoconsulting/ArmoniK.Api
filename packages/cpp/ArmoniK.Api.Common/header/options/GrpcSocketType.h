@@ -13,4 +13,4 @@ enum grpc_socket_type {
   tcp = 1,             /**< @brief TCP/IP socket type */
   UnixDomainSocket = 2 /**< @brief Unix domain socket type */
 };
-}; // namespace API_COMMON_NAMESPACE::options
+} // namespace API_COMMON_NAMESPACE::options
