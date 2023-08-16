@@ -2,7 +2,7 @@
 
 set -e
 
-# Bash script to create the python packages from the grpc proto for Armonik.Api
+# Bash script to create the python packages from the grpc proto for ArmoniK.Api
 # We are using the same structure than the C# package
 
 if [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ -z "$1" ]      # Request help.

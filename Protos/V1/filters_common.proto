@@ -4,7 +4,7 @@ package armonik.api.grpc.v1;
 
 import "google/protobuf/timestamp.proto";
 
-option csharp_namespace = "Armonik.Api.gRPC.V1";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1";
 
 enum FilterStringOperator {
   FILTER_STRING_OPERATOR_EQUAL = 0; /** Equal */
