@@ -32,9 +32,19 @@ set(CMAKE_FIND_DEBUG_MODE FALSE)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
-find_package(fmt CONFIG REQUIRED)
+#find_package(fmt CONFIG REQUIRED)
 
 include(FetchContent)
+
+FETCHCONTENT_DECLARE(
+        fmt
+        URL https://github.com/fmtlib/fmt/archive/refs/tags/10.1.0.tar.gz
+)
+
+FetchContent_GetProperties(fmt)
+if(NOT fmt_POPULATED)
+    FetchContent_Populate(fmt)
+endif()
 
 FETCHCONTENT_DECLARE(
         simdjson
@@ -58,8 +68,8 @@ file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR})
 
 add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES} ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp ${simdjson_SOURCE_DIR}/singleheader/simdjson.h)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure fmt::fmt)
-target_compile_definitions(${PROJECT_NAME} PUBLIC API_COMMON_NAMESPACE=${NAMESPACE})
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure)
+target_compile_definitions(${PROJECT_NAME} PUBLIC API_COMMON_NAMESPACE=${NAMESPACE} FMT_HEADER_ONLY=1)
 
 setup_options(${PROJECT_NAME})
 
@@ -82,6 +92,7 @@ target_include_directories(${PROJECT_NAME}
                            "$<BUILD_INTERFACE:${simdjson_SOURCE_DIR}/singleheader/>"
                            "$<BUILD_INTERFACE:${PROJECT_BUILD_DIR}>"
                            "$<BUILD_INTERFACE:${HEADER_FILES_DIR}>"
+                           "$<BUILD_INTERFACE:${fmt_SOURCE_DIR}/include>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})

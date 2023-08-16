@@ -7,7 +7,6 @@ include(CMakeFindDependencyMacro)
 find_dependency(Protobuf REQUIRED)
 find_dependency(gRPC CONFIG REQUIRED)
 find_dependency(Threads)
-find_dependency(fmt CONFIG REQUIRED)
 
 include("${ARMONIK_API_COMMON_LIBPATH}/cmake/ArmoniK.Api.Common/ArmoniK.Api.CommonTargets.cmake")
 

@@ -58,4 +58,4 @@ private:
   std::string worker_address_; ///< The worker address string.
   std::string agent_address_;  ///< The agent address string.
 };
-}; // namespace API_COMMON_NAMESPACE::options
+} // namespace API_COMMON_NAMESPACE::options
