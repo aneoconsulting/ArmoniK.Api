@@ -3,7 +3,7 @@
 #include <utils/Configuration.h>
 
 /**
- * @brief The armonik namespace contains classes and functions related to the Armonik API.
+ * @brief The armonik namespace contains classes and functions related to the ArmoniK API.
  */
 namespace API_COMMON_NAMESPACE::options {
 /**
