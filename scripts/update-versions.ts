@@ -5,8 +5,6 @@ import {
   cppPattern,
   csharpFiles,
   csharpPattern,
-  debFiles,
-  debPattern,
   jsFiles,
   jsPattern,
   pythonFiles,
@@ -34,6 +32,3 @@ jsFiles.forEach(_readAndReplace(jsPattern, `"version": "${version}"`));
 
 consola.info("Updating cpp projects to ", version);
 cppFiles.forEach(_readAndReplace(cppPattern, `set(version ${version})`));
-
-consola.info("Updating deb files projects to ", version);
-debFiles.forEach(_readAndReplace(debPattern, `libarmonik (${version}-1)`));
