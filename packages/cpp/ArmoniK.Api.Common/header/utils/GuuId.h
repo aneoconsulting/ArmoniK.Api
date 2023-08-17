@@ -10,7 +10,7 @@
 #include <random>
 
 /**
- * @brief The API_COMMON_NAMESPACE::utils namespace provides utility classes and functions for the Armonik API.
+ * @brief The API_COMMON_NAMESPACE::utils namespace provides utility classes and functions for the ArmoniK API.
  */
 namespace API_COMMON_NAMESPACE::utils {
 /**
