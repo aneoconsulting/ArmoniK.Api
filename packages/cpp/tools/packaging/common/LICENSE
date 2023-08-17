@@ -14,4 +14,4 @@ limitations under the License.
 
 --------------
 
-The ArmoniK library integrates the simdjson single-header library licensed under Apache 2.0 (https://github.com/simdjson/simdjson)
+The ArmoniK Cpp library integrates the simdjson single-header library licensed under Apache 2.0 (https://github.com/simdjson/simdjson)

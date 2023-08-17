@@ -21,15 +21,14 @@ SHELL ["/bin/bash", "--login", "-c"]
 WORKDIR /rpm
 RUN mkdir -p build
 
-ARG VERSION="3.10.0"
-COPY packages/cpp/tools/packaging/BundledLICENSE ./LICENSE
+COPY packages/cpp/tools/packaging/common/. ./tools/packaging/common/.
 COPY Protos/V1/. ./Protos/
-COPY packages/cpp/ArmoniK.Api.Common/. ./ArmoniK.Api.Common/
-COPY packages/cpp/ArmoniK.Api.Client/. ./ArmoniK.Api.Client/
-COPY packages/cpp/ArmoniK.Api.Worker/. ./ArmoniK.Api.Worker/
+COPY packages/cpp/ArmoniK.Api.Common/. ./ArmoniK.Api.Common/.
+COPY packages/cpp/ArmoniK.Api.Client/. ./ArmoniK.Api.Client/.
+COPY packages/cpp/ArmoniK.Api.Worker/. ./ArmoniK.Api.Worker/.
 COPY packages/cpp/CMakeLists.txt .
 COPY packages/cpp/Packaging.cmake .
 WORKDIR /rpm/build
-RUN cmake -DBUILD_CLIENT:BOOL=ON -DBUILD_WORKER:BOOL=ON -DPROTO_FILES_DIR=/rpm/Protos -DCPACK_GENERATOR=RPM -DCMAKE_PREFIX_PATH=/usr/local/grpc .. && make package -j
+RUN cmake -DBUILD_SHARED_LIBS=ON -DBUILD_CLIENT:BOOL=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_WORKER:BOOL=ON -DPROTO_FILES_DIR=/rpm/Protos -DCPACK_GENERATOR=RPM -DCMAKE_PREFIX_PATH=/usr/local/grpc .. && make package -j
 ENTRYPOINT ["bash"]
 
