@@ -32,7 +32,6 @@ set(CMAKE_FIND_DEBUG_MODE FALSE)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
-#find_package(fmt CONFIG REQUIRED)
 
 include(FetchContent)
 
