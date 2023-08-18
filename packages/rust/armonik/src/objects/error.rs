@@ -8,21 +8,9 @@ pub struct Error {
     pub details: String,
 }
 
-impl From<Error> for v3::Error {
-    fn from(value: Error) -> Self {
-        Self {
-            task_status: value.task_status as i32,
-            detail: value.details,
-        }
+super::impl_convert!(
+    struct Error = v3::Error {
+        task_status = enum task_status,
+        details = detail,
     }
-}
-
-impl From<v3::Error> for Error {
-    fn from(value: v3::Error) -> Self {
-        Self {
-            task_status: value.task_status.into(),
-            details: value.detail,
-        }
-    }
-}
-super::impl_convert!(Error : Option<v3::Error>);
+);

@@ -11,24 +11,10 @@ pub struct ResultOwnerUpdate {
     pub current_owner_id: String,
 }
 
-impl From<ResultOwnerUpdate> for v3::events::event_subscription_response::ResultOwnerUpdate {
-    fn from(value: ResultOwnerUpdate) -> Self {
-        Self {
-            result_id: value.result_id,
-            previous_owner_id: value.previous_owner_id,
-            current_owner_id: value.current_owner_id,
-        }
+super::super::impl_convert!(
+    struct ResultOwnerUpdate = v3::events::event_subscription_response::ResultOwnerUpdate {
+        result_id,
+        previous_owner_id,
+        current_owner_id,
     }
-}
-
-impl From<v3::events::event_subscription_response::ResultOwnerUpdate> for ResultOwnerUpdate {
-    fn from(value: v3::events::event_subscription_response::ResultOwnerUpdate) -> Self {
-        Self {
-            result_id: value.result_id,
-            previous_owner_id: value.previous_owner_id,
-            current_owner_id: value.current_owner_id,
-        }
-    }
-}
-
-super::super::impl_convert!(ResultOwnerUpdate : Option<v3::events::event_subscription_response::ResultOwnerUpdate>);
+);

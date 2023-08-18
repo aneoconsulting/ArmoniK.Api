@@ -34,4 +34,4 @@ impl From<v3::Output> for Output {
     }
 }
 
-super::impl_convert!(Output : Option<v3::Output>);
+super::impl_convert!(req Output : v3::Output);

@@ -37,4 +37,4 @@ impl From<v3::InitTaskRequest> for InitTaskRequest {
     }
 }
 
-super::impl_convert!(InitTaskRequest : Option<v3::InitTaskRequest>);
+super::impl_convert!(req InitTaskRequest : v3::InitTaskRequest);

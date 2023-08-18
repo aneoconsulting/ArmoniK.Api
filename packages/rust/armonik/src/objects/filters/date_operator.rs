@@ -52,4 +52,4 @@ impl From<v3::FilterDateOperator> for FilterDateOperator {
     }
 }
 
-super::super::impl_convert!(FilterDateOperator : Option<v3::FilterDateOperator>);
+super::super::impl_convert!(req FilterDateOperator : v3::FilterDateOperator);

@@ -30,38 +30,14 @@ impl Default for Request {
     }
 }
 
-impl From<Request> for v3::results::ListResultsRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: Some(v3::results::list_results_request::Sort {
-                field: value.sort.field.into(),
-                direction: value.sort.direction as i32,
-            }),
-        }
+super::super::impl_convert!(
+    struct Request = v3::results::ListResultsRequest {
+        page,
+        page_size,
+        filters = option filters,
+        sort = option sort,
     }
-}
-
-impl From<v3::results::ListResultsRequest> for Request {
-    fn from(value: v3::results::ListResultsRequest) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: match value.sort {
-                Some(sort) => Sort {
-                    field: sort.field.into(),
-                    direction: sort.direction.into(),
-                },
-                None => Default::default(),
-            },
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::results::ListResultsRequest>);
+);
 
 /// Response to list results.
 ///
@@ -90,26 +66,11 @@ impl Default for Response {
     }
 }
 
-impl From<Response> for v3::results::ListResultsResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            results: value.results.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
+super::super::impl_convert!(
+    struct Response = v3::results::ListResultsResponse {
+        list results,
+        page,
+        page_size,
+        total,
     }
-}
-
-impl From<v3::results::ListResultsResponse> for Response {
-    fn from(value: v3::results::ListResultsResponse) -> Self {
-        Self {
-            results: value.results.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::results::ListResultsResponse>);
+);

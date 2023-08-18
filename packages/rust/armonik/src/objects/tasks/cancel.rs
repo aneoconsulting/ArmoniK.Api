@@ -9,23 +9,11 @@ pub struct Request {
     pub task_ids: Vec<String>,
 }
 
-impl From<Request> for v3::tasks::CancelTasksRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            task_ids: value.task_ids,
-        }
+super::super::impl_convert!(
+    struct Request = v3::tasks::CancelTasksRequest {
+        task_ids,
     }
-}
-
-impl From<v3::tasks::CancelTasksRequest> for Request {
-    fn from(value: v3::tasks::CancelTasksRequest) -> Self {
-        Self {
-            task_ids: value.task_ids,
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::tasks::CancelTasksRequest>);
+);
 
 /// Response from canceling one or many tasks.
 #[derive(Debug, Clone, Default)]
@@ -34,20 +22,8 @@ pub struct Response {
     pub tasks: Vec<Summary>,
 }
 
-impl From<Response> for v3::tasks::CancelTasksResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            tasks: value.tasks.into_iter().map(Into::into).collect(),
-        }
+super::super::impl_convert!(
+    struct Response = v3::tasks::CancelTasksResponse {
+        list tasks,
     }
-}
-
-impl From<v3::tasks::CancelTasksResponse> for Response {
-    fn from(value: v3::tasks::CancelTasksResponse) -> Self {
-        Self {
-            tasks: value.tasks.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::tasks::CancelTasksResponse>);
+);

@@ -48,4 +48,4 @@ impl From<v3::result_status::ResultStatus> for ResultStatus {
     }
 }
 
-super::impl_convert!(ResultStatus : Option<v3::result_status::ResultStatus>);
+super::impl_convert!(req ResultStatus : v3::result_status::ResultStatus);

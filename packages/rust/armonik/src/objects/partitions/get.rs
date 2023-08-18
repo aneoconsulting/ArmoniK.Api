@@ -9,19 +9,11 @@ pub struct Request {
     pub id: String,
 }
 
-impl From<Request> for v3::partitions::GetPartitionRequest {
-    fn from(value: Request) -> Self {
-        Self { id: value.id }
+super::super::impl_convert!(
+    struct Request = v3::partitions::GetPartitionRequest {
+        id,
     }
-}
-
-impl From<v3::partitions::GetPartitionRequest> for Request {
-    fn from(value: v3::partitions::GetPartitionRequest) -> Self {
-        Self { id: value.id }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::partitions::GetPartitionRequest>);
+);
 
 /// Response to get a partition.
 ///
@@ -32,20 +24,8 @@ pub struct Response {
     pub partition: Raw,
 }
 
-impl From<Response> for v3::partitions::GetPartitionResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            partition: value.partition.into(),
-        }
+super::super::impl_convert!(
+    struct Response = v3::partitions::GetPartitionResponse {
+        partition = option partition,
     }
-}
-
-impl From<v3::partitions::GetPartitionResponse> for Response {
-    fn from(value: v3::partitions::GetPartitionResponse) -> Self {
-        Self {
-            partition: value.partition.into(),
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::partitions::GetPartitionResponse>);
+);

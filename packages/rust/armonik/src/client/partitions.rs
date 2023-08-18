@@ -24,22 +24,14 @@ where
     }
 
     pub async fn list(&mut self, request: list::Request) -> Result<list::Response, tonic::Status> {
-        Ok(self
-            .inner
-            .list_partitions(request)
-            .await?
-            .into_inner()
-            .into())
+        self.call(request).await
     }
 
     pub async fn get(&mut self, partition_id: String) -> Result<Raw, tonic::Status> {
         Ok(self
-            .inner
-            .get_partition(v3::partitions::GetPartitionRequest { id: partition_id })
+            .call(get::Request { id: partition_id })
             .await?
-            .into_inner()
-            .partition
-            .into())
+            .partition)
     }
 
     /// Perform a gRPC call from a raw request.

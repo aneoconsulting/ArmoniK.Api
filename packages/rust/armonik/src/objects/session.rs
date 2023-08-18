@@ -5,16 +5,8 @@ pub struct Session {
     pub id: String,
 }
 
-impl From<Session> for v3::Session {
-    fn from(value: Session) -> Self {
-        Self { id: value.id }
+super::impl_convert!(
+    struct Session = v3::Session {
+        id,
     }
-}
-
-impl From<v3::Session> for Session {
-    fn from(value: v3::Session) -> Self {
-        Self { id: value.id }
-    }
-}
-
-super::impl_convert!(Session : Option<v3::Session>);
+);

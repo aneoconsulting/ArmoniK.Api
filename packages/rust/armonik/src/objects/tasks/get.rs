@@ -9,23 +9,11 @@ pub struct Request {
     pub task_id: String,
 }
 
-impl From<Request> for v3::tasks::GetTaskRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            task_id: value.task_id,
-        }
+super::super::impl_convert!(
+    struct Request = v3::tasks::GetTaskRequest {
+        task_id,
     }
-}
-
-impl From<v3::tasks::GetTaskRequest> for Request {
-    fn from(value: v3::tasks::GetTaskRequest) -> Self {
-        Self {
-            task_id: value.task_id,
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::tasks::GetTaskRequest>);
+);
 
 /// Response for getting a single task.
 ///
@@ -36,20 +24,8 @@ pub struct Response {
     pub task: Raw,
 }
 
-impl From<Response> for v3::tasks::GetTaskResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            task: value.task.into(),
-        }
+super::super::impl_convert!(
+    struct Response = v3::tasks::GetTaskResponse {
+        task = option task,
     }
-}
-
-impl From<v3::tasks::GetTaskResponse> for Response {
-    fn from(value: v3::tasks::GetTaskResponse) -> Self {
-        Self {
-            task: value.task.into(),
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::tasks::GetTaskResponse>);
+);

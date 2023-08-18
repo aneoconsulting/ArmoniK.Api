@@ -66,7 +66,7 @@ impl From<v3::tasks::TaskSummaryField> for SummaryField {
     }
 }
 
-super::super::impl_convert!(SummaryField : Option<v3::tasks::TaskSummaryField>);
+super::super::impl_convert!(req SummaryField : v3::tasks::TaskSummaryField);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Field {
@@ -118,4 +118,4 @@ impl From<v3::tasks::TaskField> for Field {
     }
 }
 
-super::super::impl_convert!(Field : Option<v3::tasks::TaskField>);
+super::super::impl_convert!(req Field : v3::tasks::TaskField);

@@ -7,45 +7,22 @@ pub struct Or {
     pub or: Vec<And>,
 }
 
-impl From<Or> for v3::results::Filters {
-    fn from(value: Or) -> Self {
-        Self {
-            or: value.or.into_iter().map(Into::into).collect(),
-        }
+super::super::impl_convert!(
+    struct Or = v3::results::Filters {
+        list or,
     }
-}
-
-impl From<v3::results::Filters> for Or {
-    fn from(value: v3::results::Filters) -> Self {
-        Self {
-            or: value.or.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-super::super::impl_convert!(Or : Option<v3::results::Filters>);
+);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct And {
     pub and: Vec<Field>,
 }
 
-impl From<And> for v3::results::FiltersAnd {
-    fn from(value: And) -> Self {
-        Self {
-            and: value.and.into_iter().map(Into::into).collect(),
-        }
+super::super::impl_convert!(
+    struct And = v3::results::FiltersAnd {
+        list and,
     }
-}
-
-impl From<v3::results::FiltersAnd> for And {
-    fn from(value: v3::results::FiltersAnd) -> Self {
-        Self {
-            and: value.and.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-super::super::impl_convert!(And : Option<v3::results::FiltersAnd>);
+);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Field {
@@ -53,48 +30,21 @@ pub struct Field {
     pub condition: Condition,
 }
 
-impl From<Field> for v3::results::FilterField {
-    fn from(value: Field) -> Self {
-        Self {
-            field: Some(value.field.into()),
-            value_condition: Some(value.condition.into()),
-        }
+super::super::impl_convert!(
+    struct Field = v3::results::FilterField {
+        field = option field,
+        condition = option value_condition,
     }
-}
-
-impl From<v3::results::FilterField> for Field {
-    fn from(value: v3::results::FilterField) -> Self {
-        Self {
-            field: value.field.unwrap_or_default().into(),
-            condition: match value.value_condition {
-                Some(cond) => cond.into(),
-                None => Condition::String(Default::default()),
-            },
-        }
-    }
-}
-
-super::super::impl_convert!(Field : Option<v3::results::FilterField>);
+);
 
 pub type Status = super::super::FilterStatus<ResultStatus>;
 
-impl From<Status> for v3::results::FilterStatus {
-    fn from(value: Status) -> Self {
-        Self {
-            value: value.value as i32,
-            operator: value.operator as i32,
-        }
+super::super::impl_convert!(
+    struct Status = v3::results::FilterStatus {
+        value = enum value,
+        operator = enum operator,
     }
-}
-
-impl From<v3::results::FilterStatus> for Status {
-    fn from(value: v3::results::FilterStatus) -> Self {
-        Self {
-            value: value.value.into(),
-            operator: value.operator.into(),
-        }
-    }
-}
+);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Condition {
@@ -138,4 +88,4 @@ impl From<v3::results::filter_field::ValueCondition> for Condition {
     }
 }
 
-super::super::impl_convert!(Condition : Option<v3::results::filter_field::ValueCondition>);
+super::super::impl_convert!(req Condition : v3::results::filter_field::ValueCondition);

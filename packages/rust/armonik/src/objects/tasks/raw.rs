@@ -55,62 +55,29 @@ pub struct Raw {
     pub acquired_at: Option<prost_types::Timestamp>,
 }
 
-impl From<Raw> for v3::tasks::TaskDetailed {
-    fn from(value: Raw) -> Self {
-        Self {
-            id: value.id,
-            session_id: value.session_id,
-            owner_pod_id: value.owner_pod_id,
-            initial_task_id: value.initial_task_id,
-            parent_task_ids: value.parent_task_ids,
-            data_dependencies: value.data_dependencies,
-            expected_output_ids: value.expected_output_ids,
-            retry_of_ids: value.retry_of_ids,
-            status: value.status as i32,
-            status_message: value.status_message,
-            options: value.options.into(),
-            created_at: value.created_at,
-            submitted_at: value.submitted_at,
-            started_at: value.started_at,
-            ended_at: value.ended_at,
-            creation_to_end_duration: value.creation_to_end_duration,
-            processing_to_end_duration: value.processing_to_end_duration,
-            pod_ttl: value.pod_ttl,
-            output: value.output.into(),
-            pod_hostname: value.pod_hostname,
-            received_at: value.received_at,
-            acquired_at: value.acquired_at,
-        }
+super::super::impl_convert!(
+    struct Raw = v3::tasks::TaskDetailed {
+        id,
+        session_id,
+        owner_pod_id,
+        initial_task_id,
+        parent_task_ids,
+        data_dependencies,
+        expected_output_ids,
+        retry_of_ids,
+        status = enum status,
+        status_message,
+        options = option options,
+        created_at,
+        submitted_at,
+        started_at,
+        ended_at,
+        creation_to_end_duration,
+        processing_to_end_duration,
+        pod_ttl,
+        output = option output,
+        pod_hostname,
+        received_at,
+        acquired_at,
     }
-}
-
-impl From<v3::tasks::TaskDetailed> for Raw {
-    fn from(value: v3::tasks::TaskDetailed) -> Self {
-        Self {
-            id: value.id,
-            session_id: value.session_id,
-            owner_pod_id: value.owner_pod_id,
-            initial_task_id: value.initial_task_id,
-            parent_task_ids: value.parent_task_ids,
-            data_dependencies: value.data_dependencies,
-            expected_output_ids: value.expected_output_ids,
-            retry_of_ids: value.retry_of_ids,
-            status: value.status.into(),
-            status_message: value.status_message,
-            options: value.options.into(),
-            created_at: value.created_at,
-            submitted_at: value.submitted_at,
-            started_at: value.started_at,
-            ended_at: value.ended_at,
-            creation_to_end_duration: value.creation_to_end_duration,
-            processing_to_end_duration: value.processing_to_end_duration,
-            pod_ttl: value.pod_ttl,
-            output: value.output.into(),
-            pod_hostname: value.pod_hostname,
-            received_at: value.received_at,
-            acquired_at: value.acquired_at,
-        }
-    }
-}
-
-super::super::impl_convert!(Raw : Option<v3::tasks::TaskDetailed>);
+);

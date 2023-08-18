@@ -8,22 +8,9 @@ pub struct TaskIdWithStatus {
     pub status: TaskStatus,
 }
 
-impl From<TaskIdWithStatus> for v3::TaskIdWithStatus {
-    fn from(value: TaskIdWithStatus) -> Self {
-        Self {
-            task_id: value.id.into(),
-            status: value.status as i32,
-        }
+super::impl_convert!(
+    struct TaskIdWithStatus = v3::TaskIdWithStatus {
+        id = option task_id,
+        status = enum status,
     }
-}
-
-impl From<v3::TaskIdWithStatus> for TaskIdWithStatus {
-    fn from(value: v3::TaskIdWithStatus) -> Self {
-        Self {
-            id: value.task_id.into(),
-            status: value.status.into(),
-        }
-    }
-}
-
-super::impl_convert!(TaskIdWithStatus : Option<v3::TaskIdWithStatus>);
+);

@@ -21,32 +21,14 @@ pub struct Raw {
     pub duration: Option<prost_types::Duration>,
 }
 
-impl From<Raw> for v3::sessions::SessionRaw {
-    fn from(value: Raw) -> Self {
-        Self {
-            session_id: value.session_id,
-            status: value.status as i32,
-            partition_ids: value.partition_ids,
-            options: value.options.into(),
-            created_at: value.created_at,
-            cancelled_at: value.cancelled_at,
-            duration: value.duration,
-        }
+super::super::impl_convert!(
+    struct Raw = v3::sessions::SessionRaw {
+        session_id,
+        status = enum status,
+        partition_ids,
+        options = option options,
+        created_at,
+        cancelled_at,
+        duration,
     }
-}
-
-impl From<v3::sessions::SessionRaw> for Raw {
-    fn from(value: v3::sessions::SessionRaw) -> Self {
-        Self {
-            session_id: value.session_id,
-            status: value.status.into(),
-            partition_ids: value.partition_ids,
-            options: value.options.into(),
-            created_at: value.created_at,
-            cancelled_at: value.cancelled_at,
-            duration: value.duration,
-        }
-    }
-}
-
-super::super::impl_convert!(Raw : Option<v3::sessions::SessionRaw>);
+);

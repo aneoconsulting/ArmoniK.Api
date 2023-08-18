@@ -7,20 +7,8 @@ pub struct TaskList {
     pub ids: Vec<TaskId>,
 }
 
-impl From<TaskList> for v3::TaskList {
-    fn from(value: TaskList) -> Self {
-        Self {
-            task_ids: value.ids.into_iter().map(Into::into).collect(),
-        }
+super::impl_convert!(
+    struct TaskList = v3::TaskList {
+        list ids = list task_ids,
     }
-}
-
-impl From<v3::TaskList> for TaskList {
-    fn from(value: v3::TaskList) -> Self {
-        Self {
-            ids: value.task_ids.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-super::impl_convert!(TaskList : Option<v3::TaskList>);
+);

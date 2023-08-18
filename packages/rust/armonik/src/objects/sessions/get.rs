@@ -9,23 +9,11 @@ pub struct Request {
     pub id: String,
 }
 
-impl From<Request> for v3::sessions::GetSessionRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            session_id: value.id,
-        }
+super::super::impl_convert!(
+    struct Request = v3::sessions::GetSessionRequest {
+        id = session_id,
     }
-}
-
-impl From<v3::sessions::GetSessionRequest> for Request {
-    fn from(value: v3::sessions::GetSessionRequest) -> Self {
-        Self {
-            id: value.session_id,
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::sessions::GetSessionRequest>);
+);
 
 /// Response for getting a single session.
 ///
@@ -36,20 +24,8 @@ pub struct Response {
     pub session: Raw,
 }
 
-impl From<Response> for v3::sessions::GetSessionResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            session: value.session.into(),
-        }
+super::super::impl_convert!(
+    struct Response = v3::sessions::GetSessionResponse {
+        session = option session,
     }
-}
-
-impl From<v3::sessions::GetSessionResponse> for Response {
-    fn from(value: v3::sessions::GetSessionResponse) -> Self {
-        Self {
-            session: value.session.into(),
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::sessions::GetSessionResponse>);
+);

@@ -23,32 +23,14 @@ pub struct Raw {
     pub priority: i64,
 }
 
-impl From<Raw> for v3::partitions::PartitionRaw {
-    fn from(value: Raw) -> Self {
-        Self {
-            id: value.id,
-            parent_partition_ids: value.parent_partition_ids,
-            pod_reserved: value.pod_reserved,
-            pod_max: value.pod_max,
-            pod_configuration: value.pod_configuration,
-            preemption_percentage: value.preemption_percentage,
-            priority: value.priority,
-        }
+super::super::impl_convert!(
+    struct Raw = v3::partitions::PartitionRaw {
+        id,
+        parent_partition_ids,
+        pod_reserved,
+        pod_max,
+        pod_configuration,
+        preemption_percentage,
+        priority,
     }
-}
-
-impl From<v3::partitions::PartitionRaw> for Raw {
-    fn from(value: v3::partitions::PartitionRaw) -> Self {
-        Self {
-            id: value.id,
-            parent_partition_ids: value.parent_partition_ids,
-            pod_reserved: value.pod_reserved,
-            pod_max: value.pod_max,
-            pod_configuration: value.pod_configuration,
-            preemption_percentage: value.preemption_percentage,
-            priority: value.priority,
-        }
-    }
-}
-
-super::super::impl_convert!(Raw : Option<v3::partitions::PartitionRaw>);
+);

@@ -8,22 +8,9 @@ pub struct StatusCount {
     pub count: i32,
 }
 
-impl From<StatusCount> for v3::StatusCount {
-    fn from(value: StatusCount) -> Self {
-        Self {
-            status: value.status as i32,
-            count: value.count,
-        }
+super::impl_convert!(
+    struct StatusCount = v3::StatusCount {
+        status = enum status,
+        count,
     }
-}
-
-impl From<v3::StatusCount> for StatusCount {
-    fn from(value: v3::StatusCount) -> Self {
-        Self {
-            status: value.status.into(),
-            count: value.count,
-        }
-    }
-}
-
-super::impl_convert!(StatusCount : Option<v3::StatusCount>);
+);
