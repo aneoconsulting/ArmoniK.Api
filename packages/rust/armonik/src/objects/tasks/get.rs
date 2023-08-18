@@ -1,4 +1,4 @@
-use super::TaskRaw;
+use super::TaskDetailed;
 
 use crate::api::v3;
 
@@ -29,11 +29,11 @@ super::super::impl_convert!(GetTaskRequest : Option<v3::tasks::GetTaskRequest>);
 
 /// Response for getting a single task.
 ///
-/// Return a raw task.
+/// Return a detailed task.
 #[derive(Debug, Clone, Default)]
 pub struct GetTaskResponse {
     /// The task.
-    pub task: TaskRaw,
+    pub task: TaskDetailed,
 }
 
 impl From<GetTaskResponse> for v3::tasks::GetTaskResponse {

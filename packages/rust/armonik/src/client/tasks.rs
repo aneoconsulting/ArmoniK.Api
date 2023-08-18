@@ -3,7 +3,7 @@ use crate::{
     objects::tasks::{
         CancelTasksRequest, CancelTasksResponse, CountTasksByStatusRequest,
         CountTasksByStatusResponse, GetResultIdsRequest, GetResultIdsResponse, GetTaskRequest,
-        GetTaskResponse, SubmitTasksRequest, SubmitTasksResponse, TaskListRawResponse,
+        GetTaskResponse, SubmitTasksRequest, SubmitTasksResponse, TaskListDetailedResponse,
         TaskListRequest, TaskListResponse,
     },
 };
@@ -40,10 +40,10 @@ where
     pub async fn list_detailed(
         &mut self,
         request: TaskListRequest,
-    ) -> Result<TaskListRawResponse, tonic::Status> {
+    ) -> Result<TaskListDetailedResponse, tonic::Status> {
         Ok(self
             .inner
-            .list_tasks_raw(request)
+            .list_tasks_detailed(request)
             .await?
             .into_inner()
             .into())

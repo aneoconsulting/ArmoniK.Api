@@ -10,7 +10,7 @@ pub enum Output {
     Error(String),
 }
 
-impl From<Output> for v3::tasks::task_raw::Output {
+impl From<Output> for v3::tasks::task_detailed::Output {
     fn from(value: Output) -> Self {
         match value {
             Output::Success => Self {
@@ -25,8 +25,8 @@ impl From<Output> for v3::tasks::task_raw::Output {
     }
 }
 
-impl From<v3::tasks::task_raw::Output> for Output {
-    fn from(value: v3::tasks::task_raw::Output) -> Self {
+impl From<v3::tasks::task_detailed::Output> for Output {
+    fn from(value: v3::tasks::task_detailed::Output) -> Self {
         if value.success {
             Self::Success
         } else {
@@ -34,4 +34,4 @@ impl From<v3::tasks::task_raw::Output> for Output {
         }
     }
 }
-super::super::impl_convert!(Output : Option<v3::tasks::task_raw::Output>);
+super::super::impl_convert!(Output : Option<v3::tasks::task_detailed::Output>);

@@ -8,7 +8,7 @@ use crate::api::v3;
 /// It contains only a subset of the fields from the underlying task object.
 /// Used when a list of tasks are returned.
 #[derive(Debug, Clone, Default)]
-pub struct TaskRaw {
+pub struct TaskDetailed {
     /// The task ID.
     pub id: String,
     /// The session ID. A task have only one related session but a session have many tasks.
@@ -55,8 +55,8 @@ pub struct TaskRaw {
     pub acquired_at: Option<prost_types::Timestamp>,
 }
 
-impl From<TaskRaw> for v3::tasks::TaskRaw {
-    fn from(value: TaskRaw) -> Self {
+impl From<TaskDetailed> for v3::tasks::TaskDetailed {
+    fn from(value: TaskDetailed) -> Self {
         Self {
             id: value.id,
             session_id: value.session_id,
@@ -84,8 +84,8 @@ impl From<TaskRaw> for v3::tasks::TaskRaw {
     }
 }
 
-impl From<v3::tasks::TaskRaw> for TaskRaw {
-    fn from(value: v3::tasks::TaskRaw) -> Self {
+impl From<v3::tasks::TaskDetailed> for TaskDetailed {
+    fn from(value: v3::tasks::TaskDetailed) -> Self {
         Self {
             id: value.id,
             session_id: value.session_id,
@@ -113,4 +113,4 @@ impl From<v3::tasks::TaskRaw> for TaskRaw {
     }
 }
 
-super::super::impl_convert!(TaskRaw : Option<v3::tasks::TaskRaw>);
+super::super::impl_convert!(TaskDetailed : Option<v3::tasks::TaskDetailed>);

@@ -1,8 +1,10 @@
+mod create;
 mod field;
 mod filter;
 mod list;
 mod session_raw;
 
+pub use create::{SessionCreateRequest, SessionCreateResponse};
 pub use field::{SessionField, SessionRawField};
 pub use filter::{SessionFilterField, SessionFilters, SessionFiltersAnd};
 pub use list::{SessionListRequest, SessionListResponse};
