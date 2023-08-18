@@ -105,3 +105,20 @@ message CancelSessionRequest {
 message CancelSessionResponse {
   SessionRaw session = 1; /** The session. */
 }
+
+/**
+ * Request for creating session.
+ */
+message CreateSessionRequest {
+  TaskOptions default_task_option = 1; /** Default tasks options for tasks in the session */
+  repeated string partition_ids = 2; /** List of partitions allowed during the session */
+}
+
+/*
+	Reply after session creation.
+	We have this reply in case of success.
+	When the session creation is not successful, there is an rpc exception.
+*/
+message CreateSessionReply {
+  string session_id = 1; /** Session id of the created session if successful */
+}

@@ -1,6 +1,5 @@
 set(PROJECT_NAME ArmoniK.Api.Worker)
 set(NAMESPACE ArmoniK::Api::Worker)
-set(version 0.1.0)
 set(ARMONIK_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/armonik/worker)
 set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
@@ -29,7 +28,7 @@ FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
 
 file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR}/proto)
 
-add_library(${PROJECT_NAME} STATIC ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
+add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common ${PROTO_TARGET})
 
@@ -81,12 +80,12 @@ target_include_directories(${PROJECT_NAME}
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})
-set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION 0)
+set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION ${version_major})
 set_property(TARGET ${PROJECT_NAME} PROPERTY
-    INTERFACE_${PROJECT_NAME}_MAJOR_VERSION 0)
+        INTERFACE_${PROJECT_NAME}_MAJOR_VERSION ${version_major})
 set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
-    COMPATIBLE_INTERFACE_STRING ${PROJECT_NAME}_MAJOR_VERSION
-)
+        COMPATIBLE_INTERFACE_STRING ${PROJECT_NAME}_MAJOR_VERSION
+        )
 
 # generate the version file for the config file
 write_basic_package_version_file(

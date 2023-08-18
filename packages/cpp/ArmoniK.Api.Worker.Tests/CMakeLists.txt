@@ -31,12 +31,12 @@ target_include_directories(${PROJECT_NAME}
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})
-set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION 0)
+set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION ${version_major})
 set_property(TARGET ${PROJECT_NAME} PROPERTY
-    INTERFACE_${PROJECT_NAME}_MAJOR_VERSION 0)
+        INTERFACE_${PROJECT_NAME}_MAJOR_VERSION ${version_major})
 set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
-    COMPATIBLE_INTERFACE_STRING ${PROJECT_NAME}_MAJOR_VERSION
-)
+        COMPATIBLE_INTERFACE_STRING ${PROJECT_NAME}_MAJOR_VERSION
+        )
 
 # generate the version file for the config file
 write_basic_package_version_file(

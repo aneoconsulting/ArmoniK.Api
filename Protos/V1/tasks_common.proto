@@ -20,7 +20,7 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
  *
  * Used when a single task is returned.
  */
-message TaskRaw {
+message TaskDetailed {
   string id = 1; /** The task ID. */
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   string owner_pod_id = 3; /** The owner pod ID. */
@@ -145,8 +145,8 @@ message ListTasksResponse {
  * Use pagination, filtering and sorting from the request.
  * Return a list of formated tasks.
  */
-message ListTasksRawResponse {
-  repeated TaskRaw tasks = 1; /** The list of tasks. */
+message ListTasksDetailedResponse {
+  repeated TaskDetailed tasks = 1; /** The list of tasks. */
 
   int32 page = 2; /** The page number. Start at 0. */
   int32 page_size = 3; /** The page size. */
@@ -166,7 +166,7 @@ message GetTaskRequest {
  * Return a raw task.
  */
 message GetTaskResponse {
-  TaskRaw task = 1; /** The task. */
+  TaskDetailed task = 1; /** The task. */
 }
 
 /**

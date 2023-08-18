@@ -6,7 +6,7 @@ from .common import DummyChannel
 from armonik.client import ArmoniKTasks
 from armonik.common import TaskStatus, datetime_to_timestamp, Task
 from armonik.protogen.client.tasks_service_pb2_grpc import TasksStub
-from armonik.protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, TaskRaw
+from armonik.protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, TaskDetailed
 from .submitter_test import default_task_option
 
 
@@ -18,7 +18,7 @@ class DummyTasksService(TasksStub):
 
     def GetTask(self, request: GetTaskRequest) -> GetTaskResponse:
         self.task_request = request
-        raw = TaskRaw(id="TaskId", session_id="SessionId", owner_pod_id="PodId", parent_task_ids=["ParentTaskId"],
+        raw = TaskDetailed(id="TaskId", session_id="SessionId", owner_pod_id="PodId", parent_task_ids=["ParentTaskId"],
                          data_dependencies=["DD"], expected_output_ids=["EOK"], retry_of_ids=["RetryId"],
                          status=TaskStatus.COMPLETED.value, status_message="Message",
                          options=default_task_option.to_message(),
@@ -26,7 +26,7 @@ class DummyTasksService(TasksStub):
                          started_at=datetime_to_timestamp(datetime.now()),
                          submitted_at=datetime_to_timestamp(datetime.now()),
                          ended_at=datetime_to_timestamp(datetime.now()), pod_ttl=datetime_to_timestamp(datetime.now()),
-                         output=TaskRaw.Output(success=True), pod_hostname="Hostname", received_at=datetime_to_timestamp(datetime.now()),
+                         output=TaskDetailed.Output(success=True), pod_hostname="Hostname", received_at=datetime_to_timestamp(datetime.now()),
                          acquired_at=datetime_to_timestamp(datetime.now())
          )
         return GetTaskResponse(task=raw)

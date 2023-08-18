@@ -12,7 +12,8 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-ge
     protobuf-compiler-grpc \
     grpc-proto \
     libgrpc-dev \
-    libgrpc++-dev
+    libgrpc++-dev \
+    libfmt-dev
 
 # Set environment variables for protobuf
 ENV protobuf_BUILD_TESTS=OFF

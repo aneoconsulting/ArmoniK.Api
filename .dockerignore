@@ -16,6 +16,9 @@
 **/*.a
 **/*.so
 **/*.lib
+**/*.deb
+**/*.rpm
+**/*.apk
 **/build*
 **/.build*
 **/gen
@@ -50,7 +53,7 @@ docker-compose
 **/node_modules
 **/secrets.dev.yaml
 **/values.dev.yaml
-LICENSE
+
 README.md
 **/publish
 terraform

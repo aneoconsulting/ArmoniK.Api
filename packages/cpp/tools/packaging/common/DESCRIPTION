@@ -1,0 +1,3 @@
+The ArmoniK Api libraries provide a set of wrappers and functions to interact with ArmoniK in a simpler way.
+It also contains the compilation of the protobuf messages and services used in ArmoniK.
+These libraries can be used to create both a client and/or a worker.
