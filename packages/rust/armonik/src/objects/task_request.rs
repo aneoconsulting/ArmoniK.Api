@@ -8,26 +8,11 @@ pub struct TaskRequest {
     pub payload_name: String,
 }
 
-impl From<TaskRequest> for v3::TaskRequest {
-    fn from(value: TaskRequest) -> Self {
-        Self {
-            expected_output_keys: value.expected_output_keys,
-            data_dependencies: value.data_dependencies,
-            payload: value.payload,
-            payload_name: value.payload_name,
-        }
+super::impl_convert!(
+    struct TaskRequest = v3::TaskRequest {
+        expected_output_keys,
+        data_dependencies,
+        payload,
+        payload_name,
     }
-}
-
-impl From<v3::TaskRequest> for TaskRequest {
-    fn from(value: v3::TaskRequest) -> Self {
-        Self {
-            expected_output_keys: value.expected_output_keys,
-            data_dependencies: value.data_dependencies,
-            payload: value.payload,
-            payload_name: value.payload_name,
-        }
-    }
-}
-
-super::impl_convert!(TaskRequest : Option<v3::TaskRequest>);
+);

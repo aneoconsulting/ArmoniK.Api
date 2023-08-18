@@ -21,32 +21,14 @@ pub struct Raw {
     pub result_id: String,
 }
 
-impl From<Raw> for v3::results::ResultRaw {
-    fn from(value: Raw) -> Self {
-        Self {
-            session_id: value.session_id,
-            name: value.name,
-            owner_task_id: value.owner_task_id,
-            status: value.status as i32,
-            created_at: value.created_at,
-            completed_at: value.completed_at,
-            result_id: value.result_id,
-        }
+super::super::impl_convert!(
+    struct Raw = v3::results::ResultRaw {
+        session_id,
+        name,
+        owner_task_id,
+        status = enum status,
+        created_at,
+        completed_at,
+        result_id,
     }
-}
-
-impl From<v3::results::ResultRaw> for Raw {
-    fn from(value: v3::results::ResultRaw) -> Self {
-        Self {
-            session_id: value.session_id,
-            name: value.name,
-            owner_task_id: value.owner_task_id,
-            status: value.status.into(),
-            created_at: value.created_at,
-            completed_at: value.completed_at,
-            result_id: value.result_id,
-        }
-    }
-}
-
-super::super::impl_convert!(Raw : Option<v3::results::ResultRaw>);
+);

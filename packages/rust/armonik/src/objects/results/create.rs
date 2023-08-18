@@ -41,7 +41,7 @@ impl From<v3::results::CreateResultsRequest> for Request {
     }
 }
 
-super::super::impl_convert!(Request : Option<v3::results::CreateResultsRequest>);
+super::super::impl_convert!(req Request : v3::results::CreateResultsRequest);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]
@@ -70,4 +70,4 @@ impl From<v3::results::CreateResultsResponse> for Response {
     }
 }
 
-super::super::impl_convert!(Response : Option<v3::results::CreateResultsResponse>);
+super::super::impl_convert!(req Response : v3::results::CreateResultsResponse);

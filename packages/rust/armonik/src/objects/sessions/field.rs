@@ -48,7 +48,7 @@ impl From<v3::sessions::SessionRawField> for RawField {
     }
 }
 
-super::super::impl_convert!(RawField : Option<v3::sessions::SessionRawField>);
+super::super::impl_convert!(req RawField : v3::sessions::SessionRawField);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Field {
@@ -102,4 +102,4 @@ impl From<v3::sessions::SessionField> for Field {
     }
 }
 
-super::super::impl_convert!(Field : Option<v3::sessions::SessionField>);
+super::super::impl_convert!(req Field : v3::sessions::SessionField);

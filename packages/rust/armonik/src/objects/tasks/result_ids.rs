@@ -9,23 +9,11 @@ pub struct Request {
     pub task_ids: Vec<String>,
 }
 
-impl From<Request> for v3::tasks::GetResultIdsRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            task_id: value.task_ids,
-        }
+super::super::impl_convert!(
+    struct Request = v3::tasks::GetResultIdsRequest {
+        list task_ids = list task_id,
     }
-}
-
-impl From<v3::tasks::GetResultIdsRequest> for Request {
-    fn from(value: v3::tasks::GetResultIdsRequest) -> Self {
-        Self {
-            task_ids: value.task_id,
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::tasks::GetResultIdsRequest>);
+);
 
 /// Response for getting result ids of tasks ids.
 #[derive(Debug, Clone, Default)]
@@ -63,4 +51,4 @@ impl From<v3::tasks::GetResultIdsResponse> for Response {
     }
 }
 
-super::super::impl_convert!(Response : Option<v3::tasks::GetResultIdsResponse>);
+super::super::impl_convert!(req Response : v3::tasks::GetResultIdsResponse);

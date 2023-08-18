@@ -11,22 +11,9 @@ pub struct ResultStatusUpdate {
     pub status: ResultStatus,
 }
 
-impl From<ResultStatusUpdate> for v3::events::event_subscription_response::ResultStatusUpdate {
-    fn from(value: ResultStatusUpdate) -> Self {
-        Self {
-            result_id: value.result_id,
-            status: value.status as i32,
-        }
+super::super::impl_convert!(
+    struct ResultStatusUpdate = v3::events::event_subscription_response::ResultStatusUpdate {
+        result_id,
+        status = enum status,
     }
-}
-
-impl From<v3::events::event_subscription_response::ResultStatusUpdate> for ResultStatusUpdate {
-    fn from(value: v3::events::event_subscription_response::ResultStatusUpdate) -> Self {
-        Self {
-            result_id: value.result_id,
-            status: value.status.into(),
-        }
-    }
-}
-
-super::super::impl_convert!(ResultStatusUpdate : Option<v3::events::event_subscription_response::ResultStatusUpdate>);
+);

@@ -72,7 +72,7 @@ impl From<v3::TaskOptions> for TaskOptions {
     }
 }
 
-super::impl_convert!(TaskOptions : Option<v3::TaskOptions>);
+super::impl_convert!(req TaskOptions : v3::TaskOptions);
 
 /// Represents a field in a task option.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -138,5 +138,5 @@ impl From<v3::tasks::TaskOptionField> for TaskOptionField {
     }
 }
 
-super::super::impl_convert!(TaskOptionField : Option<v3::sessions::TaskOptionField>);
-super::super::impl_convert!(TaskOptionField : Option<v3::tasks::TaskOptionField>);
+super::super::impl_convert!(req TaskOptionField : v3::sessions::TaskOptionField);
+super::super::impl_convert!(req TaskOptionField : v3::tasks::TaskOptionField);

@@ -21,38 +21,7 @@ impl Default for Request {
     }
 }
 
-impl From<Request> for v3::applications::ListApplicationsRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: Some(v3::applications::list_applications_request::Sort {
-                fields: value.sort.fields.into_iter().map(Into::into).collect(),
-                direction: value.sort.direction as i32,
-            }),
-        }
-    }
-}
-
-impl From<v3::applications::ListApplicationsRequest> for Request {
-    fn from(value: v3::applications::ListApplicationsRequest) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: match value.sort {
-                Some(sort) => Sort {
-                    fields: sort.fields.into_iter().map(Into::into).collect(),
-                    direction: sort.direction.into(),
-                },
-                None => Default::default(),
-            },
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::applications::ListApplicationsRequest>);
+super::super::impl_convert!(struct Request = v3::applications::ListApplicationsRequest { page, page_size, filters = option filters, sort = option sort });
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response {
@@ -73,26 +42,4 @@ impl Default for Response {
     }
 }
 
-impl From<Response> for v3::applications::ListApplicationsResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            applications: value.applications.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
-    }
-}
-
-impl From<v3::applications::ListApplicationsResponse> for Response {
-    fn from(value: v3::applications::ListApplicationsResponse) -> Self {
-        Self {
-            applications: value.applications.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::applications::ListApplicationsResponse>);
+super::super::impl_convert!(struct Response = v3::applications::ListApplicationsResponse { list applications, page, page_size, total });

@@ -7,45 +7,22 @@ pub struct Or {
     pub or: Vec<And>,
 }
 
-impl From<Or> for v3::partitions::Filters {
-    fn from(value: Or) -> Self {
-        Self {
-            or: value.or.into_iter().map(Into::into).collect(),
-        }
+super::super::impl_convert!(
+    struct Or = v3::partitions::Filters {
+        list or,
     }
-}
-
-impl From<v3::partitions::Filters> for Or {
-    fn from(value: v3::partitions::Filters) -> Self {
-        Self {
-            or: value.or.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-super::super::impl_convert!(Or : Option<v3::partitions::Filters>);
+);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct And {
     pub and: Vec<Field>,
 }
 
-impl From<And> for v3::partitions::FiltersAnd {
-    fn from(value: And) -> Self {
-        Self {
-            and: value.and.into_iter().map(Into::into).collect(),
-        }
+super::super::impl_convert!(
+    struct And = v3::partitions::FiltersAnd {
+        list and,
     }
-}
-
-impl From<v3::partitions::FiltersAnd> for And {
-    fn from(value: v3::partitions::FiltersAnd) -> Self {
-        Self {
-            and: value.and.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-super::super::impl_convert!(And : Option<v3::partitions::FiltersAnd>);
+);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Field {
@@ -53,28 +30,12 @@ pub struct Field {
     pub condition: Condition,
 }
 
-impl From<Field> for v3::partitions::FilterField {
-    fn from(value: Field) -> Self {
-        Self {
-            field: Some(value.field.into()),
-            value_condition: Some(value.condition.into()),
-        }
+super::super::impl_convert!(
+    struct Field = v3::partitions::FilterField {
+        field = option field,
+        condition = option value_condition,
     }
-}
-
-impl From<v3::partitions::FilterField> for Field {
-    fn from(value: v3::partitions::FilterField) -> Self {
-        Self {
-            field: value.field.unwrap_or_default().into(),
-            condition: match value.value_condition {
-                Some(cond) => cond.into(),
-                None => Condition::String(Default::default()),
-            },
-        }
-    }
-}
-
-super::super::impl_convert!(Field : Option<v3::partitions::FilterField>);
+);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Condition {
@@ -120,4 +81,4 @@ impl From<v3::partitions::filter_field::ValueCondition> for Condition {
     }
 }
 
-super::super::impl_convert!(Condition : Option<v3::partitions::filter_field::ValueCondition>);
+super::super::impl_convert!(req Condition : v3::partitions::filter_field::ValueCondition);

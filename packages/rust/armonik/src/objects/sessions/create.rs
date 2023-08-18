@@ -11,25 +11,12 @@ pub struct Request {
     pub partition_ids: Vec<String>,
 }
 
-impl From<Request> for v3::sessions::CreateSessionRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            default_task_option: value.default_task_option.into(),
-            partition_ids: value.partition_ids,
-        }
+super::super::impl_convert!(
+    struct Request = v3::sessions::CreateSessionRequest {
+        default_task_option = option default_task_option,
+        partition_ids,
     }
-}
-
-impl From<v3::sessions::CreateSessionRequest> for Request {
-    fn from(value: v3::sessions::CreateSessionRequest) -> Self {
-        Self {
-            default_task_option: value.default_task_option.into(),
-            partition_ids: value.partition_ids,
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::sessions::CreateSessionRequest>);
+);
 
 /// Reply after session creation.
 /// We have this reply in case of success.
@@ -40,20 +27,8 @@ pub struct Response {
     pub session_id: String,
 }
 
-impl From<Response> for v3::sessions::CreateSessionReply {
-    fn from(value: Response) -> Self {
-        Self {
-            session_id: value.session_id,
-        }
+super::super::impl_convert!(
+    struct Response = v3::sessions::CreateSessionReply {
+        session_id,
     }
-}
-
-impl From<v3::sessions::CreateSessionReply> for Response {
-    fn from(value: v3::sessions::CreateSessionReply) -> Self {
-        Self {
-            session_id: value.session_id,
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::sessions::CreateSessionReply>);
+);

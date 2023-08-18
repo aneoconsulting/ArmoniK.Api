@@ -11,25 +11,12 @@ pub struct Request {
     pub result_ids: HashSet<String>,
 }
 
-impl From<Request> for v3::results::GetOwnerTaskIdRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            session_id: value.session_id,
-            result_id: value.result_ids.into_iter().map(Into::into).collect(),
-        }
+super::super::impl_convert!(
+    struct Request = crate::api::v3::results::GetOwnerTaskIdRequest {
+        session_id,
+        list result_ids = list result_id,
     }
-}
-
-impl From<v3::results::GetOwnerTaskIdRequest> for Request {
-    fn from(value: v3::results::GetOwnerTaskIdRequest) -> Self {
-        Self {
-            session_id: value.session_id,
-            result_ids: value.result_id.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::results::GetOwnerTaskIdRequest>);
+);
 
 /// Response for getting the id of the task that should create this result.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -71,4 +58,4 @@ impl From<v3::results::GetOwnerTaskIdResponse> for Response {
     }
 }
 
-super::super::impl_convert!(Response : Option<v3::results::GetOwnerTaskIdResponse>);
+super::super::impl_convert!(req Response : v3::results::GetOwnerTaskIdResponse);

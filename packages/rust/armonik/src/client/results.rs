@@ -114,7 +114,7 @@ where
             .await?
             .into_inner()
             .result
-            .into())
+            .map_or_else(Default::default, Into::into))
     }
 
     /// Retrieve data.

@@ -13,20 +13,8 @@ impl Default for Configuration {
     }
 }
 
-impl From<Configuration> for v3::Configuration {
-    fn from(value: Configuration) -> Self {
-        Self {
-            data_chunk_max_size: value.data_chunk_max_size,
-        }
+super::impl_convert!(
+    struct Configuration = v3::Configuration {
+        data_chunk_max_size,
     }
-}
-
-impl From<v3::Configuration> for Configuration {
-    fn from(value: v3::Configuration) -> Self {
-        Self {
-            data_chunk_max_size: value.data_chunk_max_size,
-        }
-    }
-}
-
-super::impl_convert!(Configuration : Option<v3::Configuration>);
+);

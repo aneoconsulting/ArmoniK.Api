@@ -6,22 +6,9 @@ pub struct TaskOutputRequest {
     pub task_id: String,
 }
 
-impl From<TaskOutputRequest> for v3::TaskOutputRequest {
-    fn from(value: TaskOutputRequest) -> Self {
-        Self {
-            session: value.session,
-            task_id: value.task_id,
-        }
+super::impl_convert!(
+    struct TaskOutputRequest = v3::TaskOutputRequest {
+        session,
+        task_id,
     }
-}
-
-impl From<v3::TaskOutputRequest> for TaskOutputRequest {
-    fn from(value: v3::TaskOutputRequest) -> Self {
-        Self {
-            session: value.session,
-            task_id: value.task_id,
-        }
-    }
-}
-
-super::impl_convert!(TaskOutputRequest : Option<v3::TaskOutputRequest>);
+);

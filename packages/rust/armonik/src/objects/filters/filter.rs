@@ -31,7 +31,7 @@ macro_rules! impl_filter {
             }
         }
 
-        super::super::impl_convert!($name : Option<v3::$name>);
+        super::super::impl_convert!(req $name : v3::$name);
     };
 }
 
@@ -64,7 +64,7 @@ impl From<v3::FilterDate> for FilterDate {
     }
 }
 
-super::super::impl_convert!(FilterDate : Option<v3::FilterDate>);
+super::super::impl_convert!(req FilterDate : v3::FilterDate);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FilterStatus<T> {

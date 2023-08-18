@@ -36,4 +36,4 @@ impl From<v3::Count> for Count {
     }
 }
 
-super::impl_convert!(Count : Option<v3::Count>);
+super::impl_convert!(req Count : v3::Count);

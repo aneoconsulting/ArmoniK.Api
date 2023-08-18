@@ -68,7 +68,7 @@ impl From<Summary> for v3::tasks::TaskSummary {
             count_retry_of_ids: value.count_retry_of_ids,
             status: value.status as i32,
             status_message: value.status_message,
-            options: value.options.into(),
+            options: Some(value.options.into()),
             created_at: value.created_at,
             submitted_at: value.submitted_at,
             started_at: value.started_at,
@@ -100,7 +100,7 @@ impl From<v3::tasks::TaskSummary> for Summary {
             count_retry_of_ids: value.count_retry_of_ids,
             status: value.status.into(),
             status_message: value.status_message,
-            options: value.options.into(),
+            options: value.options.map_or_else(Default::default, Into::into),
             created_at: value.created_at,
             submitted_at: value.submitted_at,
             started_at: value.started_at,
@@ -120,4 +120,4 @@ impl From<v3::tasks::TaskSummary> for Summary {
     }
 }
 
-super::super::impl_convert!(Summary : Option<v3::tasks::TaskSummary>);
+super::super::impl_convert!(req Summary : v3::tasks::TaskSummary);

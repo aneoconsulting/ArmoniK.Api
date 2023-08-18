@@ -18,3 +18,10 @@ pub use raw::{Raw, Raw as Task};
 pub use summary::Summary;
 
 pub type Sort = super::Sort<Field>;
+
+super::super::impl_convert!(
+    struct Sort = crate::api::v3::tasks::list_tasks_request::Sort {
+        field = option field,
+        direction = enum direction,
+    }
+);

@@ -33,40 +33,15 @@ impl Default for Request {
     }
 }
 
-impl From<Request> for v3::tasks::ListTasksRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: Some(v3::tasks::list_tasks_request::Sort {
-                field: value.sort.field.into(),
-                direction: value.sort.direction as i32,
-            }),
-            with_errors: value.with_errors,
-        }
+super::super::impl_convert!(
+    struct Request = v3::tasks::ListTasksRequest {
+        page,
+        page_size,
+        filters = option filters,
+        sort = option sort,
+        with_errors,
     }
-}
-
-impl From<v3::tasks::ListTasksRequest> for Request {
-    fn from(value: v3::tasks::ListTasksRequest) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: match value.sort {
-                Some(sort) => Sort {
-                    field: sort.field.into(),
-                    direction: sort.direction.into(),
-                },
-                None => Default::default(),
-            },
-            with_errors: value.with_errors,
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::tasks::ListTasksRequest>);
+);
 
 /// Response to list tasks.
 ///
@@ -95,26 +70,11 @@ impl Default for Response {
     }
 }
 
-impl From<Response> for v3::tasks::ListTasksResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            tasks: value.tasks.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
+super::super::impl_convert!(
+    struct Response = v3::tasks::ListTasksResponse {
+        list tasks,
+        page,
+        page_size,
+        total,
     }
-}
-
-impl From<v3::tasks::ListTasksResponse> for Response {
-    fn from(value: v3::tasks::ListTasksResponse) -> Self {
-        Self {
-            tasks: value.tasks.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::tasks::ListTasksResponse>);
+);

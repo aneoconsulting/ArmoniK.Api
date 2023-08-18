@@ -58,27 +58,111 @@ pub use task_request_header::TaskRequestHeader;
 pub use task_status::TaskStatus;
 
 macro_rules! impl_convert {
-    ($A:ty : Request<$B:ty>) => {
+    // * -> *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$a:ident => $b:ident , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+                $b: $value.$a.into(),
+            }
+            $value: $A => $B { $($tail)* }
+        );
+    };
+    // * -> Enum *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$a:ident => enum $b:ident , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+                $b: $value.$a as i32,
+            }
+            $value: $A => $B { $($tail)* }
+        );
+    };
+    // Enum * -> *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {enum $a:ident => $b:ident , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+                $b: $value.$a.into(),
+            }
+            $value: $A => $B { $($tail)* }
+        );
+    };
+    // * -> Option *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$a:ident => option $b:ident , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+                $b: Some($value.$a.into()),
+            }
+            $value: $A => $B { $($tail)* }
+        );
+    };
+    // Option * -> *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {option $a:ident => $b:ident , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+                $b: $value.$a.map_or_else(Default::default, Into::into),
+            }
+            $value: $A => $B { $($tail)* }
+        );
+    };
+    // Option * -> Option *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {option $a:ident => option $b:ident , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+                $b: $value.$a.map(Into::into),
+            }
+            $value: $A => $B { $($tail)* }
+        );
+    };
+    // List * -> List *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {list $a:ident => list $b:ident , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+                $b: $value.$a.into_iter().map(Into::into).collect(),
+            }
+            $value: $A => $B { $($tail)* }
+        );
+    };
+    // *
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$($a:ident)+ , $($tail:tt)*}) => {
+        crate::impl_convert!(
+            @struct {
+                $($body)*
+            }
+            $value: $A => $B { $($a)+ => $($a)+, $($tail)* }
+        );
+    };
+    // End of recursion
+    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {}) => {
+        impl From<$A> for $B {
+            fn from($value: $A) -> Self {
+                Self {
+                    $($body)*
+                }
+            }
+        }
+    };
+    // Entry point
+    (struct $A:ty = $B:ty {$(
+        $($a:ident)+ $(= $($b:ident)+)?
+    ),* $(,)?}) => {
+        crate::impl_convert!(@struct {} _value: $A => $B { $($($a)+ $(=> $($b)+)?,)* });
+        crate::impl_convert!(@struct {} _value: $B => $A { $($($($b)+ =>)? $($a)+,)* });
+        crate::impl_convert!(req $A : $B);
+    };
+
+    // Request
+    (req $A:ty : $B:ty) => {
         impl tonic::IntoRequest<$B> for $A {
             fn into_request(self) -> tonic::Request<$B> {
                 tonic::Request::new(self.into())
             }
         }
-    };
-    ($A:ty : Option<$B:ty>) => {
-        impl From<$A> for Option<$B> {
-            fn from(value: $A) -> Self {
-                Some(value.into())
-            }
-        }
-
-        impl From<Option<$B>> for $A {
-            fn from(value: Option<$B>) -> Self {
-                value.map_or_else(Default::default, Into::into)
-            }
-        }
-
-        crate::impl_convert!($A : Request<$B>);
     };
 }
 pub(crate) use impl_convert;

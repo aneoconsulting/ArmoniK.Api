@@ -65,27 +65,15 @@ impl From<v3::results::UploadResultDataRequest> for Request {
     }
 }
 
-super::super::impl_convert!(Request : Option<v3::results::UploadResultDataRequest>);
+super::super::impl_convert!(req Request : v3::results::UploadResultDataRequest);
 
 #[derive(Debug, Clone, Default)]
 pub struct Response {
     pub result: Raw,
 }
 
-impl From<Response> for v3::results::UploadResultDataResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            result: value.result.into(),
-        }
+super::super::impl_convert!(
+    struct Response = v3::results::UploadResultDataResponse {
+        result = option result,
     }
-}
-
-impl From<v3::results::UploadResultDataResponse> for Response {
-    fn from(value: v3::results::UploadResultDataResponse) -> Self {
-        Self {
-            result: value.result.into(),
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::results::UploadResultDataResponse>);
+);

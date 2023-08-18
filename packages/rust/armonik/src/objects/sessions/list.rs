@@ -33,40 +33,15 @@ impl Default for Request {
     }
 }
 
-impl From<Request> for v3::sessions::ListSessionsRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: Some(v3::sessions::list_sessions_request::Sort {
-                field: value.sort.field.into(),
-                direction: value.sort.direction as i32,
-            }),
-            with_task_options: value.with_task_options,
-        }
+super::super::impl_convert!(
+    struct Request = v3::sessions::ListSessionsRequest {
+        page,
+        page_size,
+        filters = option filters,
+        sort = option sort,
+        with_task_options,
     }
-}
-
-impl From<v3::sessions::ListSessionsRequest> for Request {
-    fn from(value: v3::sessions::ListSessionsRequest) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters.into(),
-            sort: match value.sort {
-                Some(sort) => Sort {
-                    field: sort.field.into(),
-                    direction: sort.direction.into(),
-                },
-                None => Default::default(),
-            },
-            with_task_options: value.with_task_options,
-        }
-    }
-}
-
-super::super::impl_convert!(Request : Option<v3::sessions::ListSessionsRequest>);
+);
 
 #[derive(Debug, Clone)]
 pub struct Response {
@@ -87,26 +62,11 @@ impl Default for Response {
     }
 }
 
-impl From<Response> for v3::sessions::ListSessionsResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            sessions: value.sessions.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
+super::super::impl_convert!(
+    struct Response = v3::sessions::ListSessionsResponse {
+        list sessions,
+        page,
+        page_size,
+        total,
     }
-}
-
-impl From<v3::sessions::ListSessionsResponse> for Response {
-    fn from(value: v3::sessions::ListSessionsResponse) -> Self {
-        Self {
-            sessions: value.sessions.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
-    }
-}
-
-super::super::impl_convert!(Response : Option<v3::sessions::ListSessionsResponse>);
+);

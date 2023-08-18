@@ -43,7 +43,7 @@ impl From<v3::results::CreateResultsMetaDataRequest> for Request {
     }
 }
 
-super::super::impl_convert!(Request : Option<v3::results::CreateResultsMetaDataRequest>);
+super::super::impl_convert!(req Request : v3::results::CreateResultsMetaDataRequest);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]
@@ -72,4 +72,4 @@ impl From<v3::results::CreateResultsMetaDataResponse> for Response {
     }
 }
 
-super::super::impl_convert!(Response : Option<v3::results::CreateResultsMetaDataResponse>);
+super::super::impl_convert!(req Response : v3::results::CreateResultsMetaDataResponse);

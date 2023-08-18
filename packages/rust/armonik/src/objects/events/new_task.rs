@@ -23,34 +23,15 @@ pub struct NewTask {
     pub parent_task_ids: Vec<String>,
 }
 
-impl From<NewTask> for v3::events::event_subscription_response::NewTask {
-    fn from(value: NewTask) -> Self {
-        Self {
-            task_id: value.task_id,
-            payload_id: value.payload_id,
-            origin_task_id: value.origin_task_id,
-            status: value.status as i32,
-            expected_output_keys: value.expected_output_keys,
-            data_dependencies: value.data_dependencies,
-            retry_of_ids: value.retry_of_ids,
-            parent_task_ids: value.parent_task_ids,
-        }
+super::super::impl_convert!(
+    struct NewTask = v3::events::event_subscription_response::NewTask {
+        task_id,
+        payload_id,
+        origin_task_id,
+        status = enum status,
+        expected_output_keys,
+        data_dependencies,
+        retry_of_ids,
+        parent_task_ids,
     }
-}
-
-impl From<v3::events::event_subscription_response::NewTask> for NewTask {
-    fn from(value: v3::events::event_subscription_response::NewTask) -> Self {
-        Self {
-            task_id: value.task_id,
-            payload_id: value.payload_id,
-            origin_task_id: value.origin_task_id,
-            status: value.status.into(),
-            expected_output_keys: value.expected_output_keys,
-            data_dependencies: value.data_dependencies,
-            retry_of_ids: value.retry_of_ids,
-            parent_task_ids: value.parent_task_ids,
-        }
-    }
-}
-
-super::super::impl_convert!(NewTask : Option<v3::events::event_subscription_response::NewTask>);
+);

@@ -20,6 +20,12 @@ impl From<i32> for SortDirection {
     }
 }
 
+impl From<SortDirection> for i32 {
+    fn from(value: SortDirection) -> Self {
+        value as i32
+    }
+}
+
 impl From<SortDirection> for v3::sort_direction::SortDirection {
     fn from(value: SortDirection) -> Self {
         match value {
@@ -40,7 +46,7 @@ impl From<v3::sort_direction::SortDirection> for SortDirection {
     }
 }
 
-super::impl_convert!(SortDirection : Option<v3::sort_direction::SortDirection>);
+super::impl_convert!(req SortDirection : v3::sort_direction::SortDirection);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sort<T> {

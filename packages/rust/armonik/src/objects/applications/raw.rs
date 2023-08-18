@@ -15,26 +15,11 @@ pub struct Raw {
     pub service: String,
 }
 
-impl From<Raw> for v3::applications::ApplicationRaw {
-    fn from(value: Raw) -> Self {
-        Self {
-            name: value.name,
-            version: value.version,
-            namespace: value.namespace,
-            service: value.service,
-        }
+super::super::impl_convert!(
+    struct Raw = v3::applications::ApplicationRaw {
+        name,
+        version,
+        namespace,
+        service,
     }
-}
-
-impl From<v3::applications::ApplicationRaw> for Raw {
-    fn from(value: v3::applications::ApplicationRaw) -> Self {
-        Self {
-            name: value.name,
-            version: value.version,
-            namespace: value.namespace,
-            service: value.service,
-        }
-    }
-}
-
-super::super::impl_convert!(Raw : Option<v3::applications::ApplicationRaw>);
+);

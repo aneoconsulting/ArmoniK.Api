@@ -34,4 +34,5 @@ impl From<v3::tasks::task_detailed::Output> for Output {
         }
     }
 }
-super::super::impl_convert!(Output : Option<v3::tasks::task_detailed::Output>);
+
+super::super::impl_convert!(req Output : v3::tasks::task_detailed::Output);

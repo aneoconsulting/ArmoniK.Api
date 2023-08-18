@@ -55,4 +55,4 @@ impl From<v3::applications::ApplicationField> for Field {
     }
 }
 
-super::super::impl_convert!(Field : Option<v3::applications::ApplicationField>);
+super::super::impl_convert!(req Field : v3::applications::ApplicationField);
