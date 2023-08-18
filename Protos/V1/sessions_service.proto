@@ -27,4 +27,9 @@ service Sessions {
    * Cancel a session by its id.
    */
   rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
+
+  /**
+   * Create a session
+   */
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
 }

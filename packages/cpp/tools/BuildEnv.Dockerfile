@@ -19,6 +19,7 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-ge
     libgrpc-dev \
     libgrpc++-dev \
     libprotobuf-dev \
+    libfmt-dev \
 	&& apt-get clean
 
 ENV protobuf_BUILD_TESTS=OFF
@@ -33,4 +34,4 @@ RUN ( \
 
 RUN yes password | passwd root
 
-CMD ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config_test_clion"]
+ENTRYPOINT ["/usr/sbin/sshd", "-D", "-e", "-f", "/etc/ssh/sshd_config_test_clion"]

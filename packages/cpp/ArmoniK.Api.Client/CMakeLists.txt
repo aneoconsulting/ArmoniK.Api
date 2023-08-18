@@ -1,21 +1,20 @@
 set(PROJECT_NAME ArmoniK.Api.Client)
 set(NAMESPACE ArmoniK::Api::Client)
-set(version 0.1.0)
 set(ARMONIK_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/armonik/client)
 set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
-set(PROTO_FILES 
+set(PROTO_FILES
     "submitter_service.proto"
     "applications_service.proto"
     "sessions_service.proto"
-    #"tasks_service.proto" Name conflict with grpc generated files ListTasks and ListTasksRaw (grpc add the suffix RAW to all interfaces)
+    #"tasks_service.proto"
     "results_service.proto"
     "auth_service.proto"
     "partitions_service.proto"
     "events_service.proto"
     "versions_service.proto")
 
-set(PROTO_MESSAGES 
+set(PROTO_MESSAGES
     "auth_common.proto"
     "sessions_common.proto"
     "submitter_common.proto"
@@ -45,7 +44,7 @@ file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR})
 set(PROTO_BINARY_DIR "${PROJECT_BUILD_DIR}")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
-add_library(${PROJECT_NAME} STATIC ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
+add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 protobuf_generate(
     TARGET ${PROJECT_NAME}
@@ -87,12 +86,12 @@ target_include_directories(${PROJECT_NAME}
 )
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})
-set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION 0)
+set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION ${version_major})
 set_property(TARGET ${PROJECT_NAME} PROPERTY
-    INTERFACE_${PROJECT_NAME}_MAJOR_VERSION 0)
+        INTERFACE_${PROJECT_NAME}_MAJOR_VERSION ${version_major})
 set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
-    COMPATIBLE_INTERFACE_STRING ${PROJECT_NAME}_MAJOR_VERSION
-)
+        COMPATIBLE_INTERFACE_STRING ${PROJECT_NAME}_MAJOR_VERSION
+        )
 
 # generate the version file for the config file
 write_basic_package_version_file(
@@ -116,7 +115,7 @@ install(DIRECTORY ${HEADER_FILES_DIR}/ DESTINATION ${ARMONIK_INSTALL_INCLUDE_DIR
 install(EXPORT ${PROJECT_NAME}Targets
         FILE ${PROJECT_NAME}Targets.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
-        
+
 )
 
 configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/Config.cmake.in

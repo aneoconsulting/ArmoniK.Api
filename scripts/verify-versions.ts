@@ -1,5 +1,7 @@
 import consola from "consola";
 import {
+  cppFiles,
+  cppPattern,
   csharpFiles,
   csharpPattern,
   jsFiles,
@@ -16,6 +18,8 @@ consola.info("Finding JS projects versions");
 jsFiles.forEach(_readAndFind(jsPattern, versions));
 consola.info("Finding C# projects versions");
 csharpFiles.forEach(_readAndFind(csharpPattern, versions));
+consola.info("Finding Cpp projects versions");
+cppFiles.forEach(_readAndFind(cppPattern, versions));
 
 const versionsArray = [...versions.values()];
 const uniqueVersions = [...new Set(versionsArray)];

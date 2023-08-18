@@ -3,7 +3,7 @@
 #include <utils/Configuration.h>
 
 /**
- * @brief The armonik namespace contains classes and functions related to the Armonik API.
+ * @brief The armonik namespace contains classes and functions related to the ArmoniK API.
  */
 namespace API_COMMON_NAMESPACE::options {
 /**
@@ -58,4 +58,4 @@ private:
   std::string worker_address_; ///< The worker address string.
   std::string agent_address_;  ///< The agent address string.
 };
-}; // namespace API_COMMON_NAMESPACE::options
+} // namespace API_COMMON_NAMESPACE::options
