@@ -14,11 +14,11 @@ dependencies:
 
 devDependencies:
   ts-proto:
-    specifier: ^1.156.0
-    version: 1.156.0
+    specifier: ^1.156.7
+    version: 1.156.7
   tsup:
-    specifier: ^7.1.0
-    version: 7.1.0(typescript@5.1.6)
+    specifier: ^7.2.0
+    version: 7.2.0(typescript@5.1.6)
   typescript:
     specifier: ^5.1.6
     version: 5.1.6
@@ -600,6 +600,10 @@ packages:
   /long@5.2.1:
     resolution: {integrity: sha512-GKSNGeNAtw8IryjjkhZxuKB3JzlcLTwjtiQCHKvqQet81I93kXslhDQruGI/QsddO83mcDToBVy7GqGS/zYf/A==}
 
+  /long@5.2.3:
+    resolution: {integrity: sha512-lcHwpNoggQTObv5apGNCTdJrO69eHOZMi4BNC+rTLER8iHAqGrUVeLh/irVIM7zTw2bOXA8T6uNPeujwOLg/2Q==}
+    dev: true
+
   /merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
     dev: true
@@ -862,29 +866,29 @@ packages:
       dprint-node: 1.0.7
     dev: true
 
-  /ts-proto-descriptors@1.14.0:
-    resolution: {integrity: sha512-xqLA6cBTfof+mZ/sIw/pZviyhnWWcWqRBjyjaMW5O4fIogpawT4aa0wI8rKh0rYIrQzoHxLugmFu4+rdiWaGEQ==}
+  /ts-proto-descriptors@1.15.0:
+    resolution: {integrity: sha512-TYyJ7+H+7Jsqawdv+mfsEpZPTIj9siDHS6EMCzG/z3b/PZiphsX+mWtqFfFVe5/N0Th6V3elK9lQqjnrgTOfrg==}
     dependencies:
-      long: 5.2.1
+      long: 5.2.3
       protobufjs: 7.2.4
     dev: true
 
-  /ts-proto@1.156.0:
-    resolution: {integrity: sha512-GnOxEAD1mRkiqV9VLv48GrNdps8gXp+vE9rWToCPyIxCIjVjkH3ls8iXxRXOS9LSwueJT8F+N9w7Xy3zftUecA==}
+  /ts-proto@1.156.7:
+    resolution: {integrity: sha512-vuSby+Mx0CniXscbHx9ieKCEErGBuie12RmduPA67p27Io5C0gkzlMnyN/j3vKWAJrP/h6+mbAoo6WrlalOt7w==}
     hasBin: true
     dependencies:
       case-anything: 2.1.13
       protobufjs: 7.2.4
       ts-poet: 6.5.0
-      ts-proto-descriptors: 1.14.0
+      ts-proto-descriptors: 1.15.0
     dev: true
 
   /tslib@2.5.0:
     resolution: {integrity: sha512-336iVw3rtn2BUK7ORdIAHTyxHGRIHVReokCR3XjbckJMK7ms8FysBfhLR8IXnAgy7T0PTPNBWKiH514FOW/WSg==}
     dev: false
 
-  /tsup@7.1.0(typescript@5.1.6):
-    resolution: {integrity: sha512-mazl/GRAk70j8S43/AbSYXGgvRP54oQeX8Un4iZxzATHt0roW0t6HYDVZIXMw0ZQIpvr1nFMniIVnN5186lW7w==}
+  /tsup@7.2.0(typescript@5.1.6):
+    resolution: {integrity: sha512-vDHlczXbgUvY3rWvqFEbSqmC1L7woozbzngMqTtL2PGBODTtWlRwGDDawhvWzr5c1QjKe4OAKqJGfE1xeXUvtQ==}
     engines: {node: '>=16.14'}
     hasBin: true
     peerDependencies:
