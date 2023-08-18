@@ -1,6 +1,9 @@
 use crate::{
     api::v3,
-    objects::sessions::{SessionListRequest, SessionListResponse, SessionRaw},
+    objects::sessions::{
+        SessionCreateRequest, SessionCreateResponse, SessionListRequest, SessionListResponse,
+        SessionRaw,
+    },
 };
 
 /// Service for handling sessions
@@ -50,6 +53,19 @@ where
             .await?
             .into_inner()
             .session
+            .into())
+    }
+
+    /// Create a session.
+    pub async fn create(
+        &mut self,
+        request: SessionCreateRequest,
+    ) -> Result<SessionCreateResponse, tonic::Status> {
+        Ok(self
+            .inner
+            .create_session(request)
+            .await?
+            .into_inner()
             .into())
     }
 }

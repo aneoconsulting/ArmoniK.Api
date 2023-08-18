@@ -1,6 +1,6 @@
 use crate::api::v3;
 
-use super::{TaskFilters, TaskFiltersAnd, TaskRaw, TaskSort, TaskSummary};
+use super::{TaskDetailed, TaskFilters, TaskFiltersAnd, TaskSort, TaskSummary};
 
 /// Request to list tasks.
 ///
@@ -73,10 +73,10 @@ super::super::impl_convert!(TaskListRequest : Option<v3::tasks::ListTasksRequest
 /// Response to list Tasks.
 ///
 /// Use pagination, filtering and sorting from the request.
-/// Retunr a list of raw Tasks.
+/// Retunr a list of detailed Tasks.
 #[derive(Debug, Clone)]
 pub struct TaskListResponse {
-    /// The list of raw Tasks.
+    /// The list of detailed Tasks.
     pub tasks: Vec<TaskSummary>,
     /// The page number. Start at 0.
     pub page: i32,
@@ -124,11 +124,11 @@ super::super::impl_convert!(TaskListResponse : Option<v3::tasks::ListTasksRespon
 /// Response to list Tasks.
 ///
 /// Use pagination, filtering and sorting from the request.
-/// Retunr a list of raw Tasks.
+/// Retunr a list of Detailed Tasks.
 #[derive(Debug, Clone)]
-pub struct TaskListRawResponse {
-    /// The list of raw Tasks.
-    pub tasks: Vec<TaskRaw>,
+pub struct TaskListDetailedResponse {
+    /// The list of Detailed Tasks.
+    pub tasks: Vec<TaskDetailed>,
     /// The page number. Start at 0.
     pub page: i32,
     /// The page size.
@@ -137,7 +137,7 @@ pub struct TaskListRawResponse {
     pub total: i32,
 }
 
-impl Default for TaskListRawResponse {
+impl Default for TaskListDetailedResponse {
     fn default() -> Self {
         Self {
             tasks: Vec::new(),
@@ -148,8 +148,8 @@ impl Default for TaskListRawResponse {
     }
 }
 
-impl From<TaskListRawResponse> for v3::tasks::ListTasksRawResponse {
-    fn from(value: TaskListRawResponse) -> Self {
+impl From<TaskListDetailedResponse> for v3::tasks::ListTasksDetailedResponse {
+    fn from(value: TaskListDetailedResponse) -> Self {
         Self {
             tasks: value.tasks.into_iter().map(Into::into).collect(),
             page: value.page,
@@ -159,8 +159,8 @@ impl From<TaskListRawResponse> for v3::tasks::ListTasksRawResponse {
     }
 }
 
-impl From<v3::tasks::ListTasksRawResponse> for TaskListRawResponse {
-    fn from(value: v3::tasks::ListTasksRawResponse) -> Self {
+impl From<v3::tasks::ListTasksDetailedResponse> for TaskListDetailedResponse {
+    fn from(value: v3::tasks::ListTasksDetailedResponse) -> Self {
         Self {
             tasks: value.tasks.into_iter().map(Into::into).collect(),
             page: value.page,
@@ -170,4 +170,4 @@ impl From<v3::tasks::ListTasksRawResponse> for TaskListRawResponse {
     }
 }
 
-super::super::impl_convert!(TaskListRawResponse : Option<v3::tasks::ListTasksRawResponse>);
+super::super::impl_convert!(TaskListDetailedResponse : Option<v3::tasks::ListTasksDetailedResponse>);

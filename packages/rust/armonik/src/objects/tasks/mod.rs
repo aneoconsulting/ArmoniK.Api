@@ -7,7 +7,7 @@ mod get_result_ids;
 mod list;
 mod output;
 mod submit;
-mod task_raw;
+mod task_detailed;
 mod task_summary;
 
 pub use cancel::{CancelTasksRequest, CancelTasksResponse};
@@ -16,10 +16,10 @@ pub use field::TaskField;
 pub use filter::{TaskFilterField, TaskFilters, TaskFiltersAnd};
 pub use get::{GetTaskRequest, GetTaskResponse};
 pub use get_result_ids::{GetResultIdsRequest, GetResultIdsResponse};
-pub use list::{TaskListRawResponse, TaskListRequest, TaskListResponse};
+pub use list::{TaskListDetailedResponse, TaskListRequest, TaskListResponse};
 pub use output::Output;
 pub use submit::{CreationRequest, SubmitTasksRequest, SubmitTasksResponse, TaskInfo};
-pub use task_raw::TaskRaw;
+pub use task_detailed::TaskDetailed;
 pub use task_summary::TaskSummary;
 
 pub type TaskSort = super::Sort<TaskField>;
