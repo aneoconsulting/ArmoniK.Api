@@ -4,7 +4,7 @@ use crate::api::v3;
 
 /// A raw Result object.
 #[derive(Debug, Clone, Default)]
-pub struct ResultRaw {
+pub struct Raw {
     /// The session ID.
     pub session_id: String,
     /// The result name. Given by the client.
@@ -21,8 +21,8 @@ pub struct ResultRaw {
     pub result_id: String,
 }
 
-impl From<ResultRaw> for v3::results::ResultRaw {
-    fn from(value: ResultRaw) -> Self {
+impl From<Raw> for v3::results::ResultRaw {
+    fn from(value: Raw) -> Self {
         Self {
             session_id: value.session_id,
             name: value.name,
@@ -35,7 +35,7 @@ impl From<ResultRaw> for v3::results::ResultRaw {
     }
 }
 
-impl From<v3::results::ResultRaw> for ResultRaw {
+impl From<v3::results::ResultRaw> for Raw {
     fn from(value: v3::results::ResultRaw) -> Self {
         Self {
             session_id: value.session_id,
@@ -49,4 +49,4 @@ impl From<v3::results::ResultRaw> for ResultRaw {
     }
 }
 
-super::super::impl_convert!(ResultRaw : Option<v3::results::ResultRaw>);
+super::super::impl_convert!(Raw : Option<v3::results::ResultRaw>);

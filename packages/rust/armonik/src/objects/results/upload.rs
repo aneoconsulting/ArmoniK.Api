@@ -1,3 +1,5 @@
+use super::Raw;
+
 use crate::api::v3;
 
 /// The possible messages that constitute a UploadResultDataRequest
@@ -7,7 +9,7 @@ use crate::api::v3;
 ///
 /// Data chunk cannot exceed the size returned by the GetServiceConfiguration rpc method
 #[derive(Debug, Clone)]
-pub enum UploadResultDataRequest {
+pub enum Request {
     /// The identifier of the result to which add data.
     Identifier {
         /// The session of the result.
@@ -19,7 +21,7 @@ pub enum UploadResultDataRequest {
     DataChunk(Vec<u8>),
 }
 
-impl Default for UploadResultDataRequest {
+impl Default for Request {
     fn default() -> Self {
         Self::Identifier {
             session: Default::default(),
@@ -28,10 +30,10 @@ impl Default for UploadResultDataRequest {
     }
 }
 
-impl From<UploadResultDataRequest> for v3::results::UploadResultDataRequest {
-    fn from(value: UploadResultDataRequest) -> Self {
+impl From<Request> for v3::results::UploadResultDataRequest {
+    fn from(value: Request) -> Self {
         match value {
-            UploadResultDataRequest::Identifier { session, result_id } => Self {
+            Request::Identifier { session, result_id } => Self {
                 r#type: Some(v3::results::upload_result_data_request::Type::Id(
                     v3::results::upload_result_data_request::ResultIdentifier {
                         session_id: session,
@@ -39,7 +41,7 @@ impl From<UploadResultDataRequest> for v3::results::UploadResultDataRequest {
                     },
                 )),
             },
-            UploadResultDataRequest::DataChunk(data) => Self {
+            Request::DataChunk(data) => Self {
                 r#type: Some(v3::results::upload_result_data_request::Type::DataChunk(
                     data,
                 )),
@@ -48,7 +50,7 @@ impl From<UploadResultDataRequest> for v3::results::UploadResultDataRequest {
     }
 }
 
-impl From<v3::results::UploadResultDataRequest> for UploadResultDataRequest {
+impl From<v3::results::UploadResultDataRequest> for Request {
     fn from(value: v3::results::UploadResultDataRequest) -> Self {
         match value.r#type {
             Some(v3::results::upload_result_data_request::Type::Id(id)) => Self::Identifier {
@@ -63,4 +65,27 @@ impl From<v3::results::UploadResultDataRequest> for UploadResultDataRequest {
     }
 }
 
-super::super::impl_convert!(UploadResultDataRequest : Option<v3::results::UploadResultDataRequest>);
+super::super::impl_convert!(Request : Option<v3::results::UploadResultDataRequest>);
+
+#[derive(Debug, Clone, Default)]
+pub struct Response {
+    pub result: Raw,
+}
+
+impl From<Response> for v3::results::UploadResultDataResponse {
+    fn from(value: Response) -> Self {
+        Self {
+            result: value.result.into(),
+        }
+    }
+}
+
+impl From<v3::results::UploadResultDataResponse> for Response {
+    fn from(value: v3::results::UploadResultDataResponse) -> Self {
+        Self {
+            result: value.result.into(),
+        }
+    }
+}
+
+super::super::impl_convert!(Response : Option<v3::results::UploadResultDataResponse>);

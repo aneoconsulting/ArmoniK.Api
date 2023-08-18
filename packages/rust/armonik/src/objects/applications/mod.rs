@@ -1,11 +1,10 @@
-mod application_raw;
+pub mod filter;
+pub mod list;
+
 mod field;
-mod filter;
-mod list;
+mod raw;
 
-pub use application_raw::ApplicationRaw;
-pub use field::ApplicationField;
-pub use filter::{ApplicationFilterField, ApplicationFilters, ApplicationFiltersAnd};
-pub use list::{ApplicationListRequest, ApplicationListResponse};
+pub use field::Field;
+pub use raw::Raw;
 
-pub type ApplicationSort = super::SortMany<ApplicationField>;
+pub type Sort = super::SortMany<Field>;

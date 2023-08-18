@@ -2,19 +2,23 @@ use crate::api::v3;
 
 use super::{filter, Raw, Sort};
 
-/// Request to list partitions.
+/// Request to list tasks.
+///
+/// Use pagination, filtering and sorting.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
-    /// The number of items per page.
+    /// The page size.
     pub page_size: i32,
-    /// The filter.
+    /// The filters.
     pub filters: filter::Or,
     /// The sort.
     ///
     /// Must be set for every request.
     pub sort: Sort,
+    /// Request error message in case of error in task.
+    pub with_errors: bool,
 }
 
 impl Default for Request {
@@ -24,26 +28,28 @@ impl Default for Request {
             page_size: 100,
             filters: Default::default(),
             sort: Default::default(),
+            with_errors: false,
         }
     }
 }
 
-impl From<Request> for v3::partitions::ListPartitionsRequest {
+impl From<Request> for v3::tasks::ListTasksRequest {
     fn from(value: Request) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
             filters: value.filters.into(),
-            sort: Some(v3::partitions::list_partitions_request::Sort {
+            sort: Some(v3::tasks::list_tasks_request::Sort {
                 field: value.sort.field.into(),
                 direction: value.sort.direction as i32,
             }),
+            with_errors: value.with_errors,
         }
     }
 }
 
-impl From<v3::partitions::ListPartitionsRequest> for Request {
-    fn from(value: v3::partitions::ListPartitionsRequest) -> Self {
+impl From<v3::tasks::ListTasksRequest> for Request {
+    fn from(value: v3::tasks::ListTasksRequest) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
@@ -55,32 +61,33 @@ impl From<v3::partitions::ListPartitionsRequest> for Request {
                 },
                 None => Default::default(),
             },
+            with_errors: value.with_errors,
         }
     }
 }
 
-super::super::impl_convert!(Request : Option<v3::partitions::ListPartitionsRequest>);
+super::super::impl_convert!(Request : Option<v3::tasks::ListTasksRequest>);
 
-/// Response to list partitions.
+/// Response to list tasks.
 ///
 /// Use pagination, filtering and sorting from the request.
-/// Retunr a list of raw partitions.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Return a list of detailed tasks.
+#[derive(Debug, Clone)]
 pub struct Response {
-    /// The list of raw partitions.
-    pub partitions: Vec<Raw>,
+    /// The list of detailed tasks.
+    pub tasks: Vec<Raw>,
     /// The page number. Start at 0.
     pub page: i32,
     /// The page size.
     pub page_size: i32,
-    /// The total number of partitions.
+    /// The total number of tasks.
     pub total: i32,
 }
 
 impl Default for Response {
     fn default() -> Self {
         Self {
-            partitions: Vec::new(),
+            tasks: Vec::new(),
             page: 0,
             page_size: 100,
             total: 0,
@@ -88,10 +95,10 @@ impl Default for Response {
     }
 }
 
-impl From<Response> for v3::partitions::ListPartitionsResponse {
+impl From<Response> for v3::tasks::ListTasksDetailedResponse {
     fn from(value: Response) -> Self {
         Self {
-            partitions: value.partitions.into_iter().map(Into::into).collect(),
+            tasks: value.tasks.into_iter().map(Into::into).collect(),
             page: value.page,
             page_size: value.page_size,
             total: value.total,
@@ -99,10 +106,10 @@ impl From<Response> for v3::partitions::ListPartitionsResponse {
     }
 }
 
-impl From<v3::partitions::ListPartitionsResponse> for Response {
-    fn from(value: v3::partitions::ListPartitionsResponse) -> Self {
+impl From<v3::tasks::ListTasksDetailedResponse> for Response {
+    fn from(value: v3::tasks::ListTasksDetailedResponse) -> Self {
         Self {
-            partitions: value.partitions.into_iter().map(Into::into).collect(),
+            tasks: value.tasks.into_iter().map(Into::into).collect(),
             page: value.page,
             page_size: value.page_size,
             total: value.total,
@@ -110,4 +117,4 @@ impl From<v3::partitions::ListPartitionsResponse> for Response {
     }
 }
 
-super::super::impl_convert!(Response : Option<v3::partitions::ListPartitionsResponse>);
+super::super::impl_convert!(Response : Option<v3::tasks::ListTasksDetailedResponse>);

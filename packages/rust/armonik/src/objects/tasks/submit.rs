@@ -4,7 +4,7 @@ use crate::api::v3;
 
 /// Task creation requests.
 #[derive(Debug, Clone, Default)]
-pub struct CreationRequest {
+pub struct RequestItem {
     /// Unique ID of the results that will be produced by the task. Results should be created using ResultsService.
     pub expected_output_keys: Vec<String>,
     /// Unique ID of the results that will be used as datadependencies. Results should be created using ResultsService.
@@ -15,8 +15,8 @@ pub struct CreationRequest {
     pub task_options: Option<TaskOptions>,
 }
 
-impl From<CreationRequest> for v3::tasks::submit_tasks_request::TaskCreation {
-    fn from(value: CreationRequest) -> Self {
+impl From<RequestItem> for v3::tasks::submit_tasks_request::TaskCreation {
+    fn from(value: RequestItem) -> Self {
         Self {
             expected_output_keys: value.expected_output_keys,
             data_dependencies: value.data_dependencies,
@@ -26,7 +26,7 @@ impl From<CreationRequest> for v3::tasks::submit_tasks_request::TaskCreation {
     }
 }
 
-impl From<v3::tasks::submit_tasks_request::TaskCreation> for CreationRequest {
+impl From<v3::tasks::submit_tasks_request::TaskCreation> for RequestItem {
     fn from(value: v3::tasks::submit_tasks_request::TaskCreation) -> Self {
         Self {
             expected_output_keys: value.expected_output_keys,
@@ -37,44 +37,44 @@ impl From<v3::tasks::submit_tasks_request::TaskCreation> for CreationRequest {
     }
 }
 
-super::super::impl_convert!(CreationRequest : Option<v3::tasks::submit_tasks_request::TaskCreation>);
+super::super::impl_convert!(RequestItem : Option<v3::tasks::submit_tasks_request::TaskCreation>);
 
 /// Request to create tasks.
 #[derive(Debug, Clone, Default)]
-pub struct SubmitTasksRequest {
+pub struct Request {
     /// The session ID.
     pub session_id: String,
     /// The options for the tasks. Each task will have the same. Options are merged with the one from the session.
     pub task_options: Option<TaskOptions>,
     /// Task creation requests.
-    pub task_creations: Vec<CreationRequest>,
+    pub items: Vec<RequestItem>,
 }
 
-impl From<SubmitTasksRequest> for v3::tasks::SubmitTasksRequest {
-    fn from(value: SubmitTasksRequest) -> Self {
+impl From<Request> for v3::tasks::SubmitTasksRequest {
+    fn from(value: Request) -> Self {
         Self {
             session_id: value.session_id,
             task_options: value.task_options.map(Into::into),
-            task_creations: value.task_creations.into_iter().map(Into::into).collect(),
+            task_creations: value.items.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::tasks::SubmitTasksRequest> for SubmitTasksRequest {
+impl From<v3::tasks::SubmitTasksRequest> for Request {
     fn from(value: v3::tasks::SubmitTasksRequest) -> Self {
         Self {
             session_id: value.session_id,
             task_options: value.task_options.map(Into::into),
-            task_creations: value.task_creations.into_iter().map(Into::into).collect(),
+            items: value.task_creations.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-super::super::impl_convert!(SubmitTasksRequest : Option<v3::tasks::SubmitTasksRequest>);
+super::super::impl_convert!(Request : Option<v3::tasks::SubmitTasksRequest>);
 
 /// task infos if submission successful, else throw gRPC exception.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TaskInfo {
+pub struct ResponseItem {
     /// The task ID.
     pub task_id: String,
     /// The expected output IDs. A task have expected output IDs.
@@ -86,8 +86,8 @@ pub struct TaskInfo {
     pub payload_id: String,
 }
 
-impl From<TaskInfo> for v3::tasks::submit_tasks_response::TaskInfo {
-    fn from(value: TaskInfo) -> Self {
+impl From<ResponseItem> for v3::tasks::submit_tasks_response::TaskInfo {
+    fn from(value: ResponseItem) -> Self {
         Self {
             task_id: value.task_id,
             expected_output_ids: value.expected_output_ids,
@@ -97,7 +97,7 @@ impl From<TaskInfo> for v3::tasks::submit_tasks_response::TaskInfo {
     }
 }
 
-impl From<v3::tasks::submit_tasks_response::TaskInfo> for TaskInfo {
+impl From<v3::tasks::submit_tasks_response::TaskInfo> for ResponseItem {
     fn from(value: v3::tasks::submit_tasks_response::TaskInfo) -> Self {
         Self {
             task_id: value.task_id,
@@ -108,27 +108,27 @@ impl From<v3::tasks::submit_tasks_response::TaskInfo> for TaskInfo {
     }
 }
 
-super::super::impl_convert!(TaskInfo : Option<v3::tasks::submit_tasks_response::TaskInfo>);
+super::super::impl_convert!(ResponseItem : Option<v3::tasks::submit_tasks_response::TaskInfo>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct SubmitTasksResponse {
-    pub task_infos: Vec<TaskInfo>,
+pub struct Response {
+    pub items: Vec<ResponseItem>,
 }
 
-impl From<SubmitTasksResponse> for v3::tasks::SubmitTasksResponse {
-    fn from(value: SubmitTasksResponse) -> Self {
+impl From<Response> for v3::tasks::SubmitTasksResponse {
+    fn from(value: Response) -> Self {
         Self {
-            task_infos: value.task_infos.into_iter().map(Into::into).collect(),
+            task_infos: value.items.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::tasks::SubmitTasksResponse> for SubmitTasksResponse {
+impl From<v3::tasks::SubmitTasksResponse> for Response {
     fn from(value: v3::tasks::SubmitTasksResponse) -> Self {
         Self {
-            task_infos: value.task_infos.into_iter().map(Into::into).collect(),
+            items: value.task_infos.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-super::super::impl_convert!(SubmitTasksResponse : Option<v3::tasks::SubmitTasksResponse>);
+super::super::impl_convert!(Response : Option<v3::tasks::SubmitTasksResponse>);

@@ -1,25 +1,20 @@
-mod cancel;
-mod count_tasks_by_status;
+pub mod cancel;
+pub mod count_status;
+pub mod filter;
+pub mod get;
+pub mod list;
+pub mod list_detailed;
+pub mod result_ids;
+pub mod submit;
+
 mod field;
-mod filter;
-mod get;
-mod get_result_ids;
-mod list;
 mod output;
-mod submit;
-mod task_detailed;
-mod task_summary;
+mod raw;
+mod summary;
 
-pub use cancel::{CancelTasksRequest, CancelTasksResponse};
-pub use count_tasks_by_status::{CountTasksByStatusRequest, CountTasksByStatusResponse};
-pub use field::TaskField;
-pub use filter::{TaskFilterField, TaskFilters, TaskFiltersAnd};
-pub use get::{GetTaskRequest, GetTaskResponse};
-pub use get_result_ids::{GetResultIdsRequest, GetResultIdsResponse};
-pub use list::{TaskListDetailedResponse, TaskListRequest, TaskListResponse};
+pub use field::Field;
 pub use output::Output;
-pub use submit::{CreationRequest, SubmitTasksRequest, SubmitTasksResponse, TaskInfo};
-pub use task_detailed::TaskDetailed;
-pub use task_summary::TaskSummary;
+pub use raw::{Raw, Raw as Task};
+pub use summary::Summary;
 
-pub type TaskSort = super::Sort<TaskField>;
+pub type Sort = super::Sort<Field>;

@@ -3,7 +3,7 @@ use crate::api::v3;
 /// Represents every available field in a Application.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
-pub enum ApplicationField {
+pub enum Field {
     /// Unspecified.
     Unspecified = 0,
     /// Application name.
@@ -17,7 +17,7 @@ pub enum ApplicationField {
     Service = 4,
 }
 
-impl From<i32> for ApplicationField {
+impl From<i32> for Field {
     fn from(value: i32) -> Self {
         match value {
             0 => Self::Unspecified,
@@ -30,8 +30,8 @@ impl From<i32> for ApplicationField {
     }
 }
 
-impl From<ApplicationField> for v3::applications::ApplicationField {
-    fn from(value: ApplicationField) -> Self {
+impl From<Field> for v3::applications::ApplicationField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(
                 v3::applications::application_field::Field::ApplicationField(
@@ -44,7 +44,7 @@ impl From<ApplicationField> for v3::applications::ApplicationField {
     }
 }
 
-impl From<v3::applications::ApplicationField> for ApplicationField {
+impl From<v3::applications::ApplicationField> for Field {
     fn from(value: v3::applications::ApplicationField) -> Self {
         match value.field {
             Some(v3::applications::application_field::Field::ApplicationField(field)) => {
@@ -55,4 +55,4 @@ impl From<v3::applications::ApplicationField> for ApplicationField {
     }
 }
 
-super::super::impl_convert!(ApplicationField : Option<v3::applications::ApplicationField>);
+super::super::impl_convert!(Field : Option<v3::applications::ApplicationField>);

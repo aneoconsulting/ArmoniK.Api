@@ -1,11 +1,11 @@
+pub mod filter;
+pub mod get;
+pub mod list;
+
 mod field;
-mod filter;
-mod list;
-mod partition_raw;
+mod raw;
 
-pub use field::PartitionField;
-pub use filter::{PartitionFilterField, PartitionFilters, PartitionFiltersAnd};
-pub use list::{PartitionListRequest, PartitionListResponse};
-pub use partition_raw::PartitionRaw;
+pub use field::Field;
+pub use raw::Raw;
 
-pub type PartitionSort = super::Sort<PartitionField>;
+pub type Sort = super::Sort<Field>;

@@ -3,7 +3,7 @@ use crate::api::v3;
 /// Represents every available field in a partition.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
-pub enum PartitionField {
+pub enum Field {
     /// Unspecified.
     Unspecified = 0,
     /// The partition ID.
@@ -21,7 +21,7 @@ pub enum PartitionField {
     Priority = 6,
 }
 
-impl From<i32> for PartitionField {
+impl From<i32> for Field {
     fn from(value: i32) -> Self {
         match value {
             0 => Self::Unspecified,
@@ -36,8 +36,8 @@ impl From<i32> for PartitionField {
     }
 }
 
-impl From<PartitionField> for v3::partitions::PartitionField {
-    fn from(value: PartitionField) -> Self {
+impl From<Field> for v3::partitions::PartitionField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(v3::partitions::partition_field::Field::PartitionRawField(
                 v3::partitions::PartitionRawField {
@@ -48,7 +48,7 @@ impl From<PartitionField> for v3::partitions::PartitionField {
     }
 }
 
-impl From<v3::partitions::PartitionField> for PartitionField {
+impl From<v3::partitions::PartitionField> for Field {
     fn from(value: v3::partitions::PartitionField) -> Self {
         match value.field {
             Some(v3::partitions::partition_field::Field::PartitionRawField(field)) => {
@@ -59,4 +59,4 @@ impl From<v3::partitions::PartitionField> for PartitionField {
     }
 }
 
-super::super::impl_convert!(PartitionField : Option<v3::partitions::PartitionField>);
+super::super::impl_convert!(Field : Option<v3::partitions::PartitionField>);

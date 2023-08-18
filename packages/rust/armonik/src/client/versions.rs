@@ -1,4 +1,6 @@
-use crate::{api::v3, objects::versions::Versions};
+use crate::{api::v3, objects::versions::list};
+
+use super::GrpcCall;
 
 #[derive(Clone)]
 pub struct VersionsClient<T> {
@@ -19,12 +21,31 @@ where
         }
     }
 
-    pub async fn list(&mut self) -> Result<Versions, tonic::Status> {
-        Ok(self
-            .inner
-            .list_versions(v3::versions::ListVersionsRequest {})
-            .await?
-            .into_inner()
-            .into())
+    pub async fn list(&mut self) -> Result<list::Response, tonic::Status> {
+        self.call(list::Request {}).await
+    }
+
+    /// Perform a gRPC call from a raw request.
+    pub async fn call<Request>(
+        &mut self,
+        request: Request,
+    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
+    where
+        for<'a> &'a mut Self: GrpcCall<Request>,
+    {
+        <&mut Self as GrpcCall<Request>>::call(self, request).await
+    }
+}
+
+super::impl_call! {
+    VersionsClient {
+        async fn call(self, request: list::Request) -> Result<list::Response> {
+            Ok(self
+                .inner
+                .list_versions(request)
+                .await?
+                .into_inner()
+                .into())
+        }
     }
 }

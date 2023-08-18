@@ -4,7 +4,7 @@ use crate::api::v3;
 ///
 /// Used when a list of applications is requested.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ApplicationRaw {
+pub struct Raw {
     /// Application name.
     pub name: String,
     /// Application version.
@@ -15,8 +15,8 @@ pub struct ApplicationRaw {
     pub service: String,
 }
 
-impl From<ApplicationRaw> for v3::applications::ApplicationRaw {
-    fn from(value: ApplicationRaw) -> Self {
+impl From<Raw> for v3::applications::ApplicationRaw {
+    fn from(value: Raw) -> Self {
         Self {
             name: value.name,
             version: value.version,
@@ -26,7 +26,7 @@ impl From<ApplicationRaw> for v3::applications::ApplicationRaw {
     }
 }
 
-impl From<v3::applications::ApplicationRaw> for ApplicationRaw {
+impl From<v3::applications::ApplicationRaw> for Raw {
     fn from(value: v3::applications::ApplicationRaw) -> Self {
         Self {
             name: value.name,
@@ -37,4 +37,4 @@ impl From<v3::applications::ApplicationRaw> for ApplicationRaw {
     }
 }
 
-super::super::impl_convert!(ApplicationRaw : Option<v3::applications::ApplicationRaw>);
+super::super::impl_convert!(Raw : Option<v3::applications::ApplicationRaw>);
