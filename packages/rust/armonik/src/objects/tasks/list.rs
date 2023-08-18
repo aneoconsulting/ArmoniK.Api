@@ -1,42 +1,40 @@
 use crate::api::v3;
 
-use super::{TaskDetailed, TaskFilters, TaskFiltersAnd, TaskSort, TaskSummary};
+use super::{filter, Sort, Summary};
 
 /// Request to list tasks.
 ///
 /// Use pagination, filtering and sorting.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TaskListRequest {
+pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
     /// The page size.
     pub page_size: i32,
     /// The filters.
-    pub filters: TaskFilters,
+    pub filters: filter::Or,
     /// The sort.
     ///
     /// Must be set for every request.
-    pub sort: TaskSort,
+    pub sort: Sort,
     /// Request error message in case of error in task.
     pub with_errors: bool,
 }
 
-impl Default for TaskListRequest {
+impl Default for Request {
     fn default() -> Self {
         Self {
             page: 0,
             page_size: 100,
-            filters: TaskFilters {
-                or: vec![TaskFiltersAnd::default()],
-            },
+            filters: Default::default(),
             sort: Default::default(),
             with_errors: false,
         }
     }
 }
 
-impl From<TaskListRequest> for v3::tasks::ListTasksRequest {
-    fn from(value: TaskListRequest) -> Self {
+impl From<Request> for v3::tasks::ListTasksRequest {
+    fn from(value: Request) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
@@ -50,14 +48,14 @@ impl From<TaskListRequest> for v3::tasks::ListTasksRequest {
     }
 }
 
-impl From<v3::tasks::ListTasksRequest> for TaskListRequest {
+impl From<v3::tasks::ListTasksRequest> for Request {
     fn from(value: v3::tasks::ListTasksRequest) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
             filters: value.filters.into(),
             sort: match value.sort {
-                Some(sort) => TaskSort {
+                Some(sort) => Sort {
                     field: sort.field.into(),
                     direction: sort.direction.into(),
                 },
@@ -68,16 +66,16 @@ impl From<v3::tasks::ListTasksRequest> for TaskListRequest {
     }
 }
 
-super::super::impl_convert!(TaskListRequest : Option<v3::tasks::ListTasksRequest>);
+super::super::impl_convert!(Request : Option<v3::tasks::ListTasksRequest>);
 
-/// Response to list Tasks.
+/// Response to list tasks.
 ///
 /// Use pagination, filtering and sorting from the request.
-/// Retunr a list of detailed Tasks.
+/// Retunr a list of tasks summary.
 #[derive(Debug, Clone)]
-pub struct TaskListResponse {
-    /// The list of detailed Tasks.
-    pub tasks: Vec<TaskSummary>,
+pub struct Response {
+    /// The list of tasks summary.
+    pub tasks: Vec<Summary>,
     /// The page number. Start at 0.
     pub page: i32,
     /// The page size.
@@ -86,7 +84,7 @@ pub struct TaskListResponse {
     pub total: i32,
 }
 
-impl Default for TaskListResponse {
+impl Default for Response {
     fn default() -> Self {
         Self {
             tasks: Vec::new(),
@@ -97,8 +95,8 @@ impl Default for TaskListResponse {
     }
 }
 
-impl From<TaskListResponse> for v3::tasks::ListTasksResponse {
-    fn from(value: TaskListResponse) -> Self {
+impl From<Response> for v3::tasks::ListTasksResponse {
+    fn from(value: Response) -> Self {
         Self {
             tasks: value.tasks.into_iter().map(Into::into).collect(),
             page: value.page,
@@ -108,7 +106,7 @@ impl From<TaskListResponse> for v3::tasks::ListTasksResponse {
     }
 }
 
-impl From<v3::tasks::ListTasksResponse> for TaskListResponse {
+impl From<v3::tasks::ListTasksResponse> for Response {
     fn from(value: v3::tasks::ListTasksResponse) -> Self {
         Self {
             tasks: value.tasks.into_iter().map(Into::into).collect(),
@@ -119,55 +117,4 @@ impl From<v3::tasks::ListTasksResponse> for TaskListResponse {
     }
 }
 
-super::super::impl_convert!(TaskListResponse : Option<v3::tasks::ListTasksResponse>);
-
-/// Response to list Tasks.
-///
-/// Use pagination, filtering and sorting from the request.
-/// Retunr a list of Detailed Tasks.
-#[derive(Debug, Clone)]
-pub struct TaskListDetailedResponse {
-    /// The list of Detailed Tasks.
-    pub tasks: Vec<TaskDetailed>,
-    /// The page number. Start at 0.
-    pub page: i32,
-    /// The page size.
-    pub page_size: i32,
-    /// The total number of tasks.
-    pub total: i32,
-}
-
-impl Default for TaskListDetailedResponse {
-    fn default() -> Self {
-        Self {
-            tasks: Vec::new(),
-            page: 0,
-            page_size: 100,
-            total: 0,
-        }
-    }
-}
-
-impl From<TaskListDetailedResponse> for v3::tasks::ListTasksDetailedResponse {
-    fn from(value: TaskListDetailedResponse) -> Self {
-        Self {
-            tasks: value.tasks.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
-    }
-}
-
-impl From<v3::tasks::ListTasksDetailedResponse> for TaskListDetailedResponse {
-    fn from(value: v3::tasks::ListTasksDetailedResponse) -> Self {
-        Self {
-            tasks: value.tasks.into_iter().map(Into::into).collect(),
-            page: value.page,
-            page_size: value.page_size,
-            total: value.total,
-        }
-    }
-}
-
-super::super::impl_convert!(TaskListDetailedResponse : Option<v3::tasks::ListTasksDetailedResponse>);
+super::super::impl_convert!(Response : Option<v3::tasks::ListTasksResponse>);

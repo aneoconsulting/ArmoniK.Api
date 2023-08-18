@@ -1,24 +1,23 @@
-use super::{
-    super::{FilterArray, FilterBoolean, FilterDate, FilterNumber, FilterString, TaskStatus},
-    TaskField,
+use super::super::{
+    FilterArray, FilterBoolean, FilterDate, FilterNumber, FilterString, TaskStatus,
 };
 
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct TaskFilters {
-    pub or: Vec<TaskFiltersAnd>,
+pub struct Or {
+    pub or: Vec<And>,
 }
 
-impl From<TaskFilters> for v3::tasks::Filters {
-    fn from(value: TaskFilters) -> Self {
+impl From<Or> for v3::tasks::Filters {
+    fn from(value: Or) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::tasks::Filters> for TaskFilters {
+impl From<v3::tasks::Filters> for Or {
     fn from(value: v3::tasks::Filters) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
@@ -26,38 +25,38 @@ impl From<v3::tasks::Filters> for TaskFilters {
     }
 }
 
-super::super::impl_convert!(TaskFilters : Option<v3::tasks::Filters>);
+super::super::impl_convert!(Or : Option<v3::tasks::Filters>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct TaskFiltersAnd {
-    pub and: Vec<TaskFilterField>,
+pub struct And {
+    pub and: Vec<Field>,
 }
 
-impl From<TaskFiltersAnd> for v3::tasks::FiltersAnd {
-    fn from(value: TaskFiltersAnd) -> Self {
+impl From<And> for v3::tasks::FiltersAnd {
+    fn from(value: And) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::tasks::FiltersAnd> for TaskFiltersAnd {
+impl From<v3::tasks::FiltersAnd> for And {
     fn from(value: v3::tasks::FiltersAnd) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
-super::super::impl_convert!(TaskFiltersAnd : Option<v3::tasks::FiltersAnd>);
+super::super::impl_convert!(And : Option<v3::tasks::FiltersAnd>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct TaskFilterField {
-    pub field: TaskField,
-    pub condition: TaskFilterCondition,
+pub struct Field {
+    pub field: super::Field,
+    pub condition: Condition,
 }
 
-impl From<TaskFilterField> for v3::tasks::FilterField {
-    fn from(value: TaskFilterField) -> Self {
+impl From<Field> for v3::tasks::FilterField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(value.field.into()),
             value_condition: Some(value.condition.into()),
@@ -65,24 +64,24 @@ impl From<TaskFilterField> for v3::tasks::FilterField {
     }
 }
 
-impl From<v3::tasks::FilterField> for TaskFilterField {
+impl From<v3::tasks::FilterField> for Field {
     fn from(value: v3::tasks::FilterField) -> Self {
         Self {
             field: value.field.unwrap_or_default().into(),
             condition: match value.value_condition {
                 Some(cond) => cond.into(),
-                None => TaskFilterCondition::String(Default::default()),
+                None => Condition::String(Default::default()),
             },
         }
     }
 }
 
-super::super::impl_convert!(TaskFilterField : Option<v3::tasks::FilterField>);
+super::super::impl_convert!(Field : Option<v3::tasks::FilterField>);
 
-pub type FilterStatus = super::super::FilterStatus<TaskStatus>;
+pub type Status = super::super::FilterStatus<TaskStatus>;
 
-impl From<FilterStatus> for v3::tasks::FilterStatus {
-    fn from(value: FilterStatus) -> Self {
+impl From<Status> for v3::tasks::FilterStatus {
+    fn from(value: Status) -> Self {
         Self {
             value: value.value as i32,
             operator: value.operator as i32,
@@ -90,7 +89,7 @@ impl From<FilterStatus> for v3::tasks::FilterStatus {
     }
 }
 
-impl From<v3::tasks::FilterStatus> for FilterStatus {
+impl From<v3::tasks::FilterStatus> for Status {
     fn from(value: v3::tasks::FilterStatus) -> Self {
         Self {
             value: value.value.into(),
@@ -100,35 +99,35 @@ impl From<v3::tasks::FilterStatus> for FilterStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TaskFilterCondition {
+pub enum Condition {
     String(FilterString),
     Number(FilterNumber),
     Boolean(FilterBoolean),
-    Status(FilterStatus),
+    Status(Status),
     Date(FilterDate),
     Array(FilterArray),
 }
 
-impl Default for TaskFilterCondition {
+impl Default for Condition {
     fn default() -> Self {
         Self::String(Default::default())
     }
 }
 
-impl From<TaskFilterCondition> for v3::tasks::filter_field::ValueCondition {
-    fn from(value: TaskFilterCondition) -> Self {
+impl From<Condition> for v3::tasks::filter_field::ValueCondition {
+    fn from(value: Condition) -> Self {
         match value {
-            TaskFilterCondition::String(cond) => Self::FilterString(cond.into()),
-            TaskFilterCondition::Number(cond) => Self::FilterNumber(cond.into()),
-            TaskFilterCondition::Boolean(cond) => Self::FilterBoolean(cond.into()),
-            TaskFilterCondition::Status(cond) => Self::FilterStatus(cond.into()),
-            TaskFilterCondition::Date(cond) => Self::FilterDate(cond.into()),
-            TaskFilterCondition::Array(cond) => Self::FilterArray(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond.into()),
+            Condition::Number(cond) => Self::FilterNumber(cond.into()),
+            Condition::Boolean(cond) => Self::FilterBoolean(cond.into()),
+            Condition::Status(cond) => Self::FilterStatus(cond.into()),
+            Condition::Date(cond) => Self::FilterDate(cond.into()),
+            Condition::Array(cond) => Self::FilterArray(cond.into()),
         }
     }
 }
 
-impl From<v3::tasks::filter_field::ValueCondition> for TaskFilterCondition {
+impl From<v3::tasks::filter_field::ValueCondition> for Condition {
     fn from(value: v3::tasks::filter_field::ValueCondition) -> Self {
         match value {
             v3::tasks::filter_field::ValueCondition::FilterString(cond) => {
@@ -149,4 +148,4 @@ impl From<v3::tasks::filter_field::ValueCondition> for TaskFilterCondition {
     }
 }
 
-super::super::impl_convert!(TaskFilterCondition : Option<v3::tasks::filter_field::ValueCondition>);
+super::super::impl_convert!(Condition : Option<v3::tasks::filter_field::ValueCondition>);

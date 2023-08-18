@@ -1,30 +1,28 @@
 use crate::api::v3;
 
-use super::{ApplicationFilters, ApplicationFiltersAnd, ApplicationRaw, ApplicationSort};
+use super::{filter, Raw, Sort};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ApplicationListRequest {
+pub struct Request {
     pub page: i32,
     pub page_size: i32,
-    pub filters: ApplicationFilters,
-    pub sort: ApplicationSort,
+    pub filters: filter::Or,
+    pub sort: Sort,
 }
 
-impl Default for ApplicationListRequest {
+impl Default for Request {
     fn default() -> Self {
         Self {
             page: 0,
             page_size: 100,
-            filters: ApplicationFilters {
-                or: vec![ApplicationFiltersAnd::default()],
-            },
+            filters: Default::default(),
             sort: Default::default(),
         }
     }
 }
 
-impl From<ApplicationListRequest> for v3::applications::ListApplicationsRequest {
-    fn from(value: ApplicationListRequest) -> Self {
+impl From<Request> for v3::applications::ListApplicationsRequest {
+    fn from(value: Request) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
@@ -37,14 +35,14 @@ impl From<ApplicationListRequest> for v3::applications::ListApplicationsRequest 
     }
 }
 
-impl From<v3::applications::ListApplicationsRequest> for ApplicationListRequest {
+impl From<v3::applications::ListApplicationsRequest> for Request {
     fn from(value: v3::applications::ListApplicationsRequest) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
             filters: value.filters.into(),
             sort: match value.sort {
-                Some(sort) => ApplicationSort {
+                Some(sort) => Sort {
                     fields: sort.fields.into_iter().map(Into::into).collect(),
                     direction: sort.direction.into(),
                 },
@@ -54,17 +52,17 @@ impl From<v3::applications::ListApplicationsRequest> for ApplicationListRequest 
     }
 }
 
-super::super::impl_convert!(ApplicationListRequest : Option<v3::applications::ListApplicationsRequest>);
+super::super::impl_convert!(Request : Option<v3::applications::ListApplicationsRequest>);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ApplicationListResponse {
-    pub applications: Vec<ApplicationRaw>,
+pub struct Response {
+    pub applications: Vec<Raw>,
     pub page: i32,
     pub page_size: i32,
     pub total: i32,
 }
 
-impl Default for ApplicationListResponse {
+impl Default for Response {
     fn default() -> Self {
         Self {
             applications: Vec::new(),
@@ -75,8 +73,8 @@ impl Default for ApplicationListResponse {
     }
 }
 
-impl From<ApplicationListResponse> for v3::applications::ListApplicationsResponse {
-    fn from(value: ApplicationListResponse) -> Self {
+impl From<Response> for v3::applications::ListApplicationsResponse {
+    fn from(value: Response) -> Self {
         Self {
             applications: value.applications.into_iter().map(Into::into).collect(),
             page: value.page,
@@ -86,7 +84,7 @@ impl From<ApplicationListResponse> for v3::applications::ListApplicationsRespons
     }
 }
 
-impl From<v3::applications::ListApplicationsResponse> for ApplicationListResponse {
+impl From<v3::applications::ListApplicationsResponse> for Response {
     fn from(value: v3::applications::ListApplicationsResponse) -> Self {
         Self {
             applications: value.applications.into_iter().map(Into::into).collect(),
@@ -97,4 +95,4 @@ impl From<v3::applications::ListApplicationsResponse> for ApplicationListRespons
     }
 }
 
-super::super::impl_convert!(ApplicationListResponse : Option<v3::applications::ListApplicationsResponse>);
+super::super::impl_convert!(Response : Option<v3::applications::ListApplicationsResponse>);

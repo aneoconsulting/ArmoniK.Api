@@ -1,7 +1,6 @@
-use crate::{
-    api::v3,
-    objects::applications::{ApplicationListRequest, ApplicationListResponse},
-};
+use crate::{api::v3, objects::applications::list};
+
+use super::GrpcCall;
 
 #[derive(Clone)]
 pub struct ApplicationsClient<T> {
@@ -10,7 +9,6 @@ pub struct ApplicationsClient<T> {
 
 impl<T> ApplicationsClient<T>
 where
-    T: Clone,
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
@@ -22,15 +20,31 @@ where
         }
     }
 
-    pub async fn list(
+    pub async fn list(&mut self, request: list::Request) -> Result<list::Response, tonic::Status> {
+        self.call(request).await
+    }
+
+    /// Perform a gRPC call from a raw request.
+    pub async fn call<Request>(
         &mut self,
-        request: ApplicationListRequest,
-    ) -> Result<ApplicationListResponse, tonic::Status> {
-        Ok(self
-            .inner
-            .list_applications(request)
-            .await?
-            .into_inner()
-            .into())
+        request: Request,
+    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
+    where
+        for<'a> &'a mut Self: GrpcCall<Request>,
+    {
+        <&mut Self as GrpcCall<Request>>::call(self, request).await
+    }
+}
+
+super::impl_call! {
+    ApplicationsClient {
+        async fn call(self, request: list::Request) -> Result<list::Response> {
+            Ok(self
+                .inner
+                .list_applications(request)
+                .await?
+                .into_inner()
+                .into())
+        }
     }
 }

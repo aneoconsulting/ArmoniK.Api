@@ -4,15 +4,15 @@ use crate::api::v3;
 
 /// Request for getting the id of the task that should create this result.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct GetOwnerTaskIdRequest {
+pub struct Request {
     /// The session ID.
     pub session_id: String,
     /// The list of result ID/name.
     pub result_ids: HashSet<String>,
 }
 
-impl From<GetOwnerTaskIdRequest> for v3::results::GetOwnerTaskIdRequest {
-    fn from(value: GetOwnerTaskIdRequest) -> Self {
+impl From<Request> for v3::results::GetOwnerTaskIdRequest {
+    fn from(value: Request) -> Self {
         Self {
             session_id: value.session_id,
             result_id: value.result_ids.into_iter().map(Into::into).collect(),
@@ -20,7 +20,7 @@ impl From<GetOwnerTaskIdRequest> for v3::results::GetOwnerTaskIdRequest {
     }
 }
 
-impl From<v3::results::GetOwnerTaskIdRequest> for GetOwnerTaskIdRequest {
+impl From<v3::results::GetOwnerTaskIdRequest> for Request {
     fn from(value: v3::results::GetOwnerTaskIdRequest) -> Self {
         Self {
             session_id: value.session_id,
@@ -29,19 +29,19 @@ impl From<v3::results::GetOwnerTaskIdRequest> for GetOwnerTaskIdRequest {
     }
 }
 
-super::super::impl_convert!(GetOwnerTaskIdRequest : Option<v3::results::GetOwnerTaskIdRequest>);
+super::super::impl_convert!(Request : Option<v3::results::GetOwnerTaskIdRequest>);
 
 /// Response for getting the id of the task that should create this result.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct GetOwnerTaskIdResponse {
+pub struct Response {
     /// Map to get the owner task id for each result id.
     pub result_task: HashMap<String, String>,
     /// The session ID.
     pub session_id: String,
 }
 
-impl From<GetOwnerTaskIdResponse> for v3::results::GetOwnerTaskIdResponse {
-    fn from(value: GetOwnerTaskIdResponse) -> Self {
+impl From<Response> for v3::results::GetOwnerTaskIdResponse {
+    fn from(value: Response) -> Self {
         Self {
             result_task: value
                 .result_task
@@ -58,7 +58,7 @@ impl From<GetOwnerTaskIdResponse> for v3::results::GetOwnerTaskIdResponse {
     }
 }
 
-impl From<v3::results::GetOwnerTaskIdResponse> for GetOwnerTaskIdResponse {
+impl From<v3::results::GetOwnerTaskIdResponse> for Response {
     fn from(value: v3::results::GetOwnerTaskIdResponse) -> Self {
         Self {
             result_task: value
@@ -71,4 +71,4 @@ impl From<v3::results::GetOwnerTaskIdResponse> for GetOwnerTaskIdResponse {
     }
 }
 
-super::super::impl_convert!(GetOwnerTaskIdResponse : Option<v3::results::GetOwnerTaskIdResponse>);
+super::super::impl_convert!(Response : Option<v3::results::GetOwnerTaskIdResponse>);

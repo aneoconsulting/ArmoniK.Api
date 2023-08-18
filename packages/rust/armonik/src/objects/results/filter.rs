@@ -1,24 +1,21 @@
-use super::{
-    super::{FilterArray, FilterDate, FilterString, ResultStatus},
-    ResultField,
-};
+use super::super::{FilterArray, FilterDate, FilterString, ResultStatus};
 
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ResultFilters {
-    pub or: Vec<ResultFiltersAnd>,
+pub struct Or {
+    pub or: Vec<And>,
 }
 
-impl From<ResultFilters> for v3::results::Filters {
-    fn from(value: ResultFilters) -> Self {
+impl From<Or> for v3::results::Filters {
+    fn from(value: Or) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::results::Filters> for ResultFilters {
+impl From<v3::results::Filters> for Or {
     fn from(value: v3::results::Filters) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
@@ -26,38 +23,38 @@ impl From<v3::results::Filters> for ResultFilters {
     }
 }
 
-super::super::impl_convert!(ResultFilters : Option<v3::results::Filters>);
+super::super::impl_convert!(Or : Option<v3::results::Filters>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ResultFiltersAnd {
-    pub and: Vec<ResultFilterField>,
+pub struct And {
+    pub and: Vec<Field>,
 }
 
-impl From<ResultFiltersAnd> for v3::results::FiltersAnd {
-    fn from(value: ResultFiltersAnd) -> Self {
+impl From<And> for v3::results::FiltersAnd {
+    fn from(value: And) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::results::FiltersAnd> for ResultFiltersAnd {
+impl From<v3::results::FiltersAnd> for And {
     fn from(value: v3::results::FiltersAnd) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
-super::super::impl_convert!(ResultFiltersAnd : Option<v3::results::FiltersAnd>);
+super::super::impl_convert!(And : Option<v3::results::FiltersAnd>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ResultFilterField {
-    pub field: ResultField,
-    pub condition: ResultFilterCondition,
+pub struct Field {
+    pub field: super::Field,
+    pub condition: Condition,
 }
 
-impl From<ResultFilterField> for v3::results::FilterField {
-    fn from(value: ResultFilterField) -> Self {
+impl From<Field> for v3::results::FilterField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(value.field.into()),
             value_condition: Some(value.condition.into()),
@@ -65,24 +62,24 @@ impl From<ResultFilterField> for v3::results::FilterField {
     }
 }
 
-impl From<v3::results::FilterField> for ResultFilterField {
+impl From<v3::results::FilterField> for Field {
     fn from(value: v3::results::FilterField) -> Self {
         Self {
             field: value.field.unwrap_or_default().into(),
             condition: match value.value_condition {
                 Some(cond) => cond.into(),
-                None => ResultFilterCondition::String(Default::default()),
+                None => Condition::String(Default::default()),
             },
         }
     }
 }
 
-super::super::impl_convert!(ResultFilterField : Option<v3::results::FilterField>);
+super::super::impl_convert!(Field : Option<v3::results::FilterField>);
 
-pub type FilterStatus = super::super::FilterStatus<ResultStatus>;
+pub type Status = super::super::FilterStatus<ResultStatus>;
 
-impl From<FilterStatus> for v3::results::FilterStatus {
-    fn from(value: FilterStatus) -> Self {
+impl From<Status> for v3::results::FilterStatus {
+    fn from(value: Status) -> Self {
         Self {
             value: value.value as i32,
             operator: value.operator as i32,
@@ -90,7 +87,7 @@ impl From<FilterStatus> for v3::results::FilterStatus {
     }
 }
 
-impl From<v3::results::FilterStatus> for FilterStatus {
+impl From<v3::results::FilterStatus> for Status {
     fn from(value: v3::results::FilterStatus) -> Self {
         Self {
             value: value.value.into(),
@@ -100,31 +97,31 @@ impl From<v3::results::FilterStatus> for FilterStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ResultFilterCondition {
+pub enum Condition {
     String(FilterString),
     Date(FilterDate),
     Array(FilterArray),
-    Status(FilterStatus),
+    Status(Status),
 }
 
-impl Default for ResultFilterCondition {
+impl Default for Condition {
     fn default() -> Self {
         Self::String(Default::default())
     }
 }
 
-impl From<ResultFilterCondition> for v3::results::filter_field::ValueCondition {
-    fn from(value: ResultFilterCondition) -> Self {
+impl From<Condition> for v3::results::filter_field::ValueCondition {
+    fn from(value: Condition) -> Self {
         match value {
-            ResultFilterCondition::String(cond) => Self::FilterString(cond.into()),
-            ResultFilterCondition::Date(cond) => Self::FilterDate(cond.into()),
-            ResultFilterCondition::Array(cond) => Self::FilterArray(cond.into()),
-            ResultFilterCondition::Status(cond) => Self::FilterStatus(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond.into()),
+            Condition::Date(cond) => Self::FilterDate(cond.into()),
+            Condition::Array(cond) => Self::FilterArray(cond.into()),
+            Condition::Status(cond) => Self::FilterStatus(cond.into()),
         }
     }
 }
 
-impl From<v3::results::filter_field::ValueCondition> for ResultFilterCondition {
+impl From<v3::results::filter_field::ValueCondition> for Condition {
     fn from(value: v3::results::filter_field::ValueCondition) -> Self {
         match value {
             v3::results::filter_field::ValueCondition::FilterString(cond) => {
@@ -141,4 +138,4 @@ impl From<v3::results::filter_field::ValueCondition> for ResultFilterCondition {
     }
 }
 
-super::super::impl_convert!(ResultFilterCondition : Option<v3::results::filter_field::ValueCondition>);
+super::super::impl_convert!(Condition : Option<v3::results::filter_field::ValueCondition>);

@@ -1,23 +1,23 @@
-use super::TaskDetailed;
+use super::Raw;
 
 use crate::api::v3;
 
 /// Request for getting a single task.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GetTaskRequest {
+pub struct Request {
     /// The task ID.
     pub task_id: String,
 }
 
-impl From<GetTaskRequest> for v3::tasks::GetTaskRequest {
-    fn from(value: GetTaskRequest) -> Self {
+impl From<Request> for v3::tasks::GetTaskRequest {
+    fn from(value: Request) -> Self {
         Self {
             task_id: value.task_id,
         }
     }
 }
 
-impl From<v3::tasks::GetTaskRequest> for GetTaskRequest {
+impl From<v3::tasks::GetTaskRequest> for Request {
     fn from(value: v3::tasks::GetTaskRequest) -> Self {
         Self {
             task_id: value.task_id,
@@ -25,26 +25,26 @@ impl From<v3::tasks::GetTaskRequest> for GetTaskRequest {
     }
 }
 
-super::super::impl_convert!(GetTaskRequest : Option<v3::tasks::GetTaskRequest>);
+super::super::impl_convert!(Request : Option<v3::tasks::GetTaskRequest>);
 
 /// Response for getting a single task.
 ///
 /// Return a detailed task.
 #[derive(Debug, Clone, Default)]
-pub struct GetTaskResponse {
+pub struct Response {
     /// The task.
-    pub task: TaskDetailed,
+    pub task: Raw,
 }
 
-impl From<GetTaskResponse> for v3::tasks::GetTaskResponse {
-    fn from(value: GetTaskResponse) -> Self {
+impl From<Response> for v3::tasks::GetTaskResponse {
+    fn from(value: Response) -> Self {
         Self {
             task: value.task.into(),
         }
     }
 }
 
-impl From<v3::tasks::GetTaskResponse> for GetTaskResponse {
+impl From<v3::tasks::GetTaskResponse> for Response {
     fn from(value: v3::tasks::GetTaskResponse) -> Self {
         Self {
             task: value.task.into(),
@@ -52,4 +52,4 @@ impl From<v3::tasks::GetTaskResponse> for GetTaskResponse {
     }
 }
 
-super::super::impl_convert!(GetTaskResponse : Option<v3::tasks::GetTaskResponse>);
+super::super::impl_convert!(Response : Option<v3::tasks::GetTaskResponse>);

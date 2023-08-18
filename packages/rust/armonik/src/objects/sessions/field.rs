@@ -5,7 +5,7 @@ use crate::api::v3;
 /// Represents every available field in a session raw.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
-pub enum SessionRawField {
+pub enum RawField {
     /// Unspecified.
     Unspecified = 0,
     #[default]
@@ -18,7 +18,7 @@ pub enum SessionRawField {
     Duration = 7,
 }
 
-impl From<i32> for SessionRawField {
+impl From<i32> for RawField {
     fn from(value: i32) -> Self {
         match value {
             0 => Self::Unspecified,
@@ -34,48 +34,48 @@ impl From<i32> for SessionRawField {
     }
 }
 
-impl From<SessionRawField> for v3::sessions::SessionRawField {
-    fn from(value: SessionRawField) -> Self {
+impl From<RawField> for v3::sessions::SessionRawField {
+    fn from(value: RawField) -> Self {
         Self {
             field: value as i32,
         }
     }
 }
 
-impl From<v3::sessions::SessionRawField> for SessionRawField {
+impl From<v3::sessions::SessionRawField> for RawField {
     fn from(value: v3::sessions::SessionRawField) -> Self {
         Self::from(value.field)
     }
 }
 
-super::super::impl_convert!(SessionRawField : Option<v3::sessions::SessionRawField>);
+super::super::impl_convert!(RawField : Option<v3::sessions::SessionRawField>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum SessionField {
-    SessionRawField(SessionRawField),
+pub enum Field {
+    Raw(RawField),
     /// The task option field.
-    TaskOptionField(TaskOptionField),
+    TaskOption(TaskOptionField),
     /// Represents a generic field in a task option.
-    TaskOptionGenericField(String),
+    TaskOptionGeneric(String),
 }
 
-impl Default for SessionField {
+impl Default for Field {
     fn default() -> Self {
-        Self::SessionRawField(Default::default())
+        Self::Raw(Default::default())
     }
 }
 
-impl From<SessionField> for v3::sessions::SessionField {
-    fn from(value: SessionField) -> Self {
+impl From<Field> for v3::sessions::SessionField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(match value {
-                SessionField::SessionRawField(field) => {
+                Field::Raw(field) => {
                     v3::sessions::session_field::Field::SessionRawField(field.into())
                 }
-                SessionField::TaskOptionField(field) => {
+                Field::TaskOption(field) => {
                     v3::sessions::session_field::Field::TaskOptionField(field.into())
                 }
-                SessionField::TaskOptionGenericField(field) => {
+                Field::TaskOptionGeneric(field) => {
                     v3::sessions::session_field::Field::TaskOptionGenericField(
                         v3::sessions::TaskOptionGenericField { field },
                     )
@@ -85,21 +85,21 @@ impl From<SessionField> for v3::sessions::SessionField {
     }
 }
 
-impl From<v3::sessions::SessionField> for SessionField {
+impl From<v3::sessions::SessionField> for Field {
     fn from(value: v3::sessions::SessionField) -> Self {
         match value.field {
             Some(v3::sessions::session_field::Field::SessionRawField(field)) => {
-                Self::SessionRawField(field.into())
+                Self::Raw(field.into())
             }
             Some(v3::sessions::session_field::Field::TaskOptionField(field)) => {
-                Self::TaskOptionField(field.into())
+                Self::TaskOption(field.into())
             }
             Some(v3::sessions::session_field::Field::TaskOptionGenericField(field)) => {
-                Self::TaskOptionGenericField(field.field)
+                Self::TaskOptionGeneric(field.field)
             }
             None => Default::default(),
         }
     }
 }
 
-super::super::impl_convert!(SessionField : Option<v3::sessions::SessionField>);
+super::super::impl_convert!(Field : Option<v3::sessions::SessionField>);

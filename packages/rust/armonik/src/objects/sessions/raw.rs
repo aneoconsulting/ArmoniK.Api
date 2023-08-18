@@ -4,7 +4,7 @@ use crate::api::v3;
 
 /// A raw session object.
 #[derive(Debug, Clone, Default)]
-pub struct SessionRaw {
+pub struct Raw {
     /// The session ID.
     pub session_id: String,
     /// The session status.
@@ -21,8 +21,8 @@ pub struct SessionRaw {
     pub duration: Option<prost_types::Duration>,
 }
 
-impl From<SessionRaw> for v3::sessions::SessionRaw {
-    fn from(value: SessionRaw) -> Self {
+impl From<Raw> for v3::sessions::SessionRaw {
+    fn from(value: Raw) -> Self {
         Self {
             session_id: value.session_id,
             status: value.status as i32,
@@ -35,7 +35,7 @@ impl From<SessionRaw> for v3::sessions::SessionRaw {
     }
 }
 
-impl From<v3::sessions::SessionRaw> for SessionRaw {
+impl From<v3::sessions::SessionRaw> for Raw {
     fn from(value: v3::sessions::SessionRaw) -> Self {
         Self {
             session_id: value.session_id,
@@ -49,4 +49,4 @@ impl From<v3::sessions::SessionRaw> for SessionRaw {
     }
 }
 
-super::super::impl_convert!(SessionRaw : Option<v3::sessions::SessionRaw>);
+super::super::impl_convert!(Raw : Option<v3::sessions::SessionRaw>);

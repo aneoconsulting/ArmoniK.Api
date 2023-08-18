@@ -1,21 +1,21 @@
-use super::{super::FilterString, ApplicationField};
+use super::super::FilterString;
 
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ApplicationFilters {
-    pub or: Vec<ApplicationFiltersAnd>,
+pub struct Or {
+    pub or: Vec<And>,
 }
 
-impl From<ApplicationFilters> for v3::applications::Filters {
-    fn from(value: ApplicationFilters) -> Self {
+impl From<Or> for v3::applications::Filters {
+    fn from(value: Or) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::applications::Filters> for ApplicationFilters {
+impl From<v3::applications::Filters> for Or {
     fn from(value: v3::applications::Filters) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
@@ -23,38 +23,38 @@ impl From<v3::applications::Filters> for ApplicationFilters {
     }
 }
 
-super::super::impl_convert!(ApplicationFilters : Option<v3::applications::Filters>);
+super::super::impl_convert!(Or : Option<v3::applications::Filters>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ApplicationFiltersAnd {
-    pub and: Vec<ApplicationFilterField>,
+pub struct And {
+    pub and: Vec<Field>,
 }
 
-impl From<ApplicationFiltersAnd> for v3::applications::FiltersAnd {
-    fn from(value: ApplicationFiltersAnd) -> Self {
+impl From<And> for v3::applications::FiltersAnd {
+    fn from(value: And) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::applications::FiltersAnd> for ApplicationFiltersAnd {
+impl From<v3::applications::FiltersAnd> for And {
     fn from(value: v3::applications::FiltersAnd) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
-super::super::impl_convert!(ApplicationFiltersAnd : Option<v3::applications::FiltersAnd>);
+super::super::impl_convert!(And : Option<v3::applications::FiltersAnd>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ApplicationFilterField {
-    pub field: ApplicationField,
-    pub condition: ApplicationFilterCondition,
+pub struct Field {
+    pub field: super::Field,
+    pub condition: Condition,
 }
 
-impl From<ApplicationFilterField> for v3::applications::FilterField {
-    fn from(value: ApplicationFilterField) -> Self {
+impl From<Field> for v3::applications::FilterField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(value.field.into()),
             value_condition: Some(value.condition.into()),
@@ -62,40 +62,40 @@ impl From<ApplicationFilterField> for v3::applications::FilterField {
     }
 }
 
-impl From<v3::applications::FilterField> for ApplicationFilterField {
+impl From<v3::applications::FilterField> for Field {
     fn from(value: v3::applications::FilterField) -> Self {
         Self {
             field: value.field.unwrap_or_default().into(),
             condition: match value.value_condition {
                 Some(cond) => cond.into(),
-                None => ApplicationFilterCondition::String(Default::default()),
+                None => Condition::String(Default::default()),
             },
         }
     }
 }
 
-super::super::impl_convert!(ApplicationFilterField : Option<v3::applications::FilterField>);
+super::super::impl_convert!(Field : Option<v3::applications::FilterField>);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ApplicationFilterCondition {
+pub enum Condition {
     String(FilterString),
 }
 
-impl Default for ApplicationFilterCondition {
+impl Default for Condition {
     fn default() -> Self {
         Self::String(Default::default())
     }
 }
 
-impl From<ApplicationFilterCondition> for v3::applications::filter_field::ValueCondition {
-    fn from(value: ApplicationFilterCondition) -> Self {
+impl From<Condition> for v3::applications::filter_field::ValueCondition {
+    fn from(value: Condition) -> Self {
         match value {
-            ApplicationFilterCondition::String(cond) => Self::FilterString(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond.into()),
         }
     }
 }
 
-impl From<v3::applications::filter_field::ValueCondition> for ApplicationFilterCondition {
+impl From<v3::applications::filter_field::ValueCondition> for Condition {
     fn from(value: v3::applications::filter_field::ValueCondition) -> Self {
         match value {
             v3::applications::filter_field::ValueCondition::FilterString(cond) => {
@@ -105,4 +105,4 @@ impl From<v3::applications::filter_field::ValueCondition> for ApplicationFilterC
     }
 }
 
-super::super::impl_convert!(ApplicationFilterCondition : Option<v3::applications::filter_field::ValueCondition>);
+super::super::impl_convert!(Condition : Option<v3::applications::filter_field::ValueCondition>);

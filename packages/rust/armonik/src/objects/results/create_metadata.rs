@@ -1,18 +1,20 @@
-use super::ResultRaw;
+use std::collections::{HashMap, HashSet};
+
+use super::Raw;
 
 use crate::api::v3;
 
 /// Request for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CreateResultsMetadataRequest {
+pub struct Request {
     /// The list of results to create.
-    pub results: Vec<String>,
+    pub results: HashSet<String>,
     /// The session in which create results.
     pub session_id: String,
 }
 
-impl From<CreateResultsMetadataRequest> for v3::results::CreateResultsMetaDataRequest {
-    fn from(value: CreateResultsMetadataRequest) -> Self {
+impl From<Request> for v3::results::CreateResultsMetaDataRequest {
+    fn from(value: Request) -> Self {
         Self {
             results: value
                 .results
@@ -28,7 +30,7 @@ impl From<CreateResultsMetadataRequest> for v3::results::CreateResultsMetaDataRe
     }
 }
 
-impl From<v3::results::CreateResultsMetaDataRequest> for CreateResultsMetadataRequest {
+impl From<v3::results::CreateResultsMetaDataRequest> for Request {
     fn from(value: v3::results::CreateResultsMetaDataRequest) -> Self {
         Self {
             results: value
@@ -41,29 +43,33 @@ impl From<v3::results::CreateResultsMetaDataRequest> for CreateResultsMetadataRe
     }
 }
 
-super::super::impl_convert!(CreateResultsMetadataRequest : Option<v3::results::CreateResultsMetaDataRequest>);
+super::super::impl_convert!(Request : Option<v3::results::CreateResultsMetaDataRequest>);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]
-pub struct CreateResultsMetadataResponse {
+pub struct Response {
     /// The list of raw results that were created.
-    pub results: Vec<ResultRaw>,
+    pub results: HashMap<String, Raw>,
 }
 
-impl From<CreateResultsMetadataResponse> for v3::results::CreateResultsMetaDataResponse {
-    fn from(value: CreateResultsMetadataResponse) -> Self {
+impl From<Response> for v3::results::CreateResultsMetaDataResponse {
+    fn from(value: Response) -> Self {
         Self {
-            results: value.results.into_iter().map(Into::into).collect(),
+            results: value.results.into_values().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::results::CreateResultsMetaDataResponse> for CreateResultsMetadataResponse {
+impl From<v3::results::CreateResultsMetaDataResponse> for Response {
     fn from(value: v3::results::CreateResultsMetaDataResponse) -> Self {
         Self {
-            results: value.results.into_iter().map(Into::into).collect(),
+            results: value
+                .results
+                .into_iter()
+                .map(|result| (result.name.clone(), result.into()))
+                .collect(),
         }
     }
 }
 
-super::super::impl_convert!(CreateResultsMetadataResponse : Option<v3::results::CreateResultsMetaDataResponse>);
+super::super::impl_convert!(Response : Option<v3::results::CreateResultsMetaDataResponse>);

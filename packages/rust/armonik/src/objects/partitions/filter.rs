@@ -1,24 +1,21 @@
-use super::{
-    super::{FilterArray, FilterBoolean, FilterNumber, FilterString},
-    PartitionField,
-};
+use super::super::{FilterArray, FilterBoolean, FilterNumber, FilterString};
 
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PartitionFilters {
-    pub or: Vec<PartitionFiltersAnd>,
+pub struct Or {
+    pub or: Vec<And>,
 }
 
-impl From<PartitionFilters> for v3::partitions::Filters {
-    fn from(value: PartitionFilters) -> Self {
+impl From<Or> for v3::partitions::Filters {
+    fn from(value: Or) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::partitions::Filters> for PartitionFilters {
+impl From<v3::partitions::Filters> for Or {
     fn from(value: v3::partitions::Filters) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
@@ -26,38 +23,38 @@ impl From<v3::partitions::Filters> for PartitionFilters {
     }
 }
 
-super::super::impl_convert!(PartitionFilters : Option<v3::partitions::Filters>);
+super::super::impl_convert!(Or : Option<v3::partitions::Filters>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PartitionFiltersAnd {
-    pub and: Vec<PartitionFilterField>,
+pub struct And {
+    pub and: Vec<Field>,
 }
 
-impl From<PartitionFiltersAnd> for v3::partitions::FiltersAnd {
-    fn from(value: PartitionFiltersAnd) -> Self {
+impl From<And> for v3::partitions::FiltersAnd {
+    fn from(value: And) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::partitions::FiltersAnd> for PartitionFiltersAnd {
+impl From<v3::partitions::FiltersAnd> for And {
     fn from(value: v3::partitions::FiltersAnd) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
-super::super::impl_convert!(PartitionFiltersAnd : Option<v3::partitions::FiltersAnd>);
+super::super::impl_convert!(And : Option<v3::partitions::FiltersAnd>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PartitionFilterField {
-    pub field: PartitionField,
-    pub condition: PartitionFilterCondition,
+pub struct Field {
+    pub field: super::Field,
+    pub condition: Condition,
 }
 
-impl From<PartitionFilterField> for v3::partitions::FilterField {
-    fn from(value: PartitionFilterField) -> Self {
+impl From<Field> for v3::partitions::FilterField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(value.field.into()),
             value_condition: Some(value.condition.into()),
@@ -65,46 +62,46 @@ impl From<PartitionFilterField> for v3::partitions::FilterField {
     }
 }
 
-impl From<v3::partitions::FilterField> for PartitionFilterField {
+impl From<v3::partitions::FilterField> for Field {
     fn from(value: v3::partitions::FilterField) -> Self {
         Self {
             field: value.field.unwrap_or_default().into(),
             condition: match value.value_condition {
                 Some(cond) => cond.into(),
-                None => PartitionFilterCondition::String(Default::default()),
+                None => Condition::String(Default::default()),
             },
         }
     }
 }
 
-super::super::impl_convert!(PartitionFilterField : Option<v3::partitions::FilterField>);
+super::super::impl_convert!(Field : Option<v3::partitions::FilterField>);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PartitionFilterCondition {
+pub enum Condition {
     String(FilterString),
     Number(FilterNumber),
     Boolean(FilterBoolean),
     Array(FilterArray),
 }
 
-impl Default for PartitionFilterCondition {
+impl Default for Condition {
     fn default() -> Self {
         Self::String(Default::default())
     }
 }
 
-impl From<PartitionFilterCondition> for v3::partitions::filter_field::ValueCondition {
-    fn from(value: PartitionFilterCondition) -> Self {
+impl From<Condition> for v3::partitions::filter_field::ValueCondition {
+    fn from(value: Condition) -> Self {
         match value {
-            PartitionFilterCondition::String(cond) => Self::FilterString(cond.into()),
-            PartitionFilterCondition::Number(cond) => Self::FilterNumber(cond.into()),
-            PartitionFilterCondition::Boolean(cond) => Self::FilterBoolean(cond.into()),
-            PartitionFilterCondition::Array(cond) => Self::FilterArray(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond.into()),
+            Condition::Number(cond) => Self::FilterNumber(cond.into()),
+            Condition::Boolean(cond) => Self::FilterBoolean(cond.into()),
+            Condition::Array(cond) => Self::FilterArray(cond.into()),
         }
     }
 }
 
-impl From<v3::partitions::filter_field::ValueCondition> for PartitionFilterCondition {
+impl From<v3::partitions::filter_field::ValueCondition> for Condition {
     fn from(value: v3::partitions::filter_field::ValueCondition) -> Self {
         match value {
             v3::partitions::filter_field::ValueCondition::FilterString(cond) => {
@@ -123,4 +120,4 @@ impl From<v3::partitions::filter_field::ValueCondition> for PartitionFilterCondi
     }
 }
 
-super::super::impl_convert!(PartitionFilterCondition : Option<v3::partitions::filter_field::ValueCondition>);
+super::super::impl_convert!(Condition : Option<v3::partitions::filter_field::ValueCondition>);

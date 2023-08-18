@@ -1,39 +1,37 @@
 use crate::api::v3;
 
-use super::{ResultFilters, ResultFiltersAnd, ResultRaw, ResultSort};
+use super::{filter, Raw, Sort};
 
 /// Request to list results.
 ///
 /// Use pagination, filtering and sorting.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ResultListRequest {
+pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
     /// The page size.
     pub page_size: i32,
     /// The filters.
-    pub filters: ResultFilters,
+    pub filters: filter::Or,
     /// The sort.
     ///
     /// Must be set for every request.
-    pub sort: ResultSort,
+    pub sort: Sort,
 }
 
-impl Default for ResultListRequest {
+impl Default for Request {
     fn default() -> Self {
         Self {
             page: 0,
             page_size: 100,
-            filters: ResultFilters {
-                or: vec![ResultFiltersAnd::default()],
-            },
+            filters: Default::default(),
             sort: Default::default(),
         }
     }
 }
 
-impl From<ResultListRequest> for v3::results::ListResultsRequest {
-    fn from(value: ResultListRequest) -> Self {
+impl From<Request> for v3::results::ListResultsRequest {
+    fn from(value: Request) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
@@ -46,14 +44,14 @@ impl From<ResultListRequest> for v3::results::ListResultsRequest {
     }
 }
 
-impl From<v3::results::ListResultsRequest> for ResultListRequest {
+impl From<v3::results::ListResultsRequest> for Request {
     fn from(value: v3::results::ListResultsRequest) -> Self {
         Self {
             page: value.page,
             page_size: value.page_size,
             filters: value.filters.into(),
             sort: match value.sort {
-                Some(sort) => ResultSort {
+                Some(sort) => Sort {
                     field: sort.field.into(),
                     direction: sort.direction.into(),
                 },
@@ -63,16 +61,16 @@ impl From<v3::results::ListResultsRequest> for ResultListRequest {
     }
 }
 
-super::super::impl_convert!(ResultListRequest : Option<v3::results::ListResultsRequest>);
+super::super::impl_convert!(Request : Option<v3::results::ListResultsRequest>);
 
 /// Response to list results.
 ///
 /// Use pagination, filtering and sorting from the request.
 /// Retunr a list of raw results.
 #[derive(Debug, Clone)]
-pub struct ResultListResponse {
+pub struct Response {
     /// The list of raw results.
-    pub results: Vec<ResultRaw>,
+    pub results: Vec<Raw>,
     /// The page number. Start at 0.
     pub page: i32,
     /// The page size.
@@ -81,7 +79,7 @@ pub struct ResultListResponse {
     pub total: i32,
 }
 
-impl Default for ResultListResponse {
+impl Default for Response {
     fn default() -> Self {
         Self {
             results: Vec::new(),
@@ -92,8 +90,8 @@ impl Default for ResultListResponse {
     }
 }
 
-impl From<ResultListResponse> for v3::results::ListResultsResponse {
-    fn from(value: ResultListResponse) -> Self {
+impl From<Response> for v3::results::ListResultsResponse {
+    fn from(value: Response) -> Self {
         Self {
             results: value.results.into_iter().map(Into::into).collect(),
             page: value.page,
@@ -103,7 +101,7 @@ impl From<ResultListResponse> for v3::results::ListResultsResponse {
     }
 }
 
-impl From<v3::results::ListResultsResponse> for ResultListResponse {
+impl From<v3::results::ListResultsResponse> for Response {
     fn from(value: v3::results::ListResultsResponse) -> Self {
         Self {
             results: value.results.into_iter().map(Into::into).collect(),
@@ -114,4 +112,4 @@ impl From<v3::results::ListResultsResponse> for ResultListResponse {
     }
 }
 
-super::super::impl_convert!(ResultListResponse : Option<v3::results::ListResultsResponse>);
+super::super::impl_convert!(Response : Option<v3::results::ListResultsResponse>);

@@ -6,7 +6,7 @@ use crate::api::v3;
 ///
 /// Used when a list or a single partition is returned.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct PartitionRaw {
+pub struct Raw {
     /// The partition ID.
     pub id: String,
     /// The parent partition IDs.
@@ -23,8 +23,8 @@ pub struct PartitionRaw {
     pub priority: i64,
 }
 
-impl From<PartitionRaw> for v3::partitions::PartitionRaw {
-    fn from(value: PartitionRaw) -> Self {
+impl From<Raw> for v3::partitions::PartitionRaw {
+    fn from(value: Raw) -> Self {
         Self {
             id: value.id,
             parent_partition_ids: value.parent_partition_ids,
@@ -37,7 +37,7 @@ impl From<PartitionRaw> for v3::partitions::PartitionRaw {
     }
 }
 
-impl From<v3::partitions::PartitionRaw> for PartitionRaw {
+impl From<v3::partitions::PartitionRaw> for Raw {
     fn from(value: v3::partitions::PartitionRaw) -> Self {
         Self {
             id: value.id,
@@ -51,4 +51,4 @@ impl From<v3::partitions::PartitionRaw> for PartitionRaw {
     }
 }
 
-super::super::impl_convert!(PartitionRaw : Option<v3::partitions::PartitionRaw>);
+super::super::impl_convert!(Raw : Option<v3::partitions::PartitionRaw>);

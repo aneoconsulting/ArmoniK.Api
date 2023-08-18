@@ -70,3 +70,45 @@ where
         VersionsClient::new(self.channel.clone())
     }
 }
+
+/// Perform a gRPC call from a raw request.
+#[async_trait::async_trait(?Send)]
+pub trait GrpcCall<Request> {
+    type Response;
+    type Error;
+
+    /// Perform a gRPC call from a raw request.
+    async fn call(self, request: Request) -> Result<Self::Response, Self::Error>;
+}
+
+macro_rules! impl_call {
+    (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty> $block:block) => {
+        crate::client::impl_call! {
+            @one $Client($self, $request: $Request) -> Result<$Response, ::tonic::Status> $block
+        }
+    };
+    (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty, $Error:ty> $block:block) => {
+        #[async_trait::async_trait(?Send)]
+        impl<T> $crate::client::GrpcCall<$Request> for &'_ mut $Client<T>
+        where
+            T: tonic::client::GrpcService<tonic::body::BoxBody>,
+            T::Error: Into<tonic::codegen::StdError>,
+            T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+            <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+        {
+            type Response = $Response;
+            type Error = $Error;
+
+            async fn call($self, $request: $Request) -> Result<Self::Response, Self::Error> $block
+        }
+    };
+    ($Client:ident {$(async fn call($self:ident, $request:ident: $Request:ty) -> Result<$($Result:ty),*> $block:block)*}) => {
+        $(
+            crate::client::impl_call! {
+                @one $Client($self, $request: $Request) -> Result<$($Result),*> $block
+            }
+        )*
+    };
+}
+
+pub(crate) use impl_call;

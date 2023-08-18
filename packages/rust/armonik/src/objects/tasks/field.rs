@@ -5,7 +5,7 @@ use crate::api::v3;
 /// Represents every available field in a Task.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
-pub enum TaskSummaryField {
+pub enum SummaryField {
     /// Unspecified.
     Unspecified = 0,
     #[default]
@@ -27,7 +27,7 @@ pub enum TaskSummaryField {
     Error = 8,
 }
 
-impl From<i32> for TaskSummaryField {
+impl From<i32> for SummaryField {
     fn from(value: i32) -> Self {
         match value {
             0 => Self::Unspecified,
@@ -52,48 +52,46 @@ impl From<i32> for TaskSummaryField {
     }
 }
 
-impl From<TaskSummaryField> for v3::tasks::TaskSummaryField {
-    fn from(value: TaskSummaryField) -> Self {
+impl From<SummaryField> for v3::tasks::TaskSummaryField {
+    fn from(value: SummaryField) -> Self {
         Self {
             field: value as i32,
         }
     }
 }
 
-impl From<v3::tasks::TaskSummaryField> for TaskSummaryField {
+impl From<v3::tasks::TaskSummaryField> for SummaryField {
     fn from(value: v3::tasks::TaskSummaryField) -> Self {
         value.field.into()
     }
 }
 
-super::super::impl_convert!(TaskSummaryField : Option<v3::tasks::TaskSummaryField>);
+super::super::impl_convert!(SummaryField : Option<v3::tasks::TaskSummaryField>);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TaskField {
-    TaskSummaryField(TaskSummaryField),
+pub enum Field {
+    Summary(SummaryField),
     /// The task option field.
-    TaskOptionField(TaskOptionField),
+    Option(TaskOptionField),
     /// Represents a generic field in a task option.
-    TaskOptionGenericField(String),
+    OptionGeneric(String),
 }
 
-impl Default for TaskField {
+impl Default for Field {
     fn default() -> Self {
-        Self::TaskSummaryField(Default::default())
+        Self::Summary(Default::default())
     }
 }
 
-impl From<TaskField> for v3::tasks::TaskField {
-    fn from(value: TaskField) -> Self {
+impl From<Field> for v3::tasks::TaskField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(match value {
-                TaskField::TaskSummaryField(field) => {
+                Field::Summary(field) => {
                     v3::tasks::task_field::Field::TaskSummaryField(field.into())
                 }
-                TaskField::TaskOptionField(field) => {
-                    v3::tasks::task_field::Field::TaskOptionField(field.into())
-                }
-                TaskField::TaskOptionGenericField(field) => {
+                Field::Option(field) => v3::tasks::task_field::Field::TaskOptionField(field.into()),
+                Field::OptionGeneric(field) => {
                     v3::tasks::task_field::Field::TaskOptionGenericField(
                         v3::tasks::TaskOptionGenericField { field },
                     )
@@ -103,21 +101,21 @@ impl From<TaskField> for v3::tasks::TaskField {
     }
 }
 
-impl From<v3::tasks::TaskField> for TaskField {
+impl From<v3::tasks::TaskField> for Field {
     fn from(value: v3::tasks::TaskField) -> Self {
         match value.field {
             Some(v3::tasks::task_field::Field::TaskSummaryField(field)) => {
-                Self::TaskSummaryField(field.into())
+                Self::Summary(field.into())
             }
             Some(v3::tasks::task_field::Field::TaskOptionField(field)) => {
-                Self::TaskOptionField(field.into())
+                Self::Option(field.into())
             }
             Some(v3::tasks::task_field::Field::TaskOptionGenericField(field)) => {
-                Self::TaskOptionGenericField(field.field)
+                Self::OptionGeneric(field.field)
             }
             None => Default::default(),
         }
     }
 }
 
-super::super::impl_convert!(TaskField : Option<v3::tasks::TaskField>);
+super::super::impl_convert!(Field : Option<v3::tasks::TaskField>);

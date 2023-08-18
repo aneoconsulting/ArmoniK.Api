@@ -1,24 +1,23 @@
-use super::{
-    super::{FilterArray, FilterBoolean, FilterDate, FilterNumber, FilterString, SessionStatus},
-    SessionField,
+use super::super::{
+    FilterArray, FilterBoolean, FilterDate, FilterNumber, FilterString, SessionStatus,
 };
 
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct SessionFilters {
-    pub or: Vec<SessionFiltersAnd>,
+pub struct Or {
+    pub or: Vec<And>,
 }
 
-impl From<SessionFilters> for v3::sessions::Filters {
-    fn from(value: SessionFilters) -> Self {
+impl From<Or> for v3::sessions::Filters {
+    fn from(value: Or) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::sessions::Filters> for SessionFilters {
+impl From<v3::sessions::Filters> for Or {
     fn from(value: v3::sessions::Filters) -> Self {
         Self {
             or: value.or.into_iter().map(Into::into).collect(),
@@ -26,38 +25,38 @@ impl From<v3::sessions::Filters> for SessionFilters {
     }
 }
 
-super::super::impl_convert!(SessionFilters : Option<v3::sessions::Filters>);
+super::super::impl_convert!(Or : Option<v3::sessions::Filters>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct SessionFiltersAnd {
-    pub and: Vec<SessionFilterField>,
+pub struct And {
+    pub and: Vec<Field>,
 }
 
-impl From<SessionFiltersAnd> for v3::sessions::FiltersAnd {
-    fn from(value: SessionFiltersAnd) -> Self {
+impl From<And> for v3::sessions::FiltersAnd {
+    fn from(value: And) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl From<v3::sessions::FiltersAnd> for SessionFiltersAnd {
+impl From<v3::sessions::FiltersAnd> for And {
     fn from(value: v3::sessions::FiltersAnd) -> Self {
         Self {
             and: value.and.into_iter().map(Into::into).collect(),
         }
     }
 }
-super::super::impl_convert!(SessionFiltersAnd : Option<v3::sessions::FiltersAnd>);
+super::super::impl_convert!(And : Option<v3::sessions::FiltersAnd>);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct SessionFilterField {
-    pub field: SessionField,
-    pub condition: SessionFilterCondition,
+pub struct Field {
+    pub field: super::Field,
+    pub condition: Condition,
 }
 
-impl From<SessionFilterField> for v3::sessions::FilterField {
-    fn from(value: SessionFilterField) -> Self {
+impl From<Field> for v3::sessions::FilterField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(value.field.into()),
             value_condition: Some(value.condition.into()),
@@ -65,24 +64,24 @@ impl From<SessionFilterField> for v3::sessions::FilterField {
     }
 }
 
-impl From<v3::sessions::FilterField> for SessionFilterField {
+impl From<v3::sessions::FilterField> for Field {
     fn from(value: v3::sessions::FilterField) -> Self {
         Self {
             field: value.field.unwrap_or_default().into(),
             condition: match value.value_condition {
                 Some(cond) => cond.into(),
-                None => SessionFilterCondition::String(Default::default()),
+                None => Condition::String(Default::default()),
             },
         }
     }
 }
 
-super::super::impl_convert!(SessionFilterField : Option<v3::sessions::FilterField>);
+super::super::impl_convert!(Field : Option<v3::sessions::FilterField>);
 
-pub type FilterStatus = super::super::FilterStatus<SessionStatus>;
+pub type Status = super::super::FilterStatus<SessionStatus>;
 
-impl From<FilterStatus> for v3::sessions::FilterStatus {
-    fn from(value: FilterStatus) -> Self {
+impl From<Status> for v3::sessions::FilterStatus {
+    fn from(value: Status) -> Self {
         Self {
             value: value.value as i32,
             operator: value.operator as i32,
@@ -90,7 +89,7 @@ impl From<FilterStatus> for v3::sessions::FilterStatus {
     }
 }
 
-impl From<v3::sessions::FilterStatus> for FilterStatus {
+impl From<v3::sessions::FilterStatus> for Status {
     fn from(value: v3::sessions::FilterStatus) -> Self {
         Self {
             value: value.value.into(),
@@ -100,35 +99,35 @@ impl From<v3::sessions::FilterStatus> for FilterStatus {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SessionFilterCondition {
+pub enum Condition {
     String(FilterString),
     Number(FilterNumber),
     Boolean(FilterBoolean),
-    Status(FilterStatus),
+    Status(Status),
     Date(FilterDate),
     Array(FilterArray),
 }
 
-impl Default for SessionFilterCondition {
+impl Default for Condition {
     fn default() -> Self {
         Self::String(Default::default())
     }
 }
 
-impl From<SessionFilterCondition> for v3::sessions::filter_field::ValueCondition {
-    fn from(value: SessionFilterCondition) -> Self {
+impl From<Condition> for v3::sessions::filter_field::ValueCondition {
+    fn from(value: Condition) -> Self {
         match value {
-            SessionFilterCondition::String(cond) => Self::FilterString(cond.into()),
-            SessionFilterCondition::Number(cond) => Self::FilterNumber(cond.into()),
-            SessionFilterCondition::Boolean(cond) => Self::FilterBoolean(cond.into()),
-            SessionFilterCondition::Status(cond) => Self::FilterStatus(cond.into()),
-            SessionFilterCondition::Date(cond) => Self::FilterDate(cond.into()),
-            SessionFilterCondition::Array(cond) => Self::FilterArray(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond.into()),
+            Condition::Number(cond) => Self::FilterNumber(cond.into()),
+            Condition::Boolean(cond) => Self::FilterBoolean(cond.into()),
+            Condition::Status(cond) => Self::FilterStatus(cond.into()),
+            Condition::Date(cond) => Self::FilterDate(cond.into()),
+            Condition::Array(cond) => Self::FilterArray(cond.into()),
         }
     }
 }
 
-impl From<v3::sessions::filter_field::ValueCondition> for SessionFilterCondition {
+impl From<v3::sessions::filter_field::ValueCondition> for Condition {
     fn from(value: v3::sessions::filter_field::ValueCondition) -> Self {
         match value {
             v3::sessions::filter_field::ValueCondition::FilterString(cond) => {
@@ -151,4 +150,4 @@ impl From<v3::sessions::filter_field::ValueCondition> for SessionFilterCondition
     }
 }
 
-super::super::impl_convert!(SessionFilterCondition : Option<v3::sessions::filter_field::ValueCondition>);
+super::super::impl_convert!(Condition : Option<v3::sessions::filter_field::ValueCondition>);

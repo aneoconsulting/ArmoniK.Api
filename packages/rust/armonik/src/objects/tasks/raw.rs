@@ -8,7 +8,7 @@ use crate::api::v3;
 /// It contains only a subset of the fields from the underlying task object.
 /// Used when a list of tasks are returned.
 #[derive(Debug, Clone, Default)]
-pub struct TaskSummary {
+pub struct Raw {
     /// The task ID.
     pub id: String,
     /// The session ID. A task have only one related session but a session have many tasks.
@@ -17,14 +17,14 @@ pub struct TaskSummary {
     pub owner_pod_id: String,
     /// The initial task ID. Set when a task is submitted independantly of retries.
     pub initial_task_id: String,
-    /// Count the parent task IDs. A tasks can be a child of another task.
-    pub count_parent_task_ids: i64,
-    /// Count the data dependencies. A task have data dependencies.
-    pub count_data_dependencies: i64,
-    /// Count the expected output IDs. A task have expected output IDs.
-    pub count_expected_output_ids: i64,
-    /// Count the retry of IDs. When a task fail, retry will use these set of IDs.
-    pub count_retry_of_ids: i64,
+    /// The parent task IDs. A tasks can be a child of another task.
+    pub parent_task_ids: Vec<String>,
+    /// The data dependencies. A task have data dependencies.
+    pub data_dependencies: Vec<String>,
+    /// The expected output IDs. A task have expected output IDs.
+    pub expected_output_ids: Vec<String>,
+    /// The retry of IDs. When a task fail, retry will use these set of IDs.
+    pub retry_of_ids: Vec<String>,
     /// The task status.
     pub status: TaskStatus,
     /// The status message.
@@ -55,17 +55,17 @@ pub struct TaskSummary {
     pub acquired_at: Option<prost_types::Timestamp>,
 }
 
-impl From<TaskSummary> for v3::tasks::TaskSummary {
-    fn from(value: TaskSummary) -> Self {
+impl From<Raw> for v3::tasks::TaskDetailed {
+    fn from(value: Raw) -> Self {
         Self {
             id: value.id,
             session_id: value.session_id,
             owner_pod_id: value.owner_pod_id,
             initial_task_id: value.initial_task_id,
-            count_parent_task_ids: value.count_parent_task_ids,
-            count_data_dependencies: value.count_data_dependencies,
-            count_expected_output_ids: value.count_expected_output_ids,
-            count_retry_of_ids: value.count_retry_of_ids,
+            parent_task_ids: value.parent_task_ids,
+            data_dependencies: value.data_dependencies,
+            expected_output_ids: value.expected_output_ids,
+            retry_of_ids: value.retry_of_ids,
             status: value.status as i32,
             status_message: value.status_message,
             options: value.options.into(),
@@ -76,10 +76,7 @@ impl From<TaskSummary> for v3::tasks::TaskSummary {
             creation_to_end_duration: value.creation_to_end_duration,
             processing_to_end_duration: value.processing_to_end_duration,
             pod_ttl: value.pod_ttl,
-            error: match value.output {
-                Output::Success => Default::default(),
-                Output::Error(message) => message,
-            },
+            output: value.output.into(),
             pod_hostname: value.pod_hostname,
             received_at: value.received_at,
             acquired_at: value.acquired_at,
@@ -87,17 +84,17 @@ impl From<TaskSummary> for v3::tasks::TaskSummary {
     }
 }
 
-impl From<v3::tasks::TaskSummary> for TaskSummary {
-    fn from(value: v3::tasks::TaskSummary) -> Self {
+impl From<v3::tasks::TaskDetailed> for Raw {
+    fn from(value: v3::tasks::TaskDetailed) -> Self {
         Self {
             id: value.id,
             session_id: value.session_id,
             owner_pod_id: value.owner_pod_id,
             initial_task_id: value.initial_task_id,
-            count_parent_task_ids: value.count_parent_task_ids,
-            count_data_dependencies: value.count_data_dependencies,
-            count_expected_output_ids: value.count_expected_output_ids,
-            count_retry_of_ids: value.count_retry_of_ids,
+            parent_task_ids: value.parent_task_ids,
+            data_dependencies: value.data_dependencies,
+            expected_output_ids: value.expected_output_ids,
+            retry_of_ids: value.retry_of_ids,
             status: value.status.into(),
             status_message: value.status_message,
             options: value.options.into(),
@@ -108,11 +105,7 @@ impl From<v3::tasks::TaskSummary> for TaskSummary {
             creation_to_end_duration: value.creation_to_end_duration,
             processing_to_end_duration: value.processing_to_end_duration,
             pod_ttl: value.pod_ttl,
-            output: if value.error.is_empty() {
-                Output::Success
-            } else {
-                Output::Error(value.error)
-            },
+            output: value.output.into(),
             pod_hostname: value.pod_hostname,
             received_at: value.received_at,
             acquired_at: value.acquired_at,
@@ -120,4 +113,4 @@ impl From<v3::tasks::TaskSummary> for TaskSummary {
     }
 }
 
-super::super::impl_convert!(TaskSummary : Option<v3::tasks::TaskSummary>);
+super::super::impl_convert!(Raw : Option<v3::tasks::TaskDetailed>);

@@ -1,5 +1,3 @@
-use tokio_stream::StreamExt;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = armonik::Client::connect("http://localhost:5001").await?;
@@ -11,59 +9,63 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get current user
     println!("{:?}", client.auth().current_user().await?);
 
-    // List sessions
-    println!("{:?}", client.sessions().list(Default::default()).await?);
-
     // List partitions
     let response = client
         .partitions()
-        .list(armonik::partitions::PartitionListRequest {
+        .call(armonik::partitions::list::Request {
             page: 0,
             ..Default::default()
         })
         .await?;
     println!("Partitions: {:?}", response);
+    let partition = response.partitions[0].id.clone();
 
-    // Create result
-    println!(
-        "Create result: {:?}",
-        client
-            .results()
-            .create_metadata(armonik::results::CreateResultsMetadataRequest {
-                results: vec!["res1".into(), "res2".into()],
-                session_id: "session-id".into(),
-            })
-            .await?,
-    );
-
-    // Upload result
-    println!(
-        "Upload result: {:?}",
-        client
-            .results()
-            .upload(
-                "session_id".into(),
-                "res-1".into(),
-                Box::pin(async_stream::stream! {
-                    yield b"abc".to_owned();
-                    yield b"def".to_owned();
-                })
-            )
-            .await?
-    );
-
-    // Download result
-    let mut response = client
-        .results()
-        .download(armonik::results::DownloadResultDataRequest {
-            session_id: "session-id".into(),
-            result_id: "res1".into(),
-        })
+    // Create session
+    let session = client
+        .sessions()
+        .create(vec![partition.clone()], Default::default())
         .await?;
 
-    while let Some(data) = response.try_next().await? {
-        println!("Data: {:?}", data);
-    }
+    println!("Created session {session} using partition {partition}");
+
+    // Create result
+    let mut results = client
+        .results()
+        .create_metadata(
+            session.clone(),
+            ["input".into(), "output".into()].into_iter().collect(),
+        )
+        .await?;
+
+    let input = results.remove("input").unwrap();
+    let output = results.remove("output").unwrap();
+
+    // Upload payload
+    client
+        .results()
+        .upload(
+            session.clone(),
+            input.result_id.clone(),
+            Box::pin(async_stream::stream! {
+                yield b"payload".to_vec();
+            }),
+        )
+        .await?;
+
+    // Submit task
+    client
+        .tasks()
+        .submit(
+            session.clone(),
+            None,
+            vec![armonik::tasks::submit::RequestItem {
+                expected_output_keys: vec![output.result_id.clone()],
+                data_dependencies: vec![],
+                payload_id: input.result_id.clone(),
+                task_options: None,
+            }],
+        )
+        .await?;
 
     println!("Done");
 

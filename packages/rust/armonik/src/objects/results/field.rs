@@ -3,7 +3,7 @@ use crate::api::v3;
 /// Represents every available field in a result.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
-pub enum ResultField {
+pub enum Field {
     /// Unspecified.
     Unspecified = 0,
     /// The session ID.
@@ -23,7 +23,7 @@ pub enum ResultField {
     ResultId = 7,
 }
 
-impl From<i32> for ResultField {
+impl From<i32> for Field {
     fn from(value: i32) -> Self {
         match value {
             0 => Self::Unspecified,
@@ -39,8 +39,8 @@ impl From<i32> for ResultField {
     }
 }
 
-impl From<ResultField> for v3::results::ResultField {
-    fn from(value: ResultField) -> Self {
+impl From<Field> for v3::results::ResultField {
+    fn from(value: Field) -> Self {
         Self {
             field: Some(v3::results::result_field::Field::ResultRawField(
                 v3::results::ResultRawField {
@@ -51,7 +51,7 @@ impl From<ResultField> for v3::results::ResultField {
     }
 }
 
-impl From<v3::results::ResultField> for ResultField {
+impl From<v3::results::ResultField> for Field {
     fn from(value: v3::results::ResultField) -> Self {
         match value.field {
             Some(v3::results::result_field::Field::ResultRawField(field)) => field.field.into(),
@@ -60,4 +60,4 @@ impl From<v3::results::ResultField> for ResultField {
     }
 }
 
-super::super::impl_convert!(ResultField : Option<v3::results::ResultField>);
+super::super::impl_convert!(Field : Option<v3::results::ResultField>);
