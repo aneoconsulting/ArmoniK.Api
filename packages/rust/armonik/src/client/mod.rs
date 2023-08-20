@@ -3,6 +3,7 @@ mod auth;
 mod partitions;
 mod results;
 mod sessions;
+mod submitter;
 mod tasks;
 mod versions;
 
@@ -11,6 +12,7 @@ pub use auth::AuthClient;
 pub use partitions::PartitionsClient;
 pub use results::ResultsClient;
 pub use sessions::SessionsClient;
+pub use submitter::SubmitterClient;
 pub use tasks::TasksClient;
 pub use versions::VersionsClient;
 
@@ -60,6 +62,10 @@ where
 
     pub fn sessions(&self) -> SessionsClient<T> {
         SessionsClient::new(self.channel.clone())
+    }
+
+    pub fn submitter(&self) -> SubmitterClient<T> {
+        SubmitterClient::new(self.channel.clone())
     }
 
     pub fn tasks(&self) -> TasksClient<T> {
