@@ -29,6 +29,7 @@ pub mod events;
 pub mod partitions;
 pub mod results;
 pub mod sessions;
+pub mod submitter;
 pub mod tasks;
 pub mod versions;
 
