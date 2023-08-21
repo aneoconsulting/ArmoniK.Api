@@ -218,7 +218,7 @@ jobs:
         run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
       
       - name: Get Cover 
-        uses: orgoro/coverage@v3.1
+        uses: orgoro/coverage@4e3bc9302f715595336a40f7dd4a3b15c687bdb4
         with:
           coverageFile: packages/python/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -244,7 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
         with:
           ref: ${{ github.ref }}
 
