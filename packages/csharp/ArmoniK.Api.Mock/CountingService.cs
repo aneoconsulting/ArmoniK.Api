@@ -31,7 +31,7 @@ public static class CountingService
 {
   /// <summary>
   ///   Dictionary with all counts of all counting services.
-  ///   `StrongBox` is required to get a `ref` on the value, and cal `Interlocked.increment` on it.
+  ///   `StrongBox` is required to get a `ref` on the value, and call `Interlocked.increment` on it.
   /// </summary>
   internal static readonly Dictionary<string, Dictionary<string, StrongBox<long>>> Counts;
 
@@ -139,9 +139,23 @@ public class CountAttribute : Attribute, IMethodDecorator
                    object[]   args)
   {
     _ = args;
-    Interlocked.Increment(ref CountingService.Counts[instance.GetType()
-                                                             .Name][method.Name]
-                                             .Value);
+    var type = instance.GetType();
+
+    // Usage of `TryGet` ensures no entries are created in the dictionary.
+    // This is required for thread safety.
+    if (!CountingService.Counts.TryGetValue(type.Name,
+                                            out var serviceCount))
+    {
+      throw new SystemException($"Trying to count on {type.Name} service, but service was not recorded.");
+    }
+
+    if (!serviceCount.TryGetValue(method.Name,
+                                  out var methodCount))
+    {
+      throw new SystemException($"Trying to count {type.Name}.{method.Name} method, but method was not recorded.");
+    }
+
+    Interlocked.Increment(ref methodCount.Value);
   }
 
   public void OnException(Exception exception)
