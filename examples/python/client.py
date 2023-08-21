@@ -9,7 +9,7 @@ from common import Payload, Result
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser("Armonik Example Client")
+    parser = argparse.ArgumentParser("ArmoniK Example Client")
     parser.add_argument("-e", "--endpoint", required=True, type=str, help="Control plane endpoint")
     parser.add_argument("-p", "--partition", type=str, help="Partition used for the worker")
     parser.add_argument("-v", "--values", type=float, help="List of values to compute instead of x in [0, n[", nargs='+')

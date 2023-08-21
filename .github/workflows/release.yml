@@ -23,7 +23,7 @@ jobs:
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
-        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+        uses: actions/setup-node@5e21ff4d9bc1a8cf6de233a3057d20ec6b3fb69d # v3
         with:
           node-version: 18.x
           cache: pnpm
@@ -108,7 +108,7 @@ jobs:
 
       - run: npm i -g pnpm @antfu/ni
 
-      - uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+      - uses: actions/setup-node@5e21ff4d9bc1a8cf6de233a3057d20ec6b3fb69d # v3
         with:
           node-version: 18
           cache: pnpm
@@ -141,7 +141,7 @@ jobs:
 
       - run: npm i -g pnpm @antfu/ni
 
-      - uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+      - uses: actions/setup-node@5e21ff4d9bc1a8cf6de233a3057d20ec6b3fb69d # v3
         with:
           node-version: 18
           cache: pnpm
@@ -167,6 +167,37 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
+  release-cpp-package:
+    needs: [verify-versions]
+    strategy:
+      fail-fast: false
+      matrix:
+        type: [tar.gz, deb, rpm]
+    name: Build C++ Packages [${{ matrix.type }}]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Build the package
+        run: |
+          cd packages/cpp/tools/packaging
+          ./make-${{ matrix.type }}.sh
+      - name: Publish package as artefact
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          if-no-files-found: error
+          path: packages/cpp/tools/packaging/*.${{ matrix.type }}
+          name: libarmonik-${{ github.ref_name }}.${{ matrix.type }}
+      - name: Upload to release
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          gh release upload ${{ github.ref_name }} packages/cpp/tools/packaging/*.${{ matrix.type }}
+
+
   update-changelog:
     needs: [verify-versions]
     runs-on: ubuntu-latest
@@ -176,7 +207,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set node
-        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+        uses: actions/setup-node@5e21ff4d9bc1a8cf6de233a3057d20ec6b3fb69d # v3
         with:
           node-version: 18
 

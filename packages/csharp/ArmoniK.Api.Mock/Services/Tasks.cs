@@ -28,27 +28,27 @@ namespace ArmoniK.Api.Mock.Services;
 [Counting]
 public class Tasks : gRPC.V1.Tasks.Tasks.TasksBase
 {
-  private static readonly TaskRaw MockTask = new()
-                                             {
-                                               Id        = "task-id",
-                                               SessionId = "session-id",
-                                               Status    = TaskStatus.Completed,
-                                               Options = new TaskOptions
-                                                         {
-                                                           Priority             = 1,
-                                                           ApplicationName      = "application-name",
-                                                           ApplicationNamespace = "application-namespace",
-                                                           ApplicationService   = "application-service",
-                                                           ApplicationVersion   = "application-version",
-                                                           EngineType           = "engine-type",
-                                                           MaxDuration = new Duration
-                                                                         {
-                                                                           Seconds = 1,
-                                                                         },
-                                                           MaxRetries  = 1,
-                                                           PartitionId = "partition-id",
-                                                         },
-                                             };
+  private static readonly TaskDetailed MockTask = new()
+                                                  {
+                                                    Id        = "task-id",
+                                                    SessionId = "session-id",
+                                                    Status    = TaskStatus.Completed,
+                                                    Options = new TaskOptions
+                                                              {
+                                                                Priority             = 1,
+                                                                ApplicationName      = "application-name",
+                                                                ApplicationNamespace = "application-namespace",
+                                                                ApplicationService   = "application-service",
+                                                                ApplicationVersion   = "application-version",
+                                                                EngineType           = "engine-type",
+                                                                MaxDuration = new Duration
+                                                                              {
+                                                                                Seconds = 1,
+                                                                              },
+                                                                MaxRetries  = 1,
+                                                                PartitionId = "partition-id",
+                                                              },
+                                                  };
 
   /// <inheritdocs />
   [Count]
@@ -90,9 +90,9 @@ public class Tasks : gRPC.V1.Tasks.Tasks.TasksBase
 
   /// <inheritdocs />
   [Count]
-  public override Task<ListTasksRawResponse> ListTasksRaw(ListTasksRequest  request,
-                                                          ServerCallContext context)
-    => Task.FromResult(new ListTasksRawResponse
+  public override Task<ListTasksDetailedResponse> ListTasksDetailed(ListTasksRequest  request,
+                                                                    ServerCallContext context)
+    => Task.FromResult(new ListTasksDetailedResponse
                        {
                          Page     = 0,
                          Total    = 0,

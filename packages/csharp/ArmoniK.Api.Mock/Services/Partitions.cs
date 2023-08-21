@@ -14,14 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Armonik.Api.Grpc.V1.Partitions;
+using ArmoniK.Api.gRPC.V1.Partitions;
 
 using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class Partitions : Armonik.Api.Grpc.V1.Partitions.Partitions.PartitionsBase
+public class Partitions : gRPC.V1.Partitions.Partitions.PartitionsBase
 {
   /// <inheritdocs />
   [Count]

@@ -22,6 +22,7 @@
 // limitations under the License.
 
 using System;
+using System.Threading;
 
 using ArmoniK.Api.Client.Submitter;
 
@@ -116,5 +117,10 @@ namespace ArmoniK.Api.Client.Options
     ///   MaxBackOff is a property that gets and sets the maximum backOff time for retrying an operation.
     /// </summary>
     public TimeSpan MaxBackOff { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    ///   Timeout for grpc requests. Defaults to no timeout.
+    /// </summary>
+    public TimeSpan RequestTimeout { get; set; } = Timeout.InfiniteTimeSpan;
   }
 }

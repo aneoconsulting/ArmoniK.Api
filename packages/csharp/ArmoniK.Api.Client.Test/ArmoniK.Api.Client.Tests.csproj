@@ -9,7 +9,7 @@
     <Optimize>true</Optimize>
     <DebugType>Embedded</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
-    <PackageVersion>3.9.0</PackageVersion>
+    <PackageVersion>3.11.0</PackageVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -21,7 +21,7 @@
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.13.3" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.3" />
   </ItemGroup>
 
   <ItemGroup>
