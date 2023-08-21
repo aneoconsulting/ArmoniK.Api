@@ -1,26 +1,26 @@
 // This file is part of the ArmoniK project
-// 
-// Copyright (C) ANEO, 2021-2023.All rights reserved.
-//   W.Kirschenmann   <wkirschenmann@aneo.fr>
-//   J.Gurhem         <jgurhem@aneo.fr>
-//   D.Dubuc          <ddubuc@aneo.fr>
-//   L.Ziane Khodja   <lzianekhodja@aneo.fr>
-//   F.Lemaitre       <flemaitre@aneo.fr>
-//   S.Djebbar        <sdjebbar@aneo.fr>
-//   J.Fonseca        <jfonseca@aneo.fr>
-// 
-// This program is free software:you can redistribute it and/or modify
+//
+// Copyright (C) ANEO, 2021-2023. All rights reserved.
+//   W. Kirschenmann   <wkirschenmann@aneo.fr>
+//   J. Gurhem         <jgurhem@aneo.fr>
+//   D. Dubuc          <ddubuc@aneo.fr>
+//   L. Ziane Khodja   <lzianekhodja@aneo.fr>
+//   F. Lemaitre       <flemaitre@aneo.fr>
+//   S. Djebbar        <sdjebbar@aneo.fr>
+//   J. Fonseca        <jfonseca@aneo.fr>
+//
+// This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published
 // by the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY, without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU Affero General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU Affero General Public License
-// along with this program.If not, see <http://www.gnu.org/licenses/>.
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System.Text;
 
@@ -88,6 +88,12 @@ app.MapGet("/calls.json",
            Calls);
 app.MapPost("/calls.json",
             Calls);
+app.MapPost("/reset",
+            _ =>
+            {
+              CountingService.ResetCounters();
+              return Task.CompletedTask;
+            });
 
 app.Run();
 
@@ -104,7 +110,7 @@ async Task Calls(HttpContext context)
   var exclude = string.IsNullOrWhiteSpace(requestBody)
                   ? null
                   : JsonConvert.DeserializeObject<Dictionary<string, HashSet<string>>>(requestBody);
-  var body = JsonConvert.SerializeObject(app.Services.GetCounters(exclude));
+  var body = JsonConvert.SerializeObject(CountingService.GetCounters(exclude));
   context.Response.ContentType = "application/json";
   await context.Response.Body.WriteAsync(Encoding.ASCII.GetBytes(body));
 }

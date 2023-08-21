@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" Version="2.46.0" />
     <PackageReference Include="Grpc.AspNetCore.Web" Version="2.46.0" />
+    <PackageReference Include="MethodDecorator.Fody" Version="1.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
