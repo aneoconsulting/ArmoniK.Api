@@ -30,7 +30,8 @@ namespace ArmoniK.Api.Mock;
 public static class CountingService
 {
   /// <summary>
-  ///   Dictionary with all counts of all counting services
+  ///   Dictionary with all counts of all counting services.
+  ///   `StrongBox` is required to get a `ref` on the value, and cal `Interlocked.increment` on it.
   /// </summary>
   internal static readonly Dictionary<string, Dictionary<string, StrongBox<long>>> Counts;
 
@@ -66,13 +67,13 @@ public static class CountingService
 
     Counts = Services
       // Create a dictionary for all the types to record method calling counts
-      .ToDictionary(type => type!.Name,
-                    type => type!.GetMethods()
-                                 // Get all methods that have the [Count] attribute
-                                 .Where(method => method.GetCustomAttributes<CountAttribute>()
-                                                        .Any())
-                                 .ToDictionary(method => method.Name,
-                                               _ => new StrongBox<long>(0)));
+      .ToDictionary(type => type.Name,
+                    type => type.GetMethods()
+                                // Get all methods that have the [Count] attribute
+                                .Where(method => method.GetCustomAttributes<CountAttribute>()
+                                                       .Any())
+                                .ToDictionary(method => method.Name,
+                                              _ => new StrongBox<long>(0)));
   }
 
   /// <summary>
