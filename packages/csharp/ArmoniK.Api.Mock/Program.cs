@@ -24,6 +24,19 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Newtonsoft.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
+       .AddJsonFile("appsettings.json",
+                    true,
+                    false)
+       .AddEnvironmentVariables()
+       .AddCommandLine(args);
+
+var httpPort = int.Parse(builder.Configuration.GetSection("Http")
+                                .GetSection("Port")
+                                .Value ?? "5000");
+var grpcPort = int.Parse(builder.Configuration.GetSection("Grpc")
+                                .GetSection("Port")
+                                .Value ?? "5001");
 
 // Additional configuration is required to successfully run gRPC on macOS.
 // For instructions on how to configure Kestrel and gRPC clients on macOS, visit https://go.microsoft.com/fwlink/?linkid=2099682
@@ -43,14 +56,9 @@ builder.Services.AddSingleton<VersionsService>();
 
 builder.WebHost.UseKestrel(options =>
                            {
-                             options.ListenAnyIP(1080,
-                                                 listenOptions =>
-                                                 {
-                                                   listenOptions.Protocols = HttpProtocols.Http2;
-                                                 });
-                             options.ListenAnyIP(1081,
+                             options.ListenAnyIP(httpPort,
                                                  listenOptions => listenOptions.Protocols = HttpProtocols.Http1);
-                             options.ListenAnyIP(5001,
+                             options.ListenAnyIP(grpcPort,
                                                  listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
                            });
 
