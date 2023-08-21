@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.results;
+
+import "filters_common.proto";
+import "result_status.proto";
+import "results_fields.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
+
+message FilterStatus {
+  result_status.ResultStatus value = 1;
+  FilterStatusOperator operator = 2;
+}
+
+message FilterField {
+  ResultField field = 1;
+  oneof value_condition {
+    FilterString filter_string = 2;
+    FilterDate filter_date = 3;
+    FilterArray filter_array = 4;
+    FilterStatus filter_status = 5;
+  }
+}
+
+message FiltersAnd {
+  repeated FilterField and = 1;
+}
+
+message Filters {
+  repeated FiltersAnd or = 1;
+}
+
+// TODO: I think that we could add a duration filter.

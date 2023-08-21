@@ -14,13 +14,13 @@
     <Nullable>enable</Nullable>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
     <Optimize>true</Optimize>
-    <PackageVersion>3.9.0</PackageVersion>
+    <PackageVersion>3.11.0</PackageVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ArmoniK.Utils" Version="0.2.0" />
-    <PackageReference Include="Google.Protobuf" Version="3.23.3" />
-    <PackageReference Include="Grpc.Net.Client" Version="2.54.0" />
+    <PackageReference Include="ArmoniK.Utils" Version="0.3.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.23.4" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.55.0" />
     <PackageReference Include="Grpc.Tools" Version="2.56.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -90,6 +90,50 @@
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\versions_common.proto" Link="versions_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\tasks_fields.proto" Link="tasks_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\tasks_filters.proto" Link="tasks_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\sessions_fields.proto" Link="sessions_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\sessions_filters.proto" Link="sessions_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\applications_fields.proto" Link="applications_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\applications_filters.proto" Link="applications_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\partitions_fields.proto" Link="partitions_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\partitions_filters.proto" Link="partitions_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\results_fields.proto" Link="results_fields.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\results_filters.proto" Link="results_filters.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\filters_common.proto" Link="filters_common.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>

@@ -33,10 +33,4 @@ public class Applications : gRPC.V1.Applications.Applications.ApplicationsBase
                          PageSize = request.PageSize,
                          Total    = 0,
                        });
-
-  /// <inheritdocs />
-  [Count]
-  public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
-                                                                      ServerCallContext         context)
-    => Task.FromResult(new CountTasksByStatusResponse());
 }

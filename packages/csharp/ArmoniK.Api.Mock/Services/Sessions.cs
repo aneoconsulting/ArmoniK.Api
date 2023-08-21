@@ -41,6 +41,15 @@ public class Sessions : gRPC.V1.Sessions.Sessions.SessionsBase
 
   /// <inheritdoc />
   [Count]
+  public override Task<CreateSessionReply> CreateSession(CreateSessionRequest request,
+                                                         ServerCallContext    context)
+    => Task.FromResult(new CreateSessionReply
+                       {
+                         SessionId = MockSession.SessionId,
+                       });
+
+  /// <inheritdoc />
+  [Count]
   public override Task<GetSessionResponse> GetSession(GetSessionRequest request,
                                                       ServerCallContext context)
     => Task.FromResult(new GetSessionResponse
@@ -58,10 +67,4 @@ public class Sessions : gRPC.V1.Sessions.Sessions.SessionsBase
                          PageSize = request.PageSize,
                          Total    = 0,
                        });
-
-  /// <inheritdoc />
-  [Count]
-  public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
-                                                                      ServerCallContext         context)
-    => Task.FromResult(new CountTasksByStatusResponse());
 }

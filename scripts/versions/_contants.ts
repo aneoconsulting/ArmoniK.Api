@@ -8,3 +8,6 @@ export const pythonFiles = ["packages/python/pyproject.toml"];
 
 export const jsPattern = /"version": "(?<version>.*)"/;
 export const jsFiles = ["packages/angular/projects/aneoconsultingfr/armonik.api.angular/package.json", "packages/web/package.json"];
+
+export const cppPattern = /set\(version (?<version>.*)\)/
+export const cppFiles = ["packages/cpp/CMakeLists.txt"];

@@ -56,6 +56,7 @@ message EventSubscriptionResponse {
     repeated string expected_output_keys = 44; /** The keys of the expected outputs **/
     repeated string data_dependencies = 45; /** The keys of the data dependencies. **/
     repeated string retry_of_ids = 46; /** The list of retried tasks from the first retry to the current. **/
+    repeated string parent_task_ids = 47; /** The parent task IDs. A tasks can be a child of another task. **/
   }
 
   /**

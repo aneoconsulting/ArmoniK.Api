@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta, datetime
 from typing import Optional, List, Dict
 
-from ..protogen.common.tasks_common_pb2 import TaskRaw
+from ..protogen.common.tasks_common_pb2 import TaskDetailed
 from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
 from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput, TaskOptions as RawTaskOptions
 from .enumwrapper import TaskStatus
@@ -124,7 +124,7 @@ class Task:
         self.is_init = True
 
     @classmethod
-    def from_message(cls, task_raw: TaskRaw) -> "Task":
+    def from_message(cls, task_raw: TaskDetailed) -> "Task":
         return cls(
             id=task_raw.id,
             session_id=task_raw.session_id,

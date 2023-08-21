@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+set_and_check(ARMONIK_API_CLIENT_PREFIX "@PACKAGE_CMAKE_INSTALL_PREFIX@")
+set_and_check(ARMONIK_API_CLIENT_LIBPATH "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
+
+include(CMakeFindDependencyMacro)
+find_dependency(ArmoniK.Api.Common CONFIG REQUIRED)
+
+include("${ARMONIK_API_CLIENT_LIBPATH}/cmake/ArmoniK.Api.Client/ArmoniK.Api.ClientTargets.cmake")
+
+check_required_components(ArmoniK.Api.Client)
+
+include_directories("${ARMONIK_API_CLIENT_PREFIX}/include/armonik/client")

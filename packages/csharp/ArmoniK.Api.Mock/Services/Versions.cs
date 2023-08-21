@@ -14,17 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Armonik.Api.Grpc.V1.Versions;
+using ArmoniK.Api.gRPC.V1.Versions;
 
 using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class Versions : Armonik.Api.Grpc.V1.Versions.Versions.VersionsBase
+public class Versions : gRPC.V1.Versions.Versions.VersionsBase
 {
-  private static readonly string ApiVersion = typeof(Armonik.Api.Grpc.V1.Versions.Versions.VersionsBase).Assembly.GetName()
-                                                                                                        .Version!.ToString();
+  private static readonly string ApiVersion = typeof(gRPC.V1.Versions.Versions.VersionsBase).Assembly.GetName()
+                                                                                            .Version!.ToString();
 
   /// <inheritdocs />
   [Count]

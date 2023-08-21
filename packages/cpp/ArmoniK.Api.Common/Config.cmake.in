@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+set_and_check(ARMONIK_API_COMMON_PREFIX "@PACKAGE_CMAKE_INSTALL_PREFIX@")
+set_and_check(ARMONIK_API_COMMON_LIBPATH "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
+
+include(CMakeFindDependencyMacro)
+find_dependency(Protobuf REQUIRED)
+find_dependency(gRPC CONFIG REQUIRED)
+find_dependency(Threads)
+
+include("${ARMONIK_API_COMMON_LIBPATH}/cmake/ArmoniK.Api.Common/ArmoniK.Api.CommonTargets.cmake")
+
+check_required_components(ArmoniK.Api.Common)
+
+include_directories("${ARMONIK_API_COMMON_PREFIX}/include/armonik/common")

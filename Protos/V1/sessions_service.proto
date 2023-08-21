@@ -29,7 +29,7 @@ service Sessions {
   rpc CancelSession(CancelSessionRequest) returns (CancelSessionResponse) {}
 
   /**
-   * Get count from tasks by status using a session id.
+   * Create a session
    */
-  rpc CountTasksByStatus(CountTasksByStatusRequest) returns (CountTasksByStatusResponse) {}
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
 }

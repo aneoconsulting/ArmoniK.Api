@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.applications;
+
+import "applications_fields.proto";
+import "filters_common.proto";
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
+
+message FilterField {
+  ApplicationField field = 1;
+  oneof value_condition {
+    FilterString filter_string = 2;
+  }
+}
+
+message FiltersAnd {
+  repeated FilterField and = 1;
+}
+
+message Filters {
+  repeated FiltersAnd or = 1;
+}
+
+// TODO: I think that we could add a duration filter.
