@@ -233,7 +233,7 @@ jobs:
           print-hash: true
           packages-dir: packages/python/pkg/
 
-    release-cpp-package:
+  release-cpp-package:
     needs: [version]
     strategy:
       fail-fast: false
