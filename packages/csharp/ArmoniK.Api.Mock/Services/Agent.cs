@@ -22,7 +22,7 @@ using Grpc.Core;
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class AgentService : Agent.AgentBase
+public class Agent : gRPC.V1.Agent.Agent.AgentBase
 {
   /// <inheritdocs />
   [Count]

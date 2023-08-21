@@ -23,6 +23,8 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 using Newtonsoft.Json;
 
+using Results = ArmoniK.Api.Mock.Services.Results;
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.SetBasePath(Directory.GetCurrentDirectory())
        .AddJsonFile("appsettings.json",
@@ -65,16 +67,16 @@ app.UseGrpcWeb(new GrpcWebOptions
                });
 
 // Configure the HTTP request pipeline.
-app.MapGrpcService<AgentService>();
-app.MapGrpcService<ApplicationsService>();
-app.MapGrpcService<AuthService>();
-app.MapGrpcService<EventsService>();
-app.MapGrpcService<PartitionsService>();
-app.MapGrpcService<ResultsService>();
-app.MapGrpcService<SessionsService>();
-app.MapGrpcService<SubmitterService>();
-app.MapGrpcService<TasksService>();
-app.MapGrpcService<VersionsService>();
+app.MapGrpcService<Agent>();
+app.MapGrpcService<Applications>();
+app.MapGrpcService<Auth>();
+app.MapGrpcService<Events>();
+app.MapGrpcService<Partitions>();
+app.MapGrpcService<Results>();
+app.MapGrpcService<Sessions>();
+app.MapGrpcService<Submitter>();
+app.MapGrpcService<Tasks>();
+app.MapGrpcService<Versions>();
 app.MapGet("/",
            ()
              => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");

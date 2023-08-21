@@ -14,25 +14,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Armonik.Api.Grpc.V1.Versions;
+using ArmoniK.Api.gRPC.V1.Auth;
 
 using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class VersionsService : Versions.VersionsBase
+public class Auth : Authentication.AuthenticationBase
 {
-  private static readonly string ApiVersion = typeof(Versions.VersionsBase).Assembly.GetName()
-                                                                           .Version!.ToString();
-
   /// <inheritdocs />
   [Count]
-  public override Task<ListVersionsResponse> ListVersions(ListVersionsRequest request,
-                                                          ServerCallContext   context)
-    => Task.FromResult(new ListVersionsResponse
+  public override Task<GetCurrentUserResponse> GetCurrentUser(GetCurrentUserRequest request,
+                                                              ServerCallContext     context)
+    => Task.FromResult(new GetCurrentUserResponse
                        {
-                         Core = "Unknown",
-                         Api  = ApiVersion,
+                         User = new User
+                                {
+                                  Username = "username",
+                                },
                        });
 }

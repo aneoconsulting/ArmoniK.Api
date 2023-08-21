@@ -22,7 +22,7 @@ using Grpc.Core;
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class EventsService : Events.EventsBase
+public class Events : gRPC.V1.Events.Events.EventsBase
 {
   /// <inheritdocs />
   [Count]

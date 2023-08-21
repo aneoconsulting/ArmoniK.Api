@@ -21,7 +21,7 @@ using Grpc.Core;
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class PartitionsService : Partitions.PartitionsBase
+public class Partitions : Armonik.Api.Grpc.V1.Partitions.Partitions.PartitionsBase
 {
   /// <inheritdocs />
   [Count]

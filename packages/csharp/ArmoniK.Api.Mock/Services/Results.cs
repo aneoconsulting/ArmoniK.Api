@@ -19,12 +19,10 @@ using ArmoniK.Api.gRPC.V1.Results;
 
 using Grpc.Core;
 
-using Results = ArmoniK.Api.gRPC.V1.Results.Results;
-
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class ResultsService : Results.ResultsBase
+public class Results : gRPC.V1.Results.Results.ResultsBase
 {
   private static readonly ResultRaw MockResult = new()
                                                  {
