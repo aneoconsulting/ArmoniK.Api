@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Threading.Tasks;
+
 using ArmoniK.Api.gRPC.V1.Partitions;
 
 using Grpc.Core;
