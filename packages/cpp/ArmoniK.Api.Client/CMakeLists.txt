@@ -7,7 +7,7 @@ set(PROTO_FILES
     "submitter_service.proto"
     "applications_service.proto"
     "sessions_service.proto"
-    #"tasks_service.proto"
+    "tasks_service.proto"
     "results_service.proto"
     "auth_service.proto"
     "partitions_service.proto"
