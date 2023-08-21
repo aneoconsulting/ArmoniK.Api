@@ -1,26 +1,18 @@
 ﻿// This file is part of the ArmoniK project
-//
-// Copyright (C) ANEO, 2021-2023. All rights reserved.
-//   W. Kirschenmann   <wkirschenmann@aneo.fr>
-//   J. Gurhem         <jgurhem@aneo.fr>
-//   D. Dubuc          <ddubuc@aneo.fr>
-//   L. Ziane Khodja   <lzianekhodja@aneo.fr>
-//   F. Lemaitre       <flemaitre@aneo.fr>
-//   S. Djebbar        <sdjebbar@aneo.fr>
-//   J. Fonseca        <jfonseca@aneo.fr>
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published
-// by the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY, without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// 
+// Copyright (C) ANEO, 2021-2023.All rights reserved.
+// 
+// Licensed under the Apache License, Version 2.0 (the "License")
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// 
+//     http://www.apache.org/licenses/LICENSE-2.0
+// 
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -34,7 +26,7 @@ namespace ArmoniK.Api.Mock;
 public static class CountingService
 {
   /// <summary>
-  /// Dictionary with all counts of all counting services
+  ///   Dictionary with all counts of all counting services
   /// </summary>
   internal static readonly Dictionary<string, Dictionary<string, StrongBox<long>>> Counts;
 
@@ -69,7 +61,7 @@ public static class CountingService
                                                                   _ => new StrongBox<long>(0)));
 
   /// <summary>
-  /// Get the counters for all recorded types and methods.
+  ///   Get the counters for all recorded types and methods.
   /// </summary>
   /// <param name="exclude">Methods to exclude from the count</param>
   /// <returns>Counters</returns>
@@ -89,7 +81,7 @@ public static class CountingService
                            });
 
   /// <summary>
-  /// Reset all the counters
+  ///   Reset all the counters
   /// </summary>
   public static void ResetCounters()
   {
@@ -104,7 +96,7 @@ public static class CountingService
 }
 
 /// <summary>
-/// Mark a class as being a counting service
+///   Mark a class as being a counting service
 /// </summary>
 [AttributeUsage(AttributeTargets.Class)]
 [UsedImplicitly]
@@ -113,7 +105,7 @@ public class CountingAttribute : Attribute
 }
 
 /// <summary>
-/// Mark a method to count the number of calls made to this method.
+///   Mark a method to count the number of calls made to this method.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method)]
 [UsedImplicitly]
