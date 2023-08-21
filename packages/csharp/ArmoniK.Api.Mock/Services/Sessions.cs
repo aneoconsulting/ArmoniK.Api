@@ -22,7 +22,7 @@ using Grpc.Core;
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class SessionsService : Sessions.SessionsBase
+public class Sessions : gRPC.V1.Sessions.Sessions.SessionsBase
 {
   private static readonly SessionRaw MockSession = new()
                                                    {

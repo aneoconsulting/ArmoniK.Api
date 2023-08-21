@@ -14,24 +14,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using ArmoniK.Api.gRPC.V1.Auth;
+using ArmoniK.Api.gRPC.V1.Applications;
 
 using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class AuthService : Authentication.AuthenticationBase
+public class Applications : gRPC.V1.Applications.Applications.ApplicationsBase
 {
   /// <inheritdocs />
   [Count]
-  public override Task<GetCurrentUserResponse> GetCurrentUser(GetCurrentUserRequest request,
-                                                              ServerCallContext     context)
-    => Task.FromResult(new GetCurrentUserResponse
+  public override Task<ListApplicationsResponse> ListApplications(ListApplicationsRequest request,
+                                                                  ServerCallContext       context)
+    => Task.FromResult(new ListApplicationsResponse
                        {
-                         User = new User
-                                {
-                                  Username = "username",
-                                },
+                         Page     = request.Page,
+                         PageSize = request.PageSize,
+                         Total    = 0,
                        });
+
+  /// <inheritdocs />
+  [Count]
+  public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
+                                                                      ServerCallContext         context)
+    => Task.FromResult(new CountTasksByStatusResponse());
 }

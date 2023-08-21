@@ -14,29 +14,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using ArmoniK.Api.gRPC.V1.Applications;
+using Armonik.Api.Grpc.V1.Versions;
 
 using Grpc.Core;
 
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class ApplicationsService : Applications.ApplicationsBase
+public class Versions : Armonik.Api.Grpc.V1.Versions.Versions.VersionsBase
 {
-  /// <inheritdocs />
-  [Count]
-  public override Task<ListApplicationsResponse> ListApplications(ListApplicationsRequest request,
-                                                                  ServerCallContext       context)
-    => Task.FromResult(new ListApplicationsResponse
-                       {
-                         Page     = request.Page,
-                         PageSize = request.PageSize,
-                         Total    = 0,
-                       });
+  private static readonly string ApiVersion = typeof(Armonik.Api.Grpc.V1.Versions.Versions.VersionsBase).Assembly.GetName()
+                                                                                                        .Version!.ToString();
 
   /// <inheritdocs />
   [Count]
-  public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
-                                                                      ServerCallContext         context)
-    => Task.FromResult(new CountTasksByStatusResponse());
+  public override Task<ListVersionsResponse> ListVersions(ListVersionsRequest request,
+                                                          ServerCallContext   context)
+    => Task.FromResult(new ListVersionsResponse
+                       {
+                         Core = "Unknown",
+                         Api  = ApiVersion,
+                       });
 }

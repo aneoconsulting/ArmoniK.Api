@@ -22,7 +22,7 @@ using Grpc.Core;
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class SubmitterService : Submitter.SubmitterBase
+public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
 {
   /// <inheritdoc />
   [Count]
@@ -157,7 +157,7 @@ public class SubmitterService : Submitter.SubmitterBase
                                           IServerStreamWriter<WatchResultStream> responseStream,
                                           ServerCallContext                      context)
   {
-    await foreach (var req in requestStream.ReadAllAsync())
+    await foreach (var _ in requestStream.ReadAllAsync())
     {
       await responseStream.WriteAsync(new WatchResultStream
                                       {

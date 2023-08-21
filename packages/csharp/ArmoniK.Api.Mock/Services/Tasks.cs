@@ -26,7 +26,7 @@ using TaskStatus = ArmoniK.Api.gRPC.V1.TaskStatus;
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class TasksService : Tasks.TasksBase
+public class Tasks : gRPC.V1.Tasks.Tasks.TasksBase
 {
   private static readonly TaskRaw MockTask = new()
                                              {
