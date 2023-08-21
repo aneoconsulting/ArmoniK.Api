@@ -186,7 +186,7 @@ jobs:
           cd packages/cpp/tools/packaging
           ./make-${{ matrix.type }}.sh
       - name: Publish package as artefact
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@65d862660abb392b8c4a3d1195a2108db131dd05
         with:
           if-no-files-found: error
           path: packages/cpp/tools/packaging/*.${{ matrix.type }}
