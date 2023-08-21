@@ -43,16 +43,10 @@ var grpcPort = int.Parse(builder.Configuration.GetSection("Grpc")
 
 // Add services to the container.
 builder.Services.AddGrpc();
-builder.Services.AddSingleton<AgentService>();
-builder.Services.AddSingleton<ApplicationsService>();
-builder.Services.AddSingleton<AuthService>();
-builder.Services.AddSingleton<EventsService>();
-builder.Services.AddSingleton<PartitionsService>();
-builder.Services.AddSingleton<ResultsService>();
-builder.Services.AddSingleton<SessionsService>();
-builder.Services.AddSingleton<SubmitterService>();
-builder.Services.AddSingleton<TasksService>();
-builder.Services.AddSingleton<VersionsService>();
+foreach (var service in CountingService.GetServices())
+{
+  builder.Services.AddSingleton(service);
+}
 
 builder.WebHost.UseKestrel(options =>
                            {
