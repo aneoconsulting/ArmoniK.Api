@@ -30,35 +30,53 @@ public static class CountingService
   /// </summary>
   internal static readonly Dictionary<string, Dictionary<string, StrongBox<long>>> Counts;
 
+  /// <summary>
+  ///   List of all counting services
+  /// </summary>
+  private static readonly List<Type> Services;
+
   static CountingService()
-    => Counts = AppDomain.CurrentDomain.GetAssemblies()
-                         // Get all types from assemblies
-                         .SelectMany(s =>
-                                     {
-                                       try
-                                       {
-                                         return s.GetTypes();
-                                       }
-                                       catch (ReflectionTypeLoadException e)
-                                       {
-                                         return e.Types.Where(t => t is not null);
-                                       }
-                                       catch
-                                       {
-                                         return Array.Empty<Type>();
-                                       }
-                                     })
-                         // Keep only types that have the [Counting] attribute
-                         .Where(type => type is not null && type.GetCustomAttributes<CountingAttribute>()
-                                                                .Any())
-                         // Create a dictionary for all the types to record method calling counts
-                         .ToDictionary(type => type!.Name,
-                                       type => type!.GetMethods()
-                                                    // Get all methods that have the [Count] attribute
-                                                    .Where(method => method.GetCustomAttributes<CountAttribute>()
-                                                                           .Any())
-                                                    .ToDictionary(method => method.Name,
-                                                                  _ => new StrongBox<long>(0)));
+  {
+    Services = AppDomain.CurrentDomain.GetAssemblies()
+                        // Get all types from assemblies
+                        .SelectMany(s =>
+                                    {
+                                      try
+                                      {
+                                        return s.GetTypes();
+                                      }
+                                      catch (ReflectionTypeLoadException e)
+                                      {
+                                        return e.Types.Where(t => t is not null);
+                                      }
+                                      catch
+                                      {
+                                        return Array.Empty<Type>();
+                                      }
+                                    })
+                        // Keep only types that have the [Counting] attribute
+                        .Where(type => type is not null && type.GetCustomAttributes<CountingAttribute>()
+                                                               .Any())
+                        .Select(type => type!)
+                        .ToList();
+
+    Counts = Services
+      // Create a dictionary for all the types to record method calling counts
+      .ToDictionary(type => type!.Name,
+                    type => type!.GetMethods()
+                                 // Get all methods that have the [Count] attribute
+                                 .Where(method => method.GetCustomAttributes<CountAttribute>()
+                                                        .Any())
+                                 .ToDictionary(method => method.Name,
+                                               _ => new StrongBox<long>(0)));
+  }
+
+  /// <summary>
+  ///   Get a list of all counting services (ie: types that are marked with [Counting] attribute)
+  /// </summary>
+  /// <returns>Enumeration of counting services</returns>
+  public static IEnumerable<Type> GetServices()
+    => Services;
 
   /// <summary>
   ///   Get the counters for all recorded types and methods.
