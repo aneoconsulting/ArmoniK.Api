@@ -218,7 +218,7 @@ jobs:
         run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
       
       - name: Get Cover 
-        uses: orgoro/coverage@4e3bc9302f715595336a40f7dd4a3b15c687bdb4
+        uses: orgoro/coverage@6d7a2607343d2abeab89ef40b54ec9785134e313
         with:
           coverageFile: packages/python/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -253,7 +253,7 @@ jobs:
           cd packages/cpp/tools/packaging
           ./make-${{ matrix.type }}.sh
       - name: Publish package as artefact
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        uses: actions/upload-artifact@65d862660abb392b8c4a3d1195a2108db131dd05
         with:
           if-no-files-found: error
           path: packages/cpp/tools/packaging/*.${{ matrix.type }}
