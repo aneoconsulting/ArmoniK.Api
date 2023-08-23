@@ -1,4 +1,4 @@
-﻿// This file is part of the ArmoniK project
+// This file is part of the ArmoniK project
 // 
 // Copyright (C) ANEO, 2021-2023.All rights reserved.
 // 
@@ -23,7 +23,7 @@ using Grpc.Core;
 namespace ArmoniK.Api.Mock.Services;
 
 [Counting]
-public class Auth : Authentication.AuthenticationBase
+public class Authentication : gRPC.V1.Auth.Authentication.AuthenticationBase
 {
   /// <inheritdocs />
   [Count]

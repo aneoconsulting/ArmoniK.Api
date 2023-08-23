@@ -77,7 +77,7 @@ app.UseGrpcWeb(new GrpcWebOptions
 // Configure the HTTP request pipeline.
 app.MapGrpcService<Agent>();
 app.MapGrpcService<Applications>();
-app.MapGrpcService<Auth>();
+app.MapGrpcService<Authentication>();
 app.MapGrpcService<Events>();
 app.MapGrpcService<Partitions>();
 app.MapGrpcService<Results>();
