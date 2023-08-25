@@ -4,6 +4,7 @@ use crate::{
         sessions::{cancel, create, get, list, Raw},
         TaskOptions,
     },
+    utils::IntoCollection,
 };
 
 use super::GrpcCall;
@@ -61,7 +62,7 @@ where
         Ok(self
             .call(create::Request {
                 default_task_option: task_options,
-                partition_ids: partitions.into_iter().map(Into::into).collect(),
+                partition_ids: partitions.into_collect(),
             })
             .await?
             .session_id)

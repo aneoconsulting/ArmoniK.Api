@@ -9,6 +9,7 @@ use crate::objects::submitter::{
     try_get_task_output, wait_for_availability, wait_for_completion, SessionFilter, TaskFilter,
 };
 use crate::objects::{Configuration, Output, ResultStatus, TaskOptions, TaskRequest, TaskStatus};
+use crate::utils::IntoCollection;
 
 use super::{GrpcCall, GrpcCallStream};
 
@@ -42,7 +43,7 @@ where
         Ok(self
             .call(create_session::Request {
                 default_task_option: task_options,
-                partition_ids: partitions.into_iter().map(Into::into).collect(),
+                partition_ids: partitions.into_collect(),
             })
             .await?
             .session_id)
@@ -69,7 +70,7 @@ where
             .call(create_tasks::SmallRequest {
                 session_id: session_id.into(),
                 task_options,
-                task_requests: tasks.into_iter().map(Into::into).collect(),
+                task_requests: tasks.into_collect(),
             })
             .await?;
 
@@ -186,7 +187,7 @@ where
     ) -> Result<HashMap<String, TaskStatus>, tonic::Status> {
         Ok(self
             .call(task_status::Request {
-                task_ids: task_ids.into_iter().map(Into::into).collect(),
+                task_ids: task_ids.into_collect(),
             })
             .await?
             .statuses)
@@ -200,7 +201,7 @@ where
         Ok(self
             .call(result_status::Request {
                 session_id: session_id.into(),
-                result_ids: result_ids.into_iter().map(Into::into).collect(),
+                result_ids: result_ids.into_collect(),
             })
             .await?
             .statuses)
