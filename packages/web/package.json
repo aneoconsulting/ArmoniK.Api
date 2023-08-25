@@ -1,18 +1,33 @@
 {
   "name": "@aneoconsultingfr/armonik.api",
   "version": "3.11.0",
-  "description": "gRPC API to interact with ArmoniK built for the web",
   "packageManager": "pnpm@8.6.12",
+  "description": "gRPC API to interact with ArmoniK built for the web",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aneoconsulting/ArmoniK.Api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aneoconsulting/ArmoniK.Api/issues"
+  },
+  "keywords": [
+    "gRPC",
+    "API",
+    "Aneo consulting",
+    "Web"
+  ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./*": {
+      "types": "./dist/generated/*.d.ts",
       "import": "./dist/generated/*.mjs",
-      "require": "./dist/generated/*.js",
-      "types": "./dist/generated/*.d.ts"
+      "require": "./dist/generated/*.js"
     }
   },
   "main": "./dist/index.js",
@@ -26,28 +41,13 @@
     "proto:generate:linux": "protoc --plugin=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_opt=esModuleInterop=true,importSuffix=.js --ts_proto_out=./src/generated   -I ../../Protos/V1 ../../Protos/V1/*.proto",
     "prepublish": "cp ../../LICENSE ./LICENSE"
   },
-  "keywords": [
-    "gRPC",
-    "API",
-    "Aneo consulting",
-    "Web"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/aneoconsulting/ArmoniK.Api.git"
+  "dependencies": {
+    "protobufjs": "^7.2.4",
+    "rxjs": "^7.8.1"
   },
-  "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/aneoconsulting/ArmoniK.Api/issues"
-  },
-  "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
   "devDependencies": {
     "ts-proto": "^1.156.7",
     "tsup": "^7.2.0",
     "typescript": "^5.1.6"
-  },
-  "dependencies": {
-    "protobufjs": "^7.2.4",
-    "rxjs": "^7.8.1"
   }
 }

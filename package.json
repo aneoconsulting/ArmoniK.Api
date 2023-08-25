@@ -5,9 +5,12 @@
     "ci:publish": "zx scripts/publish.mjs",
     "ci:publish-edge": "zx scripts/publish-edge.mjs",
     "update-versions": "jiti ./scripts/update-versions.ts",
-    "verify-versions": "jiti ./scripts/verify-versions.ts"
+    "verify-versions": "jiti ./scripts/verify-versions.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix ."
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^0.41.0",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "consola": "^2.15.3",
     "eslint": "^8.47.0",
