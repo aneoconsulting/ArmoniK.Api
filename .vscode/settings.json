@@ -2,11 +2,19 @@
   "protoc": {
     "compile_on_save": true,
     "options": [
-        "--proto_path=${workspaceRoot}/Protos/V1",
-        "--csharp_out=${workspaceRoot}/gen/csharp"
+      "--proto_path=${workspaceRoot}/Protos/V1",
+      "--csharp_out=${workspaceRoot}/gen/csharp"
     ]
-},
-"cSpell.words": [
-  "Armoni"
-]
+  },
+  "cSpell.words": [
+    "Armoni"
+  ],
+  "[rust]": {
+    "editor.tabSize": 4
+  },
+  "rust-analyzer.cachePriming.enable": false,
+  "rust-analyzer.linkedProjects": [
+    "./packages/rust/armonik/Cargo.toml",
+    "./packages/rust/armonik-client-test/Cargo.toml"
+  ]
 }
