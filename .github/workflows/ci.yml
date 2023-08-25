@@ -135,6 +135,23 @@ jobs:
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
 
+  lint-js:
+    name: Lint JS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run lint
+
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
@@ -210,14 +227,14 @@ jobs:
 
       - name: pip update and add build package
         run: bash proto2python.sh ~/pyvenv
-      
+
       - name: Install dependencies
         run: pip install "$(echo pkg/armonik*.whl)[tests]"
 
       - name: Run tests
         run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
-      
-      - name: Get Cover 
+
+      - name: Get Cover
         uses: orgoro/coverage@6d7a2607343d2abeab89ef40b54ec9785134e313
         with:
           coverageFile: packages/python/coverage.xml
@@ -258,4 +275,3 @@ jobs:
           if-no-files-found: error
           path: packages/cpp/tools/packaging/*.${{ matrix.type }}
           name: libarmonik.${{ matrix.type }}
-      

@@ -1,10 +1,11 @@
-import { Injectable, inject } from '@angular/core';
-import { ListPartitionsRequest, ListPartitionsResponse, PartitionsClient } from '@aneoconsultingfr/armonik.api.angular';
-import { Observable } from 'rxjs';
+import { Injectable, inject } from '@angular/core'
+import type { ListPartitionsResponse } from '@aneoconsultingfr/armonik.api.angular'
+import { ListPartitionsRequest, PartitionsClient } from '@aneoconsultingfr/armonik.api.angular'
+import type { Observable } from 'rxjs'
 
 @Injectable()
 export class PartitionsGrpcService {
-  readonly #client = inject(PartitionsClient);
+  readonly #client = inject(PartitionsClient)
 
   list$(): Observable<ListPartitionsResponse> {
     const options = new ListPartitionsRequest({
@@ -12,7 +13,7 @@ export class PartitionsGrpcService {
       pageSize: 10,
       sort: {
         direction: ListPartitionsRequest.OrderDirection.ORDER_DIRECTION_ASC,
-        field: ListPartitionsRequest.OrderByField.ORDER_BY_FIELD_ID
+        field: ListPartitionsRequest.OrderByField.ORDER_BY_FIELD_ID,
       },
       filter: {
         id: '',
@@ -21,9 +22,9 @@ export class PartitionsGrpcService {
         podReserved: 0,
         preemptionPercentage: 0,
         priority: 0,
-      }
-    });
+      },
+    })
 
-    return this.#client.listPartitions(options);
+    return this.#client.listPartitions(options)
   }
 }

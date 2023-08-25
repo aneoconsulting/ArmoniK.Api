@@ -1,5 +1,7 @@
 {
   "name": "armonik.api.angular",
+  "private": true,
+  "packageManager": "pnpm@8.6.12",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -8,8 +10,6 @@
     "test": "ng test",
     "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./projects/aneoconsultingfr/armonik.api.angular/src/lib/generated -I ../../Protos/V1 ../../Protos/V1/*.proto"
   },
-  "packageManager": "pnpm@8.6.12",
-  "private": true,
   "dependencies": {
     "@angular/animations": "^16.2.1",
     "@angular/common": "^16.2.1",

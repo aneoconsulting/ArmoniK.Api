@@ -1,7 +1,8 @@
 {
   "name": "armonik-api-angular",
-  "description": "This project is a demo of the ArmoniK API Angular library",
   "version": "0.0.0",
+  "private": true,
+  "description": "This project is a demo of the ArmoniK API Angular library",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -9,7 +10,6 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
-  "private": true,
   "dependencies": {
     "@aneoconsultingfr/armonik.api.angular": "^3.8.1",
     "@angular/animations": "^16.0.0",
