@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use futures::{Stream, StreamExt};
 use futures_util::TryStreamExt;
@@ -23,14 +23,14 @@ macro_rules! impl_get_data {
     ($name:ident) => {
         pub async fn $name(
             &mut self,
-            token: String,
-            key: String,
+            token: impl Into<String>,
+            key: impl Into<String>,
         ) -> Result<impl Stream<Item = Result<Vec<u8>, tonic::Status>>, tonic::Status> {
             let mut stream = self
                 .inner
                 .$name($name::Request {
-                    communication_token: token,
-                    key,
+                    communication_token: token.into(),
+                    key: key.into(),
                 })
                 .await?
                 .into_inner();
@@ -83,15 +83,15 @@ where
     /// Data have to be uploaded separately.
     pub async fn create_results_metadata(
         &mut self,
-        token: String,
-        session_id: String,
-        names: HashSet<String>,
+        token: impl Into<String>,
+        session_id: impl Into<String>,
+        names: impl std::iter::IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, ResultMetaData>, tonic::Status> {
         Ok(self
             .call(create_results_metadata::Request {
-                communication_token: token,
-                results: names,
-                session_id,
+                communication_token: token.into(),
+                results: names.into_iter().map(Into::into).collect(),
+                session_id: session_id.into(),
             })
             .await?
             .results)
@@ -100,15 +100,18 @@ where
     /// Create multiple results with data included in the request.
     pub async fn create_results(
         &mut self,
-        token: String,
-        session_id: String,
-        results: HashMap<String, Vec<u8>>,
+        token: impl Into<String>,
+        session_id: impl Into<String>,
+        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
     ) -> Result<HashMap<String, ResultMetaData>, tonic::Status> {
         Ok(self
             .call(create_results::Request {
-                communication_token: token,
-                results,
-                session_id,
+                communication_token: token.into(),
+                results: results
+                    .into_iter()
+                    .map(|(name, data)| (name.into(), data.into()))
+                    .collect(),
+                session_id: session_id.into(),
             })
             .await?
             .results)
@@ -117,15 +120,14 @@ where
     /// Upload data for result with stream.
     pub async fn upload_result<S>(
         &mut self,
-        token: String,
-        session_id: String,
-        result_id: String,
-        data: S,
-    ) -> Result<(), tonic::Status>
-    where
-        S: futures::Stream + Send + Unpin + 'static,
-        <S as futures::Stream>::Item: Into<Vec<u8>>,
-    {
+        token: impl Into<String>,
+        session_id: impl Into<String>,
+        result_id: impl Into<String>,
+        data: impl futures::Stream<Item = impl Into<Vec<u8>>> + Send + Unpin + 'static,
+    ) -> Result<(), tonic::Status> {
+        let token: String = token.into();
+        let session_id: String = session_id.into();
+        let result_id: String = result_id.into();
         let request = {
             let token = token.clone();
             async_stream::stream! {
@@ -152,17 +154,17 @@ where
     /// Create tasks metadata and submit task for processing.
     pub async fn submit(
         &mut self,
-        token: String,
-        session_id: String,
+        token: impl Into<String>,
+        session_id: impl Into<String>,
         task_options: Option<TaskOptions>,
-        items: Vec<submit_tasks::RequestItem>,
+        items: impl IntoIterator<Item = submit_tasks::RequestItem>,
     ) -> Result<Vec<submit_tasks::ResponseItem>, tonic::Status> {
         Ok(self
             .call(submit_tasks::Request {
-                communication_token: token,
-                session_id,
+                communication_token: token.into(),
+                session_id: session_id.into(),
                 task_options,
-                items,
+                items: items.into_iter().map(Into::into).collect(),
             })
             .await?
             .items)
@@ -192,7 +194,7 @@ where
 
     pub async fn send_result<Stream, Key, Chunk>(
         &mut self,
-        token: String,
+        token: impl Into<String>,
         mut data: Stream,
     ) -> Result<(), tonic::Status>
     where
@@ -200,6 +202,7 @@ where
         Chunk: Into<Vec<u8>> + Send,
         Stream: futures::Stream<Item = (Key, Chunk)> + Send + Unpin + 'static,
     {
+        let token: String = token.into();
         let request = async_stream::stream! {
             let previous = String::new();
             while let Some((key, chunk)) = data.next().await {

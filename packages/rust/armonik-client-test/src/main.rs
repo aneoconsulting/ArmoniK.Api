@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create session
     let session = client
         .sessions()
-        .create(vec![partition.clone()], Default::default())
+        .create([partition.clone()], Default::default())
         .await?;
 
     println!("Created session {session} using partition {partition}");
@@ -31,10 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create result
     let mut results = client
         .results()
-        .create_metadata(
-            session.clone(),
-            ["input".into(), "output".into()].into_iter().collect(),
-        )
+        .create_metadata(session.clone(), ["input", "output"])
         .await?;
 
     let input = results.remove("input").unwrap();
@@ -58,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .submit(
             session.clone(),
             None,
-            vec![armonik::tasks::submit::RequestItem {
+            [armonik::tasks::submit::RequestItem {
                 expected_output_keys: vec![output.result_id.clone()],
                 data_dependencies: vec![],
                 payload_id: input.result_id.clone(),

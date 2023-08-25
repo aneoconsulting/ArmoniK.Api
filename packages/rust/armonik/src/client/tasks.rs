@@ -43,22 +43,37 @@ where
     }
 
     /// Get a task by its id.
-    pub async fn get(&mut self, task_id: String) -> Result<Raw, tonic::Status> {
-        Ok(self.call(get::Request { task_id }).await?.task)
+    pub async fn get(&mut self, task_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(get::Request {
+                task_id: task_id.into(),
+            })
+            .await?
+            .task)
     }
 
     /// Cancel tasks using ids.
-    pub async fn cancel(&mut self, task_ids: Vec<String>) -> Result<Vec<Summary>, tonic::Status> {
-        Ok(self.call(cancel::Request { task_ids }).await?.tasks)
+    pub async fn cancel(
+        &mut self,
+        task_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Result<Vec<Summary>, tonic::Status> {
+        Ok(self
+            .call(cancel::Request {
+                task_ids: task_ids.into_iter().map(Into::into).collect(),
+            })
+            .await?
+            .tasks)
     }
 
     /// Get ids of the result that tasks should produce.
     pub async fn get_result_ids(
         &mut self,
-        task_ids: Vec<String>,
+        task_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, Vec<String>>, tonic::Status> {
         Ok(self
-            .call(result_ids::Request { task_ids })
+            .call(result_ids::Request {
+                task_ids: task_ids.into_iter().map(Into::into).collect(),
+            })
             .await?
             .task_results)
     }
@@ -74,15 +89,15 @@ where
     /// Create tasks metadata and submit task for processing.
     pub async fn submit(
         &mut self,
-        session_id: String,
+        session_id: impl Into<String>,
         task_options: Option<TaskOptions>,
-        items: Vec<submit::RequestItem>,
+        items: impl IntoIterator<Item = submit::RequestItem>,
     ) -> Result<Vec<submit::ResponseItem>, tonic::Status> {
         Ok(self
             .call(submit::Request {
-                session_id,
+                session_id: session_id.into(),
                 task_options,
-                items,
+                items: items.into_iter().map(Into::into).collect(),
             })
             .await?
             .items)

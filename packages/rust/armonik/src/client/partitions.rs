@@ -27,9 +27,11 @@ where
         self.call(request).await
     }
 
-    pub async fn get(&mut self, partition_id: String) -> Result<Raw, tonic::Status> {
+    pub async fn get(&mut self, partition_id: impl Into<String>) -> Result<Raw, tonic::Status> {
         Ok(self
-            .call(get::Request { id: partition_id })
+            .call(get::Request {
+                id: partition_id.into(),
+            })
             .await?
             .partition)
     }
