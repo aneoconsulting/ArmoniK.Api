@@ -10,7 +10,7 @@ use crate::objects::submitter::{
 };
 use crate::objects::{Configuration, Output, ResultStatus, TaskOptions, TaskRequest, TaskStatus};
 
-use super::GrpcCall;
+use super::{GrpcCall, GrpcCallStream};
 
 #[derive(Clone)]
 pub struct SubmitterClient<T> {
@@ -338,7 +338,7 @@ super::impl_call! {
 }
 
 #[async_trait::async_trait(?Send)]
-impl<T, S> GrpcCall<S> for &'_ mut SubmitterClient<T>
+impl<T, S> GrpcCallStream<create_tasks::LargeRequest, S> for &'_ mut SubmitterClient<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
