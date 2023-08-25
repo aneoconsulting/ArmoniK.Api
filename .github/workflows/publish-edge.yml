@@ -25,7 +25,7 @@ jobs:
         id: genver
         run: echo "VERSION=$(npx @aneoconsultingfr/generate-next-version@latest --edge)" >> "$GITHUB_OUTPUT"
       - name: Summary version
-      # Print to the summary
+        # Print to the summary
         run: echo "VERSION=${{ steps.genver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
 
   version:

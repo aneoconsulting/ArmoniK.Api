@@ -1,0 +1,9 @@
+{
+  "extends": "@antfu",
+  "rules": {
+    "yml/no-empty-mapping-value": "off"
+  },
+  "ignorePatterns": [
+    "generated"
+  ]
+}

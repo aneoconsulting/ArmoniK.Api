@@ -1,8 +1,9 @@
-import { AfterViewInit, Component, inject } from '@angular/core';
-import { PartitionsGrpcService } from './services/partitions-grpc.service';
-import { PartitionRaw } from '@aneoconsultingfr/armonik.api.angular';
-import { Subject, merge, startWith, switchMap } from 'rxjs';
-import { NgFor, NgIf } from '@angular/common';
+import type { AfterViewInit } from '@angular/core'
+import { Component, inject } from '@angular/core'
+import type { PartitionRaw } from '@aneoconsultingfr/armonik.api.angular'
+import { Subject, merge, startWith, switchMap } from 'rxjs'
+import { NgFor, NgIf } from '@angular/common'
+import { PartitionsGrpcService } from './services/partitions-grpc.service'
 
 @Component({
   selector: 'app-root',
@@ -21,7 +22,7 @@ import { NgFor, NgIf } from '@angular/common';
   `],
   standalone: true,
   providers: [
-    PartitionsGrpcService
+    PartitionsGrpcService,
   ],
   imports: [
     NgIf,
@@ -29,39 +30,38 @@ import { NgFor, NgIf } from '@angular/common';
   ],
 })
 export class AppComponent implements AfterViewInit {
-  #partitionsGrpcService = inject(PartitionsGrpcService);
+  #partitionsGrpcService = inject(PartitionsGrpcService)
 
-  #refresh$ = new Subject<void>();
+  #refresh$ = new Subject<void>()
 
-  loading = true;
-  partitions: PartitionRaw.AsObject[] = [];
+  loading = true
+  partitions: PartitionRaw.AsObject[] = []
 
   ngAfterViewInit(): void {
-      merge(
-        this.#refresh$,
-      )
-        .pipe(
-          startWith({}),
-          switchMap(() => {
-            this.loading = true;
-            return this.#partitionsGrpcService.list$();
-          }),
-        ).subscribe(
-          (response) => {
-            this.loading = false;
+    merge(
+      this.#refresh$,
+    )
+      .pipe(
+        startWith({}),
+        switchMap(() => {
+          this.loading = true
+          return this.#partitionsGrpcService.list$()
+        }),
+      ).subscribe(
+        (response) => {
+          this.loading = false
 
-            if (response.partitions) {
-              this.partitions = response.partitions;
-            }
-          }
-        );
+          if (response.partitions)
+            this.partitions = response.partitions
+        },
+      )
   }
 
   refresh(): void {
-    this.#refresh$.next();
+    this.#refresh$.next()
   }
 
   trackByPartition(_index_: number, partition: PartitionRaw.AsObject): string {
-    return partition.id;
+    return partition.id
   }
 }
