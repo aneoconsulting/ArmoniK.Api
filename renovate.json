@@ -54,7 +54,7 @@
     },
     {
       "groupName": "nuget armonik utils package",
-      "groupSlug": "nuget",
+      "groupSlug": "nuget-armonik-utils",
       "matchDatasources": [
         "nuget"
       ],
