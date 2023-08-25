@@ -33,25 +33,35 @@ where
     }
 
     /// Get a session by its id.
-    pub async fn get(&mut self, session_id: String) -> Result<Raw, tonic::Status> {
-        Ok(self.call(get::Request { id: session_id }).await?.session)
+    pub async fn get(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(get::Request {
+                id: session_id.into(),
+            })
+            .await?
+            .session)
     }
 
     /// Cancel a session by its id.
-    pub async fn cancel(&mut self, session_id: String) -> Result<Raw, tonic::Status> {
-        Ok(self.call(cancel::Request { id: session_id }).await?.session)
+    pub async fn cancel(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(cancel::Request {
+                id: session_id.into(),
+            })
+            .await?
+            .session)
     }
 
     /// Create a session.
     pub async fn create(
         &mut self,
-        partitions: Vec<String>,
+        partitions: impl IntoIterator<Item = impl Into<String>>,
         task_options: TaskOptions,
     ) -> Result<String, tonic::Status> {
         Ok(self
             .call(create::Request {
                 default_task_option: task_options,
-                partition_ids: partitions,
+                partition_ids: partitions.into_iter().map(Into::into).collect(),
             })
             .await?
             .session_id)

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use tokio_stream::StreamExt;
 
@@ -35,20 +35,25 @@ where
     }
 
     /// Get the id of the task that should produce the result.
-    pub async fn get(&mut self, result_id: String) -> Result<Raw, tonic::Status> {
-        Ok(self.call(get::Request { id: result_id }).await?.result)
+    pub async fn get(&mut self, result_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(get::Request {
+                id: result_id.into(),
+            })
+            .await?
+            .result)
     }
 
     /// Get the id of the task that should produce the result.
     pub async fn get_owner_task_id(
         &mut self,
-        session_id: String,
-        result_ids: HashSet<String>,
+        session_id: impl Into<String>,
+        result_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, String>, tonic::Status> {
         Ok(self
             .call(owner::Request {
-                session_id,
-                result_ids,
+                session_id: session_id.into(),
+                result_ids: result_ids.into_iter().map(Into::into).collect(),
             })
             .await?
             .result_task)
@@ -58,13 +63,13 @@ where
     /// Data have to be uploaded separately.
     pub async fn create_metadata(
         &mut self,
-        session_id: String,
-        names: HashSet<String>,
+        session_id: impl Into<String>,
+        names: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, Raw>, tonic::Status> {
         Ok(self
             .call(create_metadata::Request {
-                results: names,
-                session_id,
+                results: names.into_iter().map(Into::into).collect(),
+                session_id: session_id.into(),
             })
             .await?
             .results)
@@ -73,13 +78,16 @@ where
     /// Create one result with data included in the request.
     pub async fn create(
         &mut self,
-        session_id: String,
-        results: HashMap<String, Vec<u8>>,
+        session_id: impl Into<String>,
+        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
     ) -> Result<HashMap<String, Raw>, tonic::Status> {
         Ok(self
             .call(create::Request {
-                results,
-                session_id,
+                results: results
+                    .into_iter()
+                    .map(|(name, data)| (name.into(), data.into()))
+                    .collect(),
+                session_id: session_id.into(),
             })
             .await?
             .results)
@@ -88,14 +96,16 @@ where
     /// Upload data for result with stream.
     pub async fn upload<S>(
         &mut self,
-        session_id: String,
-        result_id: String,
+        session_id: impl Into<String>,
+        result_id: impl Into<String>,
         data: S,
     ) -> Result<Raw, tonic::Status>
     where
         S: futures::Stream + Send + Unpin + 'static,
         <S as futures::Stream>::Item: Into<Vec<u8>>,
     {
+        let session_id: String = session_id.into();
+        let result_id: String = result_id.into();
         let request = async_stream::stream! {
             yield v3::results::UploadResultDataRequest::from(
                 upload::Request::Identifier {
@@ -120,14 +130,14 @@ where
     /// Retrieve data.
     pub async fn download(
         &mut self,
-        session_id: String,
-        result_id: String,
+        session_id: impl Into<String>,
+        result_id: impl Into<String>,
     ) -> Result<impl futures::Stream<Item = Result<Vec<u8>, tonic::Status>>, tonic::Status> {
         Ok(self
             .inner
             .download_result_data(download::Request {
-                session_id,
-                result_id,
+                session_id: session_id.into(),
+                result_id: result_id.into(),
             })
             .await?
             .into_inner()
@@ -137,13 +147,13 @@ where
     /// Delete data from multiple results.
     pub async fn delete_data(
         &mut self,
-        session_id: String,
-        result_ids: Vec<String>,
+        session_id: impl Into<String>,
+        result_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<Vec<String>, tonic::Status> {
         Ok(self
             .call(delete::Request {
-                session_id,
-                result_ids,
+                session_id: session_id.into(),
+                result_ids: result_ids.into_iter().map(Into::into).collect(),
             })
             .await?
             .result_ids)

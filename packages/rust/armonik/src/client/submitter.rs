@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use futures::{Stream, StreamExt};
 
@@ -36,34 +36,40 @@ where
 
     pub async fn create_session(
         &mut self,
-        partitions: Vec<String>,
+        partitions: impl IntoIterator<Item = impl Into<String>>,
         task_options: TaskOptions,
     ) -> Result<String, tonic::Status> {
         Ok(self
             .call(create_session::Request {
                 default_task_option: task_options,
-                partition_ids: partitions,
+                partition_ids: partitions.into_iter().map(Into::into).collect(),
             })
             .await?
             .session_id)
     }
 
-    pub async fn cancel_session(&mut self, session_id: String) -> Result<(), tonic::Status> {
-        self.call(cancel_session::Request { session_id }).await?;
+    pub async fn cancel_session(
+        &mut self,
+        session_id: impl Into<String>,
+    ) -> Result<(), tonic::Status> {
+        self.call(cancel_session::Request {
+            session_id: session_id.into(),
+        })
+        .await?;
         Ok(())
     }
 
     pub async fn create_small_tasks(
         &mut self,
-        session_id: String,
+        session_id: impl Into<String>,
         task_options: Option<TaskOptions>,
-        tasks: Vec<TaskRequest>,
+        tasks: impl IntoIterator<Item = TaskRequest>,
     ) -> Result<Vec<create_tasks::Status>, tonic::Status> {
         let response = self
             .call(create_tasks::SmallRequest {
-                session_id,
+                session_id: session_id.into(),
                 task_options,
-                task_requests: tasks,
+                task_requests: tasks.into_iter().map(Into::into).collect(),
             })
             .await?;
 
@@ -108,15 +114,15 @@ where
 
     pub async fn try_get_result(
         &mut self,
-        session_id: String,
-        result_id: String,
+        session_id: impl Into<String>,
+        result_id: impl Into<String>,
     ) -> Result<impl Stream<Item = Result<try_get_result::Response, tonic::Status>>, tonic::Status>
     {
         Ok(self
             .inner
             .try_get_result_stream(try_get_result::Request {
-                session_id,
-                result_id,
+                session_id: session_id.into(),
+                result_id: result_id.into(),
             })
             .await?
             .into_inner()
@@ -125,13 +131,13 @@ where
 
     pub async fn try_get_task_output(
         &mut self,
-        session_id: String,
-        task_id: String,
+        session_id: impl Into<String>,
+        task_id: impl Into<String>,
     ) -> Result<(), tonic::Status> {
         let response = self
             .call(try_get_task_output::Request {
-                session_id,
-                task_id,
+                session_id: session_id.into(),
+                task_id: task_id.into(),
             })
             .await?;
 
@@ -143,12 +149,12 @@ where
 
     pub async fn wait_for_availability(
         &mut self,
-        session_id: String,
-        result_id: String,
+        session_id: impl Into<String>,
+        result_id: impl Into<String>,
     ) -> Result<wait_for_availability::Response, tonic::Status> {
         self.call(wait_for_availability::Request {
-            session_id,
-            result_id,
+            session_id: session_id.into(),
+            result_id: result_id.into(),
         })
         .await
     }
@@ -176,20 +182,25 @@ where
 
     pub async fn task_status(
         &mut self,
-        task_ids: HashSet<String>,
+        task_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, TaskStatus>, tonic::Status> {
-        Ok(self.call(task_status::Request { task_ids }).await?.statuses)
+        Ok(self
+            .call(task_status::Request {
+                task_ids: task_ids.into_iter().map(Into::into).collect(),
+            })
+            .await?
+            .statuses)
     }
 
     pub async fn result_status(
         &mut self,
-        session_id: String,
-        result_ids: HashSet<String>,
+        session_id: impl Into<String>,
+        result_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, ResultStatus>, tonic::Status> {
         Ok(self
             .call(result_status::Request {
-                session_id,
-                result_ids,
+                session_id: session_id.into(),
+                result_ids: result_ids.into_iter().map(Into::into).collect(),
             })
             .await?
             .statuses)
