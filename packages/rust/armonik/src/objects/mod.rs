@@ -23,6 +23,7 @@ mod task_request;
 mod task_request_header;
 mod task_status;
 
+pub mod agent;
 pub mod applications;
 pub mod auth;
 pub mod events;

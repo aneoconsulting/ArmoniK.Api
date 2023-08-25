@@ -1,3 +1,4 @@
+mod agent;
 mod applications;
 mod auth;
 mod partitions;
@@ -7,6 +8,7 @@ mod submitter;
 mod tasks;
 mod versions;
 
+pub use agent::AgentClient;
 pub use applications::ApplicationsClient;
 pub use auth::AuthClient;
 pub use partitions::PartitionsClient;
@@ -42,6 +44,10 @@ where
 {
     pub fn new(channel: T) -> Self {
         Self { channel }
+    }
+
+    pub fn agent(&self) -> AgentClient<T> {
+        AgentClient::new(self.channel.clone())
     }
 
     pub fn applications(&self) -> ApplicationsClient<T> {
@@ -85,6 +91,34 @@ pub trait GrpcCall<Request> {
 
     /// Perform a gRPC call from a raw request.
     async fn call(self, request: Request) -> Result<Self::Response, Self::Error>;
+}
+
+/// Perform a gRPC call from a raw request.
+#[async_trait::async_trait(?Send)]
+pub trait GrpcCallStream<Request, Stream>
+where
+    Stream: futures::Stream<Item = Request> + Send + 'static,
+{
+    type Response;
+    type Error;
+
+    /// Perform a gRPC call from a raw request.
+    async fn call(self, request: Stream) -> Result<Self::Response, Self::Error>;
+}
+
+#[async_trait::async_trait(?Send)]
+impl<Stream, Request, T> GrpcCall<Stream> for T
+where
+    Stream: futures::Stream<Item = Request> + Send + 'static,
+    T: GrpcCallStream<Request, Stream>,
+{
+    type Response = <T as GrpcCallStream<Request, Stream>>::Response;
+    type Error = <T as GrpcCallStream<Request, Stream>>::Error;
+
+    /// Perform a gRPC call from a raw request.
+    async fn call(self, request: Stream) -> Result<Self::Response, Self::Error> {
+        <T as GrpcCallStream<Request, Stream>>::call(self, request).await
+    }
 }
 
 macro_rules! impl_call {
