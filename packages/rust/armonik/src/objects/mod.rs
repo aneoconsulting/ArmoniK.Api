@@ -125,7 +125,7 @@ macro_rules! impl_convert {
         crate::impl_convert!(
             @struct {
                 $($body)*
-                $b: $value.$a.into_iter().map(Into::into).collect(),
+                $b: crate::utils::IntoCollection::into_collect($value.$a),
             }
             $value: $A => $B { $($tail)* }
         );

@@ -6,6 +6,7 @@ use crate::{
         cancel, count_status, filter, get, list, list_detailed, result_ids, submit, Raw, Summary,
     },
     objects::{StatusCount, TaskOptions},
+    utils::IntoCollection,
 };
 
 use super::GrpcCall;
@@ -59,7 +60,7 @@ where
     ) -> Result<Vec<Summary>, tonic::Status> {
         Ok(self
             .call(cancel::Request {
-                task_ids: task_ids.into_iter().map(Into::into).collect(),
+                task_ids: task_ids.into_collect(),
             })
             .await?
             .tasks)
@@ -72,7 +73,7 @@ where
     ) -> Result<HashMap<String, Vec<String>>, tonic::Status> {
         Ok(self
             .call(result_ids::Request {
-                task_ids: task_ids.into_iter().map(Into::into).collect(),
+                task_ids: task_ids.into_collect(),
             })
             .await?
             .task_results)
@@ -97,7 +98,7 @@ where
             .call(submit::Request {
                 session_id: session_id.into(),
                 task_options,
-                items: items.into_iter().map(Into::into).collect(),
+                items: items.into_collect(),
             })
             .await?
             .items)

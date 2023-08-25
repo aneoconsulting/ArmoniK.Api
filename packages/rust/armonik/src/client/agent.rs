@@ -8,6 +8,7 @@ use crate::objects::agent::{
     get_resource_data, send_result, submit_tasks, upload_result, ResultMetaData,
 };
 use crate::objects::{DataChunk, TaskOptions};
+use crate::utils::IntoCollection;
 
 use crate::api::v3;
 
@@ -90,7 +91,7 @@ where
         Ok(self
             .call(create_results_metadata::Request {
                 communication_token: token.into(),
-                results: names.into_iter().map(Into::into).collect(),
+                results: names.into_collect(),
                 session_id: session_id.into(),
             })
             .await?
@@ -164,7 +165,7 @@ where
                 communication_token: token.into(),
                 session_id: session_id.into(),
                 task_options,
-                items: items.into_iter().map(Into::into).collect(),
+                items: items.into_collect(),
             })
             .await?
             .items)

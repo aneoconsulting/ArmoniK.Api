@@ -1,4 +1,5 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions, TaskRequest};
+use crate::utils::IntoCollection;
 
 use crate::api::v3;
 
@@ -167,7 +168,7 @@ impl From<Response> for v3::submitter::CreateTaskReply {
                 response: Some(
                     v3::submitter::create_task_reply::Response::CreationStatusList(
                         v3::submitter::create_task_reply::CreationStatusList {
-                            creation_statuses: status.into_iter().map(Into::into).collect(),
+                            creation_statuses: status.into_collect(),
                         },
                     ),
                 ),
@@ -183,13 +184,7 @@ impl From<v3::submitter::CreateTaskReply> for Response {
     fn from(value: v3::submitter::CreateTaskReply) -> Self {
         match value.response {
             Some(v3::submitter::create_task_reply::Response::CreationStatusList(status)) => {
-                Self::Status(
-                    status
-                        .creation_statuses
-                        .into_iter()
-                        .map(Into::into)
-                        .collect(),
-                )
+                Self::Status(status.creation_statuses.into_collect())
             }
             Some(v3::submitter::create_task_reply::Response::Error(msg)) => Self::Error(msg),
             None => Default::default(),

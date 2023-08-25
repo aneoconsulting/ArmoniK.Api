@@ -5,6 +5,7 @@ use tokio_stream::StreamExt;
 use crate::objects::results::{
     create, create_metadata, delete, download, get, list, owner, service_configuration, upload, Raw,
 };
+use crate::utils::IntoCollection;
 
 use crate::api::v3;
 
@@ -53,7 +54,7 @@ where
         Ok(self
             .call(owner::Request {
                 session_id: session_id.into(),
-                result_ids: result_ids.into_iter().map(Into::into).collect(),
+                result_ids: result_ids.into_collect(),
             })
             .await?
             .result_task)
@@ -68,7 +69,7 @@ where
     ) -> Result<HashMap<String, Raw>, tonic::Status> {
         Ok(self
             .call(create_metadata::Request {
-                results: names.into_iter().map(Into::into).collect(),
+                results: names.into_collect(),
                 session_id: session_id.into(),
             })
             .await?
@@ -153,7 +154,7 @@ where
         Ok(self
             .call(delete::Request {
                 session_id: session_id.into(),
-                result_ids: result_ids.into_iter().map(Into::into).collect(),
+                result_ids: result_ids.into_collect(),
             })
             .await?
             .result_ids)

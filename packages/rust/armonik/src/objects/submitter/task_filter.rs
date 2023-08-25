@@ -1,4 +1,5 @@
 use super::super::TaskStatus;
+use crate::utils::IntoCollection;
 
 use crate::api::v3;
 
@@ -69,10 +70,10 @@ impl From<v3::submitter::task_filter::Statuses> for TaskFilterStatuses {
     fn from(value: v3::submitter::task_filter::Statuses) -> Self {
         match value {
             v3::submitter::task_filter::Statuses::Excluded(statuses) => {
-                Self::Exclude(statuses.statuses.into_iter().map(Into::into).collect())
+                Self::Exclude(statuses.statuses.into_collect())
             }
             v3::submitter::task_filter::Statuses::Included(statuses) => {
-                Self::Include(statuses.statuses.into_iter().map(Into::into).collect())
+                Self::Include(statuses.statuses.into_collect())
             }
         }
     }
