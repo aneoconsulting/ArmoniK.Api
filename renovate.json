@@ -53,6 +53,16 @@
       ]
     },
     {
+      "groupName": "nuget armonik utils package",
+      "groupSlug": "nuget",
+      "matchDatasources": [
+        "nuget"
+      ],
+      "matchPackagePatterns": [
+        "ArmoniK\\.Utils"
+      ]
+    },
+    {
       "groupName": "python packages",
       "groupSlug": "pypi",
       "matchDatasources": [
