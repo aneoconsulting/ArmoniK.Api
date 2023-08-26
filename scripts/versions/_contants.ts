@@ -1,7 +1,7 @@
-import glob from 'glob'
+import { glob } from 'glob'
 
 export const csharpPattern = /<PackageVersion>(?<version>.*)<\/PackageVersion>/
-export const csharpFiles = glob.sync('**/*.csproj')
+export const csharpFiles = glob.globSync('**/*.csproj')
 
 export const pythonPattern = /version = "(?<version>.*)"/g
 export const pythonFiles = ['packages/python/pyproject.toml']
