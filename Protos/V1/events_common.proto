@@ -13,11 +13,12 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
  * Represents the events that can be returned in the EventSubscriptionResponse
  */
 enum EventsEnum {
-  EVENTS_ENUM_NEW_TASK = 0; /** New task */
-  EVENTS_ENUM_TASK_STATUS_UPDATE = 1; /** Task status update */
-  EVENTS_ENUM_NEW_RESULT = 2; /** New restult */
-  EVENTS_ENUM_RESULT_STATUS_UPDATE = 3; /** Result status update */
-  EVENTS_ENUM_RESULT_OWNER_UPDATE = 4; /** Result owner update */
+  EVENTS_ENUM_UNSPECIFIED = 0; /** Unspecified */
+  EVENTS_ENUM_NEW_TASK = 1; /** New task */
+  EVENTS_ENUM_TASK_STATUS_UPDATE = 2; /** Task status update */
+  EVENTS_ENUM_NEW_RESULT = 3; /** New restult */
+  EVENTS_ENUM_RESULT_STATUS_UPDATE = 4; /** Result status update */
+  EVENTS_ENUM_RESULT_OWNER_UPDATE = 5; /** Result owner update */
 }
 
 /**
