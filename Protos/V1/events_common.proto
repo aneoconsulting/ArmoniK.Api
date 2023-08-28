@@ -3,12 +3,11 @@ syntax = "proto3";
 package armonik.api.grpc.v1.events;
 
 import "result_status.proto";
+import "results_filters.proto";
 import "task_status.proto";
 import "tasks_filters.proto";
-import "results_filters.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
-
 
 /**
  * Represents the events that can be returned in the EventSubscriptionResponse
