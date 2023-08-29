@@ -7,6 +7,7 @@
     <PackageVersion>3.11.0</PackageVersion>
     <PackageOutputPath>../publish</PackageOutputPath>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
