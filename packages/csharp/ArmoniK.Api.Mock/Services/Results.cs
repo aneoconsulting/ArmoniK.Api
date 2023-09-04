@@ -116,4 +116,20 @@ public class Results : gRPC.V1.Results.Results.ResultsBase
                        {
                          Result = MockResult,
                        });
+
+  /// <inheritdocs />
+  [Count]
+  public override async Task WatchResults(IAsyncStreamReader<WatchResultRequest>   requestStream,
+                                          IServerStreamWriter<WatchResultResponse> responseStream,
+                                          ServerCallContext                        context)
+  {
+    await foreach (var _ in requestStream.ReadAllAsync())
+    {
+      await responseStream.WriteAsync(new WatchResultResponse
+                                      {
+                                        Status = ResultStatus.Unspecified,
+                                      })
+                          .ConfigureAwait(false);
+    }
+  }
 }
