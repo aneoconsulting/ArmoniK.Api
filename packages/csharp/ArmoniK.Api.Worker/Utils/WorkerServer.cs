@@ -52,24 +52,11 @@ public static class WorkerServer
   ///   Create a web application for the given ArmoniK Worker gRPC Service
   /// </summary>
   /// <typeparam name="T">gRPC Service to add to the web application</typeparam>
-  /// <returns>
-  ///   The web application initialized
-  /// </returns>
-  public static WebApplication Create<T>()
-    where T : gRPC.V1.Worker.Worker.WorkerBase
-    => Create<T>(null);
-
-
-  /// <summary>
-  ///   Create a web application for the given ArmoniK Worker gRPC Service
-  /// </summary>
-  /// <typeparam name="T">gRPC Service to add to the web application</typeparam>
   /// <param name="configuration">Additional configurations</param>
   /// <param name="serviceConfigurator">Lambda to configure server services</param>
   /// <returns>
   ///   The web application initialized
   /// </returns>
-  // ReSharper disable once MethodOverloadWithOptionalParameter
   public static WebApplication Create<T>(IConfiguration?             configuration       = null,
                                          Action<IServiceCollection>? serviceConfigurator = null)
     where T : gRPC.V1.Worker.Worker.WorkerBase
