@@ -60,6 +60,31 @@ public static class WorkerServer
   public static WebApplication Create<T>(IConfiguration?             configuration       = null,
                                          Action<IServiceCollection>? serviceConfigurator = null)
     where T : gRPC.V1.Worker.Worker.WorkerBase
+    => Create<T>((collection,
+                  configuration1) =>
+                 {
+                   if (configuration != null)
+                   {
+                     foreach (var pair in configuration.AsEnumerable())
+                     {
+                       configuration1[pair.Key] = pair.Value;
+                     }
+                   }
+
+                   serviceConfigurator?.Invoke(collection);
+                 });
+
+
+  /// <summary>
+  ///   Create a web application for the given ArmoniK Worker gRPC Service
+  /// </summary>
+  /// <typeparam name="T">gRPC Service to add to the web application</typeparam>
+  /// <param name="configurator">Lambda to configure server services</param>
+  /// <returns>
+  ///   The web application initialized
+  /// </returns>
+  public static WebApplication Create<T>(Action<IServiceCollection, IConfiguration>? configurator)
+    where T : gRPC.V1.Worker.Worker.WorkerBase
   {
     try
     {
@@ -71,10 +96,8 @@ public static class WorkerServer
                           false)
              .AddEnvironmentVariables();
 
-      if (configuration is not null)
-      {
-        builder.Configuration.AddConfiguration(configuration);
-      }
+      configurator?.Invoke(builder.Services,
+                           builder.Configuration);
 
       Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration)
                                             .WriteTo.Console(new CompactJsonFormatter())
@@ -114,7 +137,6 @@ public static class WorkerServer
              .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
 
-      serviceConfigurator?.Invoke(builder.Services);
 
       var app = builder.Build();
 
