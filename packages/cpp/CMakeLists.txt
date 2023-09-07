@@ -23,6 +23,8 @@ if (WIN32)
     set(Protobuf_USE_STATIC_LIBS ON)
 endif ()
 
+LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 option(BUILD_TEST "Build tests" OFF)
 option(BUILD_CLIENT "Build client" ON)
 option(BUILD_WORKER "Build worker" ON)
@@ -36,12 +38,15 @@ set(CMAKE_CXX_STANDARD 17)
 
 function(setup_options project_name_param)
 
-file(READ /etc/issue ${PROJECT_NAME}_ETCISSUE_CONTENT)
-string(FIND "${${project_name_param}_ETCISSUE_CONTENT}" "Alpine" IS_ALPINE)
+
 
 if(MSVC)
     target_compile_options(${project_name_param} PRIVATE /W4)
 else()
+    
+    file(READ /etc/issue ${PROJECT_NAME}_ETCISSUE_CONTENT)
+    string(FIND "${${project_name_param}_ETCISSUE_CONTENT}" "Alpine" IS_ALPINE)
+
     if(CMAKE_BUILD_TYPE MATCHES DEBUG AND IS_ALPINE EQUAL -1)
         target_compile_options(${project_name_param} PRIVATE -Wall -Wextra -Wpedantic -fsanitize=undefined,address)
     else ()
