@@ -34,10 +34,26 @@ find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
 include(FetchContent)
+include(downloader)
+
+SET(SRC_FMT "https://github.com/fmtlib/fmt/archive/refs/tags/10.1.0.tar.gz")
+SET(SRC_SIMDJSON "https://github.com/simdjson/simdjson/archive/refs/tags/v3.2.2.tar.gz")
+
+#To fix proxy issue with FETCHCONTENT, we need to trust to a powershell script to downlad file with webbrowser credentials
+if (WIN32) 
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/_deps/")
+
+  download_windows_file_https("${SRC_FMT}" "${CMAKE_BINARY_DIR}/_deps/10.1.0.tar.gz" TRUE)
+
+  SET(SRC_FMT "${CMAKE_BINARY_DIR}/_deps/10.1.0.tar.gz")
+
+endif()
+
 
 FETCHCONTENT_DECLARE(
         fmt
-        URL https://github.com/fmtlib/fmt/archive/refs/tags/10.1.0.tar.gz
+        URL ${SRC_FMT}
+        TIMEOUT 180
 )
 
 FetchContent_GetProperties(fmt)
@@ -45,9 +61,16 @@ if(NOT fmt_POPULATED)
     FetchContent_Populate(fmt)
 endif()
 
+if (WIN32)
+  download_windows_file_https(${SRC_SIMDJSON} "${CMAKE_BINARY_DIR}/_deps/v3.2.2.tar.gz" TRUE)
+
+  SET(SRC_SIMDJSON "${CMAKE_BINARY_DIR}/_deps/v3.2.2.tar.gz")
+endif()
+
 FETCHCONTENT_DECLARE(
         simdjson
-        URL https://github.com/simdjson/simdjson/archive/refs/tags/v3.2.2.tar.gz
+        URL "${SRC_SIMDJSON}"
+        TIMEOUT 180
 )
 
 FetchContent_GetProperties(simdjson)
