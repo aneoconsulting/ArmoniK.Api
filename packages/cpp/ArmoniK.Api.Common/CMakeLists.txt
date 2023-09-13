@@ -39,7 +39,7 @@ include(FetchContent)
 
 FETCHCONTENT_DECLARE(
         fmt
-        URL ${SRC_FMT}
+        URL "${SRC_FMT}"
         TIMEOUT 180
 )
 
