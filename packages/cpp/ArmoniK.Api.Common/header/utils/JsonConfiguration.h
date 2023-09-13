@@ -5,7 +5,7 @@
  */
 #include "utils/Configuration.h"
 
-namespace API_COMMON_NAMESPACE::utils::JsonConfiguration {
+namespace armonik::api::common::utils::JsonConfiguration {
 void fromPath(Configuration &config, std::string_view filepath);
 void fromString(Configuration &config, std::string_view json_string);
 inline Configuration fromPath(std::string_view filepath) {
@@ -18,4 +18,4 @@ inline Configuration fromString(std::string_view json_string) {
   fromString(config, json_string);
   return config;
 }
-} // namespace API_COMMON_NAMESPACE::utils::JsonConfiguration
+} // namespace armonik::api::common::utils::JsonConfiguration

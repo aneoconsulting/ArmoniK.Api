@@ -10,7 +10,7 @@
 #include "fwd.h"
 #include "level.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 /**
  * @interface IFormatter
  * @brief Formatter interface to use by a logger.
@@ -46,4 +46,4 @@ std::unique_ptr<IFormatter> formatter_clef();
  * @return Pointer to the formatter.
  */
 std::unique_ptr<IFormatter> formatter_plain(bool styling = false);
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

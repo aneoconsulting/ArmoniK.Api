@@ -10,7 +10,7 @@
 
 #include "logger/formatter.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 /**
  * @brief Formatter for CLEF (Compact Log Event Format)
  */
@@ -98,4 +98,4 @@ std::unique_ptr<IFormatter> formatter_plain(bool styling) { return std::make_uni
 
 // Interface destructor
 IFormatter::~IFormatter() = default;
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

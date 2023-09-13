@@ -1,5 +1,4 @@
 set(PROJECT_NAME ArmoniK.Api.Tests)
-set(NAMESPACE ArmoniK::Api::Tests)
 
 # Trouver les packages requis
 find_package(Protobuf REQUIRED)
@@ -28,8 +27,6 @@ endif()
 
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC API_TEST_NAMESPACE=${NAMESPACE})
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC

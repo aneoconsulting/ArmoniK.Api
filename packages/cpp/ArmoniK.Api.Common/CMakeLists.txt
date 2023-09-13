@@ -3,7 +3,6 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 set(PROJECT_NAME ArmoniK.Api.Common)
-set(NAMESPACE ArmoniK::Api::Common)
 set(ARMONIK_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/armonik/common)
 set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
@@ -27,28 +26,16 @@ set(PROTO_FILES
 
 list(TRANSFORM PROTO_FILES PREPEND "${PROTO_FILES_DIR}/")
 
-set(CMAKE_FIND_DEBUG_MODE FALSE)
 # Trouver les packages requis
-find_package(Protobuf REQUIRED)
+if (UNIX)
+    find_package(Protobuf REQUIRED)
+else()
+    find_package(Protobuf CONFIG REQUIRED)
+endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
 include(FetchContent)
-include(downloader)
-
-SET(SRC_FMT "https://github.com/fmtlib/fmt/archive/refs/tags/10.1.0.tar.gz")
-SET(SRC_SIMDJSON "https://github.com/simdjson/simdjson/archive/refs/tags/v3.2.2.tar.gz")
-
-#To fix proxy issue with FETCHCONTENT, we need to trust to a powershell script to downlad file with webbrowser credentials
-if (WIN32) 
-file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/_deps/")
-
-  download_windows_file_https("${SRC_FMT}" "${CMAKE_BINARY_DIR}/_deps/10.1.0.tar.gz" TRUE)
-
-  SET(SRC_FMT "${CMAKE_BINARY_DIR}/_deps/10.1.0.tar.gz")
-
-endif()
-
 
 FETCHCONTENT_DECLARE(
         fmt
@@ -59,12 +46,6 @@ FETCHCONTENT_DECLARE(
 FetchContent_GetProperties(fmt)
 if(NOT fmt_POPULATED)
     FetchContent_Populate(fmt)
-endif()
-
-if (WIN32)
-  download_windows_file_https(${SRC_SIMDJSON} "${CMAKE_BINARY_DIR}/_deps/v3.2.2.tar.gz" TRUE)
-
-  SET(SRC_SIMDJSON "${CMAKE_BINARY_DIR}/_deps/v3.2.2.tar.gz")
 endif()
 
 FETCHCONTENT_DECLARE(
@@ -78,8 +59,6 @@ if(NOT simdjson_POPULATED)
     FetchContent_Populate(simdjson)
 endif()
 
-set(CMAKE_FIND_DEBUG_MODE FALSE)
-
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
 
@@ -91,7 +70,7 @@ file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR})
 add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES} ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp ${simdjson_SOURCE_DIR}/singleheader/simdjson.h)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure)
-target_compile_definitions(${PROJECT_NAME} PUBLIC API_COMMON_NAMESPACE=${NAMESPACE} FMT_HEADER_ONLY=1)
+target_compile_definitions(${PROJECT_NAME} PUBLIC FMT_HEADER_ONLY=1)
 
 setup_options(${PROJECT_NAME})
 

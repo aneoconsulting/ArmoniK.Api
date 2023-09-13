@@ -6,7 +6,7 @@
 
 #include "logger/logger.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 
 namespace {
 // Empty string to return when key is not found
@@ -78,4 +78,4 @@ void Logger::log(Level level, std::string_view message, const Context &message_c
 
 // Interface destructor
 ILogger::~ILogger() = default;
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

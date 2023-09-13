@@ -1,5 +1,4 @@
 set(PROJECT_NAME ArmoniK.Api.Worker)
-set(NAMESPACE ArmoniK::Api::Worker)
 set(ARMONIK_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/armonik/worker)
 set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
@@ -14,9 +13,12 @@ set(PROTO_MESSAGES
 list(TRANSFORM PROTO_FILES PREPEND ${PROTO_FILES_DIR}/)
 list(TRANSFORM PROTO_MESSAGES PREPEND ${PROTO_FILES_DIR}/)
 
-set(CMAKE_FIND_DEBUG_MODE FALSE)
 # Trouver les packages requis
-find_package(Protobuf REQUIRED)
+if (UNIX)
+        find_package(Protobuf REQUIRED)
+else()
+        find_package(Protobuf CONFIG REQUIRED)
+endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
@@ -31,8 +33,6 @@ file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR}/proto)
 add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common ${PROTO_TARGET})
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC API_WORKER_NAMESPACE=${NAMESPACE})
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC

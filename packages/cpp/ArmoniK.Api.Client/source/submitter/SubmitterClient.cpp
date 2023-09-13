@@ -31,7 +31,7 @@ using namespace armonik::api::grpc::v1::submitter;
  *
  * @param stub the gRPC client stub
  */
-API_CLIENT_NAMESPACE::SubmitterClient::SubmitterClient(std::unique_ptr<Submitter::StubInterface> stub) {
+armonik::api::client::SubmitterClient::SubmitterClient(std::unique_ptr<Submitter::StubInterface> stub) {
   stub_ = std::move(stub);
 }
 
@@ -40,7 +40,7 @@ API_CLIENT_NAMESPACE::SubmitterClient::SubmitterClient(std::unique_ptr<Submitter
  * @param partition_ids The partitions ids.
  * @param default_task_options The default task options.
  */
-std::string API_CLIENT_NAMESPACE::SubmitterClient::create_session(TaskOptions default_task_options,
+std::string armonik::api::client::SubmitterClient::create_session(TaskOptions default_task_options,
                                                                   const std::vector<std::string> &partition_ids = {}) {
   CreateSessionRequest request;
   *request.mutable_default_task_option() = std::move(default_task_options);
@@ -48,8 +48,8 @@ std::string API_CLIENT_NAMESPACE::SubmitterClient::create_session(TaskOptions de
     request.add_partition_ids(partition_id);
   }
   CreateSessionReply reply;
-
-  Status status = stub_->CreateSession(&context_, request, &reply);
+  ::grpc::ClientContext context;
+  Status status = stub_->CreateSession(&context, request, &reply);
   if (!status.ok()) {
     std::stringstream message;
     message << "Error: " << status.error_code() << ": " << status.error_message()
@@ -70,7 +70,7 @@ std::string API_CLIENT_NAMESPACE::SubmitterClient::create_session(TaskOptions de
  * @return A vector of futures containing CreateLargeTaskRequest objects.
  */
 std::vector<std::future<std::vector<CreateLargeTaskRequest>>>
-API_CLIENT_NAMESPACE::SubmitterClient::to_request_stream(const std::vector<TaskRequest> &task_requests,
+armonik::api::client::SubmitterClient::to_request_stream(const std::vector<TaskRequest> &task_requests,
                                                          std::string session_id, TaskOptions task_options,
                                                          const size_t chunk_max_size) {
   std::vector<std::future<std::vector<CreateLargeTaskRequest>>> async_chunk_payload_tasks;
@@ -104,7 +104,7 @@ API_CLIENT_NAMESPACE::SubmitterClient::to_request_stream(const std::vector<TaskR
  * @return A future containing a vector of CreateLargeTaskRequest objects.
  */
 std::future<std::vector<CreateLargeTaskRequest>>
-API_CLIENT_NAMESPACE::SubmitterClient::task_chunk_stream(const TaskRequest &task_request, bool is_last,
+armonik::api::client::SubmitterClient::task_chunk_stream(const TaskRequest &task_request, bool is_last,
                                                          size_t chunk_max_size) {
   return std::async(std::launch::async, [&task_request, chunk_max_size, is_last]() {
     std::vector<CreateLargeTaskRequest> requests;
@@ -180,7 +180,7 @@ API_CLIENT_NAMESPACE::SubmitterClient::task_chunk_stream(const TaskRequest &task
  * @return A future containing a CreateTaskReply object.
  */
 std::future<CreateTaskReply>
-API_CLIENT_NAMESPACE::SubmitterClient::create_tasks_async(std::string session_id, TaskOptions task_options,
+armonik::api::client::SubmitterClient::create_tasks_async(std::string session_id, TaskOptions task_options,
                                                           const std::vector<TaskRequest> &task_requests) {
   return std::async(std::launch::async, [this, task_requests, session_id = std::move(session_id),
                                          task_options = std::move(task_options)]() mutable {
@@ -238,7 +238,7 @@ API_CLIENT_NAMESPACE::SubmitterClient::create_tasks_async(std::string session_id
  * @return A vector of task IDs.
  */
 std::tuple<std::vector<std::string>, std::vector<std::string>>
-API_CLIENT_NAMESPACE::SubmitterClient::submit_tasks_with_dependencies(
+armonik::api::client::SubmitterClient::submit_tasks_with_dependencies(
     std::string session_id, TaskOptions task_options, const std::vector<payload_data> &payloads_with_dependencies,
     int max_retries = 5) {
   std::vector<std::string> task_ids;
@@ -290,7 +290,7 @@ API_CLIENT_NAMESPACE::SubmitterClient::submit_tasks_with_dependencies(
  * @param result_request A vector of ResultRequest objects.
  * @return A future containing data result.
  */
-std::future<std::string> API_CLIENT_NAMESPACE::SubmitterClient::get_result_async(const ResultRequest &result_request) {
+std::future<std::string> armonik::api::client::SubmitterClient::get_result_async(const ResultRequest &result_request) {
   return std::async(std::launch::async, [this, &result_request]() {
     ResultReply reply;
     ClientContext context_result;
@@ -313,30 +313,30 @@ std::future<std::string> API_CLIENT_NAMESPACE::SubmitterClient::get_result_async
           dataComplete = true;
           break;
         case armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET:
-          throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Issue with server, invalid data chunk");
+          throw armonik::api::common::exceptions::ArmoniKApiException("Issue with server, invalid data chunk");
         }
         break;
       case ResultReply::kError:
-        throw ArmoniK::Api::Common::exceptions::ArmoniKTaskError("Can't get result because it's in error",
+        throw armonik::api::common::exceptions::ArmoniKTaskError("Can't get result because it's in error",
                                                                  reply.error());
       case ResultReply::kNotCompletedTask:
-        throw ArmoniK::Api::Common::exceptions::ArmoniKTaskNotCompletedException(reply.not_completed_task());
+        throw armonik::api::common::exceptions::ArmoniKTaskNotCompletedException(reply.not_completed_task());
       case ResultReply::TYPE_NOT_SET:
-        throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Issue with server, invalid reply");
+        throw armonik::api::common::exceptions::ArmoniKApiException("Issue with server, invalid reply");
       }
     }
 
     if (!dataComplete) {
-      throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Retrieved data is incomplete");
+      throw armonik::api::common::exceptions::ArmoniKApiException("Retrieved data is incomplete");
     }
 
     return result_data;
   });
 }
 std::map<std::string, armonik::api::grpc::v1::result_status::ResultStatus>
-ArmoniK::Api::Client::SubmitterClient::get_result_status(const std::string &session_id,
+armonik::api::client::SubmitterClient::get_result_status(const std::string &session_id,
                                                          const std::vector<std::string> &result_ids) {
-  grpc::ClientContext context;
+  ::grpc::ClientContext context;
   armonik::api::grpc::v1::submitter::GetResultStatusRequest request;
   armonik::api::grpc::v1::submitter::GetResultStatusReply reply;
 
@@ -345,7 +345,7 @@ ArmoniK::Api::Client::SubmitterClient::get_result_status(const std::string &sess
 
   auto status = stub_->GetResultStatus(&context, request, &reply);
   if (!status.ok()) {
-    throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Couldn't get result status : " +
+    throw armonik::api::common::exceptions::ArmoniKApiException("Couldn't get result status : " +
                                                                 status.error_message());
   }
 

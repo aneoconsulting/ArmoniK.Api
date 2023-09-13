@@ -11,7 +11,7 @@
 #include "fwd.h"
 #include "level.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 
 /**
  * @class LocalLogger
@@ -74,4 +74,4 @@ public:
    */
   void log(Level level, std::string_view message, const Context &message_context = {}) override;
 };
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

@@ -3,7 +3,7 @@
 
 #include <results_service.grpc.pb.h>
 
-namespace API_CLIENT_NAMESPACE {
+namespace armonik::api::client {
 class ResultsClient {
 public:
   explicit ResultsClient(std::unique_ptr<armonik::api::grpc::v1::results::Results::Stub> stub)
@@ -15,6 +15,6 @@ public:
 private:
   std::unique_ptr<armonik::api::grpc::v1::results::Results::Stub> stub;
 };
-} // namespace API_CLIENT_NAMESPACE
+} // namespace armonik::api::client
 
 #endif // ARMONIK_API_RESULTSCLIENT_H

@@ -8,7 +8,7 @@
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
-namespace API_WORKER_NAMESPACE {
+namespace armonik::api::worker {
 
 // #include "SessionContext.h"
 
@@ -19,9 +19,8 @@ namespace API_WORKER_NAMESPACE {
 class TaskHandler {
 
 private:
-  grpc::ClientContext context_;
   armonik::api::grpc::v1::agent::Agent::Stub &stub_;
-  grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator_;
+  ::grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator_;
   std::string session_id_;
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
@@ -39,7 +38,7 @@ public:
    * @param request_iterator The request iterator
    */
   TaskHandler(armonik::api::grpc::v1::agent::Agent::Stub &client,
-              grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator);
+              ::grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator);
 
   /**
    * @brief Initialise the task handler
@@ -147,4 +146,4 @@ public:
   const armonik::api::grpc::v1::Configuration &getConfiguration() const;
 };
 
-} // namespace API_WORKER_NAMESPACE
+} // namespace armonik::api::worker

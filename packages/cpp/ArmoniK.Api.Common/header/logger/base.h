@@ -9,7 +9,7 @@
 #include "context.h"
 #include "level.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 /**
  * @interface ILogger
  * @brief Logger interface.
@@ -107,4 +107,4 @@ public:
     log(Level::Fatal, message, message_context);
   }
 };
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

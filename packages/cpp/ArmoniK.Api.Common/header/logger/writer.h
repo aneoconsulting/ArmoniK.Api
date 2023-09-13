@@ -10,7 +10,7 @@
 
 #include "level.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 /**
  * @interface IWriter
  * @brief Writer interface to use by a logger.
@@ -41,4 +41,4 @@ std::unique_ptr<IWriter> writer_console();
  * @return Pointer to the writer.
  */
 std::unique_ptr<IWriter> writer_file(std::ostream &out);
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

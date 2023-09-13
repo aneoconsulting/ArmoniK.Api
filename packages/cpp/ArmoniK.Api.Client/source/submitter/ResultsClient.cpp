@@ -2,12 +2,12 @@
 #include "exceptions/ArmoniKApiException.h"
 #include <sstream>
 
-namespace API_CLIENT_NAMESPACE {
+namespace armonik::api::client {
 
 std::map<std::string, std::string> ResultsClient::create_results(std::string_view session_id,
                                                                  const std::vector<std::string> &names) {
   std::map<std::string, std::string> mapping;
-  grpc::ClientContext context;
+  ::grpc::ClientContext context;
   armonik::api::grpc::v1::results::CreateResultsMetaDataRequest results_request;
   armonik::api::grpc::v1::results::CreateResultsMetaDataResponse results_response;
 
@@ -32,7 +32,7 @@ std::map<std::string, std::string> ResultsClient::create_results(std::string_vie
             << ". details : " << status.error_details() << std::endl;
     auto str = message.str();
     std::cerr << "Could not create results for submit: " << str << std::endl;
-    throw ArmoniK::Api::Common::exceptions::ArmoniKApiException(str);
+    throw armonik::api::common::exceptions::ArmoniKApiException(str);
   }
 
   for (auto &&res : results_response.results()) {
@@ -42,11 +42,11 @@ std::map<std::string, std::string> ResultsClient::create_results(std::string_vie
 }
 void ResultsClient::upload_result_data(const std::string &session_id, const std::string &result_id,
                                        std::string_view payload) {
-  grpc::ClientContext context;
+  ::grpc::ClientContext context;
   armonik::api::grpc::v1::results::ResultsServiceConfigurationResponse configuration;
   auto status = stub->GetServiceConfiguration(&context, armonik::api::grpc::v1::Empty(), &configuration);
   if (!status.ok()) {
-    throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Unable to get result configuration : " +
+    throw armonik::api::common::exceptions::ArmoniKApiException("Unable to get result configuration : " +
                                                                 status.error_message());
   }
 
@@ -54,7 +54,7 @@ void ResultsClient::upload_result_data(const std::string &session_id, const std:
 
   armonik::api::grpc::v1::results::UploadResultDataResponse response;
   // response.set_allocated_result(new armonik::api::grpc::v1::results::ResultRaw());
-  grpc::ClientContext streamContext;
+  ::grpc::ClientContext streamContext;
   auto stream = stub->UploadResultData(&streamContext, &response);
   armonik::api::grpc::v1::results::UploadResultDataRequest request;
   request.mutable_id()->set_session_id(session_id);
@@ -67,18 +67,18 @@ void ResultsClient::upload_result_data(const std::string &session_id, const std:
 
     *request.mutable_data_chunk() = payload.substr(offset, chunkSize);
     if (!stream->Write(request)) {
-      throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Unable to continue upload result");
+      throw armonik::api::common::exceptions::ArmoniKApiException("Unable to continue upload result");
     }
     offset += chunkSize;
   }
 
   if (!stream->WritesDone()) {
-    throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Unable to upload result");
+    throw armonik::api::common::exceptions::ArmoniKApiException("Unable to upload result");
   }
   status = stream->Finish();
   if (!status.ok()) {
-    throw ArmoniK::Api::Common::exceptions::ArmoniKApiException("Unable to finish upload result " +
+    throw armonik::api::common::exceptions::ArmoniKApiException("Unable to finish upload result " +
                                                                 status.error_message());
   }
 }
-} // namespace API_CLIENT_NAMESPACE
+} // namespace armonik::api::client
