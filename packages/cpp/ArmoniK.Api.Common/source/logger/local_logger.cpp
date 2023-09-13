@@ -6,7 +6,7 @@
 
 #include "logger/local_logger.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 
 namespace {
 // Empty string to return when key is not found
@@ -51,4 +51,4 @@ void LocalLogger::log(Level level, std::string_view message, const Context &mess
   auto formatted = formatter_->format(level_, message, *global_context_, local_context_, message_context);
   writer_->write(level_, formatted);
 }
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

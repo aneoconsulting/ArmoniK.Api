@@ -3,7 +3,7 @@
 
 #include "logger/writer.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 
 /**
  * @brief std::ostream -baked Writer
@@ -56,4 +56,4 @@ std::unique_ptr<IWriter> writer_file(std::ostream &out) { return std::make_uniqu
 
 // Interface destructor
 IWriter::~IWriter() = default;
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

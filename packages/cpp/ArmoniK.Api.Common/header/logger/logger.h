@@ -13,7 +13,7 @@
 #include "level.h"
 #include "local_logger.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 /**
  * @brief Default Logger.
  */
@@ -108,4 +108,4 @@ public:
    */
   void log(Level level, std::string_view message, const Context &message_context = {}) override;
 };
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger

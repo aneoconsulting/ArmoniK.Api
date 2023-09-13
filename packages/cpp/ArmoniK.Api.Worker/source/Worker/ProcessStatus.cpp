@@ -1,4 +1,4 @@
 #include "Worker/ProcessStatus.h"
 
-const API_WORKER_NAMESPACE::ProcessStatus API_WORKER_NAMESPACE::ProcessStatus::Ok;
-const API_WORKER_NAMESPACE::ProcessStatus API_WORKER_NAMESPACE::ProcessStatus::Error(false);
+const armonik::api::worker::ProcessStatus armonik::api::worker::ProcessStatus::Ok;
+const armonik::api::worker::ProcessStatus armonik::api::worker::ProcessStatus::Error(false);

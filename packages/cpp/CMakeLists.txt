@@ -7,7 +7,7 @@ string(REGEX MATCHALL "[0-9]+" version_list ${version})
 list(GET version_list 0 version_major)
 list(GET version_list 1 version_minor)
 list(GET version_list 2 version_patch)
-message(STATUS "Version ${version}")
+message(STATUS "ArmoniK Version ${version}")
 
 set(SOLUTION_NAME ArmoniK.Api)
 project(${SOLUTION_NAME} C CXX)
@@ -23,8 +23,6 @@ if (WIN32)
     set(Protobuf_USE_STATIC_LIBS ON)
 endif ()
 
-LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-
 option(BUILD_TEST "Build tests" OFF)
 option(BUILD_CLIENT "Build client" ON)
 option(BUILD_WORKER "Build worker" ON)
@@ -33,11 +31,9 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 # make cache variables for install destinations
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
-
-set(CMAKE_CXX_STANDARD 17)
+include(Dependencies.cmake)
 
 function(setup_options project_name_param)
-
 
 
 if(MSVC)

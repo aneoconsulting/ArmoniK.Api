@@ -20,17 +20,17 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using ArmoniK::Api::Common::utils::Configuration;
+using armonik::api::common::utils::Configuration;
 using armonik::api::grpc::v1::TaskOptions;
 
 using namespace armonik::api::grpc::v1::worker;
-using namespace ArmoniK::Api::Common::utils;
+using namespace armonik::api::common::utils;
 
 /**
  * @brief Constructs a ArmoniKWorker object.
  */
-API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
-    : logger_(ArmoniK::Api::Common::logger::writer_console(), ArmoniK::Api::Common::logger::formatter_clef()) {
+armonik::api::worker::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
+    : logger_(armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_clef()) {
   logger_.info("Build Service ArmoniKWorker");
   logger_.global_context_add("class", "ArmoniKWorker");
   logger_.global_context_add("Worker", "ArmoniK.Api.Cpp");
@@ -46,9 +46,10 @@ API_WORKER_NAMESPACE::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api:
  *
  * @return The status of the method.
  */
-Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::ServerContext *context,
-                                                    ::grpc::ServerReader<ProcessRequest> *reader,
-                                                    ::armonik::api::grpc::v1::worker::ProcessReply *response) {
+[[maybe_unused]] Status
+armonik::api::worker::ArmoniKWorker::Process([[maybe_unused]] ::grpc::ServerContext *context,
+                                             ::grpc::ServerReader<ProcessRequest> *reader,
+                                             ::armonik::api::grpc::v1::worker::ProcessReply *response) {
 
   logger_.debug("Receive new request From C++ Worker");
 
@@ -68,10 +69,10 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
     }
     *response->mutable_output() = std::move(output);
   } catch (const std::exception &e) {
-    return {grpc::StatusCode::UNAVAILABLE, "Error processing task", e.what()};
+    return {::grpc::StatusCode::UNAVAILABLE, "Error processing task", e.what()};
   }
 
-  return grpc::Status::OK;
+  return ::grpc::Status::OK;
 }
 
 /**
@@ -83,9 +84,10 @@ Status API_WORKER_NAMESPACE::ArmoniKWorker::Process([[maybe_unused]] ::grpc::Ser
  *
  * @return The status of the method.
  */
-Status API_WORKER_NAMESPACE::ArmoniKWorker::HealthCheck([[maybe_unused]] ::grpc::ServerContext *context,
-                                                        [[maybe_unused]] const ::armonik::api::grpc::v1::Empty *request,
-                                                        ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
+[[maybe_unused]] Status
+armonik::api::worker::ArmoniKWorker::HealthCheck([[maybe_unused]] ::grpc::ServerContext *context,
+                                                 [[maybe_unused]] const ::armonik::api::grpc::v1::Empty *request,
+                                                 ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
   // Implementation of the HealthCheck method
   logger_.debug("HealthCheck request OK");
 

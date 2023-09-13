@@ -10,7 +10,7 @@
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
 
-namespace API_CLIENT_NAMESPACE {
+namespace armonik::api::client {
 
 /**
  * @brief Data structure for task payload
@@ -30,7 +30,6 @@ struct payload_data {
  */
 class SubmitterClient {
 private:
-  grpc::ClientContext context_;
   std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::StubInterface> stub_;
 
 public:
@@ -105,4 +104,4 @@ public:
   get_result_status(const std::string &session_id, const std::vector<std::string> &result_ids);
 };
 
-} // namespace API_CLIENT_NAMESPACE
+} // namespace armonik::api::client

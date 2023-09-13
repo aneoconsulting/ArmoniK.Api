@@ -6,7 +6,7 @@
 
 #include <string_view>
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik::api::common::logger {
 /**
  * @enum Level
  * @brief Logging Level datatype.
@@ -43,4 +43,4 @@ constexpr std::string_view level_name(Level level) {
     return "Unknown";
   }
 }
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace armonik::api::common::logger
