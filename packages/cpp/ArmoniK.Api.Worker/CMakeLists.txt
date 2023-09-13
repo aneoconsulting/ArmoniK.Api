@@ -13,14 +13,6 @@ set(PROTO_MESSAGES
 list(TRANSFORM PROTO_FILES PREPEND ${PROTO_FILES_DIR}/)
 list(TRANSFORM PROTO_MESSAGES PREPEND ${PROTO_FILES_DIR}/)
 
-# Trouver les packages requis
-if (UNIX)
-        find_package(Protobuf REQUIRED)
-else()
-        find_package(Protobuf CONFIG REQUIRED)
-endif()
-find_package(gRPC CONFIG REQUIRED)
-find_package(Threads)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
@@ -31,6 +23,15 @@ FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
 file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR}/proto)
 
 add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
+
+# Trouver les packages requis
+if (UNIX)
+        find_package(Protobuf REQUIRED)
+else()
+        find_package(Protobuf CONFIG REQUIRED)
+endif()
+find_package(gRPC CONFIG REQUIRED)
+find_package(Threads)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common ${PROTO_TARGET})
 
