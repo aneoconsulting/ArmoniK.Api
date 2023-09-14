@@ -155,8 +155,8 @@ TEST(testMock, submitTask) {
   }
   auto result_mapping = results.create_results(session_id, names);
   int j = 0;
-  for (auto &&[k, v] : result_mapping) {
-    names[j++] = v;
+  for (auto &&kv : result_mapping) {
+    names[j++] = kv.second;
   }
 
   try {
@@ -169,15 +169,14 @@ TEST(testMock, submitTask) {
       data.dependencies = {};
       payloads.push_back(data);
     }
-    const auto [task_ids, failed_task_ids] =
-        submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
-    for (const auto &task_id : task_ids) {
+    const auto taskId_failedTaskId = submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
+    for (const auto &task_id : taskId_failedTaskId.first) {
       std::stringstream out;
       out << "Generate task_ids : " << task_id;
       log.info(out.str());
     }
 
-    for (const auto &failed_task_id : failed_task_ids) {
+    for (const auto &failed_task_id : taskId_failedTaskId.second) {
       std::stringstream out;
       out << "Failed task_ids : " << failed_task_id;
       log.info(out.str());
@@ -224,7 +223,7 @@ TEST(testMock, testWorker) {
   data.payload = "armonik";
   data.dependencies = {};
   payloads.push_back(data);
-  const auto [task_ids, failed] = submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
+  const auto task_id_failed = submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
 
   while (true) {
     auto status = submitter.get_result_status(session_id, {mapping[name]})[mapping[name]];

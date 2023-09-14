@@ -2,7 +2,7 @@
 
 ## Build requirements
 - cmake 3.22+
-- C++ compiler with C++17 support
+- C++ compiler with C++14 support
 - grpc 1.54 - 1.56.2
 - protobuf
 - fmt 10.1.0 (https://github.com/fmtlib/fmt/archive/refs/tags/10.1.0.tar.gz)

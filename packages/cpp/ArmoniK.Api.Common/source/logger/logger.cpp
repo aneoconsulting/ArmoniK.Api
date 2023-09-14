@@ -6,13 +6,16 @@
 
 #include "logger/logger.h"
 
-namespace armonik::api::common::logger {
+namespace armonik {
+namespace api {
+namespace common {
+namespace logger {
 
 namespace {
 // Empty string to return when key is not found
-static const std::string empty_string{};
+const std::string empty_string;
 // Empty string generator when key is not found
-static const std::function<std::string()> empty_func = []() { return std::string(); };
+const std::function<std::string()> empty_func = []() { return std::string(); };
 } // namespace
 
 // Construct a Logger
@@ -61,15 +64,15 @@ void Logger::local_context_generator_remove(const std::string &key) { local_cont
 // Create a logger with a local context that references this logger
 LocalLogger Logger::local(Context local_context) const {
   // Populate local context from generator
-  for (auto &&[key, generator] : local_context_generator_) {
-    local_context[key] = generator();
+  for (auto &&kg : local_context_generator_) {
+    local_context[kg.first] = kg.second();
   }
 
   return LocalLogger(writer_.get(), formatter_.get(), &global_context_, std::move(local_context), level_);
 }
 
 // ILogger::log()
-void Logger::log(Level level, std::string_view message, const Context &message_context) {
+void Logger::log(Level level, absl::string_view message, const Context &message_context) {
   if (level < level_) {
     return;
   }
@@ -78,4 +81,7 @@ void Logger::log(Level level, std::string_view message, const Context &message_c
 
 // Interface destructor
 ILogger::~ILogger() = default;
-} // namespace armonik::api::common::logger
+} // namespace logger
+} // namespace common
+} // namespace api
+} // namespace armonik

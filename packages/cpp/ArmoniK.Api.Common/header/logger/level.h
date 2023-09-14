@@ -1,12 +1,15 @@
 #pragma once
+
+#include <absl/strings/string_view.h>
 /**
  * @file level.h
  * @brief Logging levels.
  */
 
-#include <string_view>
-
-namespace armonik::api::common::logger {
+namespace armonik {
+namespace api {
+namespace common {
+namespace logger {
 /**
  * @enum Level
  * @brief Logging Level datatype.
@@ -25,7 +28,7 @@ enum class Level {
  * @param level Log level to convert.
  * @return String view representing the log level.
  */
-constexpr std::string_view level_name(Level level) {
+constexpr absl::string_view level_name(Level level) {
   switch (level) {
   case Level::Verbose:
     return "Verbose";
@@ -43,4 +46,7 @@ constexpr std::string_view level_name(Level level) {
     return "Unknown";
   }
 }
-} // namespace armonik::api::common::logger
+} // namespace logger
+} // namespace common
+} // namespace api
+} // namespace armonik

@@ -4,7 +4,9 @@
 #include <string>
 #include <utility>
 
-namespace armonik::api::worker {
+namespace armonik {
+namespace api {
+namespace worker {
 class ProcessStatus {
 public:
   ProcessStatus() : ProcessStatus(true, "") {}
@@ -34,6 +36,8 @@ private:
   bool ok_ = true;
   std::string details_;
 };
-} // namespace armonik::api::worker
+} // namespace worker
+} // namespace api
+} // namespace armonik
 
 #endif // ARMONIK_API_PROCESSSTATUS_H

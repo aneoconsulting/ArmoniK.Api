@@ -5,12 +5,14 @@
  */
 
 #include <memory>
-#include <string_view>
 
 #include "fwd.h"
 #include "level.h"
 
-namespace armonik::api::common::logger {
+namespace armonik {
+namespace api {
+namespace common {
+namespace logger {
 /**
  * @interface IFormatter
  * @brief Formatter interface to use by a logger.
@@ -31,7 +33,7 @@ public:
    * @param message_context Context specific to this very message.
    * @return The formatted message.
    */
-  virtual std::string format(Level level, std::string_view message, const Context &global_context,
+  virtual std::string format(Level level, absl::string_view message, const Context &global_context,
                              const Context &local_context, const Context &message_context) = 0;
 };
 
@@ -46,4 +48,7 @@ std::unique_ptr<IFormatter> formatter_clef();
  * @return Pointer to the formatter.
  */
 std::unique_ptr<IFormatter> formatter_plain(bool styling = false);
-} // namespace armonik::api::common::logger
+} // namespace logger
+} // namespace common
+} // namespace api
+} // namespace armonik
