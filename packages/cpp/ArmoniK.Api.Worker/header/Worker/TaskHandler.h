@@ -8,7 +8,9 @@
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
-namespace armonik::api::worker {
+namespace armonik {
+namespace api {
+namespace worker {
 
 // #include "SessionContext.h"
 
@@ -87,7 +89,7 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(std::string key, std::string_view data);
+  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(std::string key, absl::string_view data);
 
   /**
    * @brief Get the result ids object
@@ -146,4 +148,6 @@ public:
   const armonik::api::grpc::v1::Configuration &getConfiguration() const;
 };
 
-} // namespace armonik::api::worker
+} // namespace worker
+} // namespace api
+} // namespace armonik

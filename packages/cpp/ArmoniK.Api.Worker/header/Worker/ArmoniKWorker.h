@@ -16,7 +16,9 @@
 #include "ProcessStatus.h"
 #include "Worker/TaskHandler.h"
 
-namespace armonik::api::worker {
+namespace armonik {
+namespace api {
+namespace worker {
 
 class ArmoniKWorker : public armonik::api::grpc::v1::worker::Worker::Service {
 private:
@@ -64,4 +66,6 @@ public:
                                               ::armonik::api::grpc::v1::worker::HealthCheckReply *response) override;
 };
 
-} // namespace armonik::api::worker
+} // namespace worker
+} // namespace api
+} // namespace armonik

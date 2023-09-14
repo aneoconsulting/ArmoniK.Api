@@ -34,7 +34,7 @@ void populate(armonik::api::common::utils::Configuration &config, const std::str
 }
 
 void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::common::utils::Configuration &config,
-                                                              std::string_view filepath) {
+                                                              absl::string_view filepath) {
   dom::parser parser;
   dom::element elem;
   try {
@@ -45,7 +45,7 @@ void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::comm
   }
 }
 void armonik::api::common::utils::JsonConfiguration::fromString(armonik::api::common::utils::Configuration &config,
-                                                                std::string_view json_string) {
+                                                                absl::string_view json_string) {
   dom::parser parser;
-  populate(config, "", parser.parse(padded_string(json_string)));
+  populate(config, "", parser.parse(padded_string(json_string.data(), json_string.size())));
 }

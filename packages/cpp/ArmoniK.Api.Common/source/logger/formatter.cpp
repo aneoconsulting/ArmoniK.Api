@@ -9,8 +9,12 @@
 #include "logger/level.h"
 
 #include "logger/formatter.h"
+#include "logger/util.h"
 
-namespace armonik::api::common::logger {
+namespace armonik {
+namespace api {
+namespace common {
+namespace logger {
 /**
  * @brief Formatter for CLEF (Compact Log Event Format)
  */
@@ -19,8 +23,8 @@ public:
   /**
    * @copydoc IFormatter::format()
    */
-  std::string format(Level level, std::string_view message, const Context &global_context, const Context &local_context,
-                     const Context &message_context) override {
+  std::string format(Level level, absl::string_view message, const Context &global_context,
+                     const Context &local_context, const Context &message_context) override {
     // Buffer to store the formatted string
     std::string buf;
     auto out = std::back_inserter(buf);
@@ -30,13 +34,13 @@ public:
     auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(time.time_since_epoch()).count() % 1'000'000'000;
 
     // Format message with timestamp and level
-    fmt::format_to(out, R"({{"@t": "{:%FT%T}.{:09}Z", "@mt": {:?}, "@l": {:?})", fmt::gmtime(time), ns, message,
-                   level_name(level));
+    fmt::format_to(out, R"({{"@t": "{:%FT%T}.{:09}Z", "@mt": {:?}, "@l": {:?})", fmt::gmtime(time), ns, to_fmt(message),
+                   to_fmt(level_name(level)));
 
     // Add contexts to the formatted message
     for (auto context : {&global_context, &local_context, &message_context}) {
-      for (auto &[key, val] : *context) {
-        fmt::format_to(out, ", {:?}: {:?}", key, val);
+      for (auto &kv : *context) {
+        fmt::format_to(out, ", {:?}: {:?}", kv.first, kv.second);
       }
     }
 
@@ -65,8 +69,8 @@ public:
   /**
    * @copydoc IFormatter::format()
    */
-  std::string format(Level level, std::string_view message, const Context &global_context, const Context &local_context,
-                     const Context &message_context) override {
+  std::string format(Level level, absl::string_view message, const Context &global_context,
+                     const Context &local_context, const Context &message_context) override {
     // Buffer to store the formatted string
     std::string buf;
     auto out = std::back_inserter(buf);
@@ -79,13 +83,13 @@ public:
     auto message_style = styling_ ? fmt::emphasis::bold : fmt::text_style{};
 
     // Format message with timestamp and level
-    fmt::format_to(out, "{:%FT%T}.{:09}z\t[{}]\t{}", fmt::gmtime(time), ns, level_name(level),
-                   fmt::styled(message, message_style));
+    fmt::format_to(out, "{:%FT%T}.{:09}z\t[{}]\t{}", fmt::gmtime(time), ns, to_fmt(level_name(level)),
+                   fmt::styled(to_fmt(message), message_style));
 
     // Add contexts to the formatted message
     for (auto context : {&global_context, &local_context, &message_context}) {
-      for (auto &[key, val] : *context) {
-        fmt::format_to(out, "\t{}={}", key, val);
+      for (auto &kv : *context) {
+        fmt::format_to(out, "\t{}={}", kv.first, kv.second);
       }
     }
 
@@ -98,4 +102,7 @@ std::unique_ptr<IFormatter> formatter_plain(bool styling) { return std::make_uni
 
 // Interface destructor
 IFormatter::~IFormatter() = default;
-} // namespace armonik::api::common::logger
+} // namespace logger
+} // namespace common
+} // namespace api
+} // namespace armonik

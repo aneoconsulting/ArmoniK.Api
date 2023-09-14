@@ -55,8 +55,8 @@ void armonik::api::worker::TaskHandler::init() {
   config_ = std::move(*init_request->mutable_configuration());
 
   auto *datachunk = &init_request->payload();
-  payload_.resize(datachunk->data().size());
-  std::memcpy(payload_.data(), datachunk->data().data(), datachunk->data().size());
+  payload_.clear();
+  payload_.append(datachunk->data());
 
   while (!datachunk->data_complete()) {
     if (!request_iterator_.Read(&Request)) {
@@ -68,9 +68,7 @@ void armonik::api::worker::TaskHandler::init() {
 
     datachunk = &Request.compute().payload();
     if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::kData) {
-      size_t prev_size = payload_.size();
-      payload_.resize(payload_.size() + datachunk->data().size());
-      std::memcpy(payload_.data() + prev_size, datachunk->data().data(), datachunk->data().size());
+      payload_.append(datachunk->data());
     } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
       throw std::runtime_error("Expected a Compute request type with a DataChunk Payload to continue the stream.");
     } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
@@ -103,9 +101,7 @@ void armonik::api::worker::TaskHandler::init() {
 
         auto chunk = dep_request.compute().data();
         if (chunk.type_case() == armonik::api::grpc::v1::DataChunk::kData) {
-          size_t prevSize = data_dep.size();
-          data_dep.resize(prevSize + chunk.data().size());
-          std::memcpy(data_dep.data() + prevSize, chunk.data().data(), chunk.data().size());
+          data_dep.append(chunk.data());
         } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::TYPE_NOT_SET) {
           throw std::runtime_error("Expected a Compute request type with a DataChunk Payload to continue the stream.");
         } else if (datachunk->type_case() == armonik::api::grpc::v1::DataChunk::kDataComplete) {
@@ -219,7 +215,7 @@ armonik::api::worker::TaskHandler::to_request_stream(const std::vector<TaskReque
     *create_task_request.mutable_init_request() = std::move(create_task_request_init);
     create_task_request.set_communication_token(token);
 
-    return std::vector{std::move(create_task_request)};
+    return std::vector<CreateTaskRequest>{std::move(create_task_request)};
   }));
 
   for (auto task_request = task_requests.begin(); task_request != task_requests.end(); ++task_request) {
@@ -278,7 +274,7 @@ armonik::api::worker::TaskHandler::create_tasks_async(TaskOptions task_options,
  * @return A future containing a vector of ResultReply
  */
 std::future<armonik::api::grpc::v1::agent::ResultReply>
-armonik::api::worker::TaskHandler::send_result(std::string key, std::string_view data) {
+armonik::api::worker::TaskHandler::send_result(std::string key, absl::string_view data) {
   return std::async(std::launch::async, [this, key = std::move(key), data]() mutable {
     ::grpc::ClientContext context_client_writer;
 
@@ -301,9 +297,7 @@ armonik::api::worker::TaskHandler::send_result(std::string key, std::string_view
 
       armonik::api::grpc::v1::agent::Result msg;
       msg.set_communication_token(token_);
-      auto chunk = msg.mutable_data();
-      chunk->mutable_data()->resize(chunkSize);
-      std::memcpy(chunk->mutable_data()->data(), data.data() + start, chunkSize);
+      msg.mutable_data()->mutable_data()->assign(data.data() + start, chunkSize);
 
       stream->Write(msg);
 

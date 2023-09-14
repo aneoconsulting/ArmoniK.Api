@@ -25,7 +25,9 @@
 
 using namespace armonik::api::grpc::v1::agent;
 
-namespace armonik::api::worker {
+namespace armonik {
+namespace api {
+namespace worker {
 /**
  * @class WorkerServer
  * @brief Represents the worker server for ArmoniK API.
@@ -87,4 +89,6 @@ public:
     instance_server->Wait();
   }
 };
-} // namespace armonik::api::worker
+} // namespace worker
+} // namespace api
+} // namespace armonik

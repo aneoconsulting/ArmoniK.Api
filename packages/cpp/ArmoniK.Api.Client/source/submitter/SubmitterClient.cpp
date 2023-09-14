@@ -83,7 +83,7 @@ armonik::api::client::SubmitterClient::to_request_stream(const std::vector<TaskR
         CreateLargeTaskRequest create_large_task_request;
         *create_large_task_request.mutable_init_request() = std::move(create_large_task_request_init);
 
-        return std::vector{std::move(create_large_task_request)};
+        return std::vector<CreateLargeTaskRequest>{std::move(create_large_task_request)};
       }));
 
   for (auto task_request = task_requests.begin(); task_request != task_requests.end(); ++task_request) {
@@ -200,7 +200,7 @@ armonik::api::client::SubmitterClient::create_tasks_async(std::string session_id
 
     reply.set_allocated_creation_status_list(new CreateTaskReply_CreationStatusList());
     ClientContext context_client_writer;
-    std::unique_ptr stream(stub_->CreateLargeTasks(&context_client_writer, &reply));
+    auto stream(stub_->CreateLargeTasks(&context_client_writer, &reply));
 
     // task_chunk_stream(task_requests, )
     std::vector<std::future<CreateLargeTaskRequest>> async_task_requests;
@@ -237,7 +237,7 @@ armonik::api::client::SubmitterClient::create_tasks_async(std::string session_id
  * @param max_retries Maximum number of retries.
  * @return A vector of task IDs.
  */
-std::tuple<std::vector<std::string>, std::vector<std::string>>
+std::pair<std::vector<std::string>, std::vector<std::string>>
 armonik::api::client::SubmitterClient::submit_tasks_with_dependencies(
     std::string session_id, TaskOptions task_options, const std::vector<payload_data> &payloads_with_dependencies,
     int max_retries = 5) {
@@ -281,7 +281,7 @@ armonik::api::client::SubmitterClient::submit_tasks_with_dependencies(
     message << "Error while creating tasks ! : Error Message : " << createTaskReply.error() << std::endl;
     throw std::runtime_error(message.str().c_str());
   }
-  return std::make_tuple(std::move(task_ids), std::move(failed_task_ids));
+  return std::make_pair(std::move(task_ids), std::move(failed_task_ids));
 }
 
 /**
@@ -300,13 +300,11 @@ std::future<std::string> armonik::api::client::SubmitterClient::get_result_async
     std::string result_data;
     bool dataComplete = false;
     while (streamingCall->Read(&reply)) {
-      size_t offset = result_data.size();
       switch (reply.type_case()) {
       case ResultReply::kResult:
         switch (reply.result().type_case()) {
         case armonik::api::grpc::v1::DataChunk::kData:
-          result_data.resize(offset + reply.result().data().size());
-          std::memcpy(result_data.data() + offset, reply.result().data().data(), reply.result().data().size());
+          result_data.append(reply.result().data());
           dataComplete = false; // Setting to false in case we receive stuff out of order
           break;
         case armonik::api::grpc::v1::DataChunk::kDataComplete:

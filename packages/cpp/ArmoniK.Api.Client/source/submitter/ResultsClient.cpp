@@ -2,9 +2,11 @@
 #include "exceptions/ArmoniKApiException.h"
 #include <sstream>
 
-namespace armonik::api::client {
+namespace armonik {
+namespace api {
+namespace client {
 
-std::map<std::string, std::string> ResultsClient::create_results(std::string_view session_id,
+std::map<std::string, std::string> ResultsClient::create_results(absl::string_view session_id,
                                                                  const std::vector<std::string> &names) {
   std::map<std::string, std::string> mapping;
   ::grpc::ClientContext context;
@@ -21,7 +23,7 @@ std::map<std::string, std::string> ResultsClient::create_results(std::string_vie
   }
 
   results_request.mutable_results()->Add(results_create.begin(), results_create.end());
-  *results_request.mutable_session_id() = session_id;
+  results_request.mutable_session_id()->assign(session_id.data(), session_id.size());
 
   // Creates the results
   auto status = stub->CreateResultsMetaData(&context, results_request, &results_response);
@@ -41,7 +43,7 @@ std::map<std::string, std::string> ResultsClient::create_results(std::string_vie
   return mapping;
 }
 void ResultsClient::upload_result_data(const std::string &session_id, const std::string &result_id,
-                                       std::string_view payload) {
+                                       absl::string_view payload) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::results::ResultsServiceConfigurationResponse configuration;
   auto status = stub->GetServiceConfiguration(&context, armonik::api::grpc::v1::Empty(), &configuration);
@@ -64,8 +66,8 @@ void ResultsClient::upload_result_data(const std::string &session_id, const std:
 
   while (offset < payload.size()) {
     size_t chunkSize = std::min(maxChunkSize, payload.size() - offset);
-
-    *request.mutable_data_chunk() = payload.substr(offset, chunkSize);
+    auto chunk = payload.substr(offset, chunkSize);
+    request.mutable_data_chunk()->assign(chunk.data(), chunk.size());
     if (!stream->Write(request)) {
       throw armonik::api::common::exceptions::ArmoniKApiException("Unable to continue upload result");
     }
@@ -81,4 +83,6 @@ void ResultsClient::upload_result_data(const std::string &session_id, const std:
                                                                 status.error_message());
   }
 }
-} // namespace armonik::api::client
+} // namespace client
+} // namespace api
+} // namespace armonik

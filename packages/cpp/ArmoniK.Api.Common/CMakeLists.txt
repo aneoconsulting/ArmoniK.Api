@@ -71,6 +71,7 @@ add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADE
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure)
 target_compile_definitions(${PROJECT_NAME} PUBLIC FMT_HEADER_ONLY=1)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
 setup_options(${PROJECT_NAME})
 

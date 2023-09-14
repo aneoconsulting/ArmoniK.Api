@@ -87,6 +87,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY
 set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
         COMPATIBLE_INTERFACE_STRING ${PROJECT_NAME}_MAJOR_VERSION
         )
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
 # generate the version file for the config file
 write_basic_package_version_file(
