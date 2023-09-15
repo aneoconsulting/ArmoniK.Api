@@ -38,6 +38,7 @@ COPY ./packages/cpp/ArmoniK.Api.Common ./ArmoniK.Api.Common
 COPY ./packages/cpp/ArmoniK.Api.Worker ./ArmoniK.Api.Worker
 COPY ./packages/cpp/ArmoniK.Api.Worker.Tests ./ArmoniK.Api.Worker.Tests
 COPY ./packages/cpp/CMakeLists.txt ./
+COPY ./packages/cpp/Dependencies.cmake ./
 
 # Copy the Protocol Buffer definition files into the image
 WORKDIR /app/proto

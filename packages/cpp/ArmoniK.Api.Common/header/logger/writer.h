@@ -6,11 +6,13 @@
 
 #include <iosfwd>
 #include <memory>
-#include <string_view>
 
 #include "level.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik {
+namespace api {
+namespace common {
+namespace logger {
 /**
  * @interface IWriter
  * @brief Writer interface to use by a logger.
@@ -27,7 +29,7 @@ public:
    * @param level Log level to use for this message.
    * @param formatted formatted message to write.
    */
-  virtual void write(Level level, std::string_view formatted) = 0;
+  virtual void write(Level level, absl::string_view formatted) = 0;
 };
 
 /**
@@ -41,4 +43,7 @@ std::unique_ptr<IWriter> writer_console();
  * @return Pointer to the writer.
  */
 std::unique_ptr<IWriter> writer_file(std::ostream &out);
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace logger
+} // namespace common
+} // namespace api
+} // namespace armonik

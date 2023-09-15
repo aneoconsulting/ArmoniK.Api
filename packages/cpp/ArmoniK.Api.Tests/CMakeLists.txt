@@ -1,5 +1,4 @@
 set(PROJECT_NAME ArmoniK.Api.Tests)
-set(NAMESPACE ArmoniK::Api::Tests)
 
 # Trouver les packages requis
 find_package(Protobuf REQUIRED)
@@ -16,7 +15,7 @@ FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
 
 add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
 target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Client ArmoniK.Api.Common GTest::gtest_main GTest::gmock_main)
 
@@ -28,8 +27,6 @@ endif()
 
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC API_TEST_NAMESPACE=${NAMESPACE})
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC
@@ -48,7 +45,7 @@ set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY
 include(FetchContent)
 FetchContent_Declare(
     googletest
-    URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
+    URL "${SRC_GTEST}"
 )
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)

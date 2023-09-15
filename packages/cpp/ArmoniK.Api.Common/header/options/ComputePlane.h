@@ -5,7 +5,10 @@
 /**
  * @brief The armonik namespace contains classes and functions related to the ArmoniK API.
  */
-namespace API_COMMON_NAMESPACE::options {
+namespace armonik {
+namespace api {
+namespace common {
+namespace options {
 /**
  * @brief The ComputePlane class manages the communication addresses for workers and agents.
  */
@@ -58,4 +61,7 @@ private:
   std::string worker_address_; ///< The worker address string.
   std::string agent_address_;  ///< The agent address string.
 };
-} // namespace API_COMMON_NAMESPACE::options
+} // namespace options
+} // namespace common
+} // namespace api
+} // namespace armonik
