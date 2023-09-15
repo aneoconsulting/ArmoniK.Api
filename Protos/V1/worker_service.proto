@@ -8,6 +8,6 @@ import "worker_common.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Worker";
 
 service Worker {
-  rpc Process(stream ProcessRequest) returns (ProcessReply);
+  rpc Process(ProcessRequest) returns (ProcessReply);
   rpc HealthCheck(Empty) returns (HealthCheckReply);
 }

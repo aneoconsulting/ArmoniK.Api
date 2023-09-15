@@ -57,20 +57,22 @@ public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDispo
     client_ = new Agent.AgentClient(channel_);
   }
 
+  /// <inheritdoc />
   public async ValueTask DisposeAsync()
     => await channel_.ShutdownAsync()
                      .ConfigureAwait(false);
 
-  public sealed override async Task<ProcessReply> Process(IAsyncStreamReader<ProcessRequest> requestStream,
-                                                          ServerCallContext                  context)
+
+  /// <inheritdoc />
+  public sealed override async Task<ProcessReply> Process(ProcessRequest    request,
+                                                          ServerCallContext context)
   {
     Output output;
     {
-      await using var taskHandler = await TaskHandler.Create(requestStream,
-                                                             client_,
-                                                             loggerFactory_,
-                                                             context.CancellationToken)
-                                                     .ConfigureAwait(false);
+      await using var taskHandler = new TaskHandler(request,
+                                                    client_,
+                                                    loggerFactory_,
+                                                    context.CancellationToken);
 
       using var _ = logger_.BeginNamedScope("Execute task",
                                             ("taskId", taskHandler.TaskId),
@@ -89,6 +91,7 @@ public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDispo
     => throw new RpcException(new Status(StatusCode.Unimplemented,
                                          ""));
 
+  /// <inheritdoc />
   public override Task<HealthCheckReply> HealthCheck(Empty             request,
                                                      ServerCallContext context)
     => Task.FromResult(new HealthCheckReply
