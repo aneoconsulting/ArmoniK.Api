@@ -7,6 +7,8 @@ import "agent_common.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
 
 service Agent {
+  rpc CreateTask(stream CreateTaskRequest) returns (CreateTaskReply);
+
   /**
    * Create the metadata of multiple results at once
    * Data have to be uploaded separately
@@ -19,18 +21,35 @@ service Agent {
   rpc CreateResults(CreateResultsRequest) returns (CreateResultsResponse) {}
 
   /**
-    * Upload data for result with stream
+    * Notify Agent that a data file representing the Result to upload is available in the shared folder
+    * The name of the file should be the result id
+    * Blocks until data are stored in Object Storage
     */
-  rpc UploadResultData(stream UploadResultDataRequest) returns (UploadResultDataResponse) {}
+  rpc NotifyResultData(NotifyResultDataRequest) returns (NotifyResultDataResponse) {}
 
   /**
    * Create tasks metadata and submit task for processing.
    */
   rpc SubmitTasks(SubmitTasksRequest) returns (SubmitTasksResponse) {}
 
-  rpc CreateTask(stream CreateTaskRequest) returns (CreateTaskReply);
-  rpc GetResourceData(DataRequest) returns (stream DataReply);
-  rpc GetCommonData(DataRequest) returns (stream DataReply);
-  rpc GetDirectData(DataRequest) returns (stream DataReply);
-  rpc SendResult(stream Result) returns (ResultReply);
+  /**
+    * Retrieve Resource Data from the Agent
+    * Data is stored in the shared folder between Agent and Worker as a file with the result id as name
+    * Blocks until data are available in the shared folder
+    */
+  rpc GetResourceData(DataRequest) returns (DataResponse);
+
+  /**
+    * Retrieve Resource Data from the Agent
+    * Data is stored in the shared folder between Agent and Worker as a file with the result id as name
+    * Blocks until data are available in the shared folder
+    */
+  rpc GetCommonData(DataRequest) returns (DataResponse);
+
+  /**
+    * Retrieve Resource Data from the Agent
+    * Data is stored in the shared folder between Agent and Worker as a file with the result id as name
+    * Blocks until data are available in the shared folder
+    */
+  rpc GetDirectData(DataRequest) returns (DataResponse);
 }

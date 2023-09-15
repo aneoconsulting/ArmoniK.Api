@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Linq;
 using System.Threading.Tasks;
 
-using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Agent;
 
 using Grpc.Core;
@@ -38,63 +38,6 @@ public class Agent : gRPC.V1.Agent.Agent.AgentBase
 
   /// <inheritdocs />
   [Count]
-  public override async Task GetCommonData(DataRequest                    request,
-                                           IServerStreamWriter<DataReply> responseStream,
-                                           ServerCallContext              context)
-    => await responseStream.WriteAsync(new DataReply
-                                       {
-                                         Data = new DataChunk
-                                                {
-                                                  DataComplete = true,
-                                                },
-                                       })
-                           .ConfigureAwait(false);
-
-  /// <inheritdocs />
-  [Count]
-  public override async Task GetDirectData(DataRequest                    request,
-                                           IServerStreamWriter<DataReply> responseStream,
-                                           ServerCallContext              context)
-    => await responseStream.WriteAsync(new DataReply
-                                       {
-                                         Data = new DataChunk
-                                                {
-                                                  DataComplete = true,
-                                                },
-                                       })
-                           .ConfigureAwait(false);
-
-  /// <inheritdocs />
-  [Count]
-  public override async Task GetResourceData(DataRequest                    request,
-                                             IServerStreamWriter<DataReply> responseStream,
-                                             ServerCallContext              context)
-    => await responseStream.WriteAsync(new DataReply
-                                       {
-                                         Data = new DataChunk
-                                                {
-                                                  DataComplete = true,
-                                                },
-                                       })
-                           .ConfigureAwait(false);
-
-  /// <inheritdocs />
-  [Count]
-  public override async Task<ResultReply> SendResult(IAsyncStreamReader<Result> requestStream,
-                                                     ServerCallContext          context)
-  {
-    await foreach (var _ in requestStream.ReadAllAsync())
-    {
-    }
-
-    return new ResultReply
-           {
-             Ok = new Empty(),
-           };
-  }
-
-  /// <inheritdocs />
-  [Count]
   public override Task<CreateResultsMetaDataResponse> CreateResultsMetaData(CreateResultsMetaDataRequest request,
                                                                             ServerCallContext            context)
     => Task.FromResult(new CreateResultsMetaDataResponse
@@ -111,21 +54,6 @@ public class Agent : gRPC.V1.Agent.Agent.AgentBase
                          CommunicationToken = request.CommunicationToken,
                        });
 
-  /// <inheritdocs />
-  [Count]
-  public override async Task<UploadResultDataResponse> UploadResultData(IAsyncStreamReader<UploadResultDataRequest> requestStream,
-                                                                        ServerCallContext                           context)
-  {
-    await foreach (var _ in requestStream.ReadAllAsync())
-    {
-    }
-
-    return new UploadResultDataResponse
-           {
-             ResultId           = "result-id",
-             CommunicationToken = "communication-token",
-           };
-  }
 
   /// <inheritdocs />
   [Count]
@@ -134,5 +62,44 @@ public class Agent : gRPC.V1.Agent.Agent.AgentBase
     => Task.FromResult(new CreateResultsResponse
                        {
                          CommunicationToken = request.CommunicationToken,
+                       });
+
+  /// <inheritdocs />
+  [Count]
+  public override Task<DataResponse> GetCommonData(DataRequest       request,
+                                                   ServerCallContext context)
+    => Task.FromResult(new DataResponse
+                       {
+                         ResultId = request.ResultId,
+                       });
+
+  /// <inheritdocs />
+  [Count]
+  public override Task<DataResponse> GetDirectData(DataRequest       request,
+                                                   ServerCallContext context)
+    => Task.FromResult(new DataResponse
+                       {
+                         ResultId = request.ResultId,
+                       });
+
+  /// <inheritdocs />
+  [Count]
+  public override Task<DataResponse> GetResourceData(DataRequest       request,
+                                                     ServerCallContext context)
+    => Task.FromResult(new DataResponse
+                       {
+                         ResultId = request.ResultId,
+                       });
+
+  /// <inheritdocs />
+  [Count]
+  public override Task<NotifyResultDataResponse> NotifyResultData(NotifyResultDataRequest request,
+                                                                  ServerCallContext       context)
+    => Task.FromResult(new NotifyResultDataResponse
+                       {
+                         ResultIds =
+                         {
+                           request.Ids.Select(identifier => identifier.ResultId),
+                         },
                        });
 }
