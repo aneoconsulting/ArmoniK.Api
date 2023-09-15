@@ -55,7 +55,7 @@ void armonik::api::worker::TaskHandler::init() {
   config_ = std::move(*init_request->mutable_configuration());
 
   auto *datachunk = &init_request->payload();
-  payload_.clear();
+  assert(payload_.empty());
   payload_.append(datachunk->data());
 
   while (!datachunk->data_complete()) {

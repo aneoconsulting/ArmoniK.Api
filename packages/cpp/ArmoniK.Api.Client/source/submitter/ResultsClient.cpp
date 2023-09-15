@@ -62,16 +62,14 @@ void ResultsClient::upload_result_data(const std::string &session_id, const std:
   request.mutable_id()->set_session_id(session_id);
   request.mutable_id()->set_result_id(result_id);
   stream->Write(request);
-  size_t offset = 0;
 
-  while (offset < payload.size()) {
-    size_t chunkSize = std::min(maxChunkSize, payload.size() - offset);
-    auto chunk = payload.substr(offset, chunkSize);
+  while (!payload.empty()) {
+    auto chunk = payload.substr(0, maxChunkSize);
     request.mutable_data_chunk()->assign(chunk.data(), chunk.size());
     if (!stream->Write(request)) {
       throw armonik::api::common::exceptions::ArmoniKApiException("Unable to continue upload result");
     }
-    offset += chunkSize;
+    payload = payload.substr(maxChunkSize);
   }
 
   if (!stream->WritesDone()) {
