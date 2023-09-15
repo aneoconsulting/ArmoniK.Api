@@ -25,14 +25,16 @@
 
 using namespace armonik::api::grpc::v1::agent;
 
-namespace API_WORKER_NAMESPACE {
+namespace armonik {
+namespace api {
+namespace worker {
 /**
  * @class WorkerServer
  * @brief Represents the worker server for ArmoniK API.
  */
 class WorkerServer {
 public:
-  Common::logger::Logger logger;
+  common::logger::Logger logger;
 
 private:
   ::grpc::ServerBuilder builder_;
@@ -44,8 +46,8 @@ public:
    * @brief Constructor for the WorkerServer class.
    * @param configuration A shared pointer to the Configuration object.
    */
-  explicit WorkerServer(const Common::utils::Configuration &configuration)
-      : logger(Common::logger::writer_console(), Common::logger::formatter_clef()) {
+  explicit WorkerServer(const common::utils::Configuration &configuration)
+      : logger(common::logger::writer_console(), common::logger::formatter_clef()) {
     logger.local_context_generator_add("threadId", []() {
       std::stringstream ss;
       ss << std::this_thread::get_id();
@@ -53,7 +55,7 @@ public:
     });
     logger.global_context_add("container", "ArmoniK.Worker");
     logger.info("Creating worker");
-    Common::options::ComputePlane compute_plane(configuration);
+    common::options::ComputePlane compute_plane(configuration);
 
     builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
     builder_.SetMaxReceiveMessageSize(-1);
@@ -73,7 +75,7 @@ public:
    * @return A shared pointer to the created WorkerServer instance
    */
   template <class Worker, typename... Args>
-  static std::shared_ptr<WorkerServer> create(Common::utils::Configuration configuration, Args &&...args) {
+  static std::shared_ptr<WorkerServer> create(common::utils::Configuration configuration, Args &&...args) {
     auto worker_server = std::make_shared<WorkerServer>(std::move(configuration));
     worker_server->builder_.RegisterService(
         new Worker(Agent::NewStub(worker_server->channel), static_cast<Args &&>(args)...));
@@ -87,4 +89,6 @@ public:
     instance_server->Wait();
   }
 };
-} // namespace API_WORKER_NAMESPACE
+} // namespace worker
+} // namespace api
+} // namespace armonik

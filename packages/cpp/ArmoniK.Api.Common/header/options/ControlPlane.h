@@ -3,7 +3,10 @@
 
 #include "utils/Configuration.h"
 
-namespace API_COMMON_NAMESPACE::options {
+namespace armonik {
+namespace api {
+namespace common {
+namespace options {
 class ControlPlane {
 public:
   ControlPlane(const utils::Configuration &config) {
@@ -15,11 +18,11 @@ public:
     sslValidation_ = config.get(SSLValidationKey) != "disable";
   }
 
-  [[nodiscard]] std::string_view getEndpoint() const { return endpoint_; }
-  [[nodiscard]] std::string_view getUserCertPemPath() const { return user_cert_pem_path_; }
-  [[nodiscard]] std::string_view getUserKeyPemPath() const { return user_key_pem_path_; }
-  [[nodiscard]] std::string_view getUserP12Path() const { return user_p12_path_; }
-  [[nodiscard]] std::string_view getCaCertPemPath() const { return ca_cert_pem_path_; }
+  [[nodiscard]] absl::string_view getEndpoint() const { return endpoint_; }
+  [[nodiscard]] absl::string_view getUserCertPemPath() const { return user_cert_pem_path_; }
+  [[nodiscard]] absl::string_view getUserKeyPemPath() const { return user_key_pem_path_; }
+  [[nodiscard]] absl::string_view getUserP12Path() const { return user_p12_path_; }
+  [[nodiscard]] absl::string_view getCaCertPemPath() const { return ca_cert_pem_path_; }
   [[nodiscard]] bool isSslValidation() const { return sslValidation_; }
 
   static constexpr char EndpointKey[] = "Grpc__EndPoint";
@@ -37,6 +40,9 @@ private:
   std::string ca_cert_pem_path_;
   bool sslValidation_;
 };
-} // namespace API_COMMON_NAMESPACE::options
+} // namespace options
+} // namespace common
+} // namespace api
+} // namespace armonik
 
 #endif // ARMONIK_API_CONTROLPLANE_H

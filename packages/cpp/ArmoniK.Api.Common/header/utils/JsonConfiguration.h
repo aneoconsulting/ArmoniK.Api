@@ -5,17 +5,25 @@
  */
 #include "utils/Configuration.h"
 
-namespace API_COMMON_NAMESPACE::utils::JsonConfiguration {
-void fromPath(Configuration &config, std::string_view filepath);
-void fromString(Configuration &config, std::string_view json_string);
-inline Configuration fromPath(std::string_view filepath) {
+namespace armonik {
+namespace api {
+namespace common {
+namespace utils {
+namespace JsonConfiguration {
+void fromPath(Configuration &config, absl::string_view filepath);
+void fromString(Configuration &config, absl::string_view json_string);
+inline Configuration fromPath(absl::string_view filepath) {
   Configuration config;
   fromPath(config, filepath);
   return config;
 }
-inline Configuration fromString(std::string_view json_string) {
+inline Configuration fromString(absl::string_view json_string) {
   Configuration config;
   fromString(config, json_string);
   return config;
 }
-} // namespace API_COMMON_NAMESPACE::utils::JsonConfiguration
+} // namespace JsonConfiguration
+} // namespace utils
+} // namespace common
+} // namespace api
+} // namespace armonik

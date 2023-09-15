@@ -4,8 +4,19 @@
 #include "options/ControlPlane.h"
 #include "utils/JsonConfiguration.h"
 
-namespace API_COMMON_NAMESPACE::utils {
-Configuration &Configuration::add_json_configuration(std::string_view file_path) {
+constexpr char armonik::api::common::options::ControlPlane::CaCertKey[];
+constexpr char armonik::api::common::options::ControlPlane::EndpointKey[];
+constexpr char armonik::api::common::options::ControlPlane::SSLValidationKey[];
+constexpr char armonik::api::common::options::ControlPlane::UserCertKey[];
+constexpr char armonik::api::common::options::ControlPlane::UserKeyKey[];
+constexpr char armonik::api::common::options::ControlPlane::UserP12Key[];
+
+namespace armonik {
+namespace api {
+namespace common {
+namespace utils {
+
+Configuration &Configuration::add_json_configuration(absl::string_view file_path) {
   JsonConfiguration::fromPath(*this, file_path);
   return *this;
 }
@@ -19,8 +30,8 @@ Configuration &Configuration::add_env_configuration() {
 options::ComputePlane Configuration::get_compute_plane() const { return *this; }
 
 void Configuration::set(const Configuration &other) {
-  for (auto &&[key, value] : other.list()) {
-    set(key, value);
+  for (auto &&kv : other.list()) {
+    set(kv.first, kv.second);
   }
 }
 void Configuration::set(const std::string &key, const std::string &value) {
@@ -44,4 +55,7 @@ std::string Configuration::get(const std::string &string) const {
 const std::map<std::string, std::string> &Configuration::list() const { return options_; }
 options::ControlPlane Configuration::get_control_plane() const { return *this; }
 
-} // namespace API_COMMON_NAMESPACE::utils
+} // namespace utils
+} // namespace common
+} // namespace api
+} // namespace armonik
