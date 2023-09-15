@@ -92,8 +92,7 @@ public:
    */
   std::pair<std::vector<std::string>, std::vector<std::string>>
   submit_tasks_with_dependencies(std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
-                                 const std::vector<payload_data> &payloads_with_dependencies,
-                                 [[maybe_unused]] int max_retries);
+                                 const std::vector<payload_data> &payloads_with_dependencies, int max_retries);
 
   /**
    * @brief Get result without streaming.
