@@ -45,7 +45,7 @@ namespace logger = armonik::api::common::logger;
  * @param channel The gRPC channel to communicate with the server.
  * @param default_task_options The default task options.
  */
-void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options, logger::ILogger& logger) {
+void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options, logger::ILogger &logger) {
 
   Configuration configuration;
   // auto server = std::make_shared<EnvConfiguration>(configuration_t);
@@ -247,7 +247,6 @@ TEST(testMock, getResult) {
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
-
 
   CreateSessionReply reply;
   CreateSessionRequest request;
