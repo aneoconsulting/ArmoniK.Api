@@ -89,7 +89,7 @@ armonik::api::worker::ArmoniKWorker::HealthCheck([[maybe_unused]] ::grpc::Server
                                                  [[maybe_unused]] const ::armonik::api::grpc::v1::Empty *request,
                                                  ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
   // Implementation of the HealthCheck method
-  logger_.debug("HealthCheck request OK");
+  logger_.info("HealthCheck request OK");
 
   response->set_status(HealthCheckReply_ServingStatus_SERVING);
 
