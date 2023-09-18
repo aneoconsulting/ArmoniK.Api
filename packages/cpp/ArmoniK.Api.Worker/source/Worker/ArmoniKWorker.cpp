@@ -69,7 +69,10 @@ armonik::api::worker::ArmoniKWorker::Process([[maybe_unused]] ::grpc::ServerCont
     }
     *response->mutable_output() = std::move(output);
   } catch (const std::exception &e) {
-    return {::grpc::StatusCode::UNAVAILABLE, "Error processing task", e.what()};
+    logger_.error("Error processing task : {what}", {{"what", e.what()}});
+    std::stringstream ss;
+    ss << "Error processing task : " << e.what();
+    return {::grpc::StatusCode::UNAVAILABLE, ss.str(), e.what()};
   }
 
   return ::grpc::Status::OK;
@@ -89,7 +92,7 @@ armonik::api::worker::ArmoniKWorker::HealthCheck([[maybe_unused]] ::grpc::Server
                                                  [[maybe_unused]] const ::armonik::api::grpc::v1::Empty *request,
                                                  ::armonik::api::grpc::v1::worker::HealthCheckReply *response) {
   // Implementation of the HealthCheck method
-  logger_.info("HealthCheck request OK");
+  logger_.debug("HealthCheck request OK");
 
   response->set_status(HealthCheckReply_ServingStatus_SERVING);
 

@@ -34,8 +34,8 @@ public:
    * @param socket_address The socket address to set for the worker.
    */
   void set_worker_address(std::string socket_address) {
-    if (socket_address.find("unix:") != 0) {
-      socket_address.insert(0, "unix:");
+    if (socket_address.find("unix://") != 0) {
+      socket_address.insert(0, "unix://");
     }
     worker_address_ = std::move(socket_address);
   }
@@ -45,8 +45,8 @@ public:
    * @param agent_address The agent address to set for the agent.
    */
   void set_agent_address(std::string agent_address) {
-    if (agent_address.find("unix:") != 0) {
-      agent_address.insert(0, "unix:");
+    if (agent_address.find("unix://") != 0) {
+      agent_address.insert(0, "unix://");
     }
     agent_address_ = std::move(agent_address);
   }
