@@ -17,6 +17,7 @@
 
 #include "Worker/ProcessStatus.h"
 #include "Worker/TaskHandler.h"
+#include "exceptions/ArmoniKApiException.h"
 #include "logger/formatter.h"
 #include "logger/logger.h"
 #include "logger/writer.h"
@@ -56,6 +57,9 @@ public:
     logger.global_context_add("container", "ArmoniK.Worker");
     logger.info("Creating worker");
     common::options::ComputePlane compute_plane(configuration);
+
+    logger.info("Worker address : " + compute_plane.get_server_address());
+    logger.info("Agent address : " + compute_plane.get_agent_address());
 
     builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
     builder_.SetMaxReceiveMessageSize(-1);

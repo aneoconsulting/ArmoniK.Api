@@ -69,7 +69,7 @@ void ResultsClient::upload_result_data(const std::string &session_id, const std:
     if (!stream->Write(request)) {
       throw armonik::api::common::exceptions::ArmoniKApiException("Unable to continue upload result");
     }
-    payload = payload.substr(maxChunkSize);
+    payload = payload.substr(chunk.size());
   }
 
   if (!stream->WritesDone()) {
