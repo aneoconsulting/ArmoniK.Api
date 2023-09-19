@@ -69,7 +69,10 @@ armonik::api::worker::ArmoniKWorker::Process([[maybe_unused]] ::grpc::ServerCont
     }
     *response->mutable_output() = std::move(output);
   } catch (const std::exception &e) {
-    return {::grpc::StatusCode::UNAVAILABLE, "Error processing task", e.what()};
+    logger_.error("Error processing task : {what}", {{"what", e.what()}});
+    std::stringstream ss;
+    ss << "Error processing task : " << e.what();
+    return {::grpc::StatusCode::UNAVAILABLE, ss.str(), e.what()};
   }
 
   return ::grpc::Status::OK;

@@ -45,7 +45,7 @@ namespace logger = armonik::api::common::logger;
  * @param channel The gRPC channel to communicate with the server.
  * @param default_task_options The default task options.
  */
-void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) {
+void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options, logger::ILogger &logger) {
 
   Configuration configuration;
   // auto server = std::make_shared<EnvConfiguration>(configuration_t);
@@ -54,7 +54,7 @@ void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) 
 
   std::string server_address = configuration.get("Grpc__EndPoint");
 
-  std::cout << " Server address " << server_address << std::endl;
+  logger.info(" Server address {address}", {{"address", server_address}});
 
   channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
 
@@ -77,6 +77,7 @@ void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) 
 TEST(testMock, createSession) {
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
+  logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
 
   ClientContext context;
   CreateSessionReply reply;
@@ -85,7 +86,7 @@ TEST(testMock, createSession) {
   const std::vector<std::string> &partition_ids = {""};
 
   TaskOptions task_options;
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   ASSERT_EQ(task_options.partition_id(), "");
 
@@ -126,7 +127,7 @@ TEST(testMock, submitTask) {
   TaskOptions task_options;
 
   std::shared_ptr<Channel> channel;
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   // MockStubInterface stub;
   std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
@@ -190,6 +191,7 @@ TEST(testMock, submitTask) {
 }
 
 TEST(testMock, testWorker) {
+  logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   std::shared_ptr<Channel> channel;
 
   CreateSessionReply reply;
@@ -199,7 +201,7 @@ TEST(testMock, testWorker) {
 
   TaskOptions task_options;
 
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   auto stub = armonik::api::grpc::v1::results::Results::NewStub(channel);
 
@@ -242,6 +244,7 @@ TEST(testMock, testWorker) {
 }
 
 TEST(testMock, getResult) {
+  logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
 
@@ -253,15 +256,17 @@ TEST(testMock, getResult) {
   TaskOptions task_options;
   armonik::api::grpc::v1::ResultRequest result_request;
 
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   auto stub = armonik::api::grpc::v1::results::Results::NewStub(channel);
 
   grpc::ClientContext context;
 
+  log.debug("Creating Client");
   std::unique_ptr<Submitter::StubInterface> stub_client = Submitter::NewStub(channel);
   armonik::api::client::SubmitterClient submitter(std::move(stub_client));
   std::string session_id = submitter.create_session(task_options, partition_ids);
+  log.debug("Received session id {session_id}", {{"session_id", session_id}});
 
   auto name = "test";
 
@@ -269,10 +274,13 @@ TEST(testMock, getResult) {
   request_create.set_session_id(session_id);
   armonik::api::client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
   auto mapping = results.create_results(session_id, {name});
+  log.debug("Created result {result_id}", {{"result_id", mapping[name]}});
   ASSERT_TRUE(mapping.size() == 1);
 
   std::string payload = "TestPayload";
+
   results.upload_result_data(session_id, mapping[name], payload);
+  log.debug("Uploaded result {result_id}", {{"result_id", mapping[name]}});
 
   // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
   // EXPECT_CALL(*stub, TryGetResultStreamRaw(_, _)).Times(AtLeast(1));
@@ -281,6 +289,7 @@ TEST(testMock, getResult) {
   result_request.set_session(session_id);
 
   auto result = submitter.get_result_async(result_request).get();
+  log.debug("Received result {result_id}", {{"result_id", mapping[name]}});
 
   ASSERT_FALSE(result.empty());
   ASSERT_EQ(payload, result);
