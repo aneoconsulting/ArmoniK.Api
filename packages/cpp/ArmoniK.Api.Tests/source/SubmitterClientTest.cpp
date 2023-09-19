@@ -262,11 +262,11 @@ TEST(testMock, getResult) {
 
   grpc::ClientContext context;
 
-  log.info("Creating Client");
+  log.debug("Creating Client");
   std::unique_ptr<Submitter::StubInterface> stub_client = Submitter::NewStub(channel);
   armonik::api::client::SubmitterClient submitter(std::move(stub_client));
   std::string session_id = submitter.create_session(task_options, partition_ids);
-  log.info("Received session id {session_id}", {{"session_id", session_id}});
+  log.debug("Received session id {session_id}", {{"session_id", session_id}});
 
   auto name = "test";
 
@@ -274,13 +274,13 @@ TEST(testMock, getResult) {
   request_create.set_session_id(session_id);
   armonik::api::client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
   auto mapping = results.create_results(session_id, {name});
-  log.info("Created result {result_id}", {{"result_id", mapping[name]}});
+  log.debug("Created result {result_id}", {{"result_id", mapping[name]}});
   ASSERT_TRUE(mapping.size() == 1);
 
   std::string payload = "TestPayload";
 
   results.upload_result_data(session_id, mapping[name], payload);
-  log.info("Uploaded result {result_id}", {{"result_id", mapping[name]}});
+  log.debug("Uploaded result {result_id}", {{"result_id", mapping[name]}});
 
   // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
   // EXPECT_CALL(*stub, TryGetResultStreamRaw(_, _)).Times(AtLeast(1));
@@ -289,7 +289,7 @@ TEST(testMock, getResult) {
   result_request.set_session(session_id);
 
   auto result = submitter.get_result_async(result_request).get();
-  log.info("Received result {result_id}", {{"result_id", mapping[name]}});
+  log.debug("Received result {result_id}", {{"result_id", mapping[name]}});
 
   ASSERT_FALSE(result.empty());
   ASSERT_EQ(payload, result);
