@@ -1,9 +1,21 @@
 from grpc import Channel
+from typing import List
+import enum
 
-from ..common import Task
+from ..common import Task, Filter, StringFilter, FilterDisjunction, FilterConjunction
 from ..protogen.client.tasks_service_pb2_grpc import TasksStub
 from ..protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse
+from ..protogen.common.tasks_filters_pb2 import Filters as rawFilters
 
+
+class TaskFilter(FilterDisjunction):
+    def to_message(self) -> rawFilters:
+        raw = rawFilters()
+        setattr(raw, "or", )
+
+
+class TaskFieldFilter(enum.Enum):
+    TASK_ID = StringFilter()
 
 class ArmoniKTasks:
     def __init__(self, grpc_channel: Channel):
