@@ -2,8 +2,6 @@ from typing import List, Any, Type, Union
 from google.protobuf.message import Message
 import google.protobuf.timestamp_pb2 as timestamp
 from protogen.common.filters_common_pb2 import *
-from datetime import datetime
-from ..common.helpers import datetime_to_timestamp
 
 
 class Filter:
@@ -106,6 +104,16 @@ class FilterConjunction(Filter):
 
 
 class SimpleFilter(Filter):
+    eq_ = None
+    ne_ = None
+    lt_ = None
+    le_ = None
+    gt_ = None
+    ge_ = None
+    contains_ = None
+    notcontains_ = None
+    value_type_ = None
+
     def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message], value=None, operator=None):
         super().__init__()
         self.field = field
@@ -138,8 +146,52 @@ class SimpleFilter(Filter):
     def __add__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
         return self | other
 
+    def _verify_value(self, value):
+        if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
+            return
+        raise Exception(f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead")
+
+    def __eq__(self, value):
+        return self.check(value, self.__class__.eq_, "==")
+
+    def __ne__(self, value):
+        return self.check(value, self.__class__.ne_, "!=")
+
+    def __lt__(self, value):
+        return self.check(value, self.__class__.lt_, "<")
+
+    def __le__(self, value):
+        return self.check(value, self.__class__.le_, "<=")
+
+    def __gt__(self, value):
+        return self.check(value, self.__class__.gt_, ">")
+
+    def __ge__(self, value):
+        return self.check(value, self.__class__.lt_, ">=")
+
+    def contains(self, value):
+        return self.check(value, self.__class__.contains_, "contains")
+
     def __invert__(self):
-        raise NotImplementedError(f"{str(self.__class__.__name__)}.__invert__ does not exist (is this type of filter invertible ?)")
+        if self.raw.operator is None:
+            raise Exception(f"Cannot invert None operator in class {self.__class__.__name__} for field {str(self.field)}")
+        if self.raw.operator == self.__class__.eq_:
+            return self.__ne__(self.raw.value)
+        if self.raw.operator == self.__class__.ne_:
+            return self.__eq__(self.raw.value)
+        if self.raw.operator == self.__class__.lt_:
+            return self.__ge__(self.raw.value)
+        if self.raw.operator == self.__class__.le_:
+            return self.__gt__(self.raw.value)
+        if self.raw.operator == self.__class__.gt_:
+            return self.__le__(self.raw.value)
+        if self.raw.operator == self.__class__.ge_:
+            return self.__lt__(self.raw.value)
+        if self.raw.operator == self.__class__.contains_:
+            return self.check(self.raw.value, self.__class__.notcontains_, "not_contains")
+        if self.raw.operator == self.__class__.notcontains_:
+            return self.contains(self.raw.value)
+        raise Exception(f"{self.__class__.__name__} operator {str(self.raw.operator)} for field {str(self.field)} has no inverted equivalent")
 
     def __neg__(self) -> "SimpleFilter":
         return ~self
@@ -153,40 +205,28 @@ class SimpleFilter(Filter):
     def to_disjunction(self) -> "FilterDisjunction":
         return self.to_conjunction().to_disjunction()
 
-    def check(self, value: Any, operator: Any) -> "SimpleFilter":
+    def check(self, value: Any, operator: Any, operator_str: str = "") -> "SimpleFilter":
+        self._verify_value(value)
+        if operator is None:
+            raise NotImplementedError(f"Operator {operator_str} is not available for {self.__class__.__name__}")
         return self.__class__(self.field, self.conjunction_type, self.message_type, self.inner_message_type, value, operator)
 
 
 class StringFilter(SimpleFilter):
+    eq_ = FILTER_STRING_OPERATOR_EQUAL
+    ne_ = FILTER_STRING_OPERATOR_NOT_EQUAL
+    contains_ = FILTER_STRING_OPERATOR_CONTAINS
+    notcontains_ = FILTER_STRING_OPERATOR_NOT_CONTAINS
+    value_type_ = str
+
     def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterString, value=None, operator=None):
         super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
 
-    def contains(self, value: str) -> "StringFilter":
-        return self.check(value, FILTER_STRING_OPERATOR_CONTAINS)
-
-    def __eq__(self, value: str) -> "StringFilter":
-        return self.check(value, FILTER_STRING_OPERATOR_EQUAL)
-
-    def __ne__(self, value: str) -> "StringFilter":
-        return self.check(value, FILTER_STRING_OPERATOR_NOT_EQUAL)
-
-    def __invert__(self) -> "StringFilter":
-        if self.raw.operator == FILTER_STRING_OPERATOR_EQUAL:
-            return self.check(self.raw.value, FILTER_STRING_OPERATOR_NOT_EQUAL)
-        elif self.raw.operator == FILTER_STRING_OPERATOR_NOT_EQUAL:
-            return self.check(self.raw.value, FILTER_STRING_OPERATOR_EQUAL)
-        elif self.raw.operator == FILTER_STRING_OPERATOR_CONTAINS:
-            return self.check(self.raw.value, FILTER_STRING_OPERATOR_NOT_CONTAINS)
-        elif self.raw.operator == FILTER_STRING_OPERATOR_NOT_CONTAINS:
-            return self.check(self.raw.value, FILTER_STRING_OPERATOR_CONTAINS)
-        else:
-            raise Exception(f"String filter operator {str(self.raw.operator)} for field {str(self.field)} has no inverted equivalent")
-
     def startswith(self, value: str) -> "StringFilter":
-        return self.check(value, FILTER_STRING_OPERATOR_STARTS_WITH)
+        return self.check(value, FILTER_STRING_OPERATOR_STARTS_WITH, "startswith")
 
     def endswith(self, value: str) -> "StringFilter":
-        return self.check(value, FILTER_STRING_OPERATOR_ENDS_WITH)
+        return self.check(value, FILTER_STRING_OPERATOR_ENDS_WITH, "endswith")
 
     def to_message(self):
         message = self.message_type()
@@ -199,22 +239,11 @@ class StringFilter(SimpleFilter):
 
 
 class StatusFilter(SimpleFilter):
+    eq_ = FILTER_STATUS_OPERATOR_EQUAL
+    ne_ = FILTER_STATUS_OPERATOR_NOT_EQUAL
+
     def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], filter_status_type: Type[Message], value=None, operator=None):
         super().__init__(field, conjunction_type, message_type, filter_status_type, value, operator)
-
-    def __eq__(self, value) -> "StatusFilter":
-        return self.check(value, FILTER_STATUS_OPERATOR_EQUAL)
-
-    def __ne__(self, value) -> "StatusFilter":
-        return self.check(value, FILTER_STATUS_OPERATOR_NOT_EQUAL)
-
-    def __invert__(self) -> "StatusFilter":
-        if self.raw.operator == FILTER_STATUS_OPERATOR_EQUAL:
-            return self != self.raw.value
-        elif self.raw.operator == FILTER_STATUS_OPERATOR_NOT_EQUAL:
-            return self == self.raw.value
-        else:
-            raise Exception(f"Status filter operator {str(self.raw.operator)} for field {str(self.field)} has no inverted equivalent")
 
     def to_message(self):
         message = self.message_type()
@@ -222,20 +251,75 @@ class StatusFilter(SimpleFilter):
         message.filter_status = self.raw
         return message
 
+
 class DateFilter(SimpleFilter):
+    eq_ = FILTER_DATE_OPERATOR_EQUAL
+    ne_ = FILTER_DATE_OPERATOR_NOT_EQUAL
+    lt_ = FILTER_DATE_OPERATOR_BEFORE
+    le_ = FILTER_DATE_OPERATOR_BEFORE_OR_EQUAL
+    gt_ = FILTER_DATE_OPERATOR_AFTER
+    ge_ = FILTER_DATE_OPERATOR_AFTER_OR_EQUAL
+    value_type = timestamp.Timestamp
+
     def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterDate, value=None, operator=None):
         super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
 
-    def normalize_value(self, value) -> timestamp.Timestamp:
-        if isinstance(value, timestamp.Timestamp):
-            return value
-        if isinstance(value, datetime):
-            return datetime_to_timestamp(value)
-
-    def __eq__(self, value) -> "DateFilter":
-        return self.check(self.normalize_value(value), FILTER_DATE_OPERATOR_EQUAL)
-
-    def __ne__(self, value) -> "DateFilter":
-        return self.check(self.normalize_value(value), FILTER_DATE_OPERATOR_NOT_EQUAL)
+    def to_message(self):
+        message = self.message_type()
+        message.field = self.field
+        message.filter_date = self.raw
+        return message
 
 
+class NumberFilter(SimpleFilter):
+    eq_ = FILTER_NUMBER_OPERATOR_EQUAL
+    ne_ = FILTER_NUMBER_OPERATOR_NOT_EQUAL
+    lt_ = FILTER_NUMBER_OPERATOR_LESS_THAN
+    le_ = FILTER_NUMBER_OPERATOR_LESS_THAN_OR_EQUAL
+    gt_ = FILTER_NUMBER_OPERATOR_GREATER_THAN
+    ge_ = FILTER_NUMBER_OPERATOR_GREATER_THAN_OR_EQUAL
+    value_type_ = int
+
+    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterNumber, value=None, operator=None):
+        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+
+    def to_message(self):
+        message = self.message_type()
+        message.field = self.field
+        message.filter_number = self.raw
+        return message
+
+
+class BooleanFilter(SimpleFilter):
+    eq_ = FILTER_BOOLEAN_OPERATOR_IS
+    value_type_ = bool
+
+    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterBoolean, value=True, operator=FILTER_BOOLEAN_OPERATOR_IS):
+        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+
+    def __ne__(self, value: bool) -> "BooleanFilter":
+        return self.__eq__(not value)
+
+    def __invert__(self):
+        return self.__eq__(not self.raw.value)
+
+    def to_message(self):
+        message = self.message_type()
+        message.field = self.field
+        message.filter_boolean = self.raw
+        return message
+
+
+class ArrayFilter(SimpleFilter):
+    contains_ = FILTER_ARRAY_OPERATOR_CONTAINS
+    notcontains_ = FILTER_ARRAY_OPERATOR_NOT_CONTAINS
+    value_type_ = str
+
+    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterArray, value=None, operator=None):
+        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+
+    def to_message(self):
+        message = self.message_type()
+        message.field = self.field
+        message.filter_array = self.raw
+        return message

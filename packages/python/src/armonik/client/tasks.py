@@ -36,6 +36,7 @@ class TaskFieldFilter(enum.Enum):
     CREATED_AT = DateFilter(TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_CREATED_AT)), TaskFilterAnd, rawFilterField)
 
 
+
 class ArmoniKTasks:
     def __init__(self, grpc_channel: Channel):
         """ Tasks service client
