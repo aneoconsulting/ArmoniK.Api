@@ -1,3 +1,4 @@
+from __future__ import annotations
 from grpc import Channel
 
 from typing import List, Dict, cast
@@ -15,5 +16,5 @@ class ArmoniKResult:
         """
         self._client = ResultsStub(grpc_channel)
 
-    def get_results_ids(self, session_id: str, names : List[str]) -> Dict[str, str]:
+    def get_results_ids(self, session_id: str, names: List[str]) -> Dict[str, str]:
         return {r.name : r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name = n) for n in names], session_id=session_id))).results}

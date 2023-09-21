@@ -1,3 +1,4 @@
+from __future__ import annotations
 from grpc import Channel
 from typing import Type, Union, cast, Tuple, List
 

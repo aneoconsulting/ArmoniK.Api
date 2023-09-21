@@ -195,8 +195,8 @@ def test_armonik_submitter_should_list_tasks(session_ids, task_ids, included_sta
         assert inner.task_filter is not None
         assert all(map(lambda x: x[1] == session_ids[x[0]], enumerate(inner.task_filter.session.ids)))
         assert all(map(lambda x: x[1] == task_ids[x[0]], enumerate(inner.task_filter.task.ids)))
-        assert all(map(lambda x: x[1] == included_statuses[x[0]].value, enumerate(inner.task_filter.included.statuses)))
-        assert all(map(lambda x: x[1] == excluded_statuses[x[0]].value, enumerate(inner.task_filter.excluded.statuses)))
+        assert all(map(lambda x: x[1] == included_statuses[x[0]], enumerate(inner.task_filter.included.statuses)))
+        assert all(map(lambda x: x[1] == excluded_statuses[x[0]], enumerate(inner.task_filter.excluded.statuses)))
     else:
         with pytest.raises(ValueError):
             _ = submitter.list_tasks(session_ids=session_ids, task_ids=task_ids, included_statuses=included_statuses,
@@ -223,7 +223,7 @@ get_result_should_throw = [
     [ResultReply(result=DataChunk(data="payload".encode("utf-8"))), ResultReply(result=DataChunk(data_complete=True)),
      ResultReply(result=DataChunk(data="payload".encode("utf-8")))],
     [ResultReply(
-        error=TaskError(task_id="TaskId", errors=[Error(task_status=TaskStatus.ERROR.value, detail="TestError")]))],
+        error=TaskError(task_id="TaskId", errors=[Error(task_status=TaskStatus.ERROR, detail="TestError")]))],
 ]
 
 get_result_should_succeed = [
@@ -300,9 +300,9 @@ def test_armonik_submitter_wait_completion(session_ids, task_ids, included_statu
         assert inner.wait_request is not None
         assert all(map(lambda x: x[1] == session_ids[x[0]], enumerate(inner.wait_request.filter.session.ids)))
         assert all(map(lambda x: x[1] == task_ids[x[0]], enumerate(inner.wait_request.filter.task.ids)))
-        assert all(map(lambda x: x[1] == included_statuses[x[0]].value,
+        assert all(map(lambda x: x[1] == included_statuses[x[0]],
                        enumerate(inner.wait_request.filter.included.statuses)))
-        assert all(map(lambda x: x[1] == excluded_statuses[x[0]].value,
+        assert all(map(lambda x: x[1] == excluded_statuses[x[0]],
                        enumerate(inner.wait_request.filter.excluded.statuses)))
         assert not inner.wait_request.stop_on_first_task_error
         assert not inner.wait_request.stop_on_first_task_cancellation

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import traceback
 from concurrent import futures
 from typing import Callable, Union
