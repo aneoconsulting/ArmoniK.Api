@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import timedelta, datetime, timezone
 from typing import List, Optional
 
@@ -37,9 +38,9 @@ def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[
     if task_ids:
         task_filter.task.ids.extend(task_ids)
     if included_statuses:
-        task_filter.included.statuses.extend([t.value for t in included_statuses])
+        task_filter.included.statuses.extend(included_statuses)
     if excluded_statuses:
-        task_filter.excluded.statuses.extend([t.value for t in excluded_statuses])
+        task_filter.excluded.statuses.extend(excluded_statuses)
     return task_filter
 
 

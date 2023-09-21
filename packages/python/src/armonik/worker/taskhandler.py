@@ -1,4 +1,4 @@
-import uuid
+from __future__ import annotations
 from typing import Optional, Dict, List, Tuple, Union, cast
 
 from ..common import TaskOptions, TaskDefinition, Task
@@ -141,7 +141,7 @@ class TaskHandler:
         result_reply = self._client.SendResult(result_stream())
         if result_reply.WhichOneof("type") == "error":
             raise Exception(f"Cannot send result id={key}")
-    
+
     def get_results_ids(self, names : List[str]) -> Dict[str, str]:
         return {r.name : r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name = n) for n in names], session_id=self.session_id, communication_token=self.token))).results}
 

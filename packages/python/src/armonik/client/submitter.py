@@ -1,14 +1,15 @@
-import uuid
+from __future__ import annotations
 from typing import Optional, List, Tuple, Dict, Union, Generator
 
 from grpc import Channel
 
-from ..common import get_task_filter, TaskOptions, TaskDefinition, Task, TaskStatus, ResultAvailability
+from ..common import get_task_filter, TaskOptions, TaskDefinition, Task, ResultAvailability
 from ..protogen.client.submitter_service_pb2_grpc import SubmitterStub
 from ..protogen.common.objects_pb2 import Empty, TaskRequest, ResultRequest, DataChunk, InitTaskRequest, \
     TaskRequestHeader, Configuration, Session, TaskOptions as InnerTaskOptions
 from ..protogen.common.submitter_common_pb2 import CreateSessionRequest, GetTaskStatusRequest, CreateLargeTaskRequest, \
-    WaitRequest
+    WaitRequest, GetTaskStatusReply
+from ..protogen.common.task_status_pb2 import TaskStatus
 
 
 class ArmoniKSubmitter:
@@ -135,8 +136,8 @@ class ArmoniKSubmitter:
         """
         request = GetTaskStatusRequest()
         request.task_ids.extend(task_ids)
-        reply = self._client.GetTaskStatus(request)
-        return {s.task_id: TaskStatus(s.status) for s in reply.id_statuses}
+        reply: GetTaskStatusReply = self._client.GetTaskStatus(request)
+        return {s.task_id: s.status for s in reply.id_statuses}
 
     def wait_for_completion(self,
                             session_ids: Optional[List[str]] = None,
@@ -167,7 +168,7 @@ class ArmoniKSubmitter:
             Dictionary containing the number of tasks in each status
             after waiting for completion
         """
-        return {TaskStatus(sc.status): sc.count for sc in self._client.WaitForCompletion(
+        return {sc.status: sc.count for sc in self._client.WaitForCompletion(
             WaitRequest(filter=get_task_filter(session_ids, task_ids, included_statuses, excluded_statuses),
                         stop_on_first_task_error=stop_on_first_task_error,
                         stop_on_first_task_cancellation=stop_on_first_task_cancellation)).values}

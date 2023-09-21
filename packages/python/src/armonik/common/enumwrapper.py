@@ -1,4 +1,4 @@
-import enum
+from __future__ import annotations
 
 from ..protogen.common.task_status_pb2 import *
 from ..protogen.common.worker_common_pb2 import HealthCheckReply
