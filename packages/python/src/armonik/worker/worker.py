@@ -15,7 +15,7 @@ from .taskhandler import TaskHandler
 
 
 class ArmoniKWorker(WorkerServicer):
-    def __init__(self, agent_channel: Channel, processing_function: Callable[[TaskHandler], Output], health_check: Callable[[], HealthCheckStatus] = lambda: HealthCheckStatus.SERVING, logger=ClefLogger.getLogger("ArmoniKWorker")):
+    def __init__(self, agent_channel: Channel, processing_function: Callable[[TaskHandler], Output], health_check: Callable[[], HealthCheckReply.ServingStatus] = lambda: HealthCheckStatus.SERVING, logger=ClefLogger.getLogger("ArmoniKWorker")):
         """Creates a worker for ArmoniK
 
         Args:
@@ -54,4 +54,4 @@ class ArmoniKWorker(WorkerServicer):
             self._logger.exception(f"Failed task {''.join(traceback.format_exception(type(e) ,e, e.__traceback__))}", exc_info=e)
 
     def HealthCheck(self, request: Empty, context) -> HealthCheckReply:
-        return HealthCheckReply(status=self.health_check().value)
+        return HealthCheckReply(status=self.health_check())

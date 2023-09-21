@@ -1,7 +1,7 @@
 from typing import List, Any, Type, Union
 from google.protobuf.message import Message
 import google.protobuf.timestamp_pb2 as timestamp
-from protogen.common.filters_common_pb2 import *
+from ..protogen.common.filters_common_pb2 import *
 
 
 class Filter:
