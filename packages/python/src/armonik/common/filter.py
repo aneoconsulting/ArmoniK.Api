@@ -1,144 +1,15 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing import List, Any, Type, Union
+from abc import abstractmethod
+from typing import List, Any, Type, Optional, Dict
 from google.protobuf.message import Message
 import google.protobuf.timestamp_pb2 as timestamp
 from ..protogen.common.filters_common_pb2 import *
+import json
 
 
-class FilterDisjunction(ABC):
+class Filter:
     """
-        Represents a disjunction of filters (logical or)
-    """
-    def __init__(self, filters: List["FilterConjunction"]):
-        super().__init__()
-        self.filters = filters
-
-    def __or__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
-        """
-            Returns a new disjunction from the operands
-        Args:
-            other:
-                Other filter or filters
-        Returns:
-            New disjunction
-        """
-        if isinstance(other, SimpleFilter):
-            # Create a conjunction from the filter then add to the list
-            if other.conjunction_type != self.conjunction_type():
-                raise Exception(f"Invalid type {type(other).__name__} ({str(other.field)}) for 'or' operand of {self.__class__.__name__} ({str(self)}) : Conjunction types are different")
-            return self.__class__(self.filters + [self.conjunction_type()([other])])
-        elif isinstance(other, self.conjunction_type()):
-            # Add the conjunction to the list
-            return self.__class__(self.filters + [other])
-        elif isinstance(other, self.__class__):
-            # Fuse the disjunctions
-            return self.__class__(self.filters + other.filters)
-        raise Exception(f"Invalid type {type(other).__name__} for 'or' operand of {self.__class__.__name__}")
-
-    def __add__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
-        """
-            Equivalent to __or__
-        """
-        return self | other
-
-    def __repr__(self):
-        return "( " + ' ) or ( '.join([str(f) for f in self.filters]) + ' )'
-
-    def to_message(self) -> Message:
-        raw = self.message_type()()
-        # Can't use raw.or : https://protobuf.dev/reference/python/python-generated/#keyword-conflicts
-        getattr(raw, "or").extend([f.to_message() for f in self.filters])
-        return raw
-
-    def to_disjunction(self) -> "FilterDisjunction":
-        return self
-
-    @abstractmethod
-    def conjunction_type(self) -> Type["FilterConjunction"]:
-        pass
-
-    @abstractmethod
-    def message_type(self) -> Type[Message]:
-        pass
-
-
-class FilterConjunction(ABC):
-    """
-        Represents a conjunction of filters (logical and)
-    """
-    def __init__(self, filters: List["SimpleFilter"]):
-        super().__init__()
-        self.filters = filters
-
-    def __and__(self, other: Union["SimpleFilter", "FilterConjunction"]) -> "FilterConjunction":
-        """
-            Returns a new conjunction from the operands
-        Args:
-            other:
-                Other filter or filters
-        Returns:
-            New conjunction
-        """
-        if isinstance(other, SimpleFilter):
-            # Add the filter to the filter list
-            if other.conjunction_type != self.__class__:
-                raise Exception(f"Invalid type {type(other).__name__} ({str(other.field)}) for 'and' operand of {self.__class__.__name__} ({str(self)}) : Conjunction types are different")
-            return self.__class__(self.filters + [other])
-        elif isinstance(other, self.__class__):
-            # Fuse the conjunctions
-            return self.__class__(self.filters + other.filters)
-        raise Exception(f"Invalid type {type(other).__name__} for 'and' operand of {self.__class__.__name__}")
-
-    def __mul__(self, other: Union["SimpleFilter", "FilterConjunction"]) -> "FilterConjunction":
-        """
-            Equivalent to __and__
-        """
-        return self & other
-
-    def __or__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
-        """
-            Creates a disjunction of the operands
-        Args:
-            other:
-                Other filter or filters
-        Returns:
-            Disjunction of the operands
-        """
-        return self.to_disjunction() | other
-
-    def __add__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
-        """
-            Equivalent to __or__
-        """
-        return self | other
-
-    def __repr__(self) -> str:
-        return ' and '.join([str(f) for f in self.filters])
-
-    def to_message(self) -> Message:
-        raw = self.message_type()()
-        getattr(raw, "and").extend([f.to_message() for f in self.filters])
-        return raw
-
-    def to_conjunction(self) -> "FilterConjunction":
-        return self
-
-    def to_disjunction(self) -> "FilterDisjunction":
-        return self.disjunction_type()([self])
-
-    @abstractmethod
-    def disjunction_type(self) -> Type["FilterDisjunction"]:
-        pass
-
-    @abstractmethod
-    def message_type(self) -> Type[Message]:
-        pass
-
-
-class SimpleFilter:
-    """
-    Basic filter for a field
+    Filter for use with ArmoniK
 
     Attributes:
         eq_: equality raw Api operator
@@ -151,12 +22,12 @@ class SimpleFilter:
         notcontains_: not contains raw Api operator
         value_type_: expected type for the value to test against in this filter
 
-        field: field of the filter
+        field: field of the filter if it's a simple filter
         message_type: Api message type of the filter
         inner_message_type: Api message type of the inner filter (with value and operator)
         conjunction_type: Type of the conjunction for this filter
-        value: value to test against in this filter
-        operator: operator to apply for this filter
+        value: value to test against in this filter if it's a simple filter
+        operator: operator to apply for this filter if it's a simple filter
     """
     eq_ = None
     ne_ = None
@@ -168,71 +39,85 @@ class SimpleFilter:
     notcontains_ = None
     value_type_ = None
 
-    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message], value=None, operator=None):
-        super().__init__()
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]], filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+        self._filters: List[List["Filter"]] = [[]] if filters is None else filters
         self.field = field
         self.message_type = message_type
-        if not issubclass(conjunction_type, FilterConjunction):
-            raise Exception(f"{conjunction_type.__name__} is not a subclass of FilterConjunction")
-        self.conjunction_type = conjunction_type
+        self.conjunction_type = conjunction_message_type
+        self.disjunction_type = disjunction_message_type
         self.inner_message_type = inner_message_type
         self.value = value
         self.operator = operator
 
-    def __and__(self, other: Union["SimpleFilter", "FilterConjunction"]) -> "FilterConjunction":
-        if isinstance(other, SimpleFilter):
-            if other.conjunction_type != self.conjunction_type:
-                raise Exception(f"Invalid type {type(other).__name__} ({str(other.field)}) for 'and' operand of {self.__class__.__name__} ({str(self.field)}) : Conjunction types are different")
-            return self.conjunction_type([self, other])
-        elif isinstance(other, self.conjunction_type):
-            return other & self
-        raise Exception(f"Invalid type {type(other).__name__} for 'and' operand of {self.__class__.__name__}")
+    def is_true_conjunction(self) -> bool:
+        """
+        Tests whether the filter is a conjunction (logical and)
+        Note : This will only output true if it's an actual conjunction with multiple filters and no disjunction
+        """
+        return self.message_type == self.conjunction_type or (len(self._filters) == 1 and len(self._filters[0]) > 1)
 
-    def __mul__(self, other: Union["SimpleFilter", "FilterConjunction"]) -> "FilterConjunction":
+    def is_true_disjunction(self) -> bool:
+        """
+        Tests whether the filter is a disjunction (logical or)
+        Note : This will only output true if it's an actual disjunction with multiple filters
+        """
+        return len(self._filters) > 1
+
+    def to_disjunction(self) -> Filter:
+        """
+        Converts the filter into a disjunction
+
+        """
+        if self.is_true_disjunction():
+            return self
+        if self.is_true_conjunction():
+            return Filter(None, self.disjunction_type, self.conjunction_type, self.disjunction_type, None, self._filters)
+        return Filter(None, self.disjunction_type, self.conjunction_type, self.disjunction_type, None, [[self]])
+
+    def __and__(self, other: "Filter") -> "Filter":
+        if not isinstance(other, Filter):
+            raise Exception(f"Cannot create a conjunction between Filter and {other.__class__.__name__}")
+        if self.is_true_disjunction() or other.is_true_disjunction():
+            raise Exception(f"Cannot make a conjunction of disjunctions")
+        if self.conjunction_type != other.conjunction_type:
+            raise Exception(f"Conjunction types are different")
+        return Filter(None, self.disjunction_type, self.conjunction_type, self.conjunction_type, None, [self.to_disjunction()._filters[0] + other.to_disjunction()._filters[0]])
+
+    def __mul__(self, other: Filter) -> "Filter":
         return self & other
 
-    def __or__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
-        return self.conjunction_type([self]) | other
+    def __or__(self, other: "Filter") -> "Filter":
+        if not isinstance(other, Filter):
+            raise Exception(f"Cannot create a conjunction between Filter and {other.__class__.__name__}")
+        if self.disjunction_type != other.disjunction_type:
+            raise Exception(f"Disjunction types are different")
+        return Filter(None, self.disjunction_type, self.conjunction_type, self.disjunction_type, None, self.to_disjunction()._filters + other.to_disjunction()._filters)
 
-    def __add__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
+    def __add__(self, other: "Filter") -> "Filter":
         return self | other
 
-    def _verify_value(self, value):
-        """
-        Checks if the value is of the expected type
-        Args:
-            value: Value to test
-
-        Raises:
-            Exception if value is not of the expected type
-
-        """
-        if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
-            return
-        raise Exception(f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead")
-
-    def __eq__(self, value) -> SimpleFilter:
+    def __eq__(self, value) -> Filter:
         return self._check(value, self.__class__.eq_, "==")
 
-    def __ne__(self, value) -> SimpleFilter:
+    def __ne__(self, value) -> Filter:
         return self._check(value, self.__class__.ne_, "!=")
 
-    def __lt__(self, value) -> SimpleFilter:
+    def __lt__(self, value) -> Filter:
         return self._check(value, self.__class__.lt_, "<")
 
-    def __le__(self, value) -> SimpleFilter:
+    def __le__(self, value) -> Filter:
         return self._check(value, self.__class__.le_, "<=")
 
-    def __gt__(self, value) -> SimpleFilter:
+    def __gt__(self, value) -> Filter:
         return self._check(value, self.__class__.gt_, ">")
 
-    def __ge__(self, value) -> SimpleFilter:
+    def __ge__(self, value) -> Filter:
         return self._check(value, self.__class__.ge_, ">=")
 
-    def contains(self, value) -> SimpleFilter:
+    def contains(self, value) -> Filter:
         return self._check(value, self.__class__.contains_, "contains")
 
-    def __invert__(self) -> SimpleFilter:
+    def __invert__(self) -> Filter:
         """
         Inverts the test
 
@@ -240,6 +125,8 @@ class SimpleFilter:
             Filter with the test being inverted
         """
         if self.operator is None:
+            if self.is_true_conjunction() or self.is_true_disjunction():
+                raise Exception(f"Cannot invert conjunctions or disjunctions")
             raise Exception(f"Cannot invert None operator in class {self.__class__.__name__} for field {str(self.field)}")
         if self.operator == self.__class__.eq_:
             return self.__ne__(self.value)
@@ -259,19 +146,39 @@ class SimpleFilter:
             return self.contains(self.value)
         raise Exception(f"{self.__class__.__name__} operator {str(self.operator)} for field {str(self.field)} has no inverted equivalent")
 
-    def __neg__(self) -> "SimpleFilter":
+    def __neg__(self) -> "Filter":
         return ~self
 
-    def __repr__(self) -> str:
-        return f"{str(self.field)} filter"
+    def to_dict(self) -> Dict:
+        rep = {}
+        if self.is_true_disjunction():
+            rep["or"] = [{"and": [f.to_dict() for f in conj]} for conj in self._filters]
+            return rep
+        if self.is_true_conjunction():
+            rep["and"] = [f.to_dict() for f in self._filters[0]]
+            return rep
+        if len(self._filters) == 1 and len(self._filters[0]) == 1:
+            return self._filters[0][0].to_dict()
+        return {"field": str(self.field), "value": str(self.value), "operator": str(self.operator)}
 
-    def to_conjunction(self) -> "FilterConjunction":
-        return self.conjunction_type([self])
+    def __str__(self) -> str:
+        return json.dumps(self.to_dict())
 
-    def to_disjunction(self) -> "FilterDisjunction":
-        return self.to_conjunction().to_disjunction()
+    def _verify_value(self, value):
+        """
+        Checks if the value is of the expected type
+        Args:
+            value: Value to test
 
-    def _check(self, value: Any, operator: Any, operator_str: str = "") -> "SimpleFilter":
+        Raises:
+            Exception if value is not of the expected type
+
+        """
+        if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
+            return
+        raise Exception(f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead")
+
+    def _check(self, value: Any, operator: Any, operator_str: str = "") -> "Filter":
         """
         Internal function to create a new filter from the current filter with a different value and/or operator
         Args:
@@ -285,17 +192,33 @@ class SimpleFilter:
         Raises:
             NotImplementedError if the given operator is not available for the given class
         """
+        if self.is_true_conjunction() or self.is_true_disjunction():
+            raise Exception(f"Cannot apply operator to a disjunction or a conjunction")
         self._verify_value(value)
         if operator is None:
             raise NotImplementedError(f"Operator {operator_str} is not available for {self.__class__.__name__}")
-        return self.__class__(self.field, self.conjunction_type, self.message_type, self.inner_message_type, value, operator)
+        return self.__class__(self.field, self.disjunction_type, self.conjunction_type, self.message_type, self.inner_message_type, self._filters, value, operator)
 
     @abstractmethod
-    def to_message(self) -> Message:
+    def to_basic_message(self) -> Message:
         pass
 
+    def to_message(self) -> Message:
+        def to_conjunction_message(conj: List[Filter]) -> Message:
+            conj_raw = self.conjunction_type()
+            getattr(conj_raw, "and").extend([f.to_basic_message() for f in conj])
+            return conj_raw
 
-class StringFilter(SimpleFilter):
+        if self.message_type == self.disjunction_type:
+            raw = self.to_disjunction().disjunction_type()
+            getattr(raw, "or").extend([to_conjunction_message(conj) for conj in self._filters])
+            return raw
+        if self.message_type == self.conjunction_type:
+            return to_conjunction_message(self.to_disjunction()._filters[0])
+        return self.to_basic_message()
+
+
+class StringFilter(Filter):
     """
     Filter for string comparisons
     """
@@ -305,8 +228,8 @@ class StringFilter(SimpleFilter):
     notcontains_ = FILTER_STRING_OPERATOR_NOT_CONTAINS
     value_type_ = str
 
-    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterString, value=None, operator=None):
-        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterString, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
 
     def startswith(self, value: str) -> "StringFilter":
         return self._check(value, FILTER_STRING_OPERATOR_STARTS_WITH, "startswith")
@@ -314,28 +237,28 @@ class StringFilter(SimpleFilter):
     def endswith(self, value: str) -> "StringFilter":
         return self._check(value, FILTER_STRING_OPERATOR_ENDS_WITH, "endswith")
 
-    def to_message(self) -> Message:
+    def to_basic_message(self) -> Message:
         return self.message_type(field=self.field, filter_string=self.inner_message_type(value=self.value, operator=self.operator))
 
     def __repr__(self) -> str:
         return f"{str(self.field)} {str(self.operator)} \"{str(self.value)}\""
 
 
-class StatusFilter(SimpleFilter):
+class StatusFilter(Filter):
     """
     Filter for status comparison
     """
     eq_ = FILTER_STATUS_OPERATOR_EQUAL
     ne_ = FILTER_STATUS_OPERATOR_NOT_EQUAL
 
-    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], filter_status_type: Type[Message], value=None, operator=None):
-        super().__init__(field, conjunction_type, message_type, filter_status_type, value, operator)
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Type[Message], filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
 
-    def to_message(self) -> Message:
+    def to_basic_message(self) -> Message:
         return self.message_type(field=self.field, filter_status=self.inner_message_type(value=self.value, operator=self.operator))
 
 
-class DateFilter(SimpleFilter):
+class DateFilter(Filter):
     """Filter for timestamp comparison"""
     eq_ = FILTER_DATE_OPERATOR_EQUAL
     ne_ = FILTER_DATE_OPERATOR_NOT_EQUAL
@@ -345,14 +268,14 @@ class DateFilter(SimpleFilter):
     ge_ = FILTER_DATE_OPERATOR_AFTER_OR_EQUAL
     value_type = timestamp.Timestamp
 
-    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterDate, value=None, operator=None):
-        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterDate, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
 
-    def to_message(self) -> Message:
+    def to_basic_message(self) -> Message:
         return self.message_type(field=self.field, filter_date=self.inner_message_type(value=self.value, operator=self.operator))
 
 
-class NumberFilter(SimpleFilter):
+class NumberFilter(Filter):
     """Filter for int comparison"""
     eq_ = FILTER_NUMBER_OPERATOR_EQUAL
     ne_ = FILTER_NUMBER_OPERATOR_NOT_EQUAL
@@ -362,22 +285,22 @@ class NumberFilter(SimpleFilter):
     ge_ = FILTER_NUMBER_OPERATOR_GREATER_THAN_OR_EQUAL
     value_type_ = int
 
-    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterNumber, value=None, operator=None):
-        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterNumber, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
 
-    def to_message(self) -> Message:
+    def to_basic_message(self) -> Message:
         return self.message_type(field=self.field, filter_number=self.inner_message_type(value=self.value, operator=self.operator))
 
 
-class BooleanFilter(SimpleFilter):
+class BooleanFilter(Filter):
     """
     Filter for boolean comparison
     """
     eq_ = FILTER_BOOLEAN_OPERATOR_IS
     value_type_ = bool
 
-    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterBoolean, value=True, operator=FILTER_BOOLEAN_OPERATOR_IS):
-        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterBoolean, filters: Optional[List[List["Filter"]]] = None, value=True, operator=FILTER_BOOLEAN_OPERATOR_IS):
+        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
 
     def __ne__(self, value: bool) -> "BooleanFilter":
         return self.__eq__(not value)
@@ -385,11 +308,11 @@ class BooleanFilter(SimpleFilter):
     def __invert__(self) -> "BooleanFilter":
         return self.__eq__(not self.value)
 
-    def to_message(self) -> Message:
+    def to_basic_message(self) -> Message:
         return self.message_type(field=self.field, filter_boolean=self.inner_message_type(value=self.value, operator=self.operator))
 
 
-class ArrayFilter(SimpleFilter):
+class ArrayFilter(Filter):
     """
     Filter for array comparisons
     """
@@ -397,8 +320,8 @@ class ArrayFilter(SimpleFilter):
     notcontains_ = FILTER_ARRAY_OPERATOR_NOT_CONTAINS
     value_type_ = str
 
-    def __init__(self, field: Message, conjunction_type: Type["FilterConjunction"], message_type: Type[Message], inner_message_type: Type[Message] = FilterArray, value=None, operator=None):
-        super().__init__(field, conjunction_type, message_type, inner_message_type, value, operator)
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterArray, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
 
-    def to_message(self) -> Message:
+    def to_basic_message(self) -> Message:
         return self.message_type(field=self.field, filter_array=self.inner_message_type(value=self.value, operator=self.operator))

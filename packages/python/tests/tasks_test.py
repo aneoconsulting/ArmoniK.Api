@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import dataclasses
-from typing import Optional, List, Any, Union
+from typing import Optional, List, Any, Union, Dict, Collection
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from datetime import datetime
@@ -11,7 +11,7 @@ from .common import DummyChannel
 from armonik.client import ArmoniKTasks
 from armonik.client.tasks import TaskFieldFilter
 from armonik.common import TaskStatus, datetime_to_timestamp, Task
-from armonik.common.filter import StringFilter, FilterDisjunction, FilterConjunction, SimpleFilter
+from armonik.common.filter import StringFilter, Filter
 from armonik.protogen.client.tasks_service_pb2_grpc import TasksStub
 from armonik.protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, TaskDetailed
 from armonik.protogen.common.tasks_filters_pb2 import Filters, FilterField
@@ -146,15 +146,15 @@ class SimpleFieldFilter:
         ]
     )
 ])
-def test_filter_combination(filt: Union[SimpleFilter, FilterConjunction, FilterDisjunction], n_or: int, n_and: List[int], filters: List[SimpleFieldFilter]):
+def test_filter_combination(filt: Filter, n_or: int, n_and: List[int], filters: List[SimpleFieldFilter]):
     filt = filt.to_disjunction()
-    assert len(filt.filters) == n_or
+    assert len(filt._filters) == n_or
     sorted_n_and = sorted(n_and)
-    sorted_actual = sorted([len(f.filters) for f in filt.filters])
+    sorted_actual = sorted([len(f) for f in filt._filters])
     assert len(sorted_n_and) == len(sorted_actual)
     assert all((sorted_n_and[i] == sorted_actual[i] for i in range(len(sorted_actual))))
-    for f in filt.filters:
-        for ff in f.filters:
+    for f in filt._filters:
+        for ff in f:
             field_value = getattr(ff.field, ff.field.WhichOneof("field")).field
             for i, expected in enumerate(filters):
                 if expected.field == field_value and expected.value == ff.value and expected.operator == ff.operator:
@@ -168,3 +168,114 @@ def test_filter_combination(filt: Union[SimpleFilter, FilterConjunction, FilterD
 
 def test_name_from_value():
     assert TaskStatus.name_from_value(TaskStatus.COMPLETED) == "TASK_STATUS_COMPLETED"
+
+
+class BasicFilterAnd:
+
+    def __setattr__(self, key, value):
+        self.__dict__[key] = value
+
+    def __getattr__(self, item):
+        return self.__dict__[item]
+
+
+@pytest.mark.parametrize("filt,n_or,n_and,filters,expected_type", [
+    (
+        (TaskFieldFilter.INITIAL_TASK_ID == "TestId"),
+        1, [1],
+        [
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_INITIAL_TASK_ID, "TestId", FILTER_STRING_OPERATOR_EQUAL)
+        ],
+        0
+    ),
+    (
+        (TaskFieldFilter.APPLICATION_NAME.contains("TestName") & (TaskFieldFilter.CREATED_AT > Timestamp(seconds=1000, nanos=500))),
+        1, [2],
+        [
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_APPLICATION_NAME, "TestName", FILTER_STRING_OPERATOR_CONTAINS),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_CREATED_AT, Timestamp(seconds=1000, nanos=500), FILTER_DATE_OPERATOR_AFTER)
+        ],
+        1
+    ),
+    (
+        (((TaskFieldFilter.MAX_RETRIES <= 3) & ~(TaskFieldFilter.SESSION_ID == "SessionId")) | (TaskFieldFilter.task_options_key("MyKey").startswith("Start"))),
+        2, [1, 2],
+        [
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_MAX_RETRIES, 3, FILTER_NUMBER_OPERATOR_LESS_THAN_OR_EQUAL),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_SESSION_ID, "SessionId", FILTER_STRING_OPERATOR_NOT_EQUAL),
+            SimpleFieldFilter("MyKey", "Start", FILTER_STRING_OPERATOR_STARTS_WITH)
+        ],
+        2
+    ),
+    (
+        (((TaskFieldFilter.PRIORITY > 3) & ~(TaskFieldFilter.STATUS == TaskStatus.COMPLETED) & TaskFieldFilter.APPLICATION_VERSION.contains("1.0")) | (TaskFieldFilter.ENGINE_TYPE.endswith("Test") & (TaskFieldFilter.ENDED_AT <= Timestamp(seconds=1000, nanos=500)))),
+        2, [2, 3],
+        [
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_PRIORITY, 3, FILTER_NUMBER_OPERATOR_GREATER_THAN),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_STATUS, TaskStatus.COMPLETED, FILTER_STATUS_OPERATOR_NOT_EQUAL),
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION, "1.0", FILTER_STRING_OPERATOR_CONTAINS),
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_ENGINE_TYPE, "Test", FILTER_STRING_OPERATOR_ENDS_WITH),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_ENDED_AT, Timestamp(seconds=1000, nanos=500), FILTER_DATE_OPERATOR_BEFORE_OR_EQUAL),
+        ],
+        2
+    ),
+    (
+        (((TaskFieldFilter.PRIORITY >= 3) * -(TaskFieldFilter.STATUS != TaskStatus.COMPLETED) * -TaskFieldFilter.APPLICATION_VERSION.contains("1.0")) + (TaskFieldFilter.ENGINE_TYPE.endswith("Test") * (TaskFieldFilter.ENDED_AT <= Timestamp(seconds=1000, nanos=500)))),
+        2, [2, 3],
+        [
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_PRIORITY, 3, FILTER_NUMBER_OPERATOR_GREATER_THAN_OR_EQUAL),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_STATUS, TaskStatus.COMPLETED, FILTER_STATUS_OPERATOR_EQUAL),
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION, "1.0", FILTER_STRING_OPERATOR_NOT_CONTAINS),
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_ENGINE_TYPE, "Test", FILTER_STRING_OPERATOR_ENDS_WITH),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_ENDED_AT, Timestamp(seconds=1000, nanos=500), FILTER_DATE_OPERATOR_BEFORE_OR_EQUAL),
+        ],
+        2
+    ),
+    (
+        (((TaskFieldFilter.PRIORITY >= 3) * -(TaskFieldFilter.STATUS != TaskStatus.COMPLETED) * -TaskFieldFilter.APPLICATION_VERSION.contains("1.0")) + (TaskFieldFilter.ENGINE_TYPE.endswith("Test") * (TaskFieldFilter.ENDED_AT <= Timestamp(seconds=1000, nanos=500)))) + (((TaskFieldFilter.MAX_RETRIES <= 3) & ~(TaskFieldFilter.SESSION_ID == "SessionId")) | (TaskFieldFilter.task_options_key("MyKey").startswith("Start"))),
+        4, [2, 3, 2, 1],
+        [
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_PRIORITY, 3, FILTER_NUMBER_OPERATOR_GREATER_THAN_OR_EQUAL),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_STATUS, TaskStatus.COMPLETED, FILTER_STATUS_OPERATOR_EQUAL),
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION, "1.0", FILTER_STRING_OPERATOR_NOT_CONTAINS),
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_ENGINE_TYPE, "Test", FILTER_STRING_OPERATOR_ENDS_WITH),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_ENDED_AT, Timestamp(seconds=1000, nanos=500), FILTER_DATE_OPERATOR_BEFORE_OR_EQUAL),
+            SimpleFieldFilter(TASK_OPTION_ENUM_FIELD_MAX_RETRIES, 3, FILTER_NUMBER_OPERATOR_LESS_THAN_OR_EQUAL),
+            SimpleFieldFilter(TASK_SUMMARY_ENUM_FIELD_SESSION_ID, "SessionId", FILTER_STRING_OPERATOR_NOT_EQUAL),
+            SimpleFieldFilter("MyKey", "Start", FILTER_STRING_OPERATOR_STARTS_WITH)
+        ],
+        2
+    )
+])
+def test_taskfilter_to_message(filt: Filter, n_or: int, n_and: List[int], filters: List[SimpleFieldFilter], expected_type: int):
+    print(filt)
+    message = filt.to_message()
+    conjs: Collection = []
+    if expected_type == 2:  # Disjunction
+        conjs: Collection = getattr(message, "or")
+        assert len(conjs) == n_or
+        sorted_n_and = sorted(n_and)
+        sorted_actual = sorted([len(getattr(f, "and")) for f in conjs])
+        assert len(sorted_n_and) == len(sorted_actual)
+        assert all((sorted_n_and[i] == sorted_actual[i] for i in range(len(sorted_actual))))
+
+    if expected_type == 1:  # Conjunction
+        conjs: Collection = [message]
+
+    if expected_type == 0:  # Simple filter
+        m = BasicFilterAnd()
+        setattr(m, "and", [message])
+        conjs: Collection = [m]
+
+    for conj in conjs:
+        basics = getattr(conj, "and")
+        for f in basics:
+            field_value = getattr(f.field, f.field.WhichOneof("field")).field
+            for i, expected in enumerate(filters):
+                if expected.field == field_value and expected.value == getattr(f, f.WhichOneof("value_condition")).value and expected.operator == getattr(f, f.WhichOneof("value_condition")).operator:
+                    filters.pop(i)
+                    break
+            else:
+                print(f"Could not find {str(f)}")
+                assert False
+    assert len(filters) == 0
