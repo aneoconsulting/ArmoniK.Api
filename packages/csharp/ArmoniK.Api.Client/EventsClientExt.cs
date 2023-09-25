@@ -79,8 +79,7 @@ namespace ArmoniK.Api.Client
                                                  ICollection<string>      resultIds,
                                                  CancellationToken        cancellationToken)
     {
-      var resultsNotFound = resultIds.ToDictionary(id => id,
-                                                   _ => true);
+      var resultsNotFound = new HashSet<string>(resultIds);
 
       using var streamingCall = client.GetEvents(new EventSubscriptionRequest
                                                  {
@@ -99,12 +98,11 @@ namespace ArmoniK.Api.Client
                                                                     },
                                                  });
 
-
       while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
       {
         cancellationToken.ThrowIfCancellationRequested();
         var resp = streamingCall.ResponseStream.Current;
-        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate && resultsNotFound.ContainsKey(resp.ResultStatusUpdate.ResultId))
+        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate && resultsNotFound.Contains(resp.ResultStatusUpdate.ResultId))
         {
           if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
           {
@@ -121,7 +119,7 @@ namespace ArmoniK.Api.Client
           }
         }
 
-        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult && resultsNotFound.ContainsKey(resp.NewResult.ResultId))
+        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult && resultsNotFound.Contains(resp.NewResult.ResultId))
         {
           if (resp.NewResult.Status == ResultStatus.Completed)
           {
