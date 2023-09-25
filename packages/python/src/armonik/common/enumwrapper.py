@@ -14,8 +14,8 @@ class HealthCheckStatus:
 
 
 class TaskStatus:
-    @classmethod
-    def name_from_value(cls, status: RawStatus) -> str:
+    @staticmethod
+    def name_from_value(status: RawStatus) -> str:
         return _TASKSTATUS.values_by_number[status].name
 
     CANCELLED = TASK_STATUS_CANCELLED
