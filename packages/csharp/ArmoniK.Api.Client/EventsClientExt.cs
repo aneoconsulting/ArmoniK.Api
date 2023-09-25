@@ -32,8 +32,6 @@ using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Events;
 using ArmoniK.Api.gRPC.V1.Results;
 
-using Grpc.Core.Utils;
-
 using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Client
@@ -102,48 +100,44 @@ namespace ArmoniK.Api.Client
                                                  });
 
 
-      await streamingCall.ResponseStream.ForEachAsync(resp =>
-                                                      {
-                                                        cancellationToken.ThrowIfCancellationRequested();
-                                                        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate &&
-                                                            resultsNotFound.ContainsKey(resp.ResultStatusUpdate.ResultId))
-                                                        {
-                                                          if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
-                                                          {
-                                                            resultsNotFound.Remove(resp.ResultStatusUpdate.ResultId);
-                                                            if (!resultsNotFound.Any())
-                                                            {
-                                                              return Task.CompletedTask;
-                                                            }
-                                                          }
+      while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
+      {
+        cancellationToken.ThrowIfCancellationRequested();
+        var resp = streamingCall.ResponseStream.Current;
+        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate && resultsNotFound.ContainsKey(resp.ResultStatusUpdate.ResultId))
+        {
+          if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
+          {
+            resultsNotFound.Remove(resp.ResultStatusUpdate.ResultId);
+            if (!resultsNotFound.Any())
+            {
+              break;
+            }
+          }
 
-                                                          if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
-                                                          {
-                                                            throw new Exception($"Result {resp.ResultStatusUpdate.ResultId} has been aborted");
-                                                          }
-                                                        }
+          if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
+          {
+            throw new Exception($"Result {resp.ResultStatusUpdate.ResultId} has been aborted");
+          }
+        }
 
-                                                        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult &&
-                                                            resultsNotFound.ContainsKey(resp.NewResult.ResultId))
-                                                        {
-                                                          if (resp.NewResult.Status == ResultStatus.Completed)
-                                                          {
-                                                            resultsNotFound.Remove(resp.NewResult.ResultId);
-                                                            if (!resultsNotFound.Any())
-                                                            {
-                                                              return Task.CompletedTask;
-                                                            }
-                                                          }
+        if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult && resultsNotFound.ContainsKey(resp.NewResult.ResultId))
+        {
+          if (resp.NewResult.Status == ResultStatus.Completed)
+          {
+            resultsNotFound.Remove(resp.NewResult.ResultId);
+            if (!resultsNotFound.Any())
+            {
+              break;
+            }
+          }
 
-                                                          if (resp.NewResult.Status == ResultStatus.Aborted)
-                                                          {
-                                                            throw new Exception($"Result {resp.NewResult.ResultId} has been aborted");
-                                                          }
-                                                        }
-
-                                                        return Task.CompletedTask;
-                                                      })
-                         .ConfigureAwait(false);
+          if (resp.NewResult.Status == ResultStatus.Aborted)
+          {
+            throw new Exception($"Result {resp.NewResult.ResultId} has been aborted");
+          }
+        }
+      }
     }
   }
 }
