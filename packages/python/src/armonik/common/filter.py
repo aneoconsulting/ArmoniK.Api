@@ -1,14 +1,16 @@
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from typing import List, Any, Type, Union
 from google.protobuf.message import Message
 import google.protobuf.timestamp_pb2 as timestamp
 from ..protogen.common.filters_common_pb2 import *
 
 
-class Filter:
+class Filter(ABC):
     """
     Base class for all filters
     """
+    @abstractmethod
     def message_type(self) -> Type:
         """
             Get the message type to be used by FilterDisjunction and FilterConjunction types
@@ -16,34 +18,37 @@ class Filter:
         Returns:
             The message type
         """
-        raise NotImplementedError(f"{str(self.__class__.__name__)}.message_type() is not implemented")
+        pass
 
+    @abstractmethod
     def to_message(self):
         """
             Get the gRPC message corresponding to this filter
         Returns:
             gRPC message
         """
-        raise NotImplementedError(f"{str(self.__class__.__name__)}.to_message() is not implemented")
+        pass
 
     def __bool__(self):
         raise Exception("Filter cannot be converted to bool. Are you trying to use 'and', 'or', 'not' or 'in' instead of '&', '|', '~' or '.contains' ?")
 
+    @abstractmethod
     def to_conjunction(self) -> "FilterConjunction":
         """
             Transforms the filter into a conjunction
         Returns:
             Equivalent conjunction of this filter
         """
-        raise NotImplementedError(f"{str(self.__class__.__name__)}.to_conjunction() is not implemented")
+        pass
 
+    @abstractmethod
     def to_disjunction(self) -> "FilterDisjunction":
         """
             Transforms the filter into a disjunction
         Returns:
             Equivalent disjunction of this filter
         """
-        raise NotImplementedError(f"{str(self.__class__.__name__)}.to_disjunction() is not implemented")
+        pass
 
 
 class FilterDisjunction(Filter):
@@ -53,8 +58,6 @@ class FilterDisjunction(Filter):
     def __init__(self, filters: List["FilterConjunction"]):
         super().__init__()
         self.filters = filters
-        _ = self.conjunction_type()
-        _ = self.message_type()
 
     def __or__(self, other: Union["SimpleFilter", "FilterConjunction", "FilterDisjunction"]) -> "FilterDisjunction":
         """
@@ -87,15 +90,6 @@ class FilterDisjunction(Filter):
     def __repr__(self):
         return "( " + ' ) or ( '.join([str(f) for f in self.filters]) + ' )'
 
-    def conjunction_type(self) -> Type["FilterConjunction"]:
-        """
-            Conjunction type associated with this disjunction type.
-            Must be overriden by child class
-        Returns:
-            Type of FilterConjunction
-        """
-        raise NotImplementedError(f"{str(self.__class__.__name__)}.conjunction_type() is not implemented")
-
     def to_message(self) -> Message:
         raw = self.message_type()()
         # Can't use raw.or : https://protobuf.dev/reference/python/python-generated/#keyword-conflicts
@@ -108,6 +102,10 @@ class FilterDisjunction(Filter):
     def to_disjunction(self) -> "FilterDisjunction":
         return self
 
+    @abstractmethod
+    def conjunction_type(self) -> Type["FilterConjunction"]:
+        pass
+
 
 class FilterConjunction(Filter):
     """
@@ -116,8 +114,6 @@ class FilterConjunction(Filter):
     def __init__(self, filters: List["SimpleFilter"]):
         super().__init__()
         self.filters = filters
-        _ = self.disjunction_type()
-        _ = self.message_type()
 
     def __and__(self, other: Union["SimpleFilter", "FilterConjunction"]) -> "FilterConjunction":
         """
@@ -164,8 +160,9 @@ class FilterConjunction(Filter):
     def __repr__(self) -> str:
         return ' and '.join([str(f) for f in self.filters])
 
+    @abstractmethod
     def disjunction_type(self) -> Type["FilterDisjunction"]:
-        raise NotImplementedError(f"{str(self.__class__.__name__)}.disjunction_type() is not implemented")
+        pass
 
     def to_message(self) -> Message:
         raw = self.message_type()()
@@ -313,6 +310,9 @@ class SimpleFilter(Filter):
 
     def to_disjunction(self) -> "FilterDisjunction":
         return self.to_conjunction().to_disjunction()
+
+    def message_type(self) -> Type:
+        return self.message_type
 
     def _check(self, value: Any, operator: Any, operator_str: str = "") -> "SimpleFilter":
         """

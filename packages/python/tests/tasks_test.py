@@ -165,5 +165,6 @@ def test_filter_combination(filt: Union[SimpleFilter, FilterConjunction, FilterD
                 assert False
     assert len(filters) == 0
 
+
 def test_name_from_value():
     assert TaskStatus.name_from_value(TaskStatus.COMPLETED) == "TASK_STATUS_COMPLETED"

@@ -62,8 +62,8 @@ class TaskFieldFilter:
     APPLICATION_SERVICE = StringFilter(TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE)), TaskFilterAnd, rawFilterField)
     ENGINE_TYPE = StringFilter(TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_ENGINE_TYPE)), TaskFilterAnd, rawFilterField)
 
-    @classmethod
-    def task_options_key(cls, option_key: str) -> StringFilter:
+    @staticmethod
+    def task_options_key(option_key: str) -> StringFilter:
         """
         Filter for the TaskOptions.Options dictionary
         Args:
@@ -114,6 +114,6 @@ class ArmoniKTasks:
             - The total number of tasks for the given filter
             - The obtained list of tasks
         """
-        request = ListTasksRequest(page=page, page_size=page_size, filters=task_filter.to_disjunction().to_message(), sort=ListTasksRequest.Sort(field=cast(TaskField, sort_field.field), direction=sort_direction), with_errors=with_errors)
+        request = ListTasksRequest(page=page, page_size=page_size, filters=cast(rawFilters, task_filter.to_disjunction().to_message()), sort=ListTasksRequest.Sort(field=cast(TaskField, sort_field.field), direction=sort_direction), with_errors=with_errors)
         list_response: ListTasksDetailedResponse = self._client.ListTasksDetailed(request)
         return list_response.total, [Task.from_message(t) for t in list_response.tasks]
