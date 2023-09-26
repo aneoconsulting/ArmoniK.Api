@@ -15,10 +15,10 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "grpcio",
-    "grpcio-tools"
+    "grpcio==1.56.2",
+    "grpcio-tools==1.56.2"
 ]
-
+# We need to set grpc to 1.56 until this bug is resolved : https://github.com/grpc/grpc/issues/34305
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
 "Bug Tracker" = "https://github.com/aneoconsulting/ArmoniK/issues"

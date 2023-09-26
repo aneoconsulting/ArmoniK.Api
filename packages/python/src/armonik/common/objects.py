@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import timedelta, datetime
 from typing import Optional, List, Dict
@@ -5,6 +6,7 @@ from typing import Optional, List, Dict
 from ..protogen.common.tasks_common_pb2 import TaskDetailed
 from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
 from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput, TaskOptions as RawTaskOptions
+from ..protogen.common.task_status_pb2 import TaskStatus as RawTaskStatus
 from .enumwrapper import TaskStatus
 
 
@@ -83,7 +85,7 @@ class Task:
     data_dependencies: List[str] = field(default_factory=list)
     expected_output_ids: List[str] = field(default_factory=list)
     retry_of_ids: List[str] = field(default_factory=list)
-    status: TaskStatus = TaskStatus.UNSPECIFIED
+    status: RawTaskStatus = TaskStatus.UNSPECIFIED
     status_message: Optional[str] = None
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
@@ -109,7 +111,7 @@ class Task:
         self.data_dependencies = result.data_dependencies
         self.expected_output_ids = result.expected_output_ids
         self.retry_of_ids = result.retry_of_ids
-        self.status = TaskStatus(result.status)
+        self.status = result.status
         self.status_message = result.status_message
         self.options = result.options
         self.created_at = result.created_at
@@ -133,7 +135,7 @@ class Task:
             data_dependencies=list(task_raw.data_dependencies),
             expected_output_ids=list(task_raw.expected_output_ids),
             retry_of_ids=list(task_raw.retry_of_ids),
-            status=TaskStatus(task_raw.status),
+            status=task_raw.status,
             status_message=task_raw.status_message,
             options=TaskOptions.from_message(task_raw.options),
             created_at=timestamp_to_datetime(task_raw.created_at),

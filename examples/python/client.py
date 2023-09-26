@@ -2,7 +2,8 @@
 import grpc
 import argparse
 from typing import cast
-from armonik.client import ArmoniKSubmitter, ArmoniKResult
+from armonik.client import ArmoniKSubmitter, ArmoniKResult, ArmoniKTasks
+from armonik.client.tasks import TaskFieldFilter
 from armonik.common import TaskDefinition, TaskOptions
 from datetime import timedelta, datetime
 from common import Payload, Result
@@ -14,6 +15,7 @@ def parse_arguments():
     parser.add_argument("-p", "--partition", type=str, help="Partition used for the worker")
     parser.add_argument("-v", "--values", type=float, help="List of values to compute instead of x in [0, n[", nargs='+')
     parser.add_argument("-n", "--nfirst", type=int, help="Compute from 0 inclusive to n exclusive, n=10 by default", default=10)
+    parser.add_argument("-l", "--list", action="store_true", help="List tasks of the session at the end")
     return parser.parse_args()
 
 
@@ -61,6 +63,20 @@ def main():
                     # Result is in error
                     errors = "\n".join(reply.errors)
                     print(f'Errors : {errors}')
+
+            # List tasks
+            if args.list:
+                print(f"Listing tasks of session {session_id}")
+                # Create the tasks client
+                tasks_client = ArmoniKTasks(channel)
+
+                # Request listing of tasks from the session
+                total_tasks, tasks = tasks_client.list_tasks(TaskFieldFilter.SESSION_ID == session_id)
+                print(f"Found {total_tasks} tasks in total for the session {session_id}")
+
+                for t in tasks:
+                    print(t)
+
         except KeyboardInterrupt:
             # If we stop the script, cancel the session
             client.cancel_session(session_id)
