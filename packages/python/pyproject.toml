@@ -15,8 +15,8 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "grpcio==1.56.2",
-    "grpcio-tools==1.56.2"
+    "grpcio==1.58.0",
+    "grpcio-tools==1.58.0"
 ]
 # We need to set grpc to 1.56 until this bug is resolved : https://github.com/grpc/grpc/issues/34305
 [project.urls]
