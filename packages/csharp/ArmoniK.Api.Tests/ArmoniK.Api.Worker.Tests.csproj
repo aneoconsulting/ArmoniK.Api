@@ -9,7 +9,7 @@
     <Optimize>true</Optimize>
     <DebugType>Embedded</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
-    <PackageVersion>3.12.0</PackageVersion>
+    <PackageVersion>3.13.0</PackageVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
