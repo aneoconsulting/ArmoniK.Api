@@ -1,6 +1,6 @@
 from __future__ import annotations
 from grpc import Channel
-from typing import Type, Union, cast, Tuple, List
+from typing import cast, Tuple, List
 
 from ..common import Task, Direction
 from ..common.filter import StringFilter, StatusFilter, DateFilter, NumberFilter, Filter
@@ -92,6 +92,10 @@ class ArmoniKTasks:
             - The total number of tasks for the given filter
             - The obtained list of tasks
         """
-        request = ListTasksRequest(page=page, page_size=page_size, filters=cast(rawFilters, task_filter.to_disjunction().to_message()), sort=ListTasksRequest.Sort(field=cast(TaskField, sort_field.field), direction=sort_direction), with_errors=with_errors)
+        request = ListTasksRequest(page=page,
+                                   page_size=page_size,
+                                   filters=cast(rawFilters, task_filter.to_disjunction().to_message()),
+                                   sort=ListTasksRequest.Sort(field=cast(TaskField, sort_field.field), direction=sort_direction),
+                                   with_errors=with_errors)
         list_response: ListTasksDetailedResponse = self._client.ListTasksDetailed(request)
         return list_response.total, [Task.from_message(t) for t in list_response.tasks]
