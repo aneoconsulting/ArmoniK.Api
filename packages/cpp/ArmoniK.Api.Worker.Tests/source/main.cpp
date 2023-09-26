@@ -36,10 +36,7 @@ public:
 
     try {
       if (!taskHandler.getExpectedResults().empty()) {
-        auto res = taskHandler.send_result(taskHandler.getExpectedResults()[0], taskHandler.getPayload()).get();
-        if (res.has_error()) {
-          throw armonik::api::common::exceptions::ArmoniKApiException(res.error());
-        }
+        taskHandler.send_result(taskHandler.getExpectedResults()[0], taskHandler.getPayload()).get();
       }
 
     } catch (const std::exception &e) {

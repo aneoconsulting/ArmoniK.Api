@@ -47,32 +47,37 @@ armonik::api::worker::ArmoniKWorker::ArmoniKWorker(std::unique_ptr<armonik::api:
  * @return The status of the method.
  */
 [[maybe_unused]] Status
-armonik::api::worker::ArmoniKWorker::Process([[maybe_unused]] ::grpc::ServerContext *context,
-                                             ::grpc::ServerReader<ProcessRequest> *reader,
+armonik::api::worker::ArmoniKWorker::Process(::grpc::ServerContext *context,
+                                             const ::armonik::api::grpc::v1::worker::ProcessRequest *request,
                                              ::armonik::api::grpc::v1::worker::ProcessReply *response) {
-
+  (void)context;
   logger_.debug("Receive new request From C++ Worker");
 
-  TaskHandler task_handler(*agent_, *reader);
-
-  task_handler.init();
   try {
-    ProcessStatus status = Execute(task_handler);
+    TaskHandler task_handler(*agent_, *request);
+    try {
+      ProcessStatus status = Execute(task_handler);
 
-    logger_.debug("Finish call C++");
+      logger_.debug("Finish call C++");
 
-    armonik::api::grpc::v1::Output output;
-    if (status.ok()) {
-      *output.mutable_ok() = armonik::api::grpc::v1::Empty();
-    } else {
-      output.mutable_error()->set_details(std::move(status).details());
+      armonik::api::grpc::v1::Output output;
+      if (status.ok()) {
+        *output.mutable_ok() = armonik::api::grpc::v1::Empty();
+      } else {
+        output.mutable_error()->set_details(std::move(status).details());
+      }
+      *response->mutable_output() = std::move(output);
+    } catch (const std::exception &e) {
+      logger_.error("Error processing task : {what}", {{"what", e.what()}});
+      std::stringstream ss;
+      ss << "Error processing task : " << e.what();
+      return {::grpc::StatusCode::UNAVAILABLE, ss.str(), e.what()};
     }
-    *response->mutable_output() = std::move(output);
   } catch (const std::exception &e) {
-    logger_.error("Error processing task : {what}", {{"what", e.what()}});
+    logger_.error("Error in the request handling : {what}", {{"what", e.what()}});
     std::stringstream ss;
-    ss << "Error processing task : " << e.what();
-    return {::grpc::StatusCode::UNAVAILABLE, ss.str(), e.what()};
+    ss << "Error in the request handling : " << e.what();
+    return {::grpc::StatusCode::INVALID_ARGUMENT, ss.str(), e.what()};
   }
 
   return ::grpc::Status::OK;
