@@ -32,6 +32,9 @@ using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Worker.Worker;
 
+/// <summary>
+///   Higher level interface to implement to create tasks and populate results
+/// </summary>
 [PublicAPI]
 public interface ITaskHandler : IAsyncDisposable
 {
@@ -68,7 +71,7 @@ public interface ITaskHandler : IAsyncDisposable
   /// <summary>
   ///   The configuration parameters for the interaction with ArmoniK.
   /// </summary>
-  Configuration? Configuration { get; }
+  Configuration Configuration { get; }
 
   /// <summary>
   ///   This method allows to create subtasks.
@@ -140,15 +143,4 @@ public interface ITaskHandler : IAsyncDisposable
   ///   The task submission response
   /// </returns>
   Task<CreateResultsResponse> CreateResultsAsync(IEnumerable<CreateResultsRequest.Types.ResultCreate> results);
-
-  /// <summary>
-  ///   Upload data to an existing result
-  /// </summary>
-  /// <param name="key">The result Id</param>
-  /// <param name="data">The data to submit for the given result</param>
-  /// <returns>
-  ///   The upload data response
-  /// </returns>
-  Task<UploadResultDataResponse> UploadResultData(string key,
-                                                  byte[] data);
 }

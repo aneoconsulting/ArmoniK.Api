@@ -22,7 +22,10 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,77 +34,147 @@ using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Agent;
 using ArmoniK.Api.gRPC.V1.Worker;
 
-using Google.Protobuf;
-
-using Grpc.Core;
-
 using Microsoft.Extensions.Logging;
 
 namespace ArmoniK.Api.Worker.Worker;
+
+internal class ReadFromFolderDict : IReadOnlyDictionary<string, byte[]>
+{
+  private readonly Dictionary<string, byte[]> data_ = new();
+  private readonly IList<string>              dataDependencies_;
+  private readonly string                     folder_;
+
+  public ReadFromFolderDict(string        folder,
+                            IList<string> dataDependencies)
+  {
+    folder_           = folder;
+    dataDependencies_ = dataDependencies;
+  }
+
+  /// <inheritdoc />
+  public IEnumerator<KeyValuePair<string, byte[]>> GetEnumerator()
+    => dataDependencies_.Select(key => new KeyValuePair<string, byte[]>(key,
+                                                                        this[key]))
+                        .GetEnumerator();
+
+  IEnumerator IEnumerable.GetEnumerator()
+    => GetEnumerator();
+
+  /// <inheritdoc />
+  public int Count
+    => dataDependencies_.Count;
+
+  /// <inheritdoc />
+  public bool ContainsKey(string key)
+    => dataDependencies_.Contains(key);
+
+  /// <inheritdoc />
+  public bool TryGetValue(string                            key,
+                          [MaybeNullWhen(false)] out byte[] value)
+  {
+    var r = ContainsKey(key);
+    if (r)
+    {
+      value = this[key];
+      return r;
+    }
+
+    value = null;
+    return r;
+  }
+
+  /// <inheritdoc />
+  public byte[] this[string key]
+  {
+    get
+    {
+      if (data_.TryGetValue(key,
+                            out var value))
+      {
+        return value;
+      }
+
+      var bytes = File.ReadAllBytes(Path.Combine(folder_,
+                                                 key));
+      data_.Add(key,
+                bytes);
+      return bytes;
+    }
+  }
+
+  /// <inheritdoc />
+  public IEnumerable<string> Keys
+    => dataDependencies_;
+
+  /// <inheritdoc />
+  public IEnumerable<byte[]> Values
+    => dataDependencies_.Select(key => this[key]);
+}
 
 public class TaskHandler : ITaskHandler
 {
   private readonly CancellationToken    cancellationToken_;
   private readonly Agent.AgentClient    client_;
+  private readonly string               folder_;
   private readonly ILogger<TaskHandler> logger_;
   private readonly ILoggerFactory       loggerFactory_;
 
-  private readonly IAsyncStreamReader<ProcessRequest> requestStream_;
 
-  private IReadOnlyDictionary<string, byte[]>? dataDependencies_;
-  private IList<string>?                       expectedResults_;
-
-  private bool isInitialized_;
-
-  private byte[]?      payload_;
-  private string?      sessionId_;
-  private string?      taskId_;
-  private TaskOptions? taskOptions_;
-  private string?      token_;
-
-
-  private TaskHandler(IAsyncStreamReader<ProcessRequest> requestStream,
-                      Agent.AgentClient                  client,
-                      CancellationToken                  cancellationToken,
-                      ILoggerFactory                     loggerFactory)
+  public TaskHandler(ProcessRequest    processRequest,
+                     Agent.AgentClient client,
+                     ILoggerFactory    loggerFactory,
+                     CancellationToken cancellationToken)
   {
-    requestStream_     = requestStream;
     client_            = client;
     cancellationToken_ = cancellationToken;
     loggerFactory_     = loggerFactory;
     logger_            = loggerFactory.CreateLogger<TaskHandler>();
+    folder_            = processRequest.DataFolder;
+
+    Token           = processRequest.CommunicationToken;
+    SessionId       = processRequest.SessionId;
+    TaskId          = processRequest.TaskId;
+    TaskOptions     = processRequest.TaskOptions;
+    ExpectedResults = processRequest.ExpectedOutputKeys;
+    DataDependencies = new ReadFromFolderDict(processRequest.DataFolder,
+                                              processRequest.DataDependencies);
+    Configuration = processRequest.Configuration;
+
+
+    try
+    {
+      Payload = File.ReadAllBytes(Path.Combine(processRequest.DataFolder,
+                                               processRequest.PayloadId));
+    }
+    catch (ArgumentException e)
+    {
+      throw new InvalidOperationException("Payload not found",
+                                          e);
+    }
   }
 
-  public string Token
-    => token_ ?? throw TaskHandlerException(nameof(Token));
+  public string Token { get; }
 
   /// <inheritdoc />
-  public string SessionId
-    => sessionId_ ?? throw TaskHandlerException(nameof(SessionId));
+  public Configuration Configuration { get; }
 
   /// <inheritdoc />
-  public string TaskId
-    => taskId_ ?? throw TaskHandlerException(nameof(TaskId));
+  public string SessionId { get; }
 
   /// <inheritdoc />
-  public TaskOptions TaskOptions
-    => taskOptions_ ?? throw TaskHandlerException(nameof(TaskOptions));
+  public string TaskId { get; }
 
   /// <inheritdoc />
-  public byte[] Payload
-    => payload_ ?? throw TaskHandlerException(nameof(Payload));
+  public TaskOptions TaskOptions { get; }
 
   /// <inheritdoc />
-  public IReadOnlyDictionary<string, byte[]> DataDependencies
-    => dataDependencies_ ?? throw TaskHandlerException(nameof(DataDependencies));
+  public byte[] Payload { get; }
 
   /// <inheritdoc />
-  public IList<string> ExpectedResults
-    => expectedResults_ ?? throw TaskHandlerException(nameof(ExpectedResults));
+  public IReadOnlyDictionary<string, byte[]> DataDependencies { get; }
 
-  // this ? was added due to the initialization pattern with the Create method
   /// <inheritdoc />
-  public Configuration? Configuration { get; private set; }
+  public IList<string> ExpectedResults { get; }
 
   /// <inheritdoc />
   public async Task<CreateTaskReply> CreateTasksAsync(IEnumerable<TaskRequest> tasks,
@@ -144,7 +217,7 @@ public class TaskHandler : ITaskHandler
                                                   {
                                                     results,
                                                   },
-                                                  SessionId = sessionId_,
+                                                  SessionId = SessionId,
                                                 })
                     .ConfigureAwait(false);
 
@@ -153,70 +226,30 @@ public class TaskHandler : ITaskHandler
   public async Task SendResult(string key,
                                byte[] data)
   {
-    using var stream = client_.SendResult();
-
-    await stream.RequestStream.WriteAsync(new Result
-                                          {
-                                            CommunicationToken = Token,
-                                            Init = new InitKeyedDataStream
-                                                   {
-                                                     Key = key,
-                                                   },
-                                          })
-                .ConfigureAwait(false);
-    var start = 0;
-
-    while (start < data.Length)
+    await using (var fs = new FileStream(Path.Combine(folder_,
+                                                      key),
+                                         FileMode.OpenOrCreate))
     {
-      var chunkSize = Math.Min(Configuration!.DataChunkMaxSize,
-                               data.Length - start);
+      await using var w = new BinaryWriter(fs);
+      w.Write(data);
+    }
 
-      await stream.RequestStream.WriteAsync(new Result
+    await client_.NotifyResultDataAsync(new NotifyResultDataRequest
+                                        {
+                                          CommunicationToken = Token,
+                                          Ids =
+                                          {
+                                            new NotifyResultDataRequest.Types.ResultIdentifier
                                             {
-                                              CommunicationToken = Token,
-                                              Data = new DataChunk
-                                                     {
-                                                       Data = UnsafeByteOperations.UnsafeWrap(data.AsMemory()
-                                                                                                  .Slice(start,
-                                                                                                         chunkSize)),
-                                                     },
-                                            })
-                  .ConfigureAwait(false);
-
-      start += chunkSize;
-    }
-
-    await stream.RequestStream.WriteAsync(new Result
-                                          {
-                                            CommunicationToken = Token,
-                                            Data = new DataChunk
-                                                   {
-                                                     DataComplete = true,
-                                                   },
-                                          })
-                .ConfigureAwait(false);
-
-    await stream.RequestStream.WriteAsync(new Result
-                                          {
-                                            CommunicationToken = Token,
-                                            Init = new InitKeyedDataStream
-                                                   {
-                                                     LastResult = true,
-                                                   },
-                                          })
-                .ConfigureAwait(false);
-
-    await stream.RequestStream.CompleteAsync()
-                .ConfigureAwait(false);
-
-    var reply = await stream.ResponseAsync.ConfigureAwait(false);
-    if (reply.TypeCase == ResultReply.TypeOneofCase.Error)
-    {
-      logger_.LogError(reply.Error);
-      throw new InvalidOperationException($"Cannot send result id={key}");
-    }
+                                              SessionId = SessionId,
+                                              ResultId  = key,
+                                            },
+                                          },
+                                        })
+                 .ConfigureAwait(false);
   }
 
+  /// <inheritdoc />
   public ValueTask DisposeAsync()
     => ValueTask.CompletedTask;
 
@@ -226,7 +259,7 @@ public class TaskHandler : ITaskHandler
     => await client_.SubmitTasksAsync(new SubmitTasksRequest
                                       {
                                         CommunicationToken = Token,
-                                        SessionId          = sessionId_,
+                                        SessionId          = SessionId,
                                         TaskCreations =
                                         {
                                           taskCreations,
@@ -240,217 +273,11 @@ public class TaskHandler : ITaskHandler
     => await client_.CreateResultsAsync(new CreateResultsRequest
                                         {
                                           CommunicationToken = Token,
-                                          SessionId          = sessionId_,
+                                          SessionId          = SessionId,
                                           Results =
                                           {
                                             results,
                                           },
                                         })
                     .ConfigureAwait(false);
-
-  public async Task<UploadResultDataResponse> UploadResultData(string key,
-                                                               byte[] data)
-  {
-    var stream = client_.UploadResultData();
-
-    await stream.RequestStream.WriteAsync(new UploadResultDataRequest
-                                          {
-                                            Id = new UploadResultDataRequest.Types.ResultIdentifier
-                                                 {
-                                                   ResultId  = key,
-                                                   SessionId = sessionId_,
-                                                 },
-                                            CommunicationToken = Token,
-                                          })
-                .ConfigureAwait(false);
-
-    var start = 0;
-    while (start < data.Length)
-    {
-      var chunkSize = Math.Min(Configuration!.DataChunkMaxSize,
-                               data.Length - start);
-
-      await stream.RequestStream.WriteAsync(new UploadResultDataRequest
-                                            {
-                                              CommunicationToken = Token,
-                                              DataChunk = UnsafeByteOperations.UnsafeWrap(data.AsMemory()
-                                                                                              .Slice(start,
-                                                                                                     chunkSize)),
-                                            })
-                  .ConfigureAwait(false);
-
-      start += chunkSize;
-    }
-
-    await stream.RequestStream.CompleteAsync()
-                .ConfigureAwait(false);
-
-    return await stream.ResponseAsync.ConfigureAwait(false);
-  }
-
-  public static async Task<TaskHandler> Create(IAsyncStreamReader<ProcessRequest> requestStream,
-                                               Agent.AgentClient                  agentClient,
-                                               ILoggerFactory                     loggerFactory,
-                                               CancellationToken                  cancellationToken)
-  {
-    var output = new TaskHandler(requestStream,
-                                 agentClient,
-                                 cancellationToken,
-                                 loggerFactory);
-    await output.Init()
-                .ConfigureAwait(false);
-    return output;
-  }
-
-  private async Task Init()
-  {
-    if (!await requestStream_.MoveNext()
-                             .ConfigureAwait(false))
-    {
-      throw new InvalidOperationException("Request stream ended unexpectedly.");
-    }
-
-    if (requestStream_.Current.Compute.TypeCase != ProcessRequest.Types.ComputeRequest.TypeOneofCase.InitRequest)
-    {
-      throw new InvalidOperationException("Expected a Compute request type with InitRequest to start the stream.");
-    }
-
-    var initRequest = requestStream_.Current.Compute.InitRequest;
-    sessionId_       = initRequest.SessionId;
-    taskId_          = initRequest.TaskId;
-    taskOptions_     = initRequest.TaskOptions;
-    expectedResults_ = initRequest.ExpectedOutputKeys;
-    Configuration    = initRequest.Configuration;
-    token_           = requestStream_.Current.CommunicationToken;
-
-    if (initRequest.Payload is null)
-    {
-      throw new InvalidOperationException("Payload from InitRequest should not be null");
-    }
-
-
-    if (initRequest.Payload.DataComplete)
-    {
-      payload_ = initRequest.Payload.Data.ToByteArray();
-    }
-    else
-    {
-      var chunks    = new List<ByteString>();
-      var dataChunk = initRequest.Payload;
-
-      chunks.Add(dataChunk.Data);
-
-      while (!dataChunk.DataComplete)
-      {
-        if (!await requestStream_.MoveNext(cancellationToken_)
-                                 .ConfigureAwait(false))
-        {
-          throw new InvalidOperationException("Request stream ended unexpectedly.");
-        }
-
-        if (requestStream_.Current.Compute.TypeCase != ProcessRequest.Types.ComputeRequest.TypeOneofCase.Payload)
-        {
-          throw new InvalidOperationException("Expected a Compute request type with Payload to continue the stream.");
-        }
-
-        dataChunk = requestStream_.Current.Compute.Payload;
-
-        chunks.Add(dataChunk.Data);
-      }
-
-
-      var size = chunks.Sum(s => s.Length);
-
-      var payload = new byte[size];
-
-      var start = 0;
-
-      foreach (var chunk in chunks)
-      {
-        chunk.CopyTo(payload,
-                     start);
-        start += chunk.Length;
-      }
-
-      payload_ = payload;
-    }
-
-    var dataDependencies = new Dictionary<string, byte[]>();
-
-    ProcessRequest.Types.ComputeRequest.Types.InitData initData;
-    do
-    {
-      if (!await requestStream_.MoveNext(cancellationToken_)
-                               .ConfigureAwait(false))
-      {
-        throw new InvalidOperationException("Request stream ended unexpectedly.");
-      }
-
-
-      if (requestStream_.Current.Compute.TypeCase != ProcessRequest.Types.ComputeRequest.TypeOneofCase.InitData)
-      {
-        throw new InvalidOperationException("Expected a Compute request type with InitData to continue the stream.");
-      }
-
-      initData = requestStream_.Current.Compute.InitData;
-      if (!string.IsNullOrEmpty(initData.Key))
-      {
-        var chunks = new List<ByteString>();
-
-        while (true)
-        {
-          if (!await requestStream_.MoveNext(cancellationToken_)
-                                   .ConfigureAwait(false))
-          {
-            throw new InvalidOperationException("Request stream ended unexpectedly.");
-          }
-
-          if (requestStream_.Current.Compute.TypeCase != ProcessRequest.Types.ComputeRequest.TypeOneofCase.Data)
-          {
-            throw new InvalidOperationException("Expected a Compute request type with Data to continue the stream.");
-          }
-
-          var dataChunk = requestStream_.Current.Compute.Data;
-
-          if (dataChunk.TypeCase == DataChunk.TypeOneofCase.Data)
-          {
-            chunks.Add(dataChunk.Data);
-          }
-
-          if (dataChunk.TypeCase == DataChunk.TypeOneofCase.None)
-          {
-            throw new InvalidOperationException("Expected a Compute request type with a DataChunk Payload to continue the stream.");
-          }
-
-          if (dataChunk.TypeCase == DataChunk.TypeOneofCase.DataComplete)
-          {
-            break;
-          }
-        }
-
-        var size = chunks.Sum(s => s.Length);
-
-        var data = new byte[size];
-
-        var start = 0;
-
-        foreach (var chunk in chunks)
-        {
-          chunk.CopyTo(data,
-                       start);
-          start += chunk.Length;
-        }
-
-        dataDependencies[initData.Key] = data;
-      }
-    } while (!string.IsNullOrEmpty(initData.Key));
-
-    dataDependencies_ = dataDependencies;
-    isInitialized_    = true;
-  }
-
-  private Exception TaskHandlerException(string argumentName)
-    => isInitialized_
-         ? new InvalidOperationException($"Error in initalization: {argumentName} is null")
-         : new InvalidOperationException("");
 }
