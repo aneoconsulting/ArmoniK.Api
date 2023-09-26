@@ -38,7 +38,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ArmoniK.Api.Worker.Worker;
 
-public class ReadFromFolderDict : IReadOnlyDictionary<string, byte[]>
+internal class ReadFromFolderDict : IReadOnlyDictionary<string, byte[]>
 {
   private readonly Dictionary<string, byte[]> data_ = new();
   private readonly IList<string>              dataDependencies_;
