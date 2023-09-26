@@ -38,19 +38,20 @@ armonik::api::worker::TaskHandler::TaskHandler(Agent::Stub &client, const Proces
   task_options_ = request_.task_options();
   const std::string payload_id = request_.payload_id();
   data_folder_ = request_.data_folder();
-  payload_ =
-      (std::ostringstream(std::ios::binary)
-       << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, payload_id), std::fstream::binary).rdbuf())
-          .str();
+  std::ostringstream string_stream(std::ios::binary);
+  string_stream
+      << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, payload_id), std::fstream::binary).rdbuf();
+  payload_ = string_stream.str();
+  string_stream.clear();
   config_ = request_.configuration();
   expected_result_.assign(request_.expected_output_keys().begin(), request_.expected_output_keys().end());
 
   for (auto &&dd : request_.data_dependencies()) {
     // TODO Replace with lazy loading via a custom std::map (to not break compatibility)
-    data_dependencies_[dd] =
-        (std::ostringstream(std::ios::binary)
-         << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, dd), std::fstream::binary).rdbuf())
-            .str();
+    string_stream
+        << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, dd), std::fstream::binary).rdbuf();
+    data_dependencies_[dd] = string_stream.str();
+    string_stream.clear();
   }
 }
 
