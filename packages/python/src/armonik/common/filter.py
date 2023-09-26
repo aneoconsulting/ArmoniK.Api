@@ -76,11 +76,12 @@ class Filter:
 
     def __and__(self, other: "Filter") -> "Filter":
         if not isinstance(other, Filter):
-            raise Exception(f"Cannot create a conjunction between Filter and {other.__class__.__name__}")
+            msg = f"Cannot create a conjunction between Filter and {other.__class__.__name__}"
+            raise Exception(msg)
         if self.is_true_disjunction() or other.is_true_disjunction():
-            raise Exception(f"Cannot make a conjunction of disjunctions")
+            raise Exception("Cannot make a conjunction of disjunctions")
         if self.conjunction_type != other.conjunction_type:
-            raise Exception(f"Conjunction types are different")
+            raise Exception("Conjunction types are different")
         return Filter(None, self.disjunction_type, self.conjunction_type, self.conjunction_type, None, [self.to_disjunction()._filters[0] + other.to_disjunction()._filters[0]])
 
     def __mul__(self, other: Filter) -> "Filter":
@@ -88,9 +89,10 @@ class Filter:
 
     def __or__(self, other: "Filter") -> "Filter":
         if not isinstance(other, Filter):
-            raise Exception(f"Cannot create a conjunction between Filter and {other.__class__.__name__}")
+            msg = f"Cannot create a conjunction between Filter and {other.__class__.__name__}"
+            raise Exception(msg)
         if self.disjunction_type != other.disjunction_type:
-            raise Exception(f"Disjunction types are different")
+            raise Exception("Disjunction types are different")
         return Filter(None, self.disjunction_type, self.conjunction_type, self.disjunction_type, None, self.to_disjunction()._filters + other.to_disjunction()._filters)
 
     def __add__(self, other: "Filter") -> "Filter":
@@ -126,8 +128,9 @@ class Filter:
         """
         if self.operator is None:
             if self.is_true_conjunction() or self.is_true_disjunction():
-                raise Exception(f"Cannot invert conjunctions or disjunctions")
-            raise Exception(f"Cannot invert None operator in class {self.__class__.__name__} for field {str(self.field)}")
+                raise Exception("Cannot invert conjunctions or disjunctions")
+            msg = f"Cannot invert None operator in class {self.__class__.__name__} for field {str(self.field)}"
+            raise Exception(msg)
         if self.operator == self.__class__.eq_:
             return self.__ne__(self.value)
         if self.operator == self.__class__.ne_:
@@ -144,7 +147,8 @@ class Filter:
             return self._check(self.value, self.__class__.notcontains_, "not_contains")
         if self.operator == self.__class__.notcontains_:
             return self.contains(self.value)
-        raise Exception(f"{self.__class__.__name__} operator {str(self.operator)} for field {str(self.field)} has no inverted equivalent")
+        msg = f"{self.__class__.__name__} operator {str(self.operator)} for field {str(self.field)} has no inverted equivalent"
+        raise Exception(msg)
 
     def __neg__(self) -> "Filter":
         return ~self
@@ -176,7 +180,8 @@ class Filter:
         """
         if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
             return
-        raise Exception(f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead")
+        msg = f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead"
+        raise Exception(msg)
 
     def _check(self, value: Any, operator: Any, operator_str: str = "") -> "Filter":
         """
@@ -193,10 +198,11 @@ class Filter:
             NotImplementedError if the given operator is not available for the given class
         """
         if self.is_true_conjunction() or self.is_true_disjunction():
-            raise Exception(f"Cannot apply operator to a disjunction or a conjunction")
+            raise Exception("Cannot apply operator to a disjunction or a conjunction")
         self._verify_value(value)
         if operator is None:
-            raise NotImplementedError(f"Operator {operator_str} is not available for {self.__class__.__name__}")
+            msg = f"Operator {operator_str} is not available for {self.__class__.__name__}"
+            raise NotImplementedError(msg)
         return self.__class__(self.field, self.disjunction_type, self.conjunction_type, self.message_type, self.inner_message_type, self._filters, value, operator)
 
     @abstractmethod
