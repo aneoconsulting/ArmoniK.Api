@@ -1,83 +1,35 @@
 from __future__ import annotations
+import os
 from typing import Optional, Dict, List, Tuple, Union, cast
 
 from ..common import TaskOptions, TaskDefinition, Task
-from ..protogen.common.agent_common_pb2 import Result, CreateTaskRequest, CreateResultsMetaDataRequest, CreateResultsMetaDataResponse
-from ..protogen.common.objects_pb2 import TaskRequest, InitKeyedDataStream, DataChunk, InitTaskRequest, TaskRequestHeader, Configuration
+from ..protogen.common.agent_common_pb2 import CreateTaskRequest, CreateResultsMetaDataRequest, CreateResultsMetaDataResponse, NotifyResultDataRequest
+from ..protogen.common.objects_pb2 import TaskRequest, DataChunk, InitTaskRequest, TaskRequestHeader, Configuration
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
+from ..protogen.common.worker_common_pb2 import ProcessRequest
 
 
 class TaskHandler:
-    def __init__(self, request_iterator, agent_client):
-        self.request_iterator = request_iterator
+    def __init__(self, request: ProcessRequest, agent_client: AgentStub):
         self._client: AgentStub = agent_client
-        self.payload = bytearray()
-        self.session_id: Optional[str] = None
-        self.task_id: Optional[str] = None
-        self.task_options: Optional[TaskOptions] = None
-        self.token: Optional[str] = None
-        self.expected_results: List[str] = []
-        self.data_dependencies: Dict[str, bytearray] = {}
-        self.configuration: Optional[Configuration] = None
+        self.session_id: str = request.session_id
+        self.task_id: str = request.task_id
+        self.task_options: TaskOptions = TaskOptions.from_message(request.task_options)
+        self.token: str = request.communication_token
+        self.expected_results: List[str] = list(request.expected_output_keys)
+        self.configuration: Configuration = request.configuration
+        self.payload_id: str = request.payload_id
+        self.data_folder: str = request.data_folder
 
-    @classmethod
-    def create(cls, request_iterator, agent_client) -> "TaskHandler":
-        output = cls(request_iterator, agent_client)
-        output.init()
-        return output
+        # TODO: Lazy load
+        with open(os.path.join(self.data_folder, self.payload_id), "rb") as f:
+            self.payload = f.read()
 
-    def init(self):
-        current = next(self.request_iterator, None)
-        if current is None:
-            raise ValueError("Request stream ended unexpectedly")
-
-        if current.compute.WhichOneof("type") != "init_request":
-            raise ValueError("Expected a Compute request type with InitRequest to start the stream.")
-
-        init_request = current.compute.init_request
-        self.session_id = init_request.session_id
-        self.task_id = init_request.task_id
-        self.task_options = TaskOptions.from_message(init_request.task_options)
-        self.expected_results = list(init_request.expected_output_keys)
-        self.configuration = init_request.configuration
-        self.token = current.communication_token
-
-        datachunk = init_request.payload
-        self.payload.extend(datachunk.data)
-        while not datachunk.data_complete:
-            current = next(self.request_iterator, None)
-            if current is None:
-                raise ValueError("Request stream ended unexpectedly")
-            if current.compute.WhichOneof("type") != "payload":
-                raise ValueError("Expected a Compute request type with Payload to continue the stream.")
-            datachunk = current.compute.payload
-            self.payload.extend(datachunk.data)
-
-        while True:
-            current = next(self.request_iterator, None)
-            if current is None:
-                raise ValueError("Request stream ended unexpectedly")
-            if current.compute.WhichOneof("type") != "init_data":
-                raise ValueError("Expected a Compute request type with InitData to continue the stream.")
-            init_data = current.compute.init_data
-            if not (init_data.key is None or init_data.key == ""):
-                chunk = bytearray()
-                while True:
-                    current = next(self.request_iterator, None)
-                    if current is None:
-                        raise ValueError("Request stream ended unexpectedly")
-                    if current.compute.WhichOneof("type") != "data":
-                        raise ValueError("Expected a Compute request type with Data to continue the stream.")
-                    datachunk = current.compute.data
-                    if datachunk.WhichOneof("type") == "data":
-                        chunk.extend(datachunk.data)
-                    elif datachunk.WhichOneof("type") is None or datachunk.WhichOneof("type") == "":
-                        raise ValueError("Expected a Compute request type with Datachunk Payload to continue the stream.")
-                    elif datachunk.WhichOneof("type") == "data_complete":
-                        break
-                self.data_dependencies[init_data.key] = chunk
-            else:
-                break
+        # TODO: Lazy load
+        self.data_dependencies: Dict[str, bytes] = {}
+        for dd in request.data_dependencies:
+            with open(os.path.join(self.data_folder, dd), "rb") as f:
+                self.data_dependencies[dd] = f.read()
 
     def create_tasks(self, tasks: List[TaskDefinition], task_options: Optional[TaskOptions] = None) -> Tuple[List[Task], List[str]]:
         """Create new tasks for ArmoniK
@@ -122,29 +74,13 @@ class TaskHandler:
             key: Result key
             data: Result data
         """
-        def result_stream():
-            res = Result(communication_token=self.token, init=InitKeyedDataStream(key=key))
-            assert self.configuration is not None
-            yield res
-            start = 0
-            data_len = len(data)
-            while start < data_len:
-                chunksize = min(self.configuration.data_chunk_max_size, data_len - start)
-                res = Result(communication_token=self.token, data=DataChunk(data=data[start:start + chunksize]))
-                yield res
-                start += chunksize
-            res = Result(communication_token=self.token, data=DataChunk(data_complete=True))
-            yield res
-            res = Result(communication_token=self.token, init=InitKeyedDataStream(last_result=True))
-            yield res
+        with open(os.path.join(self.data_folder, key), "wb") as f:
+            f.write(data)
 
-        result_reply = self._client.SendResult(result_stream())
-        if result_reply.WhichOneof("type") == "error":
-            raise Exception(f"Cannot send result id={key}")
+        self._client.NotifyResultData(NotifyResultDataRequest(ids=[NotifyResultDataRequest.ResultIdentifier(session_id=self.session_id, result_id=key)], communication_token=self.token))
 
-    def get_results_ids(self, names : List[str]) -> Dict[str, str]:
-        return {r.name : r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name = n) for n in names], session_id=self.session_id, communication_token=self.token))).results}
-
+    def get_results_ids(self, names: List[str]) -> Dict[str, str]:
+        return {r.name: r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name=n) for n in names], session_id=self.session_id, communication_token=self.token))).results}
 
 
 def _to_request_stream_internal(request, communication_token, is_last, chunk_max_size):
