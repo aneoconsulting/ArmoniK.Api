@@ -9,7 +9,7 @@ from grpc import Channel
 from .seqlogger import ClefLogger
 from ..common import Output, HealthCheckStatus
 from ..protogen.common.objects_pb2 import Empty
-from ..protogen.common.worker_common_pb2 import ProcessReply, HealthCheckReply
+from ..protogen.common.worker_common_pb2 import ProcessReply, ProcessRequest, HealthCheckReply
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
 from ..protogen.worker.worker_service_pb2_grpc import WorkerServicer, add_WorkerServicer_to_server
 from .taskhandler import TaskHandler
@@ -46,11 +46,11 @@ class ArmoniKWorker(WorkerServicer):
         server.start()
         server.wait_for_termination()
 
-    def Process(self, request_iterator, context) -> Union[ProcessReply, None]:
+    def Process(self, request: ProcessRequest, context) -> Union[ProcessReply, None]:
         try:
             self._logger.debug("Received task")
-            task_handler = TaskHandler.create(request_iterator, self._client)
-            return ProcessReply(communication_token=task_handler.token, output=self.processing_function(task_handler).to_message())
+            task_handler = TaskHandler(request, self._client)
+            return ProcessReply(output=self.processing_function(task_handler).to_message())
         except Exception as e:
             self._logger.exception(f"Failed task {''.join(traceback.format_exception(type(e) ,e, e.__traceback__))}", exc_info=e)
 

@@ -22,7 +22,7 @@ class TaskHandler {
 
 private:
   armonik::api::grpc::v1::agent::Agent::Stub &stub_;
-  ::grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator_;
+  const armonik::api::grpc::v1::worker::ProcessRequest &request_;
   std::string session_id_;
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
@@ -31,22 +31,17 @@ private:
   std::map<std::string, std::string> data_dependencies_;
   std::string token_;
   armonik::api::grpc::v1::Configuration config_;
+  std::string data_folder_;
 
 public:
   /**
    * @brief Construct a new Task Handler object
    *
    * @param client the agent client
-   * @param request_iterator The request iterator
+   * @param request The process request
    */
   TaskHandler(armonik::api::grpc::v1::agent::Agent::Stub &client,
-              ::grpc::ServerReader<armonik::api::grpc::v1::worker::ProcessRequest> &request_iterator);
-
-  /**
-   * @brief Initialise the task handler
-   *
-   */
-  void init();
+              const armonik::api::grpc::v1::worker::ProcessRequest &request);
 
   /**
    * @brief Create a task_chunk_stream.
@@ -89,7 +84,7 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<armonik::api::grpc::v1::agent::ResultReply> send_result(std::string key, absl::string_view data);
+  std::future<void> send_result(std::string key, absl::string_view data);
 
   /**
    * @brief Get the result ids object

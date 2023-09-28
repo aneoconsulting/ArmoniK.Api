@@ -35,15 +35,14 @@ public:
    * @brief Implements the Process method of the Worker service.
    *
    * @param context The ServerContext object.
-   * @param reader The request iterator
+   * @param request The Process request
    * @param response The ProcessReply object.
    *
    * @return The status of the method.
    */
-  [[maybe_unused]] ::grpc::Status
-  Process(::grpc::ServerContext *context,
-          ::grpc::ServerReader<::armonik::api::grpc::v1::worker::ProcessRequest> *reader,
-          ::armonik::api::grpc::v1::worker::ProcessReply *response) override;
+  ::grpc::Status Process(::grpc::ServerContext *context,
+                         const ::armonik::api::grpc::v1::worker::ProcessRequest *request,
+                         ::armonik::api::grpc::v1::worker::ProcessReply *response) override;
 
   /**
    * @brief Function which does the actual work
