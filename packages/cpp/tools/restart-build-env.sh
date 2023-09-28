@@ -35,7 +35,8 @@ docker build -t "${IMAGE_NAME}:${IMAGE_TAG}" -f BuildEnv.Dockerfile .
 cd "${working_dir}"
 
 mkdir -p ${working_dir}/build
+mkdir -p ${working_dir}/buildtest
 mkdir -p ${install_dir}
 
 REMOTE_BUILD_ADDRESS="${REMOTE_BUILD_ADDRESS:-"127.0.0.1:2223"}"
-docker run --rm -d --cap-add sys_ptrace -p"${REMOTE_BUILD_ADDRESS}":22 --name "${CONTAINER_NAME}" -v "${proto_dir}:/app/proto" -v "${working_dir}:/app/source" -v "${install_dir}:/app/install" -v "${working_dir}/build:/app/build" "${IMAGE_NAME}:${IMAGE_TAG}"
+docker run --rm -d --cap-add sys_ptrace -p"${REMOTE_BUILD_ADDRESS}":22 --name "${CONTAINER_NAME}" -v "${proto_dir}:/app/proto" -v "${working_dir}:/app/source" -v "${install_dir}:/app/install" -v "${working_dir}/build:/app/build" -v "${working_dir}/buildtest:/app/buildtest" "${IMAGE_NAME}:${IMAGE_TAG}"
