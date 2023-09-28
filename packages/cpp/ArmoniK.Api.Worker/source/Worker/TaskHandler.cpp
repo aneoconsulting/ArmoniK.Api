@@ -215,8 +215,7 @@ armonik::api::worker::TaskHandler::create_tasks_async(TaskOptions task_options,
  * @param data The result data
  * @return A future containing a vector of ResultReply
  */
-std::future<armonik::api::grpc::v1::agent::NotifyResultDataResponse>
-armonik::api::worker::TaskHandler::send_result(std::string key, absl::string_view data) {
+std::future<void> armonik::api::worker::TaskHandler::send_result(std::string key, absl::string_view data) {
   return std::async(std::launch::async, [this, key = std::move(key), data]() mutable {
     ::grpc::ClientContext context;
 
@@ -241,7 +240,10 @@ armonik::api::worker::TaskHandler::send_result(std::string key, absl::string_vie
               << ". details: " << status.error_details() << std::endl;
       throw armonik::api::common::exceptions::ArmoniKApiException(message.str());
     }
-    return reply;
+
+    if (reply.result_ids_size() != 1) {
+      throw armonik::api::common::exceptions::ArmoniKApiException("Received erroneous reply for send data");
+    }
   });
 }
 
