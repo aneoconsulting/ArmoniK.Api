@@ -139,6 +139,7 @@ ResultsClient::list_results(const grpc::v1::results::Filters &filters, int32_t &
 
       response.clear_results();
     } while ((int32_t)rawResults.size() < response.total());
+    total = response.total();
     return rawResults;
   }
 }
