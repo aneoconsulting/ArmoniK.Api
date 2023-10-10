@@ -3,6 +3,7 @@ from abc import abstractmethod
 from typing import List, Any, Type, Optional, Dict
 from google.protobuf.message import Message
 import google.protobuf.timestamp_pb2 as timestamp
+import google.protobuf.duration_pb2 as duration
 from ..protogen.common.filters_common_pb2 import *
 import json
 
@@ -265,7 +266,9 @@ class StatusFilter(Filter):
 
 
 class DateFilter(Filter):
-    """Filter for timestamp comparison"""
+    """
+    Filter for timestamp comparison
+    """
     eq_ = FILTER_DATE_OPERATOR_EQUAL
     ne_ = FILTER_DATE_OPERATOR_NOT_EQUAL
     lt_ = FILTER_DATE_OPERATOR_BEFORE
@@ -282,7 +285,9 @@ class DateFilter(Filter):
 
 
 class NumberFilter(Filter):
-    """Filter for int comparison"""
+    """
+    Filter for int comparison
+    """
     eq_ = FILTER_NUMBER_OPERATOR_EQUAL
     ne_ = FILTER_NUMBER_OPERATOR_NOT_EQUAL
     lt_ = FILTER_NUMBER_OPERATOR_LESS_THAN
@@ -331,3 +336,22 @@ class ArrayFilter(Filter):
 
     def to_basic_message(self) -> Message:
         return self.message_type(field=self.field, filter_array=self.inner_message_type(value=self.value, operator=self.operator))
+
+
+class DurationFilter(Filter):
+    """
+    Filter for duration comparison
+    """
+    eq_ = FILTER_DURATION_OPERATOR_EQUAL
+    ne_ = FILTER_DURATION_OPERATOR_NOT_EQUAL
+    lt_ = FILTER_DURATION_OPERATOR_SHORTER_THAN
+    le_ = FILTER_DURATION_OPERATOR_SHORTER_THAN_OR_EQUAL
+    gt_ = FILTER_DURATION_OPERATOR_LONGER_THAN
+    ge_ = FILTER_DURATION_OPERATOR_LONGER_THAN_OR_EQUAL
+    value_type_ = duration.Duration
+
+    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterDuration, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+
+    def to_basic_message(self) -> Message:
+        return self.message_type(field=self.field, filter_duration=self.inner_message_type(value=self.value, operator=self.operator))
