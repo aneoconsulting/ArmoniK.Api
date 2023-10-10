@@ -10,6 +10,14 @@ constexpr char armonik::api::common::options::ControlPlane::SSLValidationKey[];
 constexpr char armonik::api::common::options::ControlPlane::UserCertKey[];
 constexpr char armonik::api::common::options::ControlPlane::UserKeyKey[];
 constexpr char armonik::api::common::options::ControlPlane::UserP12Key[];
+constexpr char armonik::api::common::options::ControlPlane::KeepAliveTimeKey[];
+constexpr char armonik::api::common::options::ControlPlane::KeepAliveTimeIntervalKey[];
+constexpr char armonik::api::common::options::ControlPlane::MaxIdleTimeKey[];
+constexpr char armonik::api::common::options::ControlPlane::MaxAttemptsKey[];
+constexpr char armonik::api::common::options::ControlPlane::BackoffMultiplierKey[];
+constexpr char armonik::api::common::options::ControlPlane::InitialBackOffKey[];
+constexpr char armonik::api::common::options::ControlPlane::MaxBackOffKey[];
+constexpr char armonik::api::common::options::ControlPlane::RequestTimeoutKey[];
 
 namespace armonik {
 namespace api {
