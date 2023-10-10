@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package armonik.api.grpc.v1;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
@@ -70,4 +71,18 @@ enum FilterBooleanOperator {
 message FilterBoolean {
   bool value = 1;
   FilterBooleanOperator operator = 2;
+}
+
+enum FilterDurationOperator {
+  FILTER_DURATION_OPERATOR_EQUAL = 0; /** Equal */
+  FILTER_DURATION_OPERATOR_NOT_EQUAL = 1; /** Not equal */
+  FILTER_DURATION_OPERATOR_SHORTER_THAN = 2; /** Shorter than */
+  FILTER_DURATION_OPERATOR_SHORTER_THAN_OR_EQUAL = 3; /** Shorter than or equal */
+  FILTER_DURATION_OPERATOR_LONGER_THAN_OR_EQUAL = 4; /** Longer than or equal */
+  FILTER_DURATION_OPERATOR_LONGER_THAN = 5; /** Longer than */
+}
+
+message FilterDuration {
+  google.protobuf.Duration value = 1;
+  FilterDurationOperator operator = 2;
 }
