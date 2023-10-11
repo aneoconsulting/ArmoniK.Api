@@ -1,6 +1,6 @@
 {
   "name": "@aneoconsultingfr/armonik.api.angular",
-  "version": "3.13.1",
+  "version": "3.13.2",
   "description": "gRPC API to interact with ArmoniK built for Angular",
   "license": "Apache-2.0",
   "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
