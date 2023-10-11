@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Optional, List, Tuple, Dict, Union, Generator
+from deprecation import deprecated
 
 from grpc import Channel
 
@@ -12,7 +13,12 @@ from ..protogen.common.submitter_common_pb2 import CreateSessionRequest, GetTask
 from ..protogen.common.task_status_pb2 import TaskStatus
 
 
+@deprecated(deprecated_in="3.14.0", details="Use sessions, task and results client instead")
 class ArmoniKSubmitter:
+    """
+    Deprecated:
+        Use Session client, Task client and Result client instead
+    """
     def __init__(self, grpc_channel: Channel):
         """Create a Submitter with the given channel
 
