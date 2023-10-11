@@ -8,6 +8,8 @@ from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_
 from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput, TaskOptions as RawTaskOptions
 from ..protogen.common.task_status_pb2 import TaskStatus as RawTaskStatus
 from .enumwrapper import TaskStatus
+from ..protogen.common.session_status_pb2 import *
+from ..protogen.common.sessions_common_pb2 import SessionRaw
 
 
 @dataclass()
@@ -157,3 +159,26 @@ class ResultAvailability:
 
     def is_available(self) -> bool:
         return len(self.errors) == 0
+
+
+@dataclass
+class Session:
+    session_id: Optional[str] = None
+    status: SessionStatus = SESSION_STATUS_UNSPECIFIED
+    partition_ids: List[str] = field(default_factory=list)
+    options: Optional[TaskOptions] = None
+    created_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    duration: Optional[timedelta] = None
+
+    @classmethod
+    def from_message(cls, session_raw: SessionRaw) -> "Session":
+        return cls(
+            session_id=session_raw.session_id,
+            status=session_raw.status,
+            partition_ids=list(session_raw.partition_ids),
+            options=TaskOptions.from_message(session_raw.options),
+            created_at=timestamp_to_datetime(session_raw.created_at),
+            cancelled_at=timestamp_to_datetime(session_raw.cancelled_at),
+            duration=duration_to_timedelta(session_raw.duration)
+        )
