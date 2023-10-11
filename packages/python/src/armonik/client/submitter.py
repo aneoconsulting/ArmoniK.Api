@@ -13,6 +13,10 @@ from ..protogen.common.task_status_pb2 import TaskStatus
 
 
 class ArmoniKSubmitter:
+    """
+    Deprecated:
+        Use Session client, Task client and Result client instead
+    """
     def __init__(self, grpc_channel: Channel):
         """Create a Submitter with the given channel
 
