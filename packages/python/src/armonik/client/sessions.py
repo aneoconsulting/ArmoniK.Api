@@ -18,17 +18,17 @@ class SessionFieldFilter:
     """
     STATUS = StatusFilter(SessionField(session_raw_field=SessionRawField(field=SESSION_RAW_ENUM_FIELD_STATUS)), rawFilters, rawFilterAnd, rawFilterField, rawFilterStatus)
 
-    # @staticmethod
-    # def task_options_key(option_key: str) -> StringFilter:
-    #     """
-    #     Filter for the TaskOptions.Options dictionary
-    #     Args:
-    #         option_key: key in the dictionary
+    @staticmethod
+    def task_options_key(option_key: str) -> StringFilter:
+        """
+        Filter for the TaskOptions.Options dictionary
+        Args:
+            option_key: key in the dictionary
 
-    #     Returns:
-    #         Corresponding filter
-    #     """
-    #     return StringFilter(SessionField(task_option_generic_field=TaskOptionGenericField(field=option_key)), rawFilters, rawFilterAnd, rawFilterField)
+        Returns:
+            Corresponding filter
+        """
+        return StringFilter(SessionField(task_option_generic_field=TaskOptionGenericField(field=option_key)), rawFilters, rawFilterAnd, rawFilterField)
 
 class ArmoniKSessions:
 
