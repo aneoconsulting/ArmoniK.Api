@@ -4,7 +4,7 @@ from typing import cast, Tuple, List
 
 from ..protogen.client.sessions_service_pb2_grpc import SessionsStub
 from ..protogen.common.submitter_common_pb2 import SessionFilter
-from ..protogen.common.sessions_common_pb2 import GetSessionRequest, GetSessionResponse, ListSessionsRequest, ListSessionsResponse, SessionRaw
+from ..protogen.common.sessions_common_pb2 import GetSessionRequest, GetSessionResponse, ListSessionsRequest, ListSessionsResponse, SessionRaw, CancelSessionRequest, CancelSessionResponse
 from ..protogen.common.sessions_filters_pb2 import Filters as rawFilters, FiltersAnd as rawFilterAnd, FilterField as rawFilterField, FilterStatus as rawFilterStatus
 from ..protogen.common.sessions_fields_pb2 import *
 from ..common.filter import StringFilter, StatusFilter, DateFilter, NumberFilter, Filter
@@ -64,3 +64,12 @@ class ArmoniKSessions:
         )
         list_response : ListSessionsResponse = self._client.ListSessions(request)
         return list_response.total, [Session.from_message(t) for t in list_response.sessions]
+
+    def cancel_session(self, session_id: str) -> None:
+        """Cancel a session
+
+        Args:
+            session_id: Id of the session to b cancelled
+        """
+        self._client.CancelSession(CancelSessionRequest(session_id=session_id))
+        
