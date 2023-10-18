@@ -9,7 +9,7 @@
     <Optimize>true</Optimize>
     <DebugType>Embedded</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
-    <PackageVersion>3.13.2</PackageVersion>
+    <PackageVersion>3.14.0</PackageVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
