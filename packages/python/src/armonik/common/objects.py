@@ -7,10 +7,11 @@ from ..protogen.common.tasks_common_pb2 import TaskDetailed
 from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
 from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput, TaskOptions as RawTaskOptions
 from ..protogen.common.task_status_pb2 import TaskStatus as RawTaskStatus
-from .enumwrapper import TaskStatus
-from ..protogen.common.session_status_pb2 import *
+from .enumwrapper import TaskStatus, SessionStatus, ResultStatus
+from ..protogen.common.session_status_pb2 import SessionStatus as RawSessionStatus
 from ..protogen.common.sessions_common_pb2 import SessionRaw
-
+from ..protogen.common.result_status_pb2 import ResultStatus as RawResultStatus
+from ..protogen.common.results_common_pb2 import ResultRaw
 
 @dataclass()
 class TaskOptions:
@@ -164,7 +165,7 @@ class ResultAvailability:
 @dataclass
 class Session:
     session_id: Optional[str] = None
-    status: SessionStatus = SESSION_STATUS_UNSPECIFIED
+    status: RawSessionStatus = SessionStatus.UNSPECIFIED
     partition_ids: List[str] = field(default_factory=list)
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
@@ -181,4 +182,30 @@ class Session:
             created_at=timestamp_to_datetime(session_raw.created_at),
             cancelled_at=timestamp_to_datetime(session_raw.cancelled_at),
             duration=duration_to_timedelta(session_raw.duration)
+        )
+
+from dataclasses import dataclass, field
+from typing import List, Optional
+from datetime import datetime
+
+@dataclass
+class Result:
+    session_id: Optional[str] = None
+    name: Optional[str] = None
+    owner_task_id: Optional[str] = None
+    status: RawResultStatus = ResultStatus.UNSPECIFIED
+    created_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    result_id: Optional[str] = None
+
+    @classmethod
+    def from_message(cls, result_raw: ResultRaw) -> "Result":
+        return cls(
+            session_id=result_raw.session_id,
+            name=result_raw.name,
+            owner_task_id=result_raw.owner_task_id,
+            status=result_raw.status,
+            created_at=timestamp_to_datetime(result_raw.created_at),
+            completed_at=timestamp_to_datetime(result_raw.completed_at),
+            result_id=result_raw.result_id
         )
