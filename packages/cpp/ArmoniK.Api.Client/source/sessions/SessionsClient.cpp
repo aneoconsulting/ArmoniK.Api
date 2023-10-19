@@ -1,5 +1,7 @@
-#include "sessions/SessionsClient.h"
+#include <utility>
+
 #include "exceptions/ArmoniKApiException.h"
+#include "sessions/SessionsClient.h"
 
 static armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort get_default_sort() {
   armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort sort;
@@ -12,13 +14,13 @@ const armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort armonik::api::
     get_default_sort();
 
 std::string
-armonik::api::client::SessionsClient::create_session(const armonik::api::grpc::v1::TaskOptions &default_task_options,
+armonik::api::client::SessionsClient::create_session(armonik::api::grpc::v1::TaskOptions default_task_options,
                                                      const std::vector<std::string> &partitions) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::sessions::CreateSessionRequest request;
   armonik::api::grpc::v1::sessions::CreateSessionReply response;
 
-  *request.mutable_default_task_option() = default_task_options;
+  *request.mutable_default_task_option() = std::move(default_task_options);
   request.mutable_partition_ids()->Add(partitions.begin(), partitions.end());
 
   auto status = stub->CreateSession(&context, request, &response);
@@ -56,14 +58,15 @@ armonik::api::client::SessionsClient::cancel_session(std::string session_id) {
   return std::move(*response.mutable_session());
 }
 
-std::vector<armonik::api::grpc::v1::sessions::SessionRaw> armonik::api::client::SessionsClient::list_sessions(
-    const armonik::api::grpc::v1::sessions::Filters &filters, int32_t &total, int32_t page, int32_t page_size,
-    const armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort &sort) {
+std::vector<armonik::api::grpc::v1::sessions::SessionRaw>
+armonik::api::client::SessionsClient::list_sessions(armonik::api::grpc::v1::sessions::Filters filters, int32_t &total,
+                                                    int32_t page, int32_t page_size,
+                                                    armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort sort) {
   armonik::api::grpc::v1::sessions::ListSessionsRequest request;
   armonik::api::grpc::v1::sessions::ListSessionsResponse response;
 
-  *request.mutable_filters() = filters;
-  *request.mutable_sort() = sort;
+  *request.mutable_filters() = std::move(filters);
+  *request.mutable_sort() = std::move(sort);
   request.set_page_size(page_size);
 
   if (page >= 0) {
@@ -99,6 +102,7 @@ std::vector<armonik::api::grpc::v1::sessions::SessionRaw> armonik::api::client::
       response.clear_sessions();
     } while ((int32_t)rawSessions.size() < response.total());
     total = response.total();
+    // NRVO
     return rawSessions;
   }
 }

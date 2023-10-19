@@ -21,7 +21,7 @@ public:
    * @param partitions Partitions the session will be able to send tasks to
    * @return Session id
    */
-  std::string create_session(const armonik::api::grpc::v1::TaskOptions &default_task_options,
+  std::string create_session(armonik::api::grpc::v1::TaskOptions default_task_options,
                              const std::vector<std::string> &partitions = {});
 
   /**
@@ -53,9 +53,9 @@ public:
    * between requests.
    */
   std::vector<armonik::api::grpc::v1::sessions::SessionRaw>
-  list_sessions(const armonik::api::grpc::v1::sessions::Filters &filters, int32_t &total, int32_t page = -1,
+  list_sessions(armonik::api::grpc::v1::sessions::Filters filters, int32_t &total, int32_t page = -1,
                 int32_t page_size = 500,
-                const armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort &sort = default_sort);
+                armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort sort = default_sort);
 
 private:
   std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub;
