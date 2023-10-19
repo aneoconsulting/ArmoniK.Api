@@ -1,7 +1,7 @@
 #include "sessions/SessionsClient.h"
 #include "exceptions/ArmoniKApiException.h"
 
-armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort get_default_sort() {
+static armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort get_default_sort() {
   armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort sort;
   sort.mutable_field()->mutable_session_raw_field()->set_field(
       armonik::api::grpc::v1::sessions::SESSION_RAW_ENUM_FIELD_CREATED_AT);
@@ -10,10 +10,6 @@ armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort get_default_sort() {
 }
 const armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort armonik::api::client::SessionsClient::default_sort =
     get_default_sort();
-
-armonik::api::client::SessionsClient::SessionsClient(
-    std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub)
-    : stub(std::move(stub)) {}
 
 std::string
 armonik::api::client::SessionsClient::create_session(const armonik::api::grpc::v1::TaskOptions &default_task_options,
@@ -29,36 +25,35 @@ armonik::api::client::SessionsClient::create_session(const armonik::api::grpc::v
   if (!status.ok()) {
     throw armonik::api::common::exceptions::ArmoniKApiException("Could not create session : " + status.error_message());
   }
-  return response.session_id();
+  return std::move(*response.mutable_session_id());
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::get_session(const std::string &session_id) {
+armonik::api::grpc::v1::sessions::SessionRaw armonik::api::client::SessionsClient::get_session(std::string session_id) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::sessions::GetSessionRequest request;
   armonik::api::grpc::v1::sessions::GetSessionResponse response;
 
-  request.set_session_id(session_id);
+  request.set_session_id(std::move(session_id));
 
   auto status = stub->GetSession(&context, request, &response);
   if (!status.ok()) {
     throw armonik::api::common::exceptions::ArmoniKApiException("Could not get session : " + status.error_message());
   }
-  return response.session();
+  return std::move(*response.mutable_session());
 }
 
 armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::cancel_session(const std::string &session_id) {
+armonik::api::client::SessionsClient::cancel_session(std::string session_id) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::sessions::CancelSessionRequest request;
   armonik::api::grpc::v1::sessions::CancelSessionResponse response;
 
-  request.set_session_id(session_id);
+  request.set_session_id(std::move(session_id));
   auto status = stub->CancelSession(&context, request, &response);
   if (!status.ok()) {
     throw armonik::api::common::exceptions::ArmoniKApiException("Could not cancel session : " + status.error_message());
   }
-  return response.session();
+  return std::move(*response.mutable_session());
 }
 
 std::vector<armonik::api::grpc::v1::sessions::SessionRaw> armonik::api::client::SessionsClient::list_sessions(
