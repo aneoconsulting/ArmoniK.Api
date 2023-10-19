@@ -10,9 +10,10 @@ namespace client {
 /**
  * Session client wrapper
  */
-class SessionsClient final {
+class SessionsClient {
 public:
-  explicit SessionsClient(std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub);
+  explicit SessionsClient(std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub)
+      : stub(std::move(stub)){};
 
   /**
    * Create a new session
@@ -28,14 +29,14 @@ public:
    * @param session_id Session id
    * @return SessionRaw object containing information about the session
    */
-  armonik::api::grpc::v1::sessions::SessionRaw get_session(const std::string &session_id);
+  armonik::api::grpc::v1::sessions::SessionRaw get_session(std::string session_id);
 
   /**
    * Cancel a session
    * @param session_id Session id
    * @return SessionRaw object containing information about the session
    */
-  armonik::api::grpc::v1::sessions::SessionRaw cancel_session(const std::string &session_id);
+  armonik::api::grpc::v1::sessions::SessionRaw cancel_session(std::string session_id);
 
   /**
    * List the Sessions
