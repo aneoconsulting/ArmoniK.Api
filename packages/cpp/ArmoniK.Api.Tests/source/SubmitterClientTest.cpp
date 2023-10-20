@@ -21,9 +21,9 @@
 #include "utils/GuuId.h"
 
 #include "common.h"
+#include "results/ResultsClient.h"
 #include "results_common.pb.h"
 #include "results_service.grpc.pb.h"
-#include "submitter/ResultsClient.h"
 
 using armonik::api::common::utils::Configuration;
 using armonik::api::grpc::v1::TaskOptions;
