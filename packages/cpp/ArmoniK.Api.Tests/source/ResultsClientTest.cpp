@@ -94,7 +94,8 @@ TEST(Results, test_results_create_with_data_vector) {
   auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
   auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
                         .create_session(task_options);
-  auto map = client.create_results(session_id, std::vector<std::pair<std::string, std::string>>{{"0", "TestPayload"}});
+  std::vector<std::pair<std::string, std::string>> vec{{"0", "TestPayload"}};
+  auto map = client.create_results(session_id, vec);
   ASSERT_EQ(map.size(), 1);
   ASSERT_NO_THROW(map.at("0"));
   ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
@@ -112,7 +113,7 @@ TEST(Results, test_results_create_with_data_map) {
                         .create_session(task_options);
   std::map<std::string, std::string> name_payload;
   name_payload["0"] = "TestPayload";
-  auto map = client.create_results(session_id, name_payload);
+  auto map = client.create_results(session_id, std::move(name_payload));
   ASSERT_EQ(map.size(), 1);
   ASSERT_NO_THROW(map.at("0"));
   ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
@@ -130,7 +131,7 @@ TEST(Results, test_results_create_with_data_unordered_map) {
                         .create_session(task_options);
   std::unordered_map<std::string, std::string> name_payload;
   name_payload["0"] = "TestPayload";
-  auto map = client.create_results(session_id, name_payload);
+  auto map = client.create_results(session_id, std::move(name_payload));
   ASSERT_EQ(map.size(), 1);
   ASSERT_NO_THROW(map.at("0"));
   ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
