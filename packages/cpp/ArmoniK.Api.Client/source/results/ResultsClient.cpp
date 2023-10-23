@@ -6,15 +6,6 @@ namespace armonik {
 namespace api {
 namespace client {
 
-static armonik::api::grpc::v1::results::ListResultsRequest::Sort get_default_sort() {
-  armonik::api::grpc::v1::results::ListResultsRequest::Sort sort;
-  sort.set_direction(grpc::v1::sort_direction::SORT_DIRECTION_ASC);
-  sort.mutable_field()->mutable_result_raw_field()->set_field(grpc::v1::results::RESULT_RAW_ENUM_FIELD_CREATED_AT);
-  return sort;
-}
-
-const armonik::api::grpc::v1::results::ListResultsRequest::Sort ResultsClient::default_sort = get_default_sort();
-
 std::map<std::string, std::string> ResultsClient::create_results(absl::string_view session_id,
                                                                  const std::vector<std::string> &names) {
   return create_results_metadata(std::string(session_id), names);
@@ -148,20 +139,6 @@ ResultsClient::list_results(grpc::v1::results::Filters filters, int32_t &total, 
 }
 
 std::map<std::string, std::string>
-ResultsClient::create_results(std::string session_id,
-                              const std::vector<std::pair<std::string, std::string>> &results_to_create) {
-  return ResultsClient::create_results(std::move(session_id), results_to_create.begin(), results_to_create.end());
-}
-std::map<std::string, std::string>
-ResultsClient::create_results(std::string session_id, const std::map<std::string, std::string> &results_to_create) {
-  return ResultsClient::create_results(std::move(session_id), results_to_create.begin(), results_to_create.end());
-}
-std::map<std::string, std::string>
-ResultsClient::create_results(std::string session_id,
-                              const std::unordered_map<std::string, std::string> &results_to_create) {
-  return ResultsClient::create_results(std::move(session_id), results_to_create.begin(), results_to_create.end());
-}
-std::map<std::string, std::string>
 ResultsClient::send_create_results(const grpc::v1::results::CreateResultsRequest &request) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::results::CreateResultsResponse response;
@@ -268,6 +245,13 @@ ResultsClient::Configuration ResultsClient::get_service_configuration() {
   }
 
   return {response.data_chunk_max_size()};
+}
+
+armonik::api::grpc::v1::results::ListResultsRequest::Sort ResultsClient::default_sort() {
+  armonik::api::grpc::v1::results::ListResultsRequest::Sort sort;
+  sort.set_direction(grpc::v1::sort_direction::SORT_DIRECTION_ASC);
+  sort.mutable_field()->mutable_result_raw_field()->set_field(grpc::v1::results::RESULT_RAW_ENUM_FIELD_CREATED_AT);
+  return sort;
 }
 
 } // namespace client

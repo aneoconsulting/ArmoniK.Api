@@ -1,20 +1,18 @@
 #pragma once
 
 #include "results_service.grpc.pb.h"
+#include <type_traits>
 
 namespace armonik {
 namespace api {
 namespace client {
 
-namespace {
+template <class T, class = decltype(absl::string_view(std::declval<T>()))> std::string materialize_string(T &&x) {
+  absl::string_view view(x);
+  return {view.data(), view.size()};
+}
 
-template <typename T>
-struct is_result_create : std::conditional<std::is_same<T, std::pair<const std::string, std::string>>::value ||
-                                               std::is_same<T, std::pair<std::string, std::string>>::value ||
-                                               std::is_same<T, std::pair<std::string, absl::string_view>>::value,
-                                           std::true_type, std::false_type>::type {};
-
-} // namespace
+inline std::string materialize_string(std::string &&x) { return std::move(x); }
 
 class ResultsClient {
 public:
@@ -42,7 +40,8 @@ public:
    */
   std::vector<armonik::api::grpc::v1::results::ResultRaw>
   list_results(armonik::api::grpc::v1::results::Filters filters, int32_t &total, int32_t page = -1,
-               int32_t page_size = 500, armonik::api::grpc::v1::results::ListResultsRequest::Sort sort = default_sort);
+               int32_t page_size = 500,
+               armonik::api::grpc::v1::results::ListResultsRequest::Sort sort = default_sort());
 
   /**
    * Get a result by id
@@ -73,57 +72,51 @@ public:
 
   /**
    * Create results with data included in the request
-   *
-   * @param session_id Session id
-   * @param results_to_create Vector of pairs made with : result name, result data
-   * @return Map matching the names to their result_id
-   */
-  std::map<std::string, std::string>
-  create_results(std::string session_id, const std::vector<std::pair<std::string, std::string>> &results_to_create);
-
-  /**
-   * Create results with data included in the request
-   * @param session_id Session id
-   * @param results_to_create Map associating the result's name to their data
-   * @return Map matching the names to their result_id
-   */
-  std::map<std::string, std::string> create_results(std::string session_id,
-                                                    const std::map<std::string, std::string> &results_to_create);
-
-  /**
-   * Create results with data included in the request
-   * @param session_id Session id
-   * @param results_to_create Map associating the result's name to their data
-   * @return Map matching the names to their result_id
-   */
-  std::map<std::string, std::string>
-  create_results(std::string session_id, const std::unordered_map<std::string, std::string> &results_to_create);
-
-  /**
-   * Create results with data included in the request
-   * @tparam pair_iterator Iterator of string pairs each made with : result name, result data
-   * @tparam pair_value_type String pair type made of : result name, result data
-   * @param session_id Session id
+   * @tparam It Iterator of string pairs each made with : result name, result data
+   * @tparam T String pair type made of : result name, result data
+   * @tparam U Result name type
+   * @tparam V Result data type
+   * @param session_id Session Id
    * @param begin Beginning of the iterator
    * @param end End of the iterator
    * @return Map matching the names to their result_id
    */
-  template <class pair_iterator, typename pair_value_type = typename std::enable_if<
-                                     is_result_create<typename std::iterator_traits<pair_iterator>::value_type>::value,
-                                     typename std::iterator_traits<pair_iterator>::value_type>::type>
-  std::map<std::string, std::string> create_results(std::string session_id, const pair_iterator &begin,
-                                                    const pair_iterator &end) {
+  template <class It, class T = typename std::iterator_traits<It>::value_type,
+            class U = typename std::tuple_element<0, T>::type, class V = typename std::tuple_element<1, T>::type,
+            class = decltype(materialize_string(std::declval<U>())),
+            class = decltype(materialize_string(std::declval<V>())),
+            class = typename std::enable_if<std::tuple_size<T>::value == 2>::type>
+  std::map<std::string, std::string> create_results(std::string session_id, It begin, It end) {
     armonik::api::grpc::v1::results::CreateResultsRequest request;
 
     request.set_session_id(std::move(session_id));
-    for (auto t = begin; t != end; t++) {
+    while (begin != end) {
+      auto &&pair = *begin++;
+      // Enables forwarding for std::get
+      using pair_t = decltype(pair);
       auto result_create = request.mutable_results()->Add();
-      *result_create->mutable_name() = static_cast<pair_value_type>(*t).first;
-      result_create->mutable_data()->assign(static_cast<pair_value_type>(*t).second.data(),
-                                            static_cast<pair_value_type>(*t).second.length());
+      *result_create->mutable_name() = materialize_string(std::get<0>(static_cast<pair_t>(pair)));
+      *result_create->mutable_data() = materialize_string(std::get<1>(static_cast<pair_t>(pair)));
     }
 
     return send_create_results(request);
+  }
+
+  /**
+   * Create results with data included in the request
+   * @tparam T Type of iterable of pairs of strings
+   * @param session_id Session id
+   * @param iterable Iterable of pairs of strings
+   * @return Map matching the names to their result_id
+   */
+  template <class T>
+  auto create_results(std::string session_id, T &&iterable)
+      -> decltype(create_results(std::move(session_id), iterable.begin(), iterable.end())) {
+    if (std::is_lvalue_reference<T>::value) {
+      return create_results(std::move(session_id), iterable.begin(), iterable.end());
+    }
+    return create_results(std::move(session_id), std::make_move_iterator(iterable.begin()),
+                          std::make_move_iterator(iterable.end()));
   }
 
   /**
@@ -159,7 +152,7 @@ public:
 
 private:
   std::unique_ptr<armonik::api::grpc::v1::results::Results::StubInterface> stub;
-  static const armonik::api::grpc::v1::results::ListResultsRequest::Sort default_sort;
+  static armonik::api::grpc::v1::results::ListResultsRequest::Sort default_sort();
 
   std::map<std::string, std::string>
   send_create_results(const armonik::api::grpc::v1::results::CreateResultsRequest &request);
