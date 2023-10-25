@@ -160,8 +160,9 @@ TasksClient::count_tasks_by_status(armonik::api::grpc::v1::tasks::Filters filter
   }
   return map_status;
 }
-std::vector<TaskInfo> TasksClient::submit_tasks(std::string session_id, const std::vector<TaskCreation> &task_creations,
-                                                const armonik::api::grpc::v1::TaskOptions &task_options) {
+std::vector<armonik::api::common::TaskInfo>
+TasksClient::submit_tasks(std::string session_id, const std::vector<armonik::api::common::TaskCreation> &task_creations,
+                          const armonik::api::grpc::v1::TaskOptions &task_options) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::tasks::SubmitTasksRequest request;
   armonik::api::grpc::v1::tasks::SubmitTasksResponse response;
@@ -191,7 +192,7 @@ std::vector<TaskInfo> TasksClient::submit_tasks(std::string session_id, const st
     auto str = message.str();
     throw armonik::api::common::exceptions::ArmoniKApiException(str);
   }
-  std::vector<TaskInfo> infos;
+  std::vector<armonik::api::common::TaskInfo> infos;
   infos.reserve(response.task_infos_size());
   for (auto &&info : *response.mutable_task_infos()) {
     infos.push_back({std::move(*info.mutable_task_id()),
@@ -212,4 +213,4 @@ armonik::api::grpc::v1::tasks::ListTasksRequest::Sort TasksClient::default_sort(
 }
 
 const armonik::api::grpc::v1::TaskOptions TasksClient::no_task_options =
-    armonik::api::client::TaskCreation::get_no_task_options();
+    armonik::api::common::TaskCreation::get_no_task_options();

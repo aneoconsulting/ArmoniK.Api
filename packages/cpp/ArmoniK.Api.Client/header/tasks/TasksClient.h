@@ -3,14 +3,14 @@
 #include "tasks_common.pb.h"
 #include "tasks_service.grpc.pb.h"
 
-#include "Task.h"
+#include "objects/Task.h"
 
 namespace armonik {
 namespace api {
 namespace client {
 
 class TasksClient {
-
+public:
   explicit TasksClient(std::unique_ptr<armonik::api::grpc::v1::tasks::Tasks::StubInterface> stub)
       : stub(std::move(stub)){};
 
@@ -89,8 +89,9 @@ class TasksClient {
    * @param task_options Task options common for this submission. Will be merged with the session task options
    * @return List of submitted task info
    */
-  std::vector<TaskInfo> submit_tasks(std::string session_id, const std::vector<TaskCreation> &task_creations,
-                                     const armonik::api::grpc::v1::TaskOptions &task_options = no_task_options);
+  std::vector<armonik::api::common::TaskInfo>
+  submit_tasks(std::string session_id, const std::vector<armonik::api::common::TaskCreation> &task_creations,
+               const armonik::api::grpc::v1::TaskOptions &task_options = no_task_options);
 
 private:
   std::unique_ptr<armonik::api::grpc::v1::tasks::Tasks::StubInterface> stub;

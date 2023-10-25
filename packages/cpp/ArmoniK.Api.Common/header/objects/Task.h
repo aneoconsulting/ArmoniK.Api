@@ -6,7 +6,7 @@
 
 namespace armonik {
 namespace api {
-namespace client {
+namespace common {
 struct TaskCreation {
   /**
    * Payload Id
@@ -26,7 +26,6 @@ struct TaskCreation {
    * Per task task options, none by default
    */
   armonik::api::grpc::v1::TaskOptions taskOptions = get_no_task_options();
-
 
   /**
    * Default "no task option" value
@@ -60,6 +59,6 @@ struct TaskInfo {
    */
   std::string payload_id;
 };
-} // namespace client
+} // namespace common
 } // namespace api
 } // namespace armonik
