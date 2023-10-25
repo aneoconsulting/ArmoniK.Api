@@ -8,11 +8,30 @@ namespace armonik {
 namespace api {
 namespace client {
 struct TaskCreation {
+  /**
+   * Payload Id
+   */
   std::string payload_id;
+  /**
+   * Expected output keys
+   */
   std::vector<std::string> expected_output_keys;
+
+  /**
+   * Data dependencies, none by default
+   */
   std::vector<std::string> data_dependencies = {};
+
+  /**
+   * Per task task options, none by default
+   */
   armonik::api::grpc::v1::TaskOptions taskOptions = get_no_task_options();
 
+
+  /**
+   * Default "no task option" value
+   * @return A task option to use to ignore the task options parameter
+   */
   static armonik::api::grpc::v1::TaskOptions get_no_task_options() {
     armonik::api::grpc::v1::TaskOptions options;
     options.set_max_retries(INT32_MIN);
