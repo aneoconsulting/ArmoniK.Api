@@ -1,4 +1,3 @@
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "common.h"
@@ -6,9 +5,9 @@
 #include "logger/logger.h"
 #include "logger/writer.h"
 
+#include "results/ResultsClient.h"
 #include "results_service.grpc.pb.h"
-#include "submitter/ResultsClient.h"
-#include "submitter/SubmitterClient.h"
+#include "sessions/SessionsClient.h"
 
 using Logger = armonik::api::common::logger::Logger;
 
@@ -20,10 +19,9 @@ TEST(Results, test_results_created) {
   init(channel, task_options, log);
 
   auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
-  auto sub_client =
-      armonik::api::client::SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
-  auto session_id = sub_client.create_session(task_options, {});
-  auto map = client.create_results(session_id, std::vector<std::string>{"0", "1", "2", "3"});
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  auto map = client.create_results_metadata(session_id, std::vector<std::string>{"0", "1", "2", "3"});
   ASSERT_TRUE(!map.empty());
   ASSERT_EQ(map.size(), 4);
 }
@@ -36,10 +34,9 @@ TEST(Results, test_results_list) {
   init(channel, task_options, log);
 
   auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
-  auto sub_client =
-      armonik::api::client::SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
-  auto session_id = sub_client.create_session(task_options, {});
-  auto map = client.create_results(session_id, std::vector<std::string>{"0", "1", "2", "3"});
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  auto map = client.create_results_metadata(session_id, std::vector<std::string>{"0", "1", "2", "3"});
   ASSERT_TRUE(!map.empty());
   ASSERT_EQ(map.size(), 4);
 
@@ -64,10 +61,9 @@ TEST(Results, test_results_list_small_page) {
   init(channel, task_options, log);
 
   auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
-  auto sub_client =
-      armonik::api::client::SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
-  auto session_id = sub_client.create_session(task_options, {});
-  auto map = client.create_results(session_id, std::vector<std::string>{"0", "1", "2", "3", "4"});
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  auto map = client.create_results_metadata(session_id, std::vector<std::string>{"0", "1", "2", "3", "4"});
   ASSERT_TRUE(!map.empty());
   ASSERT_EQ(map.size(), 5);
 
@@ -86,4 +82,96 @@ TEST(Results, test_results_list_small_page) {
   list = client.list_results(filters, total, -1, 2);
   ASSERT_EQ(list.size(), 5);
   ASSERT_EQ(total, 5);
+}
+
+TEST(Results, test_results_create_with_data_vector) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+
+  init(channel, task_options, log);
+
+  auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  std::vector<std::pair<std::string, std::string>> vec{{"0", "TestPayload"}};
+  auto map = client.create_results(session_id, vec);
+  ASSERT_EQ(map.size(), 1);
+  ASSERT_NO_THROW(map.at("0"));
+  ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
+}
+
+TEST(Results, test_results_create_with_data_map) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+
+  init(channel, task_options, log);
+
+  auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  std::map<std::string, std::string> name_payload;
+  name_payload["0"] = "TestPayload";
+  auto map = client.create_results(session_id, std::move(name_payload));
+  ASSERT_EQ(map.size(), 1);
+  ASSERT_NO_THROW(map.at("0"));
+  ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
+}
+
+TEST(Results, test_results_create_with_data_unordered_map) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+
+  init(channel, task_options, log);
+
+  auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  std::unordered_map<std::string, std::string> name_payload;
+  name_payload["0"] = "TestPayload";
+  auto map = client.create_results(session_id, std::move(name_payload));
+  ASSERT_EQ(map.size(), 1);
+  ASSERT_NO_THROW(map.at("0"));
+  ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
+}
+
+TEST(Results, test_results_create_with_data_string_view) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+
+  init(channel, task_options, log);
+
+  auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  std::vector<std::pair<std::string, absl::string_view>> name_payload;
+  std::string fill_str = "TestPayloadTestPayload2";
+  name_payload.emplace_back("0", absl::string_view(fill_str.c_str(), 11));
+  name_payload.emplace_back("1", absl::string_view(fill_str.c_str() + 11, 12));
+  auto map = client.create_results(session_id, name_payload.begin(), name_payload.end());
+  ASSERT_EQ(map.size(), 2);
+  ASSERT_NO_THROW(map.at("0"));
+  ASSERT_NO_THROW(map.at("1"));
+  ASSERT_EQ(client.download_result_data(session_id, map.at("0")), std::string("TestPayload", 0, 11));
+  ASSERT_EQ(client.download_result_data(session_id, map.at("1")), std::string("TestPayload2", 0, 12));
+}
+
+TEST(Results, test_results_upload_download) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+
+  init(channel, task_options, log);
+
+  auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
+                        .create_session(task_options);
+  auto map = client.create_results_metadata(session_id, std::vector<std::string>{"0"});
+  ASSERT_EQ(map.size(), 1);
+  ASSERT_NO_THROW(map.at("0"));
+  ASSERT_NO_THROW(client.upload_result_data(session_id, map.at("0"), "TestPayload"));
+  ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
 }
