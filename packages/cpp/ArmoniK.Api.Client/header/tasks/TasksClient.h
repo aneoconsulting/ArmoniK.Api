@@ -21,7 +21,7 @@ public:
    * @param total Output for the total of session available for this request (used for pagination)
    * @param page Page to request, use -1 to get all pages.
    * @param page_size Size of the requested page, ignored if page is -1
-   * @param sort How the sessions are sorted, ascending creation date by default
+   * @param sort How the tasks are sorted, ascending creation date by default
    * @return List of tasks summary
    *
    * @note If the tasks corresponding to the filters change while this call is going for page==-1,
@@ -40,7 +40,7 @@ public:
    * @param total Output for the total of session available for this request (used for pagination)
    * @param page Page to request, use -1 to get all pages.
    * @param page_size Size of the requested page, ignored if page is -1
-   * @param sort How the sessions are sorted, ascending creation date by default
+   * @param sort How the tasks are sorted, ascending creation date by default
    * @return List of tasks summary
    *
    * @note If the tasks corresponding to the filters change while this call is going for page==-1,

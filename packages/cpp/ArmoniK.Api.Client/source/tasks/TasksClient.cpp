@@ -18,6 +18,18 @@ static inline ::grpc::Status call_stub_list(armonik::api::grpc::v1::tasks::Tasks
   return stub->ListTasks(&context, request, response);
 }
 
+/**
+ * Common function called to list tasks
+ * @tparam T Result value type (TaskSummary or TaskDetailed
+ * @tparam U Response type
+ * @param stub Task stub
+ * @param filters Filter to be used
+ * @param total Output for the total of session available for this request (used for pagination)
+ * @param page Page to request, use -1 to get all pages.
+ * @param page_size Size of the requested page, ignored if page is -1
+ * @param sort How the tasks are sorted, ascending creation date by default
+ * @return Vector of information about the tasks
+ */
 template <typename T, typename U, class = decltype(std::declval<U>().tasks()),
           class = decltype(std::declval<U>().total())>
 static std::vector<T> list_tasks_common(armonik::api::grpc::v1::tasks::Tasks::StubInterface *stub,
@@ -71,6 +83,7 @@ TasksClient::list_tasks(armonik::api::grpc::v1::tasks::Filters filters, int32_t 
                            armonik::api::grpc::v1::tasks::ListTasksResponse>(stub.get(), std::move(filters), total,
                                                                              page, page_size, std::move(sort));
 }
+
 std::vector<armonik::api::grpc::v1::tasks::TaskDetailed>
 TasksClient::list_tasks_detailed(armonik::api::grpc::v1::tasks::Filters filters, int32_t &total, int32_t page,
                                  int32_t page_size, armonik::api::grpc::v1::tasks::ListTasksRequest::Sort sort) {
@@ -78,6 +91,7 @@ TasksClient::list_tasks_detailed(armonik::api::grpc::v1::tasks::Filters filters,
                            armonik::api::grpc::v1::tasks::ListTasksDetailedResponse>(
       stub.get(), std::move(filters), total, page, page_size, std::move(sort));
 }
+
 armonik::api::grpc::v1::tasks::TaskDetailed TasksClient::get_task(std::string task_id) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::tasks::GetTaskRequest request;
@@ -160,6 +174,7 @@ TasksClient::count_tasks_by_status(armonik::api::grpc::v1::tasks::Filters filter
   }
   return map_status;
 }
+
 std::vector<armonik::api::common::TaskInfo>
 TasksClient::submit_tasks(std::string session_id, const std::vector<armonik::api::common::TaskCreation> &task_creations,
                           const armonik::api::grpc::v1::TaskOptions &task_options) {
