@@ -1,15 +1,15 @@
 from __future__ import annotations
 from grpc import Channel
-from typing import cast, Tuple, List
+from typing import cast, Tuple, List, Optional
 
 from ..protogen.client.sessions_service_pb2_grpc import SessionsStub
 from ..protogen.common.submitter_common_pb2 import SessionFilter
-from ..protogen.common.sessions_common_pb2 import GetSessionRequest, GetSessionResponse, ListSessionsRequest, ListSessionsResponse, SessionRaw, CancelSessionRequest, CancelSessionResponse
+from ..protogen.common.sessions_common_pb2 import GetSessionRequest, GetSessionResponse, ListSessionsRequest, ListSessionsResponse, SessionRaw, CancelSessionRequest, CancelSessionResponse, CreateSessionRequest
 from ..protogen.common.sessions_filters_pb2 import Filters as rawFilters, FiltersAnd as rawFilterAnd, FilterField as rawFilterField, FilterStatus as rawFilterStatus
 from ..protogen.common.sessions_fields_pb2 import *
 from ..common.filter import StringFilter, StatusFilter, DateFilter, NumberFilter, Filter
 from ..protogen.common.sort_direction_pb2 import SortDirection
-from ..common import Direction, Session
+from ..common import Direction, Session, TaskOptions
 from ..protogen.common.sessions_fields_pb2 import SessionField, SessionRawField, SESSION_RAW_ENUM_FIELD_STATUS, TaskOptionGenericField
 
 class SessionFieldFilter:
@@ -39,6 +39,26 @@ class ArmoniKSessions:
             grpc_channel: gRPC channel to use
         """
         self._client = SessionsStub(grpc_channel)
+
+    def create_session(self, default_task_options: TaskOptions, partition_ids: Optional[List[str]] = None) -> str:
+        """Create a session
+
+        Args:
+            default_task_options: Default TaskOptions used when
+                submitting tasks without specifying the options
+            partition_ids: List of partitions this session can send
+                tasks to. If unspecified, can only send to the default
+                partition
+
+        Returns:
+            Session Id
+        """
+        if partition_ids is None:
+            partition_ids = []
+        request = CreateSessionRequest(default_task_option=default_task_options.to_message())
+        for partition in partition_ids:
+            request.partition_ids.append(partition)
+        return self._client.CreateSession(request).session_id
 
     def list_sessions(self, task_filter: Filter, page: int = 0, page_size: int = 1000, sort_field: Filter = SessionFieldFilter.STATUS, sort_direction: SortDirection = Direction.ASC) -> Tuple[int, List[Session]]:
         """
