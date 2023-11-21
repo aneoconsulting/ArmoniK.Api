@@ -11,12 +11,15 @@ Before proceeding, make sure that ArmoniK is deployed with the necessary certifi
 1. In the `parameters.tfvars` file of ArmoniK, set the following values in the Deploy Ingress section:
 
     For TLS only:
-    ```
+
+    ```hcl
     tls = true
     mtls = false
     ```
+
     For mTLS:
-    ```
+
+    ```hcl
     tls = true
     mtls = true
     ```
@@ -48,18 +51,25 @@ armonik.local:5001
 ## Launching the Python Script
 
 Once you have configured ArmoniK and updated your hosts file, you can execute the example script from the root. Ensure that you have the Armonik Python dependencie installed.
+
 ```bash
 pip install armonik
 ```
+
 1. **For Insecure Channel**
+
 ```bash
 python examples/python/python_secure_grpc.py
 ```
+
 2. **For TLS Secure Channel**
+
 ```bash
 python examples/python/python_secure_grpc.py --endpoint armonik.local:5001 --ca <ca.crt path>
 ```
+
 3. **For Mutual TLS Secure Channel**
+
 ```bash
 python examples/python/python_secure_grpc.py --endpoint armonik.local:5001 --ca <ca.crt path> --key <client.submitter.key path> --cert <client.submitter.crt>
 ```
