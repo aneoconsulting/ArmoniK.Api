@@ -73,4 +73,3 @@ pip install armonik
     ```bash
     python examples/python/python_secure_grpc.py --endpoint armonik.local:5001 --ca <ca.crt path> --key <client.submitter.key path> --cert <client.submitter.crt>
     ```
-
