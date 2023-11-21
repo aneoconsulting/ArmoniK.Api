@@ -58,18 +58,19 @@ pip install armonik
 
 1. **For Insecure Channel**
 
-```bash
-python examples/python/python_secure_grpc.py
-```
+    ```bash
+    python examples/python/python_secure_grpc.py
+    ```
 
 2. **For TLS Secure Channel**
 
-```bash
-python examples/python/python_secure_grpc.py --endpoint armonik.local:5001 --ca <ca.crt path>
-```
+    ```bash
+    python examples/python/python_secure_grpc.py --endpoint armonik.local:5001 --ca <ca.crt path>
+    ```
 
 3. **For Mutual TLS Secure Channel**
 
-```bash
-python examples/python/python_secure_grpc.py --endpoint armonik.local:5001 --ca <ca.crt path> --key <client.submitter.key path> --cert <client.submitter.crt>
-```
+    ```bash
+    python examples/python/python_secure_grpc.py --endpoint armonik.local:5001 --ca <ca.crt path> --key <client.submitter.key path> --cert <client.submitter.crt>
+    ```
+
