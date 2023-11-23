@@ -17,7 +17,7 @@ def create_channel(endpoint: str,  ca: str = None, key: str = None, cert: str = 
     Create a gRPC channel for communication with the ArmoniK control plane
 
     Args:
-        ca (str): CA file path for mutual TLS
+        ca (str): CA file path for TLS or mutual TLS
         cert (str): Certificate file path for mutual TLS
         key (str): Private key file path for mutual TLS
         endpoint (str): ArmoniK control plane endpoint
