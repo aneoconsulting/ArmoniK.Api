@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
@@ -19,10 +19,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ArmoniK.Utils" Version="0.3.0" />
+    <PackageReference Include="ArmoniK.Utils" Version="0.4.0" />
     <PackageReference Include="Google.Protobuf" Version="3.24.1" />
-    <PackageReference Include="Grpc.Net.Client" Version="2.55.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.57.0">
+    <PackageReference Include="Grpc.Net.Client" Version="2.59.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.60.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
