@@ -197,6 +197,7 @@ class Result:
     created_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     result_id: Optional[str] = None
+    size: Optional[int] = None
 
     @classmethod
     def from_message(cls, result_raw: ResultRaw) -> "Result":
@@ -207,5 +208,6 @@ class Result:
             status=result_raw.status,
             created_at=timestamp_to_datetime(result_raw.created_at),
             completed_at=timestamp_to_datetime(result_raw.completed_at),
-            result_id=result_raw.result_id
+            result_id=result_raw.result_id,
+            size=result_raw.size
         )
