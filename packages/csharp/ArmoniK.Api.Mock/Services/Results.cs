@@ -33,6 +33,7 @@ public class Results : gRPC.V1.Results.Results.ResultsBase
                                                    Name        = "result-name",
                                                    Status      = ResultStatus.Completed,
                                                    OwnerTaskId = "owner-task-id",
+                                                   Size        = 0,
                                                  };
 
   /// <inheritdocs />

@@ -20,6 +20,7 @@ message FilterField {
     FilterDate filter_date = 3;
     FilterArray filter_array = 4;
     FilterStatus filter_status = 5;
+    FilterNumber filter_number = 6;
   }
 }
 
