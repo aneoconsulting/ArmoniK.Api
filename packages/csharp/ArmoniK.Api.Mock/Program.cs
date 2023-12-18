@@ -79,6 +79,7 @@ app.MapGrpcService<Agent>();
 app.MapGrpcService<Applications>();
 app.MapGrpcService<Authentication>();
 app.MapGrpcService<Events>();
+app.MapGrpcService<HealthChecks>();
 app.MapGrpcService<Partitions>();
 app.MapGrpcService<Results>();
 app.MapGrpcService<Sessions>();
