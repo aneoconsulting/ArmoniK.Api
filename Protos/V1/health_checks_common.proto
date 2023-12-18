@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.health_checks;
+
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.HealthChecks";
+
+/**
+ * Represents the available health status
+ */
+enum HealthStatusEnum {
+  HEALTH_STATUS_ENUM_UNSPECIFIED = 0; /** Unspecified */
+  HEALTH_STATUS_ENUM_HEALTHY = 1; /** Service is working without issues */
+  HEALTH_STATUS_ENUM_DEGRADED = 2; /** Service has issues but still works */
+  HEALTH_STATUS_ENUM_UNHEALTHY = 3; /** Service does not work */
+}
+
+/**
+* Request to check if all services are healthy
+*/
+message CheckHealthRequest {}
+
+/**
+* Response to check if all services are healthy
+*/
+message CheckHealthResponse {
+  message ServiceHealth {
+    string name = 1; // Name of the service (e.g. "control_plane", "database", "redis")
+    string message = 2;
+    HealthStatusEnum healthy = 3;
+  }
+
+  repeated ServiceHealth services = 1;
+}
