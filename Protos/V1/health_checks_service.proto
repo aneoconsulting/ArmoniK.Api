@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package armonik.api.grpc.v1.health_checks;
+
+import "health_checks_common.proto";
+
+option csharp_namespace = "Armonik.Api.Grpc.V1.HealthChecks";
+
+/**
+ * The HealthChecksService provides methods to verify the health of the cluster.
+ */
+service HealthChecksService {
+  /**
+   * Checks the health of the cluster. This can be used to verify that the cluster is up and running.
+   */
+  rpc CheckHealth(CheckHealthRequest) returns (CheckHealthResponse) {}
+
+}
