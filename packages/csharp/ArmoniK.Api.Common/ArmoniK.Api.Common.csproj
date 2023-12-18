@@ -58,6 +58,10 @@
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>
     </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\health_checks_common.proto" Link="health_checks_common.proto">
+      <GrpcServices>Message</GrpcServices>
+      <ProtoCompile>True</ProtoCompile>
+    </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\sessions_common.proto" Link="sessions_common.proto">
       <GrpcServices>Message</GrpcServices>
       <ProtoCompile>True</ProtoCompile>

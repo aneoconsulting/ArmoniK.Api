@@ -4,6 +4,7 @@ set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
 set(PROTO_FILES
     "submitter_service.proto"
+    "health_checks_service.proto"
     "applications_service.proto"
     "sessions_service.proto"
     "tasks_service.proto"
@@ -17,6 +18,7 @@ set(PROTO_MESSAGES
     "auth_common.proto"
     "sessions_common.proto"
     "submitter_common.proto"
+    "health_checks_common.proto"
     "tasks_common.proto"
     "results_common.proto"
     "partitions_common.proto"
