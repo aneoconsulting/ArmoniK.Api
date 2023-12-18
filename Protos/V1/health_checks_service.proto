@@ -4,7 +4,7 @@ package armonik.api.grpc.v1.health_checks;
 
 import "health_checks_common.proto";
 
-option csharp_namespace = "Armonik.Api.Grpc.V1.HealthChecks";
+option csharp_namespace = "ArmoniK.Api.gRPC.V1.HealthChecks";
 
 /**
  * The HealthChecksService provides methods to verify the health of the cluster.
