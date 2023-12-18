@@ -1,15 +1,16 @@
 from __future__ import annotations
 from grpc import Channel
-from typing import cast, Tuple, List
+from typing import cast, Dict, Optional, Tuple, List
 
-from ..common import Task, Direction
+from ..common import Task, Direction, TaskDefinition, TaskOptions, TaskStatus
 from ..common.filter import StringFilter, StatusFilter, DateFilter, NumberFilter, Filter, DurationFilter
+from ..protogen.common import objects_pb2
 from ..protogen.client.tasks_service_pb2_grpc import TasksStub
-from ..protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, ListTasksRequest, ListTasksDetailedResponse
+from ..protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, ListTasksRequest, ListTasksDetailedResponse, CancelTasksRequest, CancelTasksResponse, GetResultIdsRequest, GetResultIdsResponse, SubmitTasksRequest, SubmitTasksResponse, CountTasksByStatusRequest, CountTasksByStatusResponse
 from ..protogen.common.tasks_filters_pb2 import Filters as rawFilters, FiltersAnd as rawFilterAnd, FilterField as rawFilterField, FilterStatus as rawFilterStatus
 from ..protogen.common.sort_direction_pb2 import SortDirection
-
 from ..protogen.common.tasks_fields_pb2 import *
+from ..utils import batched
 
 
 class TaskFieldFilter:
@@ -102,3 +103,95 @@ class ArmoniKTasks:
                                    with_errors=with_errors)
         list_response: ListTasksDetailedResponse = self._client.ListTasksDetailed(request)
         return list_response.total, [Task.from_message(t) for t in list_response.tasks]
+
+    def cancel_tasks(self, task_ids: List[str], chunk_size: Optional[int] = 500) -> List[Task]:
+        """Cancel tasks.
+        
+        Args:
+            task_ids: IDs of the tasks.
+            chunk_size: Batch size for cancelling.
+        
+        Return:
+            The list of cancelled tasks.
+        """
+        cancelled_tasks = []
+        for task_id_batch in batched(task_ids, chunk_size):
+            request = CancelTasksRequest(task_ids=task_id_batch)
+            cancel_tasks_response: CancelTasksResponse = self._client.CancelTasks(request)
+            cancelled_tasks.extend([Task.from_message(t) for t in cancel_tasks_response.tasks])
+        return cancelled_tasks
+
+    def get_result_ids(self, task_ids: List[str], chunk_size: Optional[int] = 500) -> Dict[str, List[str]]:
+        """Get result IDs of a list of tasks.
+        
+        Args:
+            task_ids: The IDs of the tasks.
+            chunk_size: Batch size for retrieval.
+        
+        Return:
+            A dictionary mapping the ID of a task to the IDs of its results..
+        """
+        tasks_result_ids = {}
+
+        for task_id_batch in batched(task_ids, chunk_size):
+            request = GetResultIdsRequest(task_ids=task_id_batch)
+            result_ids_response: GetResultIdsResponse = self._client.GetResultIds(request)
+            for t in result_ids_response.task_results:
+                tasks_result_ids[t.task_id] = [id for id in t.result_ids]
+        return tasks_result_ids
+
+    def count_tasks_by_status(self, task_filter: List[Filter]) -> Dict[TaskStatus, int]:
+        """Get number of tasks by status.
+
+        Args:
+            task_filter: Filter for the tasks to be listed
+        
+        Return:
+            A dictionnary mapping each status to the number of filtered tasks.
+        """
+        request = CountTasksByStatusRequest(filters=cast(rawFilters, task_filter.to_disjunction().to_message()))
+        count_tasks_by_status_response: CountTasksByStatusResponse = self._client.CountTasksByStatus(request)
+        return {TaskStatus(status_count.status): status_count.count for status_count in count_tasks_by_status_response.status}
+
+    def submit_tasks(self, session_id: str, tasks: List[TaskDefinition], default_task_options: Optional[TaskOptions] = None, chunk_size: Optional[int] = 100) -> List[Task]:
+        """Submit tasks to ArmoniK.
+
+        Args:
+            session_id: Session Id
+            tasks: List of task definitions
+            default_task_options: Default Task Options used if a task has its options not set
+            chunk_size: Batch size for submission
+
+        Returns:
+            Tuple containing the list of successfully sent tasks, and
+            the list of submission errors if any
+        """
+
+        tasks_submitted = []
+
+        for task_batch in batched(tasks, chunk_size):
+            request = SubmitTasksRequest(session_id=session_id, task_options=TaskOptions(objects_pb2.TaskOptions(**default_task_options.__dict__())))
+
+            task_creations = []
+
+            for t in task_batch:
+                task_creation = SubmitTasksRequest.TaskCreation(
+                    expected_output_keys=t.expected_output_ids,
+                    payload_id=t.payload_id,
+                    data_dependencies=t.data_dependencies if t.data_dependencies else None,
+                    task_options=objects_pb2.TaskOptions(**t.options.__dict__())
+                )
+                task_creations.append(task_creation)
+
+            request.task_creations = task_creations
+
+            submit_tasks_reponse:SubmitTasksResponse = self._client.SubmitTasks(request)
+
+            for task_info in submit_tasks_reponse.task_infos:
+                tasks_submitted.append(Task(id=task_info.task_id,
+                                            session_id=session_id,
+                                            expected_output_ids=[k for k in task_info.expected_output_ids],
+                                            data_dependencies=[k for k in task_info.data_dependencies]),
+                                            payload_id=task_info.payload_id
+                                        )
+        return tasks_submitted

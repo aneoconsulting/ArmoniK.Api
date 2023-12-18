@@ -70,9 +70,10 @@ class Output:
 
 @dataclass()
 class TaskDefinition:
-    payload: bytes
+    payload_id: str
     expected_output_ids: List[str] = field(default_factory=list)
     data_dependencies: List[str] = field(default_factory=list)
+    options: Optional[TaskOptions] = field(default_factory=TaskOptions)
 
     def __post_init__(self):
         if len(self.expected_output_ids) <= 0:
@@ -89,6 +90,7 @@ class Task:
     expected_output_ids: List[str] = field(default_factory=list)
     retry_of_ids: List[str] = field(default_factory=list)
     status: RawTaskStatus = TaskStatus.UNSPECIFIED
+    payload_id: Optional[str] = None
     status_message: Optional[str] = None
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
