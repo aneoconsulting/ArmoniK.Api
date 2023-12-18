@@ -7,7 +7,7 @@ option csharp_namespace = "Armonik.Api.Grpc.V1.HealthChecks";
 /**
  * Represents the available health status
  */
- enum HealthStatusEnum {
+enum HealthStatusEnum {
   HEALTH_STATUS_ENUM_UNSPECIFIED = 0; /** Unspecified */
   HEALTH_STATUS_ENUM_HEALTHY = 1; /** Service is working without issues */
   HEALTH_STATUS_ENUM_DEGRADED = 2; /** Service has issues but still works */
@@ -31,4 +31,3 @@ message CheckHealthResponse {
 
   repeated ServiceHealth services = 1;
 }
-
