@@ -4,7 +4,6 @@ from typing import cast, Dict, Optional, Tuple, List
 
 from ..common import Task, Direction, TaskDefinition, TaskOptions, TaskStatus
 from ..common.filter import StringFilter, StatusFilter, DateFilter, NumberFilter, Filter, DurationFilter
-from ..protogen.common import objects_pb2
 from ..protogen.client.tasks_service_pb2_grpc import TasksStub
 from ..protogen.common.tasks_common_pb2 import GetTaskRequest, GetTaskResponse, ListTasksRequest, ListTasksDetailedResponse, CancelTasksRequest, CancelTasksResponse, GetResultIdsRequest, GetResultIdsResponse, SubmitTasksRequest, SubmitTasksResponse, CountTasksByStatusRequest, CountTasksByStatusResponse
 from ..protogen.common.tasks_filters_pb2 import Filters as rawFilters, FiltersAnd as rawFilterAnd, FilterField as rawFilterField, FilterStatus as rawFilterStatus
@@ -169,17 +168,17 @@ class ArmoniKTasks:
 
         tasks_submitted = []
 
-        for task_batch in batched(tasks, chunk_size):
-            request = SubmitTasksRequest(session_id=session_id, task_options=TaskOptions(objects_pb2.TaskOptions(**default_task_options.__dict__())))
+        for tasks_batch in batched(tasks, chunk_size):
+            request = SubmitTasksRequest(session_id=session_id, task_options=default_task_options.to_message())
 
             task_creations = []
 
-            for t in task_batch:
+            for t in tasks_batch:
                 task_creation = SubmitTasksRequest.TaskCreation(
                     expected_output_keys=t.expected_output_ids,
                     payload_id=t.payload_id,
                     data_dependencies=t.data_dependencies if t.data_dependencies else None,
-                    task_options=objects_pb2.TaskOptions(**t.options.__dict__())
+                    task_options=t.options.to_message()
                 )
                 task_creations.append(task_creation)
 
