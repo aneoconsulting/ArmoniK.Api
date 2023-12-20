@@ -35,7 +35,7 @@ export {
   FilterString,
   FilterBooleanOperator,
   FilterDuration,
-  FilterDurationOperator
+  FilterDurationOperator,
 } from './generated/filters-common.pb'
 export { StatusCount, TaskOptions } from './generated/objects.pb'
 export {
