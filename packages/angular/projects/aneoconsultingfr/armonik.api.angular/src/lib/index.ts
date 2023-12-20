@@ -34,6 +34,8 @@ export {
   FilterNumber,
   FilterString,
   FilterBooleanOperator,
+  FilterDuration,
+  FilterDurationOperator
 } from './generated/filters-common.pb'
 export { StatusCount, TaskOptions } from './generated/objects.pb'
 export {
