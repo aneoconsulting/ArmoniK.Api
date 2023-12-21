@@ -5,7 +5,8 @@ import {
   cppFiles,
   cppPattern,
   csharpFiles,
-  csharpPattern,
+  csharpPatternPackageVersion,
+  csharpPatternVersion,
   jsFiles,
   jsPattern,
 } from './versions/_contants'
@@ -21,9 +22,13 @@ if (args.length === 0) {
 
 const version = args[0]
 
-consola.info('Updating C# projects to ', version)
+consola.info('Updating C# <PackageVersion> projects to ', version)
 csharpFiles.forEach(
-  _readAndReplace(csharpPattern, `<PackageVersion>${version}</PackageVersion>`),
+  _readAndReplace(csharpPatternPackageVersion, `<PackageVersion>${version}</PackageVersion>`),
+)
+consola.info('Updating C# <Version> projects to ', version)
+csharpFiles.forEach(
+  _readAndReplace(csharpPatternVersion, `<Version>${version}</Version>`),
 )
 
 consola.info('Updating JS projects to ', version)
