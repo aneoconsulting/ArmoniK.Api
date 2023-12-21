@@ -4,7 +4,8 @@ import {
   cppFiles,
   cppPattern,
   csharpFiles,
-  csharpPattern,
+  csharpPatternPackageVersion,
+  csharpPatternVersion,
   jsFiles,
   jsPattern,
 } from './versions/_contants'
@@ -15,8 +16,10 @@ const [, , ...args] = process.argv
 
 consola.info('Finding JS projects versions')
 jsFiles.forEach(_readAndFind(jsPattern, versions))
-consola.info('Finding C# projects versions')
-csharpFiles.forEach(_readAndFind(csharpPattern, versions))
+consola.info('Finding C# <PackageVersion> projects versions')
+csharpFiles.forEach(_readAndFind(csharpPatternPackageVersion, versions))
+consola.info('Finding C# <Version> projects versions')
+csharpFiles.forEach(_readAndFind(csharpPatternVersion, versions))
 consola.info('Finding Cpp projects versions')
 cppFiles.forEach(_readAndFind(cppPattern, versions))
 

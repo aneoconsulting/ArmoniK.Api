@@ -1,6 +1,7 @@
 import { glob } from 'glob'
 
-export const csharpPattern = /<PackageVersion>(?<version>.*)<\/PackageVersion>/
+export const csharpPatternPackageVersion = /<PackageVersion>(?<version>.*)<\/PackageVersion>/
+export const csharpPatternVersion = /<Version>(?<version>.*)<\/Version>/
 export const csharpFiles = glob.globSync('**/*.csproj')
 
 export const pythonPattern = /version = "(?<version>.*)"/g

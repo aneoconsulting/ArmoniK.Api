@@ -10,6 +10,7 @@
     <DebugType>Embedded</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
     <PackageVersion>3.14.0</PackageVersion>
+    <Version>3.14.0</Version>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
