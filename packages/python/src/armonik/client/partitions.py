@@ -29,7 +29,7 @@ class ArmoniKPartitions:
         """
         self._client = PartitionsStub(grpc_channel)
 
-    def list_partitions(self, partition_filter: Filter, page: int = 0, page_size: int = 1000, sort_field: Filter = PartitionFieldFilter.PRIORITY, sort_direction: SortDirection = Direction.ASC) -> Tuple[int, List[Partition]]:
+    def list_partitions(self, partition_filter: Filter | None = None, page: int = 0, page_size: int = 1000, sort_field: Filter = PartitionFieldFilter.PRIORITY, sort_direction: SortDirection = Direction.ASC) -> Tuple[int, List[Partition]]:
         """List partitions based on a filter.
 
         Args:
@@ -47,9 +47,10 @@ class ArmoniKPartitions:
         request = ListPartitionsRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, partition_filter.to_disjunction().to_message()),
             sort=ListPartitionsRequest.Sort(field=cast(PartitionField, sort_field.field), direction=sort_direction),
         )
+        if partition_filter:
+            request.filters = cast(rawFilters, partition_filter.to_disjunction().to_message()),
         response: ListPartitionsResponse = self._client.ListPartitions(request)
         return response.total, [Partition.from_message(p) for p in response.partitions]
 
