@@ -2,6 +2,7 @@ from typing import Any, Callable, cast, List
 
 from grpc import Channel
 
+from .results import ArmoniKResults
 from ..common import EventTypes, Filter, NewTaskEvent, NewResultEvent, ResultOwnerUpdateEvent, ResultStatusUpdateEvent, TaskStatusUpdateEvent, ResultStatus
 from .results import ResultFieldFilter
 from ..protogen.client.events_service_pb2_grpc import EventsStub
@@ -26,8 +27,9 @@ class ArmoniKEvents:
             grpc_channel: gRPC channel to use
         """
         self._client = EventsStub(grpc_channel)
+        self._results_client = ArmoniKResults(grpc_channel)
 
-    def get_events(self, session_id: str, event_types: List[EventTypes], event_handlers: List[Callable[[str, Any], bool]], task_filter: Filter, result_filter: Filter) -> None:
+    def get_events(self, session_id: str, event_types: List[EventTypes], event_handlers: List[Callable[[str, Any], bool]], task_filter: Filter | None = None, result_filter: Filter | None = None) -> None:
         """Get events that represents updates of result and tasks data.
         
         Args:
@@ -43,7 +45,7 @@ class ArmoniKEvents:
         """
         request = EventSubscriptionRequest(
             session_id=session_id,
-            tasks_filters=cast(rawTaskFilters, task_filter.to_disjunction().to_message()),
+tasks_filters=cast(rawTaskFilters, task_filter.to_disjunction().to_message()),
             results_filters=cast(rawResultFilters, result_filter.to_disjunction().to_message()),
             returned_events=event_types
         )
@@ -53,11 +55,29 @@ class ArmoniKEvents:
             if any([event_handler(session_id, EventTypes.from_string(event_type), self._events_obj_mapping[event_type].from_raw_event(getattr(message, event_type))) for event_handler in event_handlers]):
                 break
 
-    def wait_for_result_availability(self, result_id: str, session_id: str) -> bool:
+    def wait_for_result_availability(self, result_id: str, session_id: str) -> None:
+        """Wait until a result is ready i.e its status updates to COMPLETED.
+        
+        Args:
+            result_id: The ID of the result.
+            session_id: The ID of the session.
+        
+        Raises:
+            RuntimeError: If the result status is ABORTED.
+        """
         def handler(session_id, event_type, event):
             if not isinstance(event, ResultStatusUpdateEvent):
                 raise ValueError("Handler should receive event of type 'ResultStatusUpdateEvent'.")
             if event.status == ResultStatus.COMPLETED:
                 return False
+            elif event.status == ResultStatus.ABORTED:
+                raise RuntimeError(f"Result {result.name} with ID {result_id} is aborted.")
             return True
-        self.get_events(session_id, [EventTypes.RESULT_STATUS_UPDATE], lambda _: False, result_filter=(ResultFieldFilter.RESULT_ID == result_id))
+
+        result = self._results_client.get_result(result_id)        
+        if result.status == ResultStatus.COMPLETED:
+            return
+        elif result.status == ResultStatus.ABORTED:
+            raise RuntimeError(f"Result {result.name} with ID {result_id} is aborted.")
+
+        self.get_events(session_id, [EventTypes.RESULT_STATUS_UPDATE], [handler], result_filter=(ResultFieldFilter.RESULT_ID == result_id))

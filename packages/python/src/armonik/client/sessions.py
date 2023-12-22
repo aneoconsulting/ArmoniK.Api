@@ -73,7 +73,7 @@ class ArmoniKSessions:
         response: GetSessionResponse = self._client.GetSession(request)
         return Session.from_message(response.session)
 
-    def list_sessions(self, session_filter: Filter , page: int = 0, page_size: int = 1000, sort_field: Filter = SessionFieldFilter.STATUS, sort_direction: SortDirection = Direction.ASC) -> Tuple[int, List[Session]]:
+    def list_sessions(self, session_filter: Filter | None = None, page: int = 0, page_size: int = 1000, sort_field: Filter = SessionFieldFilter.STATUS, sort_direction: SortDirection = Direction.ASC) -> Tuple[int, List[Session]]:
         """
         List sessions
 
@@ -92,11 +92,12 @@ class ArmoniKSessions:
         request = ListSessionsRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, session_filter.to_disjunction().to_message()),
             sort=ListSessionsRequest.Sort(field=cast(SessionField, sort_field.field), direction=sort_direction),
         )
-        list_response : ListSessionsResponse = self._client.ListSessions(request)
-        return list_response.total, [Session.from_message(s) for s in list_response.sessions]
+        if session_filter:
+            request.filters = cast(rawFilters, session_filter.to_disjunction().to_message()),
+        response : ListSessionsResponse = self._client.ListSessions(request)
+        return response.total, [Session.from_message(s) for s in response.sessions]
 
     def cancel_session(self, session_id: str) -> None:
         """Cancel a session

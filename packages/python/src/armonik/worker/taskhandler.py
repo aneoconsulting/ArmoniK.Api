@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+from deprecation import deprecated
 from typing import Optional, Dict, List, Tuple, Union, cast
 
 from ..common import TaskOptions, TaskDefinition, Task, Result
@@ -32,6 +33,7 @@ class TaskHandler:
             with open(os.path.join(self.data_folder, dd), "rb") as f:
                 self.data_dependencies[dd] = f.read()
 
+    @deprecated(deprecated_in="3.15.0", details="Use submit_tasks and instead and create the payload using create_result_metadata and send_result")
     def create_tasks(self, tasks: List[TaskDefinition], task_options: Optional[TaskOptions] = None) -> Tuple[List[Task], List[str]]:
         """Create new tasks for ArmoniK
 

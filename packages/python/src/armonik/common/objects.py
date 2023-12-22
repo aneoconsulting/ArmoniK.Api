@@ -74,7 +74,7 @@ class TaskDefinition:
     payload_id: str
     expected_output_ids: List[str] = field(default_factory=list)
     data_dependencies: List[str] = field(default_factory=list)
-    options: Optional[TaskOptions] = field(default_factory=TaskOptions)
+    options: Optional[TaskOptions] = None
 
     def __post_init__(self):
         if len(self.expected_output_ids) <= 0:

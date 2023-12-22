@@ -113,13 +113,15 @@ def batched(iterable: Iterable[T], n: int) -> Iterable[List[T]]:
         A generator yielding batches of elements from the input iterable.
     """
     it = iter(iterable)
-    while True:
-        batch = []
-        try:
-            for i in range(n):
-                batch.append(next(it))
-        except StopIteration:
-            if len(batch) > 0:
-                yield batch
-            break
+    
+    sentinel = object()
+    batch = []
+    c = next(it, sentinel)
+    while c is not sentinel:
+        batch.append(c)
+        if len(batch) == n:
+            yield batch
+            batch.clear()
+        c = next(it, sentinel)
+    if len(batch) > 0:
         yield batch
