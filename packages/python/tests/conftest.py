@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-from armonik.client import ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions
+from armonik.client import ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, ArmoniKEvents
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List
 
@@ -54,7 +54,7 @@ def clean_up(request):
         print("An error occurred when resetting the server: " + str(e))
 
 
-def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, AgentStub]:
+def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, AgentStub, ArmoniKEvents]:
     """
     Get the ArmoniK client instance based on the specified service name.
 
@@ -89,6 +89,8 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResul
             return ArmoniKVersions(channel)
         case "Agent":
             return AgentStub(channel)
+        case "Events":
+            return ArmoniKEvents(channel)
         case _:
             raise ValueError("Unknown service name: " + str(service_name))
 
