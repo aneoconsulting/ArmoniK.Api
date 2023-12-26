@@ -1,5 +1,6 @@
 from __future__ import annotations
 from grpc import Channel
+from deprecation import deprecated
 
 from typing import List, Dict, cast, Tuple
 
@@ -28,10 +29,11 @@ class ArmoniKResults:
         """
         self._client = ResultsStub(grpc_channel)
 
+    @deprecated(deprecated_in="3.15.0", details="Use create_result_metadata or create_result insted.")
     def get_results_ids(self, session_id: str, names: List[str]) -> Dict[str, str]:
         return {r.name : r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name = n) for n in names], session_id=session_id))).results}
 
-    def list_results(self, result_filter: Filter, page: int = 0, page_size: int = 1000, sort_field: Filter = ResultFieldFilter.STATUS,sort_direction: SortDirection = Direction.ASC ) -> Tuple[int, List[Result]]:
+    def list_results(self, result_filter: Filter | None = None, page: int = 0, page_size: int = 1000, sort_field: Filter = ResultFieldFilter.STATUS,sort_direction: SortDirection = Direction.ASC ) -> Tuple[int, List[Result]]:
         """List results based on a filter.
 
         Args:
@@ -48,9 +50,10 @@ class ArmoniKResults:
         request: ListResultsRequest = ListResultsRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, result_filter.to_disjunction().to_message()),
             sort=ListResultsRequest.Sort(field=cast(ResultField, sort_field.field), direction=sort_direction),
         )
+        if result_filter:
+            request.filters = cast(rawFilters, result_filter.to_disjunction().to_message()),
         list_response: ListResultsResponse = self._client.ListResults(request)
         return list_response.total, [Result.from_message(r) for r in list_response.results]
 
@@ -86,7 +89,7 @@ class ArmoniKResults:
                 results[result_task.result_id] = result_task.task_id
         return results
 
-    def create_result_metadata(self, result_names: List[str], session_id: str, batch_size: int = 100) -> Dict[str, Result]:
+    def create_results_metadata(self, result_names: List[str], session_id: str, batch_size: int = 100) -> Dict[str, Result]:
         """Create the metadata of multiple results at once.
         Data have to be uploaded separately.
 
@@ -121,9 +124,9 @@ class ArmoniKResults:
             A dictionnary mappin each result name to its corresponding result summary.            
         """
         results = {}
-        for results_data_batch in batched(results_data, batch_size):
+        for results_names_batch in batched(results_data.keys(), batch_size):
             request = CreateResultsRequest(
-                results=[CreateResultsRequest.ResultCreate(name=name, data=data) for name, data in results_data_batch.items()],
+                results=[CreateResultsRequest.ResultCreate(name=name, data=results_data[name]) for name in results_names_batch],
                 session_id=session_id
             )
             response: CreateResultsResponse = self._client.CreateResults(request)
@@ -191,8 +194,7 @@ class ArmoniKResults:
                 result_id=result_ids_batch,
                 session_id=session_id
             )
-            response: DeleteResultsDataResponse = self._client.DeleteResultsData(request)
-            assert sorted(result_ids_batch) == sorted(response.result_id)
+            self._client.DeleteResultsData(request)
 
     def get_service_config(self) -> int:
         """Get the configuration of the service.

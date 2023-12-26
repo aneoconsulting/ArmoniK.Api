@@ -24,6 +24,7 @@ class TestArmoniKPartitions:
         num, partitions = partitions_client.list_partitions()
 
         assert rpc_called("Partitions", "GetPartition")
+        # TODO: Mock must be updated to return something and so that changes the following assertions
         assert num == 0
         assert partitions == []
 
