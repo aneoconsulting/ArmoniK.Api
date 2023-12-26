@@ -1,23 +1,28 @@
 import grpc
+import os
 import pytest
 import requests
 
 from armonik.client import ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions
-from typing import Union
+from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
+from typing import List
 
 
 # Mock server endpoints used for the tests.
 grpc_endpoint = "localhost:5001"
 calls_endpoint = "http://localhost:5000/calls.json"
 reset_endpoint = "http://localhost:5000/reset"
+data_folder = os.getcwd()
 
 
 @pytest.fixture(scope="session", autouse=True)
 def clean_up(request):
     """
     This fixture runs at the session scope and is automatically used before and after
-    running all the tests. It resets the mocking gRPC server counters to maintain a
-    clean testing environment.
+    running all the tests. It set up and teardown the testing environments by:
+        - creating dummy files before testing begins;
+        - clear files after testing;
+        - resets the mocking gRPC server counters to maintain a clean testing environment.
 
     Yields:
         None: This fixture is used as a context manager, and the test code runs between
@@ -27,10 +32,20 @@ def clean_up(request):
         requests.exceptions.HTTPError: If an error occurs when attempting to reset
         the mocking gRPC server counters.
     """
+    # Write dumm payload and data dependency to files for testing purposes
+    with open(os.path.join(data_folder, "payload-id"), "wb") as f:
+        f.write("payload".encode())
+    with open(os.path.join(data_folder, "dd-id"), "wb") as f:
+        f.write("dd".encode())
+
     # Run all the tests
     yield
 
-    # Teardown code
+    # Remove the temporary files created for testing
+    os.remove(os.path.join(data_folder, "payload-id"))
+    os.remove(os.path.join(data_folder, "dd-id"))
+
+    # Reset the mock server counters
     try:
         response = requests.post(reset_endpoint)
         response.raise_for_status()
@@ -39,7 +54,7 @@ def clean_up(request):
         print("An error occurred when resetting the server: " + str(e))
 
 
-def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions]:
+def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, AgentStub]:
     """
     Get the ArmoniK client instance based on the specified service name.
 
@@ -48,7 +63,7 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResul
         endpoint (str, optional): The gRPC server endpoint. Defaults to grpc_endpoint.
 
     Returns:
-        Union[ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ARmoniKPartitions]:
+        Union[ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ARmoniKPartitions, AgentStub]:
             An instance of the specified ArmoniK client.
 
     Raises:
@@ -69,9 +84,11 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResul
         case "Sessions":
             return ArmoniKSessions(channel)
         case "Partitions":
-            return ARmoniKPartitions(channel)
+            return ArmoniKPartitions(channel)
         case "Versions":
             return ArmoniKVersions(channel)
+        case "Agent":
+            return AgentStub(channel)
         case _:
             raise ValueError("Unknown service name: " + str(service_name))
 
@@ -107,7 +124,7 @@ def rpc_called(service_name: str, rpc_name: str, n_calls: int = 1, endpoint: str
     return False
 
 
-def all_rpc_called(service_name: str, endpoint: str = calls_endpoint) -> bool:
+def all_rpc_called(service_name: str, missings: List[str] = [], endpoint: str = calls_endpoint) -> bool:
     """
     Check if all remote procedure calls (RPCs) in a service have been made at least once.
     This function uses ArmoniK.Api.Mock. It just gets the '/calls.json' endpoint.
@@ -116,6 +133,7 @@ def all_rpc_called(service_name: str, endpoint: str = calls_endpoint) -> bool:
         service_name (str): The name of the service containing the RPC information in the response.
         endpoint (str, optional): The URL of the remote service providing RPC information. Default is
             the value of calls_endpoint.
+        missings (List[str], optional): A list of RPCs known to be not implemented. Default is an empty list.
 
     Returns:
         bool: True if all RPCs in the specified service have been called at least once, False otherwise.
@@ -138,6 +156,8 @@ def all_rpc_called(service_name: str, endpoint: str = calls_endpoint) -> bool:
         if rpc_num_calls == 0:
             missing_rpcs.append(rpc_name)
     if missing_rpcs:
+        if missings == missing_rpcs:
+            return True
         print(f"RPCs not implemented in {service_name} service: {missing_rpcs}.")
         return False
     return True

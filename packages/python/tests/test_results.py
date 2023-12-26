@@ -55,6 +55,14 @@ class TestArmoniKResults:
         assert rpc_called("Results", "CreateResults")
         assert results == {}
 
+    def test_get_service_config(self):
+        results_client: ArmoniKResults = get_client("Results")
+        chunk_size = results_client.get_service_config()
+
+        assert rpc_called("Results", "GetServiceConfiguration")
+        assert isinstance(chunk_size, int)
+        assert chunk_size == 81920
+
     def test_upload_result_data(self):
         results_client: ArmoniKResults = get_client("Results")
         result = results_client.upload_result_data("result-name", "session-id", b"test data")
@@ -75,14 +83,6 @@ class TestArmoniKResults:
 
         assert rpc_called("Results", "DeleteResultsData")
         assert result is None
-
-    def test_get_service_config(self):
-        results_client: ArmoniKResults = get_client("Results")
-        chunk_size = results_client.get_service_config()
-
-        assert rpc_called("Results", "GetServiceConfiguration", 2)
-        assert isinstance(chunk_size, int)
-        assert chunk_size == 81920
 
     def test_watch_results(self):
         results_client: ArmoniKResults = get_client("Results")

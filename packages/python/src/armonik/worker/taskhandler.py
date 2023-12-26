@@ -79,44 +79,46 @@ class TaskHandler:
             batch_size: Batch size for submission
         """
         for tasks_batch in batched(tasks, batch_size):
-            request = SubmitTasksRequest(
-                session_id=self.session_id,
-                task_options=default_task_options.to_message(),
-                communication_token=self.token
-            )
-
             task_creations = []
 
             for t in tasks_batch:
                 task_creation = SubmitTasksRequest.TaskCreation(
                     expected_output_keys=t.expected_output_ids,
                     payload_id=t.payload_id,
-                    data_dependencies=t.data_dependencies if t.data_dependencies else None,
-                    task_options=t.options.to_message()
+                    data_dependencies=t.data_dependencies
                 )
+                if t.options:
+                    task_creation.task_options=t.options.to_message()
                 task_creations.append(task_creation)
 
-            request.task_creations = task_creations
+            request = SubmitTasksRequest(
+                session_id=self.session_id,
+                communication_token=self.token,
+                task_creations=task_creations
+            )
+
+            if default_task_options:
+                request.task_options=default_task_options.to_message(),
 
             self._client.SubmitTasks(request)
 
-    def send_results(self, result_data: Dict[str, bytes | bytearray]) -> None:
+    def send_results(self, results_data: Dict[str, bytes | bytearray]) -> None:
         """Send results.
 
         Args:
             result_data: A dictionnary mapping each result ID to its data.
         """
-        for result_id, result_data in result_data.items():
+        for result_id, result_data in results_data.items():
             with open(os.path.join(self.data_folder, result_id), "wb") as f:
                 f.write(result_data)
 
         request = NotifyResultDataRequest(
-            ids=[NotifyResultDataRequest.ResultIdentifier(session_id=self.session_id, result_id=result_id) for result_id in result_data.keys()],
+            ids=[NotifyResultDataRequest.ResultIdentifier(session_id=self.session_id, result_id=result_id) for result_id in results_data.keys()],
             communication_token=self.token
         )
         self._client.NotifyResultData(request)
 
-    def create_result_metadata(self, result_names: List[str], batch_size: int = 100) -> Dict[str, List[Result]]:
+    def create_results_metadata(self, result_names: List[str], batch_size: int = 100) -> Dict[str, List[Result]]:
         """
         Create the metadata of multiple results at once.
         Data have to be uploaded separately.
@@ -151,9 +153,9 @@ class TaskHandler:
             A dictionnary mappin each result name to its corresponding result summary.            
         """
         results = {}
-        for results_data_batch in batched(results_data, batch_size):
+        for results_ids_batch in batched(results_data.keys(), batch_size):
             request = CreateResultsRequest(
-                results=[CreateResultsRequest.ResultCreate(name=name, data=data) for name, data in results_data_batch.items()],
+                results=[CreateResultsRequest.ResultCreate(name=name, data=results_data[name]) for name in results_ids_batch],
                 session_id=self.session_id,
                 communication_token=self.token
             )
