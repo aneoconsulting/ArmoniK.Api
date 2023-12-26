@@ -3,7 +3,7 @@ from typing import Any, Callable, cast, List
 from grpc import Channel
 
 from .results import ArmoniKResults
-from ..common import EventTypes, Filter, NewTaskEvent, NewResultEvent, ResultOwnerUpdateEvent, ResultStatusUpdateEvent, TaskStatusUpdateEvent, ResultStatus
+from ..common import EventTypes, Filter, NewTaskEvent, NewResultEvent, ResultOwnerUpdateEvent, ResultStatusUpdateEvent, TaskStatusUpdateEvent, ResultStatus, Event
 from .results import ResultFieldFilter
 from ..protogen.client.events_service_pb2_grpc import EventsStub
 from ..protogen.common.events_common_pb2 import EventSubscriptionRequest, EventSubscriptionResponse
@@ -29,7 +29,7 @@ class ArmoniKEvents:
         self._client = EventsStub(grpc_channel)
         self._results_client = ArmoniKResults(grpc_channel)
 
-    def get_events(self, session_id: str, event_types: List[EventTypes], event_handlers: List[Callable[[str, Any], bool]], task_filter: Filter | None = None, result_filter: Filter | None = None) -> None:
+    def get_events(self, session_id: str, event_types: List[EventTypes], event_handlers: List[Callable[[str, EventTypes, Event], bool]], task_filter: Filter | None = None, result_filter: Filter | None = None) -> None:
         """Get events that represents updates of result and tasks data.
         
         Args:
@@ -45,10 +45,13 @@ class ArmoniKEvents:
         """
         request = EventSubscriptionRequest(
             session_id=session_id,
-tasks_filters=cast(rawTaskFilters, task_filter.to_disjunction().to_message()),
-            results_filters=cast(rawResultFilters, result_filter.to_disjunction().to_message()),
             returned_events=event_types
         )
+        if task_filter:
+            request.tasks_filters=cast(rawTaskFilters, task_filter.to_disjunction().to_message()),
+        if result_filter:
+            request.results_filters=cast(rawResultFilters, result_filter.to_disjunction().to_message()),
+
         streaming_call = self._client.GetEvents(request)
         for message in streaming_call:
             event_type = message.WhichOneof("update")
