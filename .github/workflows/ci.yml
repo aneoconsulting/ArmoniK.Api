@@ -240,6 +240,7 @@ jobs:
         run: |
           cd ../csharp/ArmoniK.Api.Mock
           nohup dotnet run > /dev/null 2>&1 &
+          sleep 10
 
       - name: Run tests
         run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
