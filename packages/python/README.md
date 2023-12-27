@@ -37,4 +37,52 @@ pip install pkg/armonik*.whl
 The generated package will be installed to your current python environment
 
 ## Windows
-Coming soon
+Coming soon:
+
+## Tests
+
+### **Test Environment Setup**
+
+Before running tests, ensure the following setup steps are completed:
+
+1. Install Dotnet:
+```bash
+sudo apt install dotnet-sdk-6.0
+```
+
+2. Launch the Mock Server:
+
+Verify that port 5000 is available (Armonik and the mock server communicate on the same port, uninstall armonik if necessary):
+
+```bash
+lsof -i :5000
+```
+3. Launch the server from the project's root directory in a separate terminal:
+
+```bash
+cd packages/csharp/ArmoniK.Api.Mock
+dotnet run
+```
+4. Install jq for a Better Json Readability:
+
+```bash
+sudo apt install jq
+
+```
+
+### **Test Environment Summary**
+
+The test environment utilizes a mock endpoint to assert if the ArmoniK service has been triggered. It leverages the requests library to query the /calls.json endpoint, examining the JSON response to validate the count of remote procedure calls made to specific services and methods
+
+Requirements :
+```bash 
+pip install grpcio
+pip install pytest
+pip install requests
+```
+
+Install the armonik package in "editable" mode, allowing you to make changes to the source code, and the changes will be reflected immediately without reinstalling the package.
+
+ ```bash 
+ pip install -e ./packages/python
+ ```
