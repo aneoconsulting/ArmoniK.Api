@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-from armonik.client import ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, ArmoniKEvents
+from armonik.client import ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, ArmoniKEvents, ArmoniKHealthChecks
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List
 
@@ -44,6 +44,7 @@ def clean_up(request):
     # Remove the temporary files created for testing
     os.remove(os.path.join(data_folder, "payload-id"))
     os.remove(os.path.join(data_folder, "dd-id"))
+    os.remove(os.path.join(data_folder, "result-id"))
 
     # Reset the mock server counters
     try:
@@ -54,7 +55,7 @@ def clean_up(request):
         print("An error occurred when resetting the server: " + str(e))
 
 
-def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, AgentStub, ArmoniKEvents]:
+def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResults, ArmoniKSubmitter, ArmoniKTasks, ArmoniKSessions, ArmoniKPartitions, ArmoniKVersions, AgentStub, ArmoniKEvents, ArmoniKHealthChecks]:
     """
     Get the ArmoniK client instance based on the specified service name.
 
@@ -91,6 +92,8 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> [ArmoniKResul
             return AgentStub(channel)
         case "Events":
             return ArmoniKEvents(channel)
+        case "HealthChecks":
+            return ArmoniKHealthChecks(channel)
         case _:
             raise ValueError("Unknown service name: " + str(service_name))
 

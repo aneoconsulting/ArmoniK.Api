@@ -4,6 +4,7 @@ from ..protogen.common.task_status_pb2 import TaskStatus as RawStatus, _TASKSTAT
 from ..protogen.common.events_common_pb2 import EventsEnum as rawEventsEnum, EVENTS_ENUM_UNSPECIFIED, EVENTS_ENUM_NEW_TASK, EVENTS_ENUM_TASK_STATUS_UPDATE, EVENTS_ENUM_NEW_RESULT, EVENTS_ENUM_RESULT_STATUS_UPDATE, EVENTS_ENUM_RESULT_OWNER_UPDATE
 from ..protogen.common.session_status_pb2 import SessionStatus as RawSessionStatus, _SESSIONSTATUS, SESSION_STATUS_UNSPECIFIED, SESSION_STATUS_CANCELLED, SESSION_STATUS_RUNNING
 from ..protogen.common.result_status_pb2 import ResultStatus as RawResultStatus, _RESULTSTATUS, RESULT_STATUS_UNSPECIFIED, RESULT_STATUS_CREATED, RESULT_STATUS_COMPLETED, RESULT_STATUS_ABORTED, RESULT_STATUS_NOTFOUND
+from ..protogen.common.health_checks_common_pb2 import HEALTH_STATUS_ENUM_UNSPECIFIED, HEALTH_STATUS_ENUM_HEALTHY, HEALTH_STATUS_ENUM_DEGRADED, HEALTH_STATUS_ENUM_UNHEALTHY
 from ..protogen.common.worker_common_pb2 import HealthCheckReply
 from ..protogen.common.sort_direction_pb2 import SORT_DIRECTION_ASC, SORT_DIRECTION_DESC
 
@@ -72,3 +73,10 @@ class EventTypes:
     @classmethod
     def from_string(cls, name: str):
         return getattr(cls, name.upper())
+
+
+class ServiceHealthCheckStatus:
+    UNSPECIFIED = HEALTH_STATUS_ENUM_UNSPECIFIED
+    HEALTHY = HEALTH_STATUS_ENUM_HEALTHY
+    DEGRADED = HEALTH_STATUS_ENUM_DEGRADED
+    UNHEALTHY = HEALTH_STATUS_ENUM_UNHEALTHY

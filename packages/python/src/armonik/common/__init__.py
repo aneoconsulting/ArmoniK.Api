@@ -7,7 +7,7 @@ from .helpers import (
     batched
 )
 from .objects import Task, TaskDefinition, TaskOptions, Output, ResultAvailability, Session, Result, Partition
-from .enumwrapper import HealthCheckStatus, TaskStatus, Direction, SessionStatus, ResultStatus, EventTypes
+from .enumwrapper import HealthCheckStatus, TaskStatus, Direction, SessionStatus, ResultStatus, EventTypes, ServiceHealthCheckStatus
 from .events import *
 from .filter import Filter, StringFilter, StatusFilter
 
@@ -37,4 +37,5 @@ __all__ = [
     'Filter',
     'StringFilter',
     'StatusFilter',
+    'ServiceHealthCheckStatus'
 ]

@@ -5,6 +5,7 @@ from .tasks import ArmoniKTasks
 from .results import ArmoniKResults
 from .versions import ArmoniKVersions
 from .events import ArmoniKEvents
+from .health_check import ArmoniKHealthChecks
 
 __all__ = [
     'ArmoniKPartitions',
@@ -13,5 +14,6 @@ __all__ = [
     'ArmoniKTasks',
     'ArmoniKResults',
     "ArmoniKVersions",
-    "ArmoniKEvents"
+    "ArmoniKEvents",
+    "ArmoniKHealthChecks"
 ]
