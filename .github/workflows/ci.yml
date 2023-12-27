@@ -239,7 +239,7 @@ jobs:
       - name: Start Mock server
         run: |
           cd ../csharp/ArmoniK.Api.Mock
-          dotnet run
+          nohup dotnet run > /dev/null 2>&1 &
 
       - name: Run tests
         run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
