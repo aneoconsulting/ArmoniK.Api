@@ -37,7 +37,7 @@ pip install pkg/armonik*.whl
 The generated package will be installed to your current python environment
 
 ## Windows
-Coming soon:
+Coming soon
 
 ## Tests
 
@@ -74,12 +74,6 @@ sudo apt install jq
 
 The test environment utilizes a mock endpoint to assert if the ArmoniK service has been triggered. It leverages the requests library to query the /calls.json endpoint, examining the JSON response to validate the count of remote procedure calls made to specific services and methods
 
-Requirements :
-```bash 
-pip install grpcio
-pip install pytest
-pip install requests
-```
 
 Install the armonik package in "editable" mode, allowing you to make changes to the source code, and the changes will be reflected immediately without reinstalling the package.
 
