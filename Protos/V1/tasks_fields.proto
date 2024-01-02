@@ -28,7 +28,7 @@ enum TaskSummaryEnumField {
   TASK_SUMMARY_ENUM_FIELD_COUNT_PARENT_TASK_IDS = 17; /** Count the parent task IDs. A tasks can be a child of another task. */
   TASK_SUMMARY_ENUM_FIELD_COUNT_DATA_DEPENDENCIES = 18; /** Count the data dependencies. A task have data dependencies. */
   TASK_SUMMARY_ENUM_FIELD_COUNT_EXPECTED_OUTPUTS_IDS = 19; /** Count the expected output IDs. A task have expected output IDs. */
-  TASK_SUMMARY_ENUM_FIELD_RETRY_OF_IDS = 20; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
+  TASK_SUMMARY_ENUM_FIELD_COUNT_RETRY_OF_IDS = 20; /** Count the retry of IDs. When a task fail, retry will use these set of IDs. */
 }
 
 /**
