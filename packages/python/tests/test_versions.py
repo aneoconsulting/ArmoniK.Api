@@ -1,3 +1,5 @@
+import json
+import os
 import pytest
 
 from .conftest import all_rpc_called, rpc_called, get_client
@@ -24,7 +26,8 @@ class TestArmoniKVersions:
 
         assert rpc_called("Versions", "ListVersions")
         assert versions["core"] == "Unknown"
-        assert versions["api"] == "3.15.1.0"
+        with open("../web/package.json", "r") as file:
+            assert versions["api"] == json.loads(file.read())["version"] + ".0"
 
     def test_service_fully_implemented(self):
         """
