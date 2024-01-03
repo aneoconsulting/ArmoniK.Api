@@ -5,7 +5,9 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from google.protobuf.duration_pb2 import Duration
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from armonik.common.helpers import datetime_to_timestamp, timestamp_to_datetime, timedelta_to_duration, duration_to_timedelta
+from armonik.common.helpers import datetime_to_timestamp, timestamp_to_datetime, timedelta_to_duration, duration_to_timedelta, batched
+
+from typing import Iterable, List
 
 
 @dataclass
@@ -60,3 +62,14 @@ def test_duration_to_timedelta(case: Case):
 def test_timedelta_to_duration(case: Case):
     ts = timedelta_to_duration(case.delta)
     assert ts.seconds == case.duration.seconds and abs(ts.nanos - case.duration.nanos) < 1000
+
+
+@pytest.mark.parametrize(["iterable", "batch_size", "iterations"], [
+    ([1, 2, 3], 3, [[1, 2, 3]]),
+    ([1, 2, 3], 5, [[1, 2, 3]]),
+    ([1, 2, 3], 2, [[1, 2], [3]]),
+    ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 3, [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11]])
+])
+def test_batched(iterable: Iterable, batch_size: int, iterations: List[Iterable]):
+    for index, batch in enumerate(batched(iterable, batch_size)):
+        assert batch == iterations[index]

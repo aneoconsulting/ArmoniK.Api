@@ -1,12 +1,15 @@
 from __future__ import annotations
 from datetime import timedelta, datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Iterable, TypeVar
 
 import google.protobuf.duration_pb2 as duration
 import google.protobuf.timestamp_pb2 as timestamp
 
 from ..protogen.common.submitter_common_pb2 import TaskFilter
 from .enumwrapper import TaskStatus
+
+
+T = TypeVar('T')
 
 
 def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[List[str]] = None,
@@ -96,3 +99,29 @@ def timedelta_to_duration(delta: timedelta) -> duration.Duration:
     d = duration.Duration()
     d.FromTimedelta(delta)
     return d
+
+
+def batched(iterable: Iterable[T], n: int) -> Iterable[List[T]]:
+    """
+    Batches elements from an iterable into lists of size at most 'n'.
+
+    Args:
+        iterable : The input iterable.
+        n : The batch size.
+
+    Yields:
+        A generator yielding batches of elements from the input iterable.
+    """
+    it = iter(iterable)
+    
+    sentinel = object()
+    batch = []
+    c = next(it, sentinel)
+    while c is not sentinel:
+        batch.append(c)
+        if len(batch) == n:
+            yield batch
+            batch.clear()
+        c = next(it, sentinel)
+    if len(batch) > 0:
+        yield batch
