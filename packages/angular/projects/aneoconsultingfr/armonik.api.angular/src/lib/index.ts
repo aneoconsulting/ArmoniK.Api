@@ -126,6 +126,6 @@ export { VersionsClient } from './generated/versions-service.pbsc'
 export {
   CheckHealthRequest,
   CheckHealthResponse,
-  HealthStatusEnum
+  HealthStatusEnum,
 } from './generated/health-checks-common.pb'
 export { HealthChecksServiceClient } from './generated/health-checks-service.pbsc'
