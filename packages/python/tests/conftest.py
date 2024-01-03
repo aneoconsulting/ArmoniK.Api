@@ -3,6 +3,7 @@ import os
 import pytest
 import requests
 
+from armonik.client import ArmoniKVersions
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List
 
@@ -51,6 +52,33 @@ def clean_up(request):
         print("\nMock server resetted.")
     except requests.exceptions.HTTPError as e:
         print("An error occurred when resetting the server: " + str(e))
+
+
+def get_client(client_name: str, endpoint: str = grpc_endpoint) -> ArmoniKVersions:
+    """
+    Get the ArmoniK client instance based on the specified service name.
+
+    Args:
+        client_name (str): The name of the ArmoniK client to retrieve.
+        endpoint (str, optional): The gRPC server endpoint. Defaults to grpc_endpoint.
+
+    Returns:
+        ArmoniKVersions
+            An instance of the specified ArmoniK client.
+
+    Raises:
+        ValueError: If the specified service name is not recognized.
+
+    Example:
+        >>> result_service = get_service("Results")
+        >>> submitter_service = get_service("Submitter", "custom_endpoint")
+    """
+    channel = grpc.insecure_channel(endpoint).__enter__()
+    match client_name:
+        case "Versions":
+            return ArmoniKVersions(channel)
+        case _:
+            raise ValueError("Unknown service name: " + str(service_name))
 
 
 def rpc_called(service_name: str, rpc_name: str, n_calls: int = 1, endpoint: str = calls_endpoint) -> bool:
