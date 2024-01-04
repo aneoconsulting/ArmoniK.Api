@@ -11,19 +11,13 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import TypedDict
 
-import click
-
+import argparse
 
 class ProtobufFilePathInfo(TypedDict):
     dir: Path
     path: Path
     rel_path: Path
 
-
-@click.command()
-@click.option("--dry", is_flag=True, show_default=True, default=False,
-              help="Do not write out the changes to the files.")
-@click.argument("root_dir", type=click.Path(exists=True))
 def fix_protobuf_imports(root_dir, dry):
     """
       A script to fix relative imports (from and to nested sub-directories) within compiled `*_pb2*.py` Protobuf files.
@@ -142,7 +136,11 @@ def fix_protobuf_imports(root_dir, dry):
 
 
 def main():
-    fix_protobuf_imports()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root_dir", type=str, help="Path to the root directory")
+    parser.add_argument("--dry", action="store_true", default=False, help="Do not write out the changes to the files.")
+    args = parser.parse_args()
+    fix_protobuf_imports(args.root_dir, args.dry)
 
 
 if __name__ == '__main__':
