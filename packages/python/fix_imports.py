@@ -24,9 +24,6 @@ def fix_protobuf_imports(root_dir, dry):
     """
 
     root_dir = Path(root_dir)
-    if not root_dir.is_dir():
-        print(f"Error: The specified root directory '{root_dir}' does not exist.")
-        sys.exit(1)
 
     def generate_lookup(path: Path) -> Tuple[str, ProtobufFilePathInfo]:
         name = path.name.split(".")[0]
@@ -140,9 +137,11 @@ def fix_protobuf_imports(root_dir, dry):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("root_dir", type=str, help="Path to the root directory")
+    parser.add_argument("root_dir", type=Path, help="Path to the root directory")
     parser.add_argument("--dry", action="store_true", default=False, help="Do not write out the changes to the files.")
     args = parser.parse_args()
+    if not args.root_dir.is_dir():
+        raise argparse.ArgumentTypeError(f"Directory '{args.root_dir}' does not exist.")
     fix_protobuf_imports(args.root_dir, args.dry)
 
 
