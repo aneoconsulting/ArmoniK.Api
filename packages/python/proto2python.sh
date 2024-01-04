@@ -33,7 +33,7 @@ python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
 # We need to fix grpc to 1.56 until this bug is solved : https://github.com/grpc/grpc/issues/34305
-python -m pip install build grpcio==1.56.2 grpcio-tools==1.56.2 click pytest setuptools_scm[toml]
+python -m pip install build grpcio==1.56.2 grpcio-tools==1.56.2 pytest setuptools_scm[toml]
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
