@@ -24,6 +24,9 @@ def fix_protobuf_imports(root_dir, dry):
     """
 
     root_dir = Path(root_dir)
+    if not root_dir.is_dir():
+        print(f"Error: The specified root directory '{root_dir}' does not exist.")
+        sys.exit(1)
 
     def generate_lookup(path: Path) -> Tuple[str, ProtobufFilePathInfo]:
         name = path.name.split(".")[0]
