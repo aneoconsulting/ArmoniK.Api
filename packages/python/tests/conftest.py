@@ -3,9 +3,9 @@ import os
 import pytest
 import requests
 
-from armonik.client import ArmoniKVersions
+from armonik.client import ArmoniKResults, ArmoniKTasks, ArmoniKVersions
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
-from typing import List
+from typing import List, Union
 
 
 # Mock server endpoints used for the tests.
@@ -54,7 +54,7 @@ def clean_up(request):
         print("An error occurred when resetting the server: " + str(e))
 
 
-def get_client(client_name: str, endpoint: str = grpc_endpoint) -> ArmoniKVersions:
+def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[ArmoniKTasks, ArmoniKVersions]:
     """
     Get the ArmoniK client instance based on the specified service name.
 
@@ -63,7 +63,7 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> ArmoniKVersio
         endpoint (str, optional): The gRPC server endpoint. Defaults to grpc_endpoint.
 
     Returns:
-        ArmoniKVersions
+        Union[ArmoniKTasks, ArmoniKVersions]
             An instance of the specified ArmoniK client.
 
     Raises:
@@ -75,6 +75,10 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> ArmoniKVersio
     """
     channel = grpc.insecure_channel(endpoint).__enter__()
     match client_name:
+        case "Results":
+            return ArmoniKResults(channel)
+        case "Tasks":
+            return ArmoniKTasks(channel)
         case "Versions":
             return ArmoniKVersions(channel)
         case _:
