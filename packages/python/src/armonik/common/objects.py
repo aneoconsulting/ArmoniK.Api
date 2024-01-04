@@ -215,3 +215,25 @@ class Result:
             result_id=result_raw.result_id,
             size=result_raw.size
         )
+
+@dataclass
+class Partition:
+    id: str
+    parent_partition_ids: List[str]
+    pod_reserved: int
+    pod_max: int
+    pod_configuration: Dict[str, str]
+    preemption_percentage: int
+    priority: int
+
+    @classmethod
+    def from_message(cls, partition_raw: PartitionRaw) -> "Partition":
+        return cls(
+            id=partition_raw.id,
+            parent_partition_ids=partition_raw.parent_partition_ids,
+            pod_reserved=partition_raw.pod_reserved,
+            pod_max=partition_raw.pod_max,
+            pod_configuration=partition_raw.pod_configuration,
+            preemption_percentage=partition_raw.preemption_percentage,
+            priority=partition_raw.priority
+        )
