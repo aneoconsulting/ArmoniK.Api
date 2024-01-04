@@ -53,14 +53,26 @@ class ArmoniKSessions:
         Returns:
             Session Id
         """
-        if partition_ids is None:
-            partition_ids = []
-        request = CreateSessionRequest(default_task_option=default_task_options.to_message())
-        for partition in partition_ids:
-            request.partition_ids.append(partition)
+        request = CreateSessionRequest(
+            default_task_option=default_task_options.to_message(),
+            partition_ids=partition_ids if partition_ids else []
+        )
         return self._client.CreateSession(request).session_id
 
-    def list_sessions(self, task_filter: Filter, page: int = 0, page_size: int = 1000, sort_field: Filter = SessionFieldFilter.STATUS, sort_direction: SortDirection = Direction.ASC) -> Tuple[int, List[Session]]:
+    def get_session(self, session_id: str):
+        """Get a session by its ID.
+        
+        Args:
+            session_id: The ID of the session.
+        
+        Return:
+            The session summary.
+        """
+        request = GetSessionRequest(session_id=session_id)
+        response: GetSessionResponse = self._client.GetSession(request)
+        return Session.from_message(response.session)
+
+    def list_sessions(self, session_filter: Filter | None = None, page: int = 0, page_size: int = 1000, sort_field: Filter = SessionFieldFilter.STATUS, sort_direction: SortDirection = Direction.ASC) -> Tuple[int, List[Session]]:
         """
         List sessions
 
@@ -76,14 +88,14 @@ class ArmoniKSessions:
             - The total number of sessions for the given filter
             - The obtained list of sessions
         """
-        request : ListSessionsRequest = ListSessionsRequest(
+        request = ListSessionsRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, task_filter.to_disjunction().to_message()),
+            filters=cast(rawFilters, session_filter.to_disjunction().to_message()) if session_filter else None,
             sort=ListSessionsRequest.Sort(field=cast(SessionField, sort_field.field), direction=sort_direction),
         )
-        list_response : ListSessionsResponse = self._client.ListSessions(request)
-        return list_response.total, [Session.from_message(t) for t in list_response.sessions]
+        response : ListSessionsResponse = self._client.ListSessions(request)
+        return response.total, [Session.from_message(s) for s in response.sessions]
 
     def cancel_session(self, session_id: str) -> None:
         """Cancel a session
@@ -92,4 +104,3 @@ class ArmoniKSessions:
             session_id: Id of the session to b cancelled
         """
         self._client.CancelSession(CancelSessionRequest(session_id=session_id))
-        
