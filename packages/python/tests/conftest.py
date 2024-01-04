@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-from armonik.client import ArmoniKTasks, ArmoniKVersions
+from armonik.client import ArmoniKResults, ArmoniKTasks, ArmoniKVersions
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List, Union
 
@@ -75,6 +75,8 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[ArmoniK
     """
     channel = grpc.insecure_channel(endpoint).__enter__()
     match client_name:
+        case "Results":
+            return ArmoniKResults(channel)
         case "Tasks":
             return ArmoniKTasks(channel)
         case "Versions":
