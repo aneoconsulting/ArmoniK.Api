@@ -1,12 +1,14 @@
 from __future__ import annotations
 import os
+from deprecation import deprecated
 from typing import Optional, Dict, List, Tuple, Union, cast
 
-from ..common import TaskOptions, TaskDefinition, Task
-from ..protogen.common.agent_common_pb2 import CreateTaskRequest, CreateResultsMetaDataRequest, CreateResultsMetaDataResponse, NotifyResultDataRequest
+from ..common import TaskOptions, TaskDefinition, Task, Result
+from ..protogen.common.agent_common_pb2 import CreateTaskRequest, CreateResultsMetaDataRequest, CreateResultsMetaDataResponse, NotifyResultDataRequest, CreateResultsRequest, CreateResultsResponse, SubmitTasksRequest, SubmitTasksResponse
 from ..protogen.common.objects_pb2 import TaskRequest, DataChunk, InitTaskRequest, TaskRequestHeader, Configuration
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
 from ..protogen.common.worker_common_pb2 import ProcessRequest
+from ..common.helpers import batched
 
 
 class TaskHandler:
@@ -31,6 +33,7 @@ class TaskHandler:
             with open(os.path.join(self.data_folder, dd), "rb") as f:
                 self.data_dependencies[dd] = f.read()
 
+    @deprecated(deprecated_in="3.15.0", details="Use submit_tasks and instead and create the payload using create_result_metadata and send_result")
     def create_tasks(self, tasks: List[TaskDefinition], task_options: Optional[TaskOptions] = None) -> Tuple[List[Task], List[str]]:
         """Create new tasks for ArmoniK
 
@@ -67,21 +70,99 @@ class TaskHandler:
             raise Exception("Unknown value")
         return tasks_created, tasks_creation_failed
 
-    def send_result(self, key: str, data: Union[bytes, bytearray]) -> None:
-        """ Send task result
+    def submit_tasks(self, tasks: List[TaskDefinition], default_task_options: Optional[TaskOptions] = None, batch_size: Optional[int] = 100) -> None:
+        """Submit tasks to the agent.
 
         Args:
-            key: Result key
-            data: Result data
+            tasks: List of task definitions
+            default_task_options: Default Task Options used if a task has its options not set
+            batch_size: Batch size for submission
         """
-        with open(os.path.join(self.data_folder, key), "wb") as f:
-            f.write(data)
+        for tasks_batch in batched(tasks, batch_size):
+            task_creations = []
 
-        self._client.NotifyResultData(NotifyResultDataRequest(ids=[NotifyResultDataRequest.ResultIdentifier(session_id=self.session_id, result_id=key)], communication_token=self.token))
+            for t in tasks_batch:
+                task_creation = SubmitTasksRequest.TaskCreation(
+                    expected_output_keys=t.expected_output_ids,
+                    payload_id=t.payload_id,
+                    data_dependencies=t.data_dependencies
+                )
+                if t.options:
+                    task_creation.task_options=t.options.to_message()
+                task_creations.append(task_creation)
 
-    def get_results_ids(self, names: List[str]) -> Dict[str, str]:
-        return {r.name: r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name=n) for n in names], session_id=self.session_id, communication_token=self.token))).results}
+            request = SubmitTasksRequest(
+                session_id=self.session_id,
+                communication_token=self.token,
+                task_creations=task_creations
+            )
 
+            if default_task_options:
+                request.task_options=default_task_options.to_message(),
+
+            self._client.SubmitTasks(request)
+
+    def send_results(self, results_data: Dict[str, bytes | bytearray]) -> None:
+        """Send results.
+
+        Args:
+            result_data: A dictionnary mapping each result ID to its data.
+        """
+        for result_id, result_data in results_data.items():
+            with open(os.path.join(self.data_folder, result_id), "wb") as f:
+                f.write(result_data)
+
+        request = NotifyResultDataRequest(
+            ids=[NotifyResultDataRequest.ResultIdentifier(session_id=self.session_id, result_id=result_id) for result_id in results_data.keys()],
+            communication_token=self.token
+        )
+        self._client.NotifyResultData(request)
+
+    def create_results_metadata(self, result_names: List[str], batch_size: int = 100) -> Dict[str, List[Result]]:
+        """
+        Create the metadata of multiple results at once.
+        Data have to be uploaded separately.
+
+        Args:
+            result_names: The names of the results to create.
+            batch_size: Batch size for querying.
+        
+        Return:
+            A dictionnary mapping each result name to its result summary.
+        """
+        results = {}
+        for result_names_batch in batched(result_names, batch_size):
+            request = CreateResultsMetaDataRequest(
+                results=[CreateResultsMetaDataRequest.ResultCreate(name=result_name) for result_name in result_names],
+                session_id=self.session_id,
+                communication_token=self.token
+            )
+            response: CreateResultsMetaDataResponse = self._client.CreateResultsMetaData(request)
+            for result_message in response.results:
+                results[result_message.name] = Result.from_message(result_message)
+        return results
+
+    def create_results(self, results_data: Dict[str, bytes], batch_size: int = 1) -> Dict[str, Result]:
+        """Create one result with data included in the request.
+        
+        Args:
+            results_data: A dictionnary mapping the result names to their actual data.
+            batch_size: Batch size for querying.
+
+        Return:
+            A dictionnary mappin each result name to its corresponding result summary.            
+        """
+        results = {}
+        for results_ids_batch in batched(results_data.keys(), batch_size):
+            request = CreateResultsRequest(
+                results=[CreateResultsRequest.ResultCreate(name=name, data=results_data[name]) for name in results_ids_batch],
+                session_id=self.session_id,
+                communication_token=self.token
+            )
+            response: CreateResultsResponse = self._client.CreateResults(request)
+            for message in response.results:
+                results[message.name] = Result.from_message(message)
+        return results
 
 def _to_request_stream_internal(request, communication_token, is_last, chunk_max_size):
     req = CreateTaskRequest(
