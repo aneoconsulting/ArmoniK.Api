@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.gRPC.V1;
@@ -88,28 +87,38 @@ public class Tasks : gRPC.V1.Tasks.Tasks.TasksBase
   /// <inheritdocs />
   [Count]
   public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
-                                                                      ServerCallContext context)
-  {
-    var result = new CountTasksByStatusResponse();
-    result.Status.Add(new StatusCount{Status=TaskStatus.Completed, Count=2});
-    result.Status.Add(new StatusCount{Status=TaskStatus.Submitted, Count=5});
-    return Task.FromResult(result);
-  }
+                                                                      ServerCallContext         context)
+    => Task.FromResult(new CountTasksByStatusResponse
+                       {
+                         Status =
+                         {
+                           new StatusCount
+                           {
+                             Status = TaskStatus.Completed,
+                             Count  = 2,
+                           },
+                           new StatusCount
+                           {
+                             Status = TaskStatus.Submitted,
+                             Count  = 5,
+                           },
+                         },
+                       });
 
   /// <inheritdocs />
   [Count]
-  public override Task<ListTasksDetailedResponse> ListTasksDetailed(ListTasksRequest request,
+  public override Task<ListTasksDetailedResponse> ListTasksDetailed(ListTasksRequest  request,
                                                                     ServerCallContext context)
-  {
-    var result = new ListTasksDetailedResponse
-    {
-      Page = 0,
-      Total = 1,
-      PageSize = request.PageSize,
-    };
-    result.Tasks.Add(MockTask);
-    return Task.FromResult(result);
-  }
+    => Task.FromResult(new ListTasksDetailedResponse
+                       {
+                         Page     = 0,
+                         Total    = 1,
+                         PageSize = request.PageSize,
+                         Tasks =
+                         {
+                           MockTask,
+                         },
+                       });
 
   /// <inheritdocs />
   [Count]
