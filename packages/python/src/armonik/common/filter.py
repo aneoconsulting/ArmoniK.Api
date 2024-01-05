@@ -1,11 +1,50 @@
 from __future__ import annotations
-from abc import abstractmethod
-from typing import List, Any, Type, Optional, Dict
-from google.protobuf.message import Message
-import google.protobuf.timestamp_pb2 as timestamp
-import google.protobuf.duration_pb2 as duration
-from ..protogen.common.filters_common_pb2 import *
+
 import json
+from abc import abstractmethod
+from typing import Any, Dict, List, Optional, Type
+
+import google.protobuf.duration_pb2 as duration
+import google.protobuf.timestamp_pb2 as timestamp
+from google.protobuf.message import Message
+
+from ..protogen.common.filters_common_pb2 import (
+    FILTER_ARRAY_OPERATOR_CONTAINS,
+    FILTER_ARRAY_OPERATOR_NOT_CONTAINS,
+    FILTER_BOOLEAN_OPERATOR_IS,
+    FILTER_DATE_OPERATOR_AFTER,
+    FILTER_DATE_OPERATOR_AFTER_OR_EQUAL,
+    FILTER_DATE_OPERATOR_BEFORE,
+    FILTER_DATE_OPERATOR_BEFORE_OR_EQUAL,
+    FILTER_DATE_OPERATOR_EQUAL,
+    FILTER_DATE_OPERATOR_NOT_EQUAL,
+    FILTER_DURATION_OPERATOR_EQUAL,
+    FILTER_DURATION_OPERATOR_LONGER_THAN,
+    FILTER_DURATION_OPERATOR_LONGER_THAN_OR_EQUAL,
+    FILTER_DURATION_OPERATOR_NOT_EQUAL,
+    FILTER_DURATION_OPERATOR_SHORTER_THAN,
+    FILTER_DURATION_OPERATOR_SHORTER_THAN_OR_EQUAL,
+    FILTER_NUMBER_OPERATOR_EQUAL,
+    FILTER_NUMBER_OPERATOR_GREATER_THAN,
+    FILTER_NUMBER_OPERATOR_GREATER_THAN_OR_EQUAL,
+    FILTER_NUMBER_OPERATOR_LESS_THAN,
+    FILTER_NUMBER_OPERATOR_LESS_THAN_OR_EQUAL,
+    FILTER_NUMBER_OPERATOR_NOT_EQUAL,
+    FILTER_STATUS_OPERATOR_EQUAL,
+    FILTER_STATUS_OPERATOR_NOT_EQUAL,
+    FILTER_STRING_OPERATOR_CONTAINS,
+    FILTER_STRING_OPERATOR_ENDS_WITH,
+    FILTER_STRING_OPERATOR_EQUAL,
+    FILTER_STRING_OPERATOR_NOT_CONTAINS,
+    FILTER_STRING_OPERATOR_NOT_EQUAL,
+    FILTER_STRING_OPERATOR_STARTS_WITH,
+    FilterArray,
+    FilterBoolean,
+    FilterDate,
+    FilterDuration,
+    FilterNumber,
+    FilterString,
+)
 
 
 class Filter:
@@ -30,6 +69,7 @@ class Filter:
         value: value to test against in this filter if it's a simple filter
         operator: operator to apply for this filter if it's a simple filter
     """
+
     eq_ = None
     ne_ = None
     lt_ = None
@@ -40,7 +80,17 @@ class Filter:
     notcontains_ = None
     value_type_ = None
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]], filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Optional[Type[Message]],
+        filters: Optional[List[List["Filter"]]] = None,
+        value=None,
+        operator=None,
+    ):
         self._filters: List[List["Filter"]] = [[]] if filters is None else filters
         self.field = field
         self.message_type = message_type
@@ -55,7 +105,9 @@ class Filter:
         Tests whether the filter is a conjunction (logical and)
         Note : This will only output true if it's an actual conjunction with multiple filters and no disjunction
         """
-        return self.message_type == self.conjunction_type or (len(self._filters) == 1 and len(self._filters[0]) > 1)
+        return self.message_type == self.conjunction_type or (
+            len(self._filters) == 1 and len(self._filters[0]) > 1
+        )
 
     def is_true_disjunction(self) -> bool:
         """
@@ -72,8 +124,22 @@ class Filter:
         if self.is_true_disjunction():
             return self
         if self.is_true_conjunction():
-            return Filter(None, self.disjunction_type, self.conjunction_type, self.disjunction_type, None, self._filters)
-        return Filter(None, self.disjunction_type, self.conjunction_type, self.disjunction_type, None, [[self]])
+            return Filter(
+                None,
+                self.disjunction_type,
+                self.conjunction_type,
+                self.disjunction_type,
+                None,
+                self._filters,
+            )
+        return Filter(
+            None,
+            self.disjunction_type,
+            self.conjunction_type,
+            self.disjunction_type,
+            None,
+            [[self]],
+        )
 
     def __and__(self, other: "Filter") -> "Filter":
         if not isinstance(other, Filter):
@@ -83,7 +149,14 @@ class Filter:
             raise Exception("Cannot make a conjunction of disjunctions")
         if self.conjunction_type != other.conjunction_type:
             raise Exception("Conjunction types are different")
-        return Filter(None, self.disjunction_type, self.conjunction_type, self.conjunction_type, None, [self.to_disjunction()._filters[0] + other.to_disjunction()._filters[0]])
+        return Filter(
+            None,
+            self.disjunction_type,
+            self.conjunction_type,
+            self.conjunction_type,
+            None,
+            [self.to_disjunction()._filters[0] + other.to_disjunction()._filters[0]],
+        )
 
     def __mul__(self, other: Filter) -> "Filter":
         return self & other
@@ -94,7 +167,14 @@ class Filter:
             raise Exception(msg)
         if self.disjunction_type != other.disjunction_type:
             raise Exception("Disjunction types are different")
-        return Filter(None, self.disjunction_type, self.conjunction_type, self.disjunction_type, None, self.to_disjunction()._filters + other.to_disjunction()._filters)
+        return Filter(
+            None,
+            self.disjunction_type,
+            self.conjunction_type,
+            self.disjunction_type,
+            None,
+            self.to_disjunction()._filters + other.to_disjunction()._filters,
+        )
 
     def __add__(self, other: "Filter") -> "Filter":
         return self | other
@@ -164,7 +244,11 @@ class Filter:
             return rep
         if len(self._filters) == 1 and len(self._filters[0]) == 1:
             return self._filters[0][0].to_dict()
-        return {"field": str(self.field), "value": str(self.value), "operator": str(self.operator)}
+        return {
+            "field": str(self.field),
+            "value": str(self.value),
+            "operator": str(self.operator),
+        }
 
     def __str__(self) -> str:
         return json.dumps(self.to_dict())
@@ -179,7 +263,9 @@ class Filter:
             Exception if value is not of the expected type
 
         """
-        if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
+        if self.__class__.value_type_ is None or isinstance(
+            value, self.__class__.value_type_
+        ):
             return
         msg = f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead"
         raise Exception(msg)
@@ -204,7 +290,16 @@ class Filter:
         if operator is None:
             msg = f"Operator {operator_str} is not available for {self.__class__.__name__}"
             raise NotImplementedError(msg)
-        return self.__class__(self.field, self.disjunction_type, self.conjunction_type, self.message_type, self.inner_message_type, self._filters, value, operator)
+        return self.__class__(
+            self.field,
+            self.disjunction_type,
+            self.conjunction_type,
+            self.message_type,
+            self.inner_message_type,
+            self._filters,
+            value,
+            operator,
+        )
 
     @abstractmethod
     def to_basic_message(self) -> Message:
@@ -218,7 +313,9 @@ class Filter:
 
         if self.message_type == self.disjunction_type:
             raw = self.to_disjunction().disjunction_type()
-            getattr(raw, "or").extend([to_conjunction_message(conj) for conj in self._filters])
+            getattr(raw, "or").extend(
+                [to_conjunction_message(conj) for conj in self._filters]
+            )
             return raw
         if self.message_type == self.conjunction_type:
             return to_conjunction_message(self.to_disjunction()._filters[0])
@@ -229,14 +326,34 @@ class StringFilter(Filter):
     """
     Filter for string comparisons
     """
+
     eq_ = FILTER_STRING_OPERATOR_EQUAL
     ne_ = FILTER_STRING_OPERATOR_NOT_EQUAL
     contains_ = FILTER_STRING_OPERATOR_CONTAINS
     notcontains_ = FILTER_STRING_OPERATOR_NOT_CONTAINS
     value_type_ = str
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterString, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
-        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Optional[Type[Message]] = FilterString,
+        filters: Optional[List[List["Filter"]]] = None,
+        value=None,
+        operator=None,
+    ):
+        super().__init__(
+            field,
+            disjunction_message_type,
+            conjunction_message_type,
+            message_type,
+            inner_message_type,
+            filters,
+            value,
+            operator,
+        )
 
     def startswith(self, value: str) -> "StringFilter":
         return self._check(value, FILTER_STRING_OPERATOR_STARTS_WITH, "startswith")
@@ -245,30 +362,61 @@ class StringFilter(Filter):
         return self._check(value, FILTER_STRING_OPERATOR_ENDS_WITH, "endswith")
 
     def to_basic_message(self) -> Message:
-        return self.message_type(field=self.field, filter_string=self.inner_message_type(value=self.value, operator=self.operator))
+        return self.message_type(
+            field=self.field,
+            filter_string=self.inner_message_type(
+                value=self.value, operator=self.operator
+            ),
+        )
 
     def __repr__(self) -> str:
-        return f"{str(self.field)} {str(self.operator)} \"{str(self.value)}\""
+        return f'{str(self.field)} {str(self.operator)} "{str(self.value)}"'
 
 
 class StatusFilter(Filter):
     """
     Filter for status comparison
     """
+
     eq_ = FILTER_STATUS_OPERATOR_EQUAL
     ne_ = FILTER_STATUS_OPERATOR_NOT_EQUAL
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Type[Message], filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
-        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Type[Message],
+        filters: Optional[List[List["Filter"]]] = None,
+        value=None,
+        operator=None,
+    ):
+        super().__init__(
+            field,
+            disjunction_message_type,
+            conjunction_message_type,
+            message_type,
+            inner_message_type,
+            filters,
+            value,
+            operator,
+        )
 
     def to_basic_message(self) -> Message:
-        return self.message_type(field=self.field, filter_status=self.inner_message_type(value=self.value, operator=self.operator))
+        return self.message_type(
+            field=self.field,
+            filter_status=self.inner_message_type(
+                value=self.value, operator=self.operator
+            ),
+        )
 
 
 class DateFilter(Filter):
     """
     Filter for timestamp comparison
     """
+
     eq_ = FILTER_DATE_OPERATOR_EQUAL
     ne_ = FILTER_DATE_OPERATOR_NOT_EQUAL
     lt_ = FILTER_DATE_OPERATOR_BEFORE
@@ -277,17 +425,42 @@ class DateFilter(Filter):
     ge_ = FILTER_DATE_OPERATOR_AFTER_OR_EQUAL
     value_type = timestamp.Timestamp
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterDate, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
-        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Optional[Type[Message]] = FilterDate,
+        filters: Optional[List[List["Filter"]]] = None,
+        value=None,
+        operator=None,
+    ):
+        super().__init__(
+            field,
+            disjunction_message_type,
+            conjunction_message_type,
+            message_type,
+            inner_message_type,
+            filters,
+            value,
+            operator,
+        )
 
     def to_basic_message(self) -> Message:
-        return self.message_type(field=self.field, filter_date=self.inner_message_type(value=self.value, operator=self.operator))
+        return self.message_type(
+            field=self.field,
+            filter_date=self.inner_message_type(
+                value=self.value, operator=self.operator
+            ),
+        )
 
 
 class NumberFilter(Filter):
     """
     Filter for int comparison
     """
+
     eq_ = FILTER_NUMBER_OPERATOR_EQUAL
     ne_ = FILTER_NUMBER_OPERATOR_NOT_EQUAL
     lt_ = FILTER_NUMBER_OPERATOR_LESS_THAN
@@ -296,22 +469,66 @@ class NumberFilter(Filter):
     ge_ = FILTER_NUMBER_OPERATOR_GREATER_THAN_OR_EQUAL
     value_type_ = int
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterNumber, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
-        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Optional[Type[Message]] = FilterNumber,
+        filters: Optional[List[List["Filter"]]] = None,
+        value=None,
+        operator=None,
+    ):
+        super().__init__(
+            field,
+            disjunction_message_type,
+            conjunction_message_type,
+            message_type,
+            inner_message_type,
+            filters,
+            value,
+            operator,
+        )
 
     def to_basic_message(self) -> Message:
-        return self.message_type(field=self.field, filter_number=self.inner_message_type(value=self.value, operator=self.operator))
+        return self.message_type(
+            field=self.field,
+            filter_number=self.inner_message_type(
+                value=self.value, operator=self.operator
+            ),
+        )
 
 
 class BooleanFilter(Filter):
     """
     Filter for boolean comparison
     """
+
     eq_ = FILTER_BOOLEAN_OPERATOR_IS
     value_type_ = bool
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterBoolean, filters: Optional[List[List["Filter"]]] = None, value=True, operator=FILTER_BOOLEAN_OPERATOR_IS):
-        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Optional[Type[Message]] = FilterBoolean,
+        filters: Optional[List[List["Filter"]]] = None,
+        value=True,
+        operator=FILTER_BOOLEAN_OPERATOR_IS,
+    ):
+        super().__init__(
+            field,
+            disjunction_message_type,
+            conjunction_message_type,
+            message_type,
+            inner_message_type,
+            filters,
+            value,
+            operator,
+        )
 
     def __ne__(self, value: bool) -> "BooleanFilter":
         return self.__eq__(not value)
@@ -320,28 +537,59 @@ class BooleanFilter(Filter):
         return self.__eq__(not self.value)
 
     def to_basic_message(self) -> Message:
-        return self.message_type(field=self.field, filter_boolean=self.inner_message_type(value=self.value, operator=self.operator))
+        return self.message_type(
+            field=self.field,
+            filter_boolean=self.inner_message_type(
+                value=self.value, operator=self.operator
+            ),
+        )
 
 
 class ArrayFilter(Filter):
     """
     Filter for array comparisons
     """
+
     contains_ = FILTER_ARRAY_OPERATOR_CONTAINS
     notcontains_ = FILTER_ARRAY_OPERATOR_NOT_CONTAINS
     value_type_ = str
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterArray, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
-        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Optional[Type[Message]] = FilterArray,
+        filters: Optional[List[List["Filter"]]] = None,
+        value=None,
+        operator=None,
+    ):
+        super().__init__(
+            field,
+            disjunction_message_type,
+            conjunction_message_type,
+            message_type,
+            inner_message_type,
+            filters,
+            value,
+            operator,
+        )
 
     def to_basic_message(self) -> Message:
-        return self.message_type(field=self.field, filter_array=self.inner_message_type(value=self.value, operator=self.operator))
+        return self.message_type(
+            field=self.field,
+            filter_array=self.inner_message_type(
+                value=self.value, operator=self.operator
+            ),
+        )
 
 
 class DurationFilter(Filter):
     """
     Filter for duration comparison
     """
+
     eq_ = FILTER_DURATION_OPERATOR_EQUAL
     ne_ = FILTER_DURATION_OPERATOR_NOT_EQUAL
     lt_ = FILTER_DURATION_OPERATOR_SHORTER_THAN
@@ -350,8 +598,32 @@ class DurationFilter(Filter):
     ge_ = FILTER_DURATION_OPERATOR_LONGER_THAN_OR_EQUAL
     value_type_ = duration.Duration
 
-    def __init__(self, field: Optional[Message], disjunction_message_type: Type[Message], conjunction_message_type: Type[Message], message_type: Type[Message], inner_message_type: Optional[Type[Message]] = FilterDuration, filters: Optional[List[List["Filter"]]] = None, value=None, operator=None):
-        super().__init__(field, disjunction_message_type, conjunction_message_type, message_type, inner_message_type, filters, value, operator)
+    def __init__(
+        self,
+        field: Optional[Message],
+        disjunction_message_type: Type[Message],
+        conjunction_message_type: Type[Message],
+        message_type: Type[Message],
+        inner_message_type: Optional[Type[Message]] = FilterDuration,
+        filters: Optional[List[List["Filter"]]] = None,
+        value=None,
+        operator=None,
+    ):
+        super().__init__(
+            field,
+            disjunction_message_type,
+            conjunction_message_type,
+            message_type,
+            inner_message_type,
+            filters,
+            value,
+            operator,
+        )
 
     def to_basic_message(self) -> Message:
-        return self.message_type(field=self.field, filter_duration=self.inner_message_type(value=self.value, operator=self.operator))
+        return self.message_type(
+            field=self.field,
+            filter_duration=self.inner_message_type(
+                value=self.value, operator=self.operator
+            ),
+        )

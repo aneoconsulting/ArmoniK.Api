@@ -7,37 +7,37 @@ from armonik.common import Task, TaskDefinition, TaskOptions, TaskStatus, Output
 
 class TestArmoniKTasks:
     mock_task = Task(
-        id='task-id',
-        session_id='session-id',
-        owner_pod_id='',
+        id="task-id",
+        session_id="session-id",
+        owner_pod_id="",
         parent_task_ids=[],
         data_dependencies=[],
         expected_output_ids=[],
         retry_of_ids=[],
         status=4,
         payload_id=None,
-        status_message='',
+        status_message="",
         options=TaskOptions(
             max_duration=datetime.timedelta(seconds=1),
             priority=1,
             max_retries=1,
-            partition_id='partition-id',
-            application_name='application-name',
-            application_version='application-version',
-            application_namespace='application-namespace',
-            application_service='application-service',
-            engine_type='engine-type',
-            options={}
+            partition_id="partition-id",
+            application_name="application-name",
+            application_version="application-version",
+            application_namespace="application-namespace",
+            application_service="application-service",
+            engine_type="engine-type",
+            options={},
         ),
         created_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         submitted_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         started_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         ended_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         pod_ttl=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
-        output=Output(error=''),
-        pod_hostname='',
+        output=Output(error=""),
+        pod_hostname="",
         received_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
-        acquired_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+        acquired_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
     )
 
     def test_get_task(self):
@@ -58,7 +58,9 @@ class TestArmoniKTasks:
 
     def test_list_tasks_detailed_with_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
-        num, tasks = tasks_client.list_tasks(TaskFieldFilter.STATUS == TaskStatus.COMPLETED)
+        num, tasks = tasks_client.list_tasks(
+            TaskFieldFilter.STATUS == TaskStatus.COMPLETED
+        )
         assert rpc_called("Tasks", "ListTasksDetailed", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions
         assert num == 1
@@ -95,7 +97,9 @@ class TestArmoniKTasks:
 
     def test_count_tasks_by_status_with_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
-        count = tasks_client.count_tasks_by_status(TaskFieldFilter.STATUS == TaskStatus.COMPLETED)
+        count = tasks_client.count_tasks_by_status(
+            TaskFieldFilter.STATUS == TaskStatus.COMPLETED
+        )
         assert rpc_called("Tasks", "CountTasksByStatus", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions
         assert count == {TaskStatus.COMPLETED: 2, TaskStatus.SUBMITTED: 5}
@@ -104,21 +108,21 @@ class TestArmoniKTasks:
         tasks_client: ArmoniKTasks = get_client("Tasks")
         tasks = tasks_client.submit_tasks(
             "session-id",
-            [TaskDefinition(payload_id="payload-id",
-                            expected_output_ids=["result-id"],
-                            data_dependencies=[],
-                            options=TaskOptions(
-                                max_duration=datetime.timedelta(seconds=1),
-                                priority=1,
-                                max_retries=1
-                            )
+            [
+                TaskDefinition(
+                    payload_id="payload-id",
+                    expected_output_ids=["result-id"],
+                    data_dependencies=[],
+                    options=TaskOptions(
+                        max_duration=datetime.timedelta(seconds=1),
+                        priority=1,
+                        max_retries=1,
+                    ),
                 )
             ],
             default_task_options=TaskOptions(
-                max_duration=datetime.timedelta(seconds=1),
-                priority=1,
-                max_retries=1
-            )
+                max_duration=datetime.timedelta(seconds=1), priority=1, max_retries=1
+            ),
         )
         assert rpc_called("Tasks", "SubmitTasks")
         # TODO: Mock must be updated to return something and so that changes the following assertions

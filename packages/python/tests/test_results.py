@@ -8,20 +8,23 @@ from armonik.common import Result, ResultStatus
 
 
 class TestArmoniKResults:
-
     def test_get_result(self):
         results_client: ArmoniKResults = get_client("Results")
         result = results_client.get_result("result-name")
 
         assert rpc_called("Results", "GetResult")
         assert isinstance(result, Result)
-        assert result.session_id == 'session-id'
-        assert result.name == 'result-name'
-        assert result.owner_task_id == 'owner-task-id'
+        assert result.session_id == "session-id"
+        assert result.name == "result-name"
+        assert result.owner_task_id == "owner-task-id"
         assert result.status == 2
-        assert result.created_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert result.completed_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert result.result_id == 'result-id'
+        assert result.created_at == datetime.datetime(
+            1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        assert result.completed_at == datetime.datetime(
+            1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
+        )
+        assert result.result_id == "result-id"
         assert result.size == 0
 
     def test_get_owner_task_id(self):
@@ -43,7 +46,9 @@ class TestArmoniKResults:
 
     def test_list_results_with_filter(self):
         results_client: ArmoniKResults = get_client("Results")
-        num, results = results_client.list_results(ResultFieldFilter.STATUS == ResultStatus.COMPLETED)
+        num, results = results_client.list_results(
+            ResultFieldFilter.STATUS == ResultStatus.COMPLETED
+        )
 
         assert rpc_called("Results", "ListResults", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions
@@ -60,7 +65,9 @@ class TestArmoniKResults:
 
     def test_create_results(self):
         results_client: ArmoniKResults = get_client("Results")
-        results = results_client.create_results({"result-name": b"test data"}, "session-id")
+        results = results_client.create_results(
+            {"result-name": b"test data"}, "session-id"
+        )
 
         assert rpc_called("Results", "CreateResults")
         assert results == {}
@@ -75,7 +82,9 @@ class TestArmoniKResults:
 
     def test_upload_result_data(self):
         results_client: ArmoniKResults = get_client("Results")
-        result = results_client.upload_result_data("result-name", "session-id", b"test data")
+        result = results_client.upload_result_data(
+            "result-name", "session-id", b"test data"
+        )
 
         assert rpc_called("Results", "UploadResultData")
         assert result is None
@@ -107,7 +116,7 @@ class TestArmoniKResults:
 
             results_client: ArmoniKResults = get_client("Results")
             results = results_client.get_results_ids("session-id", ["result_1"])
-            
+
             assert issubclass(w[-1].category, DeprecationWarning)
             assert rpc_called("Results", "CreateResultsMetaData", 2)
             assert results == {}

@@ -1,7 +1,7 @@
 from abc import ABC
 from typing import List
 
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 
 from .enumwrapper import TaskStatus, ResultStatus
 
