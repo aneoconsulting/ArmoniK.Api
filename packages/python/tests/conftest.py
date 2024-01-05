@@ -44,6 +44,7 @@ def clean_up(request):
     # Remove the temporary files created for testing
     os.remove(os.path.join(data_folder, "payload-id"))
     os.remove(os.path.join(data_folder, "dd-id"))
+    os.remove(os.path.join(data_folder, "result-id"))
 
     # Reset the mock server counters
     try:
@@ -54,7 +55,7 @@ def clean_up(request):
         print("An error occurred when resetting the server: " + str(e))
 
 
-def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions]:
+def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[AgentStub, ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions]:
     """
     Get the ArmoniK client instance based on the specified service name.
 
@@ -63,7 +64,7 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[ArmoniK
         endpoint (str, optional): The gRPC server endpoint. Defaults to grpc_endpoint.
 
     Returns:
-        Union[ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions]
+        Union[AgentStub, ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions]
             An instance of the specified ArmoniK client.
 
     Raises:
@@ -75,6 +76,8 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[ArmoniK
     """
     channel = grpc.insecure_channel(endpoint).__enter__()
     match client_name:
+        case "Agent":
+            return AgentStub(channel)
         case "Partitions":
             return ArmoniKPartitions(channel)
         case "Results":
