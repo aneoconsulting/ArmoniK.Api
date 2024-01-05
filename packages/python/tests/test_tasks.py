@@ -6,22 +6,18 @@ from armonik.common import Task, TaskDefinition, TaskOptions, TaskStatus, Output
 
 
 class TestArmoniKTasks:
-
-    def test_get_task(self):
-        tasks_client: ArmoniKTasks = get_client("Tasks")
-        task = tasks_client.get_task("task-id")
-
-        assert rpc_called("Tasks", "GetTask")
-        assert isinstance(task, Task)
-        assert task.id == 'task-id'
-        assert task.session_id == 'session-id'
-        assert task.data_dependencies == []
-        assert task.expected_output_ids == []
-        assert task.retry_of_ids == []
-        assert task.status == TaskStatus.COMPLETED
-        assert task.payload_id is None
-        assert task.status_message == ''
-        assert task.options == TaskOptions(
+    mock_task = Task(
+        id='task-id',
+        session_id='session-id',
+        owner_pod_id='',
+        parent_task_ids=[],
+        data_dependencies=[],
+        expected_output_ids=[],
+        retry_of_ids=[],
+        status=4,
+        payload_id=None,
+        status_message='',
+        options=TaskOptions(
             max_duration=datetime.timedelta(seconds=1),
             priority=1,
             max_retries=1,
@@ -32,39 +28,48 @@ class TestArmoniKTasks:
             application_service='application-service',
             engine_type='engine-type',
             options={}
-        )
-        assert task.created_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert task.submitted_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert task.started_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert task.ended_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert task.pod_ttl == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert task.output == Output(error='')
-        assert task.pod_hostname == ''
-        assert task.received_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
-        assert task.acquired_at == datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+        ),
+        created_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        submitted_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        started_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        ended_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        pod_ttl=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        output=Output(error=''),
+        pod_hostname='',
+        received_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        acquired_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+    )
+
+    def test_get_task(self):
+        tasks_client: ArmoniKTasks = get_client("Tasks")
+        task = tasks_client.get_task("task-id")
+
+        assert rpc_called("Tasks", "GetTask")
+        assert isinstance(task, Task)
+        assert task == self.mock_task
 
     def test_list_tasks_detailed_no_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
         num, tasks = tasks_client.list_tasks()
         assert rpc_called("Tasks", "ListTasksDetailed")
         # TODO: Mock must be updated to return something and so that changes the following assertions
-        assert num == 0
-        assert tasks == []
+        assert num == 1
+        assert tasks == [self.mock_task]
 
     def test_list_tasks_detailed_with_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
         num, tasks = tasks_client.list_tasks(TaskFieldFilter.STATUS == TaskStatus.COMPLETED)
         assert rpc_called("Tasks", "ListTasksDetailed", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions
-        assert num == 0
-        assert tasks == []
+        assert num == 1
+        assert tasks == [self.mock_task]
 
     def test_list_tasks_no_detailed_no_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
         num, tasks = tasks_client.list_tasks(detailed=False)
         assert rpc_called("Tasks", "ListTasks")
         # TODO: Mock must be updated to return something and so that changes the following assertions
-        assert num == 0
+        assert num == 1
         assert tasks == []
 
     def test_cancel_tasks(self):
@@ -86,14 +91,14 @@ class TestArmoniKTasks:
         count = tasks_client.count_tasks_by_status()
         assert rpc_called("Tasks", "CountTasksByStatus")
         # TODO: Mock must be updated to return something and so that changes the following assertions
-        assert count == {}
+        assert count == {TaskStatus.COMPLETED: 2, TaskStatus.SUBMITTED: 5}
 
     def test_count_tasks_by_status_with_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
         count = tasks_client.count_tasks_by_status(TaskFieldFilter.STATUS == TaskStatus.COMPLETED)
         assert rpc_called("Tasks", "CountTasksByStatus", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions
-        assert count == {}
+        assert count == {TaskStatus.COMPLETED: 2, TaskStatus.SUBMITTED: 5}
 
     def test_submit_tasks(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
