@@ -9,13 +9,16 @@ from ..protogen.common.submitter_common_pb2 import TaskFilter
 from .enumwrapper import TaskStatus
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
-def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[List[str]] = None,
-                    included_statuses: Optional[List[TaskStatus]] = None,
-                    excluded_statuses: Optional[List[TaskStatus]] = None) -> TaskFilter:
-    """ Helper function to generate a task filter from the parameters
+def get_task_filter(
+    session_ids: Optional[List[str]] = None,
+    task_ids: Optional[List[str]] = None,
+    included_statuses: Optional[List[TaskStatus]] = None,
+    excluded_statuses: Optional[List[TaskStatus]] = None,
+) -> TaskFilter:
+    """Helper function to generate a task filter from the parameters
 
     Args:
         session_ids: Optional list of session Ids to filter against, mutually exclusive with task_ids
@@ -29,12 +32,14 @@ def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[
     if session_ids and task_ids:
         raise ValueError("session_ids and task_ids cannot be defined at the same time")
     if included_statuses and excluded_statuses:
-        raise ValueError("included_statuses and excluded_statuses cannot be defined at the same time")
+        raise ValueError(
+            "included_statuses and excluded_statuses cannot be defined at the same time"
+        )
     task_filter = TaskFilter(
         session=TaskFilter.IdsRequest() if session_ids else None,
         task=TaskFilter.IdsRequest() if task_ids else None,
         included=TaskFilter.StatusesRequest() if included_statuses else None,
-        excluded=TaskFilter.StatusesRequest() if excluded_statuses else None
+        excluded=TaskFilter.StatusesRequest() if excluded_statuses else None,
     )
     if session_ids:
         task_filter.session.ids.extend(session_ids)
@@ -48,7 +53,7 @@ def get_task_filter(session_ids: Optional[List[str]] = None, task_ids: Optional[
 
 
 def datetime_to_timestamp(time_stamp: datetime) -> timestamp.Timestamp:
-    """ Helper function to convert a Python Datetime to a gRPC Timestamp
+    """Helper function to convert a Python Datetime to a gRPC Timestamp
 
     Args:
         time_stamp: Python datetime timestamp to convert
@@ -62,7 +67,7 @@ def datetime_to_timestamp(time_stamp: datetime) -> timestamp.Timestamp:
 
 
 def timestamp_to_datetime(time_stamp: timestamp.Timestamp) -> datetime:
-    """ Helper function to convert a gRPC Timestamp to a Python Datetime
+    """Helper function to convert a gRPC Timestamp to a Python Datetime
     Note that datetime has microseconds accuracy instead of nanosecond accuracy for gRPC Timestamp
     Therefore, the conversion may not be lossless.
     Args:
@@ -75,7 +80,7 @@ def timestamp_to_datetime(time_stamp: timestamp.Timestamp) -> datetime:
 
 
 def duration_to_timedelta(delta: duration.Duration) -> timedelta:
-    """ Helper function to convert a gRPC Duration into a Python timedelta
+    """Helper function to convert a gRPC Duration into a Python timedelta
     Note that timedelta has microseconds accuracy instead of nanosecond accuracy for gRPC Duration.
     Therefore, the conversion may not be lossless.
     Args:
@@ -88,13 +93,13 @@ def duration_to_timedelta(delta: duration.Duration) -> timedelta:
 
 
 def timedelta_to_duration(delta: timedelta) -> duration.Duration:
-    """ Helper function to convert a gRPC Duration to a Python Datetime
+    """Helper function to convert a gRPC Duration to a Python Datetime
 
-        Args:
-            delta: Python timedelta to convert
+    Args:
+        delta: Python timedelta to convert
 
-        Returns:
-            Equivalent gRPC Duration
+    Returns:
+        Equivalent gRPC Duration
     """
     d = duration.Duration()
     d.FromTimedelta(delta)
@@ -113,7 +118,7 @@ def batched(iterable: Iterable[T], n: int) -> Iterable[List[T]]:
         A generator yielding batches of elements from the input iterable.
     """
     it = iter(iterable)
-    
+
     sentinel = object()
     batch = []
     c = next(it, sentinel)

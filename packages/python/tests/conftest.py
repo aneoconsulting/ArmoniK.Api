@@ -3,7 +3,15 @@ import os
 import pytest
 import requests
 
-from armonik.client import ArmoniKEvents, ArmoniKHealthChecks, ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions
+from armonik.client import (
+    ArmoniKEvents,
+    ArmoniKHealthChecks,
+    ArmoniKPartitions,
+    ArmoniKResults,
+    ArmoniKSessions,
+    ArmoniKTasks,
+    ArmoniKVersions,
+)
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List, Union
 
@@ -55,7 +63,18 @@ def clean_up(request):
         print("An error occurred when resetting the server: " + str(e))
 
 
-def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[AgentStub, ArmoniKEvents, ArmoniKHealthChecks, ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions]:
+def get_client(
+    client_name: str, endpoint: str = grpc_endpoint
+) -> Union[
+    AgentStub,
+    ArmoniKEvents,
+    ArmoniKHealthChecks,
+    ArmoniKPartitions,
+    ArmoniKResults,
+    ArmoniKSessions,
+    ArmoniKTasks,
+    ArmoniKVersions,
+]:
     """
     Get the ArmoniK client instance based on the specified service name.
 
@@ -93,10 +112,12 @@ def get_client(client_name: str, endpoint: str = grpc_endpoint) -> Union[AgentSt
         case "Versions":
             return ArmoniKVersions(channel)
         case _:
-            raise ValueError("Unknown service name: " + str(service_name))
+            raise ValueError("Unknown service name: " + str(client_name))
 
 
-def rpc_called(service_name: str, rpc_name: str, n_calls: int = 1, endpoint: str = calls_endpoint) -> bool:
+def rpc_called(
+    service_name: str, rpc_name: str, n_calls: int = 1, endpoint: str = calls_endpoint
+) -> bool:
     """Check if a remote procedure call (RPC) has been made a specified number of times.
     This function uses ArmoniK.Api.Mock. It just gets the '/calls.json' endpoint.
 
@@ -114,20 +135,22 @@ def rpc_called(service_name: str, rpc_name: str, n_calls: int = 1, endpoint: str
         requests.exceptions.RequestException: If an error occurs when requesting ArmoniK.Api.Mock.
 
     Example:
-    >>> rpc_called('http://localhost:5000/calls.json', 'Versions', 'ListVersionss', 0)
+    >>> rpc_called("http://localhost:5000/calls.json", "Versions", "ListVersionss", 0)
     True
     """
     response = requests.get(endpoint)
     response.raise_for_status()
     data = response.json()
-    
+
     # Check if the RPC has been called n_calls times
     if data[service_name][rpc_name] == n_calls:
         return True
     return False
 
 
-def all_rpc_called(service_name: str, missings: List[str] = [], endpoint: str = calls_endpoint) -> bool:
+def all_rpc_called(
+    service_name: str, missings: List[str] = [], endpoint: str = calls_endpoint
+) -> bool:
     """
     Check if all remote procedure calls (RPCs) in a service have been made at least once.
     This function uses ArmoniK.Api.Mock. It just gets the '/calls.json' endpoint.
@@ -145,13 +168,13 @@ def all_rpc_called(service_name: str, missings: List[str] = [], endpoint: str = 
         requests.exceptions.RequestException: If an error occurs when requesting ArmoniK.Api.Mock.
 
     Example:
-    >>> all_rpc_called('http://localhost:5000/calls.json', 'Versions')
+    >>> all_rpc_called("http://localhost:5000/calls.json", "Versions")
     False
     """
     response = requests.get(endpoint)
     response.raise_for_status()
     data = response.json()
-    
+
     missing_rpcs = []
 
     # Check if all RPCs in the service have been called at least once

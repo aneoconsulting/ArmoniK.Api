@@ -13,14 +13,16 @@ else:
 
 import argparse
 
+
 class ProtobufFilePathInfo(TypedDict):
     dir: Path
     path: Path
     rel_path: Path
 
+
 def fix_protobuf_imports(root_dir, dry):
     """
-      A script to fix relative imports (from and to nested sub-directories) within compiled `*_pb2*.py` Protobuf files.
+    A script to fix relative imports (from and to nested sub-directories) within compiled `*_pb2*.py` Protobuf files.
     """
 
     root_dir = Path(root_dir)
@@ -72,10 +74,12 @@ def fix_protobuf_imports(root_dir, dry):
             )
             if referenced_alias:
                 line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name} as {referenced_alias}\n'.replace(
-                    "from ...", "from ..")
+                    "from ...", "from .."
+                )
             else:
                 line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name}\n'.replace(
-                    "from ...", "from ..")
+                    "from ...", "from .."
+                )
 
             new_line = line.replace("\n", "")
 
@@ -125,7 +129,7 @@ def fix_protobuf_imports(root_dir, dry):
                 f.truncate()
             f.close()
 
-    for (name, info) in py_files_dictionary.items():
+    for name, info in py_files_dictionary.items():
         fix_protobuf_imports_in_file(name, info)
 
     for (
@@ -138,13 +142,18 @@ def fix_protobuf_imports(root_dir, dry):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("root_dir", type=Path, help="Path to the root directory")
-    parser.add_argument("--dry", action="store_true", default=False, help="Do not write out the changes to the files.")
+    parser.add_argument(
+        "--dry",
+        action="store_true",
+        default=False,
+        help="Do not write out the changes to the files.",
+    )
     args = parser.parse_args()
     if not args.root_dir.is_dir():
         raise argparse.ArgumentTypeError(f"Directory '{args.root_dir}' does not exist.")
     fix_protobuf_imports(args.root_dir, args.dry)
 
 
-if __name__ == '__main__':
-    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+if __name__ == "__main__":
+    sys.argv[0] = re.sub(r"(-script\.pyw|\.exe)?$", "", sys.argv[0])
     exit(main())

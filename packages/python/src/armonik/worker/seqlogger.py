@@ -14,7 +14,7 @@ class ClefLogger:
 
     @classmethod
     def setup_logging(cls, minlevel: int = logging.INFO) -> None:
-        """ Activates logging, should only be done once per process
+        """Activates logging, should only be done once per process
 
         Args:
             minlevel: Minimum level of logging for the whole process
@@ -23,7 +23,7 @@ class ClefLogger:
 
     @classmethod
     def getLogger(cls, name: str) -> "ClefLogger":
-        """ Get the logger with the given name. Creates it if it doesn't exist
+        """Get the logger with the given name. Creates it if it doesn't exist
 
         Args:
             name: Name of the logger
@@ -41,7 +41,7 @@ class ClefLogger:
         self._logger.setLevel(level)
 
     def info(self, message: str, **kwargs):
-        """ Log a message at the info level
+        """Log a message at the info level
 
         Args:
             message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
@@ -50,43 +50,53 @@ class ClefLogger:
         self.log(logging.INFO, message, **kwargs)
 
     def debug(self, message: str, **kwargs):
-        """ Log a message at the debug level
+        """Log a message at the debug level
 
-                Args:
-                    message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
-                    **kwargs: Keyword arguments added to the record
+        Args:
+            message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
+            **kwargs: Keyword arguments added to the record
         """
         self.log(logging.DEBUG, message, **kwargs)
 
     def warning(self, message: str, **kwargs):
-        """ Log a message at the warning level
+        """Log a message at the warning level
 
-                Args:
-                    message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
-                    **kwargs: Keyword arguments added to the record
+        Args:
+            message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
+            **kwargs: Keyword arguments added to the record
         """
         self.log(logging.WARNING, message, **kwargs)
 
     def error(self, message: str, **kwargs):
-        """ Log a message at the error level
+        """Log a message at the error level
 
-                Args:
-                    message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
-                    **kwargs: Keyword arguments added to the record
+        Args:
+            message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
+            **kwargs: Keyword arguments added to the record
         """
         self.log(logging.ERROR, message, **kwargs)
 
     def critical(self, message: str, **kwargs):
-        """ Log a message at the critical level
+        """Log a message at the critical level
 
-                Args:
-                    message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
-                    **kwargs: Keyword arguments added to the record
+        Args:
+            message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
+            **kwargs: Keyword arguments added to the record
         """
         self.log(logging.CRITICAL, message, **kwargs)
 
-    def exception(self, message: str, exc_info: Union[BaseException, Tuple[Type[BaseException], BaseException, Optional[TracebackType]], bool, None] = None, **kwargs):
-        """ Log a message at the error level with an optional exc_info
+    def exception(
+        self,
+        message: str,
+        exc_info: Union[
+            BaseException,
+            Tuple[Type[BaseException], BaseException, Optional[TracebackType]],
+            bool,
+            None,
+        ] = None,
+        **kwargs,
+    ):
+        """Log a message at the error level with an optional exc_info
 
         Args:
             message: Message content, can contain '{name}' where name is a keyword argument given to this function (see kwargs)
@@ -95,8 +105,26 @@ class ClefLogger:
         """
         self.log(logging.ERROR, message, exc_info=exc_info, **kwargs)
 
-    def log(self, level: int, message: str, exc_info: Union[BaseException, Union[Tuple[Union[Type[BaseException], None], Union[BaseException, None], Optional[TracebackType]], None], bool, None] = None, **kwargs):
-        """ Log a message
+    def log(
+        self,
+        level: int,
+        message: str,
+        exc_info: Union[
+            BaseException,
+            Union[
+                Tuple[
+                    Union[Type[BaseException], None],
+                    Union[BaseException, None],
+                    Optional[TracebackType],
+                ],
+                None,
+            ],
+            bool,
+            None,
+        ] = None,
+        **kwargs,
+    ):
+        """Log a message
 
         Args:
             level: level of the message
@@ -119,14 +147,14 @@ class ClefLogger:
                     payload["@x"] = "\n".join(traceback.format_exception(*exc_info))
                 for k, v in kwargs:
                     if k.startswith("@"):
-                        k = "@"+k
+                        k = "@" + k
                     payload[k] = str(v)
                 self._logger.log(level, msg=json.dumps(payload))
         except Exception as e:
             print(f"Couldn't log message : {e}")
 
     def setLevel(self, level: int):
-        """ Sets the level of this logger
+        """Sets the level of this logger
 
         Args:
             level: Logging level
