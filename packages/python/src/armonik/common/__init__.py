@@ -8,6 +8,7 @@ from .enumwrapper import (
     TaskStatus,
 )
 from .events import (
+    Event,
     NewResultEvent,
     NewTaskEvent,
     ResultOwnerUpdateEvent,
@@ -65,4 +66,5 @@ __all__ = [
     "ResultOwnerUpdateEvent",
     "ResultStatusUpdateEvent",
     "TaskStatusUpdateEvent",
+    "Event"
 ]
