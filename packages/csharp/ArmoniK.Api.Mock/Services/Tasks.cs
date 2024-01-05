@@ -67,8 +67,8 @@ public class Tasks : gRPC.V1.Tasks.Tasks.TasksBase
                                                     ServerCallContext context)
     => Task.FromResult(new ListTasksResponse
                        {
-                         Page     = 0,
-                         Total    = 0,
+                         Page     = 1,
+                         Total    = 1,
                          PageSize = request.PageSize,
                        });
 
@@ -88,7 +88,22 @@ public class Tasks : gRPC.V1.Tasks.Tasks.TasksBase
   [Count]
   public override Task<CountTasksByStatusResponse> CountTasksByStatus(CountTasksByStatusRequest request,
                                                                       ServerCallContext         context)
-    => Task.FromResult(new CountTasksByStatusResponse());
+    => Task.FromResult(new CountTasksByStatusResponse
+                       {
+                         Status =
+                         {
+                           new StatusCount
+                           {
+                             Status = TaskStatus.Completed,
+                             Count  = 2,
+                           },
+                           new StatusCount
+                           {
+                             Status = TaskStatus.Submitted,
+                             Count  = 5,
+                           },
+                         },
+                       });
 
   /// <inheritdocs />
   [Count]
@@ -97,8 +112,12 @@ public class Tasks : gRPC.V1.Tasks.Tasks.TasksBase
     => Task.FromResult(new ListTasksDetailedResponse
                        {
                          Page     = 0,
-                         Total    = 0,
+                         Total    = 1,
                          PageSize = request.PageSize,
+                         Tasks =
+                         {
+                           MockTask,
+                         },
                        });
 
   /// <inheritdocs />

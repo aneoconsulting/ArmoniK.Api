@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import IntEnum
 
 from ..protogen.common.task_status_pb2 import TaskStatus as RawStatus, _TASKSTATUS, TASK_STATUS_CANCELLED, TASK_STATUS_CANCELLING, TASK_STATUS_COMPLETED, TASK_STATUS_CREATING, TASK_STATUS_DISPATCHED, TASK_STATUS_ERROR, TASK_STATUS_PROCESSED, TASK_STATUS_PROCESSING, TASK_STATUS_SUBMITTED, TASK_STATUS_TIMEOUT, TASK_STATUS_UNSPECIFIED, TASK_STATUS_RETRIED
 from ..protogen.common.events_common_pb2 import EventsEnum as rawEventsEnum, EVENTS_ENUM_UNSPECIFIED, EVENTS_ENUM_NEW_TASK, EVENTS_ENUM_TASK_STATUS_UPDATE, EVENTS_ENUM_NEW_RESULT, EVENTS_ENUM_RESULT_STATUS_UPDATE, EVENTS_ENUM_RESULT_OWNER_UPDATE
@@ -17,11 +18,7 @@ class HealthCheckStatus:
     UNKNOWN = HealthCheckReply.UNKNOWN
 
 
-class TaskStatus:
-    @staticmethod
-    def name_from_value(status: RawStatus) -> str:
-        return _TASKSTATUS.values_by_number[status].name
-
+class TaskStatus(IntEnum):
     CANCELLED = TASK_STATUS_CANCELLED
     CANCELLING = TASK_STATUS_CANCELLING
     COMPLETED = TASK_STATUS_COMPLETED
