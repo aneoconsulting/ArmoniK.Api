@@ -1,13 +1,10 @@
 import json
-import os
-import pytest
 
 from .conftest import all_rpc_called, rpc_called, get_client
 from armonik.client import ArmoniKVersions
 
 
 class TestArmoniKVersions:
-
     def test_list_versions(self):
         """
         Test the list_versions method of ArmoniKVersions client.

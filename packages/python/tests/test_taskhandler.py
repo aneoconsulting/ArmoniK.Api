@@ -5,7 +5,6 @@ import warnings
 from .conftest import all_rpc_called, rpc_called, get_client, data_folder
 from armonik.common import TaskDefinition, TaskOptions
 from armonik.worker import TaskHandler
-from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from armonik.protogen.common.worker_common_pb2 import ProcessRequest
 from armonik.protogen.common.objects_pb2 import Configuration
 
@@ -15,8 +14,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 
 class TestTaskHandler:
-
-    request =ProcessRequest(
+    request = ProcessRequest(
         communication_token="token",
         session_id="session-id",
         task_id="task-id",
@@ -26,10 +24,8 @@ class TestTaskHandler:
         data_folder=data_folder,
         configuration=Configuration(data_chunk_max_size=8000),
         task_options=TaskOptions(
-            max_duration=datetime.timedelta(seconds=1),
-            priority=1,
-            max_retries=1
-        ).to_message()
+            max_duration=datetime.timedelta(seconds=1), priority=1, max_retries=1
+        ).to_message(),
     )
 
     def test_taskhandler_init(self):
@@ -41,13 +37,13 @@ class TestTaskHandler:
             max_duration=datetime.timedelta(seconds=1),
             priority=1,
             max_retries=1,
-            partition_id='',
-            application_name='',
-            application_version='',
-            application_namespace='',
-            application_service='',
-            engine_type='',
-            options={}
+            partition_id="",
+            application_name="",
+            application_version="",
+            application_namespace="",
+            application_service="",
+            engine_type="",
+            options={},
         )
         assert task_handler.token == "token"
         assert task_handler.expected_results == ["result-id"]
@@ -63,11 +59,16 @@ class TestTaskHandler:
             warnings.simplefilter("always")
 
             task_handler = TaskHandler(self.request, get_client("Agent"))
-            tasks, errors = task_handler.create_tasks([TaskDefinition(
-                                payload=b"payload",
-                                expected_output_ids=["result-id"],
-                                data_dependencies=[])])
-            
+            tasks, errors = task_handler.create_tasks(
+                [
+                    TaskDefinition(
+                        payload=b"payload",
+                        expected_output_ids=["result-id"],
+                        data_dependencies=[],
+                    )
+                ]
+            )
+
             assert issubclass(w[-1].category, DeprecationWarning)
             assert rpc_called("Agent", "CreateTask")
             assert tasks == []
@@ -75,11 +76,16 @@ class TestTaskHandler:
 
     def test_submit_tasks(self):
         task_handler = TaskHandler(self.request, get_client("Agent"))
-        tasks = task_handler.submit_tasks([TaskDefinition(payload_id="payload-id",
-                            expected_output_ids=["result-id"],
-                            data_dependencies=[])]
-            )
-        
+        tasks = task_handler.submit_tasks(
+            [
+                TaskDefinition(
+                    payload_id="payload-id",
+                    expected_output_ids=["result-id"],
+                    data_dependencies=[],
+                )
+            ]
+        )
+
         assert rpc_called("Agent", "SubmitTasks")
         assert tasks is None
 
@@ -105,4 +111,6 @@ class TestTaskHandler:
         assert results == {}
 
     def test_service_fully_implemented(self):
-        assert all_rpc_called("Agent", missings=["GetCommonData", "GetDirectData", "GetResourceData"])
+        assert all_rpc_called(
+            "Agent", missings=["GetCommonData", "GetDirectData", "GetResourceData"]
+        )
