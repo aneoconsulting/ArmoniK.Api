@@ -263,9 +263,7 @@ class Filter:
             Exception if value is not of the expected type
 
         """
-        if self.__class__.value_type_ is None or isinstance(
-            value, self.__class__.value_type_
-        ):
+        if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
             return
         msg = f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead"
         raise Exception(msg)
@@ -313,9 +311,7 @@ class Filter:
 
         if self.message_type == self.disjunction_type:
             raw = self.to_disjunction().disjunction_type()
-            getattr(raw, "or").extend(
-                [to_conjunction_message(conj) for conj in self._filters]
-            )
+            getattr(raw, "or").extend([to_conjunction_message(conj) for conj in self._filters])
             return raw
         if self.message_type == self.conjunction_type:
             return to_conjunction_message(self.to_disjunction()._filters[0])
@@ -364,9 +360,7 @@ class StringFilter(Filter):
     def to_basic_message(self) -> Message:
         return self.message_type(
             field=self.field,
-            filter_string=self.inner_message_type(
-                value=self.value, operator=self.operator
-            ),
+            filter_string=self.inner_message_type(value=self.value, operator=self.operator),
         )
 
     def __repr__(self) -> str:
@@ -406,9 +400,7 @@ class StatusFilter(Filter):
     def to_basic_message(self) -> Message:
         return self.message_type(
             field=self.field,
-            filter_status=self.inner_message_type(
-                value=self.value, operator=self.operator
-            ),
+            filter_status=self.inner_message_type(value=self.value, operator=self.operator),
         )
 
 
@@ -450,9 +442,7 @@ class DateFilter(Filter):
     def to_basic_message(self) -> Message:
         return self.message_type(
             field=self.field,
-            filter_date=self.inner_message_type(
-                value=self.value, operator=self.operator
-            ),
+            filter_date=self.inner_message_type(value=self.value, operator=self.operator),
         )
 
 
@@ -494,9 +484,7 @@ class NumberFilter(Filter):
     def to_basic_message(self) -> Message:
         return self.message_type(
             field=self.field,
-            filter_number=self.inner_message_type(
-                value=self.value, operator=self.operator
-            ),
+            filter_number=self.inner_message_type(value=self.value, operator=self.operator),
         )
 
 
@@ -539,9 +527,7 @@ class BooleanFilter(Filter):
     def to_basic_message(self) -> Message:
         return self.message_type(
             field=self.field,
-            filter_boolean=self.inner_message_type(
-                value=self.value, operator=self.operator
-            ),
+            filter_boolean=self.inner_message_type(value=self.value, operator=self.operator),
         )
 
 
@@ -579,9 +565,7 @@ class ArrayFilter(Filter):
     def to_basic_message(self) -> Message:
         return self.message_type(
             field=self.field,
-            filter_array=self.inner_message_type(
-                value=self.value, operator=self.operator
-            ),
+            filter_array=self.inner_message_type(value=self.value, operator=self.operator),
         )
 
 
@@ -623,7 +607,5 @@ class DurationFilter(Filter):
     def to_basic_message(self) -> Message:
         return self.message_type(
             field=self.field,
-            filter_duration=self.inner_message_type(
-                value=self.value, operator=self.operator
-            ),
+            filter_duration=self.inner_message_type(value=self.value, operator=self.operator),
         )

@@ -27,20 +27,12 @@ class Field(Message):
     "filt,inverted",
     [
         (
-            StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage)
-            == "Test",
-            StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage)
-            != "Test",
+            StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage) == "Test",
+            StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage) != "Test",
         ),
         (
-            StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage).contains(
-                "Test"
-            ),
-            ~(
-                StringFilter(
-                    Field(), DummyMessage, DummyMessageAnd, DummyMessage
-                ).contains("Test")
-            ),
+            StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage).contains("Test"),
+            ~(StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage).contains("Test")),
         ),
         (
             BooleanFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage),
@@ -83,16 +75,8 @@ def test_inversion(filt: Filter, inverted: Filter):
 @pytest.mark.parametrize(
     "filt",
     [
-        (
-            StringFilter(
-                Field(), DummyMessage, DummyMessageAnd, DummyMessage
-            ).startswith("Test")
-        ),
-        (
-            StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage).endswith(
-                "Test"
-            )
-        ),
+        (StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage).startswith("Test")),
+        (StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage).endswith("Test")),
         (StringFilter(Field(), DummyMessage, DummyMessageAnd, DummyMessage)),  # No op
     ],
 )

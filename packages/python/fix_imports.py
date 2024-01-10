@@ -93,9 +93,7 @@ def fix_protobuf_imports(root_dir, dry):
                 referenced_directory = root_dir / import_path
 
                 if referenced_directory.exists():
-                    relative_path_to_root = os.path.relpath(
-                        root_dir, referencing_info["dir"]
-                    )
+                    relative_path_to_root = os.path.relpath(root_dir, referencing_info["dir"])
 
                     uppath_levels = relative_path_to_root.count("..")
 
@@ -107,9 +105,7 @@ def fix_protobuf_imports(root_dir, dry):
 
                     new_line = line.replace("\n", "")
 
-                    print(
-                        f'{referencing_info["rel_path"]}: "{original_line}" -> "{new_line}"'
-                    )
+                    print(f'{referencing_info["rel_path"]}: "{original_line}" -> "{new_line}"')
 
         return line
 

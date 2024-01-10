@@ -42,9 +42,7 @@ class SessionFieldFilter:
     """
 
     STATUS = StatusFilter(
-        SessionField(
-            session_raw_field=SessionRawField(field=SESSION_RAW_ENUM_FIELD_STATUS)
-        ),
+        SessionField(session_raw_field=SessionRawField(field=SESSION_RAW_ENUM_FIELD_STATUS)),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
@@ -62,9 +60,7 @@ class SessionFieldFilter:
             Corresponding filter
         """
         return StringFilter(
-            SessionField(
-                task_option_generic_field=TaskOptionGenericField(field=option_key)
-            ),
+            SessionField(task_option_generic_field=TaskOptionGenericField(field=option_key)),
             rawFilters,
             rawFilterAnd,
             rawFilterField,
