@@ -33,9 +33,7 @@ from ..protogen.common.submitter_common_pb2 import (
 from ..protogen.common.task_status_pb2 import TaskStatus
 
 
-@deprecated(
-    deprecated_in="3.14.0", details="Use sessions, task and results client instead"
-)
+@deprecated(deprecated_in="3.14.0", details="Use sessions, task and results client instead")
 class ArmoniKSubmitter:
     """
     Deprecated:
@@ -77,9 +75,7 @@ class ArmoniKSubmitter:
         """
         if partition_ids is None:
             partition_ids = []
-        request = CreateSessionRequest(
-            default_task_option=default_task_options.to_message()
-        )
+        request = CreateSessionRequest(default_task_option=default_task_options.to_message())
         for partition in partition_ids:
             request.partition_ids.append(partition)
         return self._client.CreateSession(request).session_id
@@ -130,23 +126,18 @@ class ArmoniKSubmitter:
         )
         ret = create_tasks_reply.WhichOneof("Response")
         if ret is None or ret == "error":
-            raise Exception(
-                f"Issue with server when submitting tasks : {create_tasks_reply.error}"
-            )
+            raise Exception(f"Issue with server when submitting tasks : {create_tasks_reply.error}")
         elif ret == "creation_status_list":
             tasks_created = []
             tasks_creation_failed = []
-            for (
-                creation_status
-            ) in create_tasks_reply.creation_status_list.creation_statuses:
+            for creation_status in create_tasks_reply.creation_status_list.creation_statuses:
                 if creation_status.WhichOneof("Status") == "task_info":
                     tasks_created.append(
                         Task(
                             id=creation_status.task_info.task_id,
                             session_id=session_id,
                             expected_output_ids=[
-                                k
-                                for k in creation_status.task_info.expected_output_keys
+                                k for k in creation_status.task_info.expected_output_keys
                             ],
                             data_dependencies=[
                                 k for k in creation_status.task_info.data_dependencies
@@ -186,9 +177,7 @@ class ArmoniKSubmitter:
         return [
             t
             for t in self._client.ListTasks(
-                get_task_filter(
-                    session_ids, task_ids, included_statuses, excluded_statuses
-                )
+                get_task_filter(session_ids, task_ids, included_statuses, excluded_statuses)
             ).task_ids
         ]
 
@@ -368,9 +357,7 @@ def _to_request_stream(
         CreateLargeTaskRequest from the list of task requests
     """
     req = CreateLargeTaskRequest(
-        init_request=CreateLargeTaskRequest.InitRequest(
-            session_id=s_id, task_options=t_options
-        )
+        init_request=CreateLargeTaskRequest.InitRequest(session_id=s_id, task_options=t_options)
     )
     yield req
     if len(requests) == 0:

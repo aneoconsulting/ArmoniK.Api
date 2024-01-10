@@ -29,9 +29,7 @@ class TestArmoniKPartitions:
 
     def test_list_partitions_with_filter(self):
         partitions_client: ArmoniKPartitions = get_client("Partitions")
-        num, partitions = partitions_client.list_partitions(
-            PartitionFieldFilter.PRIORITY == 1
-        )
+        num, partitions = partitions_client.list_partitions(PartitionFieldFilter.PRIORITY == 1)
 
         assert rpc_called("Partitions", "ListPartitions", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions

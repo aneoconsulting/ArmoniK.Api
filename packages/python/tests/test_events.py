@@ -14,9 +14,7 @@ class TestArmoniKEvents:
             assert event.status == ResultStatus.CREATED
 
         tasks_client: ArmoniKEvents = get_client("Events")
-        tasks_client.get_events(
-            "session-id", [EventTypes.TASK_STATUS_UPDATE], [test_handler]
-        )
+        tasks_client.get_events("session-id", [EventTypes.TASK_STATUS_UPDATE], [test_handler])
 
         assert rpc_called("Events", "GetEvents")
 

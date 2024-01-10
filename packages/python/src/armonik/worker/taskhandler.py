@@ -83,23 +83,18 @@ class TaskHandler:
         )
         ret = create_tasks_reply.WhichOneof("Response")
         if ret is None or ret == "error":
-            raise Exception(
-                f"Issue with server when submitting tasks : {create_tasks_reply.error}"
-            )
+            raise Exception(f"Issue with server when submitting tasks : {create_tasks_reply.error}")
         elif ret == "creation_status_list":
             tasks_created = []
             tasks_creation_failed = []
-            for (
-                creation_status
-            ) in create_tasks_reply.creation_status_list.creation_statuses:
+            for creation_status in create_tasks_reply.creation_status_list.creation_statuses:
                 if creation_status.WhichOneof("Status") == "task_info":
                     tasks_created.append(
                         Task(
                             id=creation_status.task_info.task_id,
                             session_id=self.session_id,
                             expected_output_ids=[
-                                k
-                                for k in creation_status.task_info.expected_output_keys
+                                k for k in creation_status.task_info.expected_output_keys
                             ],
                             data_dependencies=[
                                 k for k in creation_status.task_info.data_dependencies
@@ -194,9 +189,7 @@ class TaskHandler:
                 session_id=self.session_id,
                 communication_token=self.token,
             )
-            response: CreateResultsMetaDataResponse = (
-                self._client.CreateResultsMetaData(request)
-            )
+            response: CreateResultsMetaDataResponse = self._client.CreateResultsMetaData(request)
             for result_message in response.results:
                 results[result_message.name] = Result.from_message(result_message)
         return results
@@ -217,9 +210,7 @@ class TaskHandler:
         for results_ids_batch in batched(results_data.keys(), batch_size):
             request = CreateResultsRequest(
                 results=[
-                    CreateResultsRequest.ResultCreate(
-                        name=name, data=results_data[name]
-                    )
+                    CreateResultsRequest.ResultCreate(name=name, data=results_data[name])
                     for name in results_ids_batch
                 ],
                 session_id=self.session_id,
@@ -286,11 +277,7 @@ def _to_request_stream(requests, communication_token, t_options, chunk_max_size)
     if len(requests) == 0:
         return
     for r in requests[:-1]:
-        for req in _to_request_stream_internal(
-            r, communication_token, False, chunk_max_size
-        ):
+        for req in _to_request_stream_internal(r, communication_token, False, chunk_max_size):
             yield req
-    for req in _to_request_stream_internal(
-        requests[-1], communication_token, True, chunk_max_size
-    ):
+    for req in _to_request_stream_internal(requests[-1], communication_token, True, chunk_max_size):
         yield req

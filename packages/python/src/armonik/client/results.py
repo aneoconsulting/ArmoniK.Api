@@ -49,18 +49,14 @@ from ..protogen.common.sort_direction_pb2 import SortDirection
 
 class ResultFieldFilter:
     STATUS = StatusFilter(
-        ResultField(
-            result_raw_field=ResultRawField(field=RESULT_RAW_ENUM_FIELD_STATUS)
-        ),
+        ResultField(result_raw_field=ResultRawField(field=RESULT_RAW_ENUM_FIELD_STATUS)),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
         rawFilterStatus,
     )
     RESULT_ID = StringFilter(
-        ResultField(
-            result_raw_field=ResultRawField(field=RESULT_RAW_ENUM_FIELD_RESULT_ID)
-        ),
+        ResultField(result_raw_field=ResultRawField(field=RESULT_RAW_ENUM_FIELD_RESULT_ID)),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
@@ -87,10 +83,7 @@ class ArmoniKResults:
                 CreateResultsMetaDataResponse,
                 self._client.CreateResultsMetaData(
                     CreateResultsMetaDataRequest(
-                        results=[
-                            CreateResultsMetaDataRequest.ResultCreate(name=n)
-                            for n in names
-                        ],
+                        results=[CreateResultsMetaDataRequest.ResultCreate(name=n) for n in names],
                         session_id=session_id,
                     )
                 ),
@@ -129,9 +122,7 @@ class ArmoniKResults:
             ),
         )
         list_response: ListResultsResponse = self._client.ListResults(request)
-        return list_response.total, [
-            Result.from_message(r) for r in list_response.results
-        ]
+        return list_response.total, [Result.from_message(r) for r in list_response.results]
 
     def get_result(self, result_id: str) -> Result:
         """Get a result by id.
@@ -161,9 +152,7 @@ class ArmoniKResults:
         """
         results = {}
         for result_ids_batch in batched(result_ids, batch_size):
-            request = GetOwnerTaskIdRequest(
-                session_id=session_id, result_id=result_ids_batch
-            )
+            request = GetOwnerTaskIdRequest(session_id=session_id, result_id=result_ids_batch)
             response: GetOwnerTaskIdResponse = self._client.GetOwnerTaskId(request)
             for result_task in response.result_task:
                 results[result_task.result_id] = result_task.task_id
@@ -192,9 +181,7 @@ class ArmoniKResults:
                 ],
                 session_id=session_id,
             )
-            response: CreateResultsMetaDataResponse = (
-                self._client.CreateResultsMetaData(request)
-            )
+            response: CreateResultsMetaDataResponse = self._client.CreateResultsMetaData(request)
             for result_message in response.results:
                 results[result_message.name] = Result.from_message(result_message)
         return results
@@ -216,9 +203,7 @@ class ArmoniKResults:
         for results_names_batch in batched(results_data.keys(), batch_size):
             request = CreateResultsRequest(
                 results=[
-                    CreateResultsRequest.ResultCreate(
-                        name=name, data=results_data[name]
-                    )
+                    CreateResultsRequest.ResultCreate(name=name, data=results_data[name])
                     for name in results_names_batch
                 ],
                 session_id=session_id,
@@ -285,9 +270,7 @@ class ArmoniKResults:
             batch_size: Batch size for querying.
         """
         for result_ids_batch in batched(result_ids, batch_size):
-            request = DeleteResultsDataRequest(
-                result_id=result_ids_batch, session_id=session_id
-            )
+            request = DeleteResultsDataRequest(result_id=result_ids_batch, session_id=session_id)
             self._client.DeleteResultsData(request)
 
     def get_service_config(self) -> int:
@@ -296,8 +279,8 @@ class ArmoniKResults:
         Return:
             Maximum size supported by a data chunk for the result service.
         """
-        response: ResultsServiceConfigurationResponse = (
-            self._client.GetServiceConfiguration(Empty())
+        response: ResultsServiceConfigurationResponse = self._client.GetServiceConfiguration(
+            Empty()
         )
         return response.data_chunk_max_size
 

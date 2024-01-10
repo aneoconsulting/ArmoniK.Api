@@ -162,9 +162,7 @@ class Task:
             started_at=timestamp_to_datetime(task_raw.started_at),
             ended_at=timestamp_to_datetime(task_raw.ended_at),
             pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
-            output=Output(
-                error=(task_raw.output.error if not task_raw.output.success else None)
-            ),
+            output=Output(error=(task_raw.output.error if not task_raw.output.success else None)),
             pod_hostname=task_raw.pod_hostname,
             received_at=timestamp_to_datetime(task_raw.received_at),
             acquired_at=timestamp_to_datetime(task_raw.acquired_at),

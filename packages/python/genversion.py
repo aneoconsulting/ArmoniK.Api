@@ -19,9 +19,7 @@ class Versionner:
             + int(version.dirty and self.consider_dirty)
         )
         if dev:
-            return version.format_next_version(
-                guess_next_version, "{guessed}" + f".dev{dev}"
-            )
+            return version.format_next_version(guess_next_version, "{guessed}" + f".dev{dev}")
         return version.format_with("{tag}")
 
 

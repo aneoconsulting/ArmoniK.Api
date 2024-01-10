@@ -60,9 +60,7 @@ class ArmoniKEvents:
             result_filter: A filter on results.
 
         """
-        request = EventSubscriptionRequest(
-            session_id=session_id, returned_events=event_types
-        )
+        request = EventSubscriptionRequest(session_id=session_id, returned_events=event_types)
         if task_filter:
             request.tasks_filters = (
                 cast(rawTaskFilters, task_filter.to_disjunction().to_message()),
@@ -102,15 +100,11 @@ class ArmoniKEvents:
 
         def handler(session_id, event_type, event):
             if not isinstance(event, ResultStatusUpdateEvent):
-                raise ValueError(
-                    "Handler should receive event of type 'ResultStatusUpdateEvent'."
-                )
+                raise ValueError("Handler should receive event of type 'ResultStatusUpdateEvent'.")
             if event.status == ResultStatus.COMPLETED:
                 return False
             elif event.status == ResultStatus.ABORTED:
-                raise RuntimeError(
-                    f"Result {result.name} with ID {result_id} is aborted."
-                )
+                raise RuntimeError(f"Result {result.name} with ID {result_id} is aborted.")
             return True
 
         result = self._results_client.get_result(result_id)

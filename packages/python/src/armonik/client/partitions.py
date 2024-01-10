@@ -30,9 +30,7 @@ from ..protogen.common.sort_direction_pb2 import SortDirection
 class PartitionFieldFilter:
     PRIORITY = NumberFilter(
         PartitionField(
-            partition_raw_field=PartitionRawField(
-                field=PARTITION_RAW_ENUM_FIELD_PRIORITY
-            )
+            partition_raw_field=PartitionRawField(field=PARTITION_RAW_ENUM_FIELD_PRIORITY)
         ),
         rawFilters,
         rawFiltersAnd,

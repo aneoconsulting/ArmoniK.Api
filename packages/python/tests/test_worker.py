@@ -51,9 +51,7 @@ class TestWorker:
             )
             reply = worker.Process(self.request, None)
             assert Output(
-                reply.output.error.details
-                if reply.output.WhichOneof("type") == "error"
-                else None
+                reply.output.error.details if reply.output.WhichOneof("type") == "error" else None
             ).success
             worker.HealthCheck(Empty(), None)
 
@@ -76,9 +74,7 @@ class TestWorker:
             )
             reply = worker.Process(self.request, None)
             output = Output(
-                reply.output.error.details
-                if reply.output.WhichOneof("type") == "error"
-                else None
+                reply.output.error.details if reply.output.WhichOneof("type") == "error" else None
             )
             assert not output.success
             assert output.error == "TestError"
@@ -93,16 +89,10 @@ class TestWorker:
             reply = worker.Process(self.request, None)
             assert reply is not None
             output = Output(
-                reply.output.error.details
-                if reply.output.WhichOneof("type") == "error"
-                else None
+                reply.output.error.details if reply.output.WhichOneof("type") == "error" else None
             )
             assert output.success
-            assert os.path.exists(
-                os.path.join(data_folder, self.request.expected_output_keys[0])
-            )
-            with open(
-                os.path.join(data_folder, self.request.expected_output_keys[0]), "rb"
-            ) as f:
+            assert os.path.exists(os.path.join(data_folder, self.request.expected_output_keys[0]))
+            with open(os.path.join(data_folder, self.request.expected_output_keys[0]), "rb") as f:
                 value = f.read()
                 assert len(value) > 0

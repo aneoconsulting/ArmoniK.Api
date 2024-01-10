@@ -65,9 +65,7 @@ class ArmoniKWorker(WorkerServicer):
         try:
             self._logger.debug("Received task")
             task_handler = TaskHandler(request, self._client)
-            return ProcessReply(
-                output=self.processing_function(task_handler).to_message()
-            )
+            return ProcessReply(output=self.processing_function(task_handler).to_message())
         except Exception as e:
             self._logger.exception(
                 f"Failed task {''.join(traceback.format_exception(type(e) ,e, e.__traceback__))}",

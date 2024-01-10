@@ -58,9 +58,7 @@ class TestArmoniKTasks:
 
     def test_list_tasks_detailed_with_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
-        num, tasks = tasks_client.list_tasks(
-            TaskFieldFilter.STATUS == TaskStatus.COMPLETED
-        )
+        num, tasks = tasks_client.list_tasks(TaskFieldFilter.STATUS == TaskStatus.COMPLETED)
         assert rpc_called("Tasks", "ListTasksDetailed", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions
         assert num == 1
@@ -97,9 +95,7 @@ class TestArmoniKTasks:
 
     def test_count_tasks_by_status_with_filter(self):
         tasks_client: ArmoniKTasks = get_client("Tasks")
-        count = tasks_client.count_tasks_by_status(
-            TaskFieldFilter.STATUS == TaskStatus.COMPLETED
-        )
+        count = tasks_client.count_tasks_by_status(TaskFieldFilter.STATUS == TaskStatus.COMPLETED)
         assert rpc_called("Tasks", "CountTasksByStatus", 2)
         # TODO: Mock must be updated to return something and so that changes the following assertions
         assert count == {TaskStatus.COMPLETED: 2, TaskStatus.SUBMITTED: 5}

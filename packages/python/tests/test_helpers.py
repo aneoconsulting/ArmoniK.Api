@@ -46,10 +46,7 @@ test_cases = [Case(1234, 1234), Case(0, 0), Case(12345, 12345), Case(100000, 100
 @pytest.mark.parametrize("case", test_cases)
 def test_datetime_to_timestamp(case: Case):
     ts = datetime_to_timestamp(case.date_time)
-    assert (
-        ts.seconds == case.timestamp.seconds
-        and abs(ts.nanos - case.timestamp.nanos) < 1000
-    )
+    assert ts.seconds == case.timestamp.seconds and abs(ts.nanos - case.timestamp.nanos) < 1000
 
 
 @pytest.mark.parametrize("case", test_cases)
@@ -67,10 +64,7 @@ def test_duration_to_timedelta(case: Case):
 @pytest.mark.parametrize("case", test_cases)
 def test_timedelta_to_duration(case: Case):
     ts = timedelta_to_duration(case.delta)
-    assert (
-        ts.seconds == case.duration.seconds
-        and abs(ts.nanos - case.duration.nanos) < 1000
-    )
+    assert ts.seconds == case.duration.seconds and abs(ts.nanos - case.duration.nanos) < 1000
 
 
 @pytest.mark.parametrize(

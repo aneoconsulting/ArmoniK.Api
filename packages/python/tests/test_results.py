@@ -65,9 +65,7 @@ class TestArmoniKResults:
 
     def test_create_results(self):
         results_client: ArmoniKResults = get_client("Results")
-        results = results_client.create_results(
-            {"result-name": b"test data"}, "session-id"
-        )
+        results = results_client.create_results({"result-name": b"test data"}, "session-id")
 
         assert rpc_called("Results", "CreateResults")
         assert results == {}
@@ -82,9 +80,7 @@ class TestArmoniKResults:
 
     def test_upload_result_data(self):
         results_client: ArmoniKResults = get_client("Results")
-        result = results_client.upload_result_data(
-            "result-name", "session-id", b"test data"
-        )
+        result = results_client.upload_result_data("result-name", "session-id", b"test data")
 
         assert rpc_called("Results", "UploadResultData")
         assert result is None

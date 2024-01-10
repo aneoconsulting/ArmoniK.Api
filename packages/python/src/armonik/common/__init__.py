@@ -66,5 +66,5 @@ __all__ = [
     "ResultOwnerUpdateEvent",
     "ResultStatusUpdateEvent",
     "TaskStatusUpdateEvent",
-    "Event"
+    "Event",
 ]
