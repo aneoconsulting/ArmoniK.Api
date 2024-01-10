@@ -4,14 +4,13 @@ from armonik.common import Partition
 
 
 class TestArmoniKPartitions:
-
     def test_get_partitions(self):
         partitions_client: ArmoniKPartitions = get_client("Partitions")
         partition = partitions_client.get_partition("partition-id")
 
         assert rpc_called("Partitions", "GetPartition")
         assert isinstance(partition, Partition)
-        assert partition.id == 'partition-id'
+        assert partition.id == "partition-id"
         assert partition.parent_partition_ids == []
         assert partition.pod_reserved == 1
         assert partition.pod_max == 1

@@ -1,18 +1,28 @@
 from __future__ import annotations
-from dataclasses import dataclass, field
-from datetime import timedelta, datetime
-from typing import Optional, List, Dict
 
-from ..protogen.common.tasks_common_pb2 import TaskDetailed
-from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
-from ..protogen.common.objects_pb2 import Empty, Output as WorkerOutput, TaskOptions as RawTaskOptions
-from ..protogen.common.task_status_pb2 import TaskStatus as RawTaskStatus
-from .enumwrapper import TaskStatus, SessionStatus, ResultStatus
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+from ..protogen.common.objects_pb2 import (
+    Empty,
+)
+from ..protogen.common.objects_pb2 import (
+    Output as WorkerOutput,
+)
+from ..protogen.common.objects_pb2 import (
+    TaskOptions as RawTaskOptions,
+)
 from ..protogen.common.partitions_common_pb2 import PartitionRaw
-from ..protogen.common.session_status_pb2 import SessionStatus as RawSessionStatus
-from ..protogen.common.sessions_common_pb2 import SessionRaw
 from ..protogen.common.result_status_pb2 import ResultStatus as RawResultStatus
 from ..protogen.common.results_common_pb2 import ResultRaw
+from ..protogen.common.session_status_pb2 import SessionStatus as RawSessionStatus
+from ..protogen.common.sessions_common_pb2 import SessionRaw
+from ..protogen.common.task_status_pb2 import TaskStatus as RawTaskStatus
+from ..protogen.common.tasks_common_pb2 import TaskDetailed
+from .enumwrapper import ResultStatus, SessionStatus, TaskStatus
+from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
+
 
 @dataclass()
 class TaskOptions:
@@ -29,30 +39,32 @@ class TaskOptions:
 
     @classmethod
     def from_message(cls, task_options):
-        return cls(max_duration=duration_to_timedelta(task_options.max_duration),
-                   max_retries=task_options.max_retries,
-                   priority=task_options.priority,
-                   partition_id=task_options.partition_id,
-                   application_name=task_options.application_name,
-                   application_version=task_options.application_version,
-                   application_namespace=task_options.application_namespace,
-                   application_service=task_options.application_service,
-                   engine_type=task_options.engine_type,
-                   options=task_options.options
-                   )
+        return cls(
+            max_duration=duration_to_timedelta(task_options.max_duration),
+            max_retries=task_options.max_retries,
+            priority=task_options.priority,
+            partition_id=task_options.partition_id,
+            application_name=task_options.application_name,
+            application_version=task_options.application_version,
+            application_namespace=task_options.application_namespace,
+            application_service=task_options.application_service,
+            engine_type=task_options.engine_type,
+            options=task_options.options,
+        )
 
     def to_message(self) -> RawTaskOptions:
-        return RawTaskOptions(max_duration=timedelta_to_duration(self.max_duration),
-                              max_retries=self.max_retries,
-                              priority=self.priority,
-                              partition_id=self.partition_id,
-                              application_name=self.application_name,
-                              application_version=self.application_version,
-                              application_namespace=self.application_namespace,
-                              application_service=self.application_service,
-                              engine_type=self.engine_type,
-                              options=self.options
-                              )
+        return RawTaskOptions(
+            max_duration=timedelta_to_duration(self.max_duration),
+            max_retries=self.max_retries,
+            priority=self.priority,
+            partition_id=self.partition_id,
+            application_name=self.application_name,
+            application_version=self.application_version,
+            application_namespace=self.application_namespace,
+            application_service=self.application_service,
+            engine_type=self.engine_type,
+            options=self.options,
+        )
 
 
 @dataclass()
@@ -111,7 +123,7 @@ class Task:
         Args:
             task_client: ArmoniKTasks client
         """
-        result : "Task" = task_client.get_task(self.id)
+        result: "Task" = task_client.get_task(self.id)
         self.session_id = result.session_id
         self.owner_pod_id = result.owner_pod_id
         self.parent_task_ids = result.parent_task_ids
@@ -150,11 +162,10 @@ class Task:
             started_at=timestamp_to_datetime(task_raw.started_at),
             ended_at=timestamp_to_datetime(task_raw.ended_at),
             pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
-            output=Output(
-                error=(task_raw.output.error if not task_raw.output.success else None)),
+            output=Output(error=(task_raw.output.error if not task_raw.output.success else None)),
             pod_hostname=task_raw.pod_hostname,
             received_at=timestamp_to_datetime(task_raw.received_at),
-            acquired_at=timestamp_to_datetime(task_raw.acquired_at)
+            acquired_at=timestamp_to_datetime(task_raw.acquired_at),
         )
 
 
@@ -185,12 +196,9 @@ class Session:
             options=TaskOptions.from_message(session_raw.options),
             created_at=timestamp_to_datetime(session_raw.created_at),
             cancelled_at=timestamp_to_datetime(session_raw.cancelled_at),
-            duration=duration_to_timedelta(session_raw.duration)
+            duration=duration_to_timedelta(session_raw.duration),
         )
 
-from dataclasses import dataclass, field
-from typing import List, Optional
-from datetime import datetime
 
 @dataclass
 class Result:
@@ -213,8 +221,9 @@ class Result:
             created_at=timestamp_to_datetime(result_raw.created_at),
             completed_at=timestamp_to_datetime(result_raw.completed_at),
             result_id=result_raw.result_id,
-            size=result_raw.size
+            size=result_raw.size,
         )
+
 
 @dataclass
 class Partition:
@@ -235,5 +244,5 @@ class Partition:
             pod_max=partition_raw.pod_max,
             pod_configuration=partition_raw.pod_configuration,
             preemption_percentage=partition_raw.preemption_percentage,
-            priority=partition_raw.priority
+            priority=partition_raw.priority,
         )

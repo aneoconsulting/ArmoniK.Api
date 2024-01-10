@@ -9,14 +9,29 @@ from grpc import Channel
 from .seqlogger import ClefLogger
 from ..common import Output, HealthCheckStatus
 from ..protogen.common.objects_pb2 import Empty
-from ..protogen.common.worker_common_pb2 import ProcessReply, ProcessRequest, HealthCheckReply
+from ..protogen.common.worker_common_pb2 import (
+    ProcessReply,
+    ProcessRequest,
+    HealthCheckReply,
+)
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
-from ..protogen.worker.worker_service_pb2_grpc import WorkerServicer, add_WorkerServicer_to_server
+from ..protogen.worker.worker_service_pb2_grpc import (
+    WorkerServicer,
+    add_WorkerServicer_to_server,
+)
 from .taskhandler import TaskHandler
 
 
 class ArmoniKWorker(WorkerServicer):
-    def __init__(self, agent_channel: Channel, processing_function: Callable[[TaskHandler], Output], health_check: Callable[[], HealthCheckReply.ServingStatus] = lambda: HealthCheckStatus.SERVING, logger=ClefLogger.getLogger("ArmoniKWorker")):
+    def __init__(
+        self,
+        agent_channel: Channel,
+        processing_function: Callable[[TaskHandler], Output],
+        health_check: Callable[
+            [], HealthCheckReply.ServingStatus
+        ] = lambda: HealthCheckStatus.SERVING,
+        logger=ClefLogger.getLogger("ArmoniKWorker"),
+    ):
         """Creates a worker for ArmoniK
 
         Args:
@@ -52,7 +67,10 @@ class ArmoniKWorker(WorkerServicer):
             task_handler = TaskHandler(request, self._client)
             return ProcessReply(output=self.processing_function(task_handler).to_message())
         except Exception as e:
-            self._logger.exception(f"Failed task {''.join(traceback.format_exception(type(e) ,e, e.__traceback__))}", exc_info=e)
+            self._logger.exception(
+                f"Failed task {''.join(traceback.format_exception(type(e) ,e, e.__traceback__))}",
+                exc_info=e,
+            )
 
     def HealthCheck(self, request: Empty, context) -> HealthCheckReply:
         return HealthCheckReply(status=self.health_check())

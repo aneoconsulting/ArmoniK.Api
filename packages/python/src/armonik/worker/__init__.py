@@ -3,7 +3,7 @@ from .taskhandler import TaskHandler
 from .seqlogger import ClefLogger
 
 __all__ = [
-    'ArmoniKWorker',
-    'TaskHandler',
-    'ClefLogger',
+    "ArmoniKWorker",
+    "TaskHandler",
+    "ClefLogger",
 ]
