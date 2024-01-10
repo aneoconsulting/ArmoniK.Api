@@ -32,4 +32,24 @@ service Sessions {
    * Create a session
    */
   rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
+
+  /**
+   * Pause a session by its id.
+   */
+  rpc PauseSession(PauseSessionRequest) returns (PauseSessionResponse);
+
+  /**
+   * Resume a paused session by its id.
+   */
+  rpc ResumeSession(ResumeSessionRequest) returns (ResumeSessionResponse);
+
+  /**
+   * Close a session by its id. Removes Results data.
+   */
+  rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse);
+
+  /**
+   * Delete a session by its id. Removes metadata from Results, Sessions and Tasks associated to the session.
+   */
+  rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse);
 }
