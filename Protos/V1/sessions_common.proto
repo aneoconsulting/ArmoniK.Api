@@ -122,3 +122,67 @@ message CreateSessionRequest {
 message CreateSessionReply {
   string session_id = 1; /** Session id of the created session if successful */
 }
+
+/**
+ * Request for pausing a single session.
+ */
+message PauseSessionRequest {
+  string session_id = 1; /** The session ID. */
+}
+
+/**
+ * Response for pausing a single session.
+ *
+ * Return a raw session.
+ */
+message PauseSessionResponse {
+  SessionRaw session = 1; /** The session. */
+}
+
+/**
+ * Request for resuming a single session.
+ */
+message ResumeSessionRequest {
+  string session_id = 1; /** The session ID. */
+}
+
+/**
+ * Response for resuming a single session.
+ *
+ * Return a raw session.
+ */
+message ResumeSessionResponse {
+  SessionRaw session = 1; /** The session. */
+}
+
+/**
+ * Request for closing a single session.
+ */
+message CloseSessionRequest {
+  string session_id = 1; /** The session ID. */
+}
+
+/**
+ * Response for closing a single session.
+ *
+ * Return a raw session.
+ */
+message CloseSessionResponse {
+  SessionRaw session = 1; /** The session. */
+}
+
+/**
+ * Request for deleting a single session.
+ */
+message DeleteSessionRequest {
+  string session_id = 1; /** The session ID. */
+}
+
+/**
+ * Response for deleting a single session.
+ *
+ * Return a raw session.
+ */
+message DeleteSessionResponse {
+  SessionRaw session = 1; /** The session. */
+}

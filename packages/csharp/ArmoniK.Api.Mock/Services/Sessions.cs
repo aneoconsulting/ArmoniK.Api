@@ -69,4 +69,40 @@ public class Sessions : gRPC.V1.Sessions.Sessions.SessionsBase
                          PageSize = request.PageSize,
                          Total    = 0,
                        });
+
+  /// <inheritdoc />
+  [Count]
+  public override Task<CloseSessionResponse> CloseSession(CloseSessionRequest request,
+                                                          ServerCallContext   context)
+    => Task.FromResult(new CloseSessionResponse
+                       {
+                         Session = MockSession,
+                       });
+
+  /// <inheritdoc />
+  [Count]
+  public override Task<DeleteSessionResponse> DeleteSession(DeleteSessionRequest request,
+                                                            ServerCallContext    context)
+    => Task.FromResult(new DeleteSessionResponse
+                       {
+                         Session = MockSession,
+                       });
+
+  /// <inheritdoc />
+  [Count]
+  public override Task<PauseSessionResponse> PauseSession(PauseSessionRequest request,
+                                                          ServerCallContext   context)
+    => Task.FromResult(new PauseSessionResponse
+                       {
+                         Session = MockSession,
+                       });
+
+  /// <inheritdoc />
+  [Count]
+  public override Task<ResumeSessionResponse> ResumeSession(ResumeSessionRequest request,
+                                                            ServerCallContext    context)
+    => Task.FromResult(new ResumeSessionResponse
+                       {
+                         Session = MockSession,
+                       });
 }
