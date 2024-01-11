@@ -76,6 +76,7 @@ def main():
 
     # Start worker
     logger.info("Worker Started")
+    # Use options to fix Unix socket connection on localhost (cf: <GitHub>)
     with grpc.insecure_channel(agent_endpoint, options=(('grpc.default_authority', 'localhost'),)) as agent_channel:
         worker = ArmoniKWorker(agent_channel, processor, logger=logger)
         logger.info("Worker Connected")
