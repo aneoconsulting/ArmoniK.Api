@@ -71,5 +71,11 @@ class TestArmoniKSessions:
 
         assert rpc_called("Sessions", "CancelSession")
 
+    def test_pause_session(self):
+        session_client: ArmoniKSessions = get_client("Sessions")
+        session_client.pause_session("session-id")
+
+        assert rpc_called("Sessions", "PauseSession")
+
     def test_service_fully_implemented(self):
         assert all_rpc_called("Sessions")
