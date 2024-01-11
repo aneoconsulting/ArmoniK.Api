@@ -116,7 +116,7 @@ class ArmoniKResults:
             page_size=page_size,
             filters=cast(rawFilters, result_filter.to_disjunction().to_message())
             if result_filter
-            else None,
+            else rawFilters(),
             sort=ListResultsRequest.Sort(
                 field=cast(ResultField, sort_field.field), direction=sort_direction
             ),

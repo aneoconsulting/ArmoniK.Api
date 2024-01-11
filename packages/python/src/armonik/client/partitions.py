@@ -74,7 +74,7 @@ class ArmoniKPartitions:
             page_size=page_size,
             filters=cast(rawFilters, partition_filter.to_disjunction().to_message())
             if partition_filter
-            else None,
+            else rawFilters(),
             sort=ListPartitionsRequest.Sort(
                 field=cast(PartitionField, sort_field.field), direction=sort_direction
             ),
