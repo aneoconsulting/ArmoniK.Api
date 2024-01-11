@@ -72,15 +72,6 @@ public class Sessions : gRPC.V1.Sessions.Sessions.SessionsBase
 
   /// <inheritdoc />
   [Count]
-  public override Task<CloseSessionResponse> CloseSession(CloseSessionRequest request,
-                                                          ServerCallContext   context)
-    => Task.FromResult(new CloseSessionResponse
-                       {
-                         Session = MockSession,
-                       });
-
-  /// <inheritdoc />
-  [Count]
   public override Task<DeleteSessionResponse> DeleteSession(DeleteSessionRequest request,
                                                             ServerCallContext    context)
     => Task.FromResult(new DeleteSessionResponse
@@ -102,6 +93,24 @@ public class Sessions : gRPC.V1.Sessions.Sessions.SessionsBase
   public override Task<ResumeSessionResponse> ResumeSession(ResumeSessionRequest request,
                                                             ServerCallContext    context)
     => Task.FromResult(new ResumeSessionResponse
+                       {
+                         Session = MockSession,
+                       });
+
+  /// <inheritdoc />
+  [Count]
+  public override Task<PurgeSessionResponse> PurgeSession(PurgeSessionRequest request,
+                                                          ServerCallContext   context)
+    => Task.FromResult(new PurgeSessionResponse
+                       {
+                         Session = MockSession,
+                       });
+
+  /// <inheritdoc />
+  [Count]
+  public override Task<StopSubmissionResponse> StopSubmission(StopSubmissionRequest request,
+                                                              ServerCallContext     context)
+    => Task.FromResult(new StopSubmissionResponse
                        {
                          Session = MockSession,
                        });
