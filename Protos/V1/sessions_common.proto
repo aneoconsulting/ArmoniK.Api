@@ -12,7 +12,6 @@ import "session_status.proto";
 import "sessions_fields.proto";
 import "sessions_filters.proto";
 import "sort_direction.proto";
-import "submission_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 
@@ -22,15 +21,16 @@ option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
 message SessionRaw {
   string session_id = 1; /** The session ID. */
   session_status.SessionStatus status = 2; /** The session status. */
-  submission_status.SubmissionStatus submission_status = 8; /** The submission status. */
+  bool client_submission = 8; /** Whether clients can submit tasks in the session. */
+  bool worker_submission = 9; /** Whether workers can submit tasks in the session. */
   repeated string partition_ids = 3; /** The partition IDs. */
   TaskOptions options = 4; /** The task options. In fact, these are used as default value in child tasks. */
 
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
-  google.protobuf.Timestamp closed_at = 9; /** The closing date. Only set when status is 'closed'. */
-  google.protobuf.Timestamp purged_at = 10; /** The purge date. Only set when status is 'purged'. */
-  google.protobuf.Timestamp deleted_at = 11; /** The deletion date. Only set when status is 'deleted'. */
+  google.protobuf.Timestamp closed_at = 10; /** The closing date. Only set when status is 'closed'. */
+  google.protobuf.Timestamp purged_at = 11; /** The purge date. Only set when status is 'purged'. */
+  google.protobuf.Timestamp deleted_at = 12; /** The deletion date. Only set when status is 'deleted'. */
   google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled' and 'closed'. */
 }
 
@@ -161,22 +161,6 @@ message ResumeSessionResponse {
 }
 
 /**
- * Request for closing a single session.
- */
-message CloseSessionRequest {
-  string session_id = 1; /** The session ID. */
-}
-
-/**
- * Response for closing a single session.
- *
- * Return a raw session.
- */
-message CloseSessionResponse {
-  SessionRaw session = 1; /** The session. */
-}
-
-/**
  * Request for purging a single session.
  */
 message PurgeSessionRequest {
@@ -209,33 +193,19 @@ message DeleteSessionResponse {
 }
 
 /**
- * Request for stopping new tasks submissions from clients in the given session.
+ * Request for stopping new tasks submissions from clients or workers in the given session.
  */
-message StopClientSubmissionRequest {
+message StopSubmissionRequest {
   string session_id = 1; /** The session ID. */
+  bool client = 2; /** Whether to stop client submission. */
+  bool worker = 3; /** Whether to stop worker submission. */
 }
 
 /**
- * Response for stopping new tasks submissions from clients in the given session.
+ * Response for stopping new tasks submissions from clients or workers in the given session.
  *
  * Return a raw session.
  */
-message StopClientSubmissionResponse {
-  SessionRaw session = 1; /** The session. */
-}
-
-/**
- * Request for stopping new tasks submissions from workers in the given session.
- */
-message StopWorkerSubmissionRequest {
-  string session_id = 1; /** The session ID. */
-}
-
-/**
- * Response for stopping new tasks submissions from workers in the given session.
- *
- * Return a raw session.
- */
-message StopWorkerSubmissionResponse {
+message StopSubmissionResponse {
   SessionRaw session = 1; /** The session. */
 }

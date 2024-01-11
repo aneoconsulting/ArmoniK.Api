@@ -44,11 +44,6 @@ service Sessions {
   rpc ResumeSession(ResumeSessionRequest) returns (ResumeSessionResponse);
 
   /**
-   * Close a session by its id. Also close submission in the session.
-   */
-  rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse);
-
-  /**
    * Purge a session by its id. Removes Results data.
    */
   rpc PurgeSession(PurgeSessionRequest) returns (PurgeSessionResponse);
@@ -59,12 +54,7 @@ service Sessions {
   rpc DeleteSession(DeleteSessionRequest) returns (DeleteSessionResponse);
 
   /**
-   * Stops clients from submitting new tasks in the given session.
+   * Stops clients and/or workers from submitting new tasks in the given session.
    */
-  rpc StopClientSubmission(StopClientSubmissionRequest) returns (StopClientSubmissionResponse);
-
-  /**
-   * Stops workers from submitting new tasks in the given session.
-   */
-  rpc StopWorkerSubmission(StopWorkerSubmissionRequest) returns (StopWorkerSubmissionResponse);
+  rpc StopSubmission(StopSubmissionRequest) returns (StopSubmissionResponse);
 }
