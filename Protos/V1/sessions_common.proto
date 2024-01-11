@@ -28,9 +28,8 @@ message SessionRaw {
 
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
-  google.protobuf.Timestamp closed_at = 10; /** The closing date. Only set when status is 'closed'. */
-  google.protobuf.Timestamp purged_at = 11; /** The purge date. Only set when status is 'purged'. */
-  google.protobuf.Timestamp deleted_at = 12; /** The deletion date. Only set when status is 'deleted'. */
+  google.protobuf.Timestamp purged_at = 10; /** The purge date. Only set when status is 'purged'. */
+  google.protobuf.Timestamp deleted_at = 11; /** The deletion date. Only set when status is 'deleted'. */
   google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled' and 'closed'. */
 }
 
