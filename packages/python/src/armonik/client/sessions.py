@@ -10,9 +10,13 @@ from ..protogen.client.sessions_service_pb2_grpc import SessionsStub
 from ..protogen.common.sessions_common_pb2 import (
     CancelSessionRequest,
     CreateSessionRequest,
+    DeleteSessionRequest,
     GetSessionRequest,
     GetSessionResponse,
     PauseSessionRequest,
+    PurgeSessionRequest,
+    ResumeSessionRequest,
+    StopSubmissionRequest,
     ListSessionsRequest,
     ListSessionsResponse,
 )
@@ -164,3 +168,37 @@ class ArmoniKSessions:
             session_id: Id of the session to be paused.
         """
         self._client.PauseSession(PauseSessionRequest(session_id=session_id))
+
+    def resume_session(self, session_id: str) -> None:
+        """Resume a session by its id.
+
+        Args:
+            session_id: Id of the session to be resumed.
+        """
+        self._client.ResumeSession(ResumeSessionRequest(session_id=session_id))
+
+    def purge_session(self, session_id: str) -> None:
+        """Purge a session by its id.
+
+        Args:
+            session_id: Id of the session to be purged.
+        """
+        self._client.PurgeSession(PurgeSessionRequest(session_id=session_id))
+
+    def delete_session(self, session_id: str) -> None:
+        """Delete a session by its id.
+
+        Args:
+            session_id: Id of the session to be deleted.
+        """
+        self._client.DeleteSession(DeleteSessionRequest(session_id=session_id))
+
+    def stop_submission_session(self, session_id: str, client: bool, worker:bool) -> None:
+        """Stops clients and/or workers from submitting new tasks in the given session.
+
+        Args:
+            session_id: Id of the session.
+            client: Stops clients from submitting new tasks in the given session.
+            worker: Stops workers from submitting new tasks in the given session.
+        """
+        self._client.StopSubmission(StopSubmissionRequest(session_id=session_id, client=client, worker=worker))
