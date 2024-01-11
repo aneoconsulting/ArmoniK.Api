@@ -320,7 +320,7 @@ class ArmoniKTasks:
             page_size=page_size,
             filters=cast(rawFilters, task_filter.to_disjunction().to_message())
             if task_filter
-            else None,
+            else rawFilters(),
             sort=ListTasksRequest.Sort(
                 field=cast(TaskField, sort_field.field), direction=sort_direction
             ),
@@ -379,7 +379,7 @@ class ArmoniKTasks:
         request = CountTasksByStatusRequest(
             filters=cast(rawFilters, task_filter.to_disjunction().to_message())
             if task_filter
-            else None
+            else rawFilters()
         )
         count_tasks_by_status_response: CountTasksByStatusResponse = (
             self._client.CountTasksByStatus(request)
