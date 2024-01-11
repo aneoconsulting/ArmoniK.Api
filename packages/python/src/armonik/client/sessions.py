@@ -140,7 +140,7 @@ class ArmoniKSessions:
             page_size=page_size,
             filters=cast(rawFilters, session_filter.to_disjunction().to_message())
             if session_filter
-            else None,
+            else rawFilters(),
             sort=ListSessionsRequest.Sort(
                 field=cast(SessionField, sort_field.field), direction=sort_direction
             ),
