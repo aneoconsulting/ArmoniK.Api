@@ -76,7 +76,7 @@ def main():
 
     # Start worker
     logger.info("Worker Started")
-    with grpc.insecure_channel(agent_endpoint) as agent_channel:
+    with grpc.insecure_channel(agent_endpoint, options=(('grpc.default_authority', 'localhost'),)) as agent_channel:
         worker = ArmoniKWorker(agent_channel, processor, logger=logger)
         logger.info("Worker Connected")
         worker.start(worker_endpoint)
