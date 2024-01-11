@@ -12,6 +12,7 @@ from ..protogen.common.sessions_common_pb2 import (
     CreateSessionRequest,
     GetSessionRequest,
     GetSessionResponse,
+    PauseSessionRequest,
     ListSessionsRequest,
     ListSessionsResponse,
 )
@@ -152,6 +153,14 @@ class ArmoniKSessions:
         """Cancel a session
 
         Args:
-            session_id: Id of the session to b cancelled
+            session_id: Id of the session to be cancelled
         """
         self._client.CancelSession(CancelSessionRequest(session_id=session_id))
+    
+    def pause_session(self, session_id: str) -> None:
+        """Pause a session by its id.
+
+        Args:
+            session_id: Id of the session to be paused.
+        """
+        self._client.PauseSession(PauseSessionRequest(session_id=session_id))
