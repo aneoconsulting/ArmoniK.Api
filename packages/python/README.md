@@ -81,3 +81,9 @@ The test environment utilizes a mock endpoint to assert if the ArmoniK service h
 ```bash
 curl localhost:5000/calls.json | jq
 ```
+
+## WARNING
+
+### Note for Users
+
+Starting from gRPC version 1.57 and onward, it is necessary to explicitly specify the default authority when creating the gRPC channel. [more details](https://github.com/grpc/grpc/issues/34305)
