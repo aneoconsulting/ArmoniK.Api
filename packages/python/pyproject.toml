@@ -41,6 +41,7 @@ tests = [
   'pytest',
   'pytest-cov',
   'pytest-benchmark[histogram]',
+  'requests'
 ]
 
 [tool.pytest.ini_options]
