@@ -8,8 +8,8 @@ def parse_arguments():
     parser.add_argument("-v","--version", action="version", version="ArmoniK Admin CLI 0.0.1")
     parser.add_argument("--endpoint", default="localhost:5001", help="ArmoniK control plane endpoint")
     parser.add_argument("--ca", help="ca.crt path for TLS or mutual TLS")
-    parser.add_argument("--cert", help="client.submitter.crt for mutual TLS")
-    parser.add_argument("--key", help="client.submitter.key for mutual TLS")
+    parser.add_argument("--cert", help="client certificate path for mutual TLS")
+    parser.add_argument("--key", help="client key path for mutual TLS")
     return parser.parse_args()
 
 def create_channel(endpoint: str,  ca: str = None, key: str = None, cert: str = None) -> grpc.Channel:
