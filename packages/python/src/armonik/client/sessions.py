@@ -9,9 +9,20 @@ from ..common.filter import Filter, StatusFilter, StringFilter
 from ..protogen.client.sessions_service_pb2_grpc import SessionsStub
 from ..protogen.common.sessions_common_pb2 import (
     CancelSessionRequest,
+    CancelSessionResponse,
     CreateSessionRequest,
+    DeleteSessionRequest,
+    DeleteSessionResponse,
     GetSessionRequest,
     GetSessionResponse,
+    PauseSessionRequest,
+    PauseSessionResponse,
+    PurgeSessionRequest,
+    PurgeSessionResponse,
+    ResumeSessionRequest,
+    ResumeSessionResponse,
+    StopSubmissionRequest,
+    StopSubmissionResponse,
     ListSessionsRequest,
     ListSessionsResponse,
 )
@@ -148,10 +159,79 @@ class ArmoniKSessions:
         response: ListSessionsResponse = self._client.ListSessions(request)
         return response.total, [Session.from_message(s) for s in response.sessions]
 
-    def cancel_session(self, session_id: str) -> None:
+    def cancel_session(self, session_id: str) -> Session:
         """Cancel a session
 
         Args:
-            session_id: Id of the session to b cancelled
+            session_id: Id of the session to be cancelled
         """
-        self._client.CancelSession(CancelSessionRequest(session_id=session_id))
+        request = CancelSessionRequest(session_id=session_id)
+        response: CancelSessionResponse = self._client.CancelSession(request)
+        return Session.from_message(response.session)
+    
+    def pause_session(self, session_id: str) -> Session:
+        """Pause a session by its id.
+
+        Args:
+            session_id: Id of the session to be paused.
+
+        Returns:
+            session metadata
+        """
+        request = PauseSessionRequest(session_id=session_id)
+        response: PauseSessionResponse = self._client.PauseSession(request)
+        return Session.from_message(response.session)
+
+    def resume_session(self, session_id: str) -> Session:
+        """Resume a session by its id.
+
+        Args:
+            session_id: Id of the session to be resumed.
+
+        Returns:
+            session metadata
+        """
+        request = ResumeSessionRequest(session_id=session_id)
+        response: ResumeSessionResponse = self._client.ResumeSession(request)
+        return Session.from_message(response.session)
+
+    def purge_session(self, session_id: str) -> Session:
+        """Purge a session by its id.
+
+        Args:
+            session_id: Id of the session to be purged.
+    
+        Returns:
+            session metadata
+        """
+        request = PurgeSessionRequest(session_id=session_id)
+        response: PurgeSessionResponse = self._client.PurgeSession(request)
+        return Session.from_message(response.session)
+
+    def delete_session(self, session_id: str) -> Session:
+        """Delete a session by its id.
+
+        Args:
+            session_id: Id of the session to be deleted.
+
+        Returns:
+            session metadata
+        """
+        request = DeleteSessionRequest(session_id=session_id)
+        response: DeleteSessionResponse = self._client.DeleteSession(request)
+        return Session.from_message(response.session)
+
+    def stop_submission_session(self, session_id: str, client: bool, worker:bool) -> Session:
+        """Stops clients and/or workers from submitting new tasks in the given session.
+
+        Args:
+            session_id: Id of the session.
+            client: Stops clients from submitting new tasks in the given session.
+            worker: Stops workers from submitting new tasks in the given session.
+
+        Returns:
+            session metadata
+        """
+        request = StopSubmissionRequest(session_id=session_id, client=client, worker=worker)
+        response: StopSubmissionResponse = self._client.StopSubmission(request)
+        return Session.from_message(response.session)
