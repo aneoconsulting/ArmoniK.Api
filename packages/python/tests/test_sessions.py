@@ -71,5 +71,35 @@ class TestArmoniKSessions:
 
         assert rpc_called("Sessions", "CancelSession")
 
+    def test_pause_session(self):
+        session_client: ArmoniKSessions = get_client("Sessions")
+        session_client.pause_session("session-id")
+
+        assert rpc_called("Sessions", "PauseSession")
+
+    def test_resume_session(self):
+        session_client: ArmoniKSessions = get_client("Sessions")
+        session_client.resume_session("session-id")
+
+        assert rpc_called("Sessions", "ResumeSession")
+
+    def test_purge_session(self):
+        session_client: ArmoniKSessions = get_client("Sessions")
+        session_client.purge_session("session-id")
+
+        assert rpc_called("Sessions", "PurgeSession")
+
+    def test_delete_session(self):
+        session_client: ArmoniKSessions = get_client("Sessions")
+        session_client.delete_session("session-id")
+
+        assert rpc_called("Sessions", "DeleteSession")
+
+    def test_stop_submission_session(self):
+        session_client: ArmoniKSessions = get_client("Sessions")
+        session_client.stop_submission_session("session-id", True, True)
+
+        assert rpc_called("Sessions", "StopSubmission")
+
     def test_service_fully_implemented(self):
         assert all_rpc_called("Sessions")

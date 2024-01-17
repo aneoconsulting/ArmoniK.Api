@@ -181,10 +181,14 @@ class ResultAvailability:
 class Session:
     session_id: Optional[str] = None
     status: RawSessionStatus = SessionStatus.UNSPECIFIED
+    client_submission: Optional[bool] = None
+    worker_submission: Optional[bool] = None
     partition_ids: List[str] = field(default_factory=list)
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
+    purged_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
     duration: Optional[timedelta] = None
 
     @classmethod
@@ -192,10 +196,14 @@ class Session:
         return cls(
             session_id=session_raw.session_id,
             status=session_raw.status,
+            client_submission=session_raw.client_submission,
+            worker_submission=session_raw.worker_submission,
             partition_ids=list(session_raw.partition_ids),
             options=TaskOptions.from_message(session_raw.options),
             created_at=timestamp_to_datetime(session_raw.created_at),
             cancelled_at=timestamp_to_datetime(session_raw.cancelled_at),
+            purged_at=timestamp_to_datetime(session_raw.purged_at),
+            deleted_at=timestamp_to_datetime(session_raw.deleted_at),
             duration=duration_to_timedelta(session_raw.duration),
         )
 
