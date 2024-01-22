@@ -4,43 +4,39 @@
 
 This guide provides steps to connect to ArmoniK securely using gRPC in Python. ArmoniK supports both TLS and mTLS (mutual TLS) for secure communication.
 
-### Prerequisites
+## Prerequisites
 
 Before proceeding, make sure that ArmoniK is deployed with the necessary certificates. Follow the steps below:
 
-1. In the `parameters.tfvars` file of ArmoniK, set the following values in the Deploy Ingress section:
-
-    For TLS only:
-
-    ```hcl
-    tls = true
-    mtls = false
-    ```
-
-    For mTLS:
-
-    ```hcl
-    tls = true
-    mtls = true
-    ```
+1. Ensure that ArmoniK is deployed with authentication. Refer to the [How to configure authentication in ArmoniK](https://aneoconsulting.github.io/ArmoniK/guide/how-to/how-to-configure-authentication#how-to-configure-authentication) guide for detailed instructions.
 
 2. Deploy ArmoniK.
 
-3. Certificates will be generated in `all-in-one/generated/certificates/ingress`:
-   - For TLS: `ca.crt`
-   - For mTLS: `ca.crt`, `client.submitter.crt`, `client.submitter.key`
+3. Certificates will be generated:
 
-4. With these certificates, you will be able to create credentials for a secure channel.
+### TLS
 
-### Modify Hosts File
+- `ca.crt`: Certificate Authority root certificate
+
+### mTLS
+
+- `ca.crt`: Certificate Authority root certificate
+- `client.submitter.crt`: Client certificate for submission
+- `client.submitter.key`: Private key corresponding to the client certificate
+
+## Create Credentials for a Secure Channel
+
+### Use the provided certificates to establish secure channel credentials
+
+When interacting with ArmoniK using Python, use the Common name as the endpoint. Ensure that the certificate's Common Name (CN) matches the endpoint name.
+
+### If the given certificate common name doesn't match the endpoint name (Armonik default certificates for example)
 
 Update your system's hosts file to associate the ArmoniK control plane address with the domain name "armonik.local". Use the following command to edit the hosts file:
 
 ```bash
 sudo nano /etc/hosts
 ```
-
-### Use ArmoniK Endpoint in Python
 
 Use `armonik.local` as endpoint and don't forget to specify the port
 
