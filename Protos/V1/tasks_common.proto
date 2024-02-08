@@ -40,7 +40,8 @@ message TaskDetailed {
   google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
   google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
-  google.protobuf.Timestamp started_at = 13; /** The task start date. */
+  google.protobuf.Timestamp fetched = 26; /** Task data retrevial end date. */  
+  google.protobuf.Timestamp started_at = 25; /** The task start date. */
   google.protobuf.Timestamp processed_at = 24; /** The end of task processing date. */
   google.protobuf.Timestamp ended_at = 14; /** The task end date. Also used when task failed. */
   google.protobuf.Timestamp pod_ttl = 15; /** The pod TTL (Time To Live). */
@@ -88,6 +89,7 @@ message TaskSummary {
   google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
   google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
+  google.protobuf.Timestamp fetched = 25; /** Task data retrevial end date. */
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp processed_at = 23; /** The end of task processing date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */

@@ -109,13 +109,15 @@ class Task:
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
+    received_at: Optional[datetime] = None
+    acquired_at: Optional[datetime] = None
+    fetched_at: Optional[datetime] = None
     started_at: Optional[datetime] = None
+    processed_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     pod_ttl: Optional[datetime] = None
     output: Optional[Output] = None
     pod_hostname: Optional[str] = None
-    received_at: Optional[datetime] = None
-    acquired_at: Optional[datetime] = None
 
     def refresh(self, task_client) -> None:
         """Refresh the fields of this task object by using the given task client
@@ -135,13 +137,15 @@ class Task:
         self.options = result.options
         self.created_at = result.created_at
         self.submitted_at = result.submitted_at
+        self.received_at = result.received_at
+        self.acquired_at = result.acquired_at
+        self.fetched_at = result.fetched_at
         self.started_at = result.started_at
+        self.processed_at = result.processed_at
         self.ended_at = result.ended_at
         self.pod_ttl = result.pod_ttl
         self.output = result.output
         self.pod_hostname = result.pod_hostname
-        self.received_at = result.received_at
-        self.acquired_at = result.acquired_at
         self.is_init = True
 
     @classmethod
@@ -159,13 +163,15 @@ class Task:
             options=TaskOptions.from_message(task_raw.options),
             created_at=timestamp_to_datetime(task_raw.created_at),
             submitted_at=timestamp_to_datetime(task_raw.submitted_at),
+            received_at=timestamp_to_datetime(task_raw.received_at),
+            acquired_at=timestamp_to_datetime(task_raw.acquired_at),
+            fetched_at=timestamp_to_datetime(task_raw.fetched_at),
             started_at=timestamp_to_datetime(task_raw.started_at),
+            processed_at=timestamp_to_datetime(task_raw.processed_at),
             ended_at=timestamp_to_datetime(task_raw.ended_at),
             pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
             output=Output(error=(task_raw.output.error if not task_raw.output.success else None)),
             pod_hostname=task_raw.pod_hostname,
-            received_at=timestamp_to_datetime(task_raw.received_at),
-            acquired_at=timestamp_to_datetime(task_raw.acquired_at),
         )
 
 
