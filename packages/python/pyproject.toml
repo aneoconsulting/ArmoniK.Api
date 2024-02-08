@@ -17,7 +17,8 @@ classifiers = [
 dependencies = [
     "grpcio",
     "grpcio-tools",
-    "deprecation"
+    "deprecation",
+    "numpy",
 ]
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
