@@ -29,12 +29,9 @@ using ArmoniK.Api.gRPC.V1.Agent;
 
 using Google.Protobuf;
 
-using JetBrains.Annotations;
-
 namespace ArmoniK.Api.Worker.Worker;
 
-[PublicAPI]
-public static class TaskRequestExtensions
+internal static class TaskRequestExtensions
 {
   public static IEnumerable<CreateTaskRequest> ToRequestStream(this IEnumerable<TaskRequest> taskRequests,
                                                                TaskOptions?                  taskOptions,
