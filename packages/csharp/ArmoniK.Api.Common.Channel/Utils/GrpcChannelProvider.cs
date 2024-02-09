@@ -125,7 +125,7 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
   }
 
   /// <summary>
-  ///   Access the created gRPC Channel
+  ///   Access to the created gRPC Channel
   /// </summary>
   /// <returns>The created gRPC Channel</returns>
   /// <exception cref="InvalidOperationException">when socket type is unknown</exception>

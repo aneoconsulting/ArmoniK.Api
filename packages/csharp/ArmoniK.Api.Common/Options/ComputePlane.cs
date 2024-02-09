@@ -31,6 +31,9 @@ namespace ArmoniK.Api.Common.Options;
 [PublicAPI]
 public class ComputePlane
 {
+  /// <summary>
+  ///   Path to the section containing the values in the configuration object
+  /// </summary>
   public const string SettingSection = nameof(ComputePlane);
 
   /// <summary>
