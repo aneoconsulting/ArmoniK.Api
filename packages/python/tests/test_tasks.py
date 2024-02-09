@@ -31,13 +31,15 @@ class TestArmoniKTasks:
         ),
         created_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         submitted_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        received_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        acquired_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        fetched_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         started_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
+        processed_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         ended_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         pod_ttl=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         output=Output(error=""),
         pod_hostname="",
-        received_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
-        acquired_at=datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
     )
 
     def test_get_task(self):
