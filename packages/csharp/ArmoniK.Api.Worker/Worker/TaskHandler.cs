@@ -111,6 +111,9 @@ internal class ReadFromFolderDict : IReadOnlyDictionary<string, byte[]>
     => dataDependencies_.Select(key => this[key]);
 }
 
+/// <summary>
+///   Task handler that unifies task execution and calls to the Agent
+/// </summary>
 public class TaskHandler : ITaskHandler
 {
   private readonly CancellationToken    cancellationToken_;
@@ -120,6 +123,14 @@ public class TaskHandler : ITaskHandler
   private readonly ILoggerFactory       loggerFactory_;
 
 
+  /// <summary>
+  ///   Instantiate task handler that unifies task execution and calls to the Agent
+  /// </summary>
+  /// <param name="processRequest">Task execution request</param>
+  /// <param name="client">Client to the agent</param>
+  /// <param name="loggerFactory">Logger factory used to create loggers</param>
+  /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+  /// <exception cref="InvalidOperationException">when payload is not found</exception>
   public TaskHandler(ProcessRequest    processRequest,
                      Agent.AgentClient client,
                      ILoggerFactory    loggerFactory,
@@ -153,6 +164,9 @@ public class TaskHandler : ITaskHandler
     }
   }
 
+  /// <summary>
+  ///   Communication token used to identify requests
+  /// </summary>
   public string Token { get; }
 
   /// <inheritdoc />
