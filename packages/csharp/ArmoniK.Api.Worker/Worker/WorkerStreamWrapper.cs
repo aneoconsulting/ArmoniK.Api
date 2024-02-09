@@ -44,10 +44,15 @@ namespace ArmoniK.Api.Worker.Worker;
 [PublicAPI]
 public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDisposable
 {
-  private readonly ChannelBase                  channel_;
-  private readonly Agent.AgentClient            client_;
-  private readonly ILogger<WorkerStreamWrapper> logger_;
-  private readonly ILoggerFactory               loggerFactory_;
+  private readonly ChannelBase       channel_;
+  private readonly Agent.AgentClient client_;
+  private readonly ILoggerFactory    loggerFactory_;
+
+  /// <summary>
+  ///   Logger used for printing logs during task execution
+  /// </summary>
+  [PublicAPI]
+  public ILogger<WorkerStreamWrapper> logger_;
 
   /// <summary>
   ///   Instantiate a simpler interface to use for tasks implementations
