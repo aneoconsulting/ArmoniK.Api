@@ -8,21 +8,20 @@ import pytest
 from .conftest import get_client
 from armonik.client import ArmoniKTasks, TaskFieldFilter
 from armonik.common import Direction, Task
-from armonik.utils import ArmoniKStatistics
-from armonik.utils.stats import (
+from armonik.stats import ArmoniKStatistics
+from armonik.stats.metrics import (
+    ArmoniKMetric,
     TotalElapsedTime,
-    ArmoniKStatItem,
     AvgThroughput,
-    StatusTransition,
+    TimestampsTransition,
     TasksInStatusOverTime,
 )
 
 
-class DummyStatItem(ArmoniKStatItem):
+class DummyMetric(ArmoniKMetric):
     def __init__(self):
-        super().__init__("dummy")
         self.updates = 0
-        self.finalizes = 0
+        self.completes = 0
         self.total = None
         self.tasks = []
         self.start = None
@@ -33,10 +32,10 @@ class DummyStatItem(ArmoniKStatItem):
         self.total = total
         self.tasks.append(tasks)
 
-    def finalize(self, start: datetime, end: datetime):
+    def complete(self, start: datetime, end: datetime):
         self.start = start
         self.end = end
-        self.finalizes += 1
+        self.completes += 1
 
     @property
     def values(self):
@@ -93,51 +92,51 @@ class TestArmoniKStatistics:
         ArmoniKStatistics(
             channel=channel,
             task_filter=TaskFieldFilter.SESSION_ID == "session-id",
-            stat_items=[TotalElapsedTime()],
+            metrics=[TotalElapsedTime()],
         )
 
         with pytest.raises(TypeError):
             ArmoniKStatistics(
                 channel=channel,
                 task_filter=TaskFieldFilter.SESSION_ID == "session-id",
-                stat_items="a",
+                metrics="a",
             )
 
         with pytest.raises(TypeError):
             ArmoniKStatistics(
                 channel=channel,
                 task_filter=TaskFieldFilter.SESSION_ID == "session-id",
-                stat_items=[],
+                metrics=[],
             )
 
         with pytest.raises(TypeError):
             ArmoniKStatistics(
                 channel=channel,
                 task_filter=TaskFieldFilter.SESSION_ID == "session-id",
-                stat_items=["a", TotalElapsedTime()],
+                metrics=["a", TotalElapsedTime()],
             )
 
         with pytest.raises(TypeError):
             ArmoniKStatistics(
                 channel=channel,
                 task_filter=TaskFieldFilter.SESSION_ID == "session-id",
-                stat_items=[TotalElapsedTime],
+                metrics=[TotalElapsedTime],
             )
 
     def test_compute(self):
         channel = get_client("Channel")
-        dummy = DummyStatItem()
+        dummy = DummyMetric()
         stats = ArmoniKStatistics(
             channel=channel,
             task_filter=TaskFieldFilter.SESSION_ID == "session-id",
-            stat_items=[dummy],
+            metrics=[dummy],
         )
         stats.client = DummyArmoniKTasks(channel)
         stats.compute()
 
         assert dummy.updates == 2
-        assert dummy.finalizes == 1
-        assert stats.values == {"dummy": "value"}
+        assert dummy.completes == 1
+        assert stats.values == {"DummyMetric": "value"}
         assert dummy.total == 5
         assert dummy.tasks[0] == task_batch_1 and dummy.tasks[1] == task_batch_2
         assert dummy.start == datetime(1, 1, 1, 1, 1, 0, tzinfo=timezone.utc)
@@ -148,7 +147,7 @@ class TestAvgThroughput:
     def test_avg_throughput(self):
         th = AvgThroughput()
         th.update(2, task_batch_2)
-        th.finalize(start, end)
+        th.complete(start, end)
         assert th.values == 2.0 / 5.0
 
 
@@ -156,34 +155,34 @@ class TestTotalElapsedTime:
     def test_total_elapsed_time(self):
         tet = TotalElapsedTime()
         tet.update(5, task_batch_1)
-        tet.finalize(start, end)
+        tet.complete(start, end)
         assert tet.values == 5.0
 
 
-class TestStatusTransition:
+class TestTimestampsTransition:
     def test_constructor(self):
-        StatusTransition("created", "submitted")
+        TimestampsTransition("created", "submitted")
 
         with pytest.raises(ValueError):
-            StatusTransition("created", "wrong")
+            TimestampsTransition("created", "wrong")
 
         with pytest.raises(ValueError):
-            StatusTransition("submitted", "created")
+            TimestampsTransition("submitted", "created")
 
-    def test_status_transition(self):
-        st = StatusTransition("created", "ended")
+    def test_timestamps_transition(self):
+        st = TimestampsTransition("created", "ended")
         st.update(5, task_batch_1)
         st.update(5, task_batch_2)
-        st.finalize(start, end)
+        st.complete(start, end)
         assert st.values == {"avg": 12.0 / 5.0, "min": 0.0, "max": 5.0}
 
 
 class TestTasksInStatusOverTime:
     def test_task_in_status_over_time_no_next_status(self):
-        tisot = TasksInStatusOverTime(status="ended")
+        tisot = TasksInStatusOverTime(timestamp="ended")
         tisot.update(5, task_batch_1)
         tisot.update(5, task_batch_2)
-        tisot.finalize(start, end)
+        tisot.complete(start, end)
         assert np.array_equal(
             tisot.values,
             np.array(
@@ -202,10 +201,10 @@ class TestTasksInStatusOverTime:
         )
 
     def test_task_in_status_over_time_with_next_status(self):
-        tisot = TasksInStatusOverTime(status="created", next_status="submitted")
+        tisot = TasksInStatusOverTime(timestamp="created", next_timestamp="submitted")
         tisot.update(5, task_batch_1)
         tisot.update(5, task_batch_2)
-        tisot.finalize(start, end)
+        tisot.complete(start, end)
         assert np.array_equal(
             tisot.values,
             np.array(

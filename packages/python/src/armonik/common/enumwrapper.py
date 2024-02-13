@@ -1,5 +1,5 @@
 from __future__ import annotations
-from enum import IntEnum
+from enum import IntEnum, Enum
 
 from ..protogen.common.task_status_pb2 import (
     TASK_STATUS_CANCELLED,
@@ -51,10 +51,25 @@ from ..protogen.common.sort_direction_pb2 import SORT_DIRECTION_ASC, SORT_DIRECT
 # This file is necessary because the grpc types aren't considered proper types
 
 
-class HealthCheckStatus:
+class WorkerHealthCheckStatus:
     NOT_SERVING = HealthCheckReply.NOT_SERVING
     SERVING = HealthCheckReply.SERVING
     UNKNOWN = HealthCheckReply.UNKNOWN
+
+
+class TaskTimestamps(IntEnum):
+    CREATED = 0
+    SUBMITTED = 1
+    RECEIVED = 2
+    ACQUIRED = 3
+    FETCHED = 4
+    STARTED = 5
+    PROCESSED = 6
+    ENDED = 7
+
+    @classmethod
+    def has_value(cls, value: str):
+        return value.upper() in cls.__members__ 
 
 
 class TaskStatus(IntEnum):
@@ -72,12 +87,12 @@ class TaskStatus(IntEnum):
     UNSPECIFIED = TASK_STATUS_UNSPECIFIED
 
 
-class Direction:
+class Direction(IntEnum):
     ASC = SORT_DIRECTION_ASC
     DESC = SORT_DIRECTION_DESC
 
 
-class SessionStatus:
+class SessionStatus(IntEnum):
     @staticmethod
     def name_from_value(status: RawSessionStatus) -> str:
         return _SESSIONSTATUS.values_by_number[status].name
@@ -87,7 +102,7 @@ class SessionStatus:
     CANCELLED = SESSION_STATUS_CANCELLED
 
 
-class ResultStatus:
+class ResultStatus(IntEnum):
     @staticmethod
     def name_from_value(status: RawResultStatus) -> str:
         return _RESULTSTATUS.values_by_number[status].name
@@ -99,7 +114,7 @@ class ResultStatus:
     NOTFOUND = RESULT_STATUS_NOTFOUND
 
 
-class EventTypes:
+class EventTypes(IntEnum):
     UNSPECIFIED = EVENTS_ENUM_UNSPECIFIED
     NEW_TASK = EVENTS_ENUM_NEW_TASK
     TASK_STATUS_UPDATE = EVENTS_ENUM_TASK_STATUS_UPDATE
@@ -112,7 +127,7 @@ class EventTypes:
         return getattr(cls, name.upper())
 
 
-class ServiceHealthCheckStatus:
+class ServiceHealthCheckStatus(IntEnum):
     UNSPECIFIED = HEALTH_STATUS_ENUM_UNSPECIFIED
     HEALTHY = HEALTH_STATUS_ENUM_HEALTHY
     DEGRADED = HEALTH_STATUS_ENUM_DEGRADED

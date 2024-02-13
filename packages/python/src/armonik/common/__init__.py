@@ -1,11 +1,12 @@
 from .enumwrapper import (
     Direction,
     EventTypes,
-    HealthCheckStatus,
+    WorkerHealthCheckStatus,
     ResultStatus,
     ServiceHealthCheckStatus,
     SessionStatus,
     TaskStatus,
+    TaskTimestamps,
 )
 from .events import (
     Event,
@@ -50,13 +51,13 @@ __all__ = [
     "Session",
     "Result",
     "Partition",
-    "HealthCheckStatus",
+    "WorkerHealthCheckStatus",
     "TaskStatus",
     "Direction",
     "SessionStatus",
     "ResultStatus",
     "EventTypes",
-    # Include all names from events module
+    "TaskTimestamps",
     "Filter",
     "StringFilter",
     "StatusFilter",

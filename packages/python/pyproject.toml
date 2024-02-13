@@ -17,8 +17,7 @@ classifiers = [
 dependencies = [
     "grpcio",
     "grpcio-tools",
-    "deprecation",
-    "numpy",
+    "deprecation"
 ]
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
@@ -36,6 +35,9 @@ exclude=['tests']
 "*" = ["*.pyi"]
 
 [project.optional-dependencies]
+stats = [
+    'numpy'
+]
 tests = [
   'coverage',
   'pytest',

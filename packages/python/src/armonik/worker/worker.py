@@ -7,7 +7,7 @@ import grpc
 from grpc import Channel
 
 from .seqlogger import ClefLogger
-from ..common import Output, HealthCheckStatus
+from ..common import Output, WorkerHealthCheckStatus
 from ..protogen.common.objects_pb2 import Empty
 from ..protogen.common.worker_common_pb2 import (
     ProcessReply,
@@ -29,7 +29,7 @@ class ArmoniKWorker(WorkerServicer):
         processing_function: Callable[[TaskHandler], Output],
         health_check: Callable[
             [], HealthCheckReply.ServingStatus
-        ] = lambda: HealthCheckStatus.SERVING,
+        ] = lambda: WorkerHealthCheckStatus.SERVING,
         logger=ClefLogger.getLogger("ArmoniKWorker"),
     ):
         """Creates a worker for ArmoniK

@@ -3,6 +3,8 @@ import os
 import pytest
 import requests
 
+from grpc import Channel
+
 from armonik.client import (
     ArmoniKEvents,
     ArmoniKHealthChecks,
@@ -74,6 +76,7 @@ def get_client(
     ArmoniKSessions,
     ArmoniKTasks,
     ArmoniKVersions,
+    Channel,
 ]:
     """
     Get the ArmoniK client instance based on the specified service name.
@@ -83,7 +86,7 @@ def get_client(
         endpoint (str, optional): The gRPC server endpoint. Defaults to grpc_endpoint.
 
     Returns:
-        Union[AgentStub, ArmoniKEvents, ArmoniKHealthChecks, ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions]
+        Union[AgentStub, ArmoniKEvents, ArmoniKHealthChecks, ArmoniKPartitions, ArmoniKResults, ArmoniKSessions, ArmoniKTasks, ArmoniKVersions, Channel]
             An instance of the specified ArmoniK client.
 
     Raises:
@@ -111,6 +114,8 @@ def get_client(
             return ArmoniKTasks(channel)
         case "Versions":
             return ArmoniKVersions(channel)
+        case "Channel":
+            return channel
         case _:
             raise ValueError("Unknown service name: " + str(client_name))
 

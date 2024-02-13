@@ -229,7 +229,7 @@ jobs:
         run: bash proto2python.sh ~/pyvenv
 
       - name: Install dependencies
-        run: pip install "$(echo pkg/armonik*.whl)[tests]"
+        run: pip install "$(echo pkg/armonik*.whl)[tests,stats]"
 
       - name: Install .NET Core
         uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
