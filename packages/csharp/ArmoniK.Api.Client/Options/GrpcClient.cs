@@ -36,6 +36,9 @@ namespace ArmoniK.Api.Client.Options
   [PublicAPI]
   public class GrpcClient
   {
+    /// <summary>
+    ///   Path to the section containing the values in the configuration object
+    /// </summary>
     public const string SettingSection = nameof(GrpcClient);
 
     /// <summary>

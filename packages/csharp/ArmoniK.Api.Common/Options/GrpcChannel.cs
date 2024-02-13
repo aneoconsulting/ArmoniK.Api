@@ -25,16 +25,19 @@ using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Common.Options;
 
+/// <summary>
+///   Options to configure a channel from gRPC
+/// </summary>
 [PublicAPI]
 public class GrpcChannel
 {
   /// <summary>
-  ///   Address or path of the resource used to communicate for this Grpc Channel
+  ///   Address or path of the resource used to communicate for this gRPC Channel
   /// </summary>
   public string Address { get; set; } = "/tmp/armonik.sock";
 
   /// <summary>
-  ///   Type of Grpc Socket used
+  ///   Type of gRPC Socket used
   /// </summary>
   public GrpcSocketType SocketType { get; set; } = GrpcSocketType.UnixDomainSocket;
 }
