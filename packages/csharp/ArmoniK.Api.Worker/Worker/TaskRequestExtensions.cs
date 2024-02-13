@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
-//
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// 
+// Copyright (C) ANEO, 2021-2024. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -29,12 +29,9 @@ using ArmoniK.Api.gRPC.V1.Agent;
 
 using Google.Protobuf;
 
-using JetBrains.Annotations;
-
 namespace ArmoniK.Api.Worker.Worker;
 
-[PublicAPI]
-public static class TaskRequestExtensions
+internal static class TaskRequestExtensions
 {
   public static IEnumerable<CreateTaskRequest> ToRequestStream(this IEnumerable<TaskRequest> taskRequests,
                                                                TaskOptions?                  taskOptions,

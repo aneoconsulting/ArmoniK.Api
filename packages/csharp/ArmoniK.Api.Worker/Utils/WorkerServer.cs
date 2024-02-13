@@ -113,7 +113,7 @@ public static class WorkerServer
       var computePlanOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection)
                                       .Get<ComputePlane>();
 
-      if (computePlanOptions.WorkerChannel == null)
+      if (computePlanOptions?.WorkerChannel is null)
       {
         throw new Exception($"{nameof(computePlanOptions.WorkerChannel)} options should not be null");
       }

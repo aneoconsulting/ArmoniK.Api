@@ -37,6 +37,9 @@ using GrpcChannel = ArmoniK.Api.Common.Options.GrpcChannel;
 
 namespace ArmoniK.Api.Common.Channel.Utils;
 
+/// <summary>
+///   Provides a built gRPC Channel from given options
+/// </summary>
 [UsedImplicitly]
 public sealed class GrpcChannelProvider : IAsyncDisposable
 {
@@ -46,6 +49,12 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
   private          NetworkStream?               networkStream_;
   private          Socket?                      socket_;
 
+  /// <summary>
+  ///   Instantiate a <see cref="GrpcChannelProvider" /> that creates a gRPC channel
+  /// </summary>
+  /// <param name="options">Options to configure the creation of the gRPC channel</param>
+  /// <param name="logger">Logger that will produce logs</param>
+  /// <exception cref="InvalidOperationException">when address is empty</exception>
   public GrpcChannelProvider(GrpcChannel                  options,
                              ILogger<GrpcChannelProvider> logger)
   {
@@ -56,6 +65,7 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
                     address_);
   }
 
+  /// <inheritdoc />
   public async ValueTask DisposeAsync()
   {
     socket_?.Close();
@@ -114,6 +124,11 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
                                                   });
   }
 
+  /// <summary>
+  ///   Access to the created gRPC Channel
+  /// </summary>
+  /// <returns>The created gRPC Channel</returns>
+  /// <exception cref="InvalidOperationException">when socket type is unknown</exception>
   public ChannelBase Get()
   {
     switch (options_.SocketType)

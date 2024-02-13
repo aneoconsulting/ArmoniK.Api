@@ -38,14 +38,27 @@ using Microsoft.Extensions.Logging;
 
 namespace ArmoniK.Api.Worker.Worker;
 
+/// <summary>
+///   Wrapper implementation that provide a simpler interface to use for tasks implementations in C#
+/// </summary>
 [PublicAPI]
 public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDisposable
 {
-  private readonly ChannelBase                  channel_;
-  private readonly Agent.AgentClient            client_;
-  private readonly ILoggerFactory               loggerFactory_;
-  public           ILogger<WorkerStreamWrapper> logger_;
+  private readonly ChannelBase       channel_;
+  private readonly Agent.AgentClient client_;
+  private readonly ILoggerFactory    loggerFactory_;
 
+  /// <summary>
+  ///   Logger used for printing logs during task execution
+  /// </summary>
+  [PublicAPI]
+  public ILogger<WorkerStreamWrapper> logger_;
+
+  /// <summary>
+  ///   Instantiate a simpler interface to use for tasks implementations
+  /// </summary>
+  /// <param name="loggerFactory">LoggerFactory to create loggers</param>
+  /// <param name="provider">gRPC channel provider to create channels with the Agent</param>
   public WorkerStreamWrapper(ILoggerFactory      loggerFactory,
                              GrpcChannelProvider provider)
   {
@@ -87,6 +100,14 @@ public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDispo
            };
   }
 
+  /// <summary>
+  ///   User defined computations
+  /// </summary>
+  /// <param name="taskHandler">Handler to access input data and task capabilities</param>
+  /// <returns>
+  ///   The output of the computational task
+  /// </returns>
+  /// <exception cref="RpcException">when method is not overwritten</exception>
   public virtual Task<Output> Process(ITaskHandler taskHandler)
     => throw new RpcException(new Status(StatusCode.Unimplemented,
                                          ""));
