@@ -59,7 +59,7 @@ public:
 
   /**
    * Pause a session
-   * 
+   *
    * @param session_id Session Id
    * @return SessionRaw object containing information about the session
    */
@@ -67,7 +67,7 @@ public:
 
   /**
    * Resume a session
-   * 
+   *
    * @param session_id Session Id
    * @return SessionRaw object containing information about the session
    */
@@ -75,25 +75,25 @@ public:
 
   /**
    * Purge a session
-   * 
+   *
    * @param session_id Session Id
-   * @return SessionRaw object containing information about the session 
+   * @return SessionRaw object containing information about the session
    */
   armonik::api::grpc::v1::sessions::SessionRaw purge_session(std::string session_id);
 
   /**
-   * Delete a session 
-   * 
+   * Delete a session
+   *
    * @param session_id Session Id
-   * @return SessionRaw object containing information about the session 
+   * @return SessionRaw object containing information about the session
    */
   armonik::api::grpc::v1::sessions::SessionRaw delete_session(std::string session_id);
 
   /**
    * Stop a new tasks submission in a session
-   * 
+   *
    * @param session_id Session Id
-   * @return SessionRaw object containing information about the session 
+   * @return SessionRaw object containing information about the session
    */
   armonik::api::grpc::v1::sessions::SessionRaw stop_submission_session(std::string session_id);
 
