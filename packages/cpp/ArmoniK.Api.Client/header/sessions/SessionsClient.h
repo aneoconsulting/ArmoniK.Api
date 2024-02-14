@@ -57,6 +57,46 @@ public:
                 int32_t page_size = 500,
                 armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort sort = default_sort);
 
+  /**
+   * Pause a session
+   * 
+   * @param session_id Session Id
+   * @return SessionRaw object containing information about the session
+   */
+  armonik::api::grpc::v1::sessions::SessionRaw pause_session(std::string session_id);
+
+  /**
+   * Resume a session
+   * 
+   * @param session_id Session Id
+   * @return SessionRaw object containing information about the session
+   */
+  armonik::api::grpc::v1::sessions::SessionRaw resume_session(std::string session_id);
+
+  /**
+   * Purge a session
+   * 
+   * @param session_id Session Id
+   * @return SessionRaw object containing information about the session 
+   */
+  armonik::api::grpc::v1::sessions::SessionRaw purge_session(std::string session_id);
+
+  /**
+   * Delete a session 
+   * 
+   * @param session_id Session Id
+   * @return SessionRaw object containing information about the session 
+   */
+  armonik::api::grpc::v1::sessions::SessionRaw delete_session(std::string session_id);
+
+  /**
+   * Stop a new tasks submission in a session
+   * 
+   * @param session_id Session Id
+   * @return SessionRaw object containing information about the session 
+   */
+  armonik::api::grpc::v1::sessions::SessionRaw stop_submission_session(std::string session_id);
+
 private:
   std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub;
   static const armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort default_sort;
