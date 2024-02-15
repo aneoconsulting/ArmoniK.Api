@@ -99,6 +99,15 @@ public class Sessions : gRPC.V1.Sessions.Sessions.SessionsBase
 
   /// <inheritdoc />
   [Count]
+  public override Task<CloseSessionResponse> CloseSession(CloseSessionRequest request,
+                                                          ServerCallContext   context)
+    => Task.FromResult(new CloseSessionResponse
+                       {
+                         Session = MockSession,
+                       });
+
+  /// <inheritdoc />
+  [Count]
   public override Task<PurgeSessionResponse> PurgeSession(PurgeSessionRequest request,
                                                           ServerCallContext   context)
     => Task.FromResult(new PurgeSessionResponse

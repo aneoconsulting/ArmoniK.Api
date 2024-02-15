@@ -193,6 +193,7 @@ class Session:
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
     purged_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
     duration: Optional[timedelta] = None
@@ -208,6 +209,7 @@ class Session:
             options=TaskOptions.from_message(session_raw.options),
             created_at=timestamp_to_datetime(session_raw.created_at),
             cancelled_at=timestamp_to_datetime(session_raw.cancelled_at),
+            closed_at=timestamp_to_datetime(session_raw.closed_at),
             purged_at=timestamp_to_datetime(session_raw.purged_at),
             deleted_at=timestamp_to_datetime(session_raw.deleted_at),
             duration=duration_to_timedelta(session_raw.duration),
