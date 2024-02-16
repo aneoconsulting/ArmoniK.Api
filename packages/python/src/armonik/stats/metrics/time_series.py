@@ -3,13 +3,14 @@ from datetime import datetime
 import numpy as np
 
 from .base import ArmoniKMetric
-from ...common import Task, TaskTimestamps
+from ...common import Task
 
 
 class TasksInStatusOverTime(ArmoniKMetric):
     """
     A metric to track tasks in a particular status over time.
     """
+
     def __init__(self, timestamp, next_timestamp=None) -> None:
         """
         Initialize the metric.

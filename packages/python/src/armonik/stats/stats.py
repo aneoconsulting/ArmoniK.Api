@@ -15,9 +15,7 @@ class ArmoniKStatistics:
         status_tuples (list[tuple[str, str]]): List of status transitions to compute statistics.
     """
 
-    def __init__(
-        self, channel: Channel, task_filter: Filter, metrics: list[ArmoniKMetric]
-    ) -> None:
+    def __init__(self, channel: Channel, task_filter: Filter, metrics: list[ArmoniKMetric]) -> None:
         self.client = ArmoniKTasks(channel)
         self.filter = task_filter
         self.metrics = metrics

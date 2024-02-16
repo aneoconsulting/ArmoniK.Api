@@ -21,7 +21,9 @@ class TimestampsTransition(ArmoniKMetric):
         self.avg = 0
         self.min = None
         self.max = None
-        self.__class__.__qualname__ = f"{self.timestamps[0].capitalize()}To{self.timestamps[1].capitalize()}"
+        self.__class__.__qualname__ = (
+            f"{self.timestamps[0].capitalize()}To{self.timestamps[1].capitalize()}"
+        )
 
     @property
     def timestamps(self) -> tuple[str, str]:
@@ -47,7 +49,9 @@ class TimestampsTransition(ArmoniKMetric):
         for timestamp in __value:
             if not TaskTimestamps.has_value(timestamp):
                 raise ValueError(f"{timestamp} is not a valid timestamp.")
-        if getattr(TaskTimestamps, __value[0].upper()) > getattr(TaskTimestamps, __value[1].upper()):
+        if getattr(TaskTimestamps, __value[0].upper()) > getattr(
+            TaskTimestamps, __value[1].upper()
+        ):
             raise ValueError(
                 f"Inconsistent timestamp order '{__value[0]}' is not prior to '{__value[1]}'."
             )

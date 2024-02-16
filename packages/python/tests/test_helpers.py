@@ -27,6 +27,8 @@ class Case:
 
     @property
     def date_time(self) -> datetime:
+        if self.seconds == 0 and self.nanos == 0:
+            return None
         return datetime.utcfromtimestamp(self.seconds + self.nanos * 1e-9).replace(
             tzinfo=timezone.utc
         )
@@ -51,8 +53,9 @@ def test_datetime_to_timestamp(case: Case):
 
 @pytest.mark.parametrize("case", test_cases)
 def test_timestamp_to_datetime(case: Case):
-    ts = timestamp_to_datetime(case.timestamp)
-    assert ts.timestamp() == case.date_time.timestamp()
+    dt = timestamp_to_datetime(case.timestamp)
+    # import pdb; pdb.set_trace()
+    assert dt == case.date_time
 
 
 @pytest.mark.parametrize("case", test_cases)

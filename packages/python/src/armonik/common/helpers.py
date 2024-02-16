@@ -52,7 +52,7 @@ def get_task_filter(
     return task_filter
 
 
-def datetime_to_timestamp(time_stamp: datetime) -> timestamp.Timestamp:
+def datetime_to_timestamp(time_stamp: datetime | None) -> timestamp.Timestamp:
     """Helper function to convert a Python Datetime to a gRPC Timestamp
 
     Args:
@@ -62,7 +62,9 @@ def datetime_to_timestamp(time_stamp: datetime) -> timestamp.Timestamp:
         Equivalent gRPC Timestamp
     """
     t = timestamp.Timestamp()
-    t.FromDatetime(dt=time_stamp)
+    t.FromDatetime(
+        dt=time_stamp if time_stamp is not None else datetime(1970, 1, 1, 0, 0, tzinfo=timezone.utc)
+    )
     return t
 
 
@@ -76,6 +78,8 @@ def timestamp_to_datetime(time_stamp: timestamp.Timestamp) -> datetime:
     Returns:
         Equivalent Python Datetime
     """
+    if time_stamp.seconds == 0 and time_stamp.nanos == 0:
+        return
     return time_stamp.ToDatetime(tzinfo=timezone.utc)
 
 

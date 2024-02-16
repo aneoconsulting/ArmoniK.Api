@@ -8,6 +8,7 @@ class TotalElapsedTime(ArmoniKMetric):
     """
     A metric to compute the total elapsed time between the first task and the last task.
     """
+
     def __init__(self) -> None:
         self.elapsed = None
 
@@ -36,6 +37,7 @@ class AvgThroughput(ArmoniKMetric):
     """
     A metric to compute the average throughput.
     """
+
     def __init__(self) -> None:
         self.throughput = None
         self.total = None

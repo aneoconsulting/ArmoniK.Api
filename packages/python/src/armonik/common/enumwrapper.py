@@ -1,5 +1,5 @@
 from __future__ import annotations
-from enum import IntEnum, Enum
+from enum import IntEnum
 
 from ..protogen.common.task_status_pb2 import (
     TASK_STATUS_CANCELLED,
@@ -69,7 +69,7 @@ class TaskTimestamps(IntEnum):
 
     @classmethod
     def has_value(cls, value: str):
-        return value.upper() in cls.__members__ 
+        return value.upper() in cls.__members__
 
 
 class TaskStatus(IntEnum):
