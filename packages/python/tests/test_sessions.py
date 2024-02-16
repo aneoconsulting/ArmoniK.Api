@@ -37,12 +37,8 @@ class TestArmoniKSessions:
             engine_type="",
             options={},
         )
-        assert session.created_at == datetime.datetime(
-            1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-        )
-        assert session.cancelled_at == datetime.datetime(
-            1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-        )
+        assert session.created_at is None
+        assert session.cancelled_at is None
         assert session.duration == datetime.timedelta(0)
 
     def test_list_session_no_filter(self):
