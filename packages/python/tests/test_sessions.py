@@ -89,6 +89,12 @@ class TestArmoniKSessions:
 
         assert rpc_called("Sessions", "PurgeSession")
 
+    def test_close_session(self):
+        session_client: ArmoniKSessions = get_client("Sessions")
+        session_client.close_session("session-id")
+
+        assert rpc_called("Sessions", "CloseSession")
+
     def test_delete_session(self):
         session_client: ArmoniKSessions = get_client("Sessions")
         session_client.delete_session("session-id")

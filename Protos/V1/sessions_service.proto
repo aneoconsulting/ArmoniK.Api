@@ -44,6 +44,11 @@ service Sessions {
   rpc ResumeSession(ResumeSessionRequest) returns (ResumeSessionResponse);
 
   /**
+   * Close a session by its id..
+   */
+  rpc CloseSession(CloseSessionRequest) returns (CloseSessionResponse);
+
+  /**
    * Purge a session by its id. Removes Results data.
    */
   rpc PurgeSession(PurgeSessionRequest) returns (PurgeSessionResponse);
