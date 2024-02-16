@@ -185,3 +185,18 @@ armonik::api::client::SessionsClient::stop_submission_session(std::string sessio
 
   return std::move(*response.mutable_session());
 }
+
+armonik::api::grpc::v1::sessions::SessionRaw
+armonik::api::client::SessionsClient::close_session(std::string session_id) {
+  ::grpc::ClientContext context;
+  armonik::api::grpc::v1::sessions::CloseSessionRequest request;
+  armonik::api::grpc::v1::sessions::CloseSessionResponse response;
+
+  request.set_session_id(std::move(session_id));
+  auto status = stub->CloseSession(&context, request, &response);
+  if (!status.ok()) {
+    throw armonik::api::common::exceptions::ArmoniKApiException("Could not close session : " + status.error_message());
+  }
+
+  return std::move(*response.mutable_session());
+}
