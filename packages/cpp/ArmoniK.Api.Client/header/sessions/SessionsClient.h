@@ -100,6 +100,14 @@ public:
   armonik::api::grpc::v1::sessions::SessionRaw stop_submission_session(std::string session_id, bool client = true,
                                                                        bool worker = true);
 
+  /**
+   * Resume a session
+   *
+   * @param session_id Session Id
+   * @return SessionRaw object containing information about the session
+   */
+  armonik::api::grpc::v1::sessions::SessionRaw close_session(std::string session_id);
+
 private:
   std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub;
   static const armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort default_sort;
