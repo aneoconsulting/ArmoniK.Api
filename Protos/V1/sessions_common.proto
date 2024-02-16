@@ -28,6 +28,7 @@ message SessionRaw {
 
   google.protobuf.Timestamp created_at = 5; /** The creation date. */
   google.protobuf.Timestamp cancelled_at = 6; /** The cancellation date. Only set when status is 'cancelled'. */
+  google.protobuf.Timestamp closed_at = 12; /** The closure date. Only set when status is 'closed'. */
   google.protobuf.Timestamp purged_at = 10; /** The purge date. Only set when status is 'purged'. */
   google.protobuf.Timestamp deleted_at = 11; /** The deletion date. Only set when status is 'deleted'. */
   google.protobuf.Duration duration = 7; /** The duration. Only set when status is 'cancelled' and 'closed'. */
@@ -156,6 +157,22 @@ message ResumeSessionRequest {
  * Return a raw session.
  */
 message ResumeSessionResponse {
+  SessionRaw session = 1; /** The session. */
+}
+
+/**
+ * Request for closing a single session.
+ */
+message CloseSessionRequest {
+  string session_id = 1; /** The session ID. */
+}
+
+/**
+ * Response for closing a single session.
+ *
+ * Return a raw session.
+ */
+message CloseSessionResponse {
   SessionRaw session = 1; /** The session. */
 }
 

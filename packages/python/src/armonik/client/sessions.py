@@ -19,6 +19,8 @@ from ..protogen.common.sessions_common_pb2 import (
     PauseSessionResponse,
     PurgeSessionRequest,
     PurgeSessionResponse,
+    CloseSessionRequest,
+    CloseSessionResponse,
     ResumeSessionRequest,
     ResumeSessionResponse,
     StopSubmissionRequest,
@@ -193,6 +195,19 @@ class ArmoniKSessions:
         """
         request = ResumeSessionRequest(session_id=session_id)
         response: ResumeSessionResponse = self._client.ResumeSession(request)
+        return Session.from_message(response.session)
+
+    def close_session(self, session_id: str) -> Session:
+        """Close a session by its id.
+
+        Args:
+            session_id: Id of the session to be closed.
+
+        Returns:
+            session metadata
+        """
+        request = CloseSessionRequest(session_id=session_id)
+        response: CloseSessionResponse = self._client.CloseSession(request)
         return Session.from_message(response.session)
 
     def purge_session(self, session_id: str) -> Session:
