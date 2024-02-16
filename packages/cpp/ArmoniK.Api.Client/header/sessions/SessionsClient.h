@@ -93,9 +93,12 @@ public:
    * Stop a new tasks submission in a session
    *
    * @param session_id Session Id
+   * @param client boolean to stop client's task submission
+   * @param worker boolean to stop worker's task submissions
    * @return SessionRaw object containing information about the session
    */
-  armonik::api::grpc::v1::sessions::SessionRaw stop_submission_session(std::string session_id);
+  armonik::api::grpc::v1::sessions::SessionRaw stop_submission_session(std::string session_id, bool client = true,
+                                                                       bool worker = true);
 
 private:
   std::unique_ptr<armonik::api::grpc::v1::sessions::Sessions::StubInterface> stub;

@@ -169,12 +169,14 @@ armonik::api::client::SessionsClient::delete_session(std::string session_id) {
 }
 
 armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::stop_submission_session(std::string session_id) {
+armonik::api::client::SessionsClient::stop_submission_session(std::string session_id, bool client, bool worker) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::sessions::StopSubmissionRequest request;
   armonik::api::grpc::v1::sessions::StopSubmissionResponse response;
 
   request.set_session_id(std::move(session_id));
+  request.set_client(client);
+  request.set_worker(worker);
   auto status = stub->StopSubmission(&context, request, &response);
   if (!status.ok()) {
     throw armonik::api::common::exceptions::ArmoniKApiException("Could not stop submission session : " +
