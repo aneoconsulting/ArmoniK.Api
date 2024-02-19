@@ -101,3 +101,97 @@ TEST(Sessions, can_list_sessions_small_page) {
   ASSERT_GE(list.size(), expected_n_sessions);
   ASSERT_GE(total, expected_n_sessions);
 }
+
+TEST(Sessions, can_pause_session) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+  init(channel, task_options, log);
+
+  armonik::api::client::SessionsClient client(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel));
+
+  std::string session_id = client.create_session(task_options);
+
+  armonik::api::grpc::v1::sessions::SessionRaw response;
+  ASSERT_NO_THROW(response = client.pause_session(session_id));
+  ASSERT_EQ(response.session_id(), session_id);
+}
+
+TEST(Sessions, can_resume_session) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+  init(channel, task_options, log);
+
+  armonik::api::client::SessionsClient client(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel));
+
+  std::string session_id = client.create_session(task_options);
+
+  ASSERT_NO_THROW(client.pause_session(session_id));
+
+  armonik::api::grpc::v1::sessions::SessionRaw response;
+  ASSERT_NO_THROW(response = client.resume_session(session_id));
+  ASSERT_EQ(response.session_id(), session_id);
+}
+
+TEST(Sessions, can_purge_session) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+  init(channel, task_options, log);
+
+  armonik::api::client::SessionsClient client(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel));
+
+  std::string session_id = client.create_session(task_options);
+
+  ASSERT_NO_THROW(client.close_session(session_id));
+
+  armonik::api::grpc::v1::sessions::SessionRaw response;
+  ASSERT_NO_THROW(response = client.purge_session(session_id));
+  ASSERT_EQ(response.session_id(), session_id);
+}
+
+TEST(Sessions, can_delete_session) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+  init(channel, task_options, log);
+
+  armonik::api::client::SessionsClient client(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel));
+
+  std::string session_id = client.create_session(task_options);
+
+  armonik::api::grpc::v1::sessions::SessionRaw response;
+  ASSERT_NO_THROW(response = client.delete_session(session_id));
+  ASSERT_EQ(response.session_id(), session_id);
+}
+
+TEST(Sessions, can_stop_submission) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+  init(channel, task_options, log);
+
+  armonik::api::client::SessionsClient client(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel));
+
+  std::string session_id = client.create_session(task_options);
+
+  armonik::api::grpc::v1::sessions::SessionRaw response;
+  ASSERT_NO_THROW(response = client.stop_submission_session(session_id));
+  ASSERT_EQ(response.session_id(), session_id);
+}
+
+TEST(Sessions, can_close_session) {
+  Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
+  std::shared_ptr<::grpc::Channel> channel;
+  armonik::api::grpc::v1::TaskOptions task_options;
+  init(channel, task_options, log);
+
+  armonik::api::client::SessionsClient client(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel));
+
+  std::string session_id = client.create_session(task_options);
+
+  armonik::api::grpc::v1::sessions::SessionRaw response;
+  ASSERT_NO_THROW(response = client.close_session(session_id));
+  ASSERT_EQ(response.session_id(), session_id);
+}
