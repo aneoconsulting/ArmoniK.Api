@@ -22,6 +22,7 @@ export { AuthenticationClient } from './generated/auth-service.pbsc'
 export {
   EventSubscriptionRequest,
   EventSubscriptionResponse,
+  EventsEnum,
 } from './generated/events-common.pb'
 export { EventsClient } from './generated/events-service.pbsc'
 export {
@@ -58,6 +59,13 @@ export { PartitionsClient } from './generated/partitions-service.pbsc'
 export { ResultStatus } from './generated/result-status.pb'
 export {
   GetOwnerTaskIdRequest,
+  CreateResultsMetaDataRequest, CreateResultsMetaDataResponse,
+  CreateResultsRequest, CreateResultsResponse,
+  DeleteResultsDataRequest, DeleteResultsDataResponse,
+  DownloadResultDataRequest, DownloadResultDataResponse,
+  ResultsServiceConfigurationResponse, UploadResultDataRequest,
+  UploadResultDataResponse, WatchResultRequest,
+  WatchResultResponse,
   GetOwnerTaskIdResponse, GetResultRequest,
   GetResultResponse, ListResultsRequest,
   ListResultsResponse, ResultRaw,
@@ -75,11 +83,17 @@ export {
 export { ResultsClient } from './generated/results-service.pbsc'
 export { SessionStatus } from './generated/session-status.pb'
 export {
-  CancelSessionRequest,
-  CancelSessionResponse, GetSessionRequest,
-  GetSessionResponse,
-  ListSessionsRequest,
-  ListSessionsResponse, SessionRaw,
+  CancelSessionRequest, CancelSessionResponse,
+  GetSessionRequest, GetSessionResponse,
+  ListSessionsRequest, ListSessionsResponse,
+  PauseSessionRequest, PauseSessionResponse,
+  ResumeSessionRequest, ResumeSessionResponse,
+  CloseSessionRequest, CloseSessionResponse,
+  CreateSessionReply, CreateSessionRequest,
+  DeleteSessionRequest, DeleteSessionResponse,
+  PurgeSessionRequest, PurgeSessionResponse,
+  StopSubmissionRequest, StopSubmissionResponse,
+  SessionRaw,
 } from './generated/sessions-common.pb'
 export {
   SessionField, SessionRawEnumField,
@@ -107,6 +121,7 @@ export {
   ListTasksRequest,
   ListTasksResponse, TaskDetailed,
   TaskSummary,
+  ListTasksDetailedResponse, SubmitTasksRequest, SubmitTasksResponse,
 } from './generated/tasks-common.pb'
 export {
   TaskField,
