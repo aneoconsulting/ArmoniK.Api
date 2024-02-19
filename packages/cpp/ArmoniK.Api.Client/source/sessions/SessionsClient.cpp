@@ -4,22 +4,23 @@
 #include "sessions_service.grpc.pb.h"
 #include <utility>
 
-static armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort get_default_sort() {
-  armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort sort;
+using namespace armonik::api::grpc::v1::sessions;
+
+static ListSessionsRequest::Sort get_default_sort() {
+  ListSessionsRequest::Sort sort;
   sort.mutable_field()->mutable_session_raw_field()->set_field(
       armonik::api::grpc::v1::sessions::SESSION_RAW_ENUM_FIELD_CREATED_AT);
   sort.set_direction(armonik::api::grpc::v1::sort_direction::SORT_DIRECTION_ASC);
   return sort;
 }
-const armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort armonik::api::client::SessionsClient::default_sort =
-    get_default_sort();
+const ListSessionsRequest::Sort armonik::api::client::SessionsClient::default_sort = get_default_sort();
 
 std::string
 armonik::api::client::SessionsClient::create_session(armonik::api::grpc::v1::TaskOptions default_task_options,
                                                      const std::vector<std::string> &partitions) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::CreateSessionRequest request;
-  armonik::api::grpc::v1::sessions::CreateSessionReply response;
+  CreateSessionRequest request;
+  CreateSessionReply response;
 
   *request.mutable_default_task_option() = std::move(default_task_options);
   request.mutable_partition_ids()->Add(partitions.begin(), partitions.end());
@@ -31,10 +32,10 @@ armonik::api::client::SessionsClient::create_session(armonik::api::grpc::v1::Tas
   return std::move(*response.mutable_session_id());
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw armonik::api::client::SessionsClient::get_session(std::string session_id) {
+SessionRaw armonik::api::client::SessionsClient::get_session(std::string session_id) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::GetSessionRequest request;
-  armonik::api::grpc::v1::sessions::GetSessionResponse response;
+  GetSessionRequest request;
+  GetSessionResponse response;
 
   request.set_session_id(std::move(session_id));
 
@@ -45,11 +46,10 @@ armonik::api::grpc::v1::sessions::SessionRaw armonik::api::client::SessionsClien
   return std::move(*response.mutable_session());
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::cancel_session(std::string session_id) {
+SessionRaw armonik::api::client::SessionsClient::cancel_session(std::string session_id) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::CancelSessionRequest request;
-  armonik::api::grpc::v1::sessions::CancelSessionResponse response;
+  CancelSessionRequest request;
+  CancelSessionResponse response;
 
   request.set_session_id(std::move(session_id));
   auto status = stub->CancelSession(&context, request, &response);
@@ -63,8 +63,8 @@ std::vector<armonik::api::grpc::v1::sessions::SessionRaw>
 armonik::api::client::SessionsClient::list_sessions(armonik::api::grpc::v1::sessions::Filters filters, int32_t &total,
                                                     int32_t page, int32_t page_size,
                                                     armonik::api::grpc::v1::sessions::ListSessionsRequest::Sort sort) {
-  armonik::api::grpc::v1::sessions::ListSessionsRequest request;
-  armonik::api::grpc::v1::sessions::ListSessionsResponse response;
+  ListSessionsRequest request;
+  ListSessionsResponse response;
 
   *request.mutable_filters() = std::move(filters);
   *request.mutable_sort() = std::move(sort);
@@ -81,7 +81,7 @@ armonik::api::client::SessionsClient::list_sessions(armonik::api::grpc::v1::sess
     total = response.total();
     return {response.sessions().begin(), response.sessions().end()};
   } else {
-    std::vector<armonik::api::grpc::v1::sessions::SessionRaw> rawSessions;
+    std::vector<SessionRaw> rawSessions;
     int current_page = 0;
     do {
       request.set_page(current_page);
@@ -108,11 +108,10 @@ armonik::api::client::SessionsClient::list_sessions(armonik::api::grpc::v1::sess
   }
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::pause_session(std::string session_id) {
+SessionRaw armonik::api::client::SessionsClient::pause_session(std::string session_id) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::PauseSessionRequest request;
-  armonik::api::grpc::v1::sessions::PauseSessionResponse response;
+  PauseSessionRequest request;
+  PauseSessionResponse response;
 
   request.set_session_id(std::move(session_id));
   auto status = stub->PauseSession(&context, request, &response);
@@ -126,8 +125,8 @@ armonik::api::client::SessionsClient::pause_session(std::string session_id) {
 armonik::api::grpc::v1::sessions::SessionRaw
 armonik::api::client::SessionsClient::resume_session(std::string session_id) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::ResumeSessionRequest request;
-  armonik::api::grpc::v1::sessions::ResumeSessionResponse response;
+  ResumeSessionRequest request;
+  ResumeSessionResponse response;
 
   request.set_session_id(std::move(session_id));
   auto status = stub->ResumeSession(&context, request, &response);
@@ -138,11 +137,10 @@ armonik::api::client::SessionsClient::resume_session(std::string session_id) {
   return std::move(*response.mutable_session());
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::purge_session(std::string session_id) {
+SessionRaw armonik::api::client::SessionsClient::purge_session(std::string session_id) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::PurgeSessionRequest request;
-  armonik::api::grpc::v1::sessions::PurgeSessionResponse response;
+  PurgeSessionRequest request;
+  PurgeSessionResponse response;
 
   request.set_session_id(std::move(session_id));
   auto status = stub->PurgeSession(&context, request, &response);
@@ -153,11 +151,10 @@ armonik::api::client::SessionsClient::purge_session(std::string session_id) {
   return std::move(*response.mutable_session());
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::delete_session(std::string session_id) {
+SessionRaw armonik::api::client::SessionsClient::delete_session(std::string session_id) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::DeleteSessionRequest request;
-  armonik::api::grpc::v1::sessions::DeleteSessionResponse response;
+  DeleteSessionRequest request;
+  DeleteSessionResponse response;
 
   request.set_session_id(std::move(session_id));
   auto status = stub->DeleteSession(&context, request, &response);
@@ -168,11 +165,11 @@ armonik::api::client::SessionsClient::delete_session(std::string session_id) {
   return std::move(*response.mutable_session());
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::stop_submission_session(std::string session_id, bool client, bool worker) {
+SessionRaw armonik::api::client::SessionsClient::stop_submission_session(std::string session_id, bool client,
+                                                                         bool worker) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::StopSubmissionRequest request;
-  armonik::api::grpc::v1::sessions::StopSubmissionResponse response;
+  StopSubmissionRequest request;
+  StopSubmissionResponse response;
 
   request.set_session_id(std::move(session_id));
   request.set_client(client);
@@ -186,11 +183,10 @@ armonik::api::client::SessionsClient::stop_submission_session(std::string sessio
   return std::move(*response.mutable_session());
 }
 
-armonik::api::grpc::v1::sessions::SessionRaw
-armonik::api::client::SessionsClient::close_session(std::string session_id) {
+SessionRaw armonik::api::client::SessionsClient::close_session(std::string session_id) {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::sessions::CloseSessionRequest request;
-  armonik::api::grpc::v1::sessions::CloseSessionResponse response;
+  CloseSessionRequest request;
+  CloseSessionResponse response;
 
   request.set_session_id(std::move(session_id));
   auto status = stub->CloseSession(&context, request, &response);

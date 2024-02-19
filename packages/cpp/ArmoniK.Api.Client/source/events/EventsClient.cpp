@@ -68,9 +68,11 @@ void EventsClient::wait_for_result_availability(std::string session_id, std::vec
     default:
       break;
     }
-    result_ids.erase(std::remove(result_ids.begin(), result_ids.end(), update_or_new), result_ids.end());
-    if (result_ids.empty()) {
-      break;
+    if (!update_or_new.empty()) {
+      result_ids.erase(std::remove(result_ids.begin(), result_ids.end(), update_or_new), result_ids.end());
+      if (result_ids.empty()) {
+        break;
+      }
     }
   }
 }
