@@ -1,14 +1,18 @@
 #include "versions/VersionsClient.h"
 #include "exceptions/ArmoniKApiException.h"
 
+using armonik::api::grpc::v1::versions::ListVersionsRequest;
+using armonik::api::grpc::v1::versions::ListVersionsResponse;
+using namespace armonik::api::grpc::v1::versions;
+
 namespace armonik {
 namespace api {
 namespace client {
 
 versions_info VersionsClient::list_versions() {
   ::grpc::ClientContext context;
-  armonik::api::grpc::v1::versions::ListVersionsRequest request;
-  armonik::api::grpc::v1::versions::ListVersionsResponse response;
+  ListVersionsRequest request;
+  ListVersionsResponse response;
 
   auto status = stub->ListVersions(&context, request, &response);
   if (!status.ok()) {
