@@ -8,6 +8,16 @@ namespace api {
 namespace client {
 
 /**
+ * @brief Data structure for components version
+ * @param api ArmoniK API version
+ * @param core ArmoniK CORE version
+ */
+struct versions_info {
+  std::string api;
+  std::string core;
+};
+
+/**
  * Versions Client wrapper
  */
 class VersionsClient {
@@ -19,7 +29,7 @@ public:
    * Get versions of ArmoniK components
    * @return Mapping between component names and their versions
    */
-  std::map<std::string, std::string> list_versions();
+  versions_info list_versions();
 
 private:
   std::unique_ptr<armonik::api::grpc::v1::versions::Versions::StubInterface> stub;
