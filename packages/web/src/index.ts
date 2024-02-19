@@ -9,20 +9,20 @@ export {
   ApplicationField,
   ApplicationRawEnumField,
   ApplicationRawField,
-  applicationRawEnumFieldFromJSON, applicationRawEnumFieldToJSON
+  applicationRawEnumFieldFromJSON, applicationRawEnumFieldToJSON,
 } from './generated/applications_fields'
 export {
   FilterField as ApplicationFilterField,
   Filters as ApplicationFilters,
   FiltersAnd as ApplicationFiltersAnd,
 } from './generated/applications_filters'
-export { ApplicationsClientImpl as ApplicationsClient, ApplicationsServiceName, } from './generated/applications_service'
+export { ApplicationsClientImpl as ApplicationsClient, ApplicationsServiceName } from './generated/applications_service'
 export {
   GetCurrentUserRequest,
   GetCurrentUserResponse,
   User,
 } from './generated/auth_common'
-export { AuthenticationClientImpl as AuthenticationClient, AuthenticationServiceName, } from './generated/auth_service'
+export { AuthenticationClientImpl as AuthenticationClient, AuthenticationServiceName } from './generated/auth_service'
 export {
   EventSubscriptionRequest,
   EventSubscriptionResponse,
@@ -52,7 +52,7 @@ export {
   filterDurationOperatorFromJSON, filterDurationOperatorToJSON,
   filterNumberOperatorFromJSON, filterNumberOperatorToJSON,
   filterStatusOperatorFromJSON, filterStatusOperatorToJSON,
-  filterStringOperatorFromJSON, filterStringOperatorToJSON
+  filterStringOperatorFromJSON, filterStringOperatorToJSON,
 } from './generated/filters_common'
 export { StatusCount, TaskOptions } from './generated/objects'
 export {
@@ -67,7 +67,7 @@ export {
 export {
   PartitionField, PartitionRawEnumField,
   PartitionRawField,
-  partitionRawEnumFieldFromJSON, partitionRawEnumFieldToJSON
+  partitionRawEnumFieldFromJSON, partitionRawEnumFieldToJSON,
 } from './generated/partitions_fields'
 export {
   FilterField as PartitionFilterField,
@@ -95,7 +95,7 @@ export {
 export {
   ResultField, ResultRawEnumField,
   ResultRawField,
-  resultRawEnumFieldFromJSON, resultRawEnumFieldToJSON
+  resultRawEnumFieldFromJSON, resultRawEnumFieldToJSON,
 } from './generated/results_fields'
 export {
   FilterField as ResultFilterField,
@@ -106,7 +106,7 @@ export {
 export { ResultsClientImpl as ResultsClient, ResultsServiceName } from './generated/results_service'
 export { SessionStatus, sessionStatusFromJSON, sessionStatusToJSON } from './generated/session_status'
 export {
-  CancelSessionRequest, CancelSessionResponse, 
+  CancelSessionRequest, CancelSessionResponse,
   GetSessionRequest, GetSessionResponse,
   ListSessionsRequest, ListSessionsResponse,
   PauseSessionRequest, PauseSessionResponse,
@@ -126,7 +126,7 @@ export {
   TaskOptionField as SessionTaskOptionField,
   TaskOptionGenericField as SessionTaskOptionGenericField,
   sessionRawEnumFieldFromJSON, sessionRawEnumFieldToJSON,
-  taskOptionEnumFieldFromJSON, taskOptionEnumFieldToJSON
+  taskOptionEnumFieldFromJSON, taskOptionEnumFieldToJSON,
 } from './generated/sessions_fields'
 export {
   FilterField as SessionFilterField,
@@ -157,7 +157,7 @@ export {
   TaskOptionEnumField, TaskOptionField,
   TaskOptionGenericField, TaskSummaryEnumField,
   TaskSummaryField,
-  taskSummaryEnumFieldFromJSON, taskSummaryEnumFieldToJSON
+  taskSummaryEnumFieldFromJSON, taskSummaryEnumFieldToJSON,
 } from './generated/tasks_fields'
 export {
   FilterField as TaskFilterField,
@@ -172,6 +172,6 @@ export {
   CheckHealthRequest,
   CheckHealthResponse,
   HealthStatusEnum,
-  healthStatusEnumFromJSON, healthStatusEnumToJSON
+  healthStatusEnumFromJSON, healthStatusEnumToJSON,
 } from './generated/health_checks_common'
 export { HealthChecksServiceClientImpl as HealthChecksServiceClient, HealthChecksServiceServiceName } from './generated/health_checks_service'
