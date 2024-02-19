@@ -17,12 +17,12 @@ TEST(Versions, can_list_versions) {
 
   armonik::api::client::VersionsClient client(armonik::api::grpc::v1::versions::Versions::NewStub(channel));
 
-  std::map<std::string, std::string> versions;
+  armonik::api::client::versions_info versions;
   ASSERT_NO_THROW(versions = client.list_versions());
 
-  std::cout << "API version: " << versions.at("api") << "\n"
-            << "Core version: " << versions.at("core") << std::endl;
+  std::cout << "API version: " << versions.api << "\n"
+            << "Core version: " << versions.core << std::endl;
 
-  ASSERT_NE(versions.at("api"), "Unknown");
-  ASSERT_NE(versions.at("core"), "Unknown");
+  ASSERT_NE(versions.api, "Unknown");
+  ASSERT_NE(versions.core, "Unknown");
 }

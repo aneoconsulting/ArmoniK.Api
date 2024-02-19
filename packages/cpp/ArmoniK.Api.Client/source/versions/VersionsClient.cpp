@@ -5,12 +5,10 @@ namespace armonik {
 namespace api {
 namespace client {
 
-std::map<std::string, std::string> VersionsClient::list_versions() {
+versions_info VersionsClient::list_versions() {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::versions::ListVersionsRequest request;
   armonik::api::grpc::v1::versions::ListVersionsResponse response;
-
-  std::map<std::string, std::string> mapping;
 
   auto status = stub->ListVersions(&context, request, &response);
   if (!status.ok()) {
@@ -18,8 +16,7 @@ std::map<std::string, std::string> VersionsClient::list_versions() {
                                                                 status.error_message());
   }
 
-  mapping.insert({"api", response.api()});
-  mapping.insert({"core", response.core()});
+  versions_info mapping = {response.api(), response.core()};
 
   return mapping;
 }
