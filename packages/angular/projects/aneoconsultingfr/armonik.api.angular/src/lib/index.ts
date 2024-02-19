@@ -83,7 +83,7 @@ export {
 export { ResultsClient } from './generated/results-service.pbsc'
 export { SessionStatus } from './generated/session-status.pb'
 export {
-  CancelSessionRequest, CancelSessionResponse, 
+  CancelSessionRequest, CancelSessionResponse,
   GetSessionRequest, GetSessionResponse,
   ListSessionsRequest, ListSessionsResponse,
   PauseSessionRequest, PauseSessionResponse,
@@ -121,7 +121,7 @@ export {
   ListTasksRequest,
   ListTasksResponse, TaskDetailed,
   TaskSummary,
-  ListTasksDetailedResponse, SubmitTasksRequest, SubmitTasksResponse
+  ListTasksDetailedResponse, SubmitTasksRequest, SubmitTasksResponse,
 } from './generated/tasks-common.pb'
 export {
   TaskField,
