@@ -1,4 +1,3 @@
-import datetime
 import pytest
 import warnings
 
@@ -18,12 +17,8 @@ class TestArmoniKResults:
         assert result.name == "result-name"
         assert result.owner_task_id == "owner-task-id"
         assert result.status == 2
-        assert result.created_at == datetime.datetime(
-            1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-        )
-        assert result.completed_at == datetime.datetime(
-            1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc
-        )
+        assert result.created_at is None
+        assert result.completed_at is None
         assert result.result_id == "result-id"
         assert result.size == 0
 
