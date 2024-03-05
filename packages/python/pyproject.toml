@@ -40,7 +40,11 @@ tests = [
   'pytest',
   'pytest-cov',
   'pytest-benchmark[histogram]',
-  'requests'
+  'requests',
+]
+dev = [
+    'mypy',
+    'ruff',
 ]
 
 [tool.pytest.ini_options]
