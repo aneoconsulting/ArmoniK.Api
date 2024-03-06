@@ -16,8 +16,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
-    <PackageVersion>3.16.0</PackageVersion>
-    <Version>3.16.0</Version>
+    <PackageVersion>3.16.1</PackageVersion>
+    <Version>3.16.1</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
