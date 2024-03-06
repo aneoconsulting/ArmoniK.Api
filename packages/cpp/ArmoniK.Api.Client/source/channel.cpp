@@ -11,7 +11,7 @@
 #include <grpcpp/security/tls_certificate_provider.h>
 #include <grpcpp/security/tls_credentials_options.h>
 
-#include <armonik/common/exceptions/ArmoniKApiException.h>
+#include "exceptions/ArmoniKApiException.h"
 
 namespace armonik {
 namespace api {

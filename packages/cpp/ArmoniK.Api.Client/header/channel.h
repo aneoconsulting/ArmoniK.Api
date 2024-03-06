@@ -9,7 +9,7 @@
 
 #include <grpcpp/security/credentials.h>
 
-#include <armonik/common/options/ControlPlane.h>
+#include "options/ControlPlane.h"
 
 namespace armonik {
 namespace api {
