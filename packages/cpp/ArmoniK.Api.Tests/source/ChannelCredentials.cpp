@@ -37,6 +37,8 @@ TEST(ChannelCredentials, unsecure) {
   const auto ctrl_plane = configuration.get_control_plane();
   const std::string server_address{ctrl_plane.getEndpoint().cbegin(), ctrl_plane.getEndpoint().cend()};
 
+  ASSERT_TRUE(ctrl_plane.getEndpoint().substr(0, 4) == "http:");
+
   const auto credentials = armonik::api::client::create_channel_credentials(ctrl_plane);
   const auto channel = grpc::CreateChannel(server_address, credentials);
 
