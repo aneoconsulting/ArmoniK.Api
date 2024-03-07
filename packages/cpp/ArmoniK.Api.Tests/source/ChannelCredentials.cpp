@@ -11,6 +11,8 @@
 #include <grpcpp/create_channel.h>
 #include <gtest/gtest.h>
 
+#include <fstream>
+
 namespace grpc_armonik = armonik::api::grpc::v1;
 
 armonik::api::grpc::v1::TaskOptions default_task_options() {
@@ -38,6 +40,32 @@ TEST(ChannelCredentials, unsecure) {
   const std::string server_address{ctrl_plane.getEndpoint().cbegin(), ctrl_plane.getEndpoint().cend()};
 
   ASSERT_TRUE(ctrl_plane.getEndpoint().substr(0, 4) == "http:");
+
+  const auto credentials = armonik::api::client::create_channel_credentials(ctrl_plane);
+  const auto channel = grpc::CreateChannel(server_address, credentials);
+
+  armonik::api::client::SessionsClient client(grpc_armonik::sessions::Sessions::NewStub(channel));
+
+  std::string response;
+  ASSERT_NO_THROW(response = client.create_session(default_task_options()));
+  ASSERT_FALSE(response.empty());
+
+  ASSERT_TRUE(client.get_session(response).status() == grpc_armonik::session_status::SESSION_STATUS_RUNNING);
+}
+
+TEST(ChannelCredentials, mTLS) {
+  armonik::api::common::utils::Configuration configuration;
+  configuration.add_json_configuration("appsettings.json").add_env_configuration();
+
+  const auto ctrl_plane = configuration.get_control_plane();
+  const std::string server_address{ctrl_plane.getEndpoint().cbegin(), ctrl_plane.getEndpoint().cend()};
+
+  ASSERT_TRUE(ctrl_plane.getEndpoint().substr(0, 4) == "https");
+
+  {
+    const std::ifstream file{ctrl_plane.getUserCertPemPath().data()};
+    ASSERT_TRUE(file.is_open());
+  }
 
   const auto credentials = armonik::api::client::create_channel_credentials(ctrl_plane);
   const auto channel = grpc::CreateChannel(server_address, credentials);
