@@ -66,8 +66,7 @@ std::string read_file(absl::string_view path) {
 }
 
 std::shared_ptr<grpc::experimental::CertificateProviderInterface>
-create_certificate_provider(std::string rootCertificate, std::string userPublicPem,
-                            std::string userPrivatePem) {
+create_certificate_provider(std::string rootCertificate, std::string userPublicPem, std::string userPrivatePem) {
   using grpc::experimental::IdentityKeyCertPair;
   using grpc::experimental::StaticDataCertificateProvider;
 
@@ -78,15 +77,16 @@ create_certificate_provider(std::string rootCertificate, std::string userPublicP
     return std::make_shared<StaticDataCertificateProvider>(std::move(rootCertificate));
   } else {
     return std::make_shared<StaticDataCertificateProvider>(
-        std::move(rootCertificate), std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{std::move(userPrivatePem), std::move(userPublicPem)}});
+        std::move(rootCertificate),
+        std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{std::move(userPrivatePem), std::move(userPublicPem)}});
   }
 }
 
 std::shared_ptr<grpc::ChannelCredentials> create_channel_credentials(const common::options::ControlPlane &ctrl_plane) {
-  if (isHttps(ctrl_plane.getEndpoint())) {
-    auto root_cert_pem = get_key(ctrl_plane.getCaCertPemPath());
-    auto user_private_pem = get_key(ctrl_plane.getUserKeyPemPath());
-    auto user_public_pem = get_key(ctrl_plane.getUserCertPemPath());
+  if (is_https(ctrl_plane.getEndpoint())) {
+    auto root_cert_pem = read_file(ctrl_plane.getCaCertPemPath());
+    auto user_private_pem = read_file(ctrl_plane.getUserKeyPemPath());
+    auto user_public_pem = read_file(ctrl_plane.getUserCertPemPath());
 
     if (!user_private_pem.empty() && !user_public_pem.empty()) {
       if (ctrl_plane.isSslValidation()) {
