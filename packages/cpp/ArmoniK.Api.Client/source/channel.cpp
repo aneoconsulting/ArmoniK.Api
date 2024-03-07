@@ -45,7 +45,7 @@ bDCNVTg3w/OQLQQdWUl6FunmYinukBgmqnsJnwgrhzBENbmgbgfOZZWGtG5ODENb
 wc+KqiSg9c9iqA==
 -----END CERTIFICATE REQUEST-----)";
 
-bool isHttps(const absl::string_view &endpoint) noexcept {
+bool is_https(absl::string_view endpoint) noexcept {
   const auto delim = endpoint.find("://");
   if (delim != absl::string_view::npos) {
     const auto endpoint_view = endpoint.substr(0, delim);
@@ -54,7 +54,7 @@ bool isHttps(const absl::string_view &endpoint) noexcept {
   return false;
 }
 
-std::string get_key(const absl::string_view &path) {
+std::string read_file(absl::string_view path) {
   std::ifstream file(path.data(), std::ios::in | std::ios::binary);
   if (file.is_open()) {
     std::ostringstream sstr;
@@ -66,19 +66,19 @@ std::string get_key(const absl::string_view &path) {
 }
 
 std::shared_ptr<grpc::experimental::CertificateProviderInterface>
-create_certificate_provider(const std::string &rootCertificate, const std::string &userPublicPem,
-                            const std::string &userPrivatePem) {
+create_certificate_provider(std::string rootCertificate, std::string userPublicPem,
+                            std::string userPrivatePem) {
   using grpc::experimental::IdentityKeyCertPair;
   using grpc::experimental::StaticDataCertificateProvider;
 
   if (rootCertificate.empty()) {
     return std::make_shared<StaticDataCertificateProvider>(
-        std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{userPrivatePem, userPublicPem}});
+        std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{std::move(userPrivatePem), std::move(userPublicPem)}});
   } else if (userPrivatePem.empty() || userPublicPem.empty()) {
-    return std::make_shared<StaticDataCertificateProvider>(rootCertificate);
+    return std::make_shared<StaticDataCertificateProvider>(std::move(rootCertificate));
   } else {
     return std::make_shared<StaticDataCertificateProvider>(
-        rootCertificate, std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{userPrivatePem, userPublicPem}});
+        std::move(rootCertificate), std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{std::move(userPrivatePem), std::move(userPublicPem)}});
   }
 }
 
@@ -109,7 +109,7 @@ std::shared_ptr<grpc::ChannelCredentials> create_channel_credentials(const commo
       } else {
         grpc::experimental::TlsChannelCredentialsOptions tls_options;
         tls_options.set_certificate_provider(
-            create_certificate_provider(root_self_signed, user_public_pem, user_private_pem));
+            create_certificate_provider(root_self_signed, std::move(user_public_pem), std::move(user_private_pem)));
         tls_options.set_verify_server_certs(false);
         return grpc::experimental::TlsCredentials(tls_options);
       }
