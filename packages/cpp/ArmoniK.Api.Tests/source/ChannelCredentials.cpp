@@ -11,7 +11,7 @@
 #include <grpcpp/create_channel.h>
 #include <gtest/gtest.h>
 
-namespace grpc_sessions = armonik::api::grpc::v1::sessions;
+namespace grpc_armonik = armonik::api::grpc::v1;
 
 armonik::api::grpc::v1::TaskOptions default_task_options() {
   armonik::api::grpc::v1::TaskOptions default_task_options;
@@ -40,11 +40,11 @@ TEST(ChannelCredentials, unsecure) {
   const auto credentials = armonik::api::client::create_channel_credentials(ctrl_plane);
   const auto channel = grpc::CreateChannel(server_address, credentials);
 
-  armonik::api::client::SessionsClient client(grpc_sessions::Sessions::NewStub(channel));
+  armonik::api::client::SessionsClient client(grpc_armonik::sessions::Sessions::NewStub(channel));
 
   std::string response;
   ASSERT_NO_THROW(response = client.create_session(default_task_options()));
   ASSERT_FALSE(response.empty());
 
-  ASSERT_TRUE(client.get_session(response).status() == armonik::api::grpc::v1::session_status::SESSION_STATUS_RUNNING);
+  ASSERT_TRUE(client.get_session(response).status() == grpc_armonik::session_status::SESSION_STATUS_RUNNING);
 }
