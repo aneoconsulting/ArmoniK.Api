@@ -44,6 +44,8 @@ tests = [
 ]
 dev = [
     'mypy',
+    'mypy-protobuf',
+    'types-protobuf',
     'ruff',
 ]
 
