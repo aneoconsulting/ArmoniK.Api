@@ -22,6 +22,7 @@
 // limitations under the License.
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.Common.Channel.Utils;
@@ -91,7 +92,8 @@ public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDispo
                                             ("taskId", taskHandler.TaskId),
                                             ("sessionId", taskHandler.SessionId));
       logger_.LogDebug("Execute Process");
-      output = await Process(taskHandler)
+      output = await ProcessAsync(taskHandler,
+                                  context.CancellationToken)
                  .ConfigureAwait(false);
     }
     return new ProcessReply
@@ -111,6 +113,22 @@ public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDispo
   public virtual Task<Output> Process(ITaskHandler taskHandler)
     => throw new RpcException(new Status(StatusCode.Unimplemented,
                                          ""));
+
+  /// <summary>
+  ///   User defined computations
+  ///   Calls <see cref="Process(ArmoniK.Api.gRPC.V1.Worker.ProcessRequest,Grpc.Core.ServerCallContext)" /> if not overriden.
+  /// </summary>
+  /// <param name="taskHandler">Handler to access input data and task capabilities</param>
+  /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+  /// <returns>
+  ///   The output of the computational task
+  /// </returns>
+  public virtual Task<Output> ProcessAsync(ITaskHandler      taskHandler,
+                                           CancellationToken cancellationToken)
+  {
+    _ = cancellationToken;
+    return Process(taskHandler);
+  }
 
   /// <inheritdoc />
   public override Task<HealthCheckReply> HealthCheck(Empty             request,
