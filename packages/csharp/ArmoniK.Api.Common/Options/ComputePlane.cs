@@ -21,6 +21,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Common.Options;
@@ -50,4 +52,9 @@ public class ComputePlane
   ///   Number of messages retrieved from the queue by the Agent
   /// </summary>
   public int MessageBatchSize { get; set; } = 1;
+
+  /// <summary>
+  ///   Time to wait upon cancellation before aborting the worker
+  /// </summary>
+  public TimeSpan AbortAfter { get; set; } = TimeSpan.FromSeconds(1);
 }
