@@ -52,7 +52,7 @@ def get_task_filter(
     return task_filter
 
 
-def datetime_to_timestamp(time_stamp: datetime | None) -> timestamp.Timestamp:
+def datetime_to_timestamp(time_stamp: Optional[datetime]) -> timestamp.Timestamp:
     """Helper function to convert a Python Datetime to a gRPC Timestamp
 
     Args:
@@ -68,7 +68,7 @@ def datetime_to_timestamp(time_stamp: datetime | None) -> timestamp.Timestamp:
     return t
 
 
-def timestamp_to_datetime(time_stamp: timestamp.Timestamp) -> datetime | None:
+def timestamp_to_datetime(time_stamp: timestamp.Timestamp) -> Optional[datetime]:
     """Helper function to convert a gRPC Timestamp to a Python Datetime
     Note that datetime has microseconds accuracy instead of nanosecond accuracy for gRPC Timestamp
     Therefore, the conversion may not be lossless.
