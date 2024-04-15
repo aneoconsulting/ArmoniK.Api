@@ -16,7 +16,7 @@ from ..common import (
 )
 from .results import ResultFieldFilter
 from ..protogen.client.events_service_pb2_grpc import EventsStub
-from ..protogen.common.events_common_pb2 import EventsEnum, EventSubscriptionRequest
+from ..protogen.common.events_common_pb2 import EventSubscriptionRequest
 from ..protogen.common.results_filters_pb2 import Filters as rawResultFilters
 from ..protogen.common.tasks_filters_pb2 import Filters as rawTaskFilters
 
@@ -42,7 +42,7 @@ class ArmoniKEvents:
     def get_events(
         self,
         session_id: str,
-        event_types: Iterable[EventsEnum], # TODO: make EventTypes an enum when Python 3.8 support will be not supported
+        event_types: Iterable[EventTypes], # TODO: make EventTypes an enum when Python 3.8 support will be not supported
         event_handlers: List[Callable[[str, EventTypes, Event], bool]],
         task_filter: Optional[Filter] = None,
         result_filter: Optional[Filter] = None,
