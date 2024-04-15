@@ -192,7 +192,8 @@ public class TaskHandler : ITaskHandler
 
   /// <inheritdoc />
   public async Task<CreateTaskReply> CreateTasksAsync(IEnumerable<TaskRequest> tasks,
-                                                      TaskOptions?             taskOptions = null)
+                                                      TaskOptions?             taskOptions       = null,
+                                                      CancellationToken?       cancellationToken = null)
   {
     using var stream = client_.CreateTask();
 
@@ -200,7 +201,8 @@ public class TaskHandler : ITaskHandler
                                                                  Token,
                                                                  Configuration!.DataChunkMaxSize))
     {
-      await stream.RequestStream.WriteAsync(createLargeTaskRequest)
+      await stream.RequestStream.WriteAsync(createLargeTaskRequest,
+                                            cancellationToken ?? cancellationToken_)
                   .ConfigureAwait(false);
     }
 
@@ -211,19 +213,23 @@ public class TaskHandler : ITaskHandler
   }
 
   /// <inheritdoc />
-  public Task<byte[]> RequestResource(string key)
+  public Task<byte[]> RequestResource(string             key,
+                                      CancellationToken? cancellationToken = null)
     => throw new NotImplementedException();
 
   /// <inheritdoc />
-  public Task<byte[]> RequestCommonData(string key)
+  public Task<byte[]> RequestCommonData(string             key,
+                                        CancellationToken? cancellationToken = null)
     => throw new NotImplementedException();
 
   /// <inheritdoc />
-  public Task<byte[]> RequestDirectData(string key)
+  public Task<byte[]> RequestDirectData(string             key,
+                                        CancellationToken? cancellationToken = null)
     => throw new NotImplementedException();
 
   /// <inheritdoc />
-  public async Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results)
+  public async Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results,
+                                                                              CancellationToken?                                           cancellationToken = null)
     => await client_.CreateResultsMetaDataAsync(new CreateResultsMetaDataRequest
                                                 {
                                                   CommunicationToken = Token,
@@ -232,13 +238,15 @@ public class TaskHandler : ITaskHandler
                                                     results,
                                                   },
                                                   SessionId = SessionId,
-                                                })
+                                                },
+                                                cancellationToken: cancellationToken ?? cancellationToken_)
                     .ConfigureAwait(false);
 
 
   /// <inheritdoc />
-  public async Task SendResult(string key,
-                               byte[] data)
+  public async Task SendResult(string             key,
+                               byte[]             data,
+                               CancellationToken? cancellationToken = null)
   {
     await using (var fs = new FileStream(Path.Combine(folder_,
                                                       key),
@@ -259,7 +267,8 @@ public class TaskHandler : ITaskHandler
                                               ResultId  = key,
                                             },
                                           },
-                                        })
+                                        },
+                                        cancellationToken: cancellationToken ?? cancellationToken_)
                  .ConfigureAwait(false);
   }
 
@@ -269,7 +278,8 @@ public class TaskHandler : ITaskHandler
 
   /// <inheritdoc />
   public async Task<SubmitTasksResponse> SubmitTasksAsync(IEnumerable<SubmitTasksRequest.Types.TaskCreation> taskCreations,
-                                                          TaskOptions?                                       submissionTaskOptions)
+                                                          TaskOptions?                                       submissionTaskOptions,
+                                                          CancellationToken?                                 cancellationToken = null)
     => await client_.SubmitTasksAsync(new SubmitTasksRequest
                                       {
                                         CommunicationToken = Token,
@@ -279,11 +289,13 @@ public class TaskHandler : ITaskHandler
                                           taskCreations,
                                         },
                                         TaskOptions = submissionTaskOptions,
-                                      })
+                                      },
+                                      cancellationToken: cancellationToken ?? cancellationToken_)
                     .ConfigureAwait(false);
 
   /// <inheritdoc />
-  public async Task<CreateResultsResponse> CreateResultsAsync(IEnumerable<CreateResultsRequest.Types.ResultCreate> results)
+  public async Task<CreateResultsResponse> CreateResultsAsync(IEnumerable<CreateResultsRequest.Types.ResultCreate> results,
+                                                              CancellationToken?                                   cancellationToken = null)
     => await client_.CreateResultsAsync(new CreateResultsRequest
                                         {
                                           CommunicationToken = Token,
@@ -292,6 +304,7 @@ public class TaskHandler : ITaskHandler
                                           {
                                             results,
                                           },
-                                        })
+                                        },
+                                        cancellationToken: cancellationToken ?? cancellationToken_)
                     .ConfigureAwait(false);
 }
