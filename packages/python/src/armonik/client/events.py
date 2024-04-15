@@ -1,4 +1,4 @@
-from typing import Callable, cast, List
+from typing import Callable, cast, List, Optional
 
 from grpc import Channel
 
@@ -44,8 +44,8 @@ class ArmoniKEvents:
         session_id: str,
         event_types: List[EventTypes],
         event_handlers: List[Callable[[str, EventTypes, Event], bool]],
-        task_filter: Filter | None = None,
-        result_filter: Filter | None = None,
+        task_filter: Optional[Filter] = None,
+        result_filter: Optional[Filter] = None,
     ) -> None:
         """Get events that represents updates of result and tasks data.
 
