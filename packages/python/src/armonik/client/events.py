@@ -1,4 +1,4 @@
-from typing import Callable, cast, List, Optional
+from typing import Callable, cast, Iterable, List, Optional
 
 from grpc import Channel
 
@@ -16,7 +16,7 @@ from ..common import (
 )
 from .results import ResultFieldFilter
 from ..protogen.client.events_service_pb2_grpc import EventsStub
-from ..protogen.common.events_common_pb2 import EventSubscriptionRequest
+from ..protogen.common.events_common_pb2 import EventsEnum, EventSubscriptionRequest
 from ..protogen.common.results_filters_pb2 import Filters as rawResultFilters
 from ..protogen.common.tasks_filters_pb2 import Filters as rawTaskFilters
 
@@ -42,7 +42,7 @@ class ArmoniKEvents:
     def get_events(
         self,
         session_id: str,
-        event_types: List[EventTypes],
+        event_types: Iterable[EventsEnum], # TODO: make EventTypes an enum when Python 3.8 support will be not supported
         event_handlers: List[Callable[[str, EventTypes, Event], bool]],
         task_filter: Optional[Filter] = None,
         result_filter: Optional[Filter] = None,
@@ -62,13 +62,9 @@ class ArmoniKEvents:
         """
         request = EventSubscriptionRequest(session_id=session_id, returned_events=event_types)
         if task_filter:
-            request.tasks_filters = (
-                cast(rawTaskFilters, task_filter.to_disjunction().to_message()),
-            )
+            request.tasks_filters = cast(rawTaskFilters, task_filter.to_disjunction().to_message())
         if result_filter:
-            request.results_filters = (
-                cast(rawResultFilters, result_filter.to_disjunction().to_message()),
-            )
+            request.results_filters = cast(rawResultFilters, result_filter.to_disjunction().to_message())
 
         streaming_call = self._client.GetEvents(request)
         for message in streaming_call:
