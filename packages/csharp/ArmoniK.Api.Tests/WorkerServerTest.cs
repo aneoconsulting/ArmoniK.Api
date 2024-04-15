@@ -128,8 +128,10 @@ public class WorkerServerTest
 public class TestService : WorkerStreamWrapper
 {
   public TestService([NotNull] ILoggerFactory      loggerFactory,
+                     [NotNull] ComputePlane        computePlane,
                      [NotNull] GrpcChannelProvider provider)
     : base(loggerFactory,
+           computePlane,
            provider)
   {
   }
