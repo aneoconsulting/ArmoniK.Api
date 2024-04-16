@@ -99,9 +99,14 @@ public static class WorkerServer
       configurator?.Invoke(builder.Services,
                            builder.Configuration);
 
+      var instanceId = Guid.NewGuid()
+                           .ToString();
+
       Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration)
                                             .WriteTo.Console(new CompactJsonFormatter())
                                             .Enrich.FromLogContext()
+                                            .Enrich.WithProperty("InstanceId",
+                                                                 instanceId)
                                             .CreateLogger();
 
       var loggerFactory = LoggerFactory.Create(loggingBuilder => loggingBuilder.AddSerilog(Log.Logger));
