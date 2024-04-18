@@ -1,3 +1,5 @@
+import process from 'node:process';
+
 const baseURL = process.env.NODE_ENV === 'production' ? '/ArmoniK.Api/' : '/'
 
 export default defineNuxtConfig({

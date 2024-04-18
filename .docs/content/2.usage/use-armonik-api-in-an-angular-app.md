@@ -441,11 +441,11 @@ If you look at the console, you will see another error:
 
 ```json
 {
-    "statusCode": 3,
-    "statusMessage": "Property PageSize failed validation.\nProperty Filter failed validation.\nProperty Filter failed validation.\nProperty Sort.Field failed validation.\nProperty Sort.Field failed validation.",
-    "metadata": {
-        "map": {}
-    }
+  "statusCode": 3,
+  "statusMessage": "Property PageSize failed validation.\nProperty Filter failed validation.\nProperty Filter failed validation.\nProperty Sort.Field failed validation.\nProperty Sort.Field failed validation.",
+  "metadata": {
+    "map": {}
+  }
 }
 ```
 
