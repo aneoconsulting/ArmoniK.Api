@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools",
+            "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,28 +12,27 @@ requires-python = ">=3.7"
 keywords = ["cloud", "HTC", "gRPC", "ArmoniK", "Aneo"]
 license = {text = "Apache v2.0 LICENSE"}
 classifiers = [
-    "Programming Language :: Python :: 3", 
+    "Programming Language :: Python :: 3",
 ]
 dependencies = [
     "grpcio",
     "grpcio-tools",
     "deprecation"
 ]
-
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
 "Bug Tracker" = "https://github.com/aneoconsulting/ArmoniK/issues"
 
 [tool.setuptools]
 include-package-data = true
-dynamic = { version = { attr = "armonik.__version__" } }
+dynamic = {version = {attr = "armonik.__version__"}}
 
 [tool.setuptools.packages.find]
-where = [ "src" ]
-exclude = [ 'tests' ]
+where= ["src"]
+exclude=['tests']
 
 [tool.setuptools.package-data]
-"*" = [ "*.pyi" ]
+"*" = ["*.pyi"]
 
 [project.optional-dependencies]
 tests = [
