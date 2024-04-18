@@ -6,6 +6,9 @@
       "--csharp_out=${workspaceRoot}/packages/csharp/generated/"
     ]
   },
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit"
+  },
   "cSpell.words": [
     "Armoni"
   ]

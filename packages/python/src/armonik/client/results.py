@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, cast
+from typing import Dict, List, Tuple, cast, Optional, Union
 
 from deprecation import deprecated
 from grpc import Channel
@@ -92,7 +92,7 @@ class ArmoniKResults:
 
     def list_results(
         self,
-        result_filter: Filter | None = None,
+        result_filter: Optional[Filter] = None,
         page: int = 0,
         page_size: int = 1000,
         sort_field: Filter = ResultFieldFilter.STATUS,
@@ -214,7 +214,7 @@ class ArmoniKResults:
         return results
 
     def upload_result_data(
-        self, result_id: str, session_id: str, result_data: bytes | bytearray
+        self, result_id: str, session_id: str, result_data: Union[bytes, bytearray]
     ) -> None:
         """Upload data for an empty result already created.
 

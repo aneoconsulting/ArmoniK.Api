@@ -145,7 +145,7 @@ class ClefLogger:
                     elif isinstance(exc_info, BaseException):
                         exc_info = (type(exc_info), exc_info, exc_info.__traceback__)
                     payload["@x"] = "\n".join(traceback.format_exception(*exc_info))
-                for k, v in kwargs:
+                for k, v in kwargs.items():
                     if k.startswith("@"):
                         k = "@" + k
                     payload[k] = str(v)

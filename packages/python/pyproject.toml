@@ -41,6 +41,7 @@ tests = [
 dev = [
   'mypy',
   'ruff',
+  'types-protobuf',
 ]
 
 [tool.setuptools]
