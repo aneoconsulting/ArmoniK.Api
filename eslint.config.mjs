@@ -10,7 +10,5 @@ export default antfu({
     'style/semi': 'off',
     'ts/ban-ts-comment': 'off',
   },
-  ignores: [
-    'generated',
-  ]
+  gitignore: true,
 })
