@@ -37,6 +37,7 @@ from ..protogen.common.result_status_pb2 import (
     RESULT_STATUS_CREATED,
     RESULT_STATUS_COMPLETED,
     RESULT_STATUS_ABORTED,
+    RESULT_STATUS_DELETED,
     RESULT_STATUS_NOTFOUND,
 )
 from ..protogen.common.health_checks_common_pb2 import (
@@ -96,6 +97,7 @@ class ResultStatus:
     CREATED = RESULT_STATUS_CREATED
     COMPLETED = RESULT_STATUS_COMPLETED
     ABORTED = RESULT_STATUS_ABORTED
+    DELETED = RESULT_STATUS_DELETED
     NOTFOUND = RESULT_STATUS_NOTFOUND
 
 
