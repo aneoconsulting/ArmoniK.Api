@@ -1,4 +1,4 @@
-import process from 'node:process';
+import process from 'node:process'
 
 const baseURL = process.env.NODE_ENV === 'production' ? '/ArmoniK.Api/' : '/'
 
