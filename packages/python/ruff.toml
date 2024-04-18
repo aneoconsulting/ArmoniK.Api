@@ -23,10 +23,7 @@ preview = false
 target-version = "py310"
 
 # Allow imports relative to the "src/armonik" and "test" directories.
-src = [
-  "src/armonik",
-  "test"
-]
+src = ["src/armonik", "test"]
 
 # Allow lines to be as long as 110.
 line-length = 100
@@ -36,10 +33,10 @@ indent-width = 4
 
 [lint]
 # A list of file patterns to exclude from formatting and linting.
-exclude = [ "*.pyi" ]
+exclude = ["*.pyi"]
 
 # By default all rules are considered fixable.
-fixable = [ "ALL" ]
+fixable = ["ALL"]
 
 # Avoid automatically removing unused imports in `__init__.py` files.
 ignore-init-module-imports = false
