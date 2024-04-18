@@ -50,8 +50,9 @@ file.on('line', (line) => {
     isInToc = true
   }
 
-  if (isInToc)
+  if (isInToc) {
     return
+  }
 
   if (useLessLines.some(useLessLine => line.includes(useLessLine))) {
     return
