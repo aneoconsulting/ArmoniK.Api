@@ -1,5 +1,5 @@
 // @ts-nocheck
-
+import process from 'node:process'
 import { $ } from 'zx'
 import consola from 'consola'
 
