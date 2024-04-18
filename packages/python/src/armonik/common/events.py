@@ -1,4 +1,3 @@
-from abc import ABC
 from typing import List
 
 from dataclasses import dataclass
@@ -6,7 +5,7 @@ from dataclasses import dataclass
 from .enumwrapper import TaskStatus, ResultStatus
 
 
-class Event(ABC):
+class Event:
     @classmethod
     def from_raw_event(cls, raw_event):
         values = {}

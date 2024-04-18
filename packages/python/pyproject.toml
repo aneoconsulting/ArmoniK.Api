@@ -45,6 +45,7 @@ tests = [
 dev = [
     'mypy',
     'ruff',
+    'types-protobuf',
 ]
 
 [tool.pytest.ini_options]

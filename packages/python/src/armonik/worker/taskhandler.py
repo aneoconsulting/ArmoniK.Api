@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 from deprecation import deprecated
-from typing import Optional, Dict, List, Tuple
+from typing import Optional, Dict, List, Tuple, Union
 
 from ..common import TaskOptions, TaskDefinition, Task, Result
 from ..protogen.common.agent_common_pb2 import (
@@ -144,7 +144,7 @@ class TaskHandler:
 
             self._client.SubmitTasks(request)
 
-    def send_results(self, results_data: Dict[str, bytes | bytearray]) -> None:
+    def send_results(self, results_data: Dict[str, Union[bytes, bytearray]]) -> None:
         """Send results.
 
         Args:
