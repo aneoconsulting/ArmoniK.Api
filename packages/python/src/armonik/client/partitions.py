@@ -1,4 +1,4 @@
-from typing import List, Tuple, cast
+from typing import List, Tuple, cast, Optional
 
 from grpc import Channel
 
@@ -49,7 +49,7 @@ class ArmoniKPartitions:
 
     def list_partitions(
         self,
-        partition_filter: Filter | None = None,
+        partition_filter: Optional[Filter] = None,
         page: int = 0,
         page_size: int = 1000,
         sort_field: Filter = PartitionFieldFilter.PRIORITY,
