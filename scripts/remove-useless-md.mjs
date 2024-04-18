@@ -1,6 +1,7 @@
-import consola from 'consola'
 import fs from 'node:fs'
 import readline from 'node:readline'
+import process from 'node:process'
+import consola from 'consola'
 
 const [, , ...args] = process.argv
 
@@ -24,7 +25,7 @@ if (!dstFile) {
 consola.info(`Read file ${srcFile}`)
 const file = readline.createInterface({
   input: fs.createReadStream(srcFile),
-  crlfDelay: Infinity
+  crlfDelay: Number.POSITIVE_INFINITY
 })
 
 // Write to file
@@ -49,9 +50,10 @@ file.on('line', (line) => {
     isInToc = true
   }
 
-  if (isInToc) return
+  if (isInToc)
+    return
 
-  if (useLessLines.some((useLessLine) => line.includes(useLessLine))) {
+  if (useLessLines.some(useLessLine => line.includes(useLessLine))) {
     return
   }
 
@@ -60,7 +62,7 @@ file.on('line', (line) => {
     line = line.replace(/name="(.*)"/, 'id="$1"')
   }
 
-  writeStream.write(line + '\r')
+  writeStream.write(`${line}\r`)
 })
 
 file.on('close', () => {

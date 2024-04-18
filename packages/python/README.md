@@ -32,13 +32,13 @@ To generate the package from sources, run the [proto2python.sh](proto2python.sh)
 
 Instead of running the script you can install the armonik package in "editable" mode, allowing you to make changes to the source code, and the changes will be reflected immediately without reinstalling the package.
 
- ```bash 
+ ```bash
  pip install -e ./packages/python
  ```
 
 ### **How to install the generated package**
 From this directory, use the following command:
-```code 
+```code
 pip install pkg/armonik*.whl
 ```
 The generated package will be installed to your current python environment
@@ -57,7 +57,6 @@ Before running tests, ensure the following setup steps are completed:
 ```bash
 sudo apt install dotnet-sdk-6.0 jq
 ```
-
 
 2. Launch the Mock Server:
 
