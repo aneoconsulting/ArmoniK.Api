@@ -56,5 +56,5 @@ public class ComputePlane
   /// <summary>
   ///   Time to wait upon cancellation before aborting the worker
   /// </summary>
-  public TimeSpan AbortAfter { get; set; } = TimeSpan.FromSeconds(1);
+  public TimeSpan AbortAfter { get; set; } = TimeSpan.Zero;
 }
