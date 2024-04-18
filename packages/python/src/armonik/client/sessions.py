@@ -127,7 +127,7 @@ class ArmoniKSessions:
 
     def list_sessions(
         self,
-        session_filter: Filter | None = None,
+        session_filter: Optional[Filter] = None,
         page: int = 0,
         page_size: int = 1000,
         sort_field: Filter = SessionFieldFilter.STATUS,

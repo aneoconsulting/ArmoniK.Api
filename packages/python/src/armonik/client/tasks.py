@@ -289,7 +289,7 @@ class ArmoniKTasks:
 
     def list_tasks(
         self,
-        task_filter: Filter | None = None,
+        task_filter: Optional[Filter] = None,
         with_errors: bool = False,
         page: int = 0,
         page_size: int = 1000,
@@ -367,7 +367,7 @@ class ArmoniKTasks:
                 tasks_result_ids[t.task_id] = list(t.result_ids)
         return tasks_result_ids
 
-    def count_tasks_by_status(self, task_filter: Filter | None = None) -> Dict[TaskStatus, int]:
+    def count_tasks_by_status(self, task_filter: Optional[Filter] = None) -> Dict[TaskStatus, int]:
         """Get number of tasks by status.
 
         Args:
@@ -393,7 +393,7 @@ class ArmoniKTasks:
         self,
         session_id: str,
         tasks: List[TaskDefinition],
-        default_task_options: Optional[TaskOptions | None] = None,
+        default_task_options: Optional[TaskOptions] = None,
         chunk_size: Optional[int] = 100,
     ) -> List[Task]:
         """Submit tasks to ArmoniK.
