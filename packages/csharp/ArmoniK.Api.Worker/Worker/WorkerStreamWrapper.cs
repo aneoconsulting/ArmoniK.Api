@@ -131,11 +131,14 @@ public class WorkerStreamWrapper : gRPC.V1.Worker.Worker.WorkerBase, IAsyncDispo
     {
       logger_.LogInformation("RPC request was aborted");
 
-      // Request has been cancelled
-      // Wait for process to be properly cancelled, or small delay
-      task = await Task.WhenAny(process,
-                                Task.Delay(computePlaneOptions_.AbortAfter))
-                       .ConfigureAwait(false);
+      if (computePlaneOptions_.AbortAfter > TimeSpan.Zero)
+      {
+        // Request has been cancelled
+        // Wait for process to be properly cancelled, or small delay
+        task = await Task.WhenAny(process,
+                                  Task.Delay(computePlaneOptions_.AbortAfter))
+                         .ConfigureAwait(false);
+      }
 
       // Check cancelled completion of process
       if (ReferenceEquals(task,
