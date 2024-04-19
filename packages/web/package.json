@@ -1,7 +1,6 @@
 {
   "name": "@aneoconsultingfr/armonik.api",
-  "version": "3.16.2",
-  "packageManager": "pnpm@9.0.2",
+  "version": "3.16.3",
   "description": "gRPC API to interact with ArmoniK built for the web",
   "license": "Apache-2.0",
   "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
