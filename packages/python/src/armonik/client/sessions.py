@@ -170,7 +170,7 @@ class ArmoniKSessions:
         request = CancelSessionRequest(session_id=session_id)
         response: CancelSessionResponse = self._client.CancelSession(request)
         return Session.from_message(response.session)
-    
+
     def pause_session(self, session_id: str) -> Session:
         """Pause a session by its id.
 
@@ -215,7 +215,7 @@ class ArmoniKSessions:
 
         Args:
             session_id: Id of the session to be purged.
-    
+
         Returns:
             session metadata
         """
@@ -236,7 +236,7 @@ class ArmoniKSessions:
         response: DeleteSessionResponse = self._client.DeleteSession(request)
         return Session.from_message(response.session)
 
-    def stop_submission_session(self, session_id: str, client: bool, worker:bool) -> Session:
+    def stop_submission_session(self, session_id: str, client: bool, worker: bool) -> Session:
         """Stops clients and/or workers from submitting new tasks in the given session.
 
         Args:
