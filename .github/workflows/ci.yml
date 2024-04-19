@@ -94,7 +94,7 @@ jobs:
         run: pip install "$(echo pkg/armonik*.whl)[dev]"
 
       - name: Lint
-        run: python -m ruff .
+        run: python -m ruff check .
 
       # - name: Check typing
       #  run: python -m mypy --exclude src/armonik/protogen/ src/
