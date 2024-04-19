@@ -18,9 +18,9 @@
     "nuxt": "^3.6.5"
   },
   "devDependencies": {
-    "@nuxtjs/eslint-config-typescript": "^12.0.0",
+    "@nuxt/eslint-config": "^0.3.8",
     "case-police": "^0.6.1",
-    "eslint": "^8.47.0",
-    "markdownlint-cli": "^0.35.0"
+    "eslint": "^9.0.0",
+    "markdownlint-cli": "^0.34.0"
   }
 }
