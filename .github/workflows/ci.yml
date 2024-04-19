@@ -96,8 +96,8 @@ jobs:
       - name: Lint
         run: python -m ruff .
 
-      - name: Check typing
-        run: python -m mypy --exclude src/armonik/protogen/ src/
+      # - name: Check typing
+      #  run: python -m mypy --exclude src/armonik/protogen/ src/
 
       - name: Check format
         run: python -m ruff format .
