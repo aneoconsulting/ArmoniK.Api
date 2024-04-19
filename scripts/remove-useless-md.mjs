@@ -25,7 +25,7 @@ if (!dstFile) {
 consola.info(`Read file ${srcFile}`)
 const file = readline.createInterface({
   input: fs.createReadStream(srcFile),
-  crlfDelay: Number.POSITIVE_INFINITY
+  crlfDelay: Number.POSITIVE_INFINITY,
 })
 
 // Write to file

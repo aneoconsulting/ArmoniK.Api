@@ -10,9 +10,6 @@ fix = false
 # Enable application of unsafe fixes.
 unsafe-fixes = false
 
-# Whether to show source code snippets when reporting lint violation.
-show-source = false
-
 # Enumerate all fixed violations.
 show-fixes = true
 
@@ -20,7 +17,7 @@ show-fixes = true
 preview = false
 
 # The minimum Python version targetted is Python 3.10.
-target-version = "py310"
+target-version = "py38"
 
 # Allow imports relative to the "src/armonik" and "test" directories.
 src = ["src/armonik", "test"]

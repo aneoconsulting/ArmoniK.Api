@@ -1,7 +1,6 @@
 {
   "name": "armonik.api.angular",
   "private": true,
-  "packageManager": "pnpm@9.0.2",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
