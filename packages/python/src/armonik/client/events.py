@@ -42,7 +42,9 @@ class ArmoniKEvents:
     def get_events(
         self,
         session_id: str,
-        event_types: Iterable[EventTypes], # TODO: make EventTypes an enum when Python 3.8 support will be not supported
+        event_types: Iterable[
+            EventTypes
+        ],  # TODO: make EventTypes an enum when Python 3.8 support will be not supported
         event_handlers: List[Callable[[str, EventTypes, Event], bool]],
         task_filter: Optional[Filter] = None,
         result_filter: Optional[Filter] = None,
@@ -64,7 +66,9 @@ class ArmoniKEvents:
         if task_filter:
             request.tasks_filters = cast(rawTaskFilters, task_filter.to_disjunction().to_message())
         if result_filter:
-            request.results_filters = cast(rawResultFilters, result_filter.to_disjunction().to_message())
+            request.results_filters = cast(
+                rawResultFilters, result_filter.to_disjunction().to_message()
+            )
 
         streaming_call = self._client.GetEvents(request)
         for message in streaming_call:
