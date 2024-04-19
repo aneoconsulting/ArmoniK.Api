@@ -1,6 +1,5 @@
 {
   "name": "armonik.api",
-  "packageManager": "pnpm@9.0.2",
   "scripts": {
     "ci:publish": "zx scripts/publish.mjs",
     "ci:publish-edge": "zx scripts/publish-edge.mjs",
