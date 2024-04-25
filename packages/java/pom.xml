@@ -5,9 +5,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>org.aneo</groupId>
-  <artifactId>java</artifactId>
+  <artifactId>armonik-java</artifactId>
   <description>GRPC java binding for the Armonik orchestrator API</description>
-  <version>1.0-SNAPSHOT</version>
+  <version>0.1.0</version>
 
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
