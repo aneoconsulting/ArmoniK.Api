@@ -328,7 +328,7 @@ jobs:
           name: libarmonik.${{ matrix.type }}
 
   build-java-packages:
-    name: Build and test java
+    name: Build Java
     runs-on: ubuntu-latest
     defaults:
       run:
