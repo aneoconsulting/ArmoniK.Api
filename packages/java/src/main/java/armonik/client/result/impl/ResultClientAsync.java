@@ -7,7 +7,8 @@ import armonik.api.grpc.v1.results.ResultsFilters;
 import armonik.api.grpc.v1.results.ResultsGrpc;
 import armonik.api.grpc.v1.results.ResultsGrpc.ResultsStub;
 import armonik.client.result.impl.util.factory.ResultClientRequestFactory;
-import armonik.client.result.impl.util.records.SessionDeletedResultIds;
+import armonik.client.result.impl.util.records.DeleteResultsDataResponseRecord;
+import armonik.client.result.impl.util.records.WatchResultResponseRecord;
 import armonik.client.result.spec.IResultClientAsync;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
@@ -16,17 +17,37 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * ResultClientAsync is an asynchronous implementation of the {@link IResultClientAsync} interface.
+ * It communicates with the result service using a non-blocking stub, making asynchronous calls to perform various result-related operations.
+ */
 public class ResultClientAsync implements IResultClientAsync {
-  private final ResultsStub stub;
+  private final ResultsStub resultsStub;
 
   public ResultClientAsync(ManagedChannel managedChannel) {
-    this.stub = ResultsGrpc.newStub(managedChannel);
+    this.resultsStub = ResultsGrpc.newStub(managedChannel);
   }
 
   @Override
-  public StreamObserver<ResultsCommon.WatchResultRequest> watchResults(StreamObserver<WatchResultResponse> responseObserver) {
-    throw new RuntimeException("Unimplemented method watchResults");
+  public StreamObserver<WatchResultRequest> watchResults(StreamObserver<WatchResultResponseRecord> responseObserver) {
+    StreamObserver<WatchResultResponse> proxyObserver = new StreamObserver<>() {
+      @Override
+      public void onNext(WatchResultResponse watchResultResponse) {
+        responseObserver.onNext(new WatchResultResponseRecord(watchResultResponse.getStatus(), watchResultResponse.getResultIdsList()));
+      }
 
+      @Override
+      public void onError(Throwable throwable) {
+        responseObserver.onError(throwable);
+      }
+
+      @Override
+      public void onCompleted() {
+        responseObserver.onCompleted();
+      }
+    };
+
+    return resultsStub.watchResults(proxyObserver);
   }
 
   @Override
@@ -48,16 +69,16 @@ public class ResultClientAsync implements IResultClientAsync {
       }
     };
 
-    stub.getServiceConfiguration(Objects.Empty.newBuilder().build(), observer);
+    resultsStub.getServiceConfiguration(Objects.Empty.newBuilder().build(), observer);
   }
 
 
   @Override
-  public void deleteResultsData(String sessionId, List<String> resultIds, StreamObserver<SessionDeletedResultIds> responseObserver) {
+  public void deleteResultsData(String sessionId, List<String> resultIds, StreamObserver<DeleteResultsDataResponseRecord> responseObserver) {
     StreamObserver<DeleteResultsDataResponse> observer = new StreamObserver<>() {
       @Override
       public void onNext(DeleteResultsDataResponse deleteResultsDataResponse) {
-        responseObserver.onNext(new SessionDeletedResultIds(sessionId, deleteResultsDataResponse.getResultIdList()));
+        responseObserver.onNext(new DeleteResultsDataResponseRecord(sessionId, deleteResultsDataResponse.getResultIdList()));
       }
 
       @Override
@@ -74,7 +95,7 @@ public class ResultClientAsync implements IResultClientAsync {
     ResultsCommon.DeleteResultsDataRequest request = ResultClientRequestFactory.createDeleteResultsDataRequest(sessionId, resultIds);
 
 
-    stub.deleteResultsData(request, observer);
+    resultsStub.deleteResultsData(request, observer);
   }
 
   @Override
@@ -99,13 +120,30 @@ public class ResultClientAsync implements IResultClientAsync {
     DownloadResultDataRequest request = ResultClientRequestFactory.createDownloadResultDataRequest(sessionId, resultId);
 
 
-    stub.downloadResultData(request, observer);
+    resultsStub.downloadResultData(request, observer);
   }
 
 
   @Override
-  public StreamObserver<UploadResultDataRequest> uploadResultData(String sessionId, String resultId, String payload, StreamObserver<?> responseObserver) {
-    throw new RuntimeException("Unimplemented method uploadResultData");
+  public StreamObserver<UploadResultDataRequest> uploadResultData(String sessionId, String resultId, String payload, StreamObserver<ResultRaw> responseObserver) {
+    StreamObserver<UploadResultDataResponse> proxyObserver = new StreamObserver<>() {
+      @Override
+      public void onNext(UploadResultDataResponse uploadResultDataResponse) {
+        responseObserver.onNext(uploadResultDataResponse.getResult());
+      }
+
+      @Override
+      public void onError(Throwable throwable) {
+        responseObserver.onError(throwable);
+      }
+
+      @Override
+      public void onCompleted() {
+        responseObserver.onCompleted();
+      }
+    };
+    return resultsStub.uploadResultData(proxyObserver);
+
   }
 
   @Override
@@ -133,7 +171,7 @@ public class ResultClientAsync implements IResultClientAsync {
       }
     };
 
-    stub.createResults(request, observer);
+    resultsStub.createResults(request, observer);
   }
 
   @Override
@@ -157,7 +195,7 @@ public class ResultClientAsync implements IResultClientAsync {
       }
     };
 
-    stub.createResultsMetaData(request, observer);
+    resultsStub.createResultsMetaData(request, observer);
   }
 
   @Override
@@ -184,7 +222,7 @@ public class ResultClientAsync implements IResultClientAsync {
     GetOwnerTaskIdRequest request = ResultClientRequestFactory.createGetOwnerTaskIdRequest(sessionId, resultIds);
 
 
-    stub.getOwnerTaskId(request, observer);
+    resultsStub.getOwnerTaskId(request, observer);
   }
 
 
@@ -209,7 +247,7 @@ public class ResultClientAsync implements IResultClientAsync {
 
     GetResultRequest request = ResultClientRequestFactory.createGetResultRequest(resultId);
 
-    stub.getResult(request, observer);
+    resultsStub.getResult(request, observer);
   }
 
 
@@ -234,6 +272,6 @@ public class ResultClientAsync implements IResultClientAsync {
 
     ListResultsRequest request = ResultClientRequestFactory.createListResultsRequest(filters, total, page, pageSize, sort);
 
-    stub.listResults(request, observer);
+    resultsStub.listResults(request, observer);
   }
 }

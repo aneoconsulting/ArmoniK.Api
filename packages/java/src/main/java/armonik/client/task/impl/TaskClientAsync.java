@@ -16,10 +16,19 @@ import io.grpc.stub.StreamObserver;
 
 import java.util.List;
 
+/**
+ * TaskClientAsync is an asynchronous implementation of the {@link ITaskClientAsync} interface.
+ * It communicates with the task service using a non-blocking stub, making asynchronous calls to perform various task-related operations.
+ */
 public class TaskClientAsync implements ITaskClientAsync {
   private final TasksStub taskStub;
 
 
+  /**
+   * Constructs a TaskClientAsync object with the provided managed channel.
+   *
+   * @param managedChannel the managed channel used for communication with the task service
+   */
   public TaskClientAsync(ManagedChannel managedChannel) {
     this.taskStub = TasksGrpc.newStub(managedChannel);
   }

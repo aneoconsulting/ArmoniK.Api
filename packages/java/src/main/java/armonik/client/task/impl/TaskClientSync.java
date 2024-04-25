@@ -17,10 +17,19 @@ import java.util.List;
 
 import static armonik.api.grpc.v1.tasks.TasksCommon.GetResultIdsResponse.MapTaskResult;
 
+/**
+ * TaskClientSync is a synchronous implementation of the {@link ITaskClientSync} interface.
+ * It communicates with the task service using a blocking stub, making synchronous calls to perform various task-related operations.
+ */
 public class TaskClientSync implements ITaskClientSync {
   private final TasksBlockingStub taskStub;
 
 
+  /**
+   * Constructs a TaskClientSync object with the provided managed channel.
+   *
+   * @param managedChannel the managed channel used for communication with the task service
+   */
   public TaskClientSync(ManagedChannel managedChannel) {
     this.taskStub = TasksGrpc.newBlockingStub(managedChannel);
   }
@@ -55,7 +64,6 @@ public class TaskClientSync implements ITaskClientSync {
     GetResultIdsRequest request = TaskClientRequestFactory.createGetResultIdsRequest(tasksIds);
     return taskStub.getResultIds(request).getTaskResultsList();
   }
-
 
   @Override
   public List<StatusCount> countTasksByStatus(Filters filters) {
