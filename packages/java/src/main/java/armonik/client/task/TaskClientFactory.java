@@ -17,7 +17,7 @@ public abstract class TaskClientFactory {
    * @param managedChannel the managed channel used for communication with the task service
    * @return an instance of {@link ITaskClientSync} representing a synchronous task client
    */
-  public ITaskClientSync createTaskClientSync(ManagedChannel managedChannel){
+  public static ITaskClientSync createTaskClientSync(ManagedChannel managedChannel){
     return new TaskClientSync(managedChannel);
   }
 
@@ -27,7 +27,7 @@ public abstract class TaskClientFactory {
    * @param managedChannel the managed channel used for communication with the task service
    * @return an instance of {@link ITaskClientAsync} representing an asynchronous task client
    */
-  public ITaskClientAsync createTaskClientAsync(ManagedChannel managedChannel){
+  public static ITaskClientAsync createTaskClientAsync(ManagedChannel managedChannel){
     return new TaskClientAsync(managedChannel);
   }
 }
