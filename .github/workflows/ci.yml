@@ -330,6 +330,9 @@ jobs:
   build-java-packages:
     name: Build and test java
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/java
     steps:
       - name: Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
@@ -341,5 +344,5 @@ jobs:
           distribution: 'oracle'
           java-version: 17
           cache: maven
-      - name: Build the project
+      - name: Build the package
         run: mvn clean install -DskipTests
