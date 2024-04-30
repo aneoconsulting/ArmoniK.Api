@@ -2,11 +2,12 @@
 import grpc
 import argparse
 from typing import cast
-from armonik.client import ArmoniKSubmitter, ArmoniKResult, ArmoniKTasks
+from armonik.client import ArmoniKSessions, ArmoniKResults, ArmoniKTasks, ArmoniKEvents
 from armonik.client.tasks import TaskFieldFilter
-from armonik.common import TaskDefinition, TaskOptions
+from armonik.client.results import ResultFieldFilter
+from armonik.common import TaskDefinition, TaskOptions, Result
 from datetime import timedelta, datetime
-from common import Payload, Result
+from common import TaskIO
 
 
 def parse_arguments():
@@ -16,73 +17,49 @@ def parse_arguments():
     parser.add_argument("-v", "--values", type=float, help="List of values to compute instead of x in [0, n[", nargs='+')
     parser.add_argument("-n", "--nfirst", type=int, help="Compute from 0 inclusive to n exclusive, n=10 by default", default=10)
     parser.add_argument("-l", "--list", action="store_true", help="List tasks of the session at the end")
+    parser.add_argument('--threshold', type=str, help='value of threshold', default="30")
     return parser.parse_args()
-
 
 def main():
     args = parse_arguments()
-    print("Hello ArmoniK Python Example !")
+    print("Hello ArmoniK Python Example!")
+    # Create User Data converted in bytes in common
+    user_data = TaskIO([1, 2, 3])
     # Open a channel to the control plane
     with grpc.insecure_channel(args.endpoint) as channel:
-        # Create a task submitting client
-        client = ArmoniKSubmitter(channel)
-        # Create the results client
-        results_client = ArmoniKResult(channel)
+        # Create the task client
+        task_client = ArmoniKTasks(channel)
+        # Create the result client
+        result_client = ArmoniKResults(channel)
+        # Create the session client
+        session_client = ArmoniKSessions(channel)
         # Default task options to be used in a session
         default_task_options = TaskOptions(max_duration=timedelta(seconds=300), priority=1, max_retries=5, partition_id=args.partition)
         # Create a session
-        session_id = client.create_session(default_task_options=default_task_options, partition_ids=[args.partition] if args.partition is not None else None)
+        session_id = session_client.create_session(default_task_options=default_task_options, partition_ids=[args.partition] if args.partition is not None else None)
         print(f"Session {session_id} has been created")
-        try:
-            # Create the payload
-            payload = Payload([i for i in range(args.nfirst)] if args.values is None else args.values)
-            # Create the result
-            result_name = f"main_result_{int(datetime.now().timestamp())}"
-            result_id = results_client.get_results_ids(session_id, [result_name])[result_name]
-            # Define the task with the payload
-            task_definition = TaskDefinition(payload.serialize(), expected_output_ids=[result_id])
-            # Submit the task
-            submitted_tasks, submission_errors = client.submit(session_id, [task_definition])
-            for e in submission_errors:
-                print(f"Submission error : {e}")
+        # Create Result input metadata
+        results = result_client.create_results_metadata(["input","output"], session_id)
+        # Submit data for an empty result already created
+        result_client.upload_result_data(results["input"].result_id, session_id, user_data.serialize())
+        # Create Task definition
+        task_definition = TaskDefinition(
+            expected_output_ids=[results["output"].result_id],
+            data_dependencies=[results["input"].result_id],
+            options=TaskOptions(
+                max_duration=timedelta(seconds=300),
+                priority=1,
+                max_retries=5,
+                options={"threshold": args.threshold}
+            )
+        )
+        print(task_definition)
+        # Submit Task
+        submitted_task = task_client.submit_tasks(session_id, [task_definition])
 
-            print(f"Main tasks have been sent")
+        # Wait for the result to be available
 
-            for t in submitted_tasks:
-                # Wait for the result to be available
-                reply = client.wait_for_availability(session_id, result_id=t.expected_output_ids[0])
-                if reply is None:
-                    # This should not happen
-                    print("Result unexpectedly unavailable")
-                    continue
-                if reply.is_available():
-                    # Result is available, get the result
-                    result_payload = Result.deserialize(cast(bytes, client.get_result(session_id, result_id=t.expected_output_ids[0])))
-                    print(f"Result : {result_payload.value}")
-                else:
-                    # Result is in error
-                    errors = "\n".join(reply.errors)
-                    print(f'Errors : {errors}')
-
-            # List tasks
-            if args.list:
-                print(f"Listing tasks of session {session_id}")
-                # Create the tasks client
-                tasks_client = ArmoniKTasks(channel)
-
-                # Request listing of tasks from the session
-                total_tasks, tasks = tasks_client.list_tasks(TaskFieldFilter.SESSION_ID == session_id)
-                print(f"Found {total_tasks} tasks in total for the session {session_id}")
-
-                for t in tasks:
-                    print(t)
-
-        except KeyboardInterrupt:
-            # If we stop the script, cancel the session
-            client.cancel_session(session_id)
-            print("Session has been cancelled")
-        finally:
-            print("Good bye !")
+        # Downlaod output data of result
 
 
 if __name__ == "__main__":
