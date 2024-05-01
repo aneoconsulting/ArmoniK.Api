@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
+from deprecation import deprecated
+
 from ..protogen.common.objects_pb2 import (
     Empty,
 )
@@ -99,13 +101,16 @@ class Task:
     id: Optional[str] = None
     session_id: Optional[str] = None
     owner_pod_id: Optional[str] = None
+
+    initial_task_id: Optional[str] = None
     parent_task_ids: List[str] = field(default_factory=list)
     data_dependencies: List[str] = field(default_factory=list)
     expected_output_ids: List[str] = field(default_factory=list)
     retry_of_ids: List[str] = field(default_factory=list)
+
     status: RawTaskStatus = TaskStatus.UNSPECIFIED
-    payload_id: Optional[str] = None
     status_message: Optional[str] = None
+
     options: Optional[TaskOptions] = None
     created_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
@@ -116,7 +121,13 @@ class Task:
     processed_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     pod_ttl: Optional[datetime] = None
+
+    creation_to_end_duration: Optional[timedelta] = timedelta(0)
+    processing_to_end_duration: Optional[timedelta] = timedelta(0)
+    received_to_end_duration: Optional[timedelta] = timedelta(0)
+
     output: Optional[Output] = None
+
     pod_hostname: Optional[str] = None
 
     def refresh(self, task_client) -> None:
@@ -128,12 +139,16 @@ class Task:
         result: "Task" = task_client.get_task(self.id)
         self.session_id = result.session_id
         self.owner_pod_id = result.owner_pod_id
+
+        self.initial_task_id = result.initial_task_id
         self.parent_task_ids = result.parent_task_ids
         self.data_dependencies = result.data_dependencies
         self.expected_output_ids = result.expected_output_ids
         self.retry_of_ids = result.retry_of_ids
+
         self.status = result.status
         self.status_message = result.status_message
+
         self.options = result.options
         self.created_at = result.created_at
         self.submitted_at = result.submitted_at
@@ -144,7 +159,13 @@ class Task:
         self.processed_at = result.processed_at
         self.ended_at = result.ended_at
         self.pod_ttl = result.pod_ttl
+
+        self.creation_to_end_duration = result.creation_to_end_duration
+        self.processing_to_end_duration = result.processing_to_end_duration
+        self.received_to_end_duration = result.received_to_end_duration
+
         self.output = result.output
+
         self.pod_hostname = result.pod_hostname
         self.is_init = True
 
@@ -154,6 +175,7 @@ class Task:
             id=task_raw.id,
             session_id=task_raw.session_id,
             owner_pod_id=task_raw.owner_pod_id,
+            initial_task_id=task_raw.initial_task_id,
             parent_task_ids=list(task_raw.parent_task_ids),
             data_dependencies=list(task_raw.data_dependencies),
             expected_output_ids=list(task_raw.expected_output_ids),
@@ -170,12 +192,16 @@ class Task:
             processed_at=timestamp_to_datetime(task_raw.processed_at),
             ended_at=timestamp_to_datetime(task_raw.ended_at),
             pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
+            creation_to_end_duration=duration_to_timedelta(task_raw.creation_to_end_duration),
+            processing_to_end_duration=duration_to_timedelta(task_raw.processing_to_end_duration),
+            received_to_end_duration=duration_to_timedelta(task_raw.received_to_end_duration),
             output=Output(error=(task_raw.output.error if not task_raw.output.success else None)),
             pod_hostname=task_raw.pod_hostname,
         )
 
 
-@dataclass()
+@deprecated(deprecated_in="3.14.0", details="Use sessions, task and results client instead")
+@dataclass
 class ResultAvailability:
     errors: List[str] = field(default_factory=list)
 
