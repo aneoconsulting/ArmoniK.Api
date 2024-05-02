@@ -31,8 +31,8 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install --upgrade pip
-python -m pip install build grpcio grpcio-tools setuptools_scm[toml]
+python -m pip install uv
+python -m uv pip install build grpcio grpcio-tools setuptools_scm[toml]
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
