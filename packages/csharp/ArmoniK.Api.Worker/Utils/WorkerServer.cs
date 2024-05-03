@@ -110,20 +110,20 @@ public static class WorkerServer
       builder.Host.UseSerilog(Log.Logger);
 
 
-      var computePlanOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection)
-                                      .Get<ComputePlane>();
+      var computePlaneOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection)
+                                       .Get<ComputePlane>();
 
-      if (computePlanOptions?.WorkerChannel is null)
+      if (computePlaneOptions?.WorkerChannel is null)
       {
-        throw new Exception($"{nameof(computePlanOptions.WorkerChannel)} options should not be null");
+        throw new Exception($"{nameof(computePlaneOptions.WorkerChannel)} options should not be null");
       }
 
-      builder.WebHost.ConfigureKestrel(options => options.ListenUnixSocket(computePlanOptions.WorkerChannel.Address,
+      builder.WebHost.ConfigureKestrel(options => options.ListenUnixSocket(computePlaneOptions.WorkerChannel.Address,
                                                                            listenOptions =>
                                                                            {
-                                                                             if (File.Exists(computePlanOptions.WorkerChannel.Address))
+                                                                             if (File.Exists(computePlaneOptions.WorkerChannel.Address))
                                                                              {
-                                                                               File.Delete(computePlanOptions.WorkerChannel.Address);
+                                                                               File.Delete(computePlaneOptions.WorkerChannel.Address);
                                                                              }
 
                                                                              listenOptions.Protocols = HttpProtocols.Http2;
@@ -132,7 +132,8 @@ public static class WorkerServer
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
              .AddSingleton<GrpcChannelProvider>()
-             .AddSingleton(computePlanOptions.AgentChannel)
+             .AddSingleton(computePlaneOptions)
+             .AddSingleton(computePlaneOptions.AgentChannel)
              .AddLogging()
              .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
