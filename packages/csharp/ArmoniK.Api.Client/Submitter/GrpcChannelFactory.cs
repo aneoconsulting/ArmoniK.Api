@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Security;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Cryptography;
@@ -217,6 +218,111 @@ namespace ArmoniK.Api.Client.Submitter
     }
 
     /// <summary>
+    ///   Get the server certificate validation callback
+    /// </summary>
+    /// <param name="insecure">Whether validation should be performed</param>
+    /// <param name="caCert">Root certificate to validate Server cert against</param>
+    /// <returns>Validation callback</returns>
+    private static Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool>? GetServerCertificateValidationCallback(bool             insecure,
+                                                                                                                                        X509Certificate? caCert)
+    {
+      if (insecure)
+      {
+        AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
+                             true);
+        return (_,
+                certificate2,
+                certChain,
+                sslPolicyErrors) => true;
+      }
+
+      if (caCert is null)
+      {
+        return null;
+      }
+
+      return (_,
+              certificate2,
+              certChain,
+              sslPolicyErrors) =>
+             {
+               throw new NotImplementedException("Does not support CA validation");
+             };
+    }
+
+    /// <summary>
+    ///   Creates a HttpMessageHandler for the current platform
+    /// </summary>
+    /// <param name="https">Whether https is used or not</param>
+    /// <param name="insecure">Whether the Server Certificate should be validated or not</param>
+    /// <param name="caCert">Root certificate to validate the server certificate against</param>
+    /// <param name="clientCert">Client certificate to be used for mTLS</param>
+    /// <returns>HttpMessageHandler</returns>
+    private static HttpMessageHandler CreateHttpMessageHandler(bool              https,
+                                                               bool              insecure,
+                                                               X509Certificate?  caCert,
+                                                               X509Certificate2? clientCert)
+    {
+      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
+      {
+        var handler = new WinHttpHandler();
+        if (!https)
+        {
+          return handler;
+        }
+
+        handler.SslProtocols = GetSslProtocols();
+        handler.ServerCertificateValidationCallback = GetServerCertificateValidationCallback(insecure,
+                                                                                             caCert);
+
+        if (clientCert is not null)
+        {
+          handler.ClientCertificates.Add(clientCert);
+        }
+
+        return handler;
+      }
+      else
+      {
+        var handler = new HttpClientHandler();
+        if (!https)
+        {
+          return handler;
+        }
+
+        handler.SslProtocols = GetSslProtocols();
+        handler.ServerCertificateCustomValidationCallback = GetServerCertificateValidationCallback(insecure,
+                                                                                                   caCert);
+
+        if (clientCert is not null)
+        {
+          handler.ClientCertificates.Add(clientCert);
+        }
+
+        return handler;
+      }
+    }
+
+    /// <summary>
+    ///   Get the list of supported SSL protocols, and enable TLS1.3 if possible
+    /// </summary>
+    /// <returns>SSL protocols enum</returns>
+    private static SslProtocols GetSslProtocols()
+    {
+      try
+      {
+        // try TLS1.3
+        ServicePointManager.SecurityProtocol |= (SecurityProtocolType)12288 | SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+        return (SslProtocols)12288 | SslProtocols.Tls12 | SslProtocols.Tls11 | SslProtocols.Tls;
+      }
+      catch (NotSupportedException)
+      {
+        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+        return SslProtocols.Tls12 | SslProtocols.Tls11 | SslProtocols.Tls;
+      }
+    }
+
+    /// <summary>
     ///   Creates the GrpcChannel
     /// </summary>
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
@@ -260,13 +366,6 @@ namespace ArmoniK.Api.Client.Submitter
                             },
                           };
 
-      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
-      {
-        // .NET Framework cannot use Grpc.Net.Client.GrpcChannel as it doesn't support Http2 with this framework
-        return CreateFrameworkChannel(optionsGrpcClient,
-                                      serviceConfig);
-      }
-
       if (!string.IsNullOrWhiteSpace(optionsGrpcClient.CaCert) && !optionsGrpcClient.AllowUnsafeConnection)
       {
         /* You cannot give a root certificate directly using the C# implementation, thus you have to either :
@@ -274,6 +373,7 @@ namespace ArmoniK.Api.Client.Submitter
          - Somehow validate the certificate with a custom root, but it's difficult :
              - https://stackoverflow.com/questions/13103295/bouncy-castle-this-certificate-has-an-invalid-digital-signature
              - https://www.meziantou.net/custom-certificate-validation-in-dotnet.htm
+             - https://github.com/dotnet/runtime/issues/39835
          The issue being that the server certificate is considered to not have a valid signature, and I'm not sure how to handle it
         */
         logger?.LogWarning("Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
@@ -286,38 +386,14 @@ namespace ArmoniK.Api.Client.Submitter
       var credentials = uri.Scheme == Uri.UriSchemeHttps
                           ? ChannelCredentials.SecureSsl
                           : ChannelCredentials.Insecure;
+      var clientCert = optionsGrpcClient.HasClientCertificate
+                         ? GetCertificate(optionsGrpcClient)
+                         : null;
 
-      var httpHandler = new HttpClientHandler();
-
-      if (optionsGrpcClient.AllowUnsafeConnection)
-      {
-        httpHandler.ServerCertificateCustomValidationCallback = (_,
-                                                                 _,
-                                                                 _,
-                                                                 _) => true;
-        AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
-                             true);
-      }
-
-      if (uri.Scheme == Uri.UriSchemeHttps)
-      {
-        if (optionsGrpcClient.HasClientCertificate)
-        {
-          httpHandler.ClientCertificates.Add(GetCertificate(optionsGrpcClient));
-        }
-
-        try
-        {
-          // try TLS1.3
-          ServicePointManager.SecurityProtocol |= (SecurityProtocolType)12288 | SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-          httpHandler.SslProtocols             =  (SslProtocols)12288         | SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
-        }
-        catch (NotSupportedException)
-        {
-          ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-          httpHandler.SslProtocols             =  SslProtocols.Tls12         | SslProtocols.Tls11         | SslProtocols.Tls;
-        }
-      }
+      var httpHandler = CreateHttpMessageHandler(uri.Scheme == Uri.UriSchemeHttps,
+                                                 optionsGrpcClient.AllowUnsafeConnection,
+                                                 null,
+                                                 clientCert);
 
       var httpClient = new HttpClient(httpHandler)
                        {
