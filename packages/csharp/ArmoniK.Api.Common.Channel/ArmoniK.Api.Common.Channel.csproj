@@ -4,8 +4,8 @@
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PackageVersion>3.17.0</PackageVersion>
-    <Version>3.17.0</Version>
+    <PackageVersion>3.17.1</PackageVersion>
+    <Version>3.17.1</Version>
     <PackageOutputPath>../publish</PackageOutputPath>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
