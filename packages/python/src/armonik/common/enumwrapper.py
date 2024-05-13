@@ -2,17 +2,17 @@ from __future__ import annotations
 from enum import IntEnum
 
 from ..protogen.common.task_status_pb2 import (
-    TASK_STATUS_CANCELLED,
-    TASK_STATUS_CANCELLING,
-    TASK_STATUS_COMPLETED,
-    TASK_STATUS_CREATING,
-    TASK_STATUS_DISPATCHED,
-    TASK_STATUS_ERROR,
-    TASK_STATUS_PROCESSED,
-    TASK_STATUS_PROCESSING,
-    TASK_STATUS_SUBMITTED,
-    TASK_STATUS_TIMEOUT,
     TASK_STATUS_UNSPECIFIED,
+    TASK_STATUS_CREATING,
+    TASK_STATUS_SUBMITTED,
+    TASK_STATUS_DISPATCHED,
+    TASK_STATUS_COMPLETED,
+    TASK_STATUS_ERROR,
+    TASK_STATUS_TIMEOUT,
+    TASK_STATUS_CANCELLING,
+    TASK_STATUS_CANCELLED,
+    TASK_STATUS_PROCESSING,
+    TASK_STATUS_PROCESSED,
     TASK_STATUS_RETRIED,
 )
 from ..protogen.common.events_common_pb2 import (
@@ -27,8 +27,12 @@ from ..protogen.common.session_status_pb2 import (
     SessionStatus as RawSessionStatus,
     _SESSIONSTATUS,
     SESSION_STATUS_UNSPECIFIED,
-    SESSION_STATUS_CANCELLED,
     SESSION_STATUS_RUNNING,
+    SESSION_STATUS_CANCELLED,
+    SESSION_STATUS_PAUSED,
+    SESSION_STATUS_CLOSED,
+    SESSION_STATUS_PURGED,
+    SESSION_STATUS_DELETED,
 )
 from ..protogen.common.result_status_pb2 import (
     ResultStatus as RawResultStatus,
@@ -52,53 +56,19 @@ from ..protogen.common.sort_direction_pb2 import SORT_DIRECTION_ASC, SORT_DIRECT
 # This file is necessary because the grpc types aren't considered proper types
 
 
-class HealthCheckStatus:
-    NOT_SERVING = HealthCheckReply.NOT_SERVING
-    SERVING = HealthCheckReply.SERVING
-    UNKNOWN = HealthCheckReply.UNKNOWN
-
-
 class TaskStatus(IntEnum):
-    CANCELLED = TASK_STATUS_CANCELLED
-    CANCELLING = TASK_STATUS_CANCELLING
-    COMPLETED = TASK_STATUS_COMPLETED
-    CREATING = TASK_STATUS_CREATING
-    DISPATCHED = TASK_STATUS_DISPATCHED
-    ERROR = TASK_STATUS_ERROR
-    PROCESSED = TASK_STATUS_PROCESSED
-    PROCESSING = TASK_STATUS_PROCESSING
-    SUBMITTED = TASK_STATUS_SUBMITTED
-    RETRIED = TASK_STATUS_RETRIED
-    TIMEOUT = TASK_STATUS_TIMEOUT
     UNSPECIFIED = TASK_STATUS_UNSPECIFIED
-
-
-class Direction:
-    ASC = SORT_DIRECTION_ASC
-    DESC = SORT_DIRECTION_DESC
-
-
-class SessionStatus:
-    @staticmethod
-    def name_from_value(status: RawSessionStatus) -> str:
-        return _SESSIONSTATUS.values_by_number[status].name
-
-    UNSPECIFIED = SESSION_STATUS_UNSPECIFIED
-    RUNNING = SESSION_STATUS_RUNNING
-    CANCELLED = SESSION_STATUS_CANCELLED
-
-
-class ResultStatus:
-    @staticmethod
-    def name_from_value(status: RawResultStatus) -> str:
-        return _RESULTSTATUS.values_by_number[status].name
-
-    UNSPECIFIED = RESULT_STATUS_UNSPECIFIED
-    CREATED = RESULT_STATUS_CREATED
-    COMPLETED = RESULT_STATUS_COMPLETED
-    ABORTED = RESULT_STATUS_ABORTED
-    DELETED = RESULT_STATUS_DELETED
-    NOTFOUND = RESULT_STATUS_NOTFOUND
+    CREATING = TASK_STATUS_CREATING
+    SUBMITTED = TASK_STATUS_SUBMITTED
+    DISPATCHED = TASK_STATUS_DISPATCHED
+    COMPLETED = TASK_STATUS_COMPLETED
+    ERROR = TASK_STATUS_ERROR
+    TIMEOUT = TASK_STATUS_TIMEOUT
+    CANCELLING = TASK_STATUS_CANCELLING
+    CANCELLED = TASK_STATUS_CANCELLED
+    PROCESSING = TASK_STATUS_PROCESSING
+    PROCESSED = TASK_STATUS_PROCESSED
+    RETRIED = TASK_STATUS_RETRIED
 
 
 class EventTypes:
@@ -114,8 +84,46 @@ class EventTypes:
         return getattr(cls, name.upper())
 
 
+class SessionStatus:
+    @staticmethod
+    def name_from_value(status: RawSessionStatus) -> str:
+        return _SESSIONSTATUS.values_by_number[status].name
+
+    UNSPECIFIED = SESSION_STATUS_UNSPECIFIED
+    RUNNING = SESSION_STATUS_RUNNING
+    CANCELLED = SESSION_STATUS_CANCELLED
+    PAUSED = SESSION_STATUS_PAUSED
+    CLOSED = SESSION_STATUS_CLOSED
+    PURGED = SESSION_STATUS_PURGED
+    DELETED = SESSION_STATUS_DELETED
+
+
+class ResultStatus:
+    @staticmethod
+    def name_from_value(status: RawResultStatus) -> str:
+        return _RESULTSTATUS.values_by_number[status].name
+
+    UNSPECIFIED = RESULT_STATUS_UNSPECIFIED
+    CREATED = RESULT_STATUS_CREATED
+    COMPLETED = RESULT_STATUS_COMPLETED
+    ABORTED = RESULT_STATUS_ABORTED
+    DELETED = RESULT_STATUS_DELETED
+    NOTFOUND = RESULT_STATUS_NOTFOUND
+
+
 class ServiceHealthCheckStatus:
     UNSPECIFIED = HEALTH_STATUS_ENUM_UNSPECIFIED
     HEALTHY = HEALTH_STATUS_ENUM_HEALTHY
     DEGRADED = HEALTH_STATUS_ENUM_DEGRADED
     UNHEALTHY = HEALTH_STATUS_ENUM_UNHEALTHY
+
+
+class HealthCheckStatus:
+    UNKNOWN = HealthCheckReply.UNKNOWN
+    SERVING = HealthCheckReply.SERVING
+    NOT_SERVING = HealthCheckReply.NOT_SERVING
+
+
+class Direction:
+    ASC = SORT_DIRECTION_ASC
+    DESC = SORT_DIRECTION_DESC
