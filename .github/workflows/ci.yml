@@ -91,16 +91,25 @@ jobs:
         run: bash proto2python.sh ~/pyvenv
 
       - name: Install dependencies
-        run: pip install "$(echo pkg/armonik*.whl)[dev]"
+        run: |
+          source ~/pyvenv/bin/activate
+          python -m pip install uv
+          python -m uv pip install "$(echo pkg/armonik*.whl)[dev]"
 
       - name: Lint
-        run: python -m ruff check .
+        run: |
+          source ~/pyvenv/bin/activate
+          python -m ruff check .
 
       # - name: Check typing
-      #  run: python -m mypy --exclude src/armonik/protogen/ src/
+      #  run: |
+      #  source ~/pyvenv/bin/activate
+      #  python -m mypy --exclude src/armonik/protogen/ src/
 
       - name: Check format
-        run: python -m ruff format .
+        run: |
+          source ~/pyvenv/bin/activate
+          python -m ruff format .
 
       - name: Check Diff
         run: |

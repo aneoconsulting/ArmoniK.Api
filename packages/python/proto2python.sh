@@ -29,10 +29,10 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 # for debian/ubuntu if you don't have python 3 installed:
 # sudo apt install python3-venv python3 python-is-python3 python3-pip
 
-python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install build grpcio grpcio-tools setuptools_scm[toml]
+python -m pip install uv
+python -m uv pip install build grpcio grpcio-tools setuptools_scm[toml]
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do

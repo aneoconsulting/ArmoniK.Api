@@ -10,12 +10,12 @@ class TestArmoniKTasks:
         id="task-id",
         session_id="session-id",
         owner_pod_id="",
+        initial_task_id="",
         parent_task_ids=[],
         data_dependencies=[],
         expected_output_ids=[],
         retry_of_ids=[],
         status=4,
-        payload_id=None,
         status_message="",
         options=TaskOptions(
             max_duration=datetime.timedelta(seconds=1),
@@ -38,6 +38,9 @@ class TestArmoniKTasks:
         processed_at=None,
         ended_at=None,
         pod_ttl=None,
+        creation_to_end_duration=datetime.timedelta(0),
+        processing_to_end_duration=datetime.timedelta(0),
+        received_to_end_duration=datetime.timedelta(0),
         output=Output(error=""),
         pod_hostname="",
     )
