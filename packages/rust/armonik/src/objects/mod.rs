@@ -33,6 +33,7 @@ pub mod sessions;
 pub mod submitter;
 pub mod tasks;
 pub mod versions;
+pub mod worker;
 
 pub use configuration::Configuration;
 pub use count::Count;
