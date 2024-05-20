@@ -22,7 +22,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
@@ -46,7 +48,8 @@ public enum ConnectivityKind
 
 internal static class ConnectivityKindExt
 {
-  private const string CertFolder = "../../../../certs";
+  private static string CertFolder
+    => Environment.GetEnvironmentVariable("CertFolder") ?? "../../../../certs";
 
   internal static bool IsTls(this ConnectivityKind kind)
     => kind switch
@@ -72,12 +75,21 @@ internal static class ConnectivityKindExt
        };
 
   internal static string? GetCaCertPath(this ConnectivityKind kind)
-    => kind switch
-       {
-         ConnectivityKind.TlsCert or ConnectivityKind.MTlsCert => Path.Combine(CertFolder,
-                                                                               "server-ca.pem"),
-         _ => null,
-       };
+  {
+    switch (kind)
+    {
+      case ConnectivityKind.TlsCert or ConnectivityKind.MTlsCert:
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
+        {
+          Assert.Inconclusive("Library loading bug on Windows");
+        }
+
+        return Path.Combine(CertFolder,
+                            "server1-ca.pem");
+      default:
+        return null;
+    }
+  }
 
   internal static (string?, string?) GetClientCertPath(this ConnectivityKind kind)
     => kind.IsMTls()
@@ -92,21 +104,16 @@ internal static class ConnectivityKindExt
          ConnectivityKind.Unencrypted  => "http://localhost:5000",
          ConnectivityKind.TlsInsecure  => "https://localhost:5001",
          ConnectivityKind.TlsCert      => "https://localhost:5001",
-         ConnectivityKind.TlsStore     => "https://localhost:5001",
-         ConnectivityKind.MTlsInsecure => "https://localhost:5002",
-         ConnectivityKind.MTlsCert     => "https://localhost:5002",
-         ConnectivityKind.MTlsStore    => "https://localhost:5002",
+         ConnectivityKind.TlsStore     => "https://localhost:5002",
+         ConnectivityKind.MTlsInsecure => "https://localhost:5003",
+         ConnectivityKind.MTlsCert     => "https://localhost:5003",
+         ConnectivityKind.MTlsStore    => "https://localhost:5004",
          _                             => "http://localhost:5000",
        };
 
   internal static ChannelBase GetChannel(this ConnectivityKind kind)
   {
     var (certPath, keyPath) = kind.GetClientCertPath();
-
-    if (kind.GetCaCertPath() is not null && false)
-    {
-      Assert.Inconclusive("CA is not yet supported");
-    }
 
     return GrpcChannelFactory.CreateChannel(new GrpcClient
                                             {
