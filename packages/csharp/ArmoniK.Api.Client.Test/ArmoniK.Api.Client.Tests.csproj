@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net6.0</TargetFrameworks>
+    <TargetFrameworks>net4.7;net4.8;net6.0;net8.0</TargetFrameworks>
     <Company>ANEO</Company>
-    <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
+    <Copyright>Copyright (C) ANEO, 2021-2024</Copyright>
     <IsPackable>false</IsPackable>
     <LangVersion>10</LangVersion>
     <Optimize>true</Optimize>
