@@ -1,0 +1,185 @@
+name: Tests
+
+on:
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  certs:
+    name: Generate certificates
+    runs-on: ubuntu-latest
+    outputs:
+      client-ca_pem: ${{ steps.certs.outputs.client-ca_pem }}
+      client_key: ${{ steps.certs.outputs.client_key }}
+      client_pem: ${{ steps.certs.outputs.client_pem }}
+      server1-ca_pem: ${{ steps.certs.outputs.server1-ca_pem }}
+      server1_key: ${{ steps.certs.outputs.server1_key }}
+      server1_pem: ${{ steps.certs.outputs.server1_pem }}
+      server2-ca_pem: ${{ steps.certs.outputs.server2-ca_pem }}
+      server2_key: ${{ steps.certs.outputs.server2_key }}
+      server2_pem: ${{ steps.certs.outputs.server2_pem }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        with:
+          fetch-depth: 0
+      - name: Generate certificates
+        id: certs
+        run: |
+          mkdir certs
+          cd certs
+          ../scripts/certs.sh
+          for file in *; do
+            echo "${file//./_}<<EOF"
+            cat "$file"
+            echo "EOF"
+          done >> "$GITHUB_OUTPUT"
+
+  csharp:
+    name: Test C#
+    needs:
+      - certs
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet:
+          - version: ''
+            framework: net4.7
+          - version: ''
+            framework: net4.8
+          - version: 6.0
+            framework: net6.0
+          - version: 8.0
+            framework: net8.0
+        platform:
+          - os: ubuntu-latest
+            runtime: linux-x64
+          - os: windows-2019
+            runtime: windows-x64
+          - os: windows-2022
+            runtime: windows-x64
+        exclude:
+          - dotnet:
+              version: ''
+              framework: net4.7
+            platform:
+              os: ubuntu-latest
+              runtime: linux-x64
+          - dotnet:
+              version: ''
+              framework: net4.8
+            platform:
+              os: ubuntu-latest
+              runtime: linux-x64
+    runs-on: ${{ matrix.platform.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Install local certs
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          mkdir certs
+          cd certs
+          cat > client-ca.pem <<EOF
+          ${{ needs.certs.outputs.client-ca_pem }}
+          EOF
+          cat > client.key <<EOF
+          ${{ needs.certs.outputs.client_key }}
+          EOF
+          cat > client.pem <<EOF
+          ${{ needs.certs.outputs.client_pem }}
+          EOF
+          cat > server1-ca.pem <<EOF
+          ${{ needs.certs.outputs.server1-ca_pem }}
+          EOF
+          cat > server1.key <<EOF
+          ${{ needs.certs.outputs.server1_key }}
+          EOF
+          cat > server1.pem <<EOF
+          ${{ needs.certs.outputs.server1_pem }}
+          EOF
+          cat > server2-ca.pem <<EOF
+          ${{ needs.certs.outputs.server2-ca_pem }}
+          EOF
+          cat > server2.key <<EOF
+          ${{ needs.certs.outputs.server2_key }}
+          EOF
+          cat > server2.pem <<EOF
+          ${{ needs.certs.outputs.server2_pem }}
+          EOF
+      - name: Install certs
+        if: ${{ matrix.platform.os == 'ubuntu-latest' }}
+        working-directory: packages/csharp/certs
+        run: |
+          sudo apt install ca-certificates
+          sudo mkdir -p /usr/local/share/ca-certificates/
+          sudo cp server2-ca.pem /usr/local/share/ca-certificates/ca.crt
+          sudo update-ca-certificates
+      - name: Install certs
+        if: ${{ contains(matrix.platform.os, 'windows') }}
+        working-directory: packages/csharp/certs
+        run: |
+          certutil -addstore -f "ROOT" server2-ca.pem
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
+        if: ${{ matrix.dotnet.version }} != ""
+        with:
+          dotnet-version: ${{ matrix.dotnet.version }}
+
+      - name: Build Mock server
+        working-directory: packages/csharp/ArmoniK.Api.Mock
+        shell: bash
+        run: |
+          dotnet publish -o ../out
+          [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
+
+      - name: Test
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          set +e
+          set -x
+          export CertFolder="$PWD/certs"
+          ./out/ArmoniK.Api.Mock.exe \
+            grpc:port=5000 http:port=4999 \
+            & notls_pid=$!
+          ./out/ArmoniK.Api.Mock.exe \
+            grpc:port=5001 http:port=5001 \
+            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" \
+            & tls_pid=$!
+          ./out/ArmoniK.Api.Mock.exe \
+            grpc:port=5002 http:port=5002 \
+            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" \
+            & tlsstore_pid=$!
+          ./out/ArmoniK.Api.Mock.exe \
+            grpc:port=5003 http:port=5003 \
+            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" http:clientcert="$CertFolder/client-ca.pem" \
+            & mtls_pid=$!
+          ./out/ArmoniK.Api.Mock.exe \
+            grpc:port=5004 http:port=5004 \
+            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" http:clientcert="$CertFolder/client-ca.pem" \
+            & mtlsstore_pid=$!
+          sleep 5
+
+          cd ArmoniK.Api.Client.Test
+          dotnet test --runtime ${{ matrix.platform.runtime }} -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?
+
+          kill $notls_pid $tls_pid $tlsstore_pid $mtls_pid $mtlsstore_pid
+          exit $ret
+
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: ConnectivityTests ${{ matrix.platform.runtime }} ${{ matrix.dotnet.framework }}
+          path: ./packages/csharp/ArmoniK.Api.Client.Test/TestResults/test-results.trx
+          reporter: dotnet-trx
