@@ -8,40 +8,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  certs:
-    name: Generate certificates
-    runs-on: ubuntu-latest
-    outputs:
-      client-ca_pem: ${{ steps.certs.outputs.client-ca_pem }}
-      client_key: ${{ steps.certs.outputs.client_key }}
-      client_pem: ${{ steps.certs.outputs.client_pem }}
-      server1-ca_pem: ${{ steps.certs.outputs.server1-ca_pem }}
-      server1_key: ${{ steps.certs.outputs.server1_key }}
-      server1_pem: ${{ steps.certs.outputs.server1_pem }}
-      server2-ca_pem: ${{ steps.certs.outputs.server2-ca_pem }}
-      server2_key: ${{ steps.certs.outputs.server2_key }}
-      server2_pem: ${{ steps.certs.outputs.server2_pem }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
-        with:
-          fetch-depth: 0
-      - name: Generate certificates
-        id: certs
-        run: |
-          mkdir certs
-          cd certs
-          ../scripts/certs.sh
-          for file in *; do
-            echo "${file//./_}<<EOF"
-            cat "$file"
-            echo "EOF"
-          done >> "$GITHUB_OUTPUT"
-
   csharp:
     name: Test C#
-    needs:
-      - certs
     strategy:
       fail-fast: false
       matrix:
@@ -82,39 +50,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install local certs
+      - name: Generate certs
         working-directory: packages/csharp/
         shell: bash
         run: |
           mkdir certs
           cd certs
-          cat > client-ca.pem <<EOF
-          ${{ needs.certs.outputs.client-ca_pem }}
-          EOF
-          cat > client.key <<EOF
-          ${{ needs.certs.outputs.client_key }}
-          EOF
-          cat > client.pem <<EOF
-          ${{ needs.certs.outputs.client_pem }}
-          EOF
-          cat > server1-ca.pem <<EOF
-          ${{ needs.certs.outputs.server1-ca_pem }}
-          EOF
-          cat > server1.key <<EOF
-          ${{ needs.certs.outputs.server1_key }}
-          EOF
-          cat > server1.pem <<EOF
-          ${{ needs.certs.outputs.server1_pem }}
-          EOF
-          cat > server2-ca.pem <<EOF
-          ${{ needs.certs.outputs.server2-ca_pem }}
-          EOF
-          cat > server2.key <<EOF
-          ${{ needs.certs.outputs.server2_key }}
-          EOF
-          cat > server2.pem <<EOF
-          ${{ needs.certs.outputs.server2_pem }}
-          EOF
+          ../../../scripts/certs.sh
       - name: Install certs
         if: ${{ matrix.platform.os == 'ubuntu-latest' }}
         working-directory: packages/csharp/certs
@@ -180,6 +122,6 @@ jobs:
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: ConnectivityTests ${{ matrix.platform.runtime }} ${{ matrix.dotnet.framework }}
+          name: ConnectivityTests ${{ matrix.platform.os }} ${{ matrix.dotnet.framework }}
           path: ./packages/csharp/ArmoniK.Api.Client.Test/TestResults/test-results.trx
           reporter: dotnet-trx
