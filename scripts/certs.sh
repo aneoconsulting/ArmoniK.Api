@@ -3,16 +3,41 @@
 set -ex
 
 chain() {
-  openssl req -x509 -newkey rsa:4096 -days 3650 -nodes -keyout "$1-ca.key" -out "$1-ca.pem" -subj "/C=FR/ST=France/L=/O=ArmoniK Ingress Root (NonTrusted)/OU=$1/CN=ArmoniK Ingress Root (NonTrusted) Private Certificate Authority/emailAddress="
+  cat > "$1-ca.cnf" <<EOF
+[ req ]
+distinguished_name = req_distinguished_name
+prompt = no
+[ req_distinguished_name ]
+countryName            = FR
+stateOrProvinceName    = France
+organizationName       = ArmoniK Ingress Root (NonTrusted)
+organizationalUnitName = $1
+commonName             = ArmoniK Ingress Root (NonTrusted) Private Certificate Authority
+EOF
+  openssl req -config "$1-ca.cnf" -x509 -newkey rsa:4096 -days 3650 -nodes -keyout "$1-ca.key" -out "$1-ca.pem"
 
-  openssl genrsa -out "$1.key" 4096
-  openssl req -new -key "$1".key -out "$1".csr -subj "/C=FR/ST=France/L=/O=ArmoniK Ingress Root (NonTrusted)/OU=$1/CN=${2:-ArmoniK Root (NonTrusted}/emailAddress="
 
   cat > "$1.cnf" <<EOF
-${2:+subjectAltName=DNS:$2}
+[ req ]
+distinguished_name = req_distinguished_name
+${2:+req_extensions     = v3_req}
+prompt = no
+[ req_distinguished_name ]
+countryName            = FR
+stateOrProvinceName    = France
+organizationName       = ArmoniK Ingress Root (NonTrusted)
+organizationalUnitName = $1
+commonName             = ${2:-ArmoniK Ingress Root (NonTrusted) User Certificate}
+${2:+[ v3_req ]}
+${2:+subjectAltName = @alt_names}
+${2:+[ alt_names ]}
+${2:+DNS.1 = $2}
 EOF
 
-  openssl x509 -req -in "$1.csr" -CA "$1-ca.pem" -CAkey "$1-ca.key" -CAcreateserial -out "$1.pem" -days 3650 -extfile "$1.cnf"
+  openssl genrsa -out "$1.key" 4096
+  openssl req -config "$1.cnf" -new -key "$1".key -out "$1".csr ${2:+-extensions v3_req}
+
+  openssl x509 -req -in "$1.csr" -CA "$1-ca.pem" -CAkey "$1-ca.key" -CAcreateserial -out "$1.pem" -days 3650 -extfile "$1.cnf" ${2:+-extensions v3_req}
 }
 
 chain server1 localhost
