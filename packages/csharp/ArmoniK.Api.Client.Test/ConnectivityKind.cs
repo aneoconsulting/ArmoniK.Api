@@ -24,7 +24,6 @@
 
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
@@ -73,21 +72,12 @@ internal static class ConnectivityKindExt
        };
 
   internal static string? GetCaCertPath(this ConnectivityKind kind)
-  {
-    switch (kind)
-    {
-      case ConnectivityKind.TlsCert or ConnectivityKind.MTlsCert:
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
-        {
-          //Assert.Inconclusive("Library loading bug on Windows");
-        }
-
-        return Path.Combine(CertFolder,
-                            "server1-ca.pem");
-      default:
-        return null;
-    }
-  }
+    => kind switch
+       {
+         ConnectivityKind.TlsCert or ConnectivityKind.MTlsCert => Path.Combine(CertFolder,
+                                                                               "server1-ca.pem"),
+         _ => null,
+       };
 
   internal static (string?, string?) GetClientCertPath(this ConnectivityKind kind)
     => kind.IsMTls()
