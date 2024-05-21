@@ -24,6 +24,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
@@ -247,7 +248,7 @@ namespace ArmoniK.Api.Client.Submitter
       {
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
                              true);
-        return (_,
+        return (request,
                 certificate2,
                 certChain,
                 sslPolicyErrors) => true;
@@ -258,12 +259,42 @@ namespace ArmoniK.Api.Client.Submitter
         return null;
       }
 
-      return (_,
+      var authority = new X509Certificate2(DotNetUtilities.ToX509Certificate(caCert));
+
+      // Implementation inspired from https://stackoverflow.com/a/52926718
+      return (request,
               certificate2,
               certChain,
               sslPolicyErrors) =>
              {
-               throw new NotImplementedException("Does not support CA validation");
+               // If there is any error other than untrusted root or partial chain, fail the validation
+               if ((sslPolicyErrors & ~SslPolicyErrors.RemoteCertificateChainErrors) != 0)
+               {
+                 return false;
+               }
+
+               // If there is any error other than untrusted root or partial chain, fail the validation
+               if (certChain.ChainStatus.Any(status => status.Status is not X509ChainStatusFlags.UntrustedRoot and not X509ChainStatusFlags.PartialChain))
+               {
+                 return false;
+               }
+
+               // Disable some extensive checks that would fail on the authority that is not in store
+               certChain.ChainPolicy.RevocationMode    = X509RevocationMode.NoCheck;
+               certChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+
+               // Add unknown authority to the store
+               certChain.ChainPolicy.ExtraStore.Add(authority);
+
+               // Check if the chain is valid for the actual server certificate (ie: trusted)
+               if (!certChain.Build(certificate2))
+               {
+                 return false;
+               }
+
+               // Check that the chain root is actually the specified authority (caCert)
+               return certChain.ChainElements.Cast<X509ChainElement>()
+                               .Any(x => x.Certificate.Thumbprint == authority.Thumbprint);
              };
     }
 
@@ -389,9 +420,19 @@ namespace ArmoniK.Api.Client.Submitter
                             },
                           };
 
+      X509Certificate? caCert = null;
+
       if (!string.IsNullOrWhiteSpace(optionsGrpcClient.CaCert) && !optionsGrpcClient.AllowUnsafeConnection)
       {
-        throw new NotImplementedException("CA");
+        var parser = new X509CertificateParser();
+        using (var stream = File.Open(optionsGrpcClient.CaCert,
+                                      FileMode.Open,
+                                      FileAccess.Read))
+        {
+          caCert = parser.ReadCertificate(stream);
+        }
+
+        //throw new NotImplementedException("CA");
         /* You cannot give a root certificate directly using the C# implementation, thus you have to either :
          - Add the CA to the trusted root store
          - Somehow validate the certificate with a custom root, but it's difficult :
@@ -400,9 +441,9 @@ namespace ArmoniK.Api.Client.Submitter
              - https://github.com/dotnet/runtime/issues/39835
          The issue being that the server certificate is considered to not have a valid signature, and I'm not sure how to handle it
         */
-        logger?.LogWarning("Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
-        return CreateFrameworkChannel(optionsGrpcClient,
-                                      serviceConfig);
+        //logger?.LogWarning("Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
+        //return CreateFrameworkChannel(optionsGrpcClient,
+        //                              serviceConfig);
       }
 
       var uri = new Uri(optionsGrpcClient.Endpoint!);
@@ -416,7 +457,7 @@ namespace ArmoniK.Api.Client.Submitter
 
       var httpHandler = CreateHttpMessageHandler(uri.Scheme == Uri.UriSchemeHttps,
                                                  optionsGrpcClient.AllowUnsafeConnection,
-                                                 null,
+                                                 caCert,
                                                  clientCert,
                                                  logger);
 
