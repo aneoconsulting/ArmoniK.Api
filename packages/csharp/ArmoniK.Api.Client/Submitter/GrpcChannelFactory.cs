@@ -27,7 +27,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Security;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Cryptography;
@@ -37,9 +36,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.Client.Options;
-using ArmoniK.Api.gRPC.V1;
-using ArmoniK.Api.gRPC.V1.Results;
-using ArmoniK.Utils;
 
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -67,16 +63,6 @@ namespace ArmoniK.Api.Client.Submitter
   public static class GrpcChannelFactory
   {
     /// <summary>
-    ///   Whether the HTTP/2 is supported by the current runtime
-    /// </summary>
-    private static bool _http2Support = true;
-
-    /// <summary>
-    ///   Whether the HTTP/2 support has been actually tested
-    /// </summary>
-    private static bool _http2Tested;
-
-    /// <summary>
     ///   Get the server certificate validation callback
     /// </summary>
     /// <param name="insecure">Whether validation should be performed</param>
@@ -85,6 +71,7 @@ namespace ArmoniK.Api.Client.Submitter
     private static Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool>? GetServerCertificateValidationCallback(bool             insecure,
                                                                                                                                         X509Certificate? caCert)
     {
+      // If insecure, allow any certificates
       if (insecure)
       {
         AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport",
@@ -95,11 +82,13 @@ namespace ArmoniK.Api.Client.Submitter
                 sslPolicyErrors) => true;
       }
 
+      // If no CaCert, just use the standard validation against the machine certificate store
       if (caCert is null)
       {
         return null;
       }
 
+      // Validate against a specific certificate
       var authority = new X509Certificate2(DotNetUtilities.ToX509Certificate(caCert));
 
       // Implementation inspired from https://stackoverflow.com/a/52926718
@@ -146,56 +135,70 @@ namespace ArmoniK.Api.Client.Submitter
     /// <param name="insecure">Whether the Server Certificate should be validated or not</param>
     /// <param name="caCert">Root certificate to validate the server certificate against</param>
     /// <param name="clientCert">Client certificate to be used for mTLS</param>
+    /// <param name="handlerType">Which HttpMessageHandler type to use</param>
     /// <param name="logger">Optional logger</param>
     /// <returns>HttpMessageHandler</returns>
     private static HttpMessageHandler CreateHttpMessageHandler(bool              https,
                                                                bool              insecure,
                                                                X509Certificate?  caCert,
                                                                X509Certificate2? clientCert,
+                                                               HandlerType       handlerType,
                                                                ILogger?          logger = null)
     {
-      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
+      Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool>? validationCallback = null;
+      SslProtocols                                                                  sslProtocols       = default;
+
+      if (https)
       {
-        logger?.LogWarning("Creating a WinHttpHandler: {Framework}",
-                           RuntimeInformation.FrameworkDescription);
-        var handler = new WinHttpHandler();
+        sslProtocols = GetSslProtocols();
+        validationCallback = GetServerCertificateValidationCallback(insecure,
+                                                                    caCert);
+      }
+
+      if (handlerType is HandlerType.Http)
+      {
+        var httpHandler = new HttpClientHandler();
         if (!https)
         {
-          return handler;
+          return httpHandler;
         }
 
-        handler.SslProtocols = GetSslProtocols();
-        handler.ServerCertificateValidationCallback = GetServerCertificateValidationCallback(insecure,
-                                                                                             caCert);
+        httpHandler.SslProtocols                              = sslProtocols;
+        httpHandler.ServerCertificateCustomValidationCallback = validationCallback;
 
         if (clientCert is not null)
         {
-          handler.ClientCertificates.Add(clientCert);
+          httpHandler.ClientCertificates.Add(clientCert);
         }
 
-        return handler;
+        return httpHandler;
       }
-      else
-      {
-        logger?.LogWarning("Creating a HttpClientHandler: {Framework}",
-                           RuntimeInformation.FrameworkDescription);
-        var handler = new HttpClientHandler();
-        if (!https)
-        {
-          return handler;
-        }
 
-        handler.SslProtocols = GetSslProtocols();
-        handler.ServerCertificateCustomValidationCallback = GetServerCertificateValidationCallback(insecure,
-                                                                                                   caCert);
+      if (!https && handlerType is HandlerType.Win)
+      {
+        throw new InvalidOperationException("WinHttpHandler does not support plain text HTTP/2");
+      }
+
+      var winHandler = new WinHttpHandler();
+
+      if (https)
+      {
+        winHandler.SslProtocols = GetSslProtocols();
+        winHandler.ServerCertificateValidationCallback = GetServerCertificateValidationCallback(insecure,
+                                                                                                caCert);
 
         if (clientCert is not null)
         {
-          handler.ClientCertificates.Add(clientCert);
+          winHandler.ClientCertificates.Add(clientCert);
         }
-
-        return handler;
       }
+
+      if (handlerType is HandlerType.Web)
+      {
+        return new GrpcWebHandler(winHandler);
+      }
+
+      return winHandler;
     }
 
     /// <summary>
@@ -221,13 +224,15 @@ namespace ArmoniK.Api.Client.Submitter
     ///   Creates the GrpcChannel
     /// </summary>
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
+    /// <param name="handlerType">Which HttpMessageHandler type to use</param>
     /// <param name="logger">Optional logger</param>
     /// <returns>
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    private static ChannelBase CreateChannelInternal(GrpcClient optionsGrpcClient,
-                                                     ILogger?   logger)
+    private static ChannelBase CreateChannelInternal(GrpcClient  optionsGrpcClient,
+                                                     HandlerType handlerType,
+                                                     ILogger?    logger)
     {
       if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
       {
@@ -263,15 +268,14 @@ namespace ArmoniK.Api.Client.Submitter
 
       X509Certificate? caCert = null;
 
+      // Parse CaCert from file
       if (!string.IsNullOrWhiteSpace(optionsGrpcClient.CaCert) && !optionsGrpcClient.AllowUnsafeConnection)
       {
         var parser = new X509CertificateParser();
-        using (var stream = File.Open(optionsGrpcClient.CaCert,
-                                      FileMode.Open,
-                                      FileAccess.Read))
-        {
-          caCert = parser.ReadCertificate(stream);
-        }
+        using var stream = File.Open(optionsGrpcClient.CaCert,
+                                     FileMode.Open,
+                                     FileAccess.Read);
+        caCert = parser.ReadCertificate(stream);
       }
 
       var uri = new Uri(optionsGrpcClient.Endpoint!);
@@ -287,13 +291,11 @@ namespace ArmoniK.Api.Client.Submitter
                                                  optionsGrpcClient.AllowUnsafeConnection,
                                                  caCert,
                                                  clientCert,
+                                                 handlerType,
                                                  logger);
 
-      if (!_http2Support)
-      {
-        httpHandler = new GrpcWebHandler(httpHandler);
-      }
-
+      // Warn that RequestTimeout is not supported.
+      // If required, it could be easily implemented with a DelegatingHandler and a cancellationToken delayed cancellation
       if (optionsGrpcClient.RequestTimeout != Timeout.InfiniteTimeSpan)
       {
         logger?.LogWarning("Request Timeout is not supported, no timeout is applied");
@@ -310,15 +312,23 @@ namespace ArmoniK.Api.Client.Submitter
       var channelOptions = new GrpcChannelOptions
                            {
                              Credentials       = credentials,
-                             HttpHandler       = httpHandler,
                              DisposeHttpClient = true,
                              ServiceConfig     = serviceConfig,
                            };
 
-      var channel = GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
-                                           channelOptions);
+      if (handlerType is HandlerType.Web)
+      {
+        // If GrpcWebHandler is used, we must provide it an HttpClient to overcome a check issue
+        channelOptions.HttpClient = new HttpClient(httpHandler);
+      }
+      else
+      {
+        // If using a WinHttpHandler, we must set the httpHandler directly, otherwise, HTTP/2 is not properly supported
+        channelOptions.HttpHandler = httpHandler;
+      }
 
-      return channel;
+      return GrpcChannel.ForAddress(optionsGrpcClient.Endpoint!,
+                                    channelOptions);
     }
 
     /// <summary>
@@ -331,54 +341,11 @@ namespace ArmoniK.Api.Client.Submitter
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    public static async Task<ChannelBase> CreateChannelAsync(GrpcClient        optionsGrpcClient,
-                                                             ILogger?          logger            = null,
-                                                             CancellationToken cancellationToken = default)
-    {
-      var channel = CreateChannelInternal(optionsGrpcClient,
-                                          logger);
-
-      // FIXME: Once we remove Grpc.Core, we could make CreateChannel return a GrpcChannel and avoid this check
-      if (_http2Tested || channel is not GrpcChannel grpc)
-      {
-        return channel;
-      }
-
-
-      try
-      {
-        await new Results.ResultsClient(channel).GetServiceConfigurationAsync(new Empty(),
-                                                                              cancellationToken: cancellationToken)
-                                                .ConfigureAwait(false);
-        _http2Tested = true;
-      }
-      // Using Net framework, we have to use WinHttpHandler that does not support HTTP/2 on older Windows (< 11, < Server 2019)
-      // So if we detect a protocol downgrade, we force the use of the grpcWebHandler that works with HTTP/1.1
-      // If that is the case, we need to recreate the whole channel as it is not possible to change the HttpMessageHandler after a request
-      catch (RpcException e) when (e.StatusCode is StatusCode.Internal && e.InnerException is not HttpRequestException and not SocketException)
-      {
-        throw;
-        if (e.Status.Detail.StartsWith("Bad gRPC response. Response protocol downgraded to HTTP/1") ||
-            (e.InnerException is ArgumentException ae && ae.Message.StartsWith("Only HTTP/1") && ae.TargetSite.Name == "set_ProtocolVersion"))
-        {
-          logger?.LogWarning("Runtime does not support HTTP/2, falling back to gRPC Web");
-        }
-        else
-        {
-          logger?.LogError(e,
-                           "Runtime error while performing gRPC request. Maybe the runtime does not support HTTP/2, falling back to gRPC Web");
-        }
-
-        _http2Tested  = true;
-        _http2Support = false;
-        grpc.Dispose();
-
-        channel = CreateChannelInternal(optionsGrpcClient,
-                                        logger);
-      }
-
-      return channel;
-    }
+    public static Task<ChannelBase> CreateChannelAsync(GrpcClient        optionsGrpcClient,
+                                                       ILogger?          logger            = null,
+                                                       CancellationToken cancellationToken = default)
+      => Task.FromResult(CreateChannel(optionsGrpcClient,
+                                       logger));
 
     /// <summary>
     ///   Creates the GrpcChannel
@@ -391,9 +358,34 @@ namespace ArmoniK.Api.Client.Submitter
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
     public static ChannelBase CreateChannel(GrpcClient optionsGrpcClient,
                                             ILogger?   logger = null)
-      => CreateChannelAsync(optionsGrpcClient,
-                            logger)
-        .WaitSync();
+    {
+      // If dotnet core (>= Net 5), we can use HttpClientHandler
+      if (!RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
+      {
+        return CreateChannelInternal(optionsGrpcClient,
+                                     HandlerType.Http,
+                                     logger);
+      }
+
+      // If dotnet framework, we can use a plain WinHttpHandler.
+      // WinHttpHandler supports gRPC on Windows 11 and Windows server 2022 only, and using TLS only.
+      try
+      {
+        return CreateChannelInternal(optionsGrpcClient,
+                                     HandlerType.Win,
+                                     logger);
+      }
+      catch (InvalidOperationException e)
+      {
+        // If it is not supported (either plain text or earlier windows version),
+        // we need to fallback to GrpcWebHandler that works on HTTP/1.1, but can be buggy with large or bidirectional streams
+        logger?.LogWarning(e,
+                           "Falling back to gRPC Web that does not fully support gRPC streams");
+        return CreateChannelInternal(optionsGrpcClient,
+                                     HandlerType.Web,
+                                     logger);
+      }
+    }
 
     /// <summary>
     ///   Get the certificate in PFX format from the given options.
@@ -468,6 +460,24 @@ namespace ArmoniK.Api.Client.Submitter
       return new X509Certificate2(pkcs.ToArray(),
                                   string.Empty,
                                   X509KeyStorageFlags.Exportable);
+    }
+
+    private enum HandlerType
+    {
+      /// <summary>
+      ///   HttpClientHandler()
+      /// </summary>
+      Http,
+
+      /// <summary>
+      ///   WinHttpHandler()
+      /// </summary>
+      Win,
+
+      /// <summary>
+      ///   GrpcWebHandler(WinHttpHandler)
+      /// </summary>
+      Web,
     }
   }
 }

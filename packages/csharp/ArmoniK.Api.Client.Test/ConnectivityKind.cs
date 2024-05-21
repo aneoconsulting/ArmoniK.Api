@@ -24,6 +24,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
@@ -89,14 +90,16 @@ internal static class ConnectivityKindExt
   internal static string GetEndpoint(this ConnectivityKind kind)
     => kind switch
        {
-         ConnectivityKind.Unencrypted  => "http://localhost:5000",
+         ConnectivityKind.Unencrypted => RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework")
+                                           ? "http://localhost:4999"
+                                           : "http://localhost:5000",
          ConnectivityKind.TlsInsecure  => "https://localhost:5001",
          ConnectivityKind.TlsCert      => "https://localhost:5001",
          ConnectivityKind.TlsStore     => "https://localhost:5002",
          ConnectivityKind.MTlsInsecure => "https://localhost:5003",
          ConnectivityKind.MTlsCert     => "https://localhost:5003",
          ConnectivityKind.MTlsStore    => "https://localhost:5004",
-         _                             => "http://localhost:5000",
+         _                             => "http://localhost:4999",
        };
 
   internal static ChannelBase GetChannel(this ConnectivityKind kind)
