@@ -31,8 +31,6 @@ using ArmoniK.Api.Client.Submitter;
 
 using Grpc.Core;
 
-using NUnit.Framework;
-
 namespace ArmoniK.Api.Client.Tests;
 
 public enum ConnectivityKind
@@ -81,7 +79,7 @@ internal static class ConnectivityKindExt
       case ConnectivityKind.TlsCert or ConnectivityKind.MTlsCert:
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
         {
-          Assert.Inconclusive("Library loading bug on Windows");
+          //Assert.Inconclusive("Library loading bug on Windows");
         }
 
         return Path.Combine(CertFolder,
