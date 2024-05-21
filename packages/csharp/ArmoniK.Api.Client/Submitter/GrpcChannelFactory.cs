@@ -22,7 +22,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -38,7 +37,6 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.Client.Options;
-using ArmoniK.Api.Client.Utils;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Utils;
@@ -77,163 +75,6 @@ namespace ArmoniK.Api.Client.Submitter
     ///   Whether the HTTP/2 support has been actually tested
     /// </summary>
     private static bool _http2Tested;
-
-    /// <summary>
-    ///   Get the root certificates from the OS trusted store
-    /// </summary>
-    /// <returns>Root certificates in pem format</returns>
-    private static string GetRootCertificates()
-    {
-      var builder = new StringBuilder();
-      var store   = new X509Store(StoreName.Root);
-      store.Open(OpenFlags.ReadOnly);
-      foreach (var mCert in store.Certificates)
-      {
-        builder.AppendLine($"# Issuer: {mCert.Issuer}\n# Subject: {mCert.Subject}\n# Label: {mCert.FriendlyName}\n# Serial: {mCert.SerialNumber}\n# SHA1 Fingerprint: {mCert.GetCertHashString()}\n{ExportToPem(mCert)}\n");
-      }
-
-      store.Close();
-      return builder.ToString();
-    }
-
-    /// <summary>
-    ///   Exports a certificate to pem format
-    /// </summary>
-    /// <param name="cert">Certificate to export</param>
-    /// <returns>Certificate in pem formatted string</returns>
-    private static string ExportToPem(X509Certificate2 cert)
-      => $"-----BEGIN CERTIFICATE-----\n{Convert.ToBase64String(cert.GetRawCertData(), Base64FormattingOptions.InsertLineBreaks)}\n-----END CERTIFICATE-----";
-
-    /// <summary>
-    ///   Sends a web request to the server to acquire its certificate
-    /// </summary>
-    /// <param name="uri">Uri of the server</param>
-    /// <param name="optionsGrpcClient">Client options</param>
-    /// <returns>The server's certificate, null if it doesn't have one</returns>
-    /// <remarks>The given certificate should not be used when SSL validation is active</remarks>
-    public static X509Certificate2? GetServerCertificate(Uri        uri,
-                                                         GrpcClient optionsGrpcClient)
-    {
-      var request = (HttpWebRequest)WebRequest.Create(uri);
-      request.ServerCertificateValidationCallback = (_,
-                                                     _,
-                                                     _,
-                                                     _) => true;
-      if (optionsGrpcClient.HasClientCertificate)
-      {
-        request.ClientCertificates.Add(GetCertificate(optionsGrpcClient));
-      }
-
-      var response = (HttpWebResponse)request.GetResponse();
-      response.Close();
-      return request.ServicePoint.Certificate == null
-               ? null
-               : new X509Certificate2(request.ServicePoint.Certificate.GetRawCertData(),
-                                      "",
-                                      X509KeyStorageFlags.Exportable);
-    }
-
-    /// <summary>
-    ///   Gets the target name to look for during the Grpc.Core internal ssl verification.
-    ///   This should only be used when when overall ssl verification is turned off
-    /// </summary>
-    /// <param name="optionsGrpcClient">Client options</param>
-    /// <param name="serverCert">Server certificate</param>
-    /// <returns>
-    ///   Target name to override, null if the SSL verification is on or if <paramref name="serverCert" /> doesn't have
-    ///   a common name
-    /// </returns>
-    /// <remarks>
-    ///   If <paramref name="optionsGrpcClient.OverrideTargetName" /> is empty and SSL verification is turned off, this will
-    ///   output the
-    ///   <paramref name="serverCert" /> common name. Otherwise it output the target name in the options
-    /// </remarks>
-    public static string? GetOverrideTargetName(GrpcClient        optionsGrpcClient,
-                                                X509Certificate2? serverCert)
-    {
-      if (!optionsGrpcClient.AllowUnsafeConnection)
-      {
-        return null;
-      }
-
-      return string.IsNullOrEmpty(optionsGrpcClient.OverrideTargetName)
-               ? serverCert?.GetNameInfo(X509NameType.SimpleName,
-                                         false)
-               : optionsGrpcClient.OverrideTargetName;
-    }
-
-    /// <summary>
-    ///   Creates the GrpcChannel for .Net Framework.
-    /// </summary>
-    /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
-    /// <param name="serviceConfig">Grpc service configuration</param>
-    /// <returns>
-    ///   The initialized Channel
-    /// </returns>
-    private static Channel CreateFrameworkChannel(GrpcClient    optionsGrpcClient,
-                                                  ServiceConfig serviceConfig)
-    {
-      Environment.SetEnvironmentVariable("GRPC_DNS_RESOLVER",
-                                         "native");
-      var uri = new Uri(optionsGrpcClient.Endpoint ?? "");
-
-      var channel_options = new List<ChannelOption>
-                            {
-                              new("grpc.keepalive_time_ms",
-                                  (int)optionsGrpcClient.KeepAliveTime.TotalMilliseconds),
-                              new("grpc.max_connection_idle_ms",
-                                  (int)optionsGrpcClient.MaxIdleTime.TotalMilliseconds),
-                              new("grpc.service_config",
-                                  serviceConfig.ToJson()),
-                            };
-
-      // Simple credentials when requesting an unencrypted connection
-      if (uri.Scheme != Uri.UriSchemeHttps)
-      {
-        return new Channel(uri.Host,
-                           uri.Port,
-                           ChannelCredentials.Insecure,
-                           channel_options);
-      }
-
-      // If SSL verification is disabled, load the server certificate as root certificate
-      if (optionsGrpcClient.AllowUnsafeConnection)
-      {
-        var serverCert = GetServerCertificate(uri,
-                                              optionsGrpcClient);
-        var credentials = new SslCredentials(serverCert == null
-                                               ? null
-                                               : ExportToPem(serverCert),
-                                             optionsGrpcClient.HasClientCertificate
-                                               ? GetKeyCertificatePair(optionsGrpcClient)
-                                               : null,
-                                             _ => true);
-
-        // Internal SSL verification of the Grpc.Core library cannot be turned off during the handshake, thus we need to override the name to look up
-        channel_options.Add(new ChannelOption("grpc.ssl_target_name_override",
-                                              GetOverrideTargetName(optionsGrpcClient,
-                                                                    serverCert)));
-        return new Channel(uri.Host,
-                           uri.Port,
-                           credentials,
-                           channel_options);
-      }
-
-      // SSL verification is enabled, we need to load the CA root certificate either from a file or from the OS store, as the library does not load it by itself
-      var ca = string.IsNullOrEmpty(optionsGrpcClient.CaCert)
-                 ? GetRootCertificates()
-                 : File.ReadAllText(optionsGrpcClient.CaCert);
-      var certKeyPair = optionsGrpcClient.HasClientCertificate
-                          ? GetKeyCertificatePair(optionsGrpcClient)
-                          : null;
-
-      return new Channel(uri.Host,
-                         uri.Port,
-                         new SslCredentials(ca,
-                                            certKeyPair,
-                                            null),
-                         channel_options);
-    }
 
     /// <summary>
     ///   Get the server certificate validation callback
@@ -431,19 +272,6 @@ namespace ArmoniK.Api.Client.Submitter
         {
           caCert = parser.ReadCertificate(stream);
         }
-
-        //throw new NotImplementedException("CA");
-        /* You cannot give a root certificate directly using the C# implementation, thus you have to either :
-         - Add the CA to the trusted root store
-         - Somehow validate the certificate with a custom root, but it's difficult :
-             - https://stackoverflow.com/questions/13103295/bouncy-castle-this-certificate-has-an-invalid-digital-signature
-             - https://www.meziantou.net/custom-certificate-validation-in-dotnet.htm
-             - https://github.com/dotnet/runtime/issues/39835
-         The issue being that the server certificate is considered to not have a valid signature, and I'm not sure how to handle it
-        */
-        //logger?.LogWarning("Using gRPC Core (deprecated) implementation because CaCert is specified. Please install the CA certificate and unset the option to use the C# implementation");
-        //return CreateFrameworkChannel(optionsGrpcClient,
-        //                              serviceConfig);
       }
 
       var uri = new Uri(optionsGrpcClient.Endpoint!);
@@ -465,15 +293,12 @@ namespace ArmoniK.Api.Client.Submitter
       {
         httpHandler = new GrpcWebHandler(httpHandler);
       }
-      else
+
+      if (optionsGrpcClient.RequestTimeout != Timeout.InfiniteTimeSpan)
       {
-        httpHandler = new ForceHttp2Handler(httpHandler);
+        logger?.LogWarning("Request Timeout is not supported, no timeout is applied");
       }
 
-      var httpClient = new HttpClient(httpHandler)
-                       {
-                         Timeout = optionsGrpcClient.RequestTimeout,
-                       };
       var sp = ServicePointManager.FindServicePoint(new Uri(optionsGrpcClient.Endpoint!));
 
       sp.SetTcpKeepAlive(true,
@@ -485,7 +310,7 @@ namespace ArmoniK.Api.Client.Submitter
       var channelOptions = new GrpcChannelOptions
                            {
                              Credentials       = credentials,
-                             HttpClient        = httpClient,
+                             HttpHandler       = httpHandler,
                              DisposeHttpClient = true,
                              ServiceConfig     = serviceConfig,
                            };
@@ -643,68 +468,6 @@ namespace ArmoniK.Api.Client.Submitter
       return new X509Certificate2(pkcs.ToArray(),
                                   string.Empty,
                                   X509KeyStorageFlags.Exportable);
-    }
-
-    /// <summary>
-    ///   Get the certificate and key pair in Pem format from the options
-    /// </summary>
-    /// <param name="optionsGrpcClient">Client options</param>
-    /// <returns>The certificate and key pair</returns>
-    /// <exception cref="CryptographicException">Raised when the key in the P12 certificate is not a RSA key</exception>
-    /// <exception cref="InvalidOperationException">No certificate was specified in options</exception>
-    public static KeyCertificatePair GetKeyCertificatePair(GrpcClient optionsGrpcClient)
-    {
-      if (!string.IsNullOrEmpty(optionsGrpcClient.CertP12))
-      {
-        var cert = new X509Certificate2(optionsGrpcClient.CertP12,
-                                        "",
-                                        X509KeyStorageFlags.Exportable);
-
-        if (cert.GetRSAPrivateKey() is not RSA rsaKey)
-        {
-          throw new
-            CryptographicException("Only certificate with RSA key in P12 format is supported in this version. Please use CertPem and KeyPem for other key algorithms.");
-        }
-
-        var memoryStream = new MemoryStream();
-        using (var streamWriter = new StreamWriter(memoryStream))
-        {
-          var pemWriter = new PemWriter(streamWriter);
-          pemWriter.WriteObject(DotNetUtilities.GetRsaKeyPair(rsaKey)
-                                               .Private);
-        }
-
-        var keyPem = Encoding.ASCII.GetString(memoryStream.GetBuffer())
-                             .Trim();
-        memoryStream.Close();
-
-        return new KeyCertificatePair(ExportToPem(cert),
-                                      keyPem);
-      }
-
-      if (string.IsNullOrEmpty(optionsGrpcClient.CertPem) || string.IsNullOrEmpty(optionsGrpcClient.KeyPem))
-      {
-        throw new InvalidOperationException("Cannot find requested certificate from options");
-      }
-
-      return new KeyCertificatePair(File.ReadAllText(optionsGrpcClient.CertPem),
-                                    File.ReadAllText(optionsGrpcClient.KeyPem));
-    }
-  }
-
-  internal class ForceHttp2Handler : DelegatingHandler
-  {
-    internal ForceHttp2Handler(HttpMessageHandler inner)
-      : base(inner)
-    {
-    }
-
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
-                                                           CancellationToken  cancellationToken)
-    {
-      request.Version = new Version("2.0");
-      return base.SendAsync(request,
-                            cancellationToken);
     }
   }
 }
