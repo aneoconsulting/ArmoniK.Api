@@ -287,6 +287,22 @@ namespace ArmoniK.Api.Client.Submitter
                          ? GetCertificate(optionsGrpcClient)
                          : null;
 
+      switch (handlerType)
+      {
+        case HandlerType.Http:
+          logger?.LogDebug("Create HttpClientHandler() for {Endpoint}",
+                           optionsGrpcClient.Endpoint);
+          break;
+        case HandlerType.Win:
+          logger?.LogDebug("Create WinHttpHandler() for {Endpoint}",
+                           optionsGrpcClient.Endpoint);
+          break;
+        case HandlerType.Web:
+          logger?.LogDebug("Create GrpcWebHandler(WinHttpHandler()) for {Endpoint}",
+                           optionsGrpcClient.Endpoint);
+          break;
+      }
+
       var httpHandler = CreateHttpMessageHandler(uri.Scheme == Uri.UriSchemeHttps,
                                                  optionsGrpcClient.AllowUnsafeConnection,
                                                  caCert,
@@ -475,7 +491,7 @@ namespace ArmoniK.Api.Client.Submitter
       Win,
 
       /// <summary>
-      ///   GrpcWebHandler(WinHttpHandler)
+      ///   GrpcWebHandler(WinHttpHandler())
       /// </summary>
       Web,
     }
