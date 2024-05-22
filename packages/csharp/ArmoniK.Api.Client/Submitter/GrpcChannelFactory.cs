@@ -271,6 +271,12 @@ namespace ArmoniK.Api.Client.Submitter
       // Parse CaCert from file
       if (!string.IsNullOrWhiteSpace(optionsGrpcClient.CaCert) && !optionsGrpcClient.AllowUnsafeConnection)
       {
+        if (!File.Exists(optionsGrpcClient.CaCert))
+        {
+          throw new FileNotFoundException("Couldn't find specified CA certificate",
+                                          optionsGrpcClient.CaCert);
+        }
+
         var parser = new X509CertificateParser();
         using var stream = File.Open(optionsGrpcClient.CaCert,
                                      FileMode.Open,
@@ -375,6 +381,11 @@ namespace ArmoniK.Api.Client.Submitter
     public static ChannelBase CreateChannel(GrpcClient optionsGrpcClient,
                                             ILogger?   logger = null)
     {
+      if (!string.IsNullOrEmpty(optionsGrpcClient.OverrideTargetName))
+      {
+        logger?.LogWarning("OverrideTargetName is not supported");
+      }
+
       // If dotnet core (>= Net 5), we can use HttpClientHandler
       if (!RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
       {
