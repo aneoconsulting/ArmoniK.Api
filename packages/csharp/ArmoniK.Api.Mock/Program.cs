@@ -16,16 +16,20 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.Mock;
 using ArmoniK.Api.Mock.Services;
 
+using Microsoft.AspNetCore.Authentication.Certificate;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,27 +52,116 @@ var grpcPort = int.Parse(builder.Configuration.GetSection("Grpc")
                                 .GetSection("Port")
                                 .Value ?? "5001");
 
+X509Certificate2? serverCert     = null;
+string?           clientCertPath = null;
+
+var serverCertPath = builder.Configuration.GetSection("Http")
+                            .GetSection("Cert")
+                            .Value ?? "";
+
+var serverKeyPath = builder.Configuration.GetSection("Http")
+                           .GetSection("Key")
+                           .Value ?? "";
+clientCertPath = builder.Configuration.GetSection("Http")
+                        .GetSection("ClientCert")
+                        .Value;
+if (string.IsNullOrEmpty(clientCertPath))
+{
+  clientCertPath = null;
+}
+
+if (!string.IsNullOrEmpty(serverCertPath))
+{
+  serverCert = X509Certificate2.CreateFromPemFile(serverCertPath,
+                                                  string.IsNullOrEmpty(serverKeyPath)
+                                                    ? null
+                                                    : serverKeyPath);
+  serverCert = new X509Certificate2(serverCert.Export(X509ContentType.Pfx));
+}
+
+
 // Additional configuration is required to successfully run gRPC on macOS.
 // For instructions on how to configure Kestrel and gRPC clients on macOS, visit https://go.microsoft.com/fwlink/?linkid=2099682
 
 // Add services to the container.
 builder.Services.AddGrpc();
+builder.Services.AddLogging();
 foreach (var service in CountingService.GetServices())
 {
   builder.Services.AddSingleton(service);
 }
 
+if (clientCertPath is not null)
+{
+  builder.Services.AddAuthentication(CertificateAuthenticationDefaults.AuthenticationScheme)
+         .AddCertificate(options =>
+                         {
+                           options.AllowedCertificateTypes  = CertificateTypes.Chained;
+                           options.RevocationMode           = X509RevocationMode.NoCheck;
+                           options.ChainTrustValidationMode = X509ChainTrustMode.CustomRootTrust;
+                           options.CustomTrustStore.ImportFromPemFile(clientCertPath);
+                           options.Events = new CertificateAuthenticationEvents
+                                            {
+                                              OnAuthenticationFailed = context =>
+                                                                       {
+                                                                         context.Fail("Auth failure: Bad Client Certificate");
+
+                                                                         return Task.CompletedTask;
+                                                                       },
+                                            };
+                         });
+
+  builder.Services.AddAuthorizationBuilder()
+         .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser()
+                                                            .Build());
+}
+
 builder.WebHost.UseKestrel(options =>
                            {
+                             options.ConfigureHttpsDefaults(configureOptions =>
+                                                            {
+                                                              configureOptions.ServerCertificate = serverCert;
+
+                                                              if (clientCertPath is not null)
+                                                              {
+                                                                configureOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                                                                configureOptions.AllowAnyClientCertificate();
+                                                              }
+                                                            });
+
                              options.ListenAnyIP(httpPort,
-                                                 listenOptions => listenOptions.Protocols = HttpProtocols.Http1);
-                             options.ListenAnyIP(grpcPort,
-                                                 listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+                                                 listenOptions =>
+                                                 {
+                                                   listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+                                                   if (serverCert is not null)
+                                                   {
+                                                     listenOptions.UseHttps();
+                                                   }
+                                                 });
+                             if (grpcPort != httpPort)
+                             {
+                               options.ListenAnyIP(grpcPort,
+                                                   listenOptions =>
+                                                   {
+                                                     listenOptions.Protocols = HttpProtocols.Http2;
+                                                     if (serverCert is not null)
+                                                     {
+                                                       listenOptions.UseHttps();
+                                                     }
+                                                   });
+                             }
                            });
 
 var app = builder.Build();
 
 app.UseRouting();
+
+if (clientCertPath is not null)
+{
+  app.UseAuthentication();
+  app.UseAuthorization();
+}
+
 app.UseGrpcWeb(new GrpcWebOptions
                {
                  DefaultEnabled = true,
