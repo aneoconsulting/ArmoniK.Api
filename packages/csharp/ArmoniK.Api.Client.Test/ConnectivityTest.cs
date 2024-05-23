@@ -21,8 +21,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Linq;
+using System.Threading.Tasks;
+
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
+using ArmoniK.Utils;
 
 using NUnit.Framework;
 
@@ -39,5 +43,29 @@ public class ConnectivityTests
 
     Assert.That(() => resultClient.GetServiceConfiguration(new Empty()),
                 Throws.Nothing);
+  }
+
+  [Test]
+  public async Task MultipleChannels([Values] ConnectivityKind connectivityKind,
+                                     [Values(1,
+                                             2,
+                                             10,
+                                             100)]
+                                     int concurrency)
+  {
+    var channels = await Enumerable.Range(0,
+                                          concurrency)
+                                   .ParallelSelect(new ParallelTaskOptions(-1),
+                                                   i => Task.FromResult(connectivityKind.GetChannel()))
+                                   .ToListAsync()
+                                   .ConfigureAwait(false);
+
+    await channels.ParallelForEach(async channel =>
+                                   {
+                                     var resultClient = new Results.ResultsClient(channel);
+                                     await resultClient.GetServiceConfigurationAsync(new Empty())
+                                                       .ConfigureAwait(false);
+                                   })
+                  .ConfigureAwait(false);
   }
 }
