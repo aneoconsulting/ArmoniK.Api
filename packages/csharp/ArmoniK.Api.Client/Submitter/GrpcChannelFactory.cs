@@ -386,6 +386,14 @@ namespace ArmoniK.Api.Client.Submitter
         logger?.LogWarning("OverrideTargetName is not supported");
       }
 
+      // ReSharper disable once ConvertTypeCheckPatternToNullCheck
+      if (ParseHandler(optionsGrpcClient.HttpMessageHandler) is HandlerType handlerType)
+      {
+        return CreateChannelInternal(optionsGrpcClient,
+                                     handlerType,
+                                     logger);
+      }
+
       // If dotnet core (>= Net 5), we can use HttpClientHandler
       if (!RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework"))
       {
@@ -488,6 +496,16 @@ namespace ArmoniK.Api.Client.Submitter
                                   string.Empty,
                                   X509KeyStorageFlags.Exportable);
     }
+
+    private static HandlerType? ParseHandler(string handler)
+      => handler.ToLower() switch
+         {
+           ""                                                        => null,
+           "httpclienthandler" or "httpclient" or "http" or "client" => HandlerType.Http,
+           "winhttphandler" or "winhttp" or "win"                    => HandlerType.Win,
+           "grpcwebhandler" or "grpcweb" or "web"                    => HandlerType.Web,
+           _                                                         => throw new ArgumentException($"Invalid HandlerType: {handler}"),
+         };
 
     private enum HandlerType
     {
