@@ -31,7 +31,6 @@ using System.Runtime.InteropServices;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -280,7 +279,8 @@ namespace ArmoniK.Api.Client.Submitter
         var parser = new X509CertificateParser();
         using var stream = File.Open(optionsGrpcClient.CaCert,
                                      FileMode.Open,
-                                     FileAccess.Read);
+                                     FileAccess.Read,
+                                     FileShare.Read);
         caCert = parser.ReadCertificate(stream);
       }
 
@@ -449,16 +449,20 @@ namespace ArmoniK.Api.Client.Submitter
       X509Certificate cert;
       using (var reader = new FileStream(optionsGrpcClient.CertPem,
                                          FileMode.Open,
-                                         FileAccess.Read))
+                                         FileAccess.Read,
+                                         FileShare.Read))
       {
         cert = new X509CertificateParser().ReadCertificate(reader);
       }
 
       var store = new Pkcs12StoreBuilder().Build();
-      using (var reader = new StreamReader(optionsGrpcClient.KeyPem,
-                                           Encoding.UTF8))
+      using (var reader = new FileStream(optionsGrpcClient.KeyPem,
+                                         FileMode.Open,
+                                         FileAccess.Read,
+                                         FileShare.Read))
+      using (var textReader = new StreamReader(reader))
       {
-        var                     pemReader = new PemReader(reader);
+        var                     pemReader = new PemReader(textReader);
         AsymmetricKeyParameter? key;
 
         do
