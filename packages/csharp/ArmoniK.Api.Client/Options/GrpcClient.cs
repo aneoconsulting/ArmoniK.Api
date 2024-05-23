@@ -125,5 +125,15 @@ namespace ArmoniK.Api.Client.Options
     ///   Timeout for grpc requests. Defaults to no timeout.
     /// </summary>
     public TimeSpan RequestTimeout { get; set; } = Timeout.InfiniteTimeSpan;
+
+    /// <summary>
+    ///   Which HttpMessageHandler to use.
+    ///   Valid options:
+    ///   - `HttpClientHandler`
+    ///   - `WinHttpHandler`
+    ///   - `GrpcWebHandler`
+    ///   If the handler is not set, the best one will be used.
+    /// </summary>
+    public string HttpMessageHandler { get; set; } = "";
   }
 }
