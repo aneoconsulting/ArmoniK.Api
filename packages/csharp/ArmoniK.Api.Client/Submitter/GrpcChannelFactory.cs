@@ -230,7 +230,7 @@ namespace ArmoniK.Api.Client.Submitter
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    private static ChannelBase CreateChannelInternal(GrpcClient  optionsGrpcClient,
+    private static GrpcChannel CreateChannelInternal(GrpcClient  optionsGrpcClient,
                                                      HandlerType handlerType,
                                                      ILogger?    logger)
     {
@@ -363,7 +363,7 @@ namespace ArmoniK.Api.Client.Submitter
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    public static Task<ChannelBase> CreateChannelAsync(GrpcClient        optionsGrpcClient,
+    public static Task<GrpcChannel> CreateChannelAsync(GrpcClient        optionsGrpcClient,
                                                        ILogger?          logger            = null,
                                                        CancellationToken cancellationToken = default)
       => Task.FromResult(CreateChannel(optionsGrpcClient,
@@ -378,7 +378,7 @@ namespace ArmoniK.Api.Client.Submitter
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    public static ChannelBase CreateChannel(GrpcClient optionsGrpcClient,
+    public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient,
                                             ILogger?   logger = null)
     {
       if (!string.IsNullOrEmpty(optionsGrpcClient.OverrideTargetName))
