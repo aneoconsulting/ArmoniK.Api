@@ -55,7 +55,8 @@ public class ConnectivityTests
   {
     var channels = await Enumerable.Range(0,
                                           concurrency)
-                                   .ParallelSelect(i => Task.FromResult(connectivityKind.GetChannel()))
+                                   .ParallelSelect(new ParallelTaskOptions(-1),
+                                                   i => Task.FromResult(connectivityKind.GetChannel()))
                                    .ToListAsync()
                                    .ConfigureAwait(false);
 
