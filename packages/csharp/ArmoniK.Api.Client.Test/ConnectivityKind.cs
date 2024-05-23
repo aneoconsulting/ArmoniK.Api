@@ -29,7 +29,7 @@ using System.Runtime.InteropServices;
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 
-using Grpc.Core;
+using Grpc.Net.Client;
 
 namespace ArmoniK.Api.Client.Tests;
 
@@ -102,7 +102,7 @@ internal static class ConnectivityKindExt
          _                             => "http://localhost:4999",
        };
 
-  internal static ChannelBase GetChannel(this ConnectivityKind kind)
+  internal static GrpcChannel GetChannel(this ConnectivityKind kind)
   {
     var (certPath, keyPath) = kind.GetClientCertPath();
 
