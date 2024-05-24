@@ -49,6 +49,9 @@ internal static class ConnectivityKindExt
   private static string CertFolder
     => Environment.GetEnvironmentVariable("CertFolder") ?? "../../../../certs";
 
+  private static string MessageHandler
+    => Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
+
   internal static bool IsTls(this ConnectivityKind kind)
     => kind switch
        {
@@ -90,7 +93,8 @@ internal static class ConnectivityKindExt
   internal static string GetEndpoint(this ConnectivityKind kind)
     => kind switch
        {
-         ConnectivityKind.Unencrypted => RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework")
+         ConnectivityKind.Unencrypted => RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler.ToLower()
+                                                                                                                               .Contains("web")
                                            ? "http://localhost:4999"
                                            : "http://localhost:5000",
          ConnectivityKind.TlsInsecure  => "https://localhost:5001",
@@ -113,6 +117,7 @@ internal static class ConnectivityKindExt
                                               CertPem               = certPath             ?? "",
                                               KeyPem                = keyPath              ?? "",
                                               CaCert                = kind.GetCaCertPath() ?? "",
+                                              HttpMessageHandler    = MessageHandler,
                                             });
   }
 }

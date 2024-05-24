@@ -32,19 +32,20 @@ jobs:
             runtime: windows-x64
           - os: windows-2022
             runtime: windows-x64
+        handler:
+          - ''
+          - GrpcWebHandler
         exclude:
           - dotnet:
               version: ''
-              framework: net4.7
             platform:
               os: ubuntu-latest
-              runtime: linux-x64
           - dotnet:
-              version: ''
-              framework: net4.8
-            platform:
-              os: ubuntu-latest
-              runtime: linux-x64
+              version: 6.0
+            handler: GrpcWebHandler
+          - dotnet:
+              version: 8.0
+            handler: GrpcWebHandler
     runs-on: ${{ matrix.platform.os }}
 
     steps:
@@ -90,6 +91,8 @@ jobs:
       - name: Test
         working-directory: packages/csharp/
         shell: bash
+        env:
+          GrpcClient__HttpMessageHandler: ${{ matrix.handler }}
         run: |
           set +e
           set -x
@@ -125,6 +128,6 @@ jobs:
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: ConnectivityTests ${{ matrix.platform.os }} ${{ matrix.dotnet.framework }}
+          name: ConnectivityTests ${{ matrix.platform.os }} ${{ matrix.dotnet.framework }} ${{ matrix.handler }}
           path: ./packages/csharp/ArmoniK.Api.Client.Test/TestResults/test-results.trx
           reporter: dotnet-trx
