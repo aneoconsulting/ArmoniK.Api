@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
 //
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// Copyright (C) ANEO, 2021-2024. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -54,6 +54,7 @@ namespace ArmoniK.Api.Client.Submitter
     /// <returns>
     ///   The reply to task creation
     /// </returns>
+    [Obsolete]
     public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                                string                                           sessionId,
                                                                TaskOptions?                                     taskOptions,
@@ -77,6 +78,7 @@ namespace ArmoniK.Api.Client.Submitter
     /// <returns>
     ///   The reply to task creation
     /// </returns>
+    [Obsolete]
     public static async Task<CreateTaskReply> CreateTasksAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                                string                                           sessionId,
                                                                TaskOptions?                                     taskOptions,
@@ -249,6 +251,7 @@ namespace ArmoniK.Api.Client.Submitter
     /// </returns>
     /// <exception cref="Exception">a result reply chunk is not data, rending it impossible to reconstitute the data</exception>
     /// <exception cref="ArgumentOutOfRangeException">result reply type is unknown</exception>
+    [Obsolete]
     public static async Task<byte[]> GetResultAsync(this gRPC.V1.Submitter.Submitter.SubmitterClient client,
                                                     ResultRequest                                    resultRequest,
                                                     CancellationToken                                cancellationToken = default)

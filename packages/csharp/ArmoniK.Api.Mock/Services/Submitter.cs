@@ -28,6 +28,7 @@ namespace ArmoniK.Api.Mock.Services;
 public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
 {
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<Configuration> GetServiceConfiguration(Empty             request,
                                                               ServerCallContext context)
@@ -37,18 +38,21 @@ public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
                        });
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<Empty> CancelSession(Session           request,
                                             ServerCallContext context)
     => Task.FromResult(new Empty());
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<Empty> CancelTasks(TaskFilter        request,
                                           ServerCallContext context)
     => Task.FromResult(new Empty());
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<CreateSessionReply> CreateSession(CreateSessionRequest request,
                                                          ServerCallContext    context)
@@ -58,6 +62,7 @@ public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
                        });
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<CreateTaskReply> CreateSmallTasks(CreateSmallTaskRequest request,
                                                          ServerCallContext      context)
@@ -69,6 +74,7 @@ public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
 
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override async Task<CreateTaskReply> CreateLargeTasks(IAsyncStreamReader<CreateLargeTaskRequest> requestStream,
                                                                ServerCallContext                          context)
@@ -85,12 +91,14 @@ public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
   }
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<Count> CountTasks(TaskFilter        request,
                                          ServerCallContext context)
     => Task.FromResult(new Count());
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override async Task TryGetResultStream(ResultRequest                    request,
                                                 IServerStreamWriter<ResultReply> responseStream,
@@ -105,12 +113,14 @@ public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
                            .ConfigureAwait(false);
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<Count> WaitForCompletion(WaitRequest       request,
                                                 ServerCallContext context)
     => Task.FromResult(new Count());
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<Output> TryGetTaskOutput(TaskOutputRequest request,
                                                 ServerCallContext context)
@@ -130,6 +140,7 @@ public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
                        });
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<GetTaskStatusReply> GetTaskStatus(GetTaskStatusRequest request,
                                                          ServerCallContext    context)
@@ -143,18 +154,21 @@ public class Submitter : gRPC.V1.Submitter.Submitter.SubmitterBase
     => Task.FromResult(new GetResultStatusReply());
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<TaskIdList> ListTasks(TaskFilter        request,
                                              ServerCallContext context)
     => Task.FromResult(new TaskIdList());
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override Task<SessionIdList> ListSessions(SessionFilter     request,
                                                    ServerCallContext context)
     => Task.FromResult(new SessionIdList());
 
   /// <inheritdoc />
+  [Obsolete]
   [Count]
   public override async Task WatchResults(IAsyncStreamReader<WatchResultRequest> requestStream,
                                           IServerStreamWriter<WatchResultStream> responseStream,
