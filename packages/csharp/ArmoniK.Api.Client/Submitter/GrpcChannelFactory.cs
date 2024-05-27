@@ -182,9 +182,8 @@ namespace ArmoniK.Api.Client.Submitter
 
       if (https)
       {
-        winHandler.SslProtocols = GetSslProtocols();
-        winHandler.ServerCertificateValidationCallback = GetServerCertificateValidationCallback(insecure,
-                                                                                                caCert);
+        winHandler.SslProtocols                        = sslProtocols;
+        winHandler.ServerCertificateValidationCallback = validationCallback;
 
         if (clientCert is not null)
         {
