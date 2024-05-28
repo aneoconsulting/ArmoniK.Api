@@ -135,5 +135,24 @@ namespace ArmoniK.Api.Client.Options
     ///   If the handler is not set, the best one will be used.
     /// </summary>
     public string HttpMessageHandler { get; set; } = "";
+
+    /// <summary>
+    ///   Proxy configuration.
+    ///   If empty, the default proxy configuration is used.
+    ///   If "none", proxy is disabled.
+    ///   If "system", the system proxy is used
+    ///   Otherwise, it is the URL of the proxy to use
+    /// </summary>
+    public string Proxy { get; set; } = "";
+
+    /// <summary>
+    ///   Username used for proxy authentication
+    /// </summary>
+    public string ProxyUsername { get; set; } = "";
+
+    /// <summary>
+    ///   Password used for proxy authentication
+    /// </summary>
+    public string ProxyPassword { get; set; } = "";
   }
 }

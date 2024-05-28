@@ -134,6 +134,8 @@ namespace ArmoniK.Api.Client.Submitter
     /// <param name="insecure">Whether the Server Certificate should be validated or not</param>
     /// <param name="caCert">Root certificate to validate the server certificate against</param>
     /// <param name="clientCert">Client certificate to be used for mTLS</param>
+    /// <param name="proxy">Proxy configuration to use</param>
+    /// <param name="proxyType">Type of the proxy used</param>
     /// <param name="handlerType">Which HttpMessageHandler type to use</param>
     /// <param name="logger">Optional logger</param>
     /// <returns>HttpMessageHandler</returns>
@@ -141,6 +143,8 @@ namespace ArmoniK.Api.Client.Submitter
                                                                bool              insecure,
                                                                X509Certificate?  caCert,
                                                                X509Certificate2? clientCert,
+                                                               IWebProxy?        proxy,
+                                                               ProxyType         proxyType,
                                                                HandlerType       handlerType,
                                                                ILogger?          logger = null)
     {
@@ -164,6 +168,22 @@ namespace ArmoniK.Api.Client.Submitter
 
         httpHandler.SslProtocols                              = sslProtocols;
         httpHandler.ServerCertificateCustomValidationCallback = validationCallback;
+
+        switch (proxyType)
+        {
+          case ProxyType.None:
+            httpHandler.Proxy    = null;
+            httpHandler.UseProxy = false;
+            break;
+          case ProxyType.System:
+            httpHandler.Proxy    = null;
+            httpHandler.UseProxy = true;
+            break;
+          case ProxyType.Custom:
+            httpHandler.Proxy    = proxy;
+            httpHandler.UseProxy = true;
+            break;
+        }
 
         if (clientCert is not null)
         {
@@ -189,6 +209,22 @@ namespace ArmoniK.Api.Client.Submitter
         {
           winHandler.ClientCertificates.Add(clientCert);
         }
+      }
+
+      switch (proxyType)
+      {
+        case ProxyType.None:
+          winHandler.Proxy                 = null;
+          winHandler.WindowsProxyUsePolicy = WindowsProxyUsePolicy.DoNotUseProxy;
+          break;
+        case ProxyType.System:
+          winHandler.Proxy                 = null;
+          winHandler.WindowsProxyUsePolicy = WindowsProxyUsePolicy.UseWinHttpProxy;
+          break;
+        case ProxyType.Custom:
+          winHandler.Proxy                 = proxy;
+          winHandler.WindowsProxyUsePolicy = WindowsProxyUsePolicy.UseCustomProxy;
+          break;
       }
 
       if (handlerType is HandlerType.Web)
@@ -292,6 +328,42 @@ namespace ArmoniK.Api.Client.Submitter
                          ? GetCertificate(optionsGrpcClient)
                          : null;
 
+      ICredentials? proxyCredentials = null;
+      if (!string.IsNullOrEmpty(optionsGrpcClient.ProxyUsername) || !string.IsNullOrEmpty(optionsGrpcClient.ProxyPassword))
+      {
+        proxyCredentials = new NetworkCredential(optionsGrpcClient.ProxyUsername,
+                                                 optionsGrpcClient.ProxyPassword);
+      }
+
+      IWebProxy? proxy = null;
+      ProxyType  proxyType;
+
+      switch (optionsGrpcClient.Proxy)
+      {
+        case "":
+          proxyType = ProxyType.Undefined;
+          break;
+        case "none":
+        case "None":
+          logger?.LogDebug("Unsetting proxy for the gRPC channel");
+          proxyType = ProxyType.None;
+          break;
+        case "system":
+        case "System":
+          logger?.LogDebug("Using system proxy for the gRPC channel");
+          proxyType = ProxyType.System;
+          break;
+        default:
+          logger?.LogDebug("Using custom proxy for the gRPC channel: {Proxy}",
+                           optionsGrpcClient.Proxy);
+          proxyType = ProxyType.Custom;
+          proxy = new WebProxy(optionsGrpcClient.Proxy,
+                               false,
+                               Array.Empty<string>(),
+                               proxyCredentials);
+          break;
+      }
+
       switch (handlerType)
       {
         case HandlerType.Http:
@@ -312,6 +384,8 @@ namespace ArmoniK.Api.Client.Submitter
                                                  optionsGrpcClient.AllowUnsafeConnection,
                                                  caCert,
                                                  clientCert,
+                                                 proxy,
+                                                 proxyType,
                                                  handlerType,
                                                  logger);
 
@@ -509,6 +583,29 @@ namespace ArmoniK.Api.Client.Submitter
            "grpcwebhandler" or "grpcweb" or "web"                    => HandlerType.Web,
            _                                                         => throw new ArgumentException($"Invalid HandlerType: {handler}"),
          };
+
+    private enum ProxyType
+    {
+      /// <summary>
+      ///   No proxy configuration defined
+      /// </summary>
+      Undefined,
+
+      /// <summary>
+      ///   Do not use any proxy, even if the system has one configured
+      /// </summary>
+      None,
+
+      /// <summary>
+      ///   Use the proxy configured on the system
+      /// </summary>
+      System,
+
+      /// <summary>
+      ///   Use a custom proxy
+      /// </summary>
+      Custom,
+    }
 
     private enum HandlerType
     {
