@@ -5,7 +5,6 @@ from grpc import Channel
 from .results import ArmoniKResults
 from ..common import (
     EventTypes,
-    Filter,
     NewTaskEvent,
     NewResultEvent,
     ResultOwnerUpdateEvent,
@@ -15,6 +14,7 @@ from ..common import (
     Event,
 )
 from .results import ResultFieldFilter
+from ..common.filter import Filter
 from ..protogen.client.events_service_pb2_grpc import EventsStub
 from ..protogen.common.events_common_pb2 import EventSubscriptionRequest
 from ..protogen.common.results_filters_pb2 import Filters as rawResultFilters
