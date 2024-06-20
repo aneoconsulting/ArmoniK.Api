@@ -137,6 +137,8 @@ namespace ArmoniK.Api.Client.Submitter
     /// <param name="proxy">Proxy configuration to use</param>
     /// <param name="proxyType">Type of the proxy used</param>
     /// <param name="handlerType">Which HttpMessageHandler type to use</param>
+    /// <param name="keepAliveTime">TCP KeepAlive time</param>
+    /// <param name="keepAliveTimeInterval">TCP KeepAlive time interval</param>
     /// <param name="logger">Optional logger</param>
     /// <returns>HttpMessageHandler</returns>
     private static HttpMessageHandler CreateHttpMessageHandler(bool              https,
@@ -146,6 +148,8 @@ namespace ArmoniK.Api.Client.Submitter
                                                                IWebProxy?        proxy,
                                                                ProxyType         proxyType,
                                                                HandlerType       handlerType,
+                                                               TimeSpan          keepAliveTime,
+                                                               TimeSpan          keepAliveTimeInterval,
                                                                ILogger?          logger = null)
     {
       Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool>? validationCallback = null;
@@ -199,6 +203,15 @@ namespace ArmoniK.Api.Client.Submitter
       }
 
       var winHandler = new WinHttpHandler();
+      try
+      {
+        winHandler.TcpKeepAliveEnabled  = true;
+        winHandler.TcpKeepAliveTime     = keepAliveTime;
+        winHandler.TcpKeepAliveInterval = keepAliveTimeInterval;
+      }
+      catch (NotSupportedException)
+      {
+      }
 
       if (https)
       {
@@ -387,6 +400,8 @@ namespace ArmoniK.Api.Client.Submitter
                                                  proxy,
                                                  proxyType,
                                                  handlerType,
+                                                 optionsGrpcClient.KeepAliveTime,
+                                                 optionsGrpcClient.KeepAliveTimeInterval,
                                                  logger);
 
       // Warn that RequestTimeout is not supported.
