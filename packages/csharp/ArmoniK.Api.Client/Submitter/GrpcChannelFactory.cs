@@ -161,13 +161,6 @@ namespace ArmoniK.Api.Client.Submitter
       if (handlerType is HandlerType.Http)
       {
         var httpHandler = new HttpClientHandler();
-        if (!https)
-        {
-          return httpHandler;
-        }
-
-        httpHandler.SslProtocols                              = sslProtocols;
-        httpHandler.ServerCertificateCustomValidationCallback = validationCallback;
 
         switch (proxyType)
         {
@@ -184,6 +177,14 @@ namespace ArmoniK.Api.Client.Submitter
             httpHandler.UseProxy = true;
             break;
         }
+
+        if (!https)
+        {
+          return httpHandler;
+        }
+
+        httpHandler.SslProtocols                              = sslProtocols;
+        httpHandler.ServerCertificateCustomValidationCallback = validationCallback;
 
         if (clientCert is not null)
         {
