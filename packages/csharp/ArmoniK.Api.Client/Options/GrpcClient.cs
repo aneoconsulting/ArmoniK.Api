@@ -154,5 +154,10 @@ namespace ArmoniK.Api.Client.Options
     ///   Password used for proxy authentication
     /// </summary>
     public string ProxyPassword { get; set; } = "";
+
+    /// <summary>
+    ///   Enable the option SO_REUSE_UNICASTPORT upon socket opening to limit port exhaustion
+    /// </summary>
+    public bool ReusePorts { get; set; } = true;
   }
 }
