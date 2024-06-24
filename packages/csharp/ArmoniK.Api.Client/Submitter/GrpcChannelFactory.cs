@@ -274,6 +274,11 @@ namespace ArmoniK.Api.Client.Submitter
         throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
       }
 
+      if (optionsGrpcClient.ReusePorts)
+      {
+        ServicePointManager.ReusePort = true;
+      }
+
       var serviceConfig = new ServiceConfig
                           {
                             MethodConfigs =
