@@ -274,6 +274,11 @@ namespace ArmoniK.Api.Client.Submitter
         throw new InvalidOperationException($"{nameof(optionsGrpcClient.Endpoint)} should not be null or empty");
       }
 
+      if (optionsGrpcClient.ReusePorts)
+      {
+        ServicePointManager.ReusePort = true;
+      }
+
       var serviceConfig = new ServiceConfig
                           {
                             MethodConfigs =
@@ -389,6 +394,8 @@ namespace ArmoniK.Api.Client.Submitter
                                                  proxyType,
                                                  handlerType,
                                                  logger);
+      httpHandler = new Handler(httpHandler,
+                                logger);
 
       // Warn that RequestTimeout is not supported.
       // If required, it could be easily implemented with a DelegatingHandler and a cancellationToken delayed cancellation
@@ -624,6 +631,31 @@ namespace ArmoniK.Api.Client.Submitter
       ///   GrpcWebHandler(WinHttpHandler())
       /// </summary>
       Web,
+    }
+
+    private class Handler : DelegatingHandler
+    {
+      private readonly ILogger? logger_;
+
+      internal Handler(HttpMessageHandler inner,
+                       ILogger?           logger)
+        : base(inner)
+        => logger_ = logger;
+
+      protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+                                                                   CancellationToken  cancellationToken)
+      {
+        var response = await base.SendAsync(request,
+                                            cancellationToken)
+                                 .ConfigureAwait(false);
+
+        if (response.Headers.ConnectionClose is true)
+        {
+          logger_?.LogInformation("Connection closing has been requested, performance degradation is expected");
+        }
+
+        return response;
+      }
     }
   }
 }
