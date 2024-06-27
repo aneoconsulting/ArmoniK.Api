@@ -11,14 +11,14 @@
     "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./projects/aneoconsultingfr/armonik.api.angular/src/lib/generated -I ../../Protos/V1 ../../Protos/V1/*.proto"
   },
   "dependencies": {
-    "@angular/animations": "^16.2.1",
-    "@angular/common": "^16.2.1",
-    "@angular/compiler": "^16.2.1",
-    "@angular/core": "^16.2.1",
-    "@angular/forms": "^16.2.1",
-    "@angular/platform-browser": "^16.2.1",
-    "@angular/platform-browser-dynamic": "^16.2.1",
-    "@angular/router": "^16.2.1",
+    "@angular/animations": "^18.0.5",
+    "@angular/common": "^18.0.5",
+    "@angular/compiler": "^18.0.5",
+    "@angular/core": "^18.0.5",
+    "@angular/forms": "^18.0.5",
+    "@angular/platform-browser": "^18.0.5",
+    "@angular/platform-browser-dynamic": "^18.0.5",
+    "@angular/router": "^18.0.5",
     "@ngx-grpc/common": "^3.1.2",
     "@ngx-grpc/core": "^3.1.2",
     "@ngx-grpc/well-known-types": "^3.1.2",
@@ -28,19 +28,19 @@
     "zone.js": "~0.13.1"
   },
   "devDependencies": {
-    "@angular-devkit/build-angular": "^16.2.0",
-    "@angular/cli": "~16.2.0",
-    "@angular/compiler-cli": "^16.2.1",
+    "@angular-devkit/build-angular": "^18.0.6",
+    "@angular/cli": "~18.0.6",
+    "@angular/compiler-cli": "^18.0.5",
     "@ngx-grpc/protoc-gen-ng": "^3.1.2",
     "@types/google-protobuf": "^3.15.6",
-    "@types/jasmine": "~4.3.5",
+    "@types/jasmine": "~5.1.4",
     "jasmine-core": "~5.1.0",
     "karma": "~6.4.2",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.1",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
-    "ng-packagr": "^16.2.0",
+    "ng-packagr": "^18.0.0",
     "typescript": "~5.1.6"
   }
 }
