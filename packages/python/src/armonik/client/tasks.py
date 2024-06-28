@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple, cast
 
+import deprecation
 from grpc import Channel
 
 from ..common import Direction, Task, TaskDefinition, TaskOptions, TaskStatus
@@ -73,65 +74,98 @@ from ..protogen.common.tasks_filters_pb2 import (
     FilterStatus as rawFilterStatus,
 )
 
+from .._version import __version__
 
+
+@deprecation.deprecated(
+    "3.19.0", None, __version__, "Use armonik.client.filters.TaskFilter instead"
+)
 class TaskFieldFilter:
     """
     Enumeration of the available filters
     """
 
     TASK_ID = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_TASK_ID)),
+        TaskField(
+            task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_TASK_ID)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     SESSION_ID = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_SESSION_ID)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_SESSION_ID
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     OWNER_POD_ID = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_OWNER_POD_ID)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_OWNER_POD_ID
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     INITIAL_TASK_ID = StringFilter(
         TaskField(
-            task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_INITIAL_TASK_ID)
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_INITIAL_TASK_ID
+            )
         ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     STATUS = StatusFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_STATUS)),
+        TaskField(
+            task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_STATUS)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
         rawFilterStatus,
     )
     CREATED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_CREATED_AT)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_CREATED_AT
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     SUBMITTED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_SUBMITTED_AT)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_SUBMITTED_AT
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     STARTED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_STARTED_AT)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_STARTED_AT
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     ENDED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ENDED_AT)),
+        TaskField(
+            task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ENDED_AT)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
@@ -157,69 +191,99 @@ class TaskFieldFilter:
         rawFilterField,
     )
     POD_TTL = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_POD_TTL)),
+        TaskField(
+            task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_POD_TTL)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     POD_HOSTNAME = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_POD_HOSTNAME)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_POD_HOSTNAME
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     RECEIVED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_RECEIVED_AT)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_RECEIVED_AT
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     ACQUIRED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ACQUIRED_AT)),
+        TaskField(
+            task_summary_field=TaskSummaryField(
+                field=TASK_SUMMARY_ENUM_FIELD_ACQUIRED_AT
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     ERROR = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ERROR)),
+        TaskField(
+            task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ERROR)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
 
     MAX_DURATION = DurationFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_MAX_DURATION)),
+        TaskField(
+            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_MAX_DURATION)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     MAX_RETRIES = NumberFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_MAX_RETRIES)),
+        TaskField(
+            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_MAX_RETRIES)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     PRIORITY = NumberFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_PRIORITY)),
+        TaskField(
+            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_PRIORITY)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     PARTITION_ID = StringFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_PARTITION_ID)),
+        TaskField(
+            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_PARTITION_ID)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     APPLICATION_NAME = StringFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_NAME)),
+        TaskField(
+            task_option_field=TaskOptionField(
+                field=TASK_OPTION_ENUM_FIELD_APPLICATION_NAME
+            )
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     APPLICATION_VERSION = StringFilter(
         TaskField(
-            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION)
+            task_option_field=TaskOptionField(
+                field=TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION
+            )
         ),
         rawFilters,
         rawFilterAnd,
@@ -227,7 +291,9 @@ class TaskFieldFilter:
     )
     APPLICATION_NAMESPACE = StringFilter(
         TaskField(
-            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE)
+            task_option_field=TaskOptionField(
+                field=TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE
+            )
         ),
         rawFilters,
         rawFilterAnd,
@@ -235,14 +301,18 @@ class TaskFieldFilter:
     )
     APPLICATION_SERVICE = StringFilter(
         TaskField(
-            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE)
+            task_option_field=TaskOptionField(
+                field=TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE
+            )
         ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
     )
     ENGINE_TYPE = StringFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_ENGINE_TYPE)),
+        TaskField(
+            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_ENGINE_TYPE)
+        ),
         rawFilters,
         rawFilterAnd,
         rawFilterField,
@@ -259,7 +329,9 @@ class TaskFieldFilter:
             Corresponding filter
         """
         return StringFilter(
-            TaskField(task_option_generic_field=TaskOptionGenericField(field=option_key)),
+            TaskField(
+                task_option_generic_field=TaskOptionGenericField(field=option_key)
+            ),
             rawFilters,
             rawFilterAnd,
             rawFilterField,
@@ -284,7 +356,9 @@ class ArmoniKTasks:
         Returns:
             Task object with the information
         """
-        task_response: GetTaskResponse = self._client.GetTask(GetTaskRequest(task_id=task_id))
+        task_response: GetTaskResponse = self._client.GetTask(
+            GetTaskRequest(task_id=task_id)
+        )
         return Task.from_message(task_response.task)
 
     def list_tasks(
@@ -318,16 +392,20 @@ class ArmoniKTasks:
         request = ListTasksRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, task_filter.to_disjunction().to_message())
-            if task_filter
-            else rawFilters(),
+            filters=(
+                cast(rawFilters, task_filter.to_disjunction().to_message())
+                if task_filter
+                else rawFilters()
+            ),
             sort=ListTasksRequest.Sort(
                 field=cast(TaskField, sort_field.field), direction=sort_direction
             ),
             with_errors=with_errors,
         )
         if detailed:
-            response: ListTasksDetailedResponse = self._client.ListTasksDetailed(request)
+            response: ListTasksDetailedResponse = self._client.ListTasksDetailed(
+                request
+            )
             return response.total, [Task.from_message(t) for t in response.tasks]
         response: ListTasksResponse = self._client.ListTasks(request)
         return response.total, [Task.from_message(t) for t in response.tasks]
@@ -362,12 +440,16 @@ class ArmoniKTasks:
 
         for task_ids_batch in batched(task_ids, chunk_size):
             request = GetResultIdsRequest(task_id=task_ids_batch)
-            result_ids_response: GetResultIdsResponse = self._client.GetResultIds(request)
+            result_ids_response: GetResultIdsResponse = self._client.GetResultIds(
+                request
+            )
             for t in result_ids_response.task_results:
                 tasks_result_ids[t.task_id] = list(t.result_ids)
         return tasks_result_ids
 
-    def count_tasks_by_status(self, task_filter: Optional[Filter] = None) -> Dict[TaskStatus, int]:
+    def count_tasks_by_status(
+        self, task_filter: Optional[Filter] = None
+    ) -> Dict[TaskStatus, int]:
         """Get number of tasks by status.
 
         Args:
@@ -377,9 +459,11 @@ class ArmoniKTasks:
             A dictionnary mapping each status to the number of filtered tasks.
         """
         request = CountTasksByStatusRequest(
-            filters=cast(rawFilters, task_filter.to_disjunction().to_message())
-            if task_filter
-            else rawFilters()
+            filters=(
+                cast(rawFilters, task_filter.to_disjunction().to_message())
+                if task_filter
+                else rawFilters()
+            )
         )
         count_tasks_by_status_response: CountTasksByStatusResponse = (
             self._client.CountTasksByStatus(request)
@@ -423,7 +507,9 @@ class ArmoniKTasks:
             request = SubmitTasksRequest(
                 session_id=session_id,
                 task_creations=task_creations,
-                task_options=default_task_options.to_message() if default_task_options else None,
+                task_options=(
+                    default_task_options.to_message() if default_task_options else None
+                ),
             )
 
             self._client.SubmitTasks(request)

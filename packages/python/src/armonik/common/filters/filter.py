@@ -13,7 +13,7 @@ from google.protobuf.duration_pb2 import Duration
 # noinspection PyUnresolvedReferences
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from ...common import datetime_to_timestamp, timedelta_to_duration
+from ..helpers import datetime_to_timestamp, timedelta_to_duration
 from ...protogen.common.filters_common_pb2 import (
     FILTER_STRING_OPERATOR_EQUAL,
     FILTER_STRING_OPERATOR_NOT_EQUAL,
@@ -56,18 +56,34 @@ SimpleOperator = int
 
 
 class BasicMessageType(Protocol):
+    """
+    Message type that requires a "field" kwarg
+    """
+
     def __call__(self, *, field, **kwargs) -> Message: ...
 
 
 class CombinationMessageType(Protocol):
+    """
+    Message type for the ands and ors
+    """
+
     def __call__(self, **kwargs) -> Message: ...
 
 
 class InnerMessageType(Protocol):
+    """
+    Message type for the value and operator
+    """
+
     def __call__(self, *, value: Any, operator: SimpleOperator) -> Message: ...
 
 
 class FilterError(ValueError):
+    """
+    Exception raised when there is an error related to filters
+    """
+
     def __init__(self, filter_instance: Optional[Filter], message: str):
         self.filter = filter_instance
         self.message = message
@@ -77,6 +93,10 @@ class FilterError(ValueError):
 
 
 class Filter:
+    """
+    Base class of all filters
+    """
+
     eq_ = None
     ne_ = None
     lt_ = None
@@ -275,7 +295,7 @@ class Filter:
             new filter with the given value/operator
 
         Raises:
-            NotImplementedError if the given operator is not available for the given class
+            FilterError if the given operator is not available for the given class
         """
         if self._is_disjunction():
             raise FilterError(
@@ -283,7 +303,7 @@ class Filter:
             )
         if operator is None:
             msg = f"Operator {operator_str} is not available for {self.__class__.__name__}"
-            raise NotImplementedError(msg)
+            raise FilterError(self, msg)
         return self.__class__(
             self.field,
             self.disjunction_message_type,
