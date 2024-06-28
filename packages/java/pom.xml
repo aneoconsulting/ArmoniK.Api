@@ -16,34 +16,34 @@
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
     <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
     <proto.path>../../Protos/V1</proto.path>
-    <sl4j.version>2.0.12</sl4j.version>
-    <logback.version>1.5.5</logback.version>
+    <sl4j.version>2.0.13</sl4j.version>
+    <logback.version>1.5.6</logback.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
-      <version>1.62.2</version>
+      <version>1.65.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/io.projectreactor/reactor-core -->
     <dependency>
       <groupId>io.projectreactor</groupId>
       <artifactId>reactor-core</artifactId>
-      <version>3.6.5</version>
+      <version>3.6.7</version>
     </dependency>
 
 
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
-      <version>1.62.2</version>
+      <version>1.65.0</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
-      <version>1.62.2</version>
+      <version>1.65.0</version>
     </dependency>
     <dependency>
       <groupId>org.xolstice.maven.plugins</groupId>
@@ -73,7 +73,7 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-engine</artifactId>
-      <version>5.10.2</version>
+      <version>5.10.3</version>
       <scope>test</scope>
     </dependency>
 
@@ -83,7 +83,7 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
-      <version>5.11.0</version>
+      <version>5.12.0</version>
       <scope>test</scope>
     </dependency>
 
@@ -91,7 +91,7 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-junit-jupiter</artifactId>
-      <version>5.11.0</version>
+      <version>5.12.0</version>
       <scope>test</scope>
     </dependency>
 
