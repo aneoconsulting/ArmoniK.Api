@@ -1,4 +1,4 @@
-FROM dockerhubaneo/armonikworker-base:ubi7.9-0.0.1
+FROM dockerhubaneo/armonikworker-base:ubi7.9-0.0.2
 
 USER root
 # Update the PATH environment variable to include the gRPC libraries and binaries
