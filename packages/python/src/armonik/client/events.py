@@ -1,7 +1,7 @@
 from copy import deepcopy
 from typing import Callable, cast, Iterable, List, Optional
 
-from grpc import Channel
+from grpc import Channel, RpcError
 
 from .results import ArmoniKResults
 from ..common import (
@@ -67,16 +67,18 @@ class ArmoniKEvents:
         request = EventSubscriptionRequest(
             session_id=session_id,
             returned_events=event_types,
-            tasks_filters=cast(rawTaskFilters, task_filter.to_disjunction().to_message()) if task_filter else rawTaskFilters(),
-            results_filters=cast(
-                rawResultFilters, result_filter.to_disjunction().to_message()
-            ) if result_filter else rawResultFilters(),
+            tasks_filters=cast(rawTaskFilters, task_filter.to_disjunction().to_message())
+            if task_filter
+            else rawTaskFilters(),
+            results_filters=cast(rawResultFilters, result_filter.to_disjunction().to_message())
+            if result_filter
+            else rawResultFilters(),
         )
 
         streaming_call = self._client.GetEvents(request)
         for message in streaming_call:
             event_type = message.WhichOneof("update")
-            for event_handler in event_handlers: 
+            for event_handler in event_handlers:
                 if event_handler(
                     session_id,
                     EventTypes.from_string(event_type),
@@ -99,7 +101,7 @@ class ArmoniKEvents:
 
         results_not_found = deepcopy(result_ids)
 
-        results_filter = (ResultFieldFilter.RESULT_ID == result_ids[0])
+        results_filter = ResultFieldFilter.RESULT_ID == result_ids[0]
         for result_id in result_ids[1:]:
             results_filter = results_filter | (ResultFieldFilter.RESULT_ID == result_id)
 
@@ -107,9 +109,7 @@ class ArmoniKEvents:
             session_id=session_id,
             returned_events=[EventTypes.RESULT_STATUS_UPDATE],
             tasks_filters=rawTaskFilters(),
-            results_filters=cast(
-                rawResultFilters, results_filter.to_disjunction().to_message()
-            ),
+            results_filters=cast(rawResultFilters, results_filter.to_disjunction().to_message()),
         )
 
         while results_not_found:
@@ -127,7 +127,7 @@ class ArmoniKEvents:
                             if event.status == ResultStatus.ABORTED:
                                 raise RuntimeError(f"Result {event.result_id} has been aborted.")
                     if event_type == EventTypes.NEW_RESULT:
-                        event = NewResultEvent.from_raw_event(messae.new_result)
+                        event = NewResultEvent.from_raw_event(message.new_result)
                         if event.result_id in results_not_found:
                             if event.status == ResultStatus.COMPLETED:
                                 results_not_found.remove(event.result_id)
@@ -136,5 +136,5 @@ class ArmoniKEvents:
                             if event.status == ResultStatus.ABORTED:
                                 RuntimeError(f"Result {event.result_id} has been aborted.")
 
-            except grpc.RpcError:
+            except RpcError:
                 pass
