@@ -2,11 +2,11 @@
 import grpc
 import argparse
 from typing import cast
-from armonik.client import ArmoniKResults, ArmoniKTasks, ArmoniKSessions
+from armonik.client import ArmoniKResults, ArmoniKTasks, ArmoniKSessions, ArmoniKEvents
 from armonik.client.tasks import TaskFieldFilter
 from armonik.common import TaskDefinition, TaskOptions
 from datetime import timedelta, datetime
-from common import Payload, Result
+from common import Payload, Result, InputPayload
 
 
 def parse_arguments():
@@ -47,26 +47,32 @@ def main():
             # Upload payload
             results_client.upload_result_data(results[payload_name].result_id, session_id, payload.serialize())
             # Submit the task
-            submitted_tasks = tasks_client.submit_tasks(session_id, [task_definition])
+            tasks_client.submit_tasks(session_id, [task_definition])
             print("Main task has been sent")
 
-            event_client
+            event_client = ArmoniKEvents(channel)
 
-            for t in submitted_tasks:
-                # Wait for the result to be available
-                reply = client.wait_for_availability(session_id, result_id=t.expected_output_ids[0])
-                if reply is None:
-                    # This should not happen
-                    print("Result unexpectedly unavailable")
-                    continue
-                if reply.is_available():
-                    # Result is available, get the result
-                    result_payload = Result.deserialize(cast(bytes, client.get_result(session_id, result_id=t.expected_output_ids[0])))
-                    print(f"Result : {result_payload.value}")
-                else:
-                    # Result is in error
-                    errors = "\n".join(reply.errors)
-                    print(f'Errors : {errors}')
+            try:
+                event_client.wait_for_result_availability(results["result_name"].result_id, session_id)
+                Result.deserialize(results_client.download_result_data(results["result_name"].result_id, session_id))
+            except RuntimeError as e:
+                print(f"Error: {e}")
+
+            # for t in submitted_tasks:
+            #     # Wait for the result to be available
+            #     reply = client.wait_for_availability(session_id, result_id=t.expected_output_ids[0])
+            #     if reply is None:
+            #         # This should not happen
+            #         print("Result unexpectedly unavailable")
+            #         continue
+            #     if reply.is_available():
+            #         # Result is available, get the result
+            #         result_payload = Result.deserialize(cast(bytes, client.get_result(session_id, result_id=t.expected_output_ids[0])))
+            #         print(f"Result : {result_payload.value}")
+            #     else:
+            #         # Result is in error
+            #         errors = "\n".join(reply.errors)
+            #         print(f'Errors : {errors}')
 
             # List tasks
             if args.list:

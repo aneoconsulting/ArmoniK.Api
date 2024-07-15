@@ -1,6 +1,28 @@
+import struct
 from typing import List, Union
-import json
 
+class InputPayload:
+    def __init__(self, values: List[Union[int, str]]):
+        """
+        Creates an input payload
+        Args:
+            values: if it's a list of integers, will be the values to compute. If it's a list of strings, keys to aggregate
+        """
+        self.values: List[Union[int, str]] = values
+        self.aggregate:bool = isinstance(self.values[0], str) if self.values else False
+
+    def serialize(self) -> bytes:
+        common = struct.pack('>?I', self.aggregate, len(self.values))
+        if self.aggregate:
+            return common+struct.pack(''.join(["36p"]*len(self.values)), *[v.encode('ascii') for v in self.values])
+        return common+(b''.join(v.to_bytes(4, "little",signed=True) for v in self.values))
+
+    @classmethod
+    def deserialize(cls, data: bytes) -> "InputPayload":
+        aggregate, length = struct.unpack('>?I', data[:5])
+        if aggregate:
+            return cls([s.decode('ascii') for s in struct.unpack(''.join(["36p"]*length),data[5:])])
+        return cls([int.from_bytes(data[i:i+4], "little", signed=True) for i in range(5, len(data), 4)])
 
 class Payload:
     def __init__(self, values: List[Union[float, str]], subtask_threshold=2):
