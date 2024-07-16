@@ -25,7 +25,7 @@ message TaskDetailed {
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   string owner_pod_id = 3; /** The owner pod ID. */
 
-  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
+  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independently of retries. */
   repeated string parent_task_ids = 4; /** The parent task IDs. A tasks can be a child of another task. */
   repeated string data_dependencies = 5; /** The data dependencies. A task have data dependencies. */
   repeated string expected_output_ids = 6; /** The expected output IDs. A task have expected output IDs. */
@@ -40,7 +40,7 @@ message TaskDetailed {
   google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
   google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
-  google.protobuf.Timestamp fetched_at = 25; /** Task data retrevial end date. */
+  google.protobuf.Timestamp fetched_at = 25; /** Task data retrieval end date. */
   google.protobuf.Timestamp started_at = 13; /** The task start date. */
   google.protobuf.Timestamp processed_at = 24; /** The end of task processing date. */
   google.protobuf.Timestamp ended_at = 14; /** The task end date. Also used when task failed. */
@@ -74,7 +74,7 @@ message TaskSummary {
   string session_id = 2; /** The session ID. A task have only one related session but a session have many tasks. */
   string owner_pod_id = 10; /** The owner pod ID. */
 
-  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independantly of retries. */
+  string initial_task_id = 22; /** The initial task ID. Set when a task is submitted independently of retries. */
   int64 count_parent_task_ids = 21; /** Count the parent task IDs. A tasks can be a child of another task. */
   int64 count_data_dependencies = 11; /** Count the data dependencies. A task have data dependencies. */
   int64 count_expected_output_ids = 13; /** Count the expected output IDs. A task have expected output IDs. */
@@ -89,7 +89,7 @@ message TaskSummary {
   google.protobuf.Timestamp submitted_at = 12; /** The task submission date. */
   google.protobuf.Timestamp received_at = 18; /** When the task is received by the agent. */
   google.protobuf.Timestamp acquired_at = 19; /** When the task is acquired by the agent. */
-  google.protobuf.Timestamp fetched_at = 25; /** Task data retrevial end date. */
+  google.protobuf.Timestamp fetched_at = 25; /** Task data retrieval end date. */
   google.protobuf.Timestamp started_at = 6; /** The task start date. */
   google.protobuf.Timestamp processed_at = 23; /** The end of task processing date. */
   google.protobuf.Timestamp ended_at = 7; /** The task end date. Also used when task failed. */
@@ -136,7 +136,7 @@ message ListTasksRequest {
  * Response to list tasks.
  *
  * Use pagination, filtering and sorting from the request.
- * Return a list of formated tasks.
+ * Return a list of formatted tasks.
  */
 message ListTasksResponse {
   repeated TaskSummary tasks = 1; /** The list of tasks. */
@@ -150,7 +150,7 @@ message ListTasksResponse {
  * Response to list tasks.
  *
  * Use pagination, filtering and sorting from the request.
- * Return a list of formated tasks.
+ * Return a list of formatted tasks.
  */
 message ListTasksDetailedResponse {
   repeated TaskDetailed tasks = 1; /** The list of tasks. */
@@ -225,7 +225,7 @@ message CountTasksByStatusRequest {
  * Response to get count from tasks by status
  */
 message CountTasksByStatusResponse {
-  repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 objct by tasks status. */
+  repeated StatusCount status = 1; /** Number of tasks by status. Expected to have only 1 object by tasks status. */
 }
 
 /**
@@ -236,7 +236,7 @@ message SubmitTasksRequest {
     repeated string expected_output_keys = 1; /** Unique ID of the results that will be produced by the task. Results should be created using ResultsService. */
     repeated string data_dependencies = 2; /** Unique ID of the results that will be used as datadependencies. Results should be created using ResultsService. */
     string payload_id = 3; /** Unique ID of the result that will be used as payload. Result should created using ResultsService. */
-    TaskOptions task_options = 4; /** Optionnal task options. */
+    TaskOptions task_options = 4; /** Optional task options. */
   }
 
   string session_id = 1; /** The session ID. */
