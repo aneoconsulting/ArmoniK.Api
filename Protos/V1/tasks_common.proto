@@ -50,6 +50,8 @@ message TaskDetailed {
   google.protobuf.Duration processing_to_end_duration = 21; /** The task calculated duration. Between the start date and the end date. */
   google.protobuf.Duration received_to_end_duration = 23; /** The task calculated duration. Between the received date and the end date. */
 
+  string payload_id = 26; /** The ID of the Result that is used as a payload for this task. */
+
   /**
    * Represents the task output.
    */
@@ -98,6 +100,8 @@ message TaskSummary {
   google.protobuf.Duration creation_to_end_duration = 15; /** The task duration. Between the creation date and the end date. */
   google.protobuf.Duration processing_to_end_duration = 16; /** The task calculated duration. Between the start date and the end date. */
   google.protobuf.Duration received_to_end_duration = 24; /** The task calculated duration. Between the received date and the end date. */
+
+  string payload_id = 26; /** The ID of the Result that is used as a payload for this task. */
 
   string error = 8; /** The error message. Only set if task have failed. */
   string pod_hostname = 17; /** The hostname of the container running the task. */
