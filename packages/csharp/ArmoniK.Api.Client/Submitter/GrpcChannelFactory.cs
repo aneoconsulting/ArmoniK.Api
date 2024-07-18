@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
 //
-// Copyright (C) ANEO, 2021-2023. All rights reserved.
+// Copyright (C) ANEO, 2021-2024. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -261,13 +261,15 @@ namespace ArmoniK.Api.Client.Submitter
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
     /// <param name="handlerType">Which HttpMessageHandler type to use</param>
     /// <param name="logger">Optional logger</param>
+    /// <param name="loggerFactory">Optional loggerFactory</param>
     /// <returns>
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    private static GrpcChannel CreateChannelInternal(GrpcClient  optionsGrpcClient,
-                                                     HandlerType handlerType,
-                                                     ILogger?    logger)
+    private static GrpcChannel CreateChannelInternal(GrpcClient      optionsGrpcClient,
+                                                     HandlerType     handlerType,
+                                                     ILogger?        logger,
+                                                     ILoggerFactory? loggerFactory)
     {
       if (string.IsNullOrEmpty(optionsGrpcClient.Endpoint))
       {
@@ -417,6 +419,7 @@ namespace ArmoniK.Api.Client.Submitter
                              Credentials       = credentials,
                              DisposeHttpClient = true,
                              ServiceConfig     = serviceConfig,
+                             LoggerFactory     = loggerFactory,
                            };
 
       if (handlerType is HandlerType.Web)
@@ -439,6 +442,7 @@ namespace ArmoniK.Api.Client.Submitter
     /// </summary>
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
     /// <param name="logger">Optional logger</param>
+    /// <param name="loggerFactory">Optional loggerFactory</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>
     ///   The initialized GrpcChannel
@@ -446,22 +450,27 @@ namespace ArmoniK.Api.Client.Submitter
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
     public static Task<GrpcChannel> CreateChannelAsync(GrpcClient        optionsGrpcClient,
                                                        ILogger?          logger            = null,
+                                                       ILoggerFactory?   loggerFactory     = null,
                                                        CancellationToken cancellationToken = default)
       => Task.FromResult(CreateChannel(optionsGrpcClient,
-                                       logger));
+                                       logger,
+                                       loggerFactory));
 
     /// <summary>
     ///   Creates the GrpcChannel
     /// </summary>
     /// <param name="optionsGrpcClient">Options for the creation of the channel</param>
     /// <param name="logger">Optional logger</param>
+    /// <param name="loggerFactory">Optional loggerFactory</param>
     /// <returns>
     ///   The initialized GrpcChannel
     /// </returns>
     /// <exception cref="InvalidOperationException">Endpoint passed through options is missing</exception>
-    public static GrpcChannel CreateChannel(GrpcClient optionsGrpcClient,
-                                            ILogger?   logger = null)
+    public static GrpcChannel CreateChannel(GrpcClient      optionsGrpcClient,
+                                            ILogger?        logger        = null,
+                                            ILoggerFactory? loggerFactory = null)
     {
+      logger ??= loggerFactory?.CreateLogger<GrpcChannel>();
       if (!string.IsNullOrEmpty(optionsGrpcClient.OverrideTargetName))
       {
         logger?.LogWarning("OverrideTargetName is not supported");
@@ -472,7 +481,8 @@ namespace ArmoniK.Api.Client.Submitter
       {
         return CreateChannelInternal(optionsGrpcClient,
                                      handlerType,
-                                     logger);
+                                     logger,
+                                     loggerFactory);
       }
 
       // If dotnet core (>= Net 5), we can use HttpClientHandler
@@ -480,7 +490,8 @@ namespace ArmoniK.Api.Client.Submitter
       {
         return CreateChannelInternal(optionsGrpcClient,
                                      HandlerType.Http,
-                                     logger);
+                                     logger,
+                                     loggerFactory);
       }
 
       // If dotnet framework, we can use a plain WinHttpHandler.
@@ -489,7 +500,8 @@ namespace ArmoniK.Api.Client.Submitter
       {
         return CreateChannelInternal(optionsGrpcClient,
                                      HandlerType.Win,
-                                     logger);
+                                     logger,
+                                     loggerFactory);
       }
       catch (InvalidOperationException e)
       {
@@ -499,7 +511,8 @@ namespace ArmoniK.Api.Client.Submitter
                            "Falling back to gRPC Web that does not fully support gRPC streams");
         return CreateChannelInternal(optionsGrpcClient,
                                      HandlerType.Web,
-                                     logger);
+                                     logger,
+                                     loggerFactory);
       }
     }
 
