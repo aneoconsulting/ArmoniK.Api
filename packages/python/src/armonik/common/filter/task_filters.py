@@ -64,6 +64,7 @@ def _task_option_field(field: Any) -> rawTaskField:
     return rawTaskField(task_option_field=TaskOptionField(field=field))
 
 
+# TODO: Merge with session task option
 class TaskOptionFilter(FilterWrapper):
     """
     Filter for task options
@@ -99,21 +100,37 @@ class TaskOptionFilter(FilterWrapper):
 
     @property
     def application_namespace(self) -> StringFilter:
-        return self._string(_task_option_field(TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE))
+        return self._string(
+            _task_option_field(TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE)
+        )
 
     @property
     def application_version(self) -> StringFilter:
-        return self._string(_task_option_field(TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION))
+        return self._string(
+            _task_option_field(TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION)
+        )
 
     @property
     def application_service(self) -> StringFilter:
-        return self._string(_task_option_field(TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE))
+        return self._string(
+            _task_option_field(TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE)
+        )
 
     @property
     def engine_type(self) -> StringFilter:
         return self._string(_task_option_field(TASK_OPTION_ENUM_FIELD_ENGINE_TYPE))
 
 
+class OutputFilter(FilterWrapper):
+    def __init__(self):
+        super().__init__(rawFilters, rawFilterAnd, rawFilterField, rawFilterStatus)
+
+    @property
+    def error(self) -> StringFilter:
+        return self._string(_summary_field(TASK_SUMMARY_ENUM_FIELD_ERROR))
+
+
+# TODO : Replace completely
 class TaskFilter(FilterWrapper):
     """
     Filter for tasks
@@ -188,15 +205,25 @@ class TaskFilter(FilterWrapper):
 
     @property
     def creation_to_end_duration(self) -> DurationFilter:
-        return self._duration(_summary_field(TASK_SUMMARY_ENUM_FIELD_CREATION_TO_END_DURATION))
+        return self._duration(
+            _summary_field(TASK_SUMMARY_ENUM_FIELD_CREATION_TO_END_DURATION)
+        )
 
     @property
     def processing_to_end_duration(self) -> DurationFilter:
-        return self._duration(_summary_field(TASK_SUMMARY_ENUM_FIELD_PROCESSING_TO_END_DURATION))
+        return self._duration(
+            _summary_field(TASK_SUMMARY_ENUM_FIELD_PROCESSING_TO_END_DURATION)
+        )
 
     @property
     def received_to_end_duration(self) -> DurationFilter:
-        return self._duration(_summary_field(TASK_SUMMARY_ENUM_FIELD_RECEIVED_TO_END_DURATION))
+        return self._duration(
+            _summary_field(TASK_SUMMARY_ENUM_FIELD_RECEIVED_TO_END_DURATION)
+        )
+
+    @property
+    def output(self) -> OutputFilter:
+        return OutputFilter()
 
     @property
     def error(self) -> StringFilter:

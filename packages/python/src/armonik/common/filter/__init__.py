@@ -15,6 +15,7 @@ from .filter import (
     ArrayFilter,
     BooleanFilter,
     StatusFilter,
+    FilterDescriptor,
 )
 from .partition_filters import PartitionFilter
 from .result_filters import ResultFilter
@@ -42,4 +43,5 @@ __all__ = [
     "ResultFilter",
     "PartitionFilter",
     "ApplicationFilter",
+    "FilterDescriptor",
 ]

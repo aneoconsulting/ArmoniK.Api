@@ -5,6 +5,8 @@ from typing import Dict, cast, Union
 import pytest
 
 from dataclasses import dataclass
+
+from armonik.common import Task
 from armonik.common.filter import (
     Filter,
     StringFilter,
@@ -122,6 +124,10 @@ def apply_filter(state: Dict[str, bool], message: Union[Message, Filter]) -> boo
 
 def get_bool_filter(name: str) -> BooleanFilter:
     return BooleanFilter(Field(name), DummyMessage, DummyMessageAnd, BaseMessage)
+
+def test_descriptor():
+    assert isinstance(Task.id == "xxx", Filter)
+    Task().id
 
 
 def test_combine():
