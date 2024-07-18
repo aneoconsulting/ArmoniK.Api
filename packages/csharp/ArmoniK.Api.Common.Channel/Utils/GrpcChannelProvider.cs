@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
 //
-// Copyright (C) ANEO, 2021-2022. All rights reserved.
+// Copyright (C) ANEO, 2021-2024. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -90,6 +90,10 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
     using var _ = logger.LogFunction();
 
     var udsEndPoint = new UnixDomainSocketEndPoint(address);
+
+    // Workaround for connectivity issue: https://github.com/grpc/grpc-dotnet/issues/2361#issuecomment-1895791020
+    AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing",
+                         true);
 
     var socketsHttpHandler = new SocketsHttpHandler
                              {
