@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, TypeAlias, Type, cast
 
 from deprecation import deprecated
 
+from .filter import FilterDescriptor, TaskFilter, TaskOptionFilter
+from .filter.task_filters import OutputFilter
 from ..protogen.common.objects_pb2 import (
     Empty,
 )
@@ -96,111 +98,171 @@ class TaskDefinition:
             raise ValueError("expected_output_ids must be not be empty")
 
 
-@dataclass()
+_task_filter = TaskFilter()
+
+
+class TaskOptionDescriptor(FilterDescriptor):
+    def __get__(self, instance, owner) -> TaskOptionFilter:
+        return cast(TaskOptionFilter, super().__get__(instance, owner))
+
+
+class OutputDescriptor(FilterDescriptor):
+    def __get__(self, instance, owner) -> OutputFilter:
+        return cast(OutputFilter, super().__get__(instance, owner))
+
+
 class Task:
-    id: Optional[str] = None
-    session_id: Optional[str] = None
-    owner_pod_id: Optional[str] = None
+    id = FilterDescriptor(_task_filter)
+    session_id = FilterDescriptor(_task_filter)
+    owner_pod_id = FilterDescriptor(_task_filter)
 
-    initial_task_id: Optional[str] = None
-    parent_task_ids: List[str] = field(default_factory=list)
-    data_dependencies: List[str] = field(default_factory=list)
-    expected_output_ids: List[str] = field(default_factory=list)
-    retry_of_ids: List[str] = field(default_factory=list)
+    initial_task_id = FilterDescriptor(_task_filter)
+    parent_task_ids = FilterDescriptor(_task_filter)
+    data_dependencies = FilterDescriptor(_task_filter)
+    expected_output_ids = FilterDescriptor(_task_filter)
+    retry_of_ids = FilterDescriptor(_task_filter)
 
-    status: RawTaskStatus = TaskStatus.UNSPECIFIED
-    status_message: Optional[str] = None
+    status = FilterDescriptor(_task_filter)
+    status_message = FilterDescriptor(_task_filter)
 
-    options: Optional[TaskOptions] = None
-    created_at: Optional[datetime] = None
-    submitted_at: Optional[datetime] = None
-    received_at: Optional[datetime] = None
-    acquired_at: Optional[datetime] = None
-    fetched_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    processed_at: Optional[datetime] = None
-    ended_at: Optional[datetime] = None
-    pod_ttl: Optional[datetime] = None
+    options = TaskOptionDescriptor(
+        _task_filter
+    )  # TODO : descriptor should return a TaskOptionFilter set with the right types for task or session
+    created_at = FilterDescriptor(_task_filter)
+    submitted_at = FilterDescriptor(_task_filter)
+    received_at = FilterDescriptor(_task_filter)
+    acquired_at = FilterDescriptor(_task_filter)
+    fetched_at = FilterDescriptor(_task_filter)
+    started_at = FilterDescriptor(_task_filter)
+    processed_at = FilterDescriptor(_task_filter)
+    ended_at = FilterDescriptor(_task_filter)
+    pod_ttl = FilterDescriptor(_task_filter)
 
-    creation_to_end_duration: Optional[timedelta] = timedelta(0)
-    processing_to_end_duration: Optional[timedelta] = timedelta(0)
-    received_to_end_duration: Optional[timedelta] = timedelta(0)
+    creation_to_end_duration = FilterDescriptor(_task_filter)
+    processing_to_end_duration = FilterDescriptor(_task_filter)
+    received_to_end_duration = FilterDescriptor(_task_filter)
 
-    output: Optional[Output] = None
+    output: Optional[Output] = None  # TODO : Use OutputFilter
 
-    pod_hostname: Optional[str] = None
+    pod_hostname = FilterDescriptor(_task_filter)
+    payload_id = FilterDescriptor(_task_filter)
 
-    def refresh(self, task_client) -> None:
-        """Refresh the fields of this task object by using the given task client
-
-        Args:
-            task_client: ArmoniKTasks client
-        """
-        result: "Task" = task_client.get_task(self.id)
-        self.session_id = result.session_id
-        self.owner_pod_id = result.owner_pod_id
-
-        self.initial_task_id = result.initial_task_id
-        self.parent_task_ids = result.parent_task_ids
-        self.data_dependencies = result.data_dependencies
-        self.expected_output_ids = result.expected_output_ids
-        self.retry_of_ids = result.retry_of_ids
-
-        self.status = result.status
-        self.status_message = result.status_message
-
-        self.options = result.options
-        self.created_at = result.created_at
-        self.submitted_at = result.submitted_at
-        self.received_at = result.received_at
-        self.acquired_at = result.acquired_at
-        self.fetched_at = result.fetched_at
-        self.started_at = result.started_at
-        self.processed_at = result.processed_at
-        self.ended_at = result.ended_at
-        self.pod_ttl = result.pod_ttl
-
-        self.creation_to_end_duration = result.creation_to_end_duration
-        self.processing_to_end_duration = result.processing_to_end_duration
-        self.received_to_end_duration = result.received_to_end_duration
-
-        self.output = result.output
-
-        self.pod_hostname = result.pod_hostname
-        self.is_init = True
-
-    @classmethod
-    def from_message(cls, task_raw: TaskDetailed) -> "Task":
-        return cls(
-            id=task_raw.id,
-            session_id=task_raw.session_id,
-            owner_pod_id=task_raw.owner_pod_id,
-            initial_task_id=task_raw.initial_task_id,
-            parent_task_ids=list(task_raw.parent_task_ids),
-            data_dependencies=list(task_raw.data_dependencies),
-            expected_output_ids=list(task_raw.expected_output_ids),
-            retry_of_ids=list(task_raw.retry_of_ids),
-            status=task_raw.status,
-            status_message=task_raw.status_message,
-            options=TaskOptions.from_message(task_raw.options),
-            created_at=timestamp_to_datetime(task_raw.created_at),
-            submitted_at=timestamp_to_datetime(task_raw.submitted_at),
-            received_at=timestamp_to_datetime(task_raw.received_at),
-            acquired_at=timestamp_to_datetime(task_raw.acquired_at),
-            fetched_at=timestamp_to_datetime(task_raw.fetched_at),
-            started_at=timestamp_to_datetime(task_raw.started_at),
-            processed_at=timestamp_to_datetime(task_raw.processed_at),
-            ended_at=timestamp_to_datetime(task_raw.ended_at),
-            pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
-            creation_to_end_duration=duration_to_timedelta(task_raw.creation_to_end_duration),
-            processing_to_end_duration=duration_to_timedelta(task_raw.processing_to_end_duration),
-            received_to_end_duration=duration_to_timedelta(task_raw.received_to_end_duration),
-            output=Output(error=(task_raw.output.error if not task_raw.output.success else None)),
-            pod_hostname=task_raw.pod_hostname,
-        )
+    def __init__(
+        self, _id: Optional[str] = None, options: Optional[TaskOptions] = None
+    ):
+        self.id = _id
+        self.options = options
+        # TODO to complete
 
 
-@deprecated(deprecated_in="3.14.0", details="Use sessions, task and results client instead")
+#
+# @dataclass()
+# class Task:
+#     id: Optional[str] = None
+#     session_id: Optional[str] = None
+#     owner_pod_id: Optional[str] = None
+#
+#     initial_task_id: Optional[str] = None
+#     parent_task_ids: List[str] = field(default_factory=list)
+#     data_dependencies: List[str] = field(default_factory=list)
+#     expected_output_ids: List[str] = field(default_factory=list)
+#     retry_of_ids: List[str] = field(default_factory=list)
+#
+#     status: RawTaskStatus = TaskStatus.UNSPECIFIED
+#     status_message: Optional[str] = None
+#
+#     options: Optional[TaskOptions] = None
+#     created_at: Optional[datetime] = None
+#     submitted_at: Optional[datetime] = None
+#     received_at: Optional[datetime] = None
+#     acquired_at: Optional[datetime] = None
+#     fetched_at: Optional[datetime] = None
+#     started_at: Optional[datetime] = None
+#     processed_at: Optional[datetime] = None
+#     ended_at: Optional[datetime] = None
+#     pod_ttl: Optional[datetime] = None
+#
+#     creation_to_end_duration: Optional[timedelta] = timedelta(0)
+#     processing_to_end_duration: Optional[timedelta] = timedelta(0)
+#     received_to_end_duration: Optional[timedelta] = timedelta(0)
+#
+#     output: Optional[Output] = None
+#
+#     pod_hostname: Optional[str] = None
+#
+#     def refresh(self, task_client) -> None:
+#         """Refresh the fields of this task object by using the given task client
+#
+#         Args:
+#             task_client: ArmoniKTasks client
+#         """
+#         result: "Task" = task_client.get_task(self.id)
+#         self.session_id = result.session_id
+#         self.owner_pod_id = result.owner_pod_id
+#
+#         self.initial_task_id = result.initial_task_id
+#         self.parent_task_ids = result.parent_task_ids
+#         self.data_dependencies = result.data_dependencies
+#         self.expected_output_ids = result.expected_output_ids
+#         self.retry_of_ids = result.retry_of_ids
+#
+#         self.status = result.status
+#         self.status_message = result.status_message
+#
+#         self.options = result.options
+#         self.created_at = result.created_at
+#         self.submitted_at = result.submitted_at
+#         self.received_at = result.received_at
+#         self.acquired_at = result.acquired_at
+#         self.fetched_at = result.fetched_at
+#         self.started_at = result.started_at
+#         self.processed_at = result.processed_at
+#         self.ended_at = result.ended_at
+#         self.pod_ttl = result.pod_ttl
+#
+#         self.creation_to_end_duration = result.creation_to_end_duration
+#         self.processing_to_end_duration = result.processing_to_end_duration
+#         self.received_to_end_duration = result.received_to_end_duration
+#
+#         self.output = result.output
+#
+#         self.pod_hostname = result.pod_hostname
+#         self.is_init = True
+#
+#     @classmethod
+#     def from_message(cls, task_raw: TaskDetailed) -> "Task":
+#         return cls(
+#             id=task_raw.id,
+#             session_id=task_raw.session_id,
+#             owner_pod_id=task_raw.owner_pod_id,
+#             initial_task_id=task_raw.initial_task_id,
+#             parent_task_ids=list(task_raw.parent_task_ids),
+#             data_dependencies=list(task_raw.data_dependencies),
+#             expected_output_ids=list(task_raw.expected_output_ids),
+#             retry_of_ids=list(task_raw.retry_of_ids),
+#             status=task_raw.status,
+#             status_message=task_raw.status_message,
+#             options=TaskOptions.from_message(task_raw.options),
+#             created_at=timestamp_to_datetime(task_raw.created_at),
+#             submitted_at=timestamp_to_datetime(task_raw.submitted_at),
+#             received_at=timestamp_to_datetime(task_raw.received_at),
+#             acquired_at=timestamp_to_datetime(task_raw.acquired_at),
+#             fetched_at=timestamp_to_datetime(task_raw.fetched_at),
+#             started_at=timestamp_to_datetime(task_raw.started_at),
+#             processed_at=timestamp_to_datetime(task_raw.processed_at),
+#             ended_at=timestamp_to_datetime(task_raw.ended_at),
+#             pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
+#             creation_to_end_duration=duration_to_timedelta(task_raw.creation_to_end_duration),
+#             processing_to_end_duration=duration_to_timedelta(task_raw.processing_to_end_duration),
+#             received_to_end_duration=duration_to_timedelta(task_raw.received_to_end_duration),
+#             output=Output(error=(task_raw.output.error if not task_raw.output.success else None)),
+#             pod_hostname=task_raw.pod_hostname,
+#         )
+
+
+@deprecated(
+    deprecated_in="3.14.0", details="Use sessions, task and results client instead"
+)
 @dataclass
 class ResultAvailability:
     errors: List[str] = field(default_factory=list)
