@@ -130,6 +130,8 @@ class Task:
 
     pod_hostname: Optional[str] = None
 
+    payload_id: Optional[str] = None
+
     def refresh(self, task_client) -> None:
         """Refresh the fields of this task object by using the given task client
 
@@ -167,6 +169,7 @@ class Task:
         self.output = result.output
 
         self.pod_hostname = result.pod_hostname
+        self.payload_id = result.payload_id
         self.is_init = True
 
     @classmethod
@@ -197,6 +200,7 @@ class Task:
             received_to_end_duration=duration_to_timedelta(task_raw.received_to_end_duration),
             output=Output(error=(task_raw.output.error if not task_raw.output.success else None)),
             pod_hostname=task_raw.pod_hostname,
+            payload_id=task_raw.payload_id,
         )
 
 
