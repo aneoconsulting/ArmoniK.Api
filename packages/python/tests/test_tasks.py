@@ -43,6 +43,7 @@ class TestArmoniKTasks:
         received_to_end_duration=datetime.timedelta(0),
         output=Output(error=""),
         pod_hostname="",
+        payload_id="",
     )
 
     def test_get_task(self):
