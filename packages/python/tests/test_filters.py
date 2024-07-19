@@ -125,6 +125,7 @@ def apply_filter(state: Dict[str, bool], message: Union[Message, Filter]) -> boo
 def get_bool_filter(name: str) -> BooleanFilter:
     return BooleanFilter(Field(name), DummyMessage, DummyMessageAnd, BaseMessage)
 
+
 def test_descriptor():
     assert isinstance(Task.id == "xxx", Filter)
     Task().id

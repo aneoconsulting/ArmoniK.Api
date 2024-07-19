@@ -211,11 +211,7 @@ class Filter:
         self._check_compatible(other)
         # (a | (b&c)) & (d | (e&f)) = a&d | a&e&f | b&c&d | b&c&e&f
         return self._disjunction(
-            [
-                c1 + c2
-                for c2 in other.to_disjunction().value
-                for c1 in self.to_disjunction().value
-            ]
+            [c1 + c2 for c2 in other.to_disjunction().value for c1 in self.to_disjunction().value]
         )
 
     def __mul__(self, other: Filter) -> Filter:
@@ -230,9 +226,7 @@ class Filter:
         """
         self._check_compatible(other)
         # (a | b&c) | (d | e&f) = a | b&c | d | e&f
-        return self._disjunction(
-            self.to_disjunction().value + other.to_disjunction().value
-        )
+        return self._disjunction(self.to_disjunction().value + other.to_disjunction().value)
 
     def __add__(self, other: Filter) -> Filter:
         """
@@ -268,9 +262,7 @@ class Filter:
         if self.operator is None:
             # No operator
             if self._is_empty():
-                raise FilterError(
-                    self, "Cannot invert filter without a value or operator"
-                )
+                raise FilterError(self, "Cannot invert filter without a value or operator")
             try:
                 # The filter is a combination
                 # ~(a | (b & c)) => ~a & (~b | ~c) => ~a&~b | ~a&~c
@@ -294,9 +286,7 @@ class Filter:
         if self.operator == self.__class__.ge_:
             return self.__lt__(self.value)
         if self.operator == self.__class__.contains_:
-            return self._change_operation(
-                self.value, self.__class__.notcontains_, "not_contains"
-            )
+            return self._change_operation(self.value, self.__class__.notcontains_, "not_contains")
         if self.operator == self.__class__.notcontains_:
             return self.contains(self.value)
         msg = f"{self.__class__.__name__} operator {str(self.operator)} for field {str(self.field)} has no inverted equivalent"
@@ -324,16 +314,12 @@ class Filter:
         Returns:
             Sanitized value
         """
-        if self.__class__.value_type_ is None or isinstance(
-            value, self.__class__.value_type_
-        ):
+        if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
             return value
         msg = f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead"
         raise FilterError(None, msg)
 
-    def _change_operation(
-        self, value: Any, operator: Any, operator_str: str = ""
-    ) -> Filter:
+    def _change_operation(self, value: Any, operator: Any, operator_str: str = "") -> Filter:
         """
         Internal function to create a new filter from the current filter with a different value and/or operator
         Args:
@@ -348,9 +334,7 @@ class Filter:
             FilterError if the given operator is not available for the given class
         """
         if self._is_disjunction():
-            raise FilterError(
-                self, "Cannot apply operator to a disjunction or a conjunction"
-            )
+            raise FilterError(self, "Cannot apply operator to a disjunction or a conjunction")
         if operator is None:
             msg = f"Operator {operator_str} is not available for {self.__class__.__name__}"
             raise FilterError(self, msg)
@@ -379,11 +363,7 @@ class Filter:
         if len(self.value) > 1:
             return {
                 "or": [
-                    (
-                        {"and": [c.to_dict() for c in conj]}
-                        if len(conj) > 1
-                        else conj[0].to_dict()
-                    )
+                    ({"and": [c.to_dict() for c in conj]} if len(conj) > 1 else conj[0].to_dict())
                     for conj in self.value
                 ]
             }
@@ -440,9 +420,7 @@ class Filter:
         raw = self.disjunction_message_type()
         # Need to use getattr because or is a reserved name
         getattr(raw, "or").extend(
-            (to_conjunction_message(conj) for conj in self.value)
-            if self.value is not None
-            else []
+            (to_conjunction_message(conj) for conj in self.value) if self.value is not None else []
         )
         return raw
 
@@ -488,14 +466,10 @@ class StringFilter(Filter):
         )
 
     def startswith(self, value: str) -> "StringFilter":
-        return self._change_operation(
-            value, FILTER_STRING_OPERATOR_STARTS_WITH, "startswith"
-        )
+        return self._change_operation(value, FILTER_STRING_OPERATOR_STARTS_WITH, "startswith")
 
     def endswith(self, value: str) -> "StringFilter":
-        return self._change_operation(
-            value, FILTER_STRING_OPERATOR_ENDS_WITH, "endswith"
-        )
+        return self._change_operation(value, FILTER_STRING_OPERATOR_ENDS_WITH, "endswith")
 
     def __repr__(self) -> str:
         return f'{str(self.field)} {str(self.operator)} "{str(self.value)}"'
@@ -867,9 +841,8 @@ AttributeType = TypeVar("AttributeType")
 
 
 class FilterDescriptor(Generic[AttributeType]):
-
-    def __init__(self, wrapper: FilterWrapper):
-        self.wrapper = wrapper
+    def __init__(self, basic_filter: Filter):
+        self.filter = basic_filter
 
     def __set_name__(self, owner: Type, name: str):
         self.name = name
@@ -885,7 +858,7 @@ class FilterDescriptor(Generic[AttributeType]):
         self, instance: Optional[object], owner: Optional[Type]
     ) -> Union[Filter, AttributeType]:
         if instance is None:
-            return getattr(self.wrapper, self.name)
+            return self.filter
         return getattr(instance, self._name)
 
     def __set__(self, instance: object, value: AttributeType):

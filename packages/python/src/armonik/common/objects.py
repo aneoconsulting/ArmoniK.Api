@@ -147,9 +147,7 @@ class Task:
     pod_hostname = FilterDescriptor(_task_filter)
     payload_id = FilterDescriptor(_task_filter)
 
-    def __init__(
-        self, _id: Optional[str] = None, options: Optional[TaskOptions] = None
-    ):
+    def __init__(self, _id: Optional[str] = None, options: Optional[TaskOptions] = None):
         self.id = _id
         self.options = options
         # TODO to complete
@@ -260,9 +258,7 @@ class Task:
 #         )
 
 
-@deprecated(
-    deprecated_in="3.14.0", details="Use sessions, task and results client instead"
-)
+@deprecated(deprecated_in="3.14.0", details="Use sessions, task and results client instead")
 @dataclass
 class ResultAvailability:
     errors: List[str] = field(default_factory=list)
