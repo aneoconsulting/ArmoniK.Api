@@ -15,7 +15,6 @@ from .events import (
     ResultStatusUpdateEvent,
     TaskStatusUpdateEvent,
 )
-from .filter import Filter, StatusFilter, StringFilter
 from .helpers import (
     batched,
     datetime_to_timestamp,
@@ -57,9 +56,6 @@ __all__ = [
     "ResultStatus",
     "EventTypes",
     # Include all names from events module
-    "Filter",
-    "StringFilter",
-    "StatusFilter",
     "ServiceHealthCheckStatus",
     "NewResultEvent",
     "NewTaskEvent",

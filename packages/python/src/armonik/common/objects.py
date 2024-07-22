@@ -6,6 +6,20 @@ from typing import Dict, List, Optional
 
 from deprecation import deprecated
 
+from protogen.common.applications_common_pb2 import ApplicationRaw
+from ..protogen.common.tasks_common_pb2 import TaskDetailed
+from .filter import (
+    FilterDescriptor,
+    GenericTaskOptionsFilter,
+    TaskFilter,
+    TaskOptionFilter,
+    SessionTaskOptionFilter,
+    OutputFilter,
+    SessionFilter,
+    ResultFilter,
+    PartitionFilter,
+    ApplicationFilter,
+)
 from ..protogen.common.objects_pb2 import (
     Empty,
 )
@@ -20,8 +34,6 @@ from ..protogen.common.result_status_pb2 import ResultStatus as RawResultStatus
 from ..protogen.common.results_common_pb2 import ResultRaw
 from ..protogen.common.session_status_pb2 import SessionStatus as RawSessionStatus
 from ..protogen.common.sessions_common_pb2 import SessionRaw
-from ..protogen.common.task_status_pb2 import TaskStatus as RawTaskStatus
-from ..protogen.common.tasks_common_pb2 import TaskDetailed
 from .enumwrapper import ResultStatus, SessionStatus, TaskStatus
 from .helpers import duration_to_timedelta, timedelta_to_duration, timestamp_to_datetime
 
@@ -96,41 +108,108 @@ class TaskDefinition:
             raise ValueError("expected_output_ids must be not be empty")
 
 
-@dataclass()
+_task_filter = TaskFilter()
+
+
+class TaskOptionDescriptor(FilterDescriptor):
+    def __get__(self, instance, owner) -> GenericTaskOptionsFilter:
+        return TaskOptionFilter() if issubclass(owner, Task) else SessionTaskOptionFilter()
+
+
+class OutputDescriptor(FilterDescriptor):
+    def __get__(self, instance, owner) -> OutputFilter:
+        return OutputFilter()
+
+
 class Task:
-    id: Optional[str] = None
-    session_id: Optional[str] = None
-    owner_pod_id: Optional[str] = None
+    id = FilterDescriptor(_task_filter)
+    session_id = FilterDescriptor(_task_filter)
+    owner_pod_id = FilterDescriptor(_task_filter)
 
-    initial_task_id: Optional[str] = None
-    parent_task_ids: List[str] = field(default_factory=list)
-    data_dependencies: List[str] = field(default_factory=list)
-    expected_output_ids: List[str] = field(default_factory=list)
-    retry_of_ids: List[str] = field(default_factory=list)
+    initial_task_id = FilterDescriptor(_task_filter)
+    parent_task_ids = FilterDescriptor(_task_filter)
+    data_dependencies = FilterDescriptor(_task_filter)
+    expected_output_ids = FilterDescriptor(_task_filter)
+    retry_of_ids = FilterDescriptor(_task_filter)
 
-    status: RawTaskStatus = TaskStatus.UNSPECIFIED
-    status_message: Optional[str] = None
+    status = FilterDescriptor(_task_filter)
+    status_message = FilterDescriptor(_task_filter)
 
-    options: Optional[TaskOptions] = None
-    created_at: Optional[datetime] = None
-    submitted_at: Optional[datetime] = None
-    received_at: Optional[datetime] = None
-    acquired_at: Optional[datetime] = None
-    fetched_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    processed_at: Optional[datetime] = None
-    ended_at: Optional[datetime] = None
-    pod_ttl: Optional[datetime] = None
+    options = TaskOptionDescriptor(_task_filter)
+    created_at = FilterDescriptor(_task_filter)
+    submitted_at = FilterDescriptor(_task_filter)
+    received_at = FilterDescriptor(_task_filter)
+    acquired_at = FilterDescriptor(_task_filter)
+    fetched_at = FilterDescriptor(_task_filter)
+    started_at = FilterDescriptor(_task_filter)
+    processed_at = FilterDescriptor(_task_filter)
+    ended_at = FilterDescriptor(_task_filter)
+    pod_ttl = FilterDescriptor(_task_filter)
 
-    creation_to_end_duration: Optional[timedelta] = timedelta(0)
-    processing_to_end_duration: Optional[timedelta] = timedelta(0)
-    received_to_end_duration: Optional[timedelta] = timedelta(0)
+    creation_to_end_duration = FilterDescriptor(_task_filter)
+    processing_to_end_duration = FilterDescriptor(_task_filter)
+    received_to_end_duration = FilterDescriptor(_task_filter)
 
-    output: Optional[Output] = None
+    output = OutputDescriptor(_task_filter)
 
-    pod_hostname: Optional[str] = None
+    pod_hostname = FilterDescriptor(_task_filter)
+    payload_id = FilterDescriptor(_task_filter)
 
-    payload_id: Optional[str] = None
+    def __init__(
+        self,
+        id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        owner_pod_id: Optional[str] = None,
+        initial_task_id: Optional[str] = None,
+        parent_task_ids: Optional[List[str]] = None,
+        data_dependencies: Optional[List[str]] = None,
+        expected_output_ids: Optional[List[str]] = None,
+        retry_of_ids: Optional[List[str]] = None,
+        status: TaskStatus = TaskStatus.UNSPECIFIED,
+        status_message: Optional[str] = None,
+        options: Optional[TaskOptions] = None,
+        created_at: Optional[datetime] = None,
+        submitted_at: Optional[datetime] = None,
+        received_at: Optional[datetime] = None,
+        acquired_at: Optional[datetime] = None,
+        fetched_at: Optional[datetime] = None,
+        started_at: Optional[datetime] = None,
+        processed_at: Optional[datetime] = None,
+        ended_at: Optional[datetime] = None,
+        pod_ttl: Optional[datetime] = None,
+        creation_to_end_duration: timedelta = timedelta(0),
+        processing_to_end_duration: timedelta = timedelta(0),
+        received_to_end_duration: timedelta = timedelta(0),
+        output: Optional[Output] = None,
+        pod_hostname: Optional[str] = None,
+        payload_id: Optional[str] = None,
+    ):
+        self.id = id
+        self.session_id = session_id
+        self.owner_pod_id = owner_pod_id
+        self.initial_task_id = initial_task_id
+        self.parent_task_ids = parent_task_ids if parent_task_ids is not None else []
+        self.data_dependencies = data_dependencies if data_dependencies is not None else []
+        self.expected_output_ids = expected_output_ids if expected_output_ids is not None else []
+        self.retry_of_ids = retry_of_ids if retry_of_ids is not None else []
+        self.status = status
+        self.status_message = status_message
+        self.options = options
+        self.created_at = created_at
+        self.submitted_at = submitted_at
+        self.received_at = received_at
+        self.acquired_at = acquired_at
+        self.fetched_at = fetched_at
+        self.started_at = started_at
+        self.processed_at = processed_at
+        self.ended_at = ended_at
+        self.pod_ttl = pod_ttl
+        self.creation_to_end_duration = creation_to_end_duration
+        self.processing_to_end_duration = processing_to_end_duration
+        self.received_to_end_duration = received_to_end_duration
+        self.output = output
+        self.pod_hostname = pod_hostname
+        self.payload_id = payload_id
 
     def refresh(self, task_client) -> None:
         """Refresh the fields of this task object by using the given task client
@@ -213,20 +292,50 @@ class ResultAvailability:
         return len(self.errors) == 0
 
 
-@dataclass
+_sessionFilter = SessionFilter()
+
+
 class Session:
-    session_id: Optional[str] = None
-    status: RawSessionStatus = SessionStatus.UNSPECIFIED
-    client_submission: Optional[bool] = None
-    worker_submission: Optional[bool] = None
-    partition_ids: List[str] = field(default_factory=list)
-    options: Optional[TaskOptions] = None
-    created_at: Optional[datetime] = None
-    cancelled_at: Optional[datetime] = None
-    closed_at: Optional[datetime] = None
-    purged_at: Optional[datetime] = None
-    deleted_at: Optional[datetime] = None
-    duration: Optional[timedelta] = None
+    session_id = FilterDescriptor(_sessionFilter)
+    status = FilterDescriptor(_sessionFilter)
+    client_submission = FilterDescriptor(_sessionFilter)
+    worker_submission = FilterDescriptor(_sessionFilter)
+    partition_ids = FilterDescriptor(_sessionFilter)
+    options = FilterDescriptor(_sessionFilter)
+    created_at = FilterDescriptor(_sessionFilter)
+    cancelled_at = FilterDescriptor(_sessionFilter)
+    closed_at = FilterDescriptor(_sessionFilter)
+    purged_at = FilterDescriptor(_sessionFilter)
+    deleted_at = FilterDescriptor(_sessionFilter)
+    duration = FilterDescriptor(_sessionFilter)
+
+    def __init__(
+        self,
+        session_id: Optional[str] = None,
+        status: RawSessionStatus = SessionStatus.UNSPECIFIED,
+        client_submission: Optional[bool] = None,
+        worker_submission: Optional[bool] = None,
+        partition_ids: Optional[List[str]] = None,
+        options: Optional[TaskOptions] = None,
+        created_at: Optional[datetime] = None,
+        cancelled_at: Optional[datetime] = None,
+        closed_at: Optional[datetime] = None,
+        purged_at: Optional[datetime] = None,
+        deleted_at: Optional[datetime] = None,
+        duration: Optional[timedelta] = None,
+    ):
+        self.session_id = session_id
+        self.status = status
+        self.client_submission = client_submission
+        self.worker_submission = worker_submission
+        self.partition_ids = partition_ids if partition_ids is not None else []
+        self.options = options
+        self.created_at = created_at
+        self.cancelled_at = cancelled_at
+        self.closed_at = closed_at
+        self.purged_at = purged_at
+        self.deleted_at = deleted_at
+        self.duration = duration
 
     @classmethod
     def from_message(cls, session_raw: SessionRaw) -> "Session":
@@ -246,16 +355,38 @@ class Session:
         )
 
 
-@dataclass
+_resultFilter = ResultFilter()
+
+
 class Result:
-    session_id: Optional[str] = None
-    name: Optional[str] = None
-    owner_task_id: Optional[str] = None
-    status: RawResultStatus = ResultStatus.UNSPECIFIED
-    created_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    result_id: Optional[str] = None
-    size: Optional[int] = None
+    session_id = FilterDescriptor(_resultFilter)
+    name = FilterDescriptor(_resultFilter)
+    owner_task_id = FilterDescriptor(_resultFilter)
+    status = FilterDescriptor(_resultFilter)
+    created_at = FilterDescriptor(_resultFilter)
+    completed_at = FilterDescriptor(_resultFilter)
+    result_id = FilterDescriptor(_resultFilter)
+    size = FilterDescriptor(_resultFilter)
+
+    def __init__(
+        self,
+        session_id: Optional[str] = None,
+        name: Optional[str] = None,
+        owner_task_id: Optional[str] = None,
+        status: RawResultStatus = ResultStatus.UNSPECIFIED,
+        created_at: Optional[datetime] = None,
+        completed_at: Optional[datetime] = None,
+        result_id: Optional[str] = None,
+        size: Optional[int] = None,
+    ):
+        self.session_id = session_id
+        self.name = name
+        self.owner_task_id = owner_task_id
+        self.status = status
+        self.created_at = created_at
+        self.completed_at = completed_at
+        self.result_id = result_id
+        self.size = size
 
     @classmethod
     def from_message(cls, result_raw: ResultRaw) -> "Result":
@@ -271,15 +402,35 @@ class Result:
         )
 
 
-@dataclass
+_partitionFilter = PartitionFilter()
+
+
 class Partition:
-    id: str
-    parent_partition_ids: List[str]
-    pod_reserved: int
-    pod_max: int
-    pod_configuration: Dict[str, str]
-    preemption_percentage: int
-    priority: int
+    id = FilterDescriptor(_partitionFilter)
+    parent_partition_ids = FilterDescriptor(_partitionFilter)
+    pod_reserved = FilterDescriptor(_partitionFilter)
+    pod_max = FilterDescriptor(_partitionFilter)
+    pod_configuration = FilterDescriptor(_partitionFilter)
+    preemption_percentage = FilterDescriptor(_partitionFilter)
+    priority = FilterDescriptor(_partitionFilter)
+
+    def __init__(
+        self,
+        id: str,
+        parent_partition_ids: List[str],
+        pod_reserved: int,
+        pod_max: int,
+        pod_configuration: Dict[str, str],
+        preemption_percentage: int,
+        priority: int,
+    ):
+        self.id = id
+        self.parent_partition_ids = parent_partition_ids
+        self.pod_reserved = pod_reserved
+        self.pod_max = pod_max
+        self.pod_configuration = pod_configuration
+        self.preemption_percentage = preemption_percentage
+        self.priority = priority
 
     @classmethod
     def from_message(cls, partition_raw: PartitionRaw) -> "Partition":
@@ -291,4 +442,29 @@ class Partition:
             pod_configuration=partition_raw.pod_configuration,
             preemption_percentage=partition_raw.preemption_percentage,
             priority=partition_raw.priority,
+        )
+
+
+_applicationFilter = ApplicationFilter()
+
+
+class Application:
+    name = FilterDescriptor(_applicationFilter)
+    namespace = FilterDescriptor(_applicationFilter)
+    service = FilterDescriptor(_applicationFilter)
+    version = FilterDescriptor(_applicationFilter)
+
+    def __init__(self, name: str, namespace: str, service: str, version: str):
+        self.name = name
+        self.namespace = namespace
+        self.service = service
+        self.version = version
+
+    @classmethod
+    def from_message(cls, application_raw: ApplicationRaw) -> "Application":
+        return cls(
+            name=application_raw.name,
+            namespace=application_raw.namespace,
+            service=application_raw.service,
+            version=application_raw.version,
         )
