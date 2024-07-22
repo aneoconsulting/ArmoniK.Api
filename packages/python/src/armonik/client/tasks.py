@@ -5,10 +5,9 @@ from typing import Dict, List, Optional, Tuple
 from deprecation import deprecated
 from grpc import Channel
 
-from common.filter.filter_field import TaskFilter
 from .._version import __version__
 from ..common import Direction, Task, TaskDefinition, TaskOptions, TaskStatus
-from ..common.filter import Filter, StringFilter
+from ..common.filter import Filter, StringFilter, TaskFilter
 from ..common.helpers import batched
 from ..protogen.client.tasks_service_pb2_grpc import TasksStub
 from ..protogen.common.sort_direction_pb2 import SortDirection

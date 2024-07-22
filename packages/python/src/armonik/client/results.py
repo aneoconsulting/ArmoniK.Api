@@ -5,10 +5,9 @@ from typing import Dict, List, Tuple, cast, Optional, Union
 from deprecation import deprecated
 from grpc import Channel
 
-from common.filter.filter_field import ResultFilter
 from .._version import __version__
 from ..common import Direction, Result
-from ..common.filter import Filter
+from ..common.filter import Filter, ResultFilter
 from ..common.helpers import batched
 from ..protogen.client.results_service_pb2_grpc import ResultsStub
 from ..protogen.common.objects_pb2 import Empty

@@ -4,7 +4,6 @@ from ._message_types import (
     BasicMessageType,
     InnerMessageType,
 )
-from .application_filters import ApplicationFilter
 from .filter import (
     Filter,
     FilterError,
@@ -17,10 +16,18 @@ from .filter import (
     StatusFilter,
     FilterDescriptor,
 )
-from .partition_filters import PartitionFilter
-from .result_filters import ResultFilter
-from .session_filters import SessionFilter, SessionTaskOptionFilter
-from .task_filters import TaskFilter, TaskOptionFilter
+
+from ._filter_field import (
+    PartitionFilter,
+    TaskFilter,
+    TaskOptionFilter,
+    SessionFilter,
+    SessionTaskOptionFilter,
+    ResultFilter,
+    ApplicationFilter,
+    GenericTaskOptionsFilter,
+    OutputFilter,
+)
 
 __all__ = [
     "Filter",
@@ -44,4 +51,6 @@ __all__ = [
     "PartitionFilter",
     "ApplicationFilter",
     "FilterDescriptor",
+    "GenericTaskOptionsFilter",
+    "OutputFilter",
 ]

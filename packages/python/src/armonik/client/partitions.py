@@ -3,10 +3,9 @@ from typing import List, Tuple, cast, Optional
 import deprecation
 from grpc import Channel
 
-from common.filter.filter_field import PartitionFilter
 from .._version import __version__
 from ..common import Direction, Partition
-from ..common.filter import Filter
+from ..common.filter import Filter, PartitionFilter
 from ..protogen.client.partitions_service_pb2_grpc import PartitionsStub
 from ..protogen.common.partitions_common_pb2 import (
     GetPartitionRequest,

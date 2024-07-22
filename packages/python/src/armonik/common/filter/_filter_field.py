@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
-from enum import Enum, auto
-from typing import Optional, Any, Tuple, Dict, cast
+from typing import Any, cast
 
 from google.protobuf.message import Message
 
-from ._message_types import DisjunctionType, ConjunctionType, BasicMessageType, InnerMessageType
-from .filter import FilterWrapper, Filter, StringFilter, DurationFilter, NumberFilter
+from .filter import FilterWrapper, StringFilter, DurationFilter, NumberFilter, FType, _na
 
 from ...protogen.common.tasks_fields_pb2 import (
     TaskField as rawTaskField,
@@ -137,65 +135,7 @@ from ...protogen.common.applications_filters_pb2 import (
 )
 
 
-class FType(Enum):
-    UNKNOWN = auto()
-    NA = auto()
-    NUM = auto()
-    STR = auto()
-    ARRAY = auto()
-    DURATION = auto()
-    DATE = auto()
-    STATUS = auto()
-    BOOL = auto()
-
-
-def _raise(field):
-    msg = f"Unknown field {field}"
-    raise ValueError(msg)
-
-
-def _na(field):
-    msg = f"Field {field} is not available as a filter"
-    raise ValueError(msg)
-
-
-class FilterConstructor(FilterWrapper, ABC):
-    _fields: Dict[str, Tuple[FType, Optional[Any]]] = {}
-
-    def __init__(
-        self,
-        disjunction_message_type: DisjunctionType,
-        conjunction_message_type: ConjunctionType,
-        message_type: BasicMessageType,
-        status_type: Optional[InnerMessageType] = None,
-    ):
-        super().__init__(
-            disjunction_message_type,
-            conjunction_message_type,
-            message_type,
-            status_type=status_type,
-        )
-        self._vtable = {
-            FType.UNKNOWN: _raise,
-            FType.NA: _na,
-            FType.NUM: self._number,
-            FType.STR: self._string,
-            FType.ARRAY: self._array,
-            FType.DURATION: self._duration,
-            FType.DATE: self._date,
-            FType.STATUS: self._status,
-            FType.BOOL: self._bool,
-        }
-
-    @abstractmethod
-    def build_field(self, field: Any) -> Message: ...
-
-    def __call__(self, field_name: str) -> Filter:
-        ftype, field_value = self.__class__._fields.get(field_name, (FType.UNKNOWN, field_name))
-        return self._vtable[ftype](self.build_field(field_value))
-
-
-class GenericTaskOptionsFilter(FilterConstructor, ABC):
+class GenericTaskOptionsFilter(FilterWrapper, ABC):
     """
     Filter for task options
     """
@@ -204,7 +144,7 @@ class GenericTaskOptionsFilter(FilterConstructor, ABC):
     def __getitem__(self, item: str) -> StringFilter: ...
 
     @abstractmethod
-    def build_field(self, field: Any) -> Message: ...
+    def _build_field(self, field: Any) -> Message: ...
 
     @property
     def max_duration(self) -> DurationFilter:
@@ -249,12 +189,15 @@ class OutputFilter(FilterWrapper):
 
     @property
     def error(self) -> StringFilter:
-        return self._string(
-            rawTaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ERROR))
-        )
+        return self._string(self._build_field(TASK_SUMMARY_ENUM_FIELD_ERROR))
+
+    def _build_field(self, field: Any) -> Message:
+        if field != TASK_SUMMARY_ENUM_FIELD_ERROR:
+            _na("")
+        return rawTaskField(task_summary_field=TaskSummaryField(field=field))
 
 
-class TaskFilter(FilterConstructor):
+class TaskFilter(FilterWrapper):
     _fields = {
         "id": (FType.STR, TASK_SUMMARY_ENUM_FIELD_TASK_ID),
         "session_id": (FType.STR, TASK_SUMMARY_ENUM_FIELD_SESSION_ID),
@@ -296,7 +239,7 @@ class TaskFilter(FilterConstructor):
     def __init__(self):
         super().__init__(rawTaskFilters, rawTaskFilterAnd, rawTaskFilterField, rawTaskFilterStatus)
 
-    def build_field(self, field: Any) -> Message:
+    def _build_field(self, field: Any) -> Message:
         return rawTaskField(task_summary_field=TaskSummaryField(field=field))
 
 
@@ -321,11 +264,11 @@ class TaskOptionFilter(GenericTaskOptionsFilter):
             rawTaskField(task_option_generic_field=TaskOptionGenericField(field=item))
         )
 
-    def build_field(self, field: Any) -> Message:
+    def _build_field(self, field: Any) -> Message:
         return rawTaskField(task_option_field=TaskOptionField(field=field))
 
 
-class SessionFilter(FilterConstructor):
+class SessionFilter(FilterWrapper):
     _fields = {
         "session_id": (FType.STR, SESSION_RAW_ENUM_FIELD_SESSION_ID),
         "status": (FType.STATUS, SESSION_RAW_ENUM_FIELD_STATUS),
@@ -346,7 +289,7 @@ class SessionFilter(FilterConstructor):
             rawSessionFilters, rawSessionFilterAnd, rawSessionFilterField, rawSessionFilterStatus
         )
 
-    def build_field(self, field: Any) -> Message:
+    def _build_field(self, field: Any) -> Message:
         return SessionField(session_raw_field=SessionRawField(field=field))
 
 
@@ -373,11 +316,11 @@ class SessionTaskOptionFilter(GenericTaskOptionsFilter):
             SessionField(task_option_generic_field=SessionOptionGenericField(field=item))
         )
 
-    def build_field(self, field: Any) -> Message:
+    def _build_field(self, field: Any) -> Message:
         return SessionField(task_option_field=SessionOptionField(field=field))
 
 
-class ResultFilter(FilterConstructor):
+class ResultFilter(FilterWrapper):
     _fields = {
         "session_id": (FType.STR, RESULT_RAW_ENUM_FIELD_SESSION_ID),
         "status": (FType.STATUS, RESULT_RAW_ENUM_FIELD_STATUS),
@@ -394,11 +337,11 @@ class ResultFilter(FilterConstructor):
             rawResultFilters, rawResultFilterAnd, rawResultFilterField, rawResultFilterStatus
         )
 
-    def build_field(self, field: Any) -> Message:
+    def _build_field(self, field: Any) -> Message:
         return ResultField(result_raw_field=ResultRawField(field=field))
 
 
-class PartitionFilter(FilterConstructor):
+class PartitionFilter(FilterWrapper):
     _fields = {
         "id": (FType.STR, PARTITION_RAW_ENUM_FIELD_ID),
         "priority": (FType.NUM, PARTITION_RAW_ENUM_FIELD_PRIORITY),
@@ -412,11 +355,11 @@ class PartitionFilter(FilterConstructor):
     def __init__(self):
         super().__init__(rawPartitionFilters, rawPartitionFilterAnd, rawPartitionFilterField)
 
-    def build_field(self, field: Any) -> Message:
+    def _build_field(self, field: Any) -> Message:
         return PartitionField(partition_raw_field=PartitionRawField(field=field))
 
 
-class ApplicationFilter(FilterConstructor):
+class ApplicationFilter(FilterWrapper):
     _fields = {
         "name": (FType.STR, APPLICATION_RAW_ENUM_FIELD_NAME),
         "namespace": (FType.STR, APPLICATION_RAW_ENUM_FIELD_NAMESPACE),
@@ -427,5 +370,5 @@ class ApplicationFilter(FilterConstructor):
     def __init__(self):
         super().__init__(rawApplicationFilters, rawApplicationFilterAnd, rawApplicationFilterField)
 
-    def build_field(self, field: Any) -> Message:
+    def _build_field(self, field: Any) -> Message:
         return ApplicationField(application_field=ApplicationRawField(field=field))

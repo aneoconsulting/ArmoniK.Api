@@ -5,10 +5,9 @@ from typing import List, Optional, Tuple, cast
 from deprecation import deprecated
 from grpc import Channel
 
-from common.filter.filter_field import SessionFilter
 from .._version import __version__
 from ..common import Direction, Session, TaskOptions
-from ..common.filter import Filter, StringFilter
+from ..common.filter import Filter, StringFilter, SessionFilter
 from ..protogen.client.sessions_service_pb2_grpc import SessionsStub
 from ..protogen.common.sessions_common_pb2 import (
     CancelSessionRequest,

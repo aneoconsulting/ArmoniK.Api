@@ -8,8 +8,8 @@ from deprecation import deprecated
 
 from protogen.common.applications_common_pb2 import ApplicationRaw
 from ..protogen.common.tasks_common_pb2 import TaskDetailed
-from .filter import FilterDescriptor
-from .filter.filter_field import (
+from .filter import (
+    FilterDescriptor,
     GenericTaskOptionsFilter,
     TaskFilter,
     TaskOptionFilter,

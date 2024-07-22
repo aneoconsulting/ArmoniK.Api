@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from abc import abstractmethod, ABC
 from datetime import datetime, timedelta
-from typing import Optional, Union, Any, List, Dict, Generic, TypeVar, overload, Type
+from enum import Enum, auto
+from typing import Optional, Union, Any, List, Dict, Generic, TypeVar, overload, Type, Tuple
 
 # noinspection PyUnresolvedReferences
 from google.protobuf.duration_pb2 import Duration
@@ -18,7 +20,6 @@ from ._message_types import (
     DisjunctionType,
     ConjunctionType,
 )
-from .filter_field import FilterConstructor
 from ..helpers import datetime_to_timestamp, timedelta_to_duration
 from ...protogen.common.filters_common_pb2 import (
     FILTER_STRING_OPERATOR_EQUAL,
@@ -699,10 +700,34 @@ class DurationFilter(Filter):
         raise FilterError(self, msg)
 
 
-class FilterWrapper(Filter):
+class FType(Enum):
+    UNKNOWN = auto()
+    NA = auto()
+    NUM = auto()
+    STR = auto()
+    ARRAY = auto()
+    DURATION = auto()
+    DATE = auto()
+    STATUS = auto()
+    BOOL = auto()
+
+
+def _raise(field):
+    msg = f"Unknown field {field}"
+    raise ValueError(msg)
+
+
+def _na(field):
+    msg = f"Field {field} is not available as a filter"
+    raise ValueError(msg)
+
+
+class FilterWrapper(Filter, ABC):
     """
     Wraps the filter creation to alleviate repetitions
     """
+
+    _fields: Dict[str, Tuple[FType, Optional[Any]]] = {}
 
     def __init__(
         self,
@@ -718,6 +743,17 @@ class FilterWrapper(Filter):
             disjunction_message_type,
             status_type,
         )
+        self._vtable = {
+            FType.UNKNOWN: _raise,
+            FType.NA: _na,
+            FType.NUM: self._number,
+            FType.STR: self._string,
+            FType.ARRAY: self._array,
+            FType.DURATION: self._duration,
+            FType.DATE: self._date,
+            FType.STATUS: self._status,
+            FType.BOOL: self._bool,
+        }
         self.basic_message_type = message_type
 
     def _string(self, field: Message) -> StringFilter:
@@ -837,12 +873,19 @@ class FilterWrapper(Filter):
             self.inner_message_type,
         )
 
+    @abstractmethod
+    def _build_field(self, field: Any) -> Message: ...
+
+    def __call__(self, field_name: str) -> Filter:
+        ftype, field_value = self.__class__._fields.get(field_name, (FType.UNKNOWN, field_name))
+        return self._vtable[ftype](self._build_field(field_value))
+
 
 AttributeType = TypeVar("AttributeType")
 
 
 class FilterDescriptor(Generic[AttributeType]):
-    def __init__(self, constructor: FilterConstructor):
+    def __init__(self, constructor: FilterWrapper):
         self.constructor = constructor
 
     def __set_name__(self, owner: Type, name: str):
