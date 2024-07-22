@@ -5,9 +5,10 @@ from typing import List, Optional, Tuple, cast
 from deprecation import deprecated
 from grpc import Channel
 
+from common.filter.filter_field import SessionFilter
 from .._version import __version__
 from ..common import Direction, Session, TaskOptions
-from ..common.filter import Filter, StringFilter, SessionFilter
+from ..common.filter import Filter, StringFilter
 from ..protogen.client.sessions_service_pb2_grpc import SessionsStub
 from ..protogen.common.sessions_common_pb2 import (
     CancelSessionRequest,
@@ -42,7 +43,7 @@ class SessionFieldFilter:
     Enumeration of the available filters
     """
 
-    STATUS = SessionFilter().status
+    STATUS = Session.status
 
     @staticmethod
     def task_options_key(option_key: str) -> StringFilter:
@@ -54,7 +55,7 @@ class SessionFieldFilter:
         Returns:
             Corresponding filter
         """
-        return SessionFilter().options[option_key]
+        return Session.options[option_key]
 
 
 class ArmoniKSessions:
@@ -107,7 +108,7 @@ class ArmoniKSessions:
         session_filter: Optional[Filter] = None,
         page: int = 0,
         page_size: int = 1000,
-        sort_field: Filter = SessionFilter().status,
+        sort_field: Filter = Session.status,
         sort_direction: SortDirection = Direction.ASC,
     ) -> Tuple[int, List[Session]]:
         """

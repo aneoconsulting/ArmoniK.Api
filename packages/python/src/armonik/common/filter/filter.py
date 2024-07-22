@@ -18,6 +18,7 @@ from ._message_types import (
     DisjunctionType,
     ConjunctionType,
 )
+from .filter_field import FilterConstructor
 from ..helpers import datetime_to_timestamp, timedelta_to_duration
 from ...protogen.common.filters_common_pb2 import (
     FILTER_STRING_OPERATOR_EQUAL,
@@ -841,8 +842,8 @@ AttributeType = TypeVar("AttributeType")
 
 
 class FilterDescriptor(Generic[AttributeType]):
-    def __init__(self, basic_filter: Filter):
-        self.filter = basic_filter
+    def __init__(self, constructor: FilterConstructor):
+        self.constructor = constructor
 
     def __set_name__(self, owner: Type, name: str):
         self.name = name
@@ -858,7 +859,7 @@ class FilterDescriptor(Generic[AttributeType]):
         self, instance: Optional[object], owner: Optional[Type]
     ) -> Union[Filter, AttributeType]:
         if instance is None:
-            return self.filter
+            return self.constructor(self.name)
         return getattr(instance, self._name)
 
     def __set__(self, instance: object, value: AttributeType):

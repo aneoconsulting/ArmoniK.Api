@@ -45,6 +45,18 @@ from ...protogen.common.tasks_fields_pb2 import (
 
 from ...protogen.common.sessions_fields_pb2 import (
     SessionField,
+    SessionRawField,
+    SESSION_RAW_ENUM_FIELD_SESSION_ID,
+    SESSION_RAW_ENUM_FIELD_DURATION,
+    SESSION_RAW_ENUM_FIELD_CREATED_AT,
+    SESSION_RAW_ENUM_FIELD_DELETED_AT,
+    SESSION_RAW_ENUM_FIELD_PURGED_AT,
+    SESSION_RAW_ENUM_FIELD_STATUS,
+    SESSION_RAW_ENUM_FIELD_PARTITION_IDS,
+    SESSION_RAW_ENUM_FIELD_CLIENT_SUBMISSION,
+    SESSION_RAW_ENUM_FIELD_WORKER_SUBMISSION,
+    SESSION_RAW_ENUM_FIELD_CLOSED_AT,
+    SESSION_RAW_ENUM_FIELD_CANCELLED_AT,
     TaskOptionField as SessionOptionField,
     TaskOptionGenericField as SessionOptionGenericField,
     TASK_OPTION_ENUM_FIELD_MAX_RETRIES as SESSION_OPTION_MAX_RETRIES,
@@ -58,18 +70,70 @@ from ...protogen.common.sessions_fields_pb2 import (
     TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE as SESSION_OPTION_APPLICATION_SERVICE,
 )
 
+from ...protogen.common.results_fields_pb2 import (
+    ResultField,
+    ResultRawField,
+    RESULT_RAW_ENUM_FIELD_RESULT_ID,
+    RESULT_RAW_ENUM_FIELD_SIZE,
+    RESULT_RAW_ENUM_FIELD_NAME,
+    RESULT_RAW_ENUM_FIELD_STATUS,
+    RESULT_RAW_ENUM_FIELD_COMPLETED_AT,
+    RESULT_RAW_ENUM_FIELD_CREATED_AT,
+    RESULT_RAW_ENUM_FIELD_SESSION_ID,
+    RESULT_RAW_ENUM_FIELD_OWNER_TASK_ID,
+)
+
+from ...protogen.common.partitions_fields_pb2 import (
+    PartitionField,
+    PartitionRawField,
+    PARTITION_RAW_ENUM_FIELD_ID,
+    PARTITION_RAW_ENUM_FIELD_PRIORITY,
+    PARTITION_RAW_ENUM_FIELD_PREEMPTION_PERCENTAGE,
+    PARTITION_RAW_ENUM_FIELD_POD_RESERVED,
+    PARTITION_RAW_ENUM_FIELD_PARENT_PARTITION_IDS,
+    PARTITION_RAW_ENUM_FIELD_POD_MAX,
+)
+
+from ...protogen.common.applications_fields_pb2 import (
+    ApplicationField,
+    ApplicationRawField,
+    APPLICATION_RAW_ENUM_FIELD_NAMESPACE,
+    APPLICATION_RAW_ENUM_FIELD_SERVICE,
+    APPLICATION_RAW_ENUM_FIELD_VERSION,
+    APPLICATION_RAW_ENUM_FIELD_NAME,
+)
+
 from ...protogen.common.tasks_filters_pb2 import (
     FilterField as rawTaskFilterField,
     FilterStatus as rawTaskFilterStatus,
     Filters as rawTaskFilters,
-    FiltersAnd as rawTaskFilterAnd
+    FiltersAnd as rawTaskFilterAnd,
 )
 
 from ...protogen.common.sessions_filters_pb2 import (
     FilterField as rawSessionFilterField,
     FilterStatus as rawSessionFilterStatus,
     Filters as rawSessionFilters,
-    FiltersAnd as rawSessionFilterAnd
+    FiltersAnd as rawSessionFilterAnd,
+)
+
+from ...protogen.common.results_filters_pb2 import (
+    FilterField as rawResultFilterField,
+    FilterStatus as rawResultFilterStatus,
+    Filters as rawResultFilters,
+    FiltersAnd as rawResultFilterAnd,
+)
+
+from ...protogen.common.partitions_filters_pb2 import (
+    FilterField as rawPartitionFilterField,
+    Filters as rawPartitionFilters,
+    FiltersAnd as rawPartitionFilterAnd,
+)
+
+from ...protogen.common.applications_filters_pb2 import (
+    FilterField as rawApplicationFilterField,
+    Filters as rawApplicationFilters,
+    FiltersAnd as rawApplicationFilterAnd,
 )
 
 
@@ -103,7 +167,7 @@ class FilterConstructor(FilterWrapper, ABC):
         disjunction_message_type: DisjunctionType,
         conjunction_message_type: ConjunctionType,
         message_type: BasicMessageType,
-        status_type: Optional[InnerMessageType] = None
+        status_type: Optional[InnerMessageType] = None,
     ):
         super().__init__(
             disjunction_message_type,
@@ -131,7 +195,7 @@ class FilterConstructor(FilterWrapper, ABC):
         return self._vtable[ftype](self.build_field(field_value))
 
 
-class _TaskOptionFilter(FilterConstructor, ABC):
+class GenericTaskOptionsFilter(FilterConstructor, ABC):
     """
     Filter for task options
     """
@@ -185,7 +249,9 @@ class OutputFilter(FilterWrapper):
 
     @property
     def error(self) -> StringFilter:
-        return self._string(rawTaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ERROR)))
+        return self._string(
+            rawTaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ERROR))
+        )
 
 
 class TaskFilter(FilterConstructor):
@@ -198,10 +264,8 @@ class TaskFilter(FilterConstructor):
         "data_dependencies": (FType.NA, "data_dependencies"),
         "expected_output_ids": (FType.NA, "expected_output_ids"),
         "retry_of_ids": (FType.NA, "retry_of_ids"),
-
         "status": (FType.STATUS, TASK_SUMMARY_ENUM_FIELD_STATUS),
         "status_message": (FType.NA, "status_message"),
-
         "options": (FType.NA, "options"),
         "created_at": (FType.DATE, TASK_SUMMARY_ENUM_FIELD_CREATED_AT),
         "submitted_at": (FType.DATE, TASK_SUMMARY_ENUM_FIELD_SUBMITTED_AT),
@@ -212,15 +276,21 @@ class TaskFilter(FilterConstructor):
         "processed_at": (FType.DATE, TASK_SUMMARY_ENUM_FIELD_PROCESSED_AT),
         "ended_at": (FType.DATE, TASK_SUMMARY_ENUM_FIELD_ENDED_AT),
         "pod_ttl": (FType.DATE, TASK_SUMMARY_ENUM_FIELD_POD_TTL),
-
-        "creation_to_end_duration": (FType.DURATION, TASK_SUMMARY_ENUM_FIELD_CREATION_TO_END_DURATION),
-        "processing_to_end_duration": (FType.DURATION, TASK_SUMMARY_ENUM_FIELD_PROCESSING_TO_END_DURATION),
-        "received_to_end_duration": (FType.DURATION, TASK_SUMMARY_ENUM_FIELD_RECEIVED_TO_END_DURATION),
-
+        "creation_to_end_duration": (
+            FType.DURATION,
+            TASK_SUMMARY_ENUM_FIELD_CREATION_TO_END_DURATION,
+        ),
+        "processing_to_end_duration": (
+            FType.DURATION,
+            TASK_SUMMARY_ENUM_FIELD_PROCESSING_TO_END_DURATION,
+        ),
+        "received_to_end_duration": (
+            FType.DURATION,
+            TASK_SUMMARY_ENUM_FIELD_RECEIVED_TO_END_DURATION,
+        ),
         "output": (FType.NA, "output"),
-
         "pod_hostname": (FType.STR, TASK_SUMMARY_ENUM_FIELD_POD_HOSTNAME),
-        "payload_id": (FType.STR, TASK_SUMMARY_ENUM_FIELD_PAYLOAD_ID)
+        "payload_id": (FType.STR, TASK_SUMMARY_ENUM_FIELD_PAYLOAD_ID),
     }
 
     def __init__(self):
@@ -230,7 +300,7 @@ class TaskFilter(FilterConstructor):
         return rawTaskField(task_summary_field=TaskSummaryField(field=field))
 
 
-class TaskOptionFilter(_TaskOptionFilter):
+class TaskOptionFilter(GenericTaskOptionsFilter):
     _fields = {
         "max_duration": (FType.DURATION, TASK_OPTION_ENUM_FIELD_MAX_DURATION),
         "max_retries": (FType.NUM, TASK_OPTION_ENUM_FIELD_MAX_RETRIES),
@@ -255,10 +325,32 @@ class TaskOptionFilter(_TaskOptionFilter):
         return rawTaskField(task_option_field=TaskOptionField(field=field))
 
 
-class SessionFilter(FilterConstructor)
+class SessionFilter(FilterConstructor):
+    _fields = {
+        "session_id": (FType.STR, SESSION_RAW_ENUM_FIELD_SESSION_ID),
+        "status": (FType.STATUS, SESSION_RAW_ENUM_FIELD_STATUS),
+        "client_submission": (FType.BOOL, SESSION_RAW_ENUM_FIELD_CLIENT_SUBMISSION),
+        "worker_submission": (FType.BOOL, SESSION_RAW_ENUM_FIELD_WORKER_SUBMISSION),
+        "partition_ids": (FType.ARRAY, SESSION_RAW_ENUM_FIELD_PARTITION_IDS),
+        "options": (FType.NA, "options"),
+        "created_at": (FType.DATE, SESSION_RAW_ENUM_FIELD_CREATED_AT),
+        "cancelled_at": (FType.DATE, SESSION_RAW_ENUM_FIELD_CANCELLED_AT),
+        "closed_at": (FType.DATE, SESSION_RAW_ENUM_FIELD_CLOSED_AT),
+        "purged_at": (FType.DATE, SESSION_RAW_ENUM_FIELD_PURGED_AT),
+        "deleted_at": (FType.DATE, SESSION_RAW_ENUM_FIELD_DELETED_AT),
+        "duration": (FType.DURATION, SESSION_RAW_ENUM_FIELD_DURATION),
+    }
+
+    def __init__(self):
+        super().__init__(
+            rawSessionFilters, rawSessionFilterAnd, rawSessionFilterField, rawSessionFilterStatus
+        )
+
+    def build_field(self, field: Any) -> Message:
+        return SessionField(session_raw_field=SessionRawField(field=field))
 
 
-class SessionTaskOptionFilter(_TaskOptionFilter):
+class SessionTaskOptionFilter(GenericTaskOptionsFilter):
     _fields = {
         "max_duration": (FType.DURATION, SESSION_OPTION_MAX_DURATION),
         "max_retries": (FType.NUM, SESSION_OPTION_MAX_RETRIES),
@@ -272,7 +364,9 @@ class SessionTaskOptionFilter(_TaskOptionFilter):
     }
 
     def __init__(self):
-        super().__init__(rawSessionFilters, rawSessionFilterAnd, rawSessionFilterField, rawSessionFilterStatus)
+        super().__init__(
+            rawSessionFilters, rawSessionFilterAnd, rawSessionFilterField, rawSessionFilterStatus
+        )
 
     def __getitem__(self, item: str) -> StringFilter:
         return self._string(
@@ -283,3 +377,55 @@ class SessionTaskOptionFilter(_TaskOptionFilter):
         return SessionField(task_option_field=SessionOptionField(field=field))
 
 
+class ResultFilter(FilterConstructor):
+    _fields = {
+        "session_id": (FType.STR, RESULT_RAW_ENUM_FIELD_SESSION_ID),
+        "status": (FType.STATUS, RESULT_RAW_ENUM_FIELD_STATUS),
+        "name": (FType.STR, RESULT_RAW_ENUM_FIELD_NAME),
+        "created_at": (FType.DATE, RESULT_RAW_ENUM_FIELD_CREATED_AT),
+        "completed_at": (FType.DATE, RESULT_RAW_ENUM_FIELD_COMPLETED_AT),
+        "result_id": (FType.STR, RESULT_RAW_ENUM_FIELD_RESULT_ID),
+        "size": (FType.NUM, RESULT_RAW_ENUM_FIELD_SIZE),
+        "owner_task_id": (FType.STR, RESULT_RAW_ENUM_FIELD_OWNER_TASK_ID),
+    }
+
+    def __init__(self):
+        super().__init__(
+            rawResultFilters, rawResultFilterAnd, rawResultFilterField, rawResultFilterStatus
+        )
+
+    def build_field(self, field: Any) -> Message:
+        return ResultField(result_raw_field=ResultRawField(field=field))
+
+
+class PartitionFilter(FilterConstructor):
+    _fields = {
+        "id": (FType.STR, PARTITION_RAW_ENUM_FIELD_ID),
+        "priority": (FType.NUM, PARTITION_RAW_ENUM_FIELD_PRIORITY),
+        "preemption_percentage": (FType.NUM, PARTITION_RAW_ENUM_FIELD_PREEMPTION_PERCENTAGE),
+        "pod_reserved": (FType.NUM, PARTITION_RAW_ENUM_FIELD_POD_RESERVED),
+        "pod_max": (FType.NUM, PARTITION_RAW_ENUM_FIELD_POD_MAX),
+        "parent_partition_ids": (FType.ARRAY, PARTITION_RAW_ENUM_FIELD_PARENT_PARTITION_IDS),
+        "pod_configuration": (FType.NA, "pod_configuration"),
+    }
+
+    def __init__(self):
+        super().__init__(rawPartitionFilters, rawPartitionFilterAnd, rawPartitionFilterField)
+
+    def build_field(self, field: Any) -> Message:
+        return PartitionField(partition_raw_field=PartitionRawField(field=field))
+
+
+class ApplicationFilter(FilterConstructor):
+    _fields = {
+        "name": (FType.STR, APPLICATION_RAW_ENUM_FIELD_NAME),
+        "namespace": (FType.STR, APPLICATION_RAW_ENUM_FIELD_NAMESPACE),
+        "service": (FType.STR, APPLICATION_RAW_ENUM_FIELD_SERVICE),
+        "version": (FType.STR, APPLICATION_RAW_ENUM_FIELD_VERSION),
+    }
+
+    def __init__(self):
+        super().__init__(rawApplicationFilters, rawApplicationFilterAnd, rawApplicationFilterField)
+
+    def build_field(self, field: Any) -> Message:
+        return ApplicationField(application_field=ApplicationRawField(field=field))

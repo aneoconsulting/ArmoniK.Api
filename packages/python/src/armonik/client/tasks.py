@@ -5,9 +5,10 @@ from typing import Dict, List, Optional, Tuple
 from deprecation import deprecated
 from grpc import Channel
 
+from common.filter.filter_field import TaskFilter
 from .._version import __version__
 from ..common import Direction, Task, TaskDefinition, TaskOptions, TaskStatus
-from ..common.filter import Filter, TaskFilter, StringFilter
+from ..common.filter import Filter, StringFilter
 from ..common.helpers import batched
 from ..protogen.client.tasks_service_pb2_grpc import TasksStub
 from ..protogen.common.sort_direction_pb2 import SortDirection
@@ -32,32 +33,32 @@ class TaskFieldFilter:
     Enumeration of the available filters
     """
 
-    TASK_ID = TaskFilter().id
-    SESSION_ID = TaskFilter().session_id
-    OWNER_POD_ID = TaskFilter().owner_pod_id
-    INITIAL_TASK_ID = TaskFilter().initial_task_id
-    STATUS = TaskFilter().status
-    CREATED_AT = TaskFilter().created_at
-    SUBMITTED_AT = TaskFilter().submitted_at
-    STARTED_AT = TaskFilter().started_at
-    ENDED_AT = TaskFilter().ended_at
-    CREATION_TO_END_DURATION = TaskFilter().creation_to_end_duration
-    PROCESSING_TO_END_DURATION = TaskFilter().processing_to_end_duration
-    POD_TTL = TaskFilter().pod_ttl
-    POD_HOSTNAME = TaskFilter().pod_hostname
-    RECEIVED_AT = TaskFilter().received_at
-    ACQUIRED_AT = TaskFilter().acquired_at
-    ERROR = TaskFilter().error
+    TASK_ID = Task.id
+    SESSION_ID = Task.session_id
+    OWNER_POD_ID = Task.owner_pod_id
+    INITIAL_TASK_ID = Task.initial_task_id
+    STATUS = Task.status
+    CREATED_AT = Task.created_at
+    SUBMITTED_AT = Task.submitted_at
+    STARTED_AT = Task.started_at
+    ENDED_AT = Task.ended_at
+    CREATION_TO_END_DURATION = Task.creation_to_end_duration
+    PROCESSING_TO_END_DURATION = Task.processing_to_end_duration
+    POD_TTL = Task.pod_ttl
+    POD_HOSTNAME = Task.pod_hostname
+    RECEIVED_AT = Task.received_at
+    ACQUIRED_AT = Task.acquired_at
+    ERROR = Task.output.error
 
-    MAX_DURATION = TaskFilter().options.max_duration
-    MAX_RETRIES = TaskFilter().options.max_retries
-    PRIORITY = TaskFilter().options.priority
-    PARTITION_ID = TaskFilter().options.partition_id
-    APPLICATION_NAME = TaskFilter().options.application_name
-    APPLICATION_VERSION = TaskFilter().options.application_version
-    APPLICATION_NAMESPACE = TaskFilter().options.application_namespace
-    APPLICATION_SERVICE = TaskFilter().options.application_service
-    ENGINE_TYPE = TaskFilter().options.engine_type
+    MAX_DURATION = Task.options.max_duration
+    MAX_RETRIES = Task.options.max_retries
+    PRIORITY = Task.options.priority
+    PARTITION_ID = Task.options.partition_id
+    APPLICATION_NAME = Task.options.application_name
+    APPLICATION_VERSION = Task.options.application_version
+    APPLICATION_NAMESPACE = Task.options.application_namespace
+    APPLICATION_SERVICE = Task.options.application_service
+    ENGINE_TYPE = Task.options.engine_type
 
     @staticmethod
     def task_options_key(option_key: str) -> StringFilter:
@@ -69,7 +70,7 @@ class TaskFieldFilter:
         Returns:
             Corresponding filter
         """
-        return TaskFilter().options[option_key]
+        return Task.options[option_key]
 
 
 class ArmoniKTasks:
@@ -99,7 +100,7 @@ class ArmoniKTasks:
         with_errors: bool = False,
         page: int = 0,
         page_size: int = 1000,
-        sort_field: Filter = TaskFilter().id,
+        sort_field: Filter = Task.id,
         sort_direction: SortDirection = Direction.ASC,
         detailed: bool = True,
     ) -> Tuple[int, List[Task]]:

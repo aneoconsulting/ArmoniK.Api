@@ -5,9 +5,10 @@ from typing import Dict, List, Tuple, cast, Optional, Union
 from deprecation import deprecated
 from grpc import Channel
 
+from common.filter.filter_field import ResultFilter
 from .._version import __version__
 from ..common import Direction, Result
-from ..common.filter import Filter, ResultFilter
+from ..common.filter import Filter
 from ..common.helpers import batched
 from ..protogen.client.results_service_pb2_grpc import ResultsStub
 from ..protogen.common.objects_pb2 import Empty
@@ -35,8 +36,8 @@ from ..protogen.common.sort_direction_pb2 import SortDirection
 
 @deprecated("3.19.0", None, __version__, "Use armonik.common.filter.ResultFilter instead")
 class ResultFieldFilter:
-    STATUS = ResultFilter().status
-    RESULT_ID = ResultFilter().result_id
+    STATUS = Result.status
+    RESULT_ID = Result.result_id
 
 
 class ArmoniKResults:
