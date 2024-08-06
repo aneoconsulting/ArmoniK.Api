@@ -206,6 +206,27 @@ jobs:
         run: |
           gh release upload ${{ github.ref_name }} packages/cpp/tools/packaging/*.${{ matrix.type }}
 
+  release-java-package:
+    needs: [verify-versions]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - name: Set up Maven Central Repository
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          server-id: ossrh
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+      - name: Publish package
+        run: |
+          cd packages/java 
+          mvn --batch-mode deploy
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+  
   update-changelog:
     needs: [verify-versions]
     runs-on: ubuntu-latest
