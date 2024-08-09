@@ -354,7 +354,7 @@ jobs:
           distribution: oracle
           java-version: 17
           cache: maven
-          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }} 
+          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
       - name: Build the package
         run: mvn clean install -DskipTests
