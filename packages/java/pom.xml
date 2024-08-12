@@ -13,9 +13,13 @@
 	<url>https://github.com/aneoconsulting/ArmoniK.Api</url>
 
 	<developers>
-		<developer>
+  <developer>
 			<name>Junior DONGO</name>
 			<email>jdongo@aneo.fr</email>
+		</developer>
+    <developer>
+			<name>Hassan EL-MZABI</name>
+			<email>elmzabi.hassan18@gmail.com</email>
 		</developer>
     <developer>
 			<name>Salah Eddine BOUKHETTA</name>
