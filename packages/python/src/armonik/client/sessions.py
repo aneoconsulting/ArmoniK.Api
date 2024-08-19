@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from typing import List, Optional, Tuple, cast
 
+from deprecation import deprecated
 from grpc import Channel
 
+from .. import __version__
 from ..common import Direction, Session, TaskOptions
-from ..common.filter import Filter, StatusFilter, StringFilter
+from ..common.filter import Filter, StringFilter, SessionFilter
 from ..protogen.client.sessions_service_pb2_grpc import SessionsStub
 from ..protogen.common.sessions_common_pb2 import (
     CancelSessionRequest,
@@ -29,38 +31,18 @@ from ..protogen.common.sessions_common_pb2 import (
     ListSessionsResponse,
 )
 from ..protogen.common.sessions_fields_pb2 import (
-    SESSION_RAW_ENUM_FIELD_STATUS,
     SessionField,
-    SessionRawField,
-    TaskOptionGenericField,
-)
-from ..protogen.common.sessions_filters_pb2 import (
-    FilterField as rawFilterField,
-)
-from ..protogen.common.sessions_filters_pb2 import (
-    Filters as rawFilters,
-)
-from ..protogen.common.sessions_filters_pb2 import (
-    FiltersAnd as rawFilterAnd,
-)
-from ..protogen.common.sessions_filters_pb2 import (
-    FilterStatus as rawFilterStatus,
 )
 from ..protogen.common.sort_direction_pb2 import SortDirection
 
 
+@deprecated("3.19.0", None, __version__, "Use Session.<name of the field> instead")
 class SessionFieldFilter:
     """
     Enumeration of the available filters
     """
 
-    STATUS = StatusFilter(
-        SessionField(session_raw_field=SessionRawField(field=SESSION_RAW_ENUM_FIELD_STATUS)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-        rawFilterStatus,
-    )
+    STATUS = Session.status
 
     @staticmethod
     def task_options_key(option_key: str) -> StringFilter:
@@ -72,12 +54,7 @@ class SessionFieldFilter:
         Returns:
             Corresponding filter
         """
-        return StringFilter(
-            SessionField(task_option_generic_field=TaskOptionGenericField(field=option_key)),
-            rawFilters,
-            rawFilterAnd,
-            rawFilterField,
-        )
+        return Session.options[option_key]
 
 
 class ArmoniKSessions:
@@ -130,7 +107,7 @@ class ArmoniKSessions:
         session_filter: Optional[Filter] = None,
         page: int = 0,
         page_size: int = 1000,
-        sort_field: Filter = SessionFieldFilter.STATUS,
+        sort_field: Filter = Session.status,
         sort_direction: SortDirection = Direction.ASC,
     ) -> Tuple[int, List[Session]]:
         """
@@ -151,9 +128,11 @@ class ArmoniKSessions:
         request = ListSessionsRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, session_filter.to_disjunction().to_message())
-            if session_filter
-            else rawFilters(),
+            filters=(
+                SessionFilter().to_message()
+                if session_filter is None
+                else session_filter.to_message()
+            ),
             sort=ListSessionsRequest.Sort(
                 field=cast(SessionField, sort_field.field), direction=sort_direction
             ),

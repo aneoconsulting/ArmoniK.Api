@@ -5,8 +5,9 @@ from typing import Dict, List, Tuple, cast, Optional, Union
 from deprecation import deprecated
 from grpc import Channel
 
+from .. import __version__
 from ..common import Direction, Result
-from ..common.filter import Filter, StatusFilter, StringFilter
+from ..common.filter import Filter, ResultFilter
 from ..common.helpers import batched
 from ..protogen.client.results_service_pb2_grpc import ResultsStub
 from ..protogen.common.objects_pb2 import Empty
@@ -27,40 +28,15 @@ from ..protogen.common.results_common_pb2 import (
     UploadResultDataRequest,
 )
 from ..protogen.common.results_fields_pb2 import (
-    RESULT_RAW_ENUM_FIELD_RESULT_ID,
-    RESULT_RAW_ENUM_FIELD_STATUS,
     ResultField,
-    ResultRawField,
-)
-from ..protogen.common.results_filters_pb2 import (
-    FilterField as rawFilterField,
-)
-from ..protogen.common.results_filters_pb2 import (
-    Filters as rawFilters,
-)
-from ..protogen.common.results_filters_pb2 import (
-    FiltersAnd as rawFilterAnd,
-)
-from ..protogen.common.results_filters_pb2 import (
-    FilterStatus as rawFilterStatus,
 )
 from ..protogen.common.sort_direction_pb2 import SortDirection
 
 
+@deprecated("3.19.0", None, __version__, "Use Result.<name of the field> instead")
 class ResultFieldFilter:
-    STATUS = StatusFilter(
-        ResultField(result_raw_field=ResultRawField(field=RESULT_RAW_ENUM_FIELD_STATUS)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-        rawFilterStatus,
-    )
-    RESULT_ID = StringFilter(
-        ResultField(result_raw_field=ResultRawField(field=RESULT_RAW_ENUM_FIELD_RESULT_ID)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
+    STATUS = Result.status
+    RESULT_ID = Result.result_id
 
 
 class ArmoniKResults:
@@ -95,7 +71,7 @@ class ArmoniKResults:
         result_filter: Optional[Filter] = None,
         page: int = 0,
         page_size: int = 1000,
-        sort_field: Filter = ResultFieldFilter.STATUS,
+        sort_field: Filter = Result.status,
         sort_direction: SortDirection = Direction.ASC,
     ) -> Tuple[int, List[Result]]:
         """List results based on a filter.
@@ -114,9 +90,9 @@ class ArmoniKResults:
         request: ListResultsRequest = ListResultsRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, result_filter.to_disjunction().to_message())
-            if result_filter
-            else rawFilters(),
+            filters=(
+                ResultFilter().to_message() if result_filter is None else result_filter.to_message()
+            ),
             sort=ListResultsRequest.Sort(
                 field=cast(ResultField, sort_field.field), direction=sort_direction
             ),

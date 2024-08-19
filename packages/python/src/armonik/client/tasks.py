@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Dict, List, Optional, Tuple
 
+from deprecation import deprecated
 from grpc import Channel
 
+from .. import __version__
 from ..common import Direction, Task, TaskDefinition, TaskOptions, TaskStatus
-from ..common.filter import (
-    DateFilter,
-    DurationFilter,
-    Filter,
-    NumberFilter,
-    StatusFilter,
-    StringFilter,
-)
+from ..common.filter import Filter, StringFilter, TaskFilter
 from ..common.helpers import batched
 from ..protogen.client.tasks_service_pb2_grpc import TasksStub
 from ..protogen.common.sort_direction_pb2 import SortDirection
@@ -29,224 +24,40 @@ from ..protogen.common.tasks_common_pb2 import (
     ListTasksResponse,
     SubmitTasksRequest,
 )
-from ..protogen.common.tasks_fields_pb2 import (
-    TASK_OPTION_ENUM_FIELD_APPLICATION_NAME,
-    TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE,
-    TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE,
-    TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION,
-    TASK_OPTION_ENUM_FIELD_ENGINE_TYPE,
-    TASK_OPTION_ENUM_FIELD_MAX_DURATION,
-    TASK_OPTION_ENUM_FIELD_MAX_RETRIES,
-    TASK_OPTION_ENUM_FIELD_PARTITION_ID,
-    TASK_OPTION_ENUM_FIELD_PRIORITY,
-    TASK_SUMMARY_ENUM_FIELD_ACQUIRED_AT,
-    TASK_SUMMARY_ENUM_FIELD_CREATED_AT,
-    TASK_SUMMARY_ENUM_FIELD_CREATION_TO_END_DURATION,
-    TASK_SUMMARY_ENUM_FIELD_ENDED_AT,
-    TASK_SUMMARY_ENUM_FIELD_ERROR,
-    TASK_SUMMARY_ENUM_FIELD_INITIAL_TASK_ID,
-    TASK_SUMMARY_ENUM_FIELD_OWNER_POD_ID,
-    TASK_SUMMARY_ENUM_FIELD_POD_HOSTNAME,
-    TASK_SUMMARY_ENUM_FIELD_POD_TTL,
-    TASK_SUMMARY_ENUM_FIELD_PROCESSING_TO_END_DURATION,
-    TASK_SUMMARY_ENUM_FIELD_RECEIVED_AT,
-    TASK_SUMMARY_ENUM_FIELD_SESSION_ID,
-    TASK_SUMMARY_ENUM_FIELD_STARTED_AT,
-    TASK_SUMMARY_ENUM_FIELD_STATUS,
-    TASK_SUMMARY_ENUM_FIELD_SUBMITTED_AT,
-    TASK_SUMMARY_ENUM_FIELD_TASK_ID,
-    TaskField,
-    TaskOptionField,
-    TaskOptionGenericField,
-    TaskSummaryField,
-)
-from ..protogen.common.tasks_filters_pb2 import (
-    FilterField as rawFilterField,
-)
-from ..protogen.common.tasks_filters_pb2 import (
-    Filters as rawFilters,
-)
-from ..protogen.common.tasks_filters_pb2 import (
-    FiltersAnd as rawFilterAnd,
-)
-from ..protogen.common.tasks_filters_pb2 import (
-    FilterStatus as rawFilterStatus,
-)
 
 
+@deprecated("3.19.0", None, __version__, "Use Task.<name of the field> instead")
 class TaskFieldFilter:
     """
     Enumeration of the available filters
     """
 
-    TASK_ID = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_TASK_ID)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    SESSION_ID = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_SESSION_ID)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    OWNER_POD_ID = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_OWNER_POD_ID)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    INITIAL_TASK_ID = StringFilter(
-        TaskField(
-            task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_INITIAL_TASK_ID)
-        ),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    STATUS = StatusFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_STATUS)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-        rawFilterStatus,
-    )
-    CREATED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_CREATED_AT)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    SUBMITTED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_SUBMITTED_AT)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    STARTED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_STARTED_AT)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    ENDED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ENDED_AT)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    CREATION_TO_END_DURATION = DurationFilter(
-        TaskField(
-            task_summary_field=TaskSummaryField(
-                field=TASK_SUMMARY_ENUM_FIELD_CREATION_TO_END_DURATION
-            )
-        ),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    PROCESSING_TO_END_DURATION = DurationFilter(
-        TaskField(
-            task_summary_field=TaskSummaryField(
-                field=TASK_SUMMARY_ENUM_FIELD_PROCESSING_TO_END_DURATION
-            )
-        ),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    POD_TTL = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_POD_TTL)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    POD_HOSTNAME = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_POD_HOSTNAME)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    RECEIVED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_RECEIVED_AT)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    ACQUIRED_AT = DateFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ACQUIRED_AT)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    ERROR = StringFilter(
-        TaskField(task_summary_field=TaskSummaryField(field=TASK_SUMMARY_ENUM_FIELD_ERROR)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
+    TASK_ID = Task.id
+    SESSION_ID = Task.session_id
+    OWNER_POD_ID = Task.owner_pod_id
+    INITIAL_TASK_ID = Task.initial_task_id
+    STATUS = Task.status
+    CREATED_AT = Task.created_at
+    SUBMITTED_AT = Task.submitted_at
+    STARTED_AT = Task.started_at
+    ENDED_AT = Task.ended_at
+    CREATION_TO_END_DURATION = Task.creation_to_end_duration
+    PROCESSING_TO_END_DURATION = Task.processing_to_end_duration
+    POD_TTL = Task.pod_ttl
+    POD_HOSTNAME = Task.pod_hostname
+    RECEIVED_AT = Task.received_at
+    ACQUIRED_AT = Task.acquired_at
+    ERROR = Task.output.error
 
-    MAX_DURATION = DurationFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_MAX_DURATION)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    MAX_RETRIES = NumberFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_MAX_RETRIES)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    PRIORITY = NumberFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_PRIORITY)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    PARTITION_ID = StringFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_PARTITION_ID)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    APPLICATION_NAME = StringFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_NAME)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    APPLICATION_VERSION = StringFilter(
-        TaskField(
-            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION)
-        ),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    APPLICATION_NAMESPACE = StringFilter(
-        TaskField(
-            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE)
-        ),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    APPLICATION_SERVICE = StringFilter(
-        TaskField(
-            task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE)
-        ),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
-    ENGINE_TYPE = StringFilter(
-        TaskField(task_option_field=TaskOptionField(field=TASK_OPTION_ENUM_FIELD_ENGINE_TYPE)),
-        rawFilters,
-        rawFilterAnd,
-        rawFilterField,
-    )
+    MAX_DURATION = Task.options.max_duration
+    MAX_RETRIES = Task.options.max_retries
+    PRIORITY = Task.options.priority
+    PARTITION_ID = Task.options.partition_id
+    APPLICATION_NAME = Task.options.application_name
+    APPLICATION_VERSION = Task.options.application_version
+    APPLICATION_NAMESPACE = Task.options.application_namespace
+    APPLICATION_SERVICE = Task.options.application_service
+    ENGINE_TYPE = Task.options.engine_type
 
     @staticmethod
     def task_options_key(option_key: str) -> StringFilter:
@@ -258,12 +69,7 @@ class TaskFieldFilter:
         Returns:
             Corresponding filter
         """
-        return StringFilter(
-            TaskField(task_option_generic_field=TaskOptionGenericField(field=option_key)),
-            rawFilters,
-            rawFilterAnd,
-            rawFilterField,
-        )
+        return Task.options[option_key]
 
 
 class ArmoniKTasks:
@@ -293,7 +99,7 @@ class ArmoniKTasks:
         with_errors: bool = False,
         page: int = 0,
         page_size: int = 1000,
-        sort_field: Filter = TaskFieldFilter.TASK_ID,
+        sort_field: Filter = Task.id,
         sort_direction: SortDirection = Direction.ASC,
         detailed: bool = True,
     ) -> Tuple[int, List[Task]]:
@@ -318,12 +124,10 @@ class ArmoniKTasks:
         request = ListTasksRequest(
             page=page,
             page_size=page_size,
-            filters=cast(rawFilters, task_filter.to_disjunction().to_message())
-            if task_filter
-            else rawFilters(),
-            sort=ListTasksRequest.Sort(
-                field=cast(TaskField, sort_field.field), direction=sort_direction
+            filters=(
+                TaskFilter().to_message() if task_filter is None else task_filter.to_message()
             ),
+            sort=ListTasksRequest.Sort(field=sort_field.field, direction=sort_direction),
             with_errors=with_errors,
         )
         if detailed:
@@ -377,9 +181,7 @@ class ArmoniKTasks:
             A dictionnary mapping each status to the number of filtered tasks.
         """
         request = CountTasksByStatusRequest(
-            filters=cast(rawFilters, task_filter.to_disjunction().to_message())
-            if task_filter
-            else rawFilters()
+            filters=(TaskFilter().to_message() if task_filter is None else task_filter.to_message())
         )
         count_tasks_by_status_response: CountTasksByStatusResponse = (
             self._client.CountTasksByStatus(request)
@@ -423,7 +225,7 @@ class ArmoniKTasks:
             request = SubmitTasksRequest(
                 session_id=session_id,
                 task_creations=task_creations,
-                task_options=default_task_options.to_message() if default_task_options else None,
+                task_options=(default_task_options.to_message() if default_task_options else None),
             )
 
             self._client.SubmitTasks(request)
