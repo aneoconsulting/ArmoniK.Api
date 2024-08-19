@@ -32,7 +32,7 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
 python -m pip install uv
-python -m uv pip install build grpcio grpcio-tools setuptools_scm[toml]
+python -m uv pip install build "grpcio==1.62.3" "grpcio-tools==1.62.3" setuptools_scm[toml] "setuptools>=61" deprecation
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
@@ -61,6 +61,7 @@ python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
 touch $ARMONIK_WORKER/__init__.py
 touch $ARMONIK_CLIENT/__init__.py
 touch $ARMONIK_COMMON/__init__.py
+touch $GENERATED_PATH/__init__.py
 
 # Need to fix the relative import
 python fix_imports.py $GENERATED_PATH

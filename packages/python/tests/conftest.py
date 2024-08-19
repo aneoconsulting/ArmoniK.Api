@@ -52,7 +52,8 @@ def clean_up(request):
     # Remove the temporary files created for testing
     os.remove(os.path.join(data_folder, "payload-id"))
     os.remove(os.path.join(data_folder, "dd-id"))
-    os.remove(os.path.join(data_folder, "result-id"))
+    if os.path.exists(os.path.join(data_folder, "result-id")):
+        os.remove(os.path.join(data_folder, "result-id"))
 
     # Reset the mock server counters
     try:
@@ -90,29 +91,27 @@ def get_client(
         ValueError: If the specified service name is not recognized.
 
     Example:
-        >>> result_service = get_service("Results")
-        >>> submitter_service = get_service("Submitter", "custom_endpoint")
+        >>> result_service = get_client("Results")
+        >>> submitter_service = get_client("Submitter", "custom_endpoint")
     """
     channel = grpc.insecure_channel(endpoint).__enter__()
-    match client_name:
-        case "Agent":
-            return AgentStub(channel)
-        case "Events":
-            return ArmoniKEvents(channel)
-        case "HealthChecks":
-            return ArmoniKHealthChecks(channel)
-        case "Partitions":
-            return ArmoniKPartitions(channel)
-        case "Results":
-            return ArmoniKResults(channel)
-        case "Sessions":
-            return ArmoniKSessions(channel)
-        case "Tasks":
-            return ArmoniKTasks(channel)
-        case "Versions":
-            return ArmoniKVersions(channel)
-        case _:
-            raise ValueError("Unknown service name: " + str(client_name))
+    if client_name == "Agent":
+        return AgentStub(channel)
+    if client_name == "Events":
+        return ArmoniKEvents(channel)
+    if client_name == "HealthChecks":
+        return ArmoniKHealthChecks(channel)
+    if client_name == "Partitions":
+        return ArmoniKPartitions(channel)
+    if client_name == "Sessions":
+        return ArmoniKSessions(channel)
+    if client_name == "Tasks":
+        return ArmoniKTasks(channel)
+    if client_name == "Versions":
+        return ArmoniKVersions(channel)
+    if client_name == "Results":
+        return ArmoniKResults(channel)
+    raise ValueError("Unknown service name: " + str(client_name))
 
 
 def rpc_called(
