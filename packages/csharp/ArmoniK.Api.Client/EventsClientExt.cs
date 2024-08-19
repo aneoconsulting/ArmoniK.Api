@@ -32,6 +32,7 @@ using ArmoniK.Api.Common.Exceptions;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Events;
 using ArmoniK.Api.gRPC.V1.Results;
+using ArmoniK.Utils;
 
 using Grpc.Core;
 
@@ -68,6 +69,7 @@ namespace ArmoniK.Api.Client
            },
          };
 
+
     /// <summary>
     ///   Wait until the given results are completed
     /// </summary>
@@ -77,78 +79,111 @@ namespace ArmoniK.Api.Client
     /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
     /// <exception cref="Exception">if a result is aborted</exception>
     [PublicAPI]
+    [Obsolete("Use the overload with the bucket size and the parallelism")]
+    public static Task WaitForResultsAsync(this Events.EventsClient client,
+                                           string                   sessionId,
+                                           ICollection<string>      resultIds,
+                                           CancellationToken        cancellationToken = default)
+      => client.WaitForResultsAsync(sessionId,
+                                    resultIds,
+                                    100,
+                                    1,
+                                    cancellationToken);
+
+
+    /// <summary>
+    ///   Wait until the given results are completed
+    /// </summary>
+    /// <param name="client">gRPC result client</param>
+    /// <param name="sessionId">The session ID in which the results are located</param>
+    /// <param name="resultIds">A collection of results to wait for</param>
+    /// <param name="parallelism">Number of parallel threads to use. One bucket per thread.</param>
+    /// <param name="bucket_size">Number of results Id to use to create the request to the event API</param>
+    /// <param name="cancellationToken">Token used to cancel the execution of the method</param>
+    /// <exception cref="Exception">if a result is aborted</exception>
+    [PublicAPI]
     public static async Task WaitForResultsAsync(this Events.EventsClient client,
                                                  string                   sessionId,
                                                  ICollection<string>      resultIds,
-                                                 CancellationToken        cancellationToken)
-    {
-      var resultsNotFound = new HashSet<string>(resultIds);
-      while (resultsNotFound.Any())
-      {
-        using var streamingCall = client.GetEvents(new EventSubscriptionRequest
+                                                 int                      bucket_size       = 100,
+                                                 int                      parallelism       = 1,
+                                                 CancellationToken        cancellationToken = default)
+      => await resultIds.ToChunks(bucket_size)
+                        .ParallelForEach(new ParallelTaskOptions
+                                         {
+                                           ParallelismLimit = parallelism,
+                                         },
+                                         async results =>
+                                         {
+                                           var resultsNotFound = new HashSet<string>(results);
+                                           while (resultsNotFound.Any())
+                                           {
+                                             using var streamingCall = client.GetEvents(new EventSubscriptionRequest
+                                                                                        {
+                                                                                          SessionId = sessionId,
+                                                                                          ReturnedEvents =
+                                                                                          {
+                                                                                            EventsEnum.ResultStatusUpdate,
+                                                                                            EventsEnum.NewResult,
+                                                                                          },
+                                                                                          ResultsFilters = new Filters
+                                                                                                           {
+                                                                                                             Or =
+                                                                                                             {
+                                                                                                               resultsNotFound.Select(ResultsFilter),
+                                                                                                             },
+                                                                                                           },
+                                                                                        },
+                                                                                        cancellationToken: cancellationToken);
+                                             try
+                                             {
+                                               while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
+                                               {
+                                                 var resp = streamingCall.ResponseStream.Current;
+                                                 if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate &&
+                                                     resultsNotFound.Contains(resp.ResultStatusUpdate.ResultId))
+                                                 {
+                                                   if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
                                                    {
-                                                     SessionId = sessionId,
-                                                     ReturnedEvents =
+                                                     resultsNotFound.Remove(resp.ResultStatusUpdate.ResultId);
+                                                     if (!resultsNotFound.Any())
                                                      {
-                                                       EventsEnum.ResultStatusUpdate,
-                                                       EventsEnum.NewResult,
-                                                     },
-                                                     ResultsFilters = new Filters
-                                                                      {
-                                                                        Or =
-                                                                        {
-                                                                          resultsNotFound.Select(ResultsFilter),
-                                                                        },
-                                                                      },
-                                                   },
-                                                   cancellationToken: cancellationToken);
-        try
-        {
-          while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
-          {
-            var resp = streamingCall.ResponseStream.Current;
-            if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate && resultsNotFound.Contains(resp.ResultStatusUpdate.ResultId))
-            {
-              if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
-              {
-                resultsNotFound.Remove(resp.ResultStatusUpdate.ResultId);
-                if (!resultsNotFound.Any())
-                {
-                  break;
-                }
-              }
+                                                       break;
+                                                     }
+                                                   }
 
-              if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
-              {
-                throw new ResultAbortedException($"Result {resp.ResultStatusUpdate.ResultId} has been aborted");
-              }
-            }
+                                                   if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
+                                                   {
+                                                     throw new ResultAbortedException($"Result {resp.ResultStatusUpdate.ResultId} has been aborted");
+                                                   }
+                                                 }
 
-            if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult && resultsNotFound.Contains(resp.NewResult.ResultId))
-            {
-              if (resp.NewResult.Status == ResultStatus.Completed)
-              {
-                resultsNotFound.Remove(resp.NewResult.ResultId);
-                if (!resultsNotFound.Any())
-                {
-                  break;
-                }
-              }
+                                                 if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult &&
+                                                     resultsNotFound.Contains(resp.NewResult.ResultId))
+                                                 {
+                                                   if (resp.NewResult.Status == ResultStatus.Completed)
+                                                   {
+                                                     resultsNotFound.Remove(resp.NewResult.ResultId);
+                                                     if (!resultsNotFound.Any())
+                                                     {
+                                                       break;
+                                                     }
+                                                   }
 
-              if (resp.NewResult.Status == ResultStatus.Aborted)
-              {
-                throw new ResultAbortedException($"Result {resp.NewResult.ResultId} has been aborted");
-              }
-            }
-          }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (RpcException)
-        {
-        }
-      }
-    }
+                                                   if (resp.NewResult.Status == ResultStatus.Aborted)
+                                                   {
+                                                     throw new ResultAbortedException($"Result {resp.NewResult.ResultId} has been aborted");
+                                                   }
+                                                 }
+                                               }
+                                             }
+                                             catch (OperationCanceledException)
+                                             {
+                                             }
+                                             catch (RpcException)
+                                             {
+                                             }
+                                           }
+                                         });
   }
 }
