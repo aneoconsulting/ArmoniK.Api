@@ -8,9 +8,11 @@
 #include <grpcpp/security/credentials.h>
 #include <memory>
 #include <sstream>
+#include <fstream>
 #include <thread>
 
 #include "grpcpp/server_builder.h"
+#include "grpcpp/security/server_credentials.h"
 
 #include "agent_common.pb.h"
 #include "agent_service.grpc.pb.h"
@@ -61,7 +63,19 @@ public:
     logger.info("Worker address : " + compute_plane.get_server_address());
     logger.info("Agent address : " + compute_plane.get_agent_address());
 
-    builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
+    std::string server_key = readFile("/mnt/c/Users/ddiakite/Programmation/ArmoniK.Extensions.Cpp/certs/server-key.pem"); // The server private key
+    std::string server_cert = readFile("/mnt/c/Users/ddiakite/Programmation/ArmoniK.Extensions.Cpp/certs/server-cert.pem"); // The server certificate
+    std::string ca_cert = readFile("/mnt/c/Users/ddiakite/Programmation/ArmoniK.Extensions.Cpp/certs/ca-cert.pem"); // The server certificate
+
+    ::grpc::SslServerCredentialsOptions ssl_opts;
+  
+    ssl_opts.pem_root_certs = ca_cert;
+    ssl_opts.pem_key_cert_pairs.push_back({server_key, server_cert});
+
+    ssl_opts.client_certificate_request =
+        GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY;
+
+    builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::SslServerCredentials(ssl_opts)); // 
     builder_.SetMaxReceiveMessageSize(-1);
 
     logger.info("Initialize and register worker");
@@ -92,6 +106,15 @@ public:
     instance_server = builder_.BuildAndStart();
     instance_server->Wait();
   }
+
+  static std::string readFile(const std::string& filename) {
+    std::ifstream file(filename);
+    if (!file) {
+        throw std::runtime_error("Unable to open file: " + filename);
+    }
+    return std::string((std::istreambuf_iterator<char>(file)),
+                       std::istreambuf_iterator<char>());
+}
 };
 } // namespace worker
 } // namespace api
