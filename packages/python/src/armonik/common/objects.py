@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 
 from deprecation import deprecated
 
+from ..protogen.common.agent_common_pb2 import ResultMetaData
 from ..protogen.common.applications_common_pb2 import ApplicationRaw
 from ..protogen.common.tasks_common_pb2 import TaskDetailed
 from .filter import (
@@ -453,6 +454,16 @@ class Result:
             completed_at=timestamp_to_datetime(result_raw.completed_at),
             result_id=result_raw.result_id,
             size=result_raw.size,
+        )
+
+    @classmethod
+    def from_result_metadata(cls, result_metadata: ResultMetaData) -> "Result":
+        return cls(
+            session_id=result_metadata.session_id,
+            name=result_metadata.name,
+            status=result_metadata.status,
+            created_at=timestamp_to_datetime(result_metadata.created_at),
+            result_id=result_metadata.result_id,
         )
 
     def __eq__(self, other: "Result") -> bool:
