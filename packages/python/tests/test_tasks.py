@@ -128,7 +128,7 @@ class TestArmoniKTasks:
         )
         assert rpc_called("Tasks", "SubmitTasks")
         # TODO: Mock must be updated to return something and so that changes the following assertions
-        assert tasks is None
+        assert tasks is not None
 
     def test_service_fully_implemented(self):
         assert all_rpc_called("Tasks")

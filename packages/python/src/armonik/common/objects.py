@@ -98,8 +98,7 @@ class Output:
 
 @dataclass()
 class TaskDefinition:
-    payload_id: str = field(default_factory=str)
-    payload: bytes = field(default_factory=bytes)
+    payload_id: str = ""
     expected_output_ids: List[str] = field(default_factory=list)
     data_dependencies: List[str] = field(default_factory=list)
     options: Optional[TaskOptions] = None

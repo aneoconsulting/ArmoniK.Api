@@ -207,9 +207,9 @@ class ArmoniKTasks:
             chunk_size: Batch size for submission
 
         Returns:
-            Tuple containing the list of successfully sent tasks, and
-            the list of submission errors if any
+            List of successfully sent tasks
         """
+        submitted = []
         for tasks_batch in batched(tasks, chunk_size):
             task_creations = []
 
@@ -227,5 +227,14 @@ class ArmoniKTasks:
                 task_creations=task_creations,
                 task_options=(default_task_options.to_message() if default_task_options else None),
             )
-
-            self._client.SubmitTasks(request)
+            submitted.extend(
+                Task(
+                    id=t.task_id,
+                    session_id=session_id,
+                    expected_output_ids=list(t.expected_output_keys),
+                    data_dependencies=list(t.data_dependencies),
+                    payload_id=t.payload_id,
+                )
+                for t in self._client.SubmitTasks(request).task_infos
+            )
+        return submitted
