@@ -1,9 +1,11 @@
 from __future__ import annotations
-from typing import Callable, cast, Iterable, List, Optional, Union
+
+import concurrent.futures
+from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Callable, cast, Iterable, List, Optional, Union, Collection
 
 from grpc import Channel, RpcError
 
-from .results import ArmoniKResults
 from ..common import (
     EventTypes,
     NewTaskEvent,
@@ -14,6 +16,7 @@ from ..common import (
     ResultStatus,
     Event,
     Result,
+    batched,
 )
 from ..common.filter import Filter
 from ..protogen.client.events_service_pb2_grpc import EventsStub
@@ -38,7 +41,6 @@ class ArmoniKEvents:
             grpc_channel: gRPC channel to use
         """
         self._client = EventsStub(grpc_channel)
-        self._results_client = ArmoniKResults(grpc_channel)
 
     def get_events(
         self,
@@ -91,48 +93,82 @@ class ArmoniKEvents:
                 break
 
     def wait_for_result_availability(
-        self, result_ids: Union[str, List[str]], session_id: str
+        self,
+        result_ids: Union[str, List[str]],
+        session_id: str,
+        bucket_size: int = 100,
+        parallelism: int = 1,
     ) -> None:
         """Wait until a result is ready i.e its status updates to COMPLETED.
 
         Args:
             result_ids: The IDs of the results.
             session_id: The ID of the session.
-
+            bucket_size: Batch size
+            parallelism: Parallelism
         Raises:
             RuntimeError: If the result status is ABORTED.
         """
         if isinstance(result_ids, str):
             result_ids = [result_ids]
+        result_ids = set(result_ids)
         if len(result_ids) == 0:
             return
-        results_not_found = set(result_ids)
 
-        results_filter = Result.result_id == result_ids[0]
-        for result_id in result_ids[1:]:
-            results_filter = results_filter | (Result.result_id == result_id)
-
-        def handler(_, _2, event: Event) -> bool:
-            event = cast(Union[NewResultEvent, ResultStatusUpdateEvent], event)
-            if event.result_id in results_not_found:
-                if event.status == ResultStatus.COMPLETED:
-                    results_not_found.remove(event.result_id)
-                    if not results_not_found:
-                        return True
-                elif event.status == ResultStatus.ABORTED:
-                    raise RuntimeError(f"Result {event.result_id} has been aborted.")
-            return False
-
-        while results_not_found:
+        if parallelism > 1:
+            pool = ThreadPoolExecutor(max_workers=parallelism)
             try:
-                self.get_events(
-                    session_id,
-                    [EventTypes.RESULT_STATUS_UPDATE, EventTypes.NEW_RESULT],
-                    [handler],
-                    None,
-                    results_filter,
-                )
-            except RpcError:
-                pass
-            else:
-                break
+                futures = [
+                    pool.submit(_wait_all, self, session_id, batch)
+                    for batch in batched(result_ids, bucket_size)
+                ]
+                for i, future in enumerate(concurrent.futures.as_completed(futures)):
+                    exp = future.exception()
+                    if exp is not None:
+                        for f in futures:
+                            f.cancel()
+                        raise exp
+            finally:
+                pool.shutdown(wait=False)
+        else:
+            for batch in batched(result_ids, bucket_size):
+                _wait_all(self, session_id, batch)
+
+
+def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[str]):
+    if len(results) == 0:
+        return
+    results_filter = None
+    for result_id in results:
+        results_filter = (
+            Result.result_id == result_id
+            if results_filter is None
+            else (results_filter | (Result.result_id == result_id))
+        )
+
+    not_found = set(results)
+
+    def handler(_, _2, event: Event) -> bool:
+        event = cast(Union[NewResultEvent, ResultStatusUpdateEvent], event)
+        if event.result_id in not_found:
+            if event.status == ResultStatus.COMPLETED:
+                not_found.remove(event.result_id)
+                if not not_found:
+                    return True
+            elif event.status == ResultStatus.ABORTED:
+                raise RuntimeError(f"Result {event.result_id} has been aborted.")
+        return False
+
+    while not_found:
+        try:
+            event_client.get_events(
+                session_id,
+                [EventTypes.RESULT_STATUS_UPDATE, EventTypes.NEW_RESULT],
+                [handler],
+                None,
+                results_filter,
+            )
+        except RpcError:
+            pass
+        else:
+            break

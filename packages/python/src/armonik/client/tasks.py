@@ -231,7 +231,7 @@ class ArmoniKTasks:
                 Task(
                     id=t.task_id,
                     session_id=session_id,
-                    expected_output_ids=list(t.expected_output_keys),
+                    expected_output_ids=list(t.expected_output_ids),
                     data_dependencies=list(t.data_dependencies),
                     payload_id=t.payload_id,
                 )
