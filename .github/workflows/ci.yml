@@ -360,7 +360,7 @@ jobs:
           name: code-coverage-report-xml
           path: packages/python/coverage.xml
 
-  build-cpp-packages:
+  build-test-cpp:
     strategy:
       fail-fast: false
       matrix:
@@ -383,6 +383,32 @@ jobs:
           if-no-files-found: error
           path: packages/cpp/tools/packaging/*.${{ matrix.type }}
           name: libarmonik.${{ matrix.type }}
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
+        with:
+          dotnet-version: 8.x
+  
+      - name: Build Mock server
+        working-directory: packages/csharp/ArmoniK.Api.Mock
+        shell: bash
+        run: |
+          dotnet publish -o ../out
+          [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
+
+      - name: Build and Run Test
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          set +e
+          set -x
+          ./out/ArmoniK.Api.Mock.exe \
+            grpc:port=5000 http:port=4999 \
+          sleep 5
+
+          cd ../cpp/tools
+          ./run_test.sh
+          docker run --rm -t --network host -e Grpc__EndPoint=http://localhost:5000 
 
   build-java-packages:
     name: Build Java
