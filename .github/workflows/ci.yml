@@ -409,6 +409,7 @@ jobs:
 
           cd ../cpp/tools
           ./run_test.sh
+          docker images
           docker run --rm -t --network host -e Grpc__EndPoint=http://localhost:5000 "armonik-api-cpp:0.1.0"
 
   build-java-packages:
