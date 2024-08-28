@@ -404,6 +404,7 @@ jobs:
           set -x
           ./out/ArmoniK.Api.Mock.exe \
             grpc:port=5000 http:port=4999 \
+            & notls_pid=$!
           sleep 5
 
           cd ../cpp/tools
