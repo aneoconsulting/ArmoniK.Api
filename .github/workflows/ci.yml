@@ -388,7 +388,7 @@ jobs:
         uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
         with:
           dotnet-version: 8.x
-  
+
       - name: Build Mock server
         working-directory: packages/csharp/ArmoniK.Api.Mock
         shell: bash
@@ -408,7 +408,7 @@ jobs:
 
           cd ../cpp/tools
           ./run_test.sh
-          docker run --rm -t --network host -e Grpc__EndPoint=http://localhost:5000 
+          docker run --rm -t --network host -e Grpc__EndPoint=http://localhost:5000 "armonik-api-cpp:0.1.0"
 
   build-java-packages:
     name: Build Java
