@@ -17,7 +17,8 @@ classifiers = [
 dependencies = [
     "grpcio==1.62.3",
     "grpcio-tools==1.62.3",
-    "deprecation"
+    "deprecation",
+    "cryptography>=36"
 ]
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
