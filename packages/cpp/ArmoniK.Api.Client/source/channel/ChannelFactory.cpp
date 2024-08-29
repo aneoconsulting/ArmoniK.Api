@@ -1,8 +1,8 @@
 #include "channel/ChannelFactory.h"
 
+#include "exceptions/ArmoniKApiException.h"
 #include "options/ControlPlane.h"
 #include "utils/ChannelArguments.h"
-#include "exceptions/ArmoniKApiException.h"
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
 #include <grpcpp/security/tls_credentials_options.h>
@@ -81,7 +81,7 @@ std::shared_ptr<CertificateProviderInterface> create_certificate_provider(const 
   }
 }
 
-std::shared_ptr<grpc::Channel> ChannelFactory::create_channel(){
+std::shared_ptr<grpc::Channel> ChannelFactory::create_channel() {
   auto channel = grpc::CreateCustomChannel(endpoint_, credentials_, common::utils::getChannelArguments(configuration_));
   logger_.log(common::logger::Level::Debug, "Created new channel ");
 
@@ -95,7 +95,8 @@ std::shared_ptr<grpc::Channel> ChannelFactory::create_channel(){
   return channel;
 }
 
-ChannelFactory::ChannelFactory(armonik::api::common::utils::Configuration configuration, common::logger::Logger &logger) : logger_(logger.local()), configuration_(std::move(configuration)){
+ChannelFactory::ChannelFactory(armonik::api::common::utils::Configuration configuration, common::logger::Logger &logger)
+    : logger_(logger.local()), configuration_(std::move(configuration)) {
   const auto control_plane = configuration_.get_control_plane();
   const bool is_https = initialize_protocol_endpoint(control_plane, endpoint_);
 
@@ -103,26 +104,27 @@ ChannelFactory::ChannelFactory(armonik::api::common::utils::Configuration config
   auto user_private_pem = get_key(control_plane.getUserKeyPemPath());
   auto user_public_pem = get_key(control_plane.getUserCertPemPath());
 
-  if(is_https){
-    if(!user_private_pem.empty() && !user_public_pem.empty()){
-      if(control_plane.isSslValidation()){
-        credentials_ = grpc::SslCredentials(grpc::SslCredentialsOptions{std::move(root_cert_pem), std::move(user_private_pem), std::move(user_public_pem)});
-      }else{
+  if (is_https) {
+    if (!user_private_pem.empty() && !user_public_pem.empty()) {
+      if (control_plane.isSslValidation()) {
+        credentials_ = grpc::SslCredentials(grpc::SslCredentialsOptions{
+            std::move(root_cert_pem), std::move(user_private_pem), std::move(user_public_pem)});
+      } else {
         throw common::exceptions::ArmoniKApiException("mTLS without SSL validation is not supported.");
       }
-    }else{
-      if(control_plane.isSslValidation()){
+    } else {
+      if (control_plane.isSslValidation()) {
         credentials_ = grpc::SslCredentials(grpc::SslCredentialsOptions{std::move(root_cert_pem)});
-      } else{
+      } else {
         TlsChannelCredentialsOptions tls_options;
-        tls_options.set_certificate_provider(create_certificate_provider(root_self_signed, user_public_pem, user_private_pem));
+        tls_options.set_certificate_provider(
+            create_certificate_provider(root_self_signed, user_public_pem, user_private_pem));
         tls_options.set_verify_server_certs(control_plane.isSslValidation());
         credentials_ = TlsCredentials(tls_options);
       }
-
     }
     is_secure_ = true;
-  }else{
+  } else {
     credentials_ = grpc::InsecureChannelCredentials();
   }
 }
