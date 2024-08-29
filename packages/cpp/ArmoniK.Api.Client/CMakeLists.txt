@@ -77,7 +77,7 @@ protobuf_generate(
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
 list(APPEND PROTO_GENERATED_FILES ${PROTO_GENERATED_MESSAGES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++ ArmoniK.Api.Common)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
 setup_options(${PROJECT_NAME})

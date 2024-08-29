@@ -16,13 +16,13 @@ class ChannelFactory {
 public:
   explicit ChannelFactory(armonik::api::common::utils::Configuration configuration, common::logger::Logger &logger);
 
-  std::shared_ptr<grpc::Channel> create_channel();
+  std::shared_ptr<::grpc::Channel> create_channel();
 
-  static bool ShutdownOnFailure(std::shared_ptr<grpc::Channel> channel);
+  static bool ShutdownOnFailure(std::shared_ptr<::grpc::Channel> channel);
 
 private:
   armonik::api::common::logger::LocalLogger logger_;
-  std::shared_ptr<grpc::ChannelCredentials> credentials_{nullptr};
+  std::shared_ptr<::grpc::ChannelCredentials> credentials_{nullptr};
   std::string endpoint_;
   armonik::api::common::utils::Configuration configuration_;
   bool is_secure_{false};
