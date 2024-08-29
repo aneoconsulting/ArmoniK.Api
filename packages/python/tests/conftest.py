@@ -1,4 +1,3 @@
-import grpc
 import os
 import pytest
 import requests
@@ -12,15 +11,36 @@ from armonik.client import (
     ArmoniKTasks,
     ArmoniKVersions,
 )
+from armonik.common.channel import create_channel, _find_bundle_path, _load_certificates
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List, Union
 
-
+ca_cert = os.getenv("Grpc__CaCert")
+client_cert = os.getenv("Grpc__ClientCert")
+client_key = os.getenv("Grpc__ClientKey")
+scheme = os.getenv("AK_SCHEME", "http")
 # Mock server endpoints used for the tests.
-grpc_endpoint = "localhost:5001"
-calls_endpoint = "http://localhost:5000/calls.json"
-reset_endpoint = "http://localhost:5000/reset"
+grpc_endpoint = os.getenv("Grpc__Endpoint", scheme + "://localhost:5001")
+http_endpoint = os.getenv("Http__Endpoint", scheme + "://localhost:5000")
+calls_endpoint = http_endpoint + "/calls.json"
+reset_endpoint = http_endpoint + "/reset"
 data_folder = os.getcwd()
+
+request_ca = ca_cert if ca_cert is not None else _find_bundle_path()
+if client_cert is not None:
+    _, request_cert, request_key = _load_certificates(request_ca, client_cert, client_key)
+    cert_path, key_path = (
+        os.path.join(data_folder, "cert.pem"),
+        os.path.join(data_folder, "key.pem"),
+    )
+    with open(cert_path, "wb") as f:
+        f.write(request_cert)
+    with open(key_path, "wb") as f:
+        f.write(request_key)
+
+    request_certs = (cert_path, key_path)
+else:
+    request_certs = None
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -57,7 +77,7 @@ def clean_up(request):
 
     # Reset the mock server counters
     try:
-        response = requests.post(reset_endpoint)
+        response = requests.post(reset_endpoint, verify=request_ca, cert=request_certs)
         response.raise_for_status()
         print("\nMock server resetted.")
     except requests.exceptions.HTTPError as e:
@@ -94,7 +114,12 @@ def get_client(
         >>> result_service = get_client("Results")
         >>> submitter_service = get_client("Submitter", "custom_endpoint")
     """
-    channel = grpc.insecure_channel(endpoint).__enter__()
+    channel = create_channel(
+        endpoint,
+        certificate_authority=ca_cert,
+        client_certificate=client_cert,
+        client_key=client_key,
+    ).__enter__()
     if client_name == "Agent":
         return AgentStub(channel)
     if client_name == "Events":
@@ -137,7 +162,7 @@ def rpc_called(
     >>> rpc_called("http://localhost:5000/calls.json", "Versions", "ListVersionss", 0)
     True
     """
-    response = requests.get(endpoint)
+    response = requests.get(endpoint, verify=request_ca, cert=request_certs)
     response.raise_for_status()
     data = response.json()
 
@@ -170,7 +195,7 @@ def all_rpc_called(
     >>> all_rpc_called("http://localhost:5000/calls.json", "Versions")
     False
     """
-    response = requests.get(endpoint)
+    response = requests.get(endpoint, verify=request_ca, cert=request_certs)
     response.raise_for_status()
     data = response.json()
 
