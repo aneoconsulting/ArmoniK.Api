@@ -32,7 +32,7 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
 python -m pip install uv
-python -m uv pip install build "grpcio==1.62.3" "grpcio-tools==1.62.3" setuptools_scm[toml] "setuptools>=61" deprecation
+python -m uv pip install build "grpcio==1.62.3" "grpcio-tools==1.62.3" setuptools_scm[toml] "setuptools>=61" deprecation "cryptography>=36"
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do

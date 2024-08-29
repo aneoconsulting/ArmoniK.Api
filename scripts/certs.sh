@@ -38,6 +38,8 @@ EOF
   openssl req -config "$1.cnf" -new -key "$1".key -out "$1".csr ${2:+-extensions v3_req}
 
   openssl x509 -req -in "$1.csr" -CA "$1-ca.pem" -CAkey "$1-ca.key" -CAcreateserial -out "$1.pem" -days 3650 -extfile "$1.cnf" ${2:+-extensions v3_req}
+  openssl pkcs12 -export -out "$1.p12" -inkey "$1.key" -in "$1.pem" -passout pass:
+  openssl pkcs12 -in "$1.p12" -out "$1-client.pem" -nodes -passout pass: -passin pass:""
 }
 
 chain server1 localhost
