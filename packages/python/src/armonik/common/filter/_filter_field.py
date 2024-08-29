@@ -14,6 +14,7 @@ from ...protogen.common.tasks_fields_pb2 import (
     TASK_SUMMARY_ENUM_FIELD_SESSION_ID,
     TASK_SUMMARY_ENUM_FIELD_OWNER_POD_ID,
     TASK_SUMMARY_ENUM_FIELD_INITIAL_TASK_ID,
+    TASK_SUMMARY_ENUM_FIELD_CREATED_BY,
     TASK_SUMMARY_ENUM_FIELD_STATUS,
     TASK_SUMMARY_ENUM_FIELD_CREATED_AT,
     TASK_SUMMARY_ENUM_FIELD_SUBMITTED_AT,
@@ -78,6 +79,7 @@ from ...protogen.common.results_fields_pb2 import (
     RESULT_RAW_ENUM_FIELD_COMPLETED_AT,
     RESULT_RAW_ENUM_FIELD_CREATED_AT,
     RESULT_RAW_ENUM_FIELD_SESSION_ID,
+    RESULT_RAW_ENUM_FIELD_CREATED_BY,
     RESULT_RAW_ENUM_FIELD_OWNER_TASK_ID,
 )
 
@@ -207,6 +209,7 @@ class TaskFilter(FilterWrapper):
         "session_id": (FType.STR, TASK_SUMMARY_ENUM_FIELD_SESSION_ID),
         "owner_pod_id": (FType.STR, TASK_SUMMARY_ENUM_FIELD_OWNER_POD_ID),
         "initial_task_id": (FType.STR, TASK_SUMMARY_ENUM_FIELD_INITIAL_TASK_ID),
+        "created_by": (FType.STR, TASK_SUMMARY_ENUM_FIELD_CREATED_BY),
         "parent_task_ids": (FType.NA, "parent_task_ids"),
         "data_dependencies": (FType.NA, "data_dependencies"),
         "expected_output_ids": (FType.NA, "expected_output_ids"),
@@ -333,6 +336,7 @@ class ResultFilter(FilterWrapper):
         "completed_at": (FType.DATE, RESULT_RAW_ENUM_FIELD_COMPLETED_AT),
         "result_id": (FType.STR, RESULT_RAW_ENUM_FIELD_RESULT_ID),
         "size": (FType.NUM, RESULT_RAW_ENUM_FIELD_SIZE),
+        "created_by": (FType.STR, RESULT_RAW_ENUM_FIELD_CREATED_BY),
         "owner_task_id": (FType.STR, RESULT_RAW_ENUM_FIELD_OWNER_TASK_ID),
     }
 

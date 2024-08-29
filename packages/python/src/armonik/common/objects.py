@@ -135,6 +135,7 @@ class Task:
     owner_pod_id = FilterDescriptor(_task_filter)
 
     initial_task_id = FilterDescriptor(_task_filter)
+    created_by = FilterDescriptor(_task_filter)
     parent_task_ids = FilterDescriptor(_task_filter)
     data_dependencies = FilterDescriptor(_task_filter)
     expected_output_ids = FilterDescriptor(_task_filter)
@@ -169,6 +170,7 @@ class Task:
         session_id: Optional[str] = None,
         owner_pod_id: Optional[str] = None,
         initial_task_id: Optional[str] = None,
+        created_by: Optional[str] = None,
         parent_task_ids: Optional[List[str]] = None,
         data_dependencies: Optional[List[str]] = None,
         expected_output_ids: Optional[List[str]] = None,
@@ -196,6 +198,7 @@ class Task:
         self.session_id = session_id
         self.owner_pod_id = owner_pod_id
         self.initial_task_id = initial_task_id
+        self.created_by = created_by
         self.parent_task_ids = parent_task_ids if parent_task_ids is not None else []
         self.data_dependencies = data_dependencies if data_dependencies is not None else []
         self.expected_output_ids = expected_output_ids if expected_output_ids is not None else []
@@ -230,6 +233,7 @@ class Task:
         self.owner_pod_id = result.owner_pod_id
 
         self.initial_task_id = result.initial_task_id
+        self.created_by = result.created_by
         self.parent_task_ids = result.parent_task_ids
         self.data_dependencies = result.data_dependencies
         self.expected_output_ids = result.expected_output_ids
@@ -266,6 +270,7 @@ class Task:
             session_id=task_raw.session_id,
             owner_pod_id=task_raw.owner_pod_id,
             initial_task_id=task_raw.initial_task_id,
+            created_by=task_raw.created_by,
             parent_task_ids=list(task_raw.parent_task_ids),
             data_dependencies=list(task_raw.data_dependencies),
             expected_output_ids=list(task_raw.expected_output_ids),
@@ -296,6 +301,7 @@ class Task:
             and self.session_id == other.session_id
             and self.owner_pod_id == other.owner_pod_id
             and self.initial_task_id == other.initial_task_id
+            and self.created_by == other.created_by
             and self.parent_task_ids == other.parent_task_ids
             and self.data_dependencies == other.data_dependencies
             and self.expected_output_ids == other.expected_output_ids
@@ -415,6 +421,7 @@ _resultFilter = ResultFilter()
 class Result:
     session_id = FilterDescriptor(_resultFilter)
     name = FilterDescriptor(_resultFilter)
+    created_by = FilterDescriptor(_resultFilter)
     owner_task_id = FilterDescriptor(_resultFilter)
     status = FilterDescriptor(_resultFilter)
     created_at = FilterDescriptor(_resultFilter)
@@ -426,6 +433,7 @@ class Result:
         self,
         session_id: Optional[str] = None,
         name: Optional[str] = None,
+        created_by: Optional[str] = None,
         owner_task_id: Optional[str] = None,
         status: RawResultStatus = ResultStatus.UNSPECIFIED,
         created_at: Optional[datetime] = None,
@@ -435,6 +443,7 @@ class Result:
     ):
         self.session_id = session_id
         self.name = name
+        self.created_by = created_by
         self.owner_task_id = owner_task_id
         self.status = status
         self.created_at = created_at
@@ -447,6 +456,7 @@ class Result:
         return cls(
             session_id=result_raw.session_id,
             name=result_raw.name,
+            created_by=result_raw.created_by,
             owner_task_id=result_raw.owner_task_id,
             status=result_raw.status,
             created_at=timestamp_to_datetime(result_raw.created_at),
