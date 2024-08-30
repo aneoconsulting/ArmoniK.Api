@@ -50,7 +50,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
@@ -76,7 +76,7 @@ jobs:
           certutil -addstore -f "ROOT" server2-ca.pem
 
       - name: Install .NET Core
-        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
+        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
         if: ${{ matrix.dotnet.version }} != ""
         with:
           dotnet-version: ${{ matrix.dotnet.version }}
@@ -119,7 +119,7 @@ jobs:
           sleep 5
 
           cd ArmoniK.Api.Client.Test
-          dotnet test --runtime ${{ matrix.platform.runtime }} -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?
+          dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?
 
           kill $notls_pid $tls_pid $tlsstore_pid $mtls_pid $mtlsstore_pid
           exit $ret
