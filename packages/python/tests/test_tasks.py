@@ -11,6 +11,7 @@ class TestArmoniKTasks:
         session_id="session-id",
         owner_pod_id="",
         initial_task_id="",
+        created_by="",
         parent_task_ids=[],
         data_dependencies=[],
         expected_output_ids=[],
