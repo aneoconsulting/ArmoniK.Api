@@ -8,7 +8,7 @@ from deprecation import deprecated
 
 from ..protogen.common.agent_common_pb2 import ResultMetaData
 from ..protogen.common.applications_common_pb2 import ApplicationRaw
-from ..protogen.common.tasks_common_pb2 import TaskDetailed
+from ..protogen.common.tasks_common_pb2 import TaskDetailed, TaskSummary
 from .filter import (
     FilterDescriptor,
     GenericTaskOptionsFilter,
@@ -199,10 +199,20 @@ class Task:
         self.owner_pod_id = owner_pod_id
         self.initial_task_id = initial_task_id
         self.created_by = created_by
-        self.parent_task_ids = parent_task_ids if parent_task_ids is not None else []
-        self.data_dependencies = data_dependencies if data_dependencies is not None else []
-        self.expected_output_ids = expected_output_ids if expected_output_ids is not None else []
-        self.retry_of_ids = retry_of_ids if retry_of_ids is not None else []
+        self.parent_task_ids = parent_task_ids
+        self.count_parent_task_ids = (
+            len(self.parent_task_ids) if self.parent_task_ids is not None else None
+        )
+        self.data_dependencies = data_dependencies
+        self.count_data_dependencies = (
+            len(self.data_dependencies) if self.data_dependencies is not None else None
+        )
+        self.expected_output_ids = expected_output_ids
+        self.count_expected_output_ids = (
+            len(self.expected_output_ids) if self.expected_output_ids is not None else None
+        )
+        self.retry_of_ids = retry_of_ids
+        self.count_retry_of_ids = len(self.retry_of_ids) if self.retry_of_ids is not None else None
         self.status = status
         self.status_message = status_message
         self.options = options
@@ -294,6 +304,49 @@ class Task:
             pod_hostname=task_raw.pod_hostname,
             payload_id=task_raw.payload_id,
         )
+
+    @staticmethod
+    def from_summary(task_raw: TaskSummary) -> "Task":
+        task = Task(
+            id=task_raw.id,
+            session_id=task_raw.session_id,
+            owner_pod_id=task_raw.owner_pod_id,
+            initial_task_id=task_raw.initial_task_id,
+            created_by=task_raw.created_by,
+            parent_task_ids=None,
+            data_dependencies=None,
+            expected_output_ids=None,
+            retry_of_ids=None,
+            status=task_raw.status,
+            status_message=task_raw.status_message,
+            options=TaskOptions.from_message(task_raw.options),
+            created_at=timestamp_to_datetime(task_raw.created_at),
+            submitted_at=timestamp_to_datetime(task_raw.submitted_at),
+            received_at=timestamp_to_datetime(task_raw.received_at),
+            acquired_at=timestamp_to_datetime(task_raw.acquired_at),
+            fetched_at=timestamp_to_datetime(task_raw.fetched_at),
+            started_at=timestamp_to_datetime(task_raw.started_at),
+            processed_at=timestamp_to_datetime(task_raw.processed_at),
+            ended_at=timestamp_to_datetime(task_raw.ended_at),
+            pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
+            creation_to_end_duration=duration_to_timedelta(task_raw.creation_to_end_duration),
+            processing_to_end_duration=duration_to_timedelta(task_raw.processing_to_end_duration),
+            received_to_end_duration=duration_to_timedelta(task_raw.received_to_end_duration),
+            output=Output(
+                error=(
+                    task_raw.error
+                    if task_raw.error is not None and len(task_raw.error) > 0
+                    else None
+                )
+            ),
+            pod_hostname=task_raw.pod_hostname,
+            payload_id=task_raw.payload_id,
+        )
+        task.count_parent_task_ids = task_raw.count_parent_task_ids
+        task.count_data_dependencies = task_raw.count_data_dependencies
+        task.count_expected_output_ids = task_raw.count_expected_output_ids
+        task.count_retry_of_ids = task_raw.count_retry_of_ids
+        return task
 
     def __eq__(self, other: "Task") -> bool:
         return (
