@@ -17,6 +17,10 @@ namespace client {
 
 using namespace grpc::experimental;
 
+/**
+ * In TLS without SSL validation, this certificate is used for the function TlsCredentials options when a root
+ * certificate is not provided
+ */
 const std::string root_self_signed = R"(-----BEGIN CERTIFICATE REQUEST-----
 MIIEhjCCAm4CAQAwQTELMAkGA1UEBhMCRlIxEzARBgNVBAgMClNvbWUtU3RhdGUx
 DjAMBgNVBAcMBVBhcmlzMQ0wCwYDVQQKDARBbmVvMIICIjANBgkqhkiG9w0BAQEF
@@ -45,7 +49,12 @@ bDCNVTg3w/OQLQQdWUl6FunmYinukBgmqnsJnwgrhzBENbmgbgfOZZWGtG5ODENb
 wc+KqiSg9c9iqA==
 -----END CERTIFICATE REQUEST-----)";
 
-std::string get_key(const absl::string_view &path) {
+/**
+ *
+ * @param path
+ * @return
+ */
+std::string read_file(const absl::string_view &path) {
   std::ifstream file(path.data(), std::ios::in | std::ios::binary);
   if (file.is_open()) {
     std::ostringstream sstr;
@@ -56,6 +65,12 @@ std::string get_key(const absl::string_view &path) {
   }
 }
 
+/**
+ *
+ * @param controlPlane  The control plane object for the current configuration
+ * @param endpoint The endpoint
+ * @return a boolean on wether http or https connexion
+ */
 bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPlane, std::string &endpoint) {
   absl::string_view endpoint_view = controlPlane.getEndpoint();
   const auto delim = endpoint_view.find("://");
@@ -67,6 +82,13 @@ bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPl
   return endpoint_view.back() == 's' || endpoint_view.back() == 'S';
 }
 
+/**
+ *
+ * @param rootCertificate The root certificate to validate the server one against
+ * @param userPublicPem The client certificate for mTLS
+ * @param userPrivatePem The client key for mTLS
+ * @return a pointer to a certificate provider interface
+ */
 std::shared_ptr<CertificateProviderInterface> create_certificate_provider(const std::string &rootCertificate,
                                                                           const std::string &userPublicPem,
                                                                           const std::string &userPrivatePem) {
@@ -85,13 +107,6 @@ std::shared_ptr<grpc::Channel> ChannelFactory::create_channel() {
   auto channel = grpc::CreateCustomChannel(endpoint_, credentials_, common::utils::getChannelArguments(configuration_));
   logger_.log(common::logger::Level::Debug, "Created new channel ");
 
-  if (channel != nullptr) {
-    if (ShutdownOnFailure(channel)) {
-      logger_.log(common::logger::Level::Debug, "Shutdown unhealthy channel");
-    } else {
-      logger_.log(common::logger::Level::Debug, "Valid channel");
-    }
-  }
   return channel;
 }
 
@@ -100,9 +115,9 @@ ChannelFactory::ChannelFactory(armonik::api::common::utils::Configuration config
   const auto control_plane = configuration_.get_control_plane();
   const bool is_https = initialize_protocol_endpoint(control_plane, endpoint_);
 
-  auto root_cert_pem = get_key(control_plane.getCaCertPemPath());
-  auto user_private_pem = get_key(control_plane.getUserKeyPemPath());
-  auto user_public_pem = get_key(control_plane.getUserCertPemPath());
+  auto root_cert_pem = read_file(control_plane.getCaCertPemPath());
+  auto user_private_pem = read_file(control_plane.getUserKeyPemPath());
+  auto user_public_pem = read_file(control_plane.getUserCertPemPath());
 
   if (is_https) {
     if (!user_private_pem.empty() && !user_public_pem.empty()) {
@@ -117,48 +132,23 @@ ChannelFactory::ChannelFactory(armonik::api::common::utils::Configuration config
         credentials_ = grpc::SslCredentials(grpc::SslCredentialsOptions{std::move(root_cert_pem)});
       } else {
         TlsChannelCredentialsOptions tls_options;
+        // Set up TLS credentials options by setting root certificate to random certificate
         tls_options.set_certificate_provider(
             create_certificate_provider(root_self_signed, user_public_pem, user_private_pem));
+        // Disable SSL certificate validation by setting verify_server to false
         tls_options.set_verify_server_certs(control_plane.isSslValidation());
+        // Create TLS credentials with the specified options
         credentials_ = TlsCredentials(tls_options);
       }
     }
     is_secure_ = true;
   } else {
+    // Create gRPC insecure credentials
     credentials_ = grpc::InsecureChannelCredentials();
   }
 }
 
-bool ChannelFactory::ShutdownOnFailure(std::shared_ptr<grpc::Channel> channel) {
-  switch ((*channel).GetState(true)) {
-  case GRPC_CHANNEL_CONNECTING:
-    // std::cout << "CONNECTING" << std::endl;
-    break;
-  case GRPC_CHANNEL_IDLE:
-    // std::cout << "IDLE" << std::endl;
-    break;
-
-  case GRPC_CHANNEL_SHUTDOWN:
-    // std::cout << "SHUTDOWN" << std::endl;
-    return true;
-    break;
-
-  case GRPC_CHANNEL_TRANSIENT_FAILURE:
-    // std::cout << "TRANSIENT FAILURE" << std::endl;
-    channel.reset();
-    return true;
-    break;
-
-  case GRPC_CHANNEL_READY:
-    // std::cout << "READY" << std::endl;
-    break;
-
-  default:
-    return false;
-    break;
-  }
-  return false;
-}
+bool ChannelFactory::isSecureChannel() const noexcept { return is_secure_; }
 
 } // namespace client
 } // namespace api
