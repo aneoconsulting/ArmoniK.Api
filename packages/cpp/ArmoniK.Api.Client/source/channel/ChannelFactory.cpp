@@ -66,7 +66,7 @@ std::string read_file(const absl::string_view &path) {
 }
 
 /**
- *
+ * @brief Check if it's https connexion
  * @param controlPlane  The control plane object for the current configuration
  * @param endpoint The endpoint
  * @return a boolean on wether http or https connexion
@@ -74,12 +74,29 @@ std::string read_file(const absl::string_view &path) {
 bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPlane, std::string &endpoint) {
   absl::string_view endpoint_view = controlPlane.getEndpoint();
   const auto delim = endpoint_view.find("://");
-  if (delim != absl::string_view::npos) {
-    const auto tmp = endpoint_view.substr(delim + 3);
-    endpoint_view = endpoint_view.substr(0, delim);
-    endpoint = {tmp.cbegin(), tmp.cend()};
+  const auto http_delim = endpoint_view.find("http://");
+  const auto https_delim = endpoint_view.find("https://");
+  if (endpoint_view.find("unix") == 0) {
+    if (endpoint_view[0] == '/') {
+      endpoint.insert(0, "unix://");
+    } else {
+      endpoint.insert(0, "unix:");
+    }
+    return false;
   }
-  return endpoint_view.back() == 's' || endpoint_view.back() == 'S';
+  if (https_delim != absl::string_view::npos) {
+    const auto tmp = endpoint_view.substr(https_delim + 8);
+    endpoint = {tmp.cbegin(), tmp.cend()};
+    return true;
+  } else {
+    if (http_delim != absl::string_view::npos) {
+      const auto tmp = endpoint_view.substr(http_delim + 7);
+      endpoint = {tmp.cbegin(), tmp.cend()};
+    } else {
+      endpoint = {endpoint_view.cbegin(), endpoint_view.cend()};
+    }
+    return false;
+  }
 }
 
 /**
