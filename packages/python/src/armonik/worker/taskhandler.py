@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Dict, List, Union
+from collections.abc import Mapping
+from typing import Optional, Dict, List, Union, Iterator
 
 from ..common import TaskOptions, TaskDefinition, Result, Task
 from ..common.helpers import batched
@@ -20,6 +21,32 @@ from ..protogen.common.worker_common_pb2 import ProcessRequest
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
 
 
+class LazyLoadDict(Mapping):
+    def __init__(self, data_folder: str, ids: List[str]):
+        self.__data_folder = data_folder
+        self._data: Dict[str, Optional[bytes]] = {k: None for k in ids}
+
+    def __iter__(self) -> Iterator[str, bytes]:
+        for k in self._data.keys():
+            yield k, self[k]
+
+    def keys(self):
+        # Overridden to prevent loading
+        for k in self._data.keys():
+            yield k
+
+    def __getitem__(self, __key) -> bytes:
+        if __key not in self._data:
+            raise KeyError(__key)
+        if self._data[__key] is None:
+            with open(os.path.join(self.__data_folder, __key), "rb") as f:
+                self._data[__key] = f.read()
+        return self._data[__key]
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+
 class TaskHandler:
     def __init__(self, request: ProcessRequest, agent_client: AgentStub):
         self._client: AgentStub = agent_client
@@ -32,15 +59,15 @@ class TaskHandler:
         self.payload_id: str = request.payload_id
         self.data_folder: str = request.data_folder
 
-        # TODO: Lazy load
-        with open(os.path.join(self.data_folder, self.payload_id), "rb") as f:
-            self.payload = f.read()
+        self._payload = None
+        self.data_dependencies = LazyLoadDict(self.data_folder, list(request.data_dependencies))
 
-        # TODO: Lazy load
-        self.data_dependencies: Dict[str, bytes] = {}
-        for dd in request.data_dependencies:
-            with open(os.path.join(self.data_folder, dd), "rb") as f:
-                self.data_dependencies[dd] = f.read()
+    @property
+    def payload(self) -> bytes:
+        if self._payload is None:
+            with open(os.path.join(self.data_folder, self.payload_id), "rb") as f:
+                self._payload = f.read()
+        return self._payload
 
     def submit_tasks(
         self,

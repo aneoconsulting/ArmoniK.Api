@@ -50,7 +50,7 @@ class TestTaskHandler:
         assert task_handler.payload_id == "payload-id"
         assert task_handler.data_folder == data_folder
         assert task_handler.payload == "payload".encode()
-        assert task_handler.data_dependencies == {"dd-id": "dd".encode()}
+        assert dict(task_handler.data_dependencies) == {"dd-id": "dd".encode()}
 
     def test_submit_tasks(self):
         task_handler = TaskHandler(self.request, get_client("Agent"))
@@ -86,6 +86,17 @@ class TestTaskHandler:
 
         assert rpc_called("Agent", "CreateResults")
         assert results == {}
+
+    def test_lazy_load(self):
+        handler = TaskHandler(self.request, None)
+        assert handler.data_dependencies._data["dd-id"] is None
+        assert len(handler.data_dependencies._data) == 1
+        for _ in handler.data_dependencies.keys():
+            pass
+        assert handler.data_dependencies._data["dd-id"] is None
+        for _ in handler.data_dependencies:
+            pass
+        assert handler.data_dependencies._data["dd-id"] == b"dd"
 
     def test_service_fully_implemented(self):
         assert all_rpc_called(
