@@ -51,8 +51,8 @@ wc+KqiSg9c9iqA==
 
 /**
  *
- * @param path
- * @return
+ * @param path The path to the file to be read
+ * @return content of the file as a std::string
  */
 std::string read_file(const absl::string_view &path) {
   std::ifstream file(path.data(), std::ios::in | std::ios::binary);
@@ -76,8 +76,10 @@ bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPl
   const auto delim = endpoint_view.find("://");
   const auto http_delim = endpoint_view.find("http://");
   const auto https_delim = endpoint_view.find("https://");
-  if (endpoint_view.find("unix") == 0) {
-    if (endpoint_view[0] == '/') {
+  if ((endpoint_view.find("unix") == 0) ||
+      (endpoint_view[0] == '/' && endpoint_view.find(':') == absl::string_view::npos)) {
+    endpoint = {endpoint_view.cbegin(), endpoint_view.cend()};
+    if (endpoint[0] == '/') {
       endpoint.insert(0, "unix://");
     } else {
       endpoint.insert(0, "unix:");
