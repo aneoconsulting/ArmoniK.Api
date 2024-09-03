@@ -4,6 +4,7 @@ import logging
 import os
 import traceback
 from concurrent import futures
+from contextlib import nullcontext
 from logging import Logger
 from typing import Callable, Union, Optional, Tuple, Iterable
 
@@ -145,23 +146,16 @@ class ArmoniKWorkerWrapper:
         worker_endpoint = self.worker_endpoint if worker_endpoint is None else worker_endpoint
         # Start worker
         logger.info("Worker Started")
-        # Use options to fix Unix socket connection on localhost (cf: <GitHub>)
-        if agent_channel is None:
-            channel_ = create_channel(self.agent_endpoint, options=self.channel_options).__enter__()
-        else:
-            channel_ = agent_channel
-        try:
-            worker = ArmoniKWorker(channel_, self.processor, logger=logger)
+        agent_channel = (
+            create_channel(self.agent_endpoint, options=self.channel_options)
+            if agent_channel is None
+            else nullcontext(agent_channel)
+        )
+
+        with agent_channel as channel:
+            worker = ArmoniKWorker(channel, self.processor, logger=logger)
             logger.info("Worker Connected")
             worker.start(worker_endpoint)
-        except Exception as e:
-            if agent_channel is None:
-                channel_.__exit__(type(e), e, e.__traceback__)
-                channel_ = None
-            raise
-        finally:
-            if agent_channel is None and channel_ is not None:
-                channel_.__exit__(None, None, None)
 
 
 def armonik_worker(
