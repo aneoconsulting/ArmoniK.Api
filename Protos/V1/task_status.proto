@@ -23,4 +23,6 @@ enum TaskStatus {
   TASK_STATUS_PROCESSING = 9; /** Task is being processed. */
   TASK_STATUS_PROCESSED = 10; /** Task is processed. */
   TASK_STATUS_RETRIED = 11; /** Task is retried. */
+  TASK_STATUS_PENDING = 12; /** Task is waiting for its dependencies before becoming executable. */
+  TASK_STATUS_PAUSED = 13; /** Task is paused and will not be executed until session is resumed. */
 }
