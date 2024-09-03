@@ -5,7 +5,7 @@ import os
 import traceback
 from concurrent import futures
 from logging import Logger
-from typing import Callable, Union, Optional, Tuple
+from typing import Callable, Union, Optional, Tuple, Iterable
 
 import grpc
 from grpc import Channel
@@ -81,9 +81,6 @@ class ArmoniKWorker(WorkerServicer):
         return HealthCheckReply(status=self.health_check())
 
 
-_NOT_SET = object()
-
-
 class ArmoniKWorkerWrapper:
     def __init__(
         self,
@@ -92,7 +89,7 @@ class ArmoniKWorkerWrapper:
         logger: Optional[Logger] = None,
         worker_endpoint: Optional[str] = None,
         agent_endpoint: Optional[str] = None,
-        channel_options: Optional[Tuple[Tuple[str, str]]] = _NOT_SET,
+        channel_options: Optional[Iterable[Tuple[str, str]]] = None,
     ):
         if logger is None:
             ClefLogger.setup_logging(logging.INFO)
@@ -117,7 +114,7 @@ class ArmoniKWorkerWrapper:
             agent_endpoint = agent_scheme + os.getenv(
                 "ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock"
             )
-        if channel_options is _NOT_SET:
+        if channel_options is None:
             channel_options = (("grpc.default_authority", "localhost"),)
         self.logger = logger
         self.worker_endpoint = worker_endpoint
@@ -125,25 +122,45 @@ class ArmoniKWorkerWrapper:
         self.channel_options = channel_options
         self.processor = processor
 
-    def __call__(self, channel: Optional[Channel] = None):
+    def __call__(self, *args, **kwargs):
+        return self.processor(*args, **kwargs)
+
+    def run(
+        self,
+        agent_channel: Optional[Channel] = None,
+        logger: Optional[Logger] = None,
+        worker_endpoint: Optional[str] = None,
+    ):
+        """
+        Run the server
+        Args:
+            agent_channel: Agent channel
+            logger: Logger
+            worker_endpoint: Worker endpoint
+
+        Returns:
+            None
+        """
+        logger = self.logger if logger is None else logger
+        worker_endpoint = self.worker_endpoint if worker_endpoint is None else worker_endpoint
         # Start worker
-        self.logger.info("Worker Started")
+        logger.info("Worker Started")
         # Use options to fix Unix socket connection on localhost (cf: <GitHub>)
-        if channel is None:
+        if agent_channel is None:
             channel_ = create_channel(self.agent_endpoint, options=self.channel_options).__enter__()
         else:
-            channel_ = channel
+            channel_ = agent_channel
         try:
-            worker = ArmoniKWorker(channel_, self.processor, logger=self.logger)
-            self.logger.info("Worker Connected")
-            worker.start(self.worker_endpoint)
+            worker = ArmoniKWorker(channel_, self.processor, logger=logger)
+            logger.info("Worker Connected")
+            worker.start(worker_endpoint)
         except Exception as e:
-            if channel is None:
+            if agent_channel is None:
                 channel_.__exit__(type(e), e, e.__traceback__)
                 channel_ = None
             raise
         finally:
-            if channel is None and channel_ is not None:
+            if agent_channel is None and channel_ is not None:
                 channel_.__exit__(None, None, None)
 
 
@@ -153,7 +170,7 @@ def armonik_worker(
     logger: Optional[Logger] = None,
     worker_endpoint: Optional[str] = None,
     agent_endpoint: Optional[str] = None,
-    channel_options: Tuple[Tuple[str, str]] = _NOT_SET,
+    channel_options: Optional[Iterable[Tuple[str, str]]] = None,
 ):
     """
     Transforms the function into an ArmoniK Worker
@@ -176,7 +193,7 @@ def armonik_worker(
 
     def decorator(
         processor: Callable[[TaskHandler], Output],
-    ) -> Optional[Callable[[Optional[Channel]], None]]:
+    ) -> ArmoniKWorkerWrapper:
         worker = ArmoniKWorkerWrapper(
             processor=processor,
             logger=logger,
@@ -185,7 +202,7 @@ def armonik_worker(
             channel_options=channel_options,
         )
         if autorun:
-            worker()
+            worker.run()
         return worker
 
     return decorator
