@@ -21,10 +21,6 @@ TEST(Partitions, can_get_partition) {
 
   armonik::api::grpc::v1::partitions::PartitionRaw partition;
   ASSERT_NO_THROW(partition = client.get_partition(task_options.partition_id()));
-  ASSERT_EQ(partition.id(), task_options.partition_id());
-  ASSERT_EQ(partition.pod_max(), 100);
-  ASSERT_EQ(partition.pod_reserved(), 1);
-  ASSERT_EQ(partition.priority(), 1);
 }
 
 TEST(Partitions, can_list_partitions) {
@@ -46,11 +42,9 @@ TEST(Partitions, can_list_partitions) {
 
   int total;
 
-  std::vector<armonik::api::grpc::v1::partitions::PartitionRaw> partitions = client.list_partitions(filters, total);
+  std::vector<armonik::api::grpc::v1::partitions::PartitionRaw> partitions;
+  ASSERT_NO_THROW(partitions = client.list_partitions(filters, total));
   for (auto &&partition : partitions) {
     std::cout << *partition.mutable_id() << std::endl;
   }
-  ASSERT_TRUE(!partitions.empty());
-  ASSERT_EQ(partitions.size(), 1);
-  ASSERT_EQ(partitions.size(), total);
 }

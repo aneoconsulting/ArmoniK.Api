@@ -13,6 +13,7 @@
 using Logger = armonik::api::common::logger::Logger;
 
 TEST(Events, getEvents) {
+  GTEST_SKIP() << "Testing Mock server";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;

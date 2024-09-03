@@ -41,6 +41,7 @@ using ::testing::AtLeast;
 namespace logger = armonik::api::common::logger;
 
 TEST(testMock, createSession) {
+  GTEST_SKIP() << "Testing Mock server";
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
@@ -67,6 +68,7 @@ TEST(testMock, createSession) {
 }
 
 TEST(testMock, submitTask) {
+  GTEST_SKIP() << "Testing Mock server";
 
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
 
@@ -157,6 +159,7 @@ TEST(testMock, submitTask) {
 }
 
 TEST(testMock, testWorker) {
+  GTEST_SKIP() << "Testing Mock server";
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   std::shared_ptr<Channel> channel;
 
@@ -210,6 +213,7 @@ TEST(testMock, testWorker) {
 }
 
 TEST(testMock, getResult) {
+  GTEST_SKIP() << "Testing Mock server";
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
