@@ -14,6 +14,8 @@ from ..protogen.common.task_status_pb2 import (
     TASK_STATUS_PROCESSING,
     TASK_STATUS_PROCESSED,
     TASK_STATUS_RETRIED,
+    TASK_STATUS_PENDING,
+    TASK_STATUS_PAUSED,
 )
 from ..protogen.common.events_common_pb2 import (
     EVENTS_ENUM_UNSPECIFIED,
@@ -69,6 +71,8 @@ class TaskStatus(IntEnum):
     PROCESSING = TASK_STATUS_PROCESSING
     PROCESSED = TASK_STATUS_PROCESSED
     RETRIED = TASK_STATUS_RETRIED
+    PENDING = TASK_STATUS_PENDING
+    PAUSED = TASK_STATUS_PAUSED
 
 
 class EventTypes:
