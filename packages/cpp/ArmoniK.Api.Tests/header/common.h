@@ -13,3 +13,28 @@
  */
 void init(std::shared_ptr<grpc::Channel> &channel, armonik::api::grpc::v1::TaskOptions &task_options,
           armonik::api::common::logger::Logger &logger);
+
+/**
+ *
+ * @param service_name the name of the service providing the rpc methods
+ * @param rpc_name the specific rpc to be checked
+ * @param endpoint the call endpoint
+ * @param num_calls the number of call of rpc
+ * @return
+ */
+bool rpcCalled(const std::string &service_name, const std::string &rpc_name,
+               const std::string &endpoint = "http://localhost:4999/calls.json", int num_calls = 1);
+
+/**
+ *
+ * @param service_name the service name
+ * @param endpoint the call endpoint
+ * @return
+ */
+bool all_rpc_called(const std::string &service_name, const std::string &endpoint = "http://localhost:4999/calls.json");
+
+/**
+ *
+ * @param endpoint The reset endpoint
+ */
+void clean_up(const std::string &endpoint = "http://localhost:4999/reset");
