@@ -22,4 +22,7 @@ TEST(Versions, can_list_versions) {
 
   std::cout << "API version: " << versions.api << "\n"
             << "Core version: " << versions.core << std::endl;
+  ASSERT_TRUE(rpcCalled("Versions", "ListVersions"));
 }
+
+TEST(Versions, service_fully_implemented) { all_rpc_called("Versions"); }

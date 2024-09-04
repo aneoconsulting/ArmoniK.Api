@@ -41,7 +41,6 @@ using ::testing::AtLeast;
 namespace logger = armonik::api::common::logger;
 
 TEST(testMock, createSession) {
-  GTEST_SKIP() << "Testing Mock server";
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
@@ -65,6 +64,7 @@ TEST(testMock, createSession) {
   std::cout << "create_session response: " << session_id << std::endl;
 
   ASSERT_FALSE(session_id.empty());
+  ASSERT_TRUE(rpcCalled("Submitter", "CreateSession"));
 }
 
 TEST(testMock, submitTask) {

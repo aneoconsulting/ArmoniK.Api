@@ -21,6 +21,7 @@ TEST(Partitions, can_get_partition) {
 
   armonik::api::grpc::v1::partitions::PartitionRaw partition;
   ASSERT_NO_THROW(partition = client.get_partition(task_options.partition_id()));
+  ASSERT_TRUE(rpcCalled("Partitions", "GetPartition"));
 }
 
 TEST(Partitions, can_list_partitions) {
@@ -47,4 +48,7 @@ TEST(Partitions, can_list_partitions) {
   for (auto &&partition : partitions) {
     std::cout << *partition.mutable_id() << std::endl;
   }
+  ASSERT_TRUE(rpcCalled("Partitions", "ListPartitions"));
 }
+
+TEST(Partitions, service_fully_implemented) { all_rpc_called("Partitions"); }

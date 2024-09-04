@@ -13,7 +13,7 @@
 using Logger = armonik::api::common::logger::Logger;
 
 TEST(Events, getEvents) {
-  GTEST_SKIP() << "Testing Mock server";
+  GTEST_SKIP() << "Mock server must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -32,4 +32,7 @@ TEST(Events, getEvents) {
   ASSERT_NO_THROW(result_client.upload_result_data(session_id, result_id, "name"));
   ASSERT_NO_THROW(client.wait_for_result_availability(session_id, {result_id, payload_id}));
   ASSERT_EQ(result_client.download_result_data(session_id, result_id), "name");
+  ASSERT_TRUE(rpcCalled("Events", "GetEvents"));
 }
+
+TEST(Events, service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Events")); }
