@@ -25,7 +25,6 @@ armonik::api::grpc::v1::TaskOptions default_task_options() {
 }
 
 TEST(Options, no_options) {
-  GTEST_SKIP() << "Testing Mock server";
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
@@ -33,10 +32,10 @@ TEST(Options, no_options) {
   auto channel = ::grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
   armonik::api::client::SubmitterClient client(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
+  ASSERT_TRUE(rpcCalled("Sessions", "CreateSession"));
 }
 
 TEST(Options, default_options) {
-  GTEST_SKIP() << "Testing Mock server";
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
@@ -45,10 +44,10 @@ TEST(Options, default_options) {
   auto channel = ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(), args);
   armonik::api::client::SubmitterClient client(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
+  ASSERT_TRUE(rpcCalled("Sessions", "CreateSession"));
 }
 
 TEST(Options, test_timeout) {
-  GTEST_SKIP() << "Testing Mock server";
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
@@ -64,4 +63,5 @@ TEST(Options, test_timeout) {
       ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(),
                                   armonik::api::common::utils::getChannelArguments(configuration))));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
+  ASSERT_TRUE(rpcCalled("Sessions", "CreateSession"));
 }

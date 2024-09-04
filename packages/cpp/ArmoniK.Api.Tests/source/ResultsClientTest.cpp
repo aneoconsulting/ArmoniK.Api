@@ -22,6 +22,7 @@ TEST(Results, test_results_created) {
   auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
                         .create_session(task_options);
   ASSERT_NO_THROW(client.create_results_metadata(session_id, std::vector<std::string>{"0", "1", "2", "3"}));
+  ASSERT_TRUE(rpcCalled("Results", "CreateResultsMetaData"));
 }
 
 TEST(Results, test_results_list) {
@@ -45,6 +46,7 @@ TEST(Results, test_results_list) {
   *filters.mutable_or_()->Add()->mutable_and_()->Add() = filter_field;
   int total;
   ASSERT_NO_THROW(client.list_results(filters, total));
+  ASSERT_TRUE(rpcCalled("Results", "ListResults"));
 }
 
 TEST(Results, test_results_list_small_page) {
@@ -70,6 +72,7 @@ TEST(Results, test_results_list_small_page) {
   ASSERT_NO_THROW(client.list_results(filters, total, 0, 2));
 
   ASSERT_NO_THROW(client.list_results(filters, total, -1, 2));
+  ASSERT_TRUE(rpcCalled("Results", "ListResults"));
 }
 
 TEST(Results, test_results_create_with_data_vector) {
@@ -84,6 +87,7 @@ TEST(Results, test_results_create_with_data_vector) {
                         .create_session(task_options);
   std::vector<std::pair<std::string, std::string>> vec{{"0", "TestPayload"}};
   ASSERT_NO_THROW(client.create_results(session_id, vec));
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
 }
 
 TEST(Results, test_results_create_with_data_map) {
@@ -99,6 +103,7 @@ TEST(Results, test_results_create_with_data_map) {
   std::map<std::string, std::string> name_payload;
   name_payload["0"] = "TestPayload";
   ASSERT_NO_THROW(client.create_results(session_id, std::move(name_payload)));
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
 }
 
 TEST(Results, test_results_create_with_data_unordered_map) {
@@ -114,6 +119,7 @@ TEST(Results, test_results_create_with_data_unordered_map) {
   std::unordered_map<std::string, std::string> name_payload;
   name_payload["0"] = "TestPayload";
   ASSERT_NO_THROW(client.create_results(session_id, std::move(name_payload)));
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
 }
 
 TEST(Results, test_results_create_with_data_string_view) {
@@ -131,10 +137,11 @@ TEST(Results, test_results_create_with_data_string_view) {
   name_payload.emplace_back("0", absl::string_view(fill_str.c_str(), 11));
   name_payload.emplace_back("1", absl::string_view(fill_str.c_str() + 11, 12));
   ASSERT_NO_THROW(client.create_results(session_id, name_payload.begin(), name_payload.end()));
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
 }
 
 TEST(Results, test_results_upload_download) {
-  GTEST_SKIP() << "Testing Mock server";
+  GTEST_SKIP() << "Mock server must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -150,3 +157,5 @@ TEST(Results, test_results_upload_download) {
   ASSERT_NO_THROW(client.upload_result_data(session_id, map.at("0"), "TestPayload"));
   ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
 }
+
+TEST(Results, service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Results")); }

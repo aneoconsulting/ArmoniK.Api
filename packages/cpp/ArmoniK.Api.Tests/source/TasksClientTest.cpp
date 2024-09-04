@@ -54,13 +54,14 @@ TEST(Tasks, submit_tasks_test) {
   ASSERT_NO_THROW(tasks_submit_override =
                       client.submit_tasks(session_id, {armonik::api::common::TaskCreation{payload_id, {{result_id}}}},
                                           task_options_submit));
-  //ASSERT_EQ(tasks_submit_override.size(), 1);
+  // ASSERT_EQ(tasks_submit_override.size(), 1);
 
   std::vector<armonik::api::common::TaskInfo> tasks_submit_unique_override;
   ASSERT_NO_THROW(tasks_submit_unique_override = client.submit_tasks(
                       session_id,
                       {armonik::api::common::TaskCreation{payload_id, {{result_id}}, {}, task_options_unique}},
                       task_options_submit));
+  ASSERT_TRUE(rpcCalled("Tasks", "SubmitTasks"));
 }
 
 TEST(Tasks, count_tasks_test) {
@@ -86,10 +87,10 @@ TEST(Tasks, count_tasks_test) {
   client.submit_tasks(session_id, {armonik::api::common::TaskCreation{payload_id, {{result_id}}}});
 
   ASSERT_NO_THROW(status_count = client.count_tasks_by_status(filters));
+  ASSERT_TRUE(rpcCalled("Tasks", "CountTasksByStatus"));
 }
 
 TEST(Tasks, get_result_ids_test) {
-  GTEST_SKIP() << "Testing Mock server";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -104,17 +105,14 @@ TEST(Tasks, get_result_ids_test) {
   auto result_id = result_client.create_results_metadata(session_id, {"result"})["result"];
   auto client = armonik::api::client::TasksClient(armonik::api::grpc::v1::tasks::Tasks::NewStub(channel));
 
-  auto task_id =
-      client.submit_tasks(session_id, {armonik::api::common::TaskCreation{payload_id, {result_id}}})[0].task_id;
+  auto task_id = client.submit_tasks(session_id, {armonik::api::common::TaskCreation{payload_id, {result_id}}});
 
   std::map<std::string, std::vector<std::string>> tid_rids;
-  ASSERT_NO_THROW(tid_rids = client.get_result_ids({task_id}));
-  ASSERT_EQ(tid_rids.at(task_id).size(), 1);
-  ASSERT_EQ(tid_rids.at(task_id).at(0), result_id);
+  ASSERT_NO_THROW(tid_rids = client.get_result_ids({"task_id"}));
+  ASSERT_TRUE(rpcCalled("Tasks", "GetResultIds"));
 }
 
 TEST(Tasks, get_task_test) {
-  GTEST_SKIP() << "Testing Mock server";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -129,12 +127,11 @@ TEST(Tasks, get_task_test) {
   auto result_id = result_client.create_results_metadata(session_id, {"result"})["result"];
   auto client = armonik::api::client::TasksClient(armonik::api::grpc::v1::tasks::Tasks::NewStub(channel));
 
-  auto task_id =
-      client.submit_tasks(session_id, {armonik::api::common::TaskCreation{payload_id, {result_id}}})[0].task_id;
+  auto task_id = client.submit_tasks(session_id, {armonik::api::common::TaskCreation{payload_id, {result_id}}});
 
   armonik::api::grpc::v1::tasks::TaskDetailed details;
-  ASSERT_NO_THROW(details = client.get_task(task_id));
-  ASSERT_EQ(details.id(), task_id);
+  ASSERT_NO_THROW(details = client.get_task("task_id"));
+  ASSERT_TRUE(rpcCalled("Tasks", "GetTask"));
 }
 
 TEST(Tasks, cancel_tasks_test) {
@@ -164,7 +161,7 @@ TEST(Tasks, cancel_tasks_test) {
 }
 
 TEST(Tasks, list_tasks_test) {
-  GTEST_SKIP() << "Testing Mock server";
+  GTEST_SKIP() << "Mock must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -184,10 +181,11 @@ TEST(Tasks, list_tasks_test) {
   int total;
   ASSERT_EQ(client.list_tasks(get_session_id_filter(session_id), total).size(), 1);
   ASSERT_EQ(total, 1);
+  ASSERT_TRUE(rpcCalled("Tasks", "ListTasks"));
 }
 
 TEST(Tasks, list_tasks_detailed_test) {
-  GTEST_SKIP() << "Testing Mock server";
+  GTEST_SKIP() << "Mock must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -207,4 +205,7 @@ TEST(Tasks, list_tasks_detailed_test) {
   int total;
   ASSERT_EQ(client.list_tasks_detailed(get_session_id_filter(session_id), total).size(), 1);
   ASSERT_EQ(total, 1);
+  ASSERT_TRUE(rpcCalled("Tasks", "ListTasksDetailed"));
 }
+
+TEST(Tasks, service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Tasks")); }
