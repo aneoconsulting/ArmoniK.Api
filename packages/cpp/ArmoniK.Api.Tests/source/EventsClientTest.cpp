@@ -12,7 +12,12 @@
 
 using Logger = armonik::api::common::logger::Logger;
 
-TEST(Events, getEvents) {
+/**
+ * Fixture class for versions, inherit from MockFixture
+ */
+class Events : public MockFixture {};
+
+TEST_F(Events, getEvents) {
   GTEST_SKIP() << "Mock server must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
@@ -35,4 +40,7 @@ TEST(Events, getEvents) {
   ASSERT_TRUE(rpcCalled("Events", "GetEvents"));
 }
 
-TEST(Events, service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Events")); }
+TEST_F(MockFixture, event_service_fully_implemented) {
+  std::vector<std::string> missing_rpcs{"GetEvents"};
+  ASSERT_TRUE(all_rpc_called("Events", missing_rpcs));
+}

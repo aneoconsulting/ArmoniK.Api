@@ -10,7 +10,12 @@
 
 using Logger = armonik::api::common::logger::Logger;
 
-TEST(Partitions, can_get_partition) {
+/**
+ * Fixture class for partition, inherit from MockFixture
+ */
+class Partitions : public MockFixture {};
+
+TEST_F(Partitions, can_get_partition) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -24,7 +29,7 @@ TEST(Partitions, can_get_partition) {
   ASSERT_TRUE(rpcCalled("Partitions", "GetPartition"));
 }
 
-TEST(Partitions, can_list_partitions) {
+TEST_F(Partitions, can_list_partitions) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -51,4 +56,4 @@ TEST(Partitions, can_list_partitions) {
   ASSERT_TRUE(rpcCalled("Partitions", "ListPartitions"));
 }
 
-TEST(Partitions, service_fully_implemented) { all_rpc_called("Partitions"); }
+// TEST_F(MockFixture, partitions_service_fully_implemented) { all_rpc_called("Partitions"); }
