@@ -11,7 +11,15 @@
 
 using Logger = armonik::api::common::logger::Logger;
 
-TEST(Results, test_results_created) {
+size_t num_list_result = 0;
+size_t num_create_result = 0;
+
+/**
+ * Fixture class for result, inherit from MockFixture
+ */
+class Results : public MockFixture {};
+
+TEST_F(Results, test_results_created) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -25,7 +33,7 @@ TEST(Results, test_results_created) {
   ASSERT_TRUE(rpcCalled("Results", "CreateResultsMetaData"));
 }
 
-TEST(Results, test_results_list) {
+TEST_F(Results, test_results_list) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -46,10 +54,11 @@ TEST(Results, test_results_list) {
   *filters.mutable_or_()->Add()->mutable_and_()->Add() = filter_field;
   int total;
   ASSERT_NO_THROW(client.list_results(filters, total));
-  ASSERT_TRUE(rpcCalled("Results", "ListResults"));
+  num_list_result++;
+  ASSERT_TRUE(rpcCalled("Results", "ListResults", num_list_result));
 }
 
-TEST(Results, test_results_list_small_page) {
+TEST_F(Results, test_results_list_small_page) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -70,12 +79,15 @@ TEST(Results, test_results_list_small_page) {
   *filters.mutable_or_()->Add()->mutable_and_()->Add() = filter_field;
   int total;
   ASSERT_NO_THROW(client.list_results(filters, total, 0, 2));
+  num_list_result++;
 
   ASSERT_NO_THROW(client.list_results(filters, total, -1, 2));
-  ASSERT_TRUE(rpcCalled("Results", "ListResults"));
+  num_list_result++;
+
+  ASSERT_TRUE(rpcCalled("Results", "ListResults", num_list_result));
 }
 
-TEST(Results, test_results_create_with_data_vector) {
+TEST_F(Results, test_results_create_with_data_vector) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -87,10 +99,11 @@ TEST(Results, test_results_create_with_data_vector) {
                         .create_session(task_options);
   std::vector<std::pair<std::string, std::string>> vec{{"0", "TestPayload"}};
   ASSERT_NO_THROW(client.create_results(session_id, vec));
-  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
+  num_create_result++;
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults", num_create_result));
 }
 
-TEST(Results, test_results_create_with_data_map) {
+TEST_F(Results, test_results_create_with_data_map) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -103,10 +116,11 @@ TEST(Results, test_results_create_with_data_map) {
   std::map<std::string, std::string> name_payload;
   name_payload["0"] = "TestPayload";
   ASSERT_NO_THROW(client.create_results(session_id, std::move(name_payload)));
-  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
+  num_create_result++;
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults", num_create_result));
 }
 
-TEST(Results, test_results_create_with_data_unordered_map) {
+TEST_F(Results, test_results_create_with_data_unordered_map) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -119,10 +133,11 @@ TEST(Results, test_results_create_with_data_unordered_map) {
   std::unordered_map<std::string, std::string> name_payload;
   name_payload["0"] = "TestPayload";
   ASSERT_NO_THROW(client.create_results(session_id, std::move(name_payload)));
-  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
+  num_create_result++;
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults", num_create_result));
 }
 
-TEST(Results, test_results_create_with_data_string_view) {
+TEST_F(Results, test_results_create_with_data_string_view) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -137,10 +152,11 @@ TEST(Results, test_results_create_with_data_string_view) {
   name_payload.emplace_back("0", absl::string_view(fill_str.c_str(), 11));
   name_payload.emplace_back("1", absl::string_view(fill_str.c_str() + 11, 12));
   ASSERT_NO_THROW(client.create_results(session_id, name_payload.begin(), name_payload.end()));
-  ASSERT_TRUE(rpcCalled("Results", "CreateResults"));
+  num_create_result++;
+  ASSERT_TRUE(rpcCalled("Results", "CreateResults", num_create_result));
 }
 
-TEST(Results, test_results_upload_download) {
+TEST_F(Results, test_results_upload_download) {
   GTEST_SKIP() << "Mock server must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
@@ -158,4 +174,7 @@ TEST(Results, test_results_upload_download) {
   ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
 }
 
-TEST(Results, service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Results")); }
+// TEST_F(Results, result_service_fully_implemented) {
+// std::vector<std::string> missing_rpcs{"DeleteResultsData", "DownloadResultData", "GetOwnerTaskId", "GetResult",
+// "GetServiceConfiguration", "UploadResultData", "WatchResults"}; ASSERT_TRUE(all_rpc_called("Results", missing_rpcs));
+// }

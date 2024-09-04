@@ -19,8 +19,8 @@ size_t WriteCallback(void *ptr, size_t size, size_t num_elt, std::string *data) 
   return size * num_elt;
 }
 
-bool rpcCalled(const std::string &service_name, const std::string &rpc_name, const std::string &endpoint,
-               int num_calls) {
+bool rpcCalled(const std::string &service_name, const std::string &rpc_name, int num_calls,
+               const std::string &endpoint) {
 
   auto curl = curl_easy_init();
   std::string read_buffer;
@@ -47,13 +47,16 @@ bool rpcCalled(const std::string &service_name, const std::string &rpc_name, con
   if (!res) {
     std::cerr << "Failed to parse JSON: " << errs << std::endl;
   }
-  if (response_json[service_name][rpc_name] >= num_calls) {
+  if (response_json[service_name][rpc_name] == num_calls) {
     return true;
   }
+  std::cout << "Given num calls: " << num_calls << std::endl;
+  std::cout << "Actual num calls: " << response_json[service_name][rpc_name] << std::endl;
   return false;
 }
 
-bool all_rpc_called(const std::string &service_name, const std::string &endpoint) {
+bool all_rpc_called(const std::string &service_name, const std::vector<std::string> &missings,
+                    const std::string &endpoint) {
   auto curl = curl_easy_init();
   std::string read_buffer;
   std::cout << endpoint << std::endl;
@@ -87,6 +90,9 @@ bool all_rpc_called(const std::string &service_name, const std::string &endpoint
     }
   }
   if (!missing_rpcs.empty()) {
+    if (missing_rpcs == missings) {
+      return true;
+    }
     std::cout << "RPCs not implemented in " << service_name << " service: \n";
     for (const auto &str : missing_rpcs) {
       std::cout << str << '\n';
@@ -96,9 +102,23 @@ bool all_rpc_called(const std::string &service_name, const std::string &endpoint
   return true;
 }
 
+void clean_up(const std::string &endpoint) {
+  auto curl = curl_easy_init();
+  std::string read_buffer;
+  if (curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, endpoint.c_str());
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    auto res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+      std::cout << "Request failed: " << curl_easy_strerror(res) << std::endl;
+    }
+    curl_easy_cleanup(curl);
+  }
+}
+
 using Logger = armonik::api::common::logger::Logger;
 
-TEST(tls_mtls, connect) {
+TEST_F(MockFixture, connect) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -113,7 +133,6 @@ TEST(tls_mtls, connect) {
 
   channel = channel_factory.create_channel();
 
-  clean_up();
   armonik::api::client::SessionsClient client(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel));
 
   std::string response;

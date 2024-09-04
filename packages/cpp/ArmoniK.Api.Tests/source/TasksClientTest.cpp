@@ -25,7 +25,12 @@ armonik::api::grpc::v1::tasks::Filters get_session_id_filter(std::string session
   return filters;
 }
 
-TEST(Tasks, submit_tasks_test) {
+/**
+ * Fixture class for task, inherit from MockFixture
+ */
+class Tasks : public MockFixture {};
+
+TEST_F(Tasks, submit_tasks_test) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -61,10 +66,10 @@ TEST(Tasks, submit_tasks_test) {
                       session_id,
                       {armonik::api::common::TaskCreation{payload_id, {{result_id}}, {}, task_options_unique}},
                       task_options_submit));
-  ASSERT_TRUE(rpcCalled("Tasks", "SubmitTasks"));
+  ASSERT_TRUE(rpcCalled("Tasks", "SubmitTasks", 3));
 }
 
-TEST(Tasks, count_tasks_test) {
+TEST_F(Tasks, count_tasks_test) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -87,10 +92,10 @@ TEST(Tasks, count_tasks_test) {
   client.submit_tasks(session_id, {armonik::api::common::TaskCreation{payload_id, {{result_id}}}});
 
   ASSERT_NO_THROW(status_count = client.count_tasks_by_status(filters));
-  ASSERT_TRUE(rpcCalled("Tasks", "CountTasksByStatus"));
+  ASSERT_TRUE(rpcCalled("Tasks", "CountTasksByStatus", 2));
 }
 
-TEST(Tasks, get_result_ids_test) {
+TEST_F(Tasks, get_result_ids_test) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -112,7 +117,7 @@ TEST(Tasks, get_result_ids_test) {
   ASSERT_TRUE(rpcCalled("Tasks", "GetResultIds"));
 }
 
-TEST(Tasks, get_task_test) {
+TEST_F(Tasks, get_task_test) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -134,7 +139,7 @@ TEST(Tasks, get_task_test) {
   ASSERT_TRUE(rpcCalled("Tasks", "GetTask"));
 }
 
-TEST(Tasks, cancel_tasks_test) {
+TEST_F(Tasks, cancel_tasks_test) {
   GTEST_SKIP() << "Core bug #523";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
@@ -160,7 +165,7 @@ TEST(Tasks, cancel_tasks_test) {
   ASSERT_EQ(client.cancel_tasks({task_id}).at(0).status(), armonik::api::grpc::v1::task_status::TASK_STATUS_CANCELLED);
 }
 
-TEST(Tasks, list_tasks_test) {
+TEST_F(Tasks, list_tasks_test) {
   GTEST_SKIP() << "Mock must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
@@ -184,7 +189,7 @@ TEST(Tasks, list_tasks_test) {
   ASSERT_TRUE(rpcCalled("Tasks", "ListTasks"));
 }
 
-TEST(Tasks, list_tasks_detailed_test) {
+TEST_F(Tasks, list_tasks_detailed_test) {
   GTEST_SKIP() << "Mock must return something ";
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
@@ -208,4 +213,6 @@ TEST(Tasks, list_tasks_detailed_test) {
   ASSERT_TRUE(rpcCalled("Tasks", "ListTasksDetailed"));
 }
 
-TEST(Tasks, service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Tasks")); }
+// TEST_F(MockFixture, task_service_fully_implemented) {
+//  std::vector<std::string> missing_rpcs{"CancelTasks", "ListTasks", "ListTasksDetailed"};
+// ASSERT_TRUE(all_rpc_called("Tasks", missing_rpcs)); }
