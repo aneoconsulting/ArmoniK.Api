@@ -4,6 +4,8 @@ set(PROJECT_NAME ArmoniK.Api.Tests)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
+find_package(CURL REQUIRED)
+find_package(jsoncpp REQUIRED)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
@@ -17,7 +19,7 @@ add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++ ArmoniK.Api.Client ArmoniK.Api.Common GTest::gtest_main GTest::gmock_main)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++ ArmoniK.Api.Client ArmoniK.Api.Common GTest::gtest_main GTest::gmock_main CURL::libcurl jsoncpp_lib)
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)

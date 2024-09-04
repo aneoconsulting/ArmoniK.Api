@@ -1,7 +1,7 @@
 #include "common.h"
+#include "channel/ChannelFactory.h"
 #include "utils/Configuration.h"
 #include <grpcpp/create_channel.h>
-#include "channel/ChannelFactory.h"
 
 /**
  * @brief Initializes task options creates channel with server address
