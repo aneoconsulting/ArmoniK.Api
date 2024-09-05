@@ -1,7 +1,7 @@
 #include <curl/curl.h>
 #include <grpcpp/create_channel.h>
 #include <gtest/gtest.h>
-#include <json/json.h>
+#include <simdjson.h>
 
 #include "common.h"
 #include "exceptions/ArmoniKApiException.h"
@@ -13,6 +13,7 @@
 #include "sessions/SessionsClient.h"
 
 using Logger = armonik::api::common::logger::Logger;
+using namespace simdjson;
 
 size_t WriteCallback(void *ptr, size_t size, size_t num_elt, std::string *data) {
   data->append((char *)ptr, size * num_elt);
@@ -38,20 +39,17 @@ bool rpcCalled(const std::string &service_name, const std::string &rpc_name, int
     curl_easy_cleanup(curl);
   }
 
-  Json::CharReaderBuilder readerBuilder;
-  Json::Value response_json;
-  std::istringstream jsonStream(read_buffer);
-  std::string errs;
+  dom::parser parser;
 
-  bool res = Json::parseFromStream(readerBuilder, jsonStream, &response_json, &errs);
-  if (!res) {
-    std::cerr << "Failed to parse JSON: " << errs << std::endl;
+  try {
+    dom::element response_json = parser.parse(read_buffer);
+    if (response_json[service_name][rpc_name].get_int64() == num_calls) {
+      return true;
+    }
+  } catch (const simdjson_error &e) {
+    std::cerr << "Failed to parse JSON: " << e.what() << std::endl;
   }
-  if (response_json[service_name][rpc_name] == num_calls) {
-    return true;
-  }
-  std::cout << "Given num calls: " << num_calls << std::endl;
-  std::cout << "Actual num calls: " << response_json[service_name][rpc_name] << std::endl;
+
   return false;
 }
 
@@ -73,31 +71,32 @@ bool all_rpc_called(const std::string &service_name, const std::vector<std::stri
     curl_easy_cleanup(curl);
   }
 
-  Json::CharReaderBuilder readerBuilder;
-  Json::Value response_json;
-  std::istringstream jsonStream(read_buffer);
-  std::string errs;
+  dom::parser parser;
 
-  bool res = Json::parseFromStream(readerBuilder, jsonStream, &response_json, &errs);
-  if (!res) {
-    std::cerr << "Failed to parse JSON: " << errs << std::endl;
-  }
+  try {
+    dom::element response_json = parser.parse(read_buffer);
 
-  std::vector<std::string> missing_rpcs;
-  for (auto &rpc_name : response_json[service_name].getMemberNames()) {
-    if (response_json[service_name][rpc_name] == 0) {
-      missing_rpcs.push_back(rpc_name);
+    dom::array rpcs = response_json[service_name];
+
+    std::vector<std::string> missing_rpcs;
+    for (auto rpc_name : response_json[service_name].get_array()) {
+      if (response_json[service_name][rpc_name].get_int64() == 0) {
+        missing_rpcs.emplace_back(rpc_name.get_string().value().data());
+      }
     }
-  }
-  if (!missing_rpcs.empty()) {
-    if (missing_rpcs == missings) {
-      return true;
+    if (!missing_rpcs.empty()) {
+      if (missing_rpcs == missings) {
+        return true;
+      }
+      std::cout << "RPCs not implemented in " << service_name << " service: \n";
+      for (const auto &str : missing_rpcs) {
+        std::cout << str << '\n';
+      }
+      return false;
     }
-    std::cout << "RPCs not implemented in " << service_name << " service: \n";
-    for (const auto &str : missing_rpcs) {
-      std::cout << str << '\n';
-    }
-    return false;
+
+  } catch (const simdjson_error &e) {
+    std::cerr << "Failed to parse JSON: " << e.what() << std::endl;
   }
   return true;
 }
