@@ -40,7 +40,10 @@ TEST_F(Events, getEvents) {
   ASSERT_TRUE(rpcCalled("Events", "GetEvents"));
 }
 
-TEST_F(MockFixture, event_service_fully_implemented) {
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Events, z_service_fully_implemented) {
   std::vector<std::string> missing_rpcs{"GetEvents"};
   ASSERT_TRUE(all_rpc_called("Events", missing_rpcs));
 }

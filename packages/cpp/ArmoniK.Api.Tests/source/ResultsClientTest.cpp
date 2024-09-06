@@ -174,7 +174,11 @@ TEST_F(Results, test_results_upload_download) {
   ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
 }
 
-// TEST_F(Results, result_service_fully_implemented) {
-// std::vector<std::string> missing_rpcs{"DeleteResultsData", "DownloadResultData", "GetOwnerTaskId", "GetResult",
-// "GetServiceConfiguration", "UploadResultData", "WatchResults"}; ASSERT_TRUE(all_rpc_called("Results", missing_rpcs));
-// }
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Results, z_service_fully_implemented) {
+  std::vector<std::string> missing_rpcs{"DeleteResultsData",       "DownloadResultData", "GetOwnerTaskId", "GetResult",
+                                        "GetServiceConfiguration", "UploadResultData",   "WatchResults"};
+  ASSERT_TRUE(all_rpc_called("Results", missing_rpcs));
+}
