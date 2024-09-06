@@ -30,4 +30,7 @@ TEST_F(Versions, can_list_versions) {
   ASSERT_TRUE(rpcCalled("Versions", "ListVersions"));
 }
 
-// TEST_F(MockFixture, version_service_fully_implemented) { all_rpc_called("Versions"); }
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Versions, z_service_fully_implemented) { all_rpc_called("Versions"); }

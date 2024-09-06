@@ -217,4 +217,7 @@ TEST_F(Sessions, can_close_session) {
   ASSERT_TRUE(rpcCalled("Sessions", "CloseSession", 2));
 }
 
-// TEST_F(Sessions, session_service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Sessions")); }
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Sessions, z_service_fully_implemented) { ASSERT_TRUE(all_rpc_called("Sessions")); }

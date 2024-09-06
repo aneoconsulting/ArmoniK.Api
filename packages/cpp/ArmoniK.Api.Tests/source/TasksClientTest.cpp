@@ -213,6 +213,10 @@ TEST_F(Tasks, list_tasks_detailed_test) {
   ASSERT_TRUE(rpcCalled("Tasks", "ListTasksDetailed"));
 }
 
-// TEST_F(MockFixture, task_service_fully_implemented) {
-//  std::vector<std::string> missing_rpcs{"CancelTasks", "ListTasks", "ListTasksDetailed"};
-// ASSERT_TRUE(all_rpc_called("Tasks", missing_rpcs)); }
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Tasks, z_service_fully_implemented) {
+  std::vector<std::string> missing_rpcs{"CancelTasks", "ListTasks", "ListTasksDetailed"};
+  ASSERT_TRUE(all_rpc_called("Tasks", missing_rpcs));
+}

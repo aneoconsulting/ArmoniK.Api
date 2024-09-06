@@ -56,4 +56,7 @@ TEST_F(Partitions, can_list_partitions) {
   ASSERT_TRUE(rpcCalled("Partitions", "ListPartitions"));
 }
 
-// TEST_F(MockFixture, partitions_service_fully_implemented) { all_rpc_called("Partitions"); }
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Partitions, z_service_fully_implemented) { all_rpc_called("Partitions"); }
