@@ -10,7 +10,12 @@
 
 using Logger = armonik::api::common::logger::Logger;
 
-TEST(Partitions, can_get_partition) {
+/**
+ * Fixture class for partition, inherit from MockFixture
+ */
+class Partitions : public MockFixture {};
+
+TEST_F(Partitions, can_get_partition) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -21,13 +26,10 @@ TEST(Partitions, can_get_partition) {
 
   armonik::api::grpc::v1::partitions::PartitionRaw partition;
   ASSERT_NO_THROW(partition = client.get_partition(task_options.partition_id()));
-  ASSERT_EQ(partition.id(), task_options.partition_id());
-  ASSERT_EQ(partition.pod_max(), 100);
-  ASSERT_EQ(partition.pod_reserved(), 1);
-  ASSERT_EQ(partition.priority(), 1);
+  ASSERT_TRUE(rpcCalled("Partitions", "GetPartition"));
 }
 
-TEST(Partitions, can_list_partitions) {
+TEST_F(Partitions, can_list_partitions) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -46,11 +48,15 @@ TEST(Partitions, can_list_partitions) {
 
   int total;
 
-  std::vector<armonik::api::grpc::v1::partitions::PartitionRaw> partitions = client.list_partitions(filters, total);
+  std::vector<armonik::api::grpc::v1::partitions::PartitionRaw> partitions;
+  ASSERT_NO_THROW(partitions = client.list_partitions(filters, total));
   for (auto &&partition : partitions) {
     std::cout << *partition.mutable_id() << std::endl;
   }
-  ASSERT_TRUE(!partitions.empty());
-  ASSERT_EQ(partitions.size(), 1);
-  ASSERT_EQ(partitions.size(), total);
+  ASSERT_TRUE(rpcCalled("Partitions", "ListPartitions"));
 }
+
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Partitions, z_service_fully_implemented) { all_rpc_called("Partitions"); }

@@ -20,6 +20,7 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-ge
     libgrpc++-dev \
     libprotobuf-dev \
     libfmt-dev \
+    libcurl4-openssl-dev \
 	&& apt-get clean
 
 ENV protobuf_BUILD_TESTS=OFF
