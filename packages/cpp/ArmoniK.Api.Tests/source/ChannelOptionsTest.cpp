@@ -24,7 +24,14 @@ armonik::api::grpc::v1::TaskOptions default_task_options() {
   return default_task_options;
 }
 
-TEST(Options, no_options) {
+size_t num_create_session_submitter = 0;
+
+/**
+ * Fixture class for Options, inherit from MockFixture
+ */
+class Options : public MockFixture {};
+
+TEST_F(Options, no_options) {
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
@@ -32,9 +39,11 @@ TEST(Options, no_options) {
   auto channel = ::grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
   armonik::api::client::SubmitterClient client(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
+  num_create_session_submitter++;
+  ASSERT_TRUE(rpcCalled("Submitter", "CreateSession", num_create_session_submitter));
 }
 
-TEST(Options, default_options) {
+TEST_F(Options, default_options) {
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
@@ -43,9 +52,11 @@ TEST(Options, default_options) {
   auto channel = ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(), args);
   armonik::api::client::SubmitterClient client(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
+  num_create_session_submitter++;
+  ASSERT_TRUE(rpcCalled("Submitter", "CreateSession", num_create_session_submitter));
 }
 
-TEST(Options, test_timeout) {
+TEST_F(Options, test_timeout) {
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
@@ -61,4 +72,6 @@ TEST(Options, test_timeout) {
       ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(),
                                   armonik::api::common::utils::getChannelArguments(configuration))));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
+  num_create_session_submitter++;
+  ASSERT_TRUE(rpcCalled("Submitter", "CreateSession", num_create_session_submitter));
 }

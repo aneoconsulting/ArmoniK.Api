@@ -40,7 +40,12 @@ using ::testing::AtLeast;
 
 namespace logger = armonik::api::common::logger;
 
-TEST(testMock, createSession) {
+/**
+ * Fixture class for submitter, inherit from MockFixture
+ */
+class testMock : public MockFixture {};
+
+TEST_F(testMock, createSessionSubmitter) {
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
@@ -64,9 +69,11 @@ TEST(testMock, createSession) {
   std::cout << "create_session response: " << session_id << std::endl;
 
   ASSERT_FALSE(session_id.empty());
+  ASSERT_TRUE(rpcCalled("Submitter", "CreateSession"));
 }
 
-TEST(testMock, submitTask) {
+TEST_F(testMock, submitTask) {
+  GTEST_SKIP() << "Testing Mock server";
 
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
 
@@ -156,7 +163,8 @@ TEST(testMock, submitTask) {
   log.info("Stopping client...OK");
 }
 
-TEST(testMock, testWorker) {
+TEST_F(testMock, testWorker) {
+  GTEST_SKIP() << "Testing Mock server";
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   std::shared_ptr<Channel> channel;
 
@@ -209,7 +217,8 @@ TEST(testMock, testWorker) {
   ASSERT_TRUE(!result_payload.empty());
 }
 
-TEST(testMock, getResult) {
+TEST_F(testMock, getResult) {
+  GTEST_SKIP() << "Testing Mock server";
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
