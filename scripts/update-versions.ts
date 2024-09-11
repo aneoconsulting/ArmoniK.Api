@@ -9,6 +9,8 @@ import {
   csharpPatternVersion,
   jsFiles,
   jsPattern,
+  javaFiles,
+  javaPattern,
 } from './versions/_contants'
 
 const [, , ...args] = process.argv
@@ -36,3 +38,6 @@ jsFiles.forEach(_readAndReplace(jsPattern, `"version": "${version}"`))
 
 consola.info('Updating cpp projects to ', version)
 cppFiles.forEach(_readAndReplace(cppPattern, `set(version ${version})`))
+
+consola.info('Updating java projects to ', version)
+javaFiles.forEach(_readAndReplace(javaPattern, `<version>${version}</version>`))
