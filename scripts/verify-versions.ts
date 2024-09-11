@@ -6,6 +6,8 @@ import {
   csharpFiles,
   csharpPatternPackageVersion,
   csharpPatternVersion,
+  javaFiles,
+  javaPattern,
   jsFiles,
   jsPattern,
 } from './versions/_contants'
@@ -22,6 +24,8 @@ consola.info('Finding C# <Version> projects versions')
 csharpFiles.forEach(_readAndFind(csharpPatternVersion, versions))
 consola.info('Finding Cpp projects versions')
 cppFiles.forEach(_readAndFind(cppPattern, versions))
+consola.info('Finding java projects versions')
+javaFiles.forEach(_readAndFind(javaPattern, versions))
 
 const versionsArray = [...versions.values()]
 const uniqueVersions = [...new Set(versionsArray)]
