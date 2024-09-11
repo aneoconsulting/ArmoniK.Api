@@ -6,10 +6,10 @@ import {
   csharpFiles,
   csharpPatternPackageVersion,
   csharpPatternVersion,
-  jsFiles,
-  jsPattern,
   javaFiles,
   javaPattern,
+  jsFiles,
+  jsPattern,
 } from './versions/_contants'
 import { _readAndFind } from './versions/_readAndFind'
 
