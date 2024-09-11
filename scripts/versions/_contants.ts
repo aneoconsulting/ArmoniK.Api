@@ -12,3 +12,6 @@ export const jsFiles = ['packages/angular/projects/aneoconsultingfr/armonik.api.
 
 export const cppPattern = /set\(version (?<version>.*)\)/
 export const cppFiles = ['packages/cpp/CMakeLists.txt']
+
+export const javaPattern = /<version>(?<version>.*)<\/version>/
+export const javaFiles = ['packages/java/pom.xml']
