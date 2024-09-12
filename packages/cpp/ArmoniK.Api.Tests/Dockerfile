@@ -41,6 +41,7 @@ COPY packages/cpp/ArmoniK.Api.Tests/. ./ArmoniK.Api.Tests/
 COPY packages/cpp/CMakeLists.txt .
 COPY packages/cpp/Packaging.cmake .
 COPY packages/cpp/Dependencies.cmake .
+COPY packages/cpp/certs ./certs/
 
 WORKDIR /app/build
 RUN cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/source/Protos -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_WORKER=OFF -DBUILD_TEST=ON /app/source/ && make -j $(nproc) install
