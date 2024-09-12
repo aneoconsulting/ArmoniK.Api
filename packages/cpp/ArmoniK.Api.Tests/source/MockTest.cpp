@@ -31,9 +31,12 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
   std::cout << call_endpoint << std::endl;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
-    curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
-    curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    if(config.get("Grpc__mTLS") == "true"){
+      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
+      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    }
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
@@ -72,8 +75,10 @@ bool all_rpc_called(absl::string_view service_name, const std::vector<std::strin
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
-    curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
-    curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    if(config.get("Grpc__mTLS") == "true") {
+      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
+      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    }
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
@@ -123,8 +128,10 @@ void clean_up() {
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, reset_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
-    curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
-    curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    if(config.get("Grpc__mTLS") == "true") {
+      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
+      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    }
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     auto res = curl_easy_perform(curl);
