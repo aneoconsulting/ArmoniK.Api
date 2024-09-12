@@ -181,9 +181,12 @@ jobs:
             http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" http:clientcert="$CertFolder/client-ca.pem" \
             & mtls_pid=$!
           sleep 5
-
+          set -e
           cd ../cpp/tools
           ./run_test.sh
           docker run --rm -t --network host -e Grpc__EndPoint=localhost:5000 -e Http__EndPoint="localhost:4999" "armonik-api-cpp:0.1.0"
           docker run --rm -t --network host -e Grpc__EndPoint=https://localhost:5001 -e Http__EndPoint="https://localhost:5001" -e Grpc__CaCert="/app/source/certs/server1-ca.pem" "armonik-api-cpp:0.1.0"
           docker run --rm -t --network host -e Grpc__EndPoint=https://localhost:5003 -e Http__EndPoint="https://localhost:5003" -e Grpc__SSLValidation="enable" -e Grpc__mTLS="true" -e Grpc__CaCert="/app/source/certs/server1.pem" -e Grpc__ClientCert="/app/source/certs/client.pem" -e Grpc__ClientKey="/app/source/certs/client.key" "armonik-api-cpp:0.1.0"
+          set +e
+          kill $notls_pid $tls_pid $mtls_pid
+          exit $ret
