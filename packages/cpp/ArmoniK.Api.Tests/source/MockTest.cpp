@@ -27,13 +27,11 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
   std::string call_endpoint = config.get("Http__EndPoint") + "/calls.json";
   auto curl = curl_easy_init();
   std::string read_buffer;
-  std::cout << endpoint << std::endl;
-  std::cout << call_endpoint << std::endl;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
-    if(config.get("Grpc__mTLS") == "true"){
+    if (config.get("Grpc__mTLS") == "true") {
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
     }
@@ -71,11 +69,10 @@ bool all_rpc_called(absl::string_view service_name, const std::vector<std::strin
   std::string call_endpoint = config.get("Http__EndPoint") + "/calls.json";
   auto curl = curl_easy_init();
   std::string read_buffer;
-  std::cout << endpoint << std::endl;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
-    if(config.get("Grpc__mTLS") == "true") {
+    if (config.get("Grpc__mTLS") == "true") {
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
     }
@@ -128,7 +125,7 @@ void clean_up() {
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, reset_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
-    if(config.get("Grpc__mTLS") == "true") {
+    if (config.get("Grpc__mTLS") == "true") {
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
     }
