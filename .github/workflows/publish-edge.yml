@@ -271,7 +271,9 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
       - name: Publish package
-        run: mvn --batch-mode deploy versions:set -DnewVersion=${{ needs.version.outputs.version }}
+        run: |
+          mvn versions:set -DnewVersion=${{ needs.version.outputs.version }}
+          mvn --batch-mode deploy -DskipTests
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
