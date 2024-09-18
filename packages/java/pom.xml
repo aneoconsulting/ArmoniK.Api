@@ -7,7 +7,7 @@
   <groupId>fr.aneo</groupId>
   <artifactId>armonik-java</artifactId>
   <description>GRPC java binding for the Armonik orchestrator API</description>
-  <version>3.21.0</version>
+  <version>3.21.0-test-SNAP-001</version>
 
 	<name>armonik-java</name>
 	<url>https://github.com/aneoconsulting/ArmoniK.Api</url>
@@ -49,15 +49,15 @@
     <protobuf-maven-plugin.version>0.6.1</protobuf-maven-plugin.version>
     <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
     <proto.path>../../Protos/V1</proto.path>
-    <sl4j.version>2.0.12</sl4j.version>
-    <logback.version>1.5.5</logback.version>
+    <sl4j.version>2.0.16</sl4j.version>
+    <logback.version>1.5.8</logback.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>io.grpc</groupId>
-      <artifactId>grpc-netty</artifactId>
-      <version>1.62.2</version>
+      <artifactId>grpc-netty-shaded</artifactId>
+      <version>1.66.0</version>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/io.projectreactor/reactor-core -->
@@ -71,12 +71,12 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
-      <version>1.62.2</version>
+      <version>1.66.0</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
-      <version>1.62.2</version>
+      <version>1.66.0</version>
     </dependency>
     <dependency>
       <groupId>org.xolstice.maven.plugins</groupId>
@@ -94,13 +94,6 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>${logback.version}</version>
-    </dependency>
-
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>${sl4j.version}</version>
     </dependency>
 
     <dependency>
@@ -233,4 +226,21 @@
      </plugin>
     </plugins>
   </build>
+
+
+  <dependencyManagement>
+  
+
+    <dependencies>
+    
+
+      <dependency>
+        <groupId>com.google.errorprone</groupId>
+        <artifactId>error_prone_annotations</artifactId>
+        <version>2.28.0</version>
+      </dependency>
+
+    </dependencies>
+
+  </dependencyManagement>
 </project>
