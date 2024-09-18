@@ -43,8 +43,6 @@ TEST_F(Options, no_options) {
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
   std::string server_address = configuration.get("Grpc__EndPoint");
-  // auto args = armonik::api::common::utils::getChannelArguments(configuration);
-  // auto channel = ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(), args);
   armonik::api::client::ChannelFactory channel_factory(configuration, logger);
 
   auto channel = channel_factory.create_channel();
@@ -60,8 +58,6 @@ TEST_F(Options, default_options) {
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
   std::string server_address = configuration.get("Grpc__EndPoint");
-  auto args = armonik::api::common::utils::getChannelArguments(configuration);
-  // auto channel = ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(), args);
   armonik::api::client::ChannelFactory channel_factory(configuration, logger);
 
   auto channel = channel_factory.create_channel();
