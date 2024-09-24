@@ -133,13 +133,79 @@ jobs:
           reporter: dotnet-trx
 
   cpp:
+    env:
+      CertFolder: "$PWD/../cpp/certs"
     strategy:
       fail-fast: false
       matrix:
         endpoint:
-          - {grpc_port: 5000, http_port: 4999, ssl_validation: '', client_cert: ''}
-          - {grpc_port: 5001, http_port: 5001, ssl_validation: enable, client_cert: ''}
-          - {grpc_port: 5003, http_port: 5003, ssl_validation: enable, client_cert: 'true'}
+          - mock_env:
+              Grpc__Port: 5000
+              Http_Port: 4999
+            test_env:
+              Grpc__Endpoint: http://localhost:5000
+              Http__Endpoint: http://localhost:4999
+          - mock_env:
+              Grpc__Port: 5001
+              Http_Port: 5001
+              Http__Cert: ../cpp/certs/server1.pem
+              Http__Key: ../cpp/certs/server1.key
+            test_env:
+              Grpc__Endpoint: https://localhost:5001
+              Grpc__SSLValidation: enable
+              Grpc__CaCert: /app/source/certs/server1-ca.pem
+          - mock_env:
+              Grpc__Port: 5002
+              Http_Port: 5002
+              Http__Cert: ../cpp/certs/server2.pem
+              Http__Key: ../cpp/certs/server2.key
+            test_env:
+              Grpc__Endpoint: https://localhost:5002
+              Grpc__SSLValidation: enable
+          - mock_env:
+              Grpc__Port: 5003
+              Http_Port: 5003
+              Http__Cert: ../cpp/certs/server1.pem
+              Http__Key: ../cpp/certs/server1.key
+              Client__Cert: ../cpp/certs/client-ca.pem
+            test_env:
+              Grpc__Endpoint: https://localhost:5003
+              Grpc__SSLValidation: enable
+              Grpc__CaCert: /app/source/certs/server1-ca.pem
+              Grpc__ClientCert: /app/source/certs/client.pem
+              Grpc__ClientKey: /app/source/certs/client.key
+          - mock_env:
+              Grpc__Port: 5004
+              Http_Port: 5004
+              Http__Cert: ../cpp/certs/server2.pem
+              Http__Key: ../cpp/certs/server2.key
+              Client__Cert: ../cpp/certs/client-ca.pem
+            test_env:
+              Grpc__Endpoint: https://localhost:5004
+              Grpc__SSLValidation: enable
+              Grpc__ClientCert: /app/source/certs/client.pem
+              Grpc__ClientKey: /app/source/certs/client.key
+          - mock_env:
+              Grpc__Port: 5004
+              Http_Port: 5004
+              Http__Cert: ../cpp/certs/server2.pem
+              Http__Key: ../cpp/certs/server2.key
+              Client__Cert: ../cpp/certs/client-ca.pem
+            test_env:
+              Grpc__Endpoint: https://localhost:5004
+              Grpc__SSLValidation: enable
+              Grpc__ClientCert: /app/source/certs/client-client.pem
+          
+          - mock_env:
+              Grpc__Port: 5004
+              Http_Port: 5004
+              Http__Cert: ../cpp/certs/server2.pem
+              Http__Key: ../cpp/certs/server2.key
+              Client__Cert: ../cpp/certs/client-ca.pem
+            test_env:
+              Grpc__Endpoint: https://localhost:5004
+              Grpc__SSLValidation: enable
+              Grpc__ClientCert: /app/source/certs/client.p12
 
     name: Test C++
     runs-on: ubuntu-latest
@@ -180,13 +246,12 @@ jobs:
       - name: Run Mock servers
         working-directory: packages/csharp/
         shell: bash
+        env: ${{ matrix.endpoint.mock_env }}
         run: |
+          env
           export CertFolder="$PWD/../cpp/certs"
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=${{ matrix.endpoint.grpc_port }} http:port=${{ matrix.endpoint.http_port }} \
-            $([[ "${{ matrix.endpoint.ssl_validation }}" == "enable" ]] && echo "http:cert=$CertFolder/server1.pem http:key=$CertFolder/server1.key") \
-            $([[ "${{ matrix.endpoint.client_cert }}" == "true" ]] && echo "http:clientcert=$CertFolder/client-ca.pem") \
-            & echo "server_pid=$!" >> $GITHUB_ENV
+          ./out/ArmoniK.Api.Mock.exe grpc:port=$Grpc__Port http:port=$Http_Port &
+          echo "server_pid=$!" >> $GITHUB_ENV
           sleep 5
 
       - name: Build Test
@@ -195,14 +260,16 @@ jobs:
           ./run_test.sh
 
       - name: Run Test
+        env: ${{ matrix.endpoint.test_env }}
         run: |
+          env
           docker run --rm -t --network host \
-            -e Grpc__EndPoint=$( [ ${{ matrix.endpoint.grpc_port }} -eq 5000 ] && echo "http" || echo "https" )://localhost:${{ matrix.endpoint.grpc_port }} \
-            -e Http__EndPoint=$( [ ${{ matrix.endpoint.grpc_port }} -eq 5000 ] && echo "http" || echo "https" )://localhost:${{ matrix.endpoint.http_port }} \
-            $([[ "${{ matrix.endpoint.ssl_validation }}" == "enable" ]] && echo "-e Grpc__SSLValidation=enable -e Grpc__CaCert=/app/source/certs/server1-ca.pem") \
-            $([[ "${{ matrix.endpoint.grpc_port }}" == "5003" ]] && echo "-e Grpc__mTLS=true -e Grpc__CaCert=/app/source/certs/server1.pem -e Grpc__ClientCert=/app/source/certs/client.pem -e Grpc__ClientKey=/app/source/certs/client.key") \
+            -e Grpc__EndPoint=$Grpc__Endpoint \
+            -e Http__EndPoint=${Http__Endpoint:-$Grpc__Endpoint} \
+            -e Grpc__SSLValidation=$Grpc__SSLValidation -e Grpc__CaCert=$Grpc__CaCert \
+            -e Grpc__mTLS=$Grpc__mTLS -e Grpc__ClientCert=$Grpc__ClientCert -e Grpc__ClientKey=$Grpc__ClientKey \
             "armonik-api-cpp:0.1.0"
 
       - name: Stop Mock Server
         run: |
-          ps -p $server_pid > /dev/null && kill $server_pid
+          kill $server_pid || true
