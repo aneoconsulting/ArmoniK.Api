@@ -1,5 +1,3 @@
-#include <utility>
-
 #include "events/EventsClient.h"
 #include "events_common.pb.h"
 #include "events_service.grpc.pb.h"
