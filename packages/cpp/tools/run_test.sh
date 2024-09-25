@@ -1,3 +1,5 @@
+#! /bin/sh
+
 script_path="$(dirname "${BASH_SOURCE:-$0}")"
 working_dir="$(realpath "${script_path}/../../../" )"
 dockerfile="${1:-"${working_dir}/packages/cpp/ArmoniK.Api.Tests/Dockerfile"}"
