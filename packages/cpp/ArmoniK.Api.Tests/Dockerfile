@@ -19,7 +19,8 @@ RUN apk update && apk add --no-cache \
     grpc-dev \
     protobuf \
     protobuf-dev \
-    curl-dev
+    curl-dev \
+    ca-certificates
 
 # Set environment variables for protobuf
 ENV protobuf_BUILD_TESTS=OFF
@@ -41,7 +42,6 @@ COPY packages/cpp/ArmoniK.Api.Tests/. ./ArmoniK.Api.Tests/
 COPY packages/cpp/CMakeLists.txt .
 COPY packages/cpp/Packaging.cmake .
 COPY packages/cpp/Dependencies.cmake .
-COPY packages/cpp/certs ./certs/
 
 WORKDIR /app/build
 RUN cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/source/Protos -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_WORKER=OFF -DBUILD_TEST=ON /app/source/ && make -j $(nproc) install
@@ -49,4 +49,4 @@ RUN cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/source/Protos -DCMAKE_
 # CMD ["sh", "-c", "cmake -DCMAKE_BUILD_TYPE=Debug -DPROTO_FILES_DIR=/app/proto -DCMAKE_INSTALL_PREFIX=/app/install -DBUILD_TEST=OFF /app/source/ -DCPACK_GENERATOR=TGZ && make -j $(nproc) install && make package -j"]
 
 # Uncomment the line below if you want the container to start in the bash shell by default
-ENTRYPOINT ["/app/install/bin/ArmoniK.Api.Tests"]
+ENTRYPOINT ["sh", "-c", "update-ca-certificates && /app/install/bin/ArmoniK.Api.Tests"]
