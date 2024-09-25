@@ -167,7 +167,7 @@ jobs:
               Http_Port: 5003
               Http__Cert: ../cpp/certs/server1.pem
               Http__Key: ../cpp/certs/server1.key
-              Client__Cert: ../cpp/certs/client-ca.pem
+              Http__ClientCert: ../cpp/certs/client-ca.pem
             test_env:
               Grpc__Endpoint: https://localhost:5003
               Grpc__SSLValidation: enable
@@ -179,7 +179,7 @@ jobs:
               Http_Port: 5004
               Http__Cert: ../cpp/certs/server2.pem
               Http__Key: ../cpp/certs/server2.key
-              Client__Cert: ../cpp/certs/client-ca.pem
+              Http__ClientCert: ../cpp/certs/client-ca.pem
             test_env:
               Grpc__Endpoint: https://localhost:5004
               Grpc__SSLValidation: enable
@@ -190,7 +190,7 @@ jobs:
               Http_Port: 5004
               Http__Cert: ../cpp/certs/server2.pem
               Http__Key: ../cpp/certs/server2.key
-              Client__Cert: ../cpp/certs/client-ca.pem
+              Http__ClientCert: ../cpp/certs/client-ca.pem
             test_env:
               Grpc__Endpoint: https://localhost:5004
               Grpc__SSLValidation: enable
@@ -201,7 +201,7 @@ jobs:
               Http_Port: 5004
               Http__Cert: ../cpp/certs/server2.pem
               Http__Key: ../cpp/certs/server2.key
-              Client__Cert: ../cpp/certs/client-ca.pem
+              Http__ClientCert: ../cpp/certs/client-ca.pem
             test_env:
               Grpc__Endpoint: https://localhost:5004
               Grpc__SSLValidation: enable
@@ -264,13 +264,10 @@ jobs:
         run: |
           env
           docker run --rm -t --network host \
-            -e Grpc__EndPoint="$Grpc__Endpoint" \
-            -e Http__EndPoint="${Http__Endpoint:-$Grpc__Endpoint}" \
-            -e Grpc__SSLValidation="$Grpc__SSLValidation" \
-            -e Grpc__CaCert="$Grpc__CaCert" \
-            -e Grpc__mTLS="$Grpc__mTLS" \
-            -e Grpc__ClientCert="$Grpc__ClientCert" \ 
-            -e Grpc__ClientKey="$Grpc__ClientKey" \
+            -e Grpc__EndPoint=$Grpc__Endpoint \
+            -e Http__EndPoint=${Http__Endpoint:-$Grpc__Endpoint} \
+            -e Grpc__SSLValidation=$Grpc__SSLValidation -e Grpc__CaCert=$Grpc__CaCert \
+            -e Grpc__mTLS=$Grpc__mTLS -e Grpc__ClientCert=$Grpc__ClientCert -e Grpc__ClientKey=$Grpc__ClientKey \
             "armonik-api-cpp:0.1.0"
 
       - name: Stop Mock Server
