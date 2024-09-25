@@ -133,21 +133,19 @@ jobs:
           reporter: dotnet-trx
 
   cpp:
-    env:
-      CertFolder: "$PWD/../cpp/certs"
     strategy:
       fail-fast: false
       matrix:
         endpoint:
           - mock_env:
               Grpc__Port: 5000
-              Http_Port: 4999
+              Http__Port: 4999
             test_env:
               Grpc__Endpoint: http://localhost:5000
               Http__Endpoint: http://localhost:4999
           - mock_env:
               Grpc__Port: 5001
-              Http_Port: 5001
+              Http__Port: 5001
               Http__Cert: ../cpp/certs/server1.pem
               Http__Key: ../cpp/certs/server1.key
             test_env:
@@ -156,7 +154,7 @@ jobs:
               Grpc__CaCert: /app/source/certs/server1-ca.pem
           - mock_env:
               Grpc__Port: 5002
-              Http_Port: 5002
+              Http__Port: 5002
               Http__Cert: ../cpp/certs/server2.pem
               Http__Key: ../cpp/certs/server2.key
             test_env:
@@ -164,48 +162,29 @@ jobs:
               Grpc__SSLValidation: enable
           - mock_env:
               Grpc__Port: 5003
-              Http_Port: 5003
+              Http__Port: 5003
               Http__Cert: ../cpp/certs/server1.pem
               Http__Key: ../cpp/certs/server1.key
               Http__ClientCert: ../cpp/certs/client-ca.pem
             test_env:
               Grpc__Endpoint: https://localhost:5003
               Grpc__SSLValidation: enable
+              Grpc__mTLS: true
               Grpc__CaCert: /app/source/certs/server1-ca.pem
               Grpc__ClientCert: /app/source/certs/client.pem
               Grpc__ClientKey: /app/source/certs/client.key
           - mock_env:
               Grpc__Port: 5004
-              Http_Port: 5004
+              Http__Port: 5004
               Http__Cert: ../cpp/certs/server2.pem
               Http__Key: ../cpp/certs/server2.key
               Http__ClientCert: ../cpp/certs/client-ca.pem
             test_env:
               Grpc__Endpoint: https://localhost:5004
               Grpc__SSLValidation: enable
+              Grpc__mTLS: true
               Grpc__ClientCert: /app/source/certs/client.pem
               Grpc__ClientKey: /app/source/certs/client.key
-          - mock_env:
-              Grpc__Port: 5004
-              Http_Port: 5004
-              Http__Cert: ../cpp/certs/server2.pem
-              Http__Key: ../cpp/certs/server2.key
-              Http__ClientCert: ../cpp/certs/client-ca.pem
-            test_env:
-              Grpc__Endpoint: https://localhost:5004
-              Grpc__SSLValidation: enable
-              Grpc__ClientCert: /app/source/certs/client-client.pem
-          
-          - mock_env:
-              Grpc__Port: 5004
-              Http_Port: 5004
-              Http__Cert: ../cpp/certs/server2.pem
-              Http__Key: ../cpp/certs/server2.key
-              Http__ClientCert: ../cpp/certs/client-ca.pem
-            test_env:
-              Grpc__Endpoint: https://localhost:5004
-              Grpc__SSLValidation: enable
-              Grpc__ClientCert: /app/source/certs/client.p12
 
     name: Test C++
     runs-on: ubuntu-latest
@@ -248,28 +227,33 @@ jobs:
         shell: bash
         env: ${{ matrix.endpoint.mock_env }}
         run: |
-          env
           export CertFolder="$PWD/../cpp/certs"
-          ./out/ArmoniK.Api.Mock.exe grpc:port=$Grpc__Port http:port=$Http_Port &
+          ./out/ArmoniK.Api.Mock.exe > mock.log 2>&1 &
           echo "server_pid=$!" >> $GITHUB_ENV
           sleep 5
 
       - name: Build Test
-        working-directory: packages/cpp/tools
+        working-directory: packages/cpp
         run: |
-          ./run_test.sh
+          ./tools/run_test.sh
 
       - name: Run Test
         env: ${{ matrix.endpoint.test_env }}
         run: |
-          env
-          docker run --rm -t --network host \
-            -e Grpc__EndPoint=$Grpc__Endpoint \
-            -e Http__EndPoint=${Http__Endpoint:-$Grpc__Endpoint} \
-            -e Grpc__SSLValidation=$Grpc__SSLValidation -e Grpc__CaCert=$Grpc__CaCert \
-            -e Grpc__mTLS=$Grpc__mTLS -e Grpc__ClientCert=$Grpc__ClientCert -e Grpc__ClientKey=$Grpc__ClientKey \
+          echo "$PWD/packages/cpp/certs"
+          docker run --rm -t --network host -v "$PWD/packages/cpp/certs:/app/source/certs" -v "/usr/local/share/ca-certificates/:/usr/local/share/ca-certificates" \
+            -e Grpc__EndPoint="$Grpc__Endpoint" \
+            -e Http__EndPoint="${Http__Endpoint:-$Grpc__Endpoint}" \
+            ${Grpc__SSLValidation:+-e Grpc__SSLValidation="$Grpc__SSLValidation"} \
+            ${Grpc__CaCert:+-e Grpc__CaCert="$Grpc__CaCert"} \
+            ${Grpc__mTLS:+-e Grpc__mTLS="$Grpc__mTLS"} \
+            ${Grpc__ClientCert:+-e Grpc__ClientCert="$Grpc__ClientCert"} \
+            ${Grpc__ClientKey:+-e Grpc__ClientKey="$Grpc__ClientKey"} \
             "armonik-api-cpp:0.1.0"
 
       - name: Stop Mock Server
+        if: always()
+        working-directory: packages/csharp/
         run: |
           kill $server_pid || true
+          cat mock.log
