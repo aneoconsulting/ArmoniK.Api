@@ -30,7 +30,11 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-    curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    if (!config.get("Grpc__CaCert").empty()) {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    } else {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
+    }
     if (config.get("Grpc__mTLS") == "true") {
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
@@ -71,7 +75,11 @@ bool all_rpc_called(absl::string_view service_name, const std::vector<std::strin
   std::string read_buffer;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
-    curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    if (!config.get("Grpc__CaCert").empty()) {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    } else {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
+    }
     if (config.get("Grpc__mTLS") == "true") {
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
@@ -124,7 +132,11 @@ void clean_up() {
   std::string read_buffer;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, reset_endpoint.c_str());
-    curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    if (!config.get("Grpc__CaCert").empty()) {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    } else {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
+    }
     if (config.get("Grpc__mTLS") == "true") {
       curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
       curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
