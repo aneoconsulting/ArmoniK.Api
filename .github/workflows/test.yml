@@ -46,6 +46,32 @@ jobs:
           - dotnet:
               version: 8.0
             handler: GrpcWebHandler
+        endpoint:
+          - mock_env:
+              Grpc__Port: 5000
+              Http__Port: 4999
+          - mock_env:
+              Grpc__Port: 5001
+              Http__Port: 5001
+              Http__Cert: certs/server1.pem
+              Http__Key: certs/server1.key
+          - mock_env:
+              Grpc__Port: 5002
+              Http__Port: 5002
+              Http__Cert: certs/server2.pem
+              Http__Key: certs/server2.key
+          - mock_env:
+              Grpc__Port: 5003
+              Http__Port: 5003
+              Http__Cert: certs/server1.pem
+              Http__Key: certs/server1.key
+              Http__ClientCert: certs/client-ca.pem
+          - mock_env:
+              Grpc__Port: 5004
+              Http__Port: 5004
+              Http__Cert: certs/server2.pem
+              Http__Key: certs/server2.key
+              Http__ClientCert: certs/client-ca.pem
     runs-on: ${{ matrix.platform.os }}
 
     steps:
@@ -88,41 +114,33 @@ jobs:
           dotnet publish -o ../out
           [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
 
-      - name: Test
+      - name: Run Mock servers
+        working-directory: packages/csharp/
+        shell: bash
+        env: ${{ matrix.endpoint.mock_env }}
+        run: |
+          export CertFolder="$PWD/certs"
+          printenv | grep Grpc
+          ./out/ArmoniK.Api.Mock.exe &
+          echo "server_pid=$!" >> $GITHUB_ENV
+          sleep 5
+
+      - name: Run Test
         working-directory: packages/csharp/
         shell: bash
         env:
           GrpcClient__HttpMessageHandler: ${{ matrix.handler }}
         run: |
-          set +e
-          set -x
-          export CertFolder="$PWD/certs"
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5000 http:port=4999 \
-            & notls_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5001 http:port=5001 \
-            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" \
-            & tls_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5002 http:port=5002 \
-            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" \
-            & tlsstore_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5003 http:port=5003 \
-            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" http:clientcert="$CertFolder/client-ca.pem" \
-            & mtls_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5004 http:port=5004 \
-            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" http:clientcert="$CertFolder/client-ca.pem" \
-            & mtlsstore_pid=$!
-          sleep 5
-
           cd ArmoniK.Api.Client.Test
           dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?
 
-          kill $notls_pid $tls_pid $tlsstore_pid $mtls_pid $mtlsstore_pid
           exit $ret
+
+      - name: Stop Mock Server
+        if: always()
+        working-directory: packages/csharp/
+        run: |
+          kill $server_pid || true
 
       - name: Test Report
         uses: dorny/test-reporter@v1
