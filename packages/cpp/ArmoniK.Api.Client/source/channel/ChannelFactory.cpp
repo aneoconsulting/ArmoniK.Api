@@ -108,17 +108,18 @@ bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPl
  * @param userPrivatePem The client key for mTLS
  * @return a pointer to a certificate provider interface
  */
-std::shared_ptr<CertificateProviderInterface> create_certificate_provider(const std::string &rootCertificate,
-                                                                          const std::string &userPublicPem,
-                                                                          const std::string &userPrivatePem) {
+std::shared_ptr<CertificateProviderInterface> create_certificate_provider(absl::string_view rootCertificate,
+                                                                          absl::string_view userPublicPem,
+                                                                          absl::string_view userPrivatePem) {
   if (rootCertificate.empty()) {
     return std::make_shared<StaticDataCertificateProvider>(
-        std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{userPrivatePem, userPublicPem}});
+        std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{userPrivatePem.data(), userPublicPem.data()}});
   } else if (userPrivatePem.empty() || userPublicPem.empty()) {
-    return std::make_shared<StaticDataCertificateProvider>(rootCertificate);
+    return std::make_shared<StaticDataCertificateProvider>(rootCertificate.data());
   } else {
     return std::make_shared<StaticDataCertificateProvider>(
-        rootCertificate, std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{userPrivatePem, userPublicPem}});
+        rootCertificate.data(),
+        std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{userPrivatePem.data(), userPublicPem.data()}});
   }
 }
 
