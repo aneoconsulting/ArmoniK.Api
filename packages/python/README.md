@@ -81,6 +81,68 @@ The test environment utilizes a mock endpoint to assert if the ArmoniK service h
 curl localhost:5000/calls.json | jq
 ```
 
+In prevision of the API test, run the following command:
+
+```bash
+curl localhost:5000/calls.json | jq '.Tasks'
+```
+
+You should have as output:
+
+```json
+{
+  "GetTask": 0,
+  "ListTasks": 0,
+  "GetResultIds": 0,
+  "CancelTasks": 0,
+  "CountTasksByStatus": 0,
+  "ListTasksDetailed": 0,
+  "SubmitTasks": 0
+}
+```
+
+### **Configure gRPC channel and test API calls**
+
+Once the endpoint runs, you can initiate a gRPC channel to it with a Python client. 
+
+Below is an example using a Tasks client and calling the `list_tasks` method:
+
+```python
+import grpc
+import armonik.client
+with grpc.insecure_channel("localhost:5001") as channel:
+    tasks_client = ArmoniKTasks(channel)
+    tasks.client.list_tasks()
+```
+
+Port `5001` is actually ArmoniK's control-plane endpoint.
+
+For the sake of simplicity, the example gRPC channel here is an insecure one. **You should never do that in production environment.**
+
+### **Check if API call was successful**
+
+Execute the Python code snippet above and re-run command:
+
+```bash
+curl localhost:5000/calls.json | jq '.Tasks'
+```
+
+You should have as output:
+
+```json
+{
+  "GetTask": 0,
+  "ListTasks": 0,
+  "GetResultIds": 0,
+  "CancelTasks": 0,
+  "CountTasksByStatus": 0,
+  "ListTasksDetailed": 1,
+  "SubmitTasks": 0
+}
+```
+
+You can see that attribute `ListTasksDetailed` was incremented, meaning that the API effectively handled your call ! 
+
 ## WARNING
 
 ### Note for Users
