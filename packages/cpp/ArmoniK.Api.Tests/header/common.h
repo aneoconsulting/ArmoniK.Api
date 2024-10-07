@@ -23,8 +23,7 @@ void init(std::shared_ptr<grpc::Channel> &channel, armonik::api::grpc::v1::TaskO
  * @param num_calls the number of call of rpc
  * @return
  */
-bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int num_calls = 1,
-               absl::string_view endpoint = "http://localhost:4999/calls.json");
+bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int num_calls = 1);
 
 /**
  *
@@ -32,14 +31,13 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
  * @param endpoint the call endpoint
  * @return
  */
-bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings = {},
-                    absl::string_view endpoint = "http://localhost:4999/calls.json");
+bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings = {});
 
 /**
  *
  * @param endpoint The reset endpoint
  */
-void clean_up(absl::string_view endpoint = "http://localhost:4999/reset");
+void clean_up();
 
 /**
  * A fixture class to reset the RPC calls
