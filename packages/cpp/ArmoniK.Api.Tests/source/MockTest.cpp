@@ -20,14 +20,13 @@ size_t WriteCallback(void *ptr, size_t size, size_t num_elt, std::string *data) 
   return size * num_elt;
 }
 
-bool rpcCalled(const std::string &service_name, const std::string &rpc_name, int num_calls,
-               const std::string &endpoint) {
+bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int num_calls, absl::string_view endpoint) {
 
   auto curl = curl_easy_init();
   std::string read_buffer;
   std::cout << endpoint << std::endl;
   if (curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, endpoint.c_str());
+    curl_easy_setopt(curl, CURLOPT_URL, endpoint.data());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
 
@@ -43,7 +42,7 @@ bool rpcCalled(const std::string &service_name, const std::string &rpc_name, int
 
   try {
     dom::element response_json = parser.parse(read_buffer);
-    if (response_json[service_name][rpc_name].get_int64() == num_calls) {
+    if (response_json[service_name.data()][rpc_name.data()].get_int64() == num_calls) {
       return true;
     }
   } catch (const simdjson_error &e) {
@@ -53,13 +52,13 @@ bool rpcCalled(const std::string &service_name, const std::string &rpc_name, int
   return false;
 }
 
-bool all_rpc_called(const std::string &service_name, const std::vector<std::string> &missings,
-                    const std::string &endpoint) {
+bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings,
+                    absl::string_view endpoint) {
   auto curl = curl_easy_init();
   std::string read_buffer;
   std::cout << endpoint << std::endl;
   if (curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, endpoint.c_str());
+    curl_easy_setopt(curl, CURLOPT_URL, endpoint.data());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &read_buffer);
 
@@ -76,11 +75,11 @@ bool all_rpc_called(const std::string &service_name, const std::vector<std::stri
   try {
     dom::element response_json = parser.parse(read_buffer);
 
-    dom::array rpcs = response_json[service_name];
+    dom::array rpcs = response_json[service_name.data()];
 
     std::vector<std::string> missing_rpcs;
-    for (auto rpc_name : response_json[service_name].get_array()) {
-      if (response_json[service_name][rpc_name].get_int64() == 0) {
+    for (auto rpc_name : response_json[service_name.data()].get_array()) {
+      if (response_json[service_name.data()][rpc_name].get_int64() == 0) {
         missing_rpcs.emplace_back(rpc_name.get_string().value().data());
       }
     }
@@ -101,11 +100,11 @@ bool all_rpc_called(const std::string &service_name, const std::vector<std::stri
   return true;
 }
 
-void clean_up(const std::string &endpoint) {
+void clean_up(absl::string_view endpoint) {
   auto curl = curl_easy_init();
   std::string read_buffer;
   if (curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, endpoint.c_str());
+    curl_easy_setopt(curl, CURLOPT_URL, endpoint.data());
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     auto res = curl_easy_perform(curl);
     if (res != CURLE_OK) {
