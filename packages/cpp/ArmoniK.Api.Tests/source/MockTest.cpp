@@ -20,7 +20,7 @@ size_t WriteCallback(void *ptr, size_t size, size_t num_elt, std::string *data) 
   return size * num_elt;
 }
 
-bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int num_calls, absl::string_view endpoint) {
+bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int num_calls) {
 
   armonik::api::common::utils::Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
@@ -59,15 +59,14 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
       return true;
     }
     std::cout << "Given number of RPC calls " << num_calls << std::endl;
-    std::cout << "Actual number of RPC calls " << response_json[service_name][rpc_name] << std::endl;
+    std::cout << "Actual number of RPC calls " << response_json[service_name.data()][rpc_name.data()] << std::endl;
   } catch (const simdjson_error &e) {
     std::cerr << "Failed to parse JSON: " << e.what() << std::endl;
   }
   return false;
 }
 
-bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings,
-                    absl::string_view endpoint) {
+bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings) {
   armonik::api::common::utils::Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
   std::string call_endpoint = config.get("Http__EndPoint") + "/calls.json";
