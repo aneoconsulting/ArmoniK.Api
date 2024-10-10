@@ -144,9 +144,6 @@ jobs:
         shell: bash
         env: ${{ matrix.endpoint.test_env }}
         run: |
-          echo "Grpc__CaCert: $Grpc__CaCert"
-          echo "Grpc__ClientCert: $Grpc__ClientCert"
-          echo "Grpc__ClientKey: $Grpc__ClientKey"
           export GrpcClient__HttpMessageHandler=${{ matrix.handler }}
           if [ -n "$Grpc__CaCert" ]; then
             export Grpc__CaCert=${{ github.workspace }}/$Grpc__CaCert
@@ -157,9 +154,6 @@ jobs:
           if [ -n "$Grpc__ClientKey" ]; then
             export Grpc__ClientKey=${{ github.workspace }}/$Grpc__ClientKey
           fi
-          echo "Grpc__CaCert: $Grpc__CaCert"
-          echo "Grpc__ClientCert: $Grpc__ClientCert"
-          echo "Grpc__ClientKey: $Grpc__ClientKey"
           cd ArmoniK.Api.Client.Test
           dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?
 
