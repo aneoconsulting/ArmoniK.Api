@@ -46,7 +46,13 @@ public class ConnectivityTests
     keyPath_        = Environment.GetEnvironmentVariable("Grpc__ClientKey")                ?? "";
     CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
     MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
-    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
+    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint");
+    if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler_.ToLower()
+                                                                                              .Contains("web"))
+    {
+      endpoint_ = endpoint_ ?? "http://localhost:4999";
+    }
+    endpoint_ = endpoint_ ?? "http://localhost:5000";
   }
 
   [TearDown]
