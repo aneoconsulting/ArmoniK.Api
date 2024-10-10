@@ -21,9 +21,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
+using ArmoniK.Api.Client.Options;
+using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Utils;
@@ -35,10 +39,44 @@ namespace ArmoniK.Api.Client.Tests;
 [TestFixture]
 public class ConnectivityTests
 {
-  [Test]
-  public void ResultsGetServiceConfiguration([Values] ConnectivityKind connectivityKind)
+  [SetUp]
+  public void SetUp()
   {
-    var channel      = connectivityKind.GetChannel();
+    certPath_       = Environment.GetEnvironmentVariable("Grpc__ClientCert")               ?? "";
+    keyPath_        = Environment.GetEnvironmentVariable("Grpc__ClientKey")                ?? "";
+    CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
+    MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
+    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
+  }
+
+  [TearDown]
+  public void TearDown()
+  {
+  }
+
+  private static string CertFolder
+    => Environment.GetEnvironmentVariable("CertFolder") ?? "../../../../certs";
+
+  private static string? endpoint_;
+  private static string? certPath_;
+  private static string? keyPath_;
+  private static string? CaCertPath_;
+  private static string? MessageHandler_;
+
+  [Test]
+  public void ResultsGetServiceConfiguration()
+  {
+    Console.WriteLine("Endpoint: " + endpoint_);
+    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
+                                                   {
+                                                     Endpoint              = endpoint_,
+                                                     AllowUnsafeConnection = true,
+                                                     CertPem               = certPath_!,
+                                                     KeyPem                = keyPath_!,
+                                                     CaCert                = CaCertPath_!,
+                                                     HttpMessageHandler    = MessageHandler_!,
+                                                   });
+
     var resultClient = new Results.ResultsClient(channel);
 
     Assert.That(() => resultClient.GetServiceConfiguration(new Empty()),
@@ -46,8 +84,7 @@ public class ConnectivityTests
   }
 
   [Test]
-  public async Task MultipleChannels([Values] ConnectivityKind connectivityKind,
-                                     [Values(1,
+  public async Task MultipleChannels([Values(1,
                                              2,
                                              10,
                                              100)]
@@ -56,7 +93,15 @@ public class ConnectivityTests
     var channels = await Enumerable.Range(0,
                                           concurrency)
                                    .ParallelSelect(new ParallelTaskOptions(-1),
-                                                   i => Task.FromResult(connectivityKind.GetChannel()))
+                                                   i => Task.FromResult(GrpcChannelFactory.CreateChannel(new GrpcClient
+                                                                                                         {
+                                                                                                           Endpoint              = endpoint_,
+                                                                                                           AllowUnsafeConnection = true,
+                                                                                                           CertPem               = certPath_!,
+                                                                                                           KeyPem                = keyPath_!,
+                                                                                                           CaCert                = CaCertPath_!,
+                                                                                                           HttpMessageHandler    = MessageHandler_!,
+                                                                                                         })))
                                    .ToListAsync()
                                    .ConfigureAwait(false);
 
