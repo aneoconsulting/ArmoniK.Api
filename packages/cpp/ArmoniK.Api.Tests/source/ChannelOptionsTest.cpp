@@ -1,4 +1,8 @@
+#include "channel/ChannelFactory.h"
 #include "common.h"
+#include "logger/formatter.h"
+#include "logger/logger.h"
+#include "logger/writer.h"
 #include "options/ControlPlane.h"
 #include "utils/Configuration.h"
 #include <grpcpp/create_channel.h>
@@ -6,6 +10,8 @@
 
 #include "submitter/SubmitterClient.h"
 #include "utils/ChannelArguments.h"
+
+using Logger = armonik::api::common::logger::Logger;
 
 armonik::api::grpc::v1::TaskOptions default_task_options() {
   armonik::api::grpc::v1::TaskOptions default_task_options;
@@ -32,11 +38,14 @@ size_t num_create_session_submitter = 0;
 class Options : public MockFixture {};
 
 TEST_F(Options, no_options) {
+  Logger logger{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
   std::string server_address = configuration.get("Grpc__EndPoint");
-  auto channel = ::grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  armonik::api::client::ChannelFactory channel_factory(configuration, logger);
+
+  auto channel = channel_factory.create_channel();
   armonik::api::client::SubmitterClient client(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
   num_create_session_submitter++;
@@ -44,12 +53,14 @@ TEST_F(Options, no_options) {
 }
 
 TEST_F(Options, default_options) {
+  Logger logger{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
   std::string server_address = configuration.get("Grpc__EndPoint");
-  auto args = armonik::api::common::utils::getChannelArguments(configuration);
-  auto channel = ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(), args);
+  armonik::api::client::ChannelFactory channel_factory(configuration, logger);
+
+  auto channel = channel_factory.create_channel();
   armonik::api::client::SubmitterClient client(armonik::api::grpc::v1::submitter::Submitter::NewStub(channel));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
   num_create_session_submitter++;
@@ -57,20 +68,19 @@ TEST_F(Options, default_options) {
 }
 
 TEST_F(Options, test_timeout) {
+  Logger logger{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   armonik::api::common::utils::Configuration configuration;
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
   std::string server_address = configuration.get("Grpc__EndPoint");
   configuration.set(armonik::api::common::options::ControlPlane::RequestTimeoutKey, "0:0:0.001"); // 1ms, way too short
   armonik::api::client::SubmitterClient client(armonik::api::grpc::v1::submitter::Submitter::NewStub(
-      ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(),
-                                  armonik::api::common::utils::getChannelArguments(configuration))));
+      armonik::api::client::ChannelFactory(configuration, logger).create_channel()));
   ASSERT_ANY_THROW(client.create_session(default_task_options(), {}));
   configuration.set(armonik::api::common::options::ControlPlane::RequestTimeoutKey,
                     "0:0:10"); // 10s, should have finished by now
   client = armonik::api::client::SubmitterClient(armonik::api::grpc::v1::submitter::Submitter::NewStub(
-      ::grpc::CreateCustomChannel(server_address, grpc::InsecureChannelCredentials(),
-                                  armonik::api::common::utils::getChannelArguments(configuration))));
+      armonik::api::client::ChannelFactory(configuration, logger).create_channel()));
   ASSERT_NO_THROW(client.create_session(default_task_options(), {}));
   num_create_session_submitter++;
   ASSERT_TRUE(rpcCalled("Submitter", "CreateSession", num_create_session_submitter));
