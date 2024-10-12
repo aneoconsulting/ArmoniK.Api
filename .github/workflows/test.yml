@@ -50,22 +50,19 @@ jobs:
           - mock_env:
               Grpc__Port: 5000
               Http__Port: 4999
-            test_env:
               Grpc__Endpoint: http://localhost:4999
           - mock_env:
               Grpc__Port: 5001
               Http__Port: 5001
               Http__Cert: certs/server1.pem
               Http__Key: certs/server1.key
-            test_env:
               Grpc__Endpoint: https://localhost:5001
-              Grpc__CaCert: /home/runner/work/ArmoniK.Api/ArmoniK.Api/packages/csharp/certs/server1-ca.pem
+              Grpc__CaCert: packages/csharp/certs/server1-ca.pem
           - mock_env:
               Grpc__Port: 5002
               Http__Port: 5002
               Http__Cert: certs/server2.pem
               Http__Key: certs/server2.key
-            test_env:
               Grpc__Endpoint: https://localhost:5002
           - mock_env:
               Grpc__Port: 5003
@@ -73,7 +70,6 @@ jobs:
               Http__Cert: certs/server1.pem
               Http__Key: certs/server1.key
               Http__ClientCert: certs/client-ca.pem
-            test_env:
               Grpc__Endpoint: https://localhost:5003
               Grpc__CaCert: packages/csharp/certs/server1-ca.pem
               Grpc__ClientCert: packages/csharp/certs/client.pem
@@ -84,7 +80,6 @@ jobs:
               Http__Cert: certs/server2.pem
               Http__Key: certs/server2.key
               Http__ClientCert: certs/client-ca.pem
-            test_env:
               Grpc__Endpoint: https://localhost:5004
               Grpc__ClientCert: packages/csharp/certs/client.pem
               Grpc__ClientKey: packages/csharp/certs/client.key
@@ -130,19 +125,10 @@ jobs:
           dotnet publish -o ../out
           [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
 
-      - name: Run Mock servers
-        working-directory: packages/csharp/
-        shell: bash
-        env: ${{ matrix.endpoint.mock_env }}
-        run: |
-          ./out/ArmoniK.Api.Mock.exe &
-          echo "server_pid=$!" >> $GITHUB_ENV
-          sleep 5
-
       - name: Run Test
         working-directory: packages/csharp/
         shell: bash
-        env: ${{ matrix.endpoint.test_env }}
+        env: ${{ matrix.endpoint.mock_env }}
         run: |
           export GrpcClient__HttpMessageHandler=${{ matrix.handler }}
           if [ -n "$Grpc__CaCert" ]; then
@@ -155,9 +141,21 @@ jobs:
             export Grpc__ClientKey=${{ github.workspace }}/$Grpc__ClientKey
           fi
           cd ArmoniK.Api.Client.Test
-          dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?
-
-          exit $ret
+          mock_file="mock_env.env"
+          test_file="test_env.env"
+          mock_conf=("Grpc__Port" "Http__Port" "Http__Cert" "Http__Key" "Http__ClientCert")
+          test_conf=("Grpc__Endpoint" "Grpc__CaCert" "Grpc__ClientCert" "Grpc__ClientKey" "GrpcClient__HttpMessageHandler")
+          for var in "${test_conf[@]}"; do
+            if [ -n "${!var}" ]; then
+              echo "$var=${!var}" >> "$mock_file"
+            fi
+          done
+          for var in "${mock_conf[@]}"; do
+            if [ -n "${!var}" ]; then
+              echo "$var=${!var}" >> "$test_file"
+            fi
+          done
+          ./mock_test.sh mock_env.env test_env.env "dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?"
 
       - name: Test Report
         uses: dorny/test-reporter@v1
