@@ -46,13 +46,7 @@ public class ConnectivityTests
     keyPath_        = Environment.GetEnvironmentVariable("Grpc__ClientKey")                ?? "";
     CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
     MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
-    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint");
-    if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler_.ToLower()
-                                                                                              .Contains("web"))
-    {
-      endpoint_ = endpoint_ ?? "http://localhost:4999";
-    }
-    endpoint_ = endpoint_ ?? "http://localhost:5000";
+    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
   }
 
   [TearDown]
@@ -68,6 +62,7 @@ public class ConnectivityTests
   private static string? keyPath_;
   private static string? CaCertPath_;
   private static string? MessageHandler_;
+  private        bool    isSecure;
 
   [Test]
   public void ResultsGetServiceConfiguration()

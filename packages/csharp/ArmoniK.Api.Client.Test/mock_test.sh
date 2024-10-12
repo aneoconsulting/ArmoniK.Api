@@ -41,7 +41,7 @@ set -a
 source "$TEST_ENV"
 set +a
 
-# $TEST_COMMAND
+$TEST_COMMAND
 set +e
 
 echo $server_pid
