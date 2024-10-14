@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use std::collections::HashMap;
 
 use futures::{Stream, StreamExt};
@@ -14,10 +16,12 @@ use crate::utils::IntoCollection;
 use super::{GrpcCall, GrpcCallStream};
 
 #[derive(Clone)]
+#[deprecated]
 pub struct SubmitterClient<T> {
     inner: v3::submitter::submitter_client::SubmitterClient<T>,
 }
 
+#[allow(deprecated)]
 impl<T> SubmitterClient<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
