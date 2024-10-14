@@ -46,6 +46,43 @@ jobs:
           - dotnet:
               version: 8.0
             handler: GrpcWebHandler
+        endpoint:
+          - mock_env:
+              Grpc__Port: 5000
+              Http__Port: 4999
+              Grpc__Endpoint: http://localhost:5000
+          - mock_env:
+              Grpc__Port: 5001
+              Http__Port: 5001
+              Http__Cert: certs/server1.pem
+              Http__Key: certs/server1.key
+              Grpc__Endpoint: https://localhost:5001
+              Grpc__CaCert: server1-ca.pem
+          - mock_env:
+              Grpc__Port: 5002
+              Http__Port: 5002
+              Http__Cert: certs/server2.pem
+              Http__Key: certs/server2.key
+              Grpc__Endpoint: https://localhost:5002
+          - mock_env:
+              Grpc__Port: 5003
+              Http__Port: 5003
+              Http__Cert: certs/server1.pem
+              Http__Key: certs/server1.key
+              Http__ClientCert: certs/client-ca.pem
+              Grpc__Endpoint: https://localhost:5003
+              Grpc__CaCert: server1-ca.pem
+              Grpc__ClientCert: client.pem
+              Grpc__ClientKey: client.key
+          - mock_env:
+              Grpc__Port: 5004
+              Http__Port: 5004
+              Http__Cert: certs/server2.pem
+              Http__Key: certs/server2.key
+              Http__ClientCert: certs/client-ca.pem
+              Grpc__Endpoint: https://localhost:5004
+              Grpc__ClientCert: client.pem
+              Grpc__ClientKey: client.key
     runs-on: ${{ matrix.platform.os }}
 
     steps:
@@ -88,41 +125,38 @@ jobs:
           dotnet publish -o ../out
           [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
 
-      - name: Test
+      - name: Run Test
         working-directory: packages/csharp/
         shell: bash
-        env:
-          GrpcClient__HttpMessageHandler: ${{ matrix.handler }}
+        env: ${{ matrix.endpoint.mock_env }}
         run: |
-          set +e
-          set -x
+          export GrpcClient__HttpMessageHandler=${{ matrix.handler }}
           export CertFolder="$PWD/certs"
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5000 http:port=4999 \
-            & notls_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5001 http:port=5001 \
-            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" \
-            & tls_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5002 http:port=5002 \
-            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" \
-            & tlsstore_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5003 http:port=5003 \
-            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" http:clientcert="$CertFolder/client-ca.pem" \
-            & mtls_pid=$!
-          ./out/ArmoniK.Api.Mock.exe \
-            grpc:port=5004 http:port=5004 \
-            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" http:clientcert="$CertFolder/client-ca.pem" \
-            & mtlsstore_pid=$!
-          sleep 5
-
+          if [ -n "$Grpc__CaCert" ]; then
+            export Grpc__CaCert=$CertFolder/$Grpc__CaCert
+          fi
+          if [ -n "$Grpc__ClientCert" ]; then
+            export Grpc__ClientCert=$CertFolder/$Grpc__ClientCert
+          fi
+          if [ -n "$Grpc__ClientKey" ]; then
+            export Grpc__ClientKey=$CertFolder/$Grpc__ClientKey
+          fi
           cd ArmoniK.Api.Client.Test
-          dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"; ret=$?
-
-          kill $notls_pid $tls_pid $tlsstore_pid $mtls_pid $mtlsstore_pid
-          exit $ret
+          mock_file="mock_env.env"
+          test_file="test_env.env"
+          mock_conf=("Grpc__Port" "Http__Port" "Http__Cert" "Http__Key" "Http__ClientCert")
+          test_conf=("Grpc__Endpoint" "Grpc__CaCert" "Grpc__ClientCert" "Grpc__ClientKey" "GrpcClient__HttpMessageHandler")
+          for var in "${test_conf[@]}"; do
+            if [ -n "${!var}" ]; then
+              echo "$var=${!var}" >> "$mock_file"
+            fi
+          done
+          for var in "${mock_conf[@]}"; do
+            if [ -n "${!var}" ]; then
+              echo "$var=${!var}" >> "$test_file"
+            fi
+          done
+          ./mock_test.sh mock_env.env test_env.env 'dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"'
 
       - name: Test Report
         uses: dorny/test-reporter@v1
