@@ -9,9 +9,9 @@ pub struct Raw {
     pub name: String,
     /// Application version.
     pub version: String,
-    /// Application namespace used in the excecuted class.
+    /// Application namespace used in the executed class.
     pub namespace: String,
-    /// Application service used in the excecuted class.
+    /// Application service used in the executed class.
     pub service: String,
 }
 

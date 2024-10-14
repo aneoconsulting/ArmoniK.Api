@@ -3,12 +3,18 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum FilterDurationOperator {
+    /// Is equal to the specified duration.
     #[default]
     Equal = 0,
+    /// Is not equal to the specified duration.
     NotEqual = 1,
+    /// Is shorter than the specified duration.
     ShorterThan = 2,
+    /// Is shorter or equal to the specified duration.
     ShorterThanOrEqual = 3,
+    /// Is longer or equal to the specified duration.
     LongerThanOrEqual = 4,
+    /// Is longer than the specified duration.
     LongerThan = 5,
 }
 

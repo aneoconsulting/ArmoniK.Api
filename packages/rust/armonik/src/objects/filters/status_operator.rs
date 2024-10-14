@@ -3,8 +3,10 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum FilterStatusOperator {
+    /// Is equal to the specified status.
     #[default]
     Equal = 0,
+    /// Is not equal to the specified status.
     NotEqual = 1,
 }
 

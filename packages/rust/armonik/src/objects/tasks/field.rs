@@ -8,27 +8,48 @@ use crate::api::v3;
 pub enum SummaryField {
     /// Unspecified.
     Unspecified = 0,
+    /// The task ID.
     #[default]
     TaskId = 16,
+    /// The session ID.
     SessionId = 1,
+    /// The owner pod ID.
     OwnerPodId = 9,
+    /// The initial task ID. Set when a task is submitted independently of retries.
     InitialTaskId = 10,
+    /// The task status.
     Status = 2,
+    /// The task creation date.
     CreatedAt = 3,
+    /// The task submission date.
     SubmittedAt = 11,
+    /// The task start date.
     StartedAt = 4,
+    /// The task end date.
     EndedAt = 5,
+    /// The task duration. Between the creation date and the end date.
     CreationToEndDuration = 6,
+    /// The task calculated duration. Between the start date and the end date.
     ProcessingToEndDuration = 7,
+    /// The task calculated duration. Between the received date and the end date.
     ReceivedToEndDuration = 18,
+    /// The pod TTL (Time To Live).
     PodTtl = 12,
+    /// The hostname of the container running the task.
     PodHostname = 13,
+    /// When the task is received by the agent.
     ReceivedAt = 14,
+    /// When the task is acquired by the agent.
     AcquiredAt = 15,
+    /// When the task is processed by the agent.
     ProcessedAt = 17,
+    /// When task data are fetched by the agent.
     FetchedAt = 19,
+    /// The error message. Only set if task have failed.
     Error = 8,
+    /// The ID of the Result that is used as a payload for this task.
     PayloadId = 20,
+    /// The ID of the Result that is used as a payload for this task.
     CreatedBy = 21,
 }
 

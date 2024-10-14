@@ -3,13 +3,19 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum ResultStatus {
+    /// Result is in an unspecified state.
     #[default]
-    Unspecified = 0, /* Result is in an unspecified state. */
-    Created = 1,    /* Result is created and task is created, submitted or dispatched. */
-    Completed = 2,  /* Result is completed with a completed task. */
-    Aborted = 3,    /* Result is aborted. */
-    Deleted = 4,    /* Result is completed, but data has been deleted from object storage. */
-    NotFound = 127, /* Result was not found. */
+    Unspecified = 0,
+    /// Result is created and task is created, submitted or dispatched.
+    Created = 1,
+    /// Result is completed with a completed task.
+    Completed = 2,
+    /// Result is aborted.
+    Aborted = 3,
+    /// Result is completed, but data has been deleted from object storage.
+    Deleted = 4,
+    /// Result was not found.
+    NotFound = 127,
 }
 
 impl From<i32> for ResultStatus {

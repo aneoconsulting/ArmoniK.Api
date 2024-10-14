@@ -3,10 +3,13 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum SortDirection {
-    Unspecified = 0, /* Unspecified. Do not use. */
+    /// Unspecified. Do not use.
+    Unspecified = 0,
+    /// Ascending.
     #[default]
-    Asc = 1, /* Ascending. */
-    Desc = 2,        /* Descending. */
+    Asc = 1,
+    /// Descending
+    Desc = 2,
 }
 
 impl From<i32> for SortDirection {

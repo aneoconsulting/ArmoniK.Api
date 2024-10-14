@@ -3,8 +3,10 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum FilterArrayOperator {
+    /// Contains the specified element.
     #[default]
     Contains = 0,
+    /// Does not contain the specified element.
     NotContains = 1,
 }
 

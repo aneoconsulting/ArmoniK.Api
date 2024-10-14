@@ -3,21 +3,35 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum TaskStatus {
+    /// Task is in an unknown state.
     #[default]
-    Unspecified = 0, /* Task is in an unknown state. */
-    Creating = 1,   /* Task is being created in database. */
-    Submitted = 2,  /* Task is submitted to the queue. */
-    Dispatched = 3, /* Task is dispatched to a worker. */
-    Completed = 4,  /* Task is completed. */
-    Error = 5,      /* Task is in error state. */
-    Timeout = 6,    /* Task is in timeout state. */
-    Cancelling = 7, /* Task is being cancelled. */
-    Cancelled = 8,  /* Task is cancelled. */
-    Processing = 9, /* Task is being processed. */
-    Processed = 10, /* Task is processed. */
-    Retried = 11,   /* Task is retried. */
-    Pending = 12,   /* Task is waiting for its dependencies before becoming executable. */
-    Paused = 13,    /* Task is paused and will not be executed until session is resumed. */
+    Unspecified = 0,
+    /// Task is being created in database.
+    Creating = 1,
+    /// Task is submitted to the queue.
+    Submitted = 2,
+    /// Task is dispatched to a worker.
+    Dispatched = 3,
+    /// Task is completed.
+    Completed = 4,
+    /// Task is in error state.
+    Error = 5,
+    /// Task is in timeout state.
+    Timeout = 6,
+    /// Task is being cancelled.
+    Cancelling = 7,
+    /// Task is cancelled.
+    Cancelled = 8,
+    /// Task is being processed.
+    Processing = 9,
+    /// Task is processed.
+    Processed = 10,
+    /// Task is retried.
+    Retried = 11,
+    /// Task is waiting for its dependencies before becoming executable.
+    Pending = 12,
+    /// Task is paused and will not be executed until session is resumed.
+    Paused = 13,
 }
 
 impl From<i32> for TaskStatus {

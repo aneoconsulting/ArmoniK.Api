@@ -7,11 +7,11 @@ use crate::api::v3;
 pub struct RequestItem {
     /// Unique ID of the results that will be produced by the task. Results should be created using ResultsService.
     pub expected_output_keys: Vec<String>,
-    /// Unique ID of the results that will be used as datadependencies. Results should be created using ResultsService.
+    /// Unique ID of the results that will be used as data dependencies. Results should be created using ResultsService.
     pub data_dependencies: Vec<String>,
     /// Unique ID of the result that will be used as payload. Result should created using ResultsService.
     pub payload_id: String,
-    /// Optionnal task options.
+    /// Optional task options.
     pub task_options: Option<TaskOptions>,
 }
 

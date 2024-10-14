@@ -3,14 +3,21 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum SessionStatus {
+    /// Session is in an unknown state.
     #[default]
-    Unspecified = 0, /* Session is in an unknown state. */
-    Running = 1,   /* Session is open and accepting tasks for execution. */
-    Cancelled = 2, /* Session is cancelled. No more tasks can be submitted. */
-    Paused = 3, /* Session is paused. Tasks can be submitted but no more new tasks will be executed. Already running tasks will continue until they finish. */
-    Closed = 4, /* Session is closed. No more tasks can be submitted and executed. */
-    Purged = 5, /* Session is purged. No more tasks can be submitted and executed. Results data will be deleted. */
-    Deleted = 6, /* Session is deleted. No more tasks can be submitted and executed. Sessions, tasks and results metadata associated to the session will be deleted. */
+    Unspecified = 0,
+    /// Session is open and accepting tasks for execution.
+    Running = 1,
+    /// Session is cancelled. No more tasks can be submitted.
+    Cancelled = 2,
+    /// Session is paused. Tasks can be submitted but no more new tasks will be executed. Already running tasks will continue until they finish.
+    Paused = 3,
+    /// Session is closed. No more tasks can be submitted and executed.
+    Closed = 4,
+    /// Session is purged. No more tasks can be submitted and executed. Results data will be deleted.
+    Purged = 5,
+    /// Session is deleted. No more tasks can be submitted and executed. Sessions, tasks and results metadata associated to the session will be deleted.
+    Deleted = 6,
 }
 
 impl From<i32> for SessionStatus {
