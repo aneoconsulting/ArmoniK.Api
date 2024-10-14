@@ -8,18 +8,30 @@ use crate::api::v3;
 pub enum RawField {
     /// Unspecified.
     Unspecified = 0,
+    /// The session ID.
     #[default]
     SessionId = 1,
+    /// The session status.
     Status = 2,
+    /// Whether clients can submit tasks in the session.
     ClientSubmission = 8,
+    /// Whether workers can submit tasks in the session.
     WorkerSubmission = 9,
+    /// The partition IDs.
     PartitionIds = 3,
+    /// The task options. In fact, these are used as default value in child tasks.
     Options = 4,
+    /// The creation date.
     CreatedAt = 5,
+    /// The cancellation date. Only set when status is 'cancelled'.
     CancelledAt = 6,
+    /// The closure date. Only set when status is 'closed'.
     ClosedAt = 12,
+    /// The purge date. Only set when status is 'purged'.
     PurgedAt = 10,
+    /// The deletion date. Only set when status is 'deleted'.
     DeletedAt = 11,
+    /// The duration. Only set when status is 'cancelled' and 'closed'.
     Duration = 7,
 }
 

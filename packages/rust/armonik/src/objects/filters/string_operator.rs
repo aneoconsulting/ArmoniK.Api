@@ -3,12 +3,18 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum FilterStringOperator {
+    /// Is equal to the specified string.
     #[default]
     Equal = 0,
+    /// Is not equal to the specified string.
     NotEqual = 1,
+    /// Contains the specified substring.
     Contains = 2,
+    /// Does not contain the specified substring.
     NotContains = 3,
+    /// Starts with the specified substring.
     StartsWith = 4,
+    /// Ends with the specified substring.
     EndsWith = 5,
 }
 

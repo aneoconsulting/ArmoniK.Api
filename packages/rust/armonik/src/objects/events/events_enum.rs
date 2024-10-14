@@ -3,13 +3,19 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum EventsEnum {
+    /// Unspecified
     #[default]
-    Unspecified = 0, /* Unspecified */
-    NewTask = 1,            /* New task */
-    TaskStatusUpdate = 2,   /* Task status update */
-    NewResult = 3,          /* New result */
-    ResultStatusUpdate = 4, /* Result status update */
-    ResultOwnerUpdate = 5,  /* Result owner update */
+    Unspecified = 0,
+    /// New task
+    NewTask = 1,
+    /// Task status update
+    TaskStatusUpdate = 2,
+    /// New result
+    NewResult = 3,
+    /// Result status update
+    ResultStatusUpdate = 4,
+    /// Result owner update
+    ResultOwnerUpdate = 5,
 }
 
 impl From<i32> for EventsEnum {

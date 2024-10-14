@@ -3,12 +3,18 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum FilterDateOperator {
+    /// Is equal to the specified date.
     #[default]
     Equal = 0,
+    /// Is not equal to the specified date.
     NotEqual = 1,
+    /// Is before the specified date.
     Before = 2,
+    /// Is before or equal to the specified date.
     BeforeOrEqual = 3,
+    /// Is After or equal to the specified date.
     AfterOrEqual = 4,
+    /// Is after the specified date.
     After = 5,
 }
 

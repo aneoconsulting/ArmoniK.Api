@@ -18,7 +18,7 @@ super::super::impl_convert!(
 /// Response to get count from tasks by status.
 #[derive(Debug, Clone, Default)]
 pub struct Response {
-    /// Number of tasks by status. Expected to have only 1 objct by tasks status.
+    /// Number of tasks by status. Expected to have only 1 object by tasks status.
     pub status: Vec<StatusCount>,
 }
 

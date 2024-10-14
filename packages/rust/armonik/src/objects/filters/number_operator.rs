@@ -3,12 +3,18 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(i32)]
 pub enum FilterNumberOperator {
+    /// Is equal to the specified number.
     #[default]
     Equal = 0,
+    /// Is not equal to the specified number.
     NotEqual = 1,
+    /// Is less than the specified number.
     LessThan = 2,
+    /// Is less than or equal to the specified number.
     LessThanOrEqual = 3,
+    /// Is greater than or equal to specified number.
     GreaterThanOrEqual = 4,
+    /// Is greater than the specified number.
     GreaterThan = 5,
 }
 

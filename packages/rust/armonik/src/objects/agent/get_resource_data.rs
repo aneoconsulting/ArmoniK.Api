@@ -1,6 +1,6 @@
 use crate::api::v3;
 
-/// Request for creating results without data.
+/// Request to retrieve data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Request {
     /// Communication token received by the worker during task processing.
@@ -14,7 +14,7 @@ super::super::impl_convert!(struct Request = v3::agent::DataRequest {
     result_id,
 });
 
-/// Response for creating results without data.
+/// Response when data is available in the shared folder.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Response {
     /// Id of the result that will be retrieved.
