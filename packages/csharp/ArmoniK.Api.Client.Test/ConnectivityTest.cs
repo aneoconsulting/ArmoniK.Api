@@ -47,6 +47,15 @@ public class ConnectivityTests
     CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
     MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
     endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
+    isInsecure_     = IsInsecure(endpoint_);
+
+    if (isInsecure_)
+    {
+      endpoint_ = RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler_.ToLower()
+                                                                                                         .Contains("web")
+                    ? "http://localhost:4999"
+                    : endpoint_;
+    }
   }
 
   [TearDown]
@@ -62,7 +71,13 @@ public class ConnectivityTests
   private static string? keyPath_;
   private static string? CaCertPath_;
   private static string? MessageHandler_;
-  private        bool    isSecure;
+  private        bool    isInsecure_;
+
+  private static bool IsInsecure(string endpoint)
+  {
+    var uri = new Uri(endpoint);
+    return uri.Scheme == Uri.UriSchemeHttp;
+  }
 
   [Test]
   public void ResultsGetServiceConfiguration()
@@ -71,7 +86,7 @@ public class ConnectivityTests
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = true,
+                                                     AllowUnsafeConnection = isInsecure_,
                                                      CertPem               = certPath_!,
                                                      KeyPem                = keyPath_!,
                                                      CaCert                = CaCertPath_!,
@@ -97,7 +112,7 @@ public class ConnectivityTests
                                                    i => Task.FromResult(GrpcChannelFactory.CreateChannel(new GrpcClient
                                                                                                          {
                                                                                                            Endpoint              = endpoint_,
-                                                                                                           AllowUnsafeConnection = true,
+                                                                                                           AllowUnsafeConnection = isInsecure_,
                                                                                                            CertPem               = certPath_!,
                                                                                                            KeyPem                = keyPath_!,
                                                                                                            CaCert                = CaCertPath_!,
