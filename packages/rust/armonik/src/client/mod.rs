@@ -15,6 +15,7 @@ pub use auth::AuthClient;
 pub use partitions::PartitionsClient;
 pub use results::ResultsClient;
 pub use sessions::SessionsClient;
+#[allow(deprecated)]
 pub use submitter::SubmitterClient;
 pub use tasks::TasksClient;
 pub use versions::VersionsClient;
@@ -72,6 +73,8 @@ where
         SessionsClient::new(self.channel.clone())
     }
 
+    #[deprecated]
+    #[allow(deprecated)]
     pub fn submitter(&self) -> SubmitterClient<T> {
         SubmitterClient::new(self.channel.clone())
     }

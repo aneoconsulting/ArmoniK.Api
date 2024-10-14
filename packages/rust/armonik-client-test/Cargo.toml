@@ -20,4 +20,4 @@ tokio-stream = { version = "0.1", features = ["sync", "net"] }
 tokio-util = "0.7"
 async-stream = "0.3"
 async-trait = "0.1"
-tower-http = { version = "0.4", features = ["trace"] }
+tower-http = { version = "0.6", features = ["trace"] }
