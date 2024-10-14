@@ -11,7 +11,7 @@ pub enum Field {
     /// The result name.
     Name = 2,
     /// The owner task ID.
-    OwernTaskId = 3,
+    OwnerTaskId = 3,
     /// The result status.
     Status = 4,
     /// The result creation date.
@@ -21,6 +21,10 @@ pub enum Field {
     /// The result ID.
     #[default]
     ResultId = 7,
+    /// The size of the result.
+    Size = 8,
+    /// The ID of the Task that as submitted this result.
+    CreatedBy = 9,
 }
 
 impl From<i32> for Field {
@@ -29,11 +33,13 @@ impl From<i32> for Field {
             0 => Self::Unspecified,
             1 => Self::SessionId,
             2 => Self::Name,
-            3 => Self::OwernTaskId,
+            3 => Self::OwnerTaskId,
             4 => Self::Status,
             5 => Self::CreatedAt,
             6 => Self::CompletedAt,
             7 => Self::ResultId,
+            8 => Self::Size,
+            9 => Self::CreatedBy,
             _ => Self::Unspecified,
         }
     }

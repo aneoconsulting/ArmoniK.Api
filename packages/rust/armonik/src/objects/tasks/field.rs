@@ -20,11 +20,16 @@ pub enum SummaryField {
     EndedAt = 5,
     CreationToEndDuration = 6,
     ProcessingToEndDuration = 7,
+    ReceivedToEndDuration = 18,
     PodTtl = 12,
     PodHostname = 13,
     ReceivedAt = 14,
     AcquiredAt = 15,
+    ProcessedAt = 17,
+    FetchedAt = 19,
     Error = 8,
+    PayloadId = 20,
+    CreatedBy = 21,
 }
 
 impl From<i32> for SummaryField {
@@ -42,11 +47,16 @@ impl From<i32> for SummaryField {
             5 => Self::EndedAt,
             6 => Self::CreationToEndDuration,
             7 => Self::ProcessingToEndDuration,
+            18 => Self::ReceivedToEndDuration,
             12 => Self::PodTtl,
             13 => Self::PodHostname,
             14 => Self::ReceivedAt,
             15 => Self::AcquiredAt,
+            17 => Self::ProcessedAt,
+            19 => Self::FetchedAt,
             8 => Self::Error,
+            20 => Self::PayloadId,
+            21 => Self::CreatedBy,
             _ => Self::Unspecified,
         }
     }

@@ -1,4 +1,4 @@
-use super::super::{FilterArray, FilterDate, FilterString, ResultStatus};
+use super::super::{FilterArray, FilterDate, FilterNumber, FilterString, ResultStatus};
 
 use crate::api::v3;
 
@@ -52,6 +52,7 @@ pub enum Condition {
     Date(FilterDate),
     Array(FilterArray),
     Status(Status),
+    Number(FilterNumber),
 }
 
 impl Default for Condition {
@@ -67,6 +68,7 @@ impl From<Condition> for v3::results::filter_field::ValueCondition {
             Condition::Date(cond) => Self::FilterDate(cond.into()),
             Condition::Array(cond) => Self::FilterArray(cond.into()),
             Condition::Status(cond) => Self::FilterStatus(cond.into()),
+            Condition::Number(cond) => Self::FilterNumber(cond.into()),
         }
     }
 }
@@ -83,6 +85,9 @@ impl From<v3::results::filter_field::ValueCondition> for Condition {
             }
             v3::results::filter_field::ValueCondition::FilterStatus(cond) => {
                 Self::Status(cond.into())
+            }
+            v3::results::filter_field::ValueCondition::FilterNumber(cond) => {
+                Self::Number(cond.into())
             }
         }
     }

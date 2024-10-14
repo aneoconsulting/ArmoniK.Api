@@ -8,6 +8,7 @@ pub enum ResultStatus {
     Created = 1,    /* Result is created and task is created, submitted or dispatched. */
     Completed = 2,  /* Result is completed with a completed task. */
     Aborted = 3,    /* Result is aborted. */
+    Deleted = 4,    /* Result is completed, but data has been deleted from object storage. */
     NotFound = 127, /* Result was not found. */
 }
 
@@ -18,6 +19,7 @@ impl From<i32> for ResultStatus {
             1 => Self::Created,
             2 => Self::Completed,
             3 => Self::Aborted,
+            4 => Self::Deleted,
             127 => Self::NotFound,
             _ => Default::default(),
         }
@@ -31,6 +33,7 @@ impl From<ResultStatus> for v3::result_status::ResultStatus {
             ResultStatus::Created => Self::Created,
             ResultStatus::Completed => Self::Completed,
             ResultStatus::Aborted => Self::Aborted,
+            ResultStatus::Deleted => Self::Deleted,
             ResultStatus::NotFound => Self::Notfound,
         }
     }
@@ -43,6 +46,7 @@ impl From<v3::result_status::ResultStatus> for ResultStatus {
             v3::result_status::ResultStatus::Created => Self::Created,
             v3::result_status::ResultStatus::Completed => Self::Completed,
             v3::result_status::ResultStatus::Aborted => Self::Aborted,
+            v3::result_status::ResultStatus::Deleted => Self::Deleted,
             v3::result_status::ResultStatus::Notfound => Self::NotFound,
         }
     }

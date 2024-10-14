@@ -1,8 +1,8 @@
 use crate::api::v3;
 
 use super::{
-    FilterArrayOperator, FilterBooleanOperator, FilterDateOperator, FilterNumberOperator,
-    FilterStatusOperator, FilterStringOperator,
+    FilterArrayOperator, FilterBooleanOperator, FilterDateOperator, FilterDurationOperator,
+    FilterNumberOperator, FilterStatusOperator, FilterStringOperator,
 };
 
 macro_rules! impl_filter {
@@ -65,6 +65,34 @@ impl From<v3::FilterDate> for FilterDate {
 }
 
 super::super::impl_convert!(req FilterDate : v3::FilterDate);
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FilterDuration {
+    pub value: prost_types::Duration,
+    pub operator: FilterDurationOperator,
+}
+
+impl From<FilterDuration> for v3::FilterDuration {
+    fn from(value: FilterDuration) -> Self {
+        Self {
+            value: Some(value.value),
+            operator: v3::FilterDurationOperator::from(value.operator) as i32,
+        }
+    }
+}
+
+impl From<v3::FilterDuration> for FilterDuration {
+    fn from(value: v3::FilterDuration) -> Self {
+        Self {
+            value: value.value.unwrap_or_default(),
+            operator: value.operator.into(),
+        }
+    }
+}
+
+impl Eq for FilterDuration {}
+
+super::super::impl_convert!(req FilterDuration : v3::FilterDuration);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FilterStatus<T> {
