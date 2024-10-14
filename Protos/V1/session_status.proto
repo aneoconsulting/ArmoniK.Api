@@ -14,4 +14,8 @@ enum SessionStatus {
   SESSION_STATUS_UNSPECIFIED = 0; /** Session is in an unknown state. */
   SESSION_STATUS_RUNNING = 1; /** Session is open and accepting tasks for execution. */
   SESSION_STATUS_CANCELLED = 2; /** Session is cancelled. No more tasks can be submitted and no more tasks will be executed. */
+  SESSION_STATUS_PAUSED = 3; /** Session is paused. Tasks can be submitted but no more new tasks will be executed. Already running tasks will continue until they finish. */
+  SESSION_STATUS_CLOSED = 4; /** Session is closed. No more tasks can be submitted and executed. */
+  SESSION_STATUS_PURGED = 5; /** Session is purged. No more tasks can be submitted and executed. Results data will be deleted. */
+  SESSION_STATUS_DELETED = 6; /** Session is deleted. No more tasks can be submitted and executed. Sessions, tasks and results metadata associated to the session will be deleted. */
 }

@@ -43,7 +43,7 @@ npm install -g @angular/cli
 Then, you can create a new Angular App using the following command:
 
 ```bash
-ng new --standalone --routing=false --inline-style --inline-template --skip-tests --style=css --skip-install armonik-api-angular
+ng new --standalone --routing=false --inline-style --inline-template --skip-tests --skip-git --style=css --skip-install --package-manager=pnpm armonik-api-angular
 ```
 
 Then, go to the newly created folder:
@@ -249,7 +249,8 @@ import { NgFor } from '@angular/common';
   // ...
   imports: [
     NgFor
-  ]
+  ],
+  // ...
 })
 ```
 
@@ -330,7 +331,8 @@ Now that you've created our service and our component, you are ready to use them
 First, you need to inject the service in the component:
 
 ```typescript [app.component.ts]
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
+import { PartitionsGrpcService } from './services/partitions-grpc.service';
 
 @Component({
   providers: [
@@ -377,7 +379,6 @@ export class AppComponent implements AfterViewInit {
           }
         }
       );
-
   }
 }
 ```
@@ -440,11 +441,11 @@ If you look at the console, you will see another error:
 
 ```json
 {
-    "statusCode": 3,
-    "statusMessage": "Property PageSize failed validation.\nProperty Filter failed validation.\nProperty Filter failed validation.\nProperty Sort.Field failed validation.\nProperty Sort.Field failed validation.",
-    "metadata": {
-        "map": {}
-    }
+  "statusCode": 3,
+  "statusMessage": "Property PageSize failed validation.\nProperty Filter failed validation.\nProperty Filter failed validation.\nProperty Sort.Field failed validation.\nProperty Sort.Field failed validation.",
+  "metadata": {
+    "map": {}
+  }
 }
 ```
 
@@ -461,17 +462,14 @@ For simplicity, you will update the service directly. In a real world scenario, 
 +     page: 0,
 +     pageSize: 10,
 +     sort: {
-+       direction: ListPartitionsRequest.OrderDirection.ORDER_DIRECTION_ASC,
-+       field: ListPartitionsRequest.OrderByField.ORDER_BY_FIELD_ID
++       direction: SortDirection.SORT_DIRECTION_ASC,
++       field: {
++         partitionRawField: {
++           field: PartitionRawEnumField.PARTITION_RAW_ENUM_FIELD_ID
++         }
++       }
 +     },
-+     filter: {
-+       id: '',
-+       parentPartitionId: '',
-+       podMax: 0,
-+       podReserved: 0,
-+       preemptionPercentage: 0,
-+       priority: 0,
-+     }
++     filters: {}
 +   });
 
     return this.#client.listPartitions(options);

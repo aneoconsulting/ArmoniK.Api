@@ -17,6 +17,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ArmoniK.Api.Common.Channel"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArmoniK.Api.Client.Tests", "ArmoniK.Api.Client.Test\ArmoniK.Api.Client.Tests.csproj", "{45BFA5D4-602D-47C5-8CD6-9AE6878E02FB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArmoniK.Api.Mock", "ArmoniK.Api.Mock\ArmoniK.Api.Mock.csproj", "{3CC5FB77-EC5B-4DDE-B71A-10C4A67B31C0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,10 @@ Global
 		{45BFA5D4-602D-47C5-8CD6-9AE6878E02FB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{45BFA5D4-602D-47C5-8CD6-9AE6878E02FB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{45BFA5D4-602D-47C5-8CD6-9AE6878E02FB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3CC5FB77-EC5B-4DDE-B71A-10C4A67B31C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3CC5FB77-EC5B-4DDE-B71A-10C4A67B31C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3CC5FB77-EC5B-4DDE-B71A-10C4A67B31C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3CC5FB77-EC5B-4DDE-B71A-10C4A67B31C0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

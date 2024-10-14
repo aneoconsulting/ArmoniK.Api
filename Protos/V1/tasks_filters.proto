@@ -22,6 +22,7 @@ message FilterField {
     FilterStatus filter_status = 5;
     FilterDate filter_date = 6;
     FilterArray filter_array = 7;
+    FilterDuration filter_duration = 8;
   }
 }
 

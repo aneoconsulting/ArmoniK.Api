@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.22)
 if (POLICY CMP0135)
     cmake_policy(SET CMP0135 OLD)
 endif ()
-set(version 3.11.0)
+set(version 3.21.0)
 string(REGEX MATCHALL "[0-9]+" version_list ${version})
 list(GET version_list 0 version_major)
 list(GET version_list 1 version_minor)
 list(GET version_list 2 version_patch)
-message(STATUS "Version ${version}")
+message(STATUS "ArmoniK Version ${version}")
 
 set(SOLUTION_NAME ArmoniK.Api)
 project(${SOLUTION_NAME} C CXX)
@@ -31,17 +31,18 @@ option(BUILD_SHARED_LIBS "Build using shared libraries" OFF)
 # make cache variables for install destinations
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
-
-set(CMAKE_CXX_STANDARD 17)
+include(Dependencies.cmake)
 
 function(setup_options project_name_param)
 
-file(READ /etc/issue ${PROJECT_NAME}_ETCISSUE_CONTENT)
-string(FIND "${${project_name_param}_ETCISSUE_CONTENT}" "Alpine" IS_ALPINE)
 
 if(MSVC)
     target_compile_options(${project_name_param} PRIVATE /W4)
 else()
+    
+    file(READ /etc/issue ${PROJECT_NAME}_ETCISSUE_CONTENT)
+    string(FIND "${${project_name_param}_ETCISSUE_CONTENT}" "Alpine" IS_ALPINE)
+
     if(CMAKE_BUILD_TYPE MATCHES DEBUG AND IS_ALPINE EQUAL -1)
         target_compile_options(${project_name_param} PRIVATE -Wall -Wextra -Wpedantic -fsanitize=undefined,address)
     else ()

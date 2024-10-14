@@ -7,11 +7,19 @@
 
 #include "utils/Configuration.h"
 
-namespace API_COMMON_NAMESPACE::utils::EnvConfiguration {
+namespace armonik {
+namespace api {
+namespace common {
+namespace utils {
+namespace EnvConfiguration {
 inline void fromEnv(Configuration &config) { config.add_env_configuration(); }
 inline Configuration fromEnv() {
   Configuration config;
   config.add_env_configuration();
   return config;
 }
-} // namespace API_COMMON_NAMESPACE::utils::EnvConfiguration
+} // namespace EnvConfiguration
+} // namespace utils
+} // namespace common
+} // namespace api
+} // namespace armonik

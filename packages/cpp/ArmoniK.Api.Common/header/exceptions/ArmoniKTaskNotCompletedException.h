@@ -2,7 +2,10 @@
 #define ARMONIK_API_ARMONIKTASKNOTCOMPLETEDEXCEPTION_H
 
 #include "ArmoniKApiException.h"
-namespace API_COMMON_NAMESPACE::exceptions {
+namespace armonik {
+namespace api {
+namespace common {
+namespace exceptions {
 
 class ArmoniKTaskNotCompletedException : public ArmoniKApiException {
 public:
@@ -10,6 +13,9 @@ public:
       : ArmoniKApiException("Task " + taskId + " not completed. " + message), taskId(taskId) {}
   const std::string taskId;
 };
-} // namespace API_COMMON_NAMESPACE::exceptions
+} // namespace exceptions
+} // namespace common
+} // namespace api
+} // namespace armonik
 
 #endif // ARMONIK_API_ARMONIKTASKNOTCOMPLETEDEXCEPTION_H

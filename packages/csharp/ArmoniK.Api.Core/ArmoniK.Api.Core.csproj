@@ -16,13 +16,15 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
-    <PackageVersion>3.11.0</PackageVersion>
+    <PackageVersion>3.21.0</PackageVersion>
+    <Version>3.21.0</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.55.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.56.0">
+    <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.62.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.62.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -65,6 +67,9 @@
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\versions_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\versions_service.proto</Link>
+    </Protobuf>
+    <Protobuf Include="..\..\..\Protos\V1\health_checks_service.proto" GrpcServices="Both">
+      <Link>gRPC\Protos\health_checks_service.proto</Link>
     </Protobuf>
   </ItemGroup>
 

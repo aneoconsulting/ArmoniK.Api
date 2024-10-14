@@ -10,7 +10,9 @@
 #include "submitter_common.pb.h"
 #include "submitter_service.grpc.pb.h"
 
-namespace API_CLIENT_NAMESPACE {
+namespace armonik {
+namespace api {
+namespace client {
 
 /**
  * @brief Data structure for task payload
@@ -28,9 +30,8 @@ struct payload_data {
 /**
  * @brief The SubmitterClientExt class provides methods to create and manage task submissions.
  */
-class SubmitterClient {
+class [[deprecated("Use the Session, Task and Result clients instead")]] SubmitterClient {
 private:
-  grpc::ClientContext context_;
   std::unique_ptr<armonik::api::grpc::v1::submitter::Submitter::StubInterface> stub_;
 
 public:
@@ -67,8 +68,8 @@ public:
    * @param chunk_max_size The maximum chunk size.
    * @return A future large task request object.
    */
-  static std::future<std::vector<armonik::api::grpc::v1::submitter::CreateLargeTaskRequest>>
-  task_chunk_stream(const armonik::api::grpc::v1::TaskRequest &task_request, bool is_last, size_t chunk_max_size);
+  static std::future<std::vector<armonik::api::grpc::v1::submitter::CreateLargeTaskRequest>> task_chunk_stream(
+      const armonik::api::grpc::v1::TaskRequest &task_request, bool is_last, size_t chunk_max_size);
 
   /**
    * @brief Creates tasks asynchronously with the specified options and requests.
@@ -77,9 +78,9 @@ public:
    * @param task_requests The vector of task requests.
    * @return A future create task reply object.
    */
-  std::future<armonik::api::grpc::v1::submitter::CreateTaskReply>
-  create_tasks_async(std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
-                     const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests);
+  std::future<armonik::api::grpc::v1::submitter::CreateTaskReply> create_tasks_async(
+      std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
+      const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests);
 
   /**
    * @brief Submits tasks with dependencies to the session context.
@@ -89,10 +90,9 @@ public:
    * @param max_retries The maximum number of retries for submitting tasks.
    * @return A vector of submitted task IDs.
    */
-  std::tuple<std::vector<std::string>, std::vector<std::string>>
-  submit_tasks_with_dependencies(std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
-                                 const std::vector<payload_data> &payloads_with_dependencies,
-                                 [[maybe_unused]] int max_retries);
+  std::pair<std::vector<std::string>, std::vector<std::string>> submit_tasks_with_dependencies(
+      std::string session_id, armonik::api::grpc::v1::TaskOptions task_options,
+      const std::vector<payload_data> &payloads_with_dependencies, int max_retries);
 
   /**
    * @brief Get result without streaming.
@@ -101,8 +101,10 @@ public:
    */
   std::future<std::string> get_result_async(const armonik::api::grpc::v1::ResultRequest &result_request);
 
-  std::map<std::string, armonik::api::grpc::v1::result_status::ResultStatus>
-  get_result_status(const std::string &session_id, const std::vector<std::string> &result_ids);
+  std::map<std::string, armonik::api::grpc::v1::result_status::ResultStatus> get_result_status(
+      const std::string &session_id, const std::vector<std::string> &result_ids);
 };
 
-} // namespace API_CLIENT_NAMESPACE
+} // namespace client
+} // namespace api
+} // namespace armonik

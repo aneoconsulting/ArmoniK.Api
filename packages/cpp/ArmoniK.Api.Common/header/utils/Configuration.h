@@ -5,18 +5,22 @@
 
 #pragma once
 
+#include <absl/strings/string_view.h>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
-namespace API_COMMON_NAMESPACE::options {
+namespace armonik {
+namespace api {
+namespace common {
+namespace options {
 class ComputePlane;
 class ControlPlane;
-} // namespace API_COMMON_NAMESPACE::options
+} // namespace options
 
-namespace API_COMMON_NAMESPACE::utils {
+namespace utils {
 /**
  * @class Configuration
  * @brief Interface for a configuration class that stores and manages key-value pairs.
@@ -61,7 +65,7 @@ public:
    * @param file_path Path to the JSON file.
    * @return Reference to the current Configuration object.
    */
-  Configuration &add_json_configuration(std::string_view file_path);
+  Configuration &add_json_configuration(absl::string_view file_path);
 
   /**
    * @brief Add environment variable configuration.
@@ -89,4 +93,7 @@ private:
   std::set<std::string> above_env_keys_;
   bool use_environment_ = false;
 };
-} // namespace API_COMMON_NAMESPACE::utils
+} // namespace utils
+} // namespace common
+} // namespace api
+} // namespace armonik

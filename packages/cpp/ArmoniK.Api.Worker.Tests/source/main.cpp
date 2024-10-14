@@ -1,6 +1,5 @@
 #include <iostream>
 #include <memory>
-#include <string>
 
 #include <grpc++/grpc++.h>
 
@@ -8,8 +7,6 @@
 #include "objects.pb.h"
 
 #include "utils/WorkerServer.h"
-#include "worker_common.pb.h"
-#include "worker_service.grpc.pb.h"
 
 #include "Worker/ArmoniKWorker.h"
 #include "Worker/ProcessStatus.h"
@@ -20,18 +17,18 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-using ArmoniK::Api::Common::utils::Configuration;
+using armonik::api::common::utils::Configuration;
 using armonik::api::grpc::v1::TaskOptions;
 
 using namespace armonik::api::grpc::v1::worker;
-using namespace ArmoniK::Api::Common::utils;
+using namespace armonik::api::common::utils;
 
-class TestWorker : public ArmoniK::Api::Worker::ArmoniKWorker {
+class TestWorker : public armonik::api::worker::ArmoniKWorker {
 public:
   explicit TestWorker(std::unique_ptr<armonik::api::grpc::v1::agent::Agent::Stub> agent)
       : ArmoniKWorker(std::move(agent)) {}
 
-  ArmoniK::Api::Worker::ProcessStatus Execute(ArmoniK::Api::Worker::TaskHandler &taskHandler) override {
+  armonik::api::worker::ProcessStatus Execute(armonik::api::worker::TaskHandler &taskHandler) override {
     std::cout << "Call computer" << std::endl;
     std::cout << "SizePayload : " << taskHandler.getPayload().size()
               << "\nSize DD : " << taskHandler.getDataDependencies().size()
@@ -39,18 +36,15 @@ public:
 
     try {
       if (!taskHandler.getExpectedResults().empty()) {
-        auto res = taskHandler.send_result(taskHandler.getExpectedResults()[0], taskHandler.getPayload()).get();
-        if (res.has_error()) {
-          throw ArmoniK::Api::Common::exceptions::ArmoniKApiException(res.error());
-        }
+        taskHandler.send_result(taskHandler.getExpectedResults()[0], taskHandler.getPayload()).get();
       }
 
     } catch (const std::exception &e) {
       std::cout << "Error sending result " << e.what() << std::endl;
-      return ArmoniK::Api::Worker::ProcessStatus(e.what());
+      return armonik::api::worker::ProcessStatus(e.what());
     }
 
-    return ArmoniK::Api::Worker::ProcessStatus::Ok;
+    return armonik::api::worker::ProcessStatus::Ok;
   }
 };
 
@@ -64,7 +58,7 @@ int main(int argc, char **argv) {
   config.set("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock");
 
   try {
-    ArmoniK::Api::Worker::WorkerServer::create<TestWorker>(config)->run();
+    armonik::api::worker::WorkerServer::create<TestWorker>(config)->run();
   } catch (const std::exception &e) {
     std::cout << "Error in worker" << e.what() << std::endl;
   }

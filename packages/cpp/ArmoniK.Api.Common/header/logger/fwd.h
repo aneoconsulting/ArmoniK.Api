@@ -4,7 +4,10 @@
  * @brief Forward declarations for logger classes.
  */
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik {
+namespace api {
+namespace common {
+namespace logger {
 class ILogger;
 class IFormatter;
 class IWriter;
@@ -14,4 +17,7 @@ class Logger;
 class LocalLogger;
 
 enum class Level;
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace logger
+} // namespace common
+} // namespace api
+} // namespace armonik

@@ -5,7 +5,10 @@
 #include <objects.pb.h>
 #include <sstream>
 #include <vector>
-namespace API_COMMON_NAMESPACE::exceptions {
+namespace armonik {
+namespace api {
+namespace common {
+namespace exceptions {
 
 class ArmoniKTaskError : public ArmoniKApiException {
 public:
@@ -31,6 +34,9 @@ private:
   std::vector<std::pair<std::string, std::string>> status_details;
 };
 
-} // namespace API_COMMON_NAMESPACE::exceptions
+} // namespace exceptions
+} // namespace common
+} // namespace api
+} // namespace armonik
 
 #endif // ARMONIK_API_ARMONIKTASKERROR_H

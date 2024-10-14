@@ -26,11 +26,19 @@ using Microsoft.Extensions.Logging;
 
 namespace ArmoniK.Api.Worker.Utils;
 
+/// <summary>
+///   Wrapper to add nice logs during application lifetime
+/// </summary>
 public class ApplicationLifeTimeManager
 {
   private readonly IHostApplicationLifetime            lifetime_;
   private readonly ILogger<ApplicationLifeTimeManager> logger_;
 
+  /// <summary>
+  ///   Instantiate a wrapper to add nice logs during application lifetime
+  /// </summary>
+  /// <param name="logger">Logger that will produce logs</param>
+  /// <param name="lifetime">Application lifetime to attach events</param>
   public ApplicationLifeTimeManager(ILogger<ApplicationLifeTimeManager> logger,
                                     IHostApplicationLifetime            lifetime)
   {

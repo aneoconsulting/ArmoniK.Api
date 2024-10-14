@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
-        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 18.x
           cache: pnpm
@@ -37,14 +37,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
           submodules: true
 
       - name: Install .NET Core
-        uses: actions/setup-dotnet@3447fd6a9f9e57506b15f895c5b76d3b197dc7c2 # v3
+        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
         with:
           dotnet-version: 6.x
 
@@ -76,6 +76,55 @@ jobs:
             exit 1
           fi
 
+  format-python:
+    name: Check linting, formatting and typing
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/python
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          fetch-depth: 0
+
+      - name: pip update and add build package
+        run: bash proto2python.sh ~/pyvenv
+
+      - name: Install dependencies
+        run: |
+          source ~/pyvenv/bin/activate
+          python -m pip install uv
+          python -m uv pip install "$(echo pkg/armonik*.whl)[dev]"
+
+      - name: Lint
+        run: |
+          source ~/pyvenv/bin/activate
+          python -m ruff check .
+
+      # - name: Check typing
+      #  run: |
+      #  source ~/pyvenv/bin/activate
+      #  python -m mypy --exclude src/armonik/protogen/ src/
+
+      - name: Check format
+        run: |
+          source ~/pyvenv/bin/activate
+          python -m ruff format .
+
+      - name: Check Diff
+        run: |
+          DIFF="$(git diff --name-only)"
+
+          if [ -z "$DIFF" ]; then
+            echo "OK: Format is clean"
+          else
+            echo "Error: Format was not clean"
+            echo "List of files:"
+            echo "$DIFF"
+            git diff
+            exit 1
+          fi
+
   format-cpp:
     name: Format C++
     runs-on: ubuntu-latest
@@ -83,7 +132,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -114,7 +163,7 @@ jobs:
         if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
         run: |
           git diff > patch-cpp.diff
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
         with:
           name: patch-cpp
@@ -126,7 +175,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -135,6 +184,24 @@ jobs:
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
 
+  lint-js:
+    name: Lint JS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          fetch-depth: 0
+      - run: npm install -g pnpm@9.1.4
+      - run: corepack enable
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run lint
+
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
@@ -142,14 +209,14 @@ jobs:
       run:
         working-directory: packages/web
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
-        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 18.x
           cache: pnpm
@@ -173,14 +240,14 @@ jobs:
       run:
         working-directory: packages/angular
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
-        uses: actions/setup-node@64ed1c7eab4cce3362f8c340dee64e5eaeef8f7c # v3
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 18.x
           cache: pnpm
@@ -204,48 +271,139 @@ jobs:
       run:
         working-directory: packages/python
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - name: pip update and add build package
         run: bash proto2python.sh ~/pyvenv
-      
+
       - name: Install dependencies
         run: pip install "$(echo pkg/armonik*.whl)[tests]"
 
-      - name: Run tests
-        run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
-      
-      - name: Get Cover 
-        uses: orgoro/coverage@d77626a5fa35d39123e86d6c62907fabe2491496 # v3
+      - name: Generate certs
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          mkdir certs
+          cd certs
+          ../../../scripts/certs.sh
+      - name: Install certs
+        working-directory: packages/csharp/certs
+        run: |
+          sudo apt install ca-certificates
+          sudo mkdir -p /usr/local/share/ca-certificates/
+          sudo cp server2-ca.pem /usr/local/share/ca-certificates/ca.crt
+          sudo update-ca-certificates
+
+      - name: Build Mock server
+        working-directory: packages/csharp/ArmoniK.Api.Mock
+        shell: bash
+        run: |
+          dotnet publish -o ../out
+          [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
+
+      - name: Test
+        working-directory: packages/python/
+        shell: bash
+        run: |
+          set +e
+          set -x
+          export CertFolder="$PWD/../csharp/certs"
+          $PWD/../csharp/out/ArmoniK.Api.Mock.exe \
+            grpc:port=5000 http:port=4999 logging:loglevel:default="Warning" \
+            & notls_pid=$!
+          $PWD/../csharp/out/ArmoniK.Api.Mock.exe \
+            grpc:port=5001 http:port=5001 logging:loglevel:default="Warning" \
+            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" \
+            & tls_pid=$!
+          $PWD/../csharp/out/ArmoniK.Api.Mock.exe \
+            grpc:port=5002 http:port=5002 logging:loglevel:default="Warning" \
+            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" \
+            & tlsstore_pid=$!
+          $PWD/../csharp/out/ArmoniK.Api.Mock.exe \
+            grpc:port=5003 http:port=5003 logging:loglevel:default="Warning" \
+            http:cert="$CertFolder/server1.pem" http:key="$CertFolder/server1.key" http:clientcert="$CertFolder/client-ca.pem" \
+            & mtls_pid=$!
+          $PWD/../csharp/out/ArmoniK.Api.Mock.exe \
+            grpc:port=5004 http:port=5004 logging:loglevel:default="Warning" \
+            http:cert="$CertFolder/server2.pem" http:key="$CertFolder/server2.key" http:clientcert="$CertFolder/client-ca.pem" \
+            & mtlsstore_pid=$!
+          sleep 5
+          set -e
+          Grpc__Endpoint=http://localhost:5000 Http__Endpoint=http://localhost:4999 pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing
+          Grpc__Endpoint=https://localhost:5001 Http__Endpoint=https://localhost:5001 Grpc__CaCert="$CertFolder/server1-ca.pem" pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append
+          Grpc__Endpoint=https://localhost:5002 Http__Endpoint=https://localhost:5002 pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append
+          Grpc__Endpoint=https://localhost:5003 Http__Endpoint=https://localhost:5003 Grpc__CaCert="$CertFolder/server1-ca.pem" Grpc__ClientCert="$CertFolder/client.pem" Grpc__ClientKey="$CertFolder/client.key" pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append
+          Grpc__Endpoint=https://localhost:5004 Http__Endpoint=https://localhost:5004 Grpc__ClientCert="$CertFolder/client.pem" Grpc__ClientKey="$CertFolder/client.key" pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append
+          Grpc__Endpoint=https://localhost:5004 Http__Endpoint=https://localhost:5004 Grpc__ClientCert="$CertFolder/client-client.pem" pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append
+          Grpc__Endpoint=https://localhost:5004 Http__Endpoint=https://localhost:5004 Grpc__ClientCert="$CertFolder/client.p12" pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+          set +e
+          kill $notls_pid $tls_pid $tlsstore_pid $mtls_pid $mtlsstore_pid
+          exit $ret
+
+      - name: Get Cover
+        uses: orgoro/coverage@3f13a558c5af7376496aa4848bf0224aead366ac
         with:
           coverageFile: packages/python/coverage.xml
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Archive code coverage results html
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         with:
           name: code-coverage-report-html
           path: packages/python/coverage_report
 
       - name: Archive code coverage results xml
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         with:
           name: code-coverage-report-xml
           path: packages/python/coverage.xml
 
   build-cpp-packages:
-    name: Build C++ Packages
+    strategy:
+      fail-fast: false
+      matrix:
+        type: [tar.gz, deb, rpm]
+    name: Build C++ Packages [${{ matrix.type }}]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
 
       - name: Build the package
         run: |
-          cd packages/cpp/tools/
-          ./compile.sh
+          cd packages/cpp/tools/packaging
+          ./make-${{ matrix.type }}.sh
+      - name: Publish package as artefact
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        with:
+          if-no-files-found: error
+          path: packages/cpp/tools/packaging/*.${{ matrix.type }}
+          name: libarmonik.${{ matrix.type }}
+
+  build-java-packages:
+    name: Build Java
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/java
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          fetch-depth: 0
+      - name: Set up java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: oracle
+          java-version: 17
+          cache: maven
+          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Build the package
+        run: mvn clean install -DskipTests
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_SIGNING_KEY_PASSWORD }}
