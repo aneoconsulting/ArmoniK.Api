@@ -101,7 +101,7 @@ You should have as output:
 }
 ```
 
-### **Configure gRPC channel and test API calls**
+### Configure gRPC channel and test API calls
 
 Once the endpoint runs, you can initiate a gRPC channel to it with a Python client. 
 
