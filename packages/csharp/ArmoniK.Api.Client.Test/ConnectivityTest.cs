@@ -58,14 +58,6 @@ public class ConnectivityTests
     }
   }
 
-  [TearDown]
-  public void TearDown()
-  {
-  }
-
-  private static string CertFolder
-    => Environment.GetEnvironmentVariable("CertFolder") ?? "../../../../certs";
-
   private static string? endpoint_;
   private static string? certPath_;
   private static string? keyPath_;
@@ -82,7 +74,6 @@ public class ConnectivityTests
   [Test]
   public void ResultsGetServiceConfiguration()
   {
-    Console.WriteLine("Endpoint: " + endpoint_);
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
