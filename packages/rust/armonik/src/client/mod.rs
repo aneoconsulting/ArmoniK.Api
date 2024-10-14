@@ -1,6 +1,9 @@
+use snafu::{ResultExt, Snafu};
+
 mod agent;
 mod applications;
 mod auth;
+mod config;
 mod partitions;
 mod results;
 mod sessions;
@@ -12,6 +15,7 @@ mod worker;
 pub use agent::AgentClient;
 pub use applications::ApplicationsClient;
 pub use auth::AuthClient;
+pub use config::{ClientConfig, ConfigError};
 pub use partitions::PartitionsClient;
 pub use results::ResultsClient;
 pub use sessions::SessionsClient;
@@ -33,7 +37,14 @@ impl Client<tonic::transport::Channel> {
         D::Error: Into<tonic::codegen::StdError>,
     {
         let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
-        Ok(Self::new(conn))
+        Ok(Self::with_channel(conn))
+    }
+    pub async fn new() -> Result<Self, ConnectionError> {
+        let config = ClientConfig::from_env().context(ConfigSnafu {})?;
+        let endpoint = config.endpoint.clone();
+        Self::connect(config)
+            .await
+            .context(TransportSnafu { endpoint })
     }
 }
 
@@ -45,50 +56,50 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self { channel }
     }
 
     pub fn agent(&self) -> AgentClient<T> {
-        AgentClient::new(self.channel.clone())
+        AgentClient::with_channel(self.channel.clone())
     }
 
     pub fn applications(&self) -> ApplicationsClient<T> {
-        ApplicationsClient::new(self.channel.clone())
+        ApplicationsClient::with_channel(self.channel.clone())
     }
 
     pub fn auth(&self) -> AuthClient<T> {
-        AuthClient::new(self.channel.clone())
+        AuthClient::with_channel(self.channel.clone())
     }
 
     pub fn partitions(&self) -> PartitionsClient<T> {
-        PartitionsClient::new(self.channel.clone())
+        PartitionsClient::with_channel(self.channel.clone())
     }
 
     pub fn results(&self) -> ResultsClient<T> {
-        ResultsClient::new(self.channel.clone())
+        ResultsClient::with_channel(self.channel.clone())
     }
 
     pub fn sessions(&self) -> SessionsClient<T> {
-        SessionsClient::new(self.channel.clone())
+        SessionsClient::with_channel(self.channel.clone())
     }
 
     #[deprecated]
     #[allow(deprecated)]
     pub fn submitter(&self) -> SubmitterClient<T> {
-        SubmitterClient::new(self.channel.clone())
+        SubmitterClient::with_channel(self.channel.clone())
     }
 
     pub fn tasks(&self) -> TasksClient<T> {
-        TasksClient::new(self.channel.clone())
+        TasksClient::with_channel(self.channel.clone())
     }
 
     pub fn versions(&self) -> VersionsClient<T> {
-        VersionsClient::new(self.channel.clone())
+        VersionsClient::with_channel(self.channel.clone())
     }
 
     pub fn worker(&self) -> WorkerClient<T> {
-        WorkerClient::new(self.channel.clone())
+        WorkerClient::with_channel(self.channel.clone())
     }
 }
 
@@ -130,10 +141,40 @@ where
     }
 }
 
+#[derive(Debug, Snafu)]
+pub enum ConnectionError {
+    #[snafu(display("Unable to read the client config [{location}]"))]
+    Config {
+        #[snafu(source(from(ConfigError, Box::new)))]
+        source: Box<ConfigError>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("Error connecting to the remote {endpoint} [{location}]"))]
+    Transport {
+        endpoint: http::Uri,
+        #[snafu(source(from(tonic::transport::Error, Box::new)))]
+        source: Box<tonic::transport::Error>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+}
+
+#[derive(Debug, Snafu)]
+pub enum RequestError {
+    #[snafu(display("Grpc request error [{location}]"))]
+    Grpc {
+        #[snafu(source(from(tonic::Status, Box::new)))]
+        source: Box<tonic::Status>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+}
+
 macro_rules! impl_call {
     (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty> $block:block) => {
         crate::client::impl_call! {
-            @one $Client($self, $request: $Request) -> Result<$Response, ::tonic::Status> $block
+            @one $Client($self, $request: $Request) -> Result<$Response, crate::client::RequestError> $block
         }
     };
     (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty, $Error:ty> $block:block) => {

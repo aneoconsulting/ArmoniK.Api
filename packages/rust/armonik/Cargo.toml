@@ -23,6 +23,9 @@ tokio-util = "0.7"
 async-stream = "0.3"
 async-trait = "0.1"
 tower-http = { version = "0.6", features = ["trace"] }
+snafu = "0.8"
+http = "1.1"
+eyre = "0.6"
 
 [build-dependencies]
 tonic-build = "0.12"

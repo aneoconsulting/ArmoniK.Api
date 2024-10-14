@@ -1,3 +1,5 @@
+use snafu::ResultExt;
+
 use crate::{
     api::v3,
     objects::partitions::{get, list, Raw},
@@ -17,17 +19,23 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::partitions::partitions_client::PartitionsClient::new(channel),
         }
     }
 
-    pub async fn list(&mut self, request: list::Request) -> Result<list::Response, tonic::Status> {
+    pub async fn list(
+        &mut self,
+        request: list::Request,
+    ) -> Result<list::Response, super::RequestError> {
         self.call(request).await
     }
 
-    pub async fn get(&mut self, partition_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn get(
+        &mut self,
+        partition_id: impl Into<String>,
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(get::Request {
                 id: partition_id.into(),
@@ -54,7 +62,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_partitions(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -63,7 +72,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_partition(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }

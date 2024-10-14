@@ -1,3 +1,5 @@
+use snafu::ResultExt;
+
 use crate::{
     api::v3,
     objects::worker::{health_check, process},
@@ -18,17 +20,20 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::worker::worker_client::WorkerClient::new(channel),
         }
     }
 
-    pub async fn health_check(&mut self) -> Result<health_check::Response, tonic::Status> {
+    pub async fn health_check(&mut self) -> Result<health_check::Response, super::RequestError> {
         self.call(health_check::Request {}).await
     }
 
-    pub async fn process(&mut self, request: process::Request) -> Result<Output, tonic::Status> {
+    pub async fn process(
+        &mut self,
+        request: process::Request,
+    ) -> Result<Output, super::RequestError> {
         Ok(self.call(request).await?.output)
     }
 
@@ -50,7 +55,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .health_check(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -59,7 +65,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .process(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }

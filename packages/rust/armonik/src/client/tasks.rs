@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use snafu::ResultExt;
+
 use crate::{
     api::v3,
     objects::tasks::{
@@ -24,14 +26,17 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::tasks::tasks_client::TasksClient::new(channel),
         }
     }
 
     /// Get a tasks list using pagination, filters and sorting.
-    pub async fn list(&mut self, request: list::Request) -> Result<list::Response, tonic::Status> {
+    pub async fn list(
+        &mut self,
+        request: list::Request,
+    ) -> Result<list::Response, super::RequestError> {
         self.call(request).await
     }
 
@@ -39,12 +44,12 @@ where
     pub async fn list_detailed(
         &mut self,
         request: list_detailed::Request,
-    ) -> Result<list_detailed::Response, tonic::Status> {
+    ) -> Result<list_detailed::Response, super::RequestError> {
         self.call(request).await
     }
 
     /// Get a task by its id.
-    pub async fn get(&mut self, task_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn get(&mut self, task_id: impl Into<String>) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(get::Request {
                 task_id: task_id.into(),
@@ -57,7 +62,7 @@ where
     pub async fn cancel(
         &mut self,
         task_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<Vec<Summary>, tonic::Status> {
+    ) -> Result<Vec<Summary>, super::RequestError> {
         Ok(self
             .call(cancel::Request {
                 task_ids: task_ids.into_collect(),
@@ -70,7 +75,7 @@ where
     pub async fn get_result_ids(
         &mut self,
         task_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, Vec<String>>, tonic::Status> {
+    ) -> Result<HashMap<String, Vec<String>>, super::RequestError> {
         Ok(self
             .call(result_ids::Request {
                 task_ids: task_ids.into_collect(),
@@ -83,7 +88,7 @@ where
     pub async fn count_status(
         &mut self,
         filters: filter::Or,
-    ) -> Result<Vec<StatusCount>, tonic::Status> {
+    ) -> Result<Vec<StatusCount>, super::RequestError> {
         Ok(self.call(count_status::Request { filters }).await?.status)
     }
 
@@ -93,7 +98,7 @@ where
         session_id: impl Into<String>,
         task_options: Option<TaskOptions>,
         items: impl IntoIterator<Item = submit::RequestItem>,
-    ) -> Result<Vec<submit::ResponseItem>, tonic::Status> {
+    ) -> Result<Vec<submit::ResponseItem>, super::RequestError> {
         Ok(self
             .call(submit::Request {
                 session_id: session_id.into(),
@@ -122,7 +127,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -131,7 +137,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_tasks_detailed(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -140,7 +147,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_task(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -149,7 +157,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .cancel_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -158,7 +167,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_result_ids(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -167,7 +177,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .count_tasks_by_status(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -176,7 +187,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .submit_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }

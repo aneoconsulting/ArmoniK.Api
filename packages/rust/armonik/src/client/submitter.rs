@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use futures::{Stream, StreamExt};
+use snafu::ResultExt;
 
 use crate::api::v3;
 use crate::objects::submitter::{
@@ -29,13 +30,13 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::submitter::submitter_client::SubmitterClient::new(channel),
         }
     }
 
-    pub async fn service_configuration(&mut self) -> Result<Configuration, tonic::Status> {
+    pub async fn service_configuration(&mut self) -> Result<Configuration, super::RequestError> {
         self.call(service_configuration::Request {}).await
     }
 
@@ -43,7 +44,7 @@ where
         &mut self,
         partitions: impl IntoIterator<Item = impl Into<String>>,
         task_options: TaskOptions,
-    ) -> Result<String, tonic::Status> {
+    ) -> Result<String, super::RequestError> {
         Ok(self
             .call(create_session::Request {
                 default_task_option: task_options,
@@ -56,7 +57,7 @@ where
     pub async fn cancel_session(
         &mut self,
         session_id: impl Into<String>,
-    ) -> Result<(), tonic::Status> {
+    ) -> Result<(), super::RequestError> {
         self.call(cancel_session::Request {
             session_id: session_id.into(),
         })
@@ -69,7 +70,7 @@ where
         session_id: impl Into<String>,
         task_options: Option<TaskOptions>,
         tasks: impl IntoIterator<Item = TaskRequest>,
-    ) -> Result<Vec<create_tasks::Status>, tonic::Status> {
+    ) -> Result<Vec<create_tasks::Status>, super::RequestError> {
         let response = self
             .call(create_tasks::SmallRequest {
                 session_id: session_id.into(),
@@ -80,30 +81,37 @@ where
 
         match response {
             create_tasks::Response::Status(statuses) => Ok(statuses),
-            create_tasks::Response::Error(msg) => Err(tonic::Status::internal(msg)),
+            create_tasks::Response::Error(msg) => {
+                Err(tonic::Status::internal(msg)).context(super::GrpcSnafu {})
+            }
         }
     }
 
     pub async fn create_large_tasks(
         &mut self,
         request: impl Stream<Item = create_tasks::LargeRequest> + Send + 'static,
-    ) -> Result<Vec<create_tasks::Status>, tonic::Status> {
+    ) -> Result<Vec<create_tasks::Status>, super::RequestError> {
         let response = self.call(request).await?;
 
         match response {
             create_tasks::Response::Status(statuses) => Ok(statuses),
-            create_tasks::Response::Error(msg) => Err(tonic::Status::internal(msg)),
+            create_tasks::Response::Error(msg) => {
+                Err(tonic::Status::internal(msg)).context(super::GrpcSnafu {})
+            }
         }
     }
 
-    pub async fn list_tasks(&mut self, filter: TaskFilter) -> Result<Vec<String>, tonic::Status> {
+    pub async fn list_tasks(
+        &mut self,
+        filter: TaskFilter,
+    ) -> Result<Vec<String>, super::RequestError> {
         Ok(self.call(list_tasks::Request { filter }).await?.task_ids)
     }
 
     pub async fn list_sessions(
         &mut self,
         filter: SessionFilter,
-    ) -> Result<Vec<String>, tonic::Status> {
+    ) -> Result<Vec<String>, super::RequestError> {
         Ok(self
             .call(list_sessions::Request { filter })
             .await?
@@ -113,7 +121,7 @@ where
     pub async fn count_tasks(
         &mut self,
         filter: TaskFilter,
-    ) -> Result<HashMap<TaskStatus, i32>, tonic::Status> {
+    ) -> Result<HashMap<TaskStatus, i32>, super::RequestError> {
         Ok(self.call(count_tasks::Request { filter }).await?.values)
     }
 
@@ -121,24 +129,27 @@ where
         &mut self,
         session_id: impl Into<String>,
         result_id: impl Into<String>,
-    ) -> Result<impl Stream<Item = Result<try_get_result::Response, tonic::Status>>, tonic::Status>
-    {
+    ) -> Result<
+        impl Stream<Item = Result<try_get_result::Response, super::RequestError>>,
+        super::RequestError,
+    > {
         Ok(self
             .inner
             .try_get_result_stream(try_get_result::Request {
                 session_id: session_id.into(),
                 result_id: result_id.into(),
             })
-            .await?
+            .await
+            .context(super::GrpcSnafu {})?
             .into_inner()
-            .map(|item| item.map(Into::into)))
+            .map(|item| item.map(Into::into).context(super::GrpcSnafu {})))
     }
 
     pub async fn try_get_task_output(
         &mut self,
         session_id: impl Into<String>,
         task_id: impl Into<String>,
-    ) -> Result<(), tonic::Status> {
+    ) -> Result<(), super::RequestError> {
         let response = self
             .call(try_get_task_output::Request {
                 session_id: session_id.into(),
@@ -148,7 +159,9 @@ where
 
         match response {
             Output::Ok => Ok(()),
-            Output::Error { details } => Err(tonic::Status::internal(details)),
+            Output::Error { details } => {
+                Err(tonic::Status::internal(details)).context(super::GrpcSnafu {})
+            }
         }
     }
 
@@ -156,7 +169,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         result_id: impl Into<String>,
-    ) -> Result<wait_for_availability::Response, tonic::Status> {
+    ) -> Result<wait_for_availability::Response, super::RequestError> {
         self.call(wait_for_availability::Request {
             session_id: session_id.into(),
             result_id: result_id.into(),
@@ -169,7 +182,7 @@ where
         filter: TaskFilter,
         stop_on_first_task_error: bool,
         stop_on_first_task_cancellation: bool,
-    ) -> Result<HashMap<TaskStatus, i32>, tonic::Status> {
+    ) -> Result<HashMap<TaskStatus, i32>, super::RequestError> {
         Ok(self
             .call(wait_for_completion::Request {
                 filter,
@@ -180,7 +193,7 @@ where
             .values)
     }
 
-    pub async fn cancel_tasks(&mut self, filter: TaskFilter) -> Result<(), tonic::Status> {
+    pub async fn cancel_tasks(&mut self, filter: TaskFilter) -> Result<(), super::RequestError> {
         self.call(cancel_tasks::Request { filter }).await?;
         Ok(())
     }
@@ -188,7 +201,7 @@ where
     pub async fn task_status(
         &mut self,
         task_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, TaskStatus>, tonic::Status> {
+    ) -> Result<HashMap<String, TaskStatus>, super::RequestError> {
         Ok(self
             .call(task_status::Request {
                 task_ids: task_ids.into_collect(),
@@ -201,7 +214,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         result_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, ResultStatus>, tonic::Status> {
+    ) -> Result<HashMap<String, ResultStatus>, super::RequestError> {
         Ok(self
             .call(result_status::Request {
                 session_id: session_id.into(),
@@ -229,7 +242,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_service_configuration(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -238,7 +252,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -247,7 +262,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .cancel_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -256,7 +272,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_small_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -265,7 +282,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -274,7 +292,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_sessions(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -283,7 +302,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .count_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -292,7 +312,8 @@ super::impl_call! {
             Ok(Box::new(self
                 .inner
                 .try_get_result_stream(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .map(|item| item.map(Into::into))))
         }
@@ -301,7 +322,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .try_get_task_output(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -310,7 +332,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .wait_for_availability(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -319,7 +342,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .wait_for_completion(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -328,7 +352,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .cancel_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -337,7 +362,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_task_status(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -346,7 +372,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_result_status(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -363,13 +390,14 @@ where
     S: Stream<Item = create_tasks::LargeRequest> + Send + 'static,
 {
     type Response = create_tasks::Response;
-    type Error = tonic::Status;
+    type Error = super::RequestError;
 
     async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
         Ok(self
             .inner
             .create_large_tasks(request.map(Into::into))
-            .await?
+            .await
+            .context(super::GrpcSnafu {})?
             .into_inner()
             .into())
     }
