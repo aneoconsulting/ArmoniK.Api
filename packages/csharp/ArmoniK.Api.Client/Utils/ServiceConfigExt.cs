@@ -1,6 +1,6 @@
 // This file is part of the ArmoniK project
 // 
-// Copyright (C) ANEO, 2021-2023. All rights reserved.
+// Copyright (C) ANEO, 2021-2024. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
 //   D. Dubuc          <ddubuc@aneo.fr>
@@ -33,6 +33,9 @@ using Newtonsoft.Json;
 
 namespace ArmoniK.Api.Client.Utils
 {
+  /// <summary>
+  ///   Extensions for configuring services
+  /// </summary>
   public static class ServiceConfigExt
   {
     private const string MaxAttemptsPropertyName          = "maxAttempts";
@@ -46,9 +49,23 @@ namespace ArmoniK.Api.Client.Utils
     private const string MethodPropertyName               = "method";
     private const string RetryPolicyPropertyName          = "retryPolicy";
 
+    /// <summary>
+    ///   Convert <see cref="ServiceConfig" /> to JSON
+    /// </summary>
+    /// <param name="config">Input config</param>
+    /// <returns>
+    ///   A string containing the config in JSON format
+    /// </returns>
     public static string ToJson(this ServiceConfig config)
       => JsonConvert.SerializeObject(config.ToDict());
 
+    /// <summary>
+    ///   Convert <see cref="ServiceConfig" /> to dictionary
+    /// </summary>
+    /// <param name="config">Input service config</param>
+    /// <returns>
+    ///   A dictionary containing the service config
+    /// </returns>
     public static Dictionary<string, object> ToDict(this ServiceConfig config)
       => new()
          {
@@ -56,6 +73,13 @@ namespace ArmoniK.Api.Client.Utils
                                               .ToArray(),
          };
 
+    /// <summary>
+    ///   Convert <see cref="MethodConfig" /> to dictionary
+    /// </summary>
+    /// <param name="config">Input method config</param>
+    /// <returns>
+    ///   A dictionary containing the method config
+    /// </returns>
     public static Dictionary<string, object> ToDict(this MethodConfig config)
     {
       var dict = new Dictionary<string, object>
@@ -71,6 +95,13 @@ namespace ArmoniK.Api.Client.Utils
       return dict;
     }
 
+    /// <summary>
+    ///   Convert <see cref="MethodName" /> to dictionary
+    /// </summary>
+    /// <param name="methodName">Input method name</param>
+    /// <returns>
+    ///   A dictionary containing the method name
+    /// </returns>
     public static Dictionary<string, string> ToDict(this MethodName methodName)
     {
       var dict = new Dictionary<string, string>();
@@ -87,6 +118,13 @@ namespace ArmoniK.Api.Client.Utils
       return dict;
     }
 
+    /// <summary>
+    ///   Convert <see cref="RetryPolicy" /> to dictionary
+    /// </summary>
+    /// <param name="retryPolicy">Input retry policy</param>
+    /// <returns>
+    ///   A dictionary containing the retry policy
+    /// </returns>
     public static Dictionary<string, object> ToDict(this RetryPolicy retryPolicy)
     {
       var dict = new Dictionary<string, object>();
@@ -122,7 +160,7 @@ namespace ArmoniK.Api.Client.Utils
       return dict;
     }
 
-    public static string ToSimpleString(this Duration duration)
+    private static string ToSimpleString(this Duration duration)
       => duration.Seconds + (duration.Nanos > 0
                                ? $".{duration.Nanos: D9}s"
                                : "s");

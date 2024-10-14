@@ -25,6 +25,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -34,8 +35,6 @@ using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Agent;
 using ArmoniK.Api.gRPC.V1.Worker;
 using ArmoniK.Api.Worker.Worker;
-
-using Google.Protobuf;
 
 using Grpc.Core;
 
@@ -48,32 +47,6 @@ namespace ArmoniK.Api.Worker.Tests;
 [TestFixture]
 public class TaskHandlerTest
 {
-  [SetUp]
-  public void SetUp()
-  {
-  }
-
-  [TearDown]
-  public virtual void TearDown()
-  {
-  }
-
-  private class MyAsyncStreamReader : IAsyncStreamReader<ProcessRequest>
-  {
-    private readonly IAsyncEnumerator<ProcessRequest> asyncEnumerator_;
-
-    public MyAsyncStreamReader(IEnumerable<ProcessRequest> requests)
-      => asyncEnumerator_ = requests.ToAsyncEnumerable()
-                                    .GetAsyncEnumerator();
-
-    public async Task<bool> MoveNext(CancellationToken cancellationToken)
-      => await asyncEnumerator_.MoveNextAsync(cancellationToken)
-                               .ConfigureAwait(false);
-
-    public ProcessRequest Current
-      => asyncEnumerator_.Current;
-  }
-
   private class MyClientStreamWriter<T> : IClientStreamWriter<T>
   {
     public readonly ConcurrentBag<T> Messages = new();
@@ -104,26 +77,8 @@ public class TaskHandlerTest
 
   private class MyAgent : Agent.AgentClient
   {
-    private readonly MyClientStreamWriter<Result>            resultStream_;
-    private readonly MyClientStreamWriter<CreateTaskRequest> taskStream_;
+    private readonly MyClientStreamWriter<CreateTaskRequest> taskStream_ = new();
 
-    public MyAgent()
-    {
-      resultStream_ = new MyClientStreamWriter<Result>();
-      taskStream_   = new MyClientStreamWriter<CreateTaskRequest>();
-    }
-
-    public override AsyncClientStreamingCall<Result, ResultReply> SendResult(Metadata          headers           = null,
-                                                                             DateTime?         deadline          = null,
-                                                                             CancellationToken cancellationToken = default)
-      => new(resultStream_,
-             Task.FromResult(new ResultReply()),
-             Task.FromResult(new Metadata()),
-             () => Status.DefaultSuccess,
-             () => new Metadata(),
-             () =>
-             {
-             });
 
     public override AsyncClientStreamingCall<CreateTaskRequest, CreateTaskReply> CreateTask(Metadata          headers           = null,
                                                                                             DateTime?         deadline          = null,
@@ -137,9 +92,6 @@ public class TaskHandlerTest
              {
              });
 
-    public List<Result> GetResults()
-      => resultStream_.Messages.ToList();
-
     public List<CreateTaskRequest> GetTaskRequests()
       => taskStream_.Messages.ToList();
   }
@@ -147,452 +99,96 @@ public class TaskHandlerTest
 
   [Test]
   [TestCaseSource(typeof(TaskHandlerTest),
-                  nameof(TaskHandlerCreateShouldThrowTestCases))]
-  public void TaskHandlerCreateShouldThrow(IEnumerable<ProcessRequest> requests)
+                  nameof(InvalidRequests))]
+  public void NewTaskHandlerShouldThrow(ProcessRequest request)
   {
-    var stream = new MyAsyncStreamReader(requests);
-
     var agent = new MyAgent();
 
-    Assert.ThrowsAsync<InvalidOperationException>(async () => await TaskHandler.Create(stream,
-                                                                                       agent,
-                                                                                       new LoggerFactory(),
-                                                                                       CancellationToken.None)
-                                                                               .ConfigureAwait(false));
+    Assert.Throws<InvalidOperationException>(() => new TaskHandler(request,
+                                                                   agent,
+                                                                   new LoggerFactory(),
+                                                                   CancellationToken.None));
+  }
+
+  public static IEnumerable InvalidRequests
+  {
+    get { yield return new TestCaseData(new ProcessRequest()).SetArgDisplayNames("Empty request"); }
   }
 
   [Test]
-  [TestCaseSource(typeof(TaskHandlerTest),
-                  nameof(TaskHandlerCreateShouldSucceedTestCases))]
-  public async Task TaskHandlerCreateShouldSucceed(IEnumerable<ProcessRequest> requests)
+  public async Task NewTaskHandlerShouldSucceed()
   {
-    var stream = new MyAsyncStreamReader(requests);
-
     var agent = new MyAgent();
 
-    var taskHandler = await TaskHandler.Create(stream,
-                                               agent,
-                                               new LoggerFactory(),
-                                               CancellationToken.None)
-                                       .ConfigureAwait(false);
+    var payloadId = Guid.NewGuid()
+                        .ToString();
+    var taskId = Guid.NewGuid()
+                     .ToString();
+    var token = Guid.NewGuid()
+                    .ToString();
+    var sessionId = Guid.NewGuid()
+                        .ToString();
+    var dd1 = Guid.NewGuid()
+                  .ToString();
+    var eok1 = Guid.NewGuid()
+                   .ToString();
 
-    Assert.NotNull(taskHandler.Token);
-    Assert.IsNotEmpty(taskHandler.Token);
-    Assert.IsNotEmpty(taskHandler.Payload);
-    Assert.IsNotEmpty(taskHandler.SessionId);
-    Assert.IsNotEmpty(taskHandler.TaskId);
-  }
+    var folder = Path.Combine(Path.GetTempPath(),
+                              token);
 
-  [Test]
-  public async Task CheckTaskHandlerDataAreCorrect()
-  {
-    var stream = new MyAsyncStreamReader(WorkingRequest1);
+    Directory.CreateDirectory(folder);
 
-    var agent = new MyAgent();
+    var payloadBytes = Encoding.ASCII.GetBytes("payload");
+    var dd1Bytes     = Encoding.ASCII.GetBytes("DataDependency1");
+    var eok1Bytes    = Encoding.ASCII.GetBytes("ExpectedOutput1");
 
-    var taskHandler = await TaskHandler.Create(stream,
-                                               agent,
-                                               new LoggerFactory(),
-                                               CancellationToken.None)
-                                       .ConfigureAwait(false);
+    await File.WriteAllBytesAsync(Path.Combine(folder,
+                                               payloadId),
+                                  payloadBytes);
+    await File.WriteAllBytesAsync(Path.Combine(folder,
+                                               dd1),
+                                  dd1Bytes);
 
-    Assert.IsNotEmpty(taskHandler.Payload);
-    Assert.AreEqual("testPayload1Payload2",
-                    ByteString.CopyFrom(taskHandler.Payload)
-                              .ToStringUtf8());
-    Assert.AreEqual(2,
-                    taskHandler.DataDependencies.Count);
-    Assert.AreEqual("Data1Data2",
-                    ByteString.CopyFrom(taskHandler.DataDependencies.Values.First())
-                              .ToStringUtf8());
-    Assert.AreEqual("Data1Data2Data2Data2",
-                    ByteString.CopyFrom(taskHandler.DataDependencies.Values.Last())
-                              .ToStringUtf8());
-    Assert.AreEqual("TaskId",
-                    taskHandler.TaskId);
-    Assert.AreEqual("SessionId",
-                    taskHandler.SessionId);
-    Assert.AreEqual("Token",
-                    taskHandler.Token);
-
-    await taskHandler.SendResult("test",
-                                 Encoding.ASCII.GetBytes("TestData"));
-
-    var results = agent.GetResults();
-    foreach (var r in results)
-    {
-      Console.WriteLine(r);
-    }
-
-    Assert.AreEqual(4,
-                    results.Count);
-
-    Assert.AreEqual(Result.TypeOneofCase.Init,
-                    results[0]
-                      .TypeCase);
-    Assert.AreEqual(true,
-                    results[0]
-                      .Init.LastResult);
-
-    Assert.AreEqual(Result.TypeOneofCase.Data,
-                    results[1]
-                      .TypeCase);
-    Assert.AreEqual(true,
-                    results[1]
-                      .Data.DataComplete);
-
-    Assert.AreEqual(Result.TypeOneofCase.Data,
-                    results[2]
-                      .TypeCase);
-    Assert.AreEqual("TestData",
-                    results[2]
-                      .Data.Data);
-
-    Assert.AreEqual(Result.TypeOneofCase.Init,
-                    results[3]
-                      .TypeCase);
-    Assert.AreEqual("test",
-                    results[3]
-                      .Init.Key);
-
-
-    await taskHandler.CreateTasksAsync(new List<TaskRequest>
-                                       {
-                                         new()
-                                         {
-                                           Payload = ByteString.CopyFromUtf8("Payload"),
-                                           DataDependencies =
-                                           {
-                                             "DD",
-                                           },
-                                           ExpectedOutputKeys =
-                                           {
-                                             "EOK",
-                                           },
-                                         },
-                                       });
-
-    var tasks = agent.GetTaskRequests();
-    Console.WriteLine();
-    foreach (var t in tasks)
-    {
-      Console.WriteLine(t);
-    }
-
-    Assert.AreEqual(5,
-                    tasks.Count);
-
-    Assert.AreEqual(CreateTaskRequest.TypeOneofCase.InitTask,
-                    tasks[0]
-                      .TypeCase);
-    Assert.AreEqual(true,
-                    tasks[0]
-                      .InitTask.LastTask);
-
-    Assert.AreEqual(CreateTaskRequest.TypeOneofCase.TaskPayload,
-                    tasks[1]
-                      .TypeCase);
-    Assert.AreEqual(true,
-                    tasks[1]
-                      .TaskPayload.DataComplete);
-
-    Assert.AreEqual(CreateTaskRequest.TypeOneofCase.TaskPayload,
-                    tasks[2]
-                      .TypeCase);
-    Assert.AreEqual("Payload",
-                    tasks[2]
-                      .TaskPayload.Data);
-
-    Assert.AreEqual(CreateTaskRequest.TypeOneofCase.InitTask,
-                    tasks[3]
-                      .TypeCase);
-    Assert.AreEqual("DD",
-                    tasks[3]
-                      .InitTask.Header.DataDependencies.Single());
-    Assert.AreEqual("EOK",
-                    tasks[3]
-                      .InitTask.Header.ExpectedOutputKeys.Single());
-
-    Assert.AreEqual(CreateTaskRequest.TypeOneofCase.InitRequest,
-                    tasks[4]
-                      .TypeCase);
-  }
-
-  private static readonly ProcessRequest InitData1 = new()
-                                                     {
-                                                       CommunicationToken = "Token",
-                                                       Compute = new ProcessRequest.Types.ComputeRequest
-                                                                 {
-                                                                   InitData = new ProcessRequest.Types.ComputeRequest.Types.InitData
-                                                                              {
-                                                                                Key = "DataKey1",
-                                                                              },
-                                                                 },
-                                                     };
-
-  private static readonly ProcessRequest InitData2 = new()
-                                                     {
-                                                       CommunicationToken = "Token",
-                                                       Compute = new ProcessRequest.Types.ComputeRequest
-                                                                 {
-                                                                   InitData = new ProcessRequest.Types.ComputeRequest.Types.InitData
-                                                                              {
-                                                                                Key = "DataKey2",
-                                                                              },
-                                                                 },
-                                                     };
-
-  private static readonly ProcessRequest LastDataTrue = new()
-                                                        {
-                                                          CommunicationToken = "Token",
-                                                          Compute = new ProcessRequest.Types.ComputeRequest
-                                                                    {
-                                                                      InitData = new ProcessRequest.Types.ComputeRequest.Types.InitData
-                                                                                 {
-                                                                                   LastData = true,
-                                                                                 },
-                                                                    },
-                                                        };
-
-  private static readonly ProcessRequest LastDataFalse = new()
-                                                         {
-                                                           CommunicationToken = "Token",
-                                                           Compute = new ProcessRequest.Types.ComputeRequest
-                                                                     {
-                                                                       InitData = new ProcessRequest.Types.ComputeRequest.Types.InitData
-                                                                                  {
-                                                                                    LastData = false,
-                                                                                  },
-                                                                     },
-                                                         };
-
-  private static readonly ProcessRequest InitRequestPayload = new()
-                                                              {
-                                                                CommunicationToken = "Token",
-                                                                Compute = new ProcessRequest.Types.ComputeRequest
-                                                                          {
-                                                                            InitRequest = new ProcessRequest.Types.ComputeRequest.Types.InitRequest
-                                                                                          {
-                                                                                            Payload = new DataChunk
-                                                                                                      {
-                                                                                                        Data = ByteString.CopyFromUtf8("test"),
-                                                                                                      },
-                                                                                            Configuration = new Configuration
-                                                                                                            {
-                                                                                                              DataChunkMaxSize = 100,
-                                                                                                            },
-                                                                                            ExpectedOutputKeys =
-                                                                                            {
-                                                                                              "EOK",
-                                                                                            },
-                                                                                            SessionId = "SessionId",
-                                                                                            TaskId    = "TaskId",
-                                                                                          },
-                                                                          },
-                                                              };
-
-  private static readonly ProcessRequest InitRequestEmptyPayload = new()
-                                                                   {
-                                                                     CommunicationToken = "Token",
-                                                                     Compute = new ProcessRequest.Types.ComputeRequest
-                                                                               {
-                                                                                 InitRequest = new ProcessRequest.Types.ComputeRequest.Types.InitRequest
-                                                                                               {
-                                                                                                 Configuration = new Configuration
-                                                                                                                 {
-                                                                                                                   DataChunkMaxSize = 100,
-                                                                                                                 },
-                                                                                                 ExpectedOutputKeys =
-                                                                                                 {
-                                                                                                   "EOK",
-                                                                                                 },
-                                                                                                 SessionId = "SessionId",
-                                                                                                 TaskId    = "TaskId",
-                                                                                               },
-                                                                               },
-                                                                   };
-
-  private static readonly ProcessRequest Payload1 = new()
+    var handler = new TaskHandler(new ProcessRequest
+                                  {
+                                    CommunicationToken = token,
+                                    DataFolder         = folder,
+                                    PayloadId          = payloadId,
+                                    SessionId          = sessionId,
+                                    Configuration = new Configuration
                                                     {
-                                                      CommunicationToken = "Token",
-                                                      Compute = new ProcessRequest.Types.ComputeRequest
-                                                                {
-                                                                  Payload = new DataChunk
-                                                                            {
-                                                                              Data = ByteString.CopyFromUtf8("Payload1"),
-                                                                            },
-                                                                },
-                                                    };
+                                                      DataChunkMaxSize = 84,
+                                                    },
+                                    DataDependencies =
+                                    {
+                                      dd1,
+                                    },
+                                    ExpectedOutputKeys =
+                                    {
+                                      eok1,
+                                    },
+                                    TaskId = taskId,
+                                  },
+                                  agent,
+                                  new LoggerFactory(),
+                                  CancellationToken.None);
 
-  private static readonly ProcessRequest Payload2 = new()
-                                                    {
-                                                      CommunicationToken = "Token",
-                                                      Compute = new ProcessRequest.Types.ComputeRequest
-                                                                {
-                                                                  Payload = new DataChunk
-                                                                            {
-                                                                              Data = ByteString.CopyFromUtf8("Payload2"),
-                                                                            },
-                                                                },
-                                                    };
+    Assert.ThrowsAsync<NotImplementedException>(() => handler.SendResult(eok1,
+                                                                         eok1Bytes));
 
-  private static readonly ProcessRequest PayloadComplete = new()
-                                                           {
-                                                             CommunicationToken = "Token",
-                                                             Compute = new ProcessRequest.Types.ComputeRequest
-                                                                       {
-                                                                         Payload = new DataChunk
-                                                                                   {
-                                                                                     DataComplete = true,
-                                                                                   },
-                                                                       },
-                                                           };
-
-  private static readonly ProcessRequest Data1 = new()
-                                                 {
-                                                   CommunicationToken = "Token",
-                                                   Compute = new ProcessRequest.Types.ComputeRequest
-                                                             {
-                                                               Data = new DataChunk
-                                                                      {
-                                                                        Data = ByteString.CopyFromUtf8("Data1"),
-                                                                      },
-                                                             },
-                                                 };
-
-  private static readonly ProcessRequest Data2 = new()
-                                                 {
-                                                   CommunicationToken = "Token",
-                                                   Compute = new ProcessRequest.Types.ComputeRequest
-                                                             {
-                                                               Data = new DataChunk
-                                                                      {
-                                                                        Data = ByteString.CopyFromUtf8("Data2"),
-                                                                      },
-                                                             },
-                                                 };
-
-  private static readonly ProcessRequest DataComplete = new()
-                                                        {
-                                                          CommunicationToken = "Token",
-                                                          Compute = new ProcessRequest.Types.ComputeRequest
-                                                                    {
-                                                                      Data = new DataChunk
-                                                                             {
-                                                                               DataComplete = true,
-                                                                             },
-                                                                    },
-                                                        };
-
-  public static IEnumerable TaskHandlerCreateShouldThrowTestCases
-  {
-    get
-    {
-      yield return new TestCaseData(new ProcessRequest[]
-                                    {
-                                    }.AsEnumerable());
-      yield return new TestCaseData(new[]
-                                    {
-                                      InitData1,
-                                    }.AsEnumerable());
-      yield return new TestCaseData(new[]
-                                    {
-                                      InitData2,
-                                    }.AsEnumerable());
-      yield return new TestCaseData(new[]
-                                    {
-                                      LastDataTrue,
-                                    }.AsEnumerable());
-      yield return new TestCaseData(new[]
-                                    {
-                                      LastDataFalse,
-                                    }.AsEnumerable());
-      yield return new TestCaseData(new[]
-                                    {
-                                      InitRequestPayload,
-                                    }.AsEnumerable()).SetArgDisplayNames(nameof(InitRequestPayload));
-      yield return new TestCaseData(new[]
-                                    {
-                                      DataComplete,
-                                    }.AsEnumerable()).SetArgDisplayNames(nameof(DataComplete));
-      yield return new TestCaseData(new[]
-                                    {
-                                      InitRequestEmptyPayload,
-                                    }.AsEnumerable()).SetArgDisplayNames(nameof(InitRequestEmptyPayload));
-      yield return new TestCaseData(new[]
-                                    {
-                                      InitRequestPayload,
-                                      PayloadComplete,
-                                      InitData1,
-                                      Data1,
-                                      LastDataTrue,
-                                    }.AsEnumerable()).SetArgDisplayNames("NotWorkingRequest1");
-      yield return new TestCaseData(new[]
-                                    {
-                                      InitRequestPayload,
-                                      InitData1,
-                                      Data1,
-                                      DataComplete,
-                                      LastDataTrue,
-                                    }.AsEnumerable()).SetArgDisplayNames("NotWorkingRequest2");
-      yield return new TestCaseData(new[]
-                                    {
-                                      InitRequestPayload,
-                                      PayloadComplete,
-                                      Data1,
-                                      DataComplete,
-                                      LastDataTrue,
-                                    }.AsEnumerable()).SetArgDisplayNames("NotWorkingRequest3");
-    }
-  }
-
-  private static readonly IEnumerable<ProcessRequest> WorkingRequest1 = new[]
-                                                                        {
-                                                                          InitRequestPayload,
-                                                                          Payload1,
-                                                                          Payload2,
-                                                                          PayloadComplete,
-                                                                          InitData1,
-                                                                          Data1,
-                                                                          Data2,
-                                                                          DataComplete,
-                                                                          InitData2,
-                                                                          Data1,
-                                                                          Data2,
-                                                                          Data2,
-                                                                          Data2,
-                                                                          DataComplete,
-                                                                          LastDataTrue,
-                                                                        }.AsEnumerable();
-
-  private static readonly IEnumerable<ProcessRequest> WorkingRequest2 = new[]
-                                                                        {
-                                                                          InitRequestPayload,
-                                                                          Payload1,
-                                                                          PayloadComplete,
-                                                                          InitData1,
-                                                                          Data1,
-                                                                          DataComplete,
-                                                                          LastDataTrue,
-                                                                        }.AsEnumerable();
-
-  private static readonly IEnumerable<ProcessRequest> WorkingRequest3 = new[]
-                                                                        {
-                                                                          InitRequestPayload,
-                                                                          PayloadComplete,
-                                                                          InitData1,
-                                                                          Data1,
-                                                                          DataComplete,
-                                                                          LastDataTrue,
-                                                                        }.AsEnumerable();
-
-  public static IEnumerable TaskHandlerCreateShouldSucceedTestCases
-  {
-    get
-    {
-      yield return new TestCaseData(WorkingRequest1).SetArgDisplayNames(nameof(WorkingRequest1));
-      yield return new TestCaseData(WorkingRequest2).SetArgDisplayNames(nameof(WorkingRequest2));
-      yield return new TestCaseData(WorkingRequest3).SetArgDisplayNames(nameof(WorkingRequest3));
-    }
+    Assert.Multiple(() =>
+                    {
+                      Assert.AreEqual(payloadBytes,
+                                      handler.Payload);
+                      Assert.AreEqual(sessionId,
+                                      handler.SessionId);
+                      Assert.AreEqual(taskId,
+                                      handler.TaskId);
+                      Assert.AreEqual(dd1Bytes,
+                                      handler.DataDependencies[dd1]);
+                      Assert.AreEqual(eok1Bytes,
+                                      File.ReadAllBytes(Path.Combine(folder,
+                                                                     eok1)));
+                    });
   }
 }

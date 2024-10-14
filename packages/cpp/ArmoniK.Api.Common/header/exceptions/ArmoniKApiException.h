@@ -2,12 +2,18 @@
 #define ARMONIK_API_ARMONIKAPIEXCEPTION_H
 
 #include <stdexcept>
-namespace API_COMMON_NAMESPACE::exceptions {
+namespace armonik {
+namespace api {
+namespace common {
+namespace exceptions {
 
 class ArmoniKApiException : public std::runtime_error {
 public:
   explicit ArmoniKApiException(const std::string &message) : runtime_error(message) {}
 };
-} // namespace API_COMMON_NAMESPACE::exceptions
+} // namespace exceptions
+} // namespace common
+} // namespace api
+} // namespace armonik
 
 #endif // ARMONIK_API_ARMONIKAPIEXCEPTION_H

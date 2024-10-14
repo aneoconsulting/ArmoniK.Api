@@ -22,8 +22,7 @@ RUN apk update && apk add --no-cache \
     grpc \
     grpc-dev \
     protobuf \
-    protobuf-dev \
-    libfmt-dev
+    protobuf-dev
 
 # Update the PATH environment variable to include the gRPC libraries and binaries
 ENV LD_LIBRARY_PATH="/app/install/lib:$LD_LIBRARY_PATH"
@@ -38,6 +37,9 @@ COPY ./packages/cpp/ArmoniK.Api.Common ./ArmoniK.Api.Common
 COPY ./packages/cpp/ArmoniK.Api.Worker ./ArmoniK.Api.Worker
 COPY ./packages/cpp/ArmoniK.Api.Worker.Tests ./ArmoniK.Api.Worker.Tests
 COPY ./packages/cpp/CMakeLists.txt ./
+COPY ./packages/cpp/Dependencies.cmake ./
+COPY ./packages/cpp/Packaging.cmake ./
+COPY ./packages/cpp/tools/packaging/. ./tools/packaging/.
 
 # Copy the Protocol Buffer definition files into the image
 WORKDIR /app/proto

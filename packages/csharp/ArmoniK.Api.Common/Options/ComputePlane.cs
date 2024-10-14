@@ -21,6 +21,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Common.Options;
@@ -31,6 +33,9 @@ namespace ArmoniK.Api.Common.Options;
 [PublicAPI]
 public class ComputePlane
 {
+  /// <summary>
+  ///   Path to the section containing the values in the configuration object
+  /// </summary>
   public const string SettingSection = nameof(ComputePlane);
 
   /// <summary>
@@ -47,4 +52,9 @@ public class ComputePlane
   ///   Number of messages retrieved from the queue by the Agent
   /// </summary>
   public int MessageBatchSize { get; set; } = 1;
+
+  /// <summary>
+  ///   Time to wait upon cancellation before aborting the worker
+  /// </summary>
+  public TimeSpan AbortAfter { get; set; } = TimeSpan.Zero;
 }

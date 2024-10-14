@@ -5,7 +5,10 @@
 /**
  * @brief The armonik namespace contains classes and functions related to the ArmoniK API.
  */
-namespace API_COMMON_NAMESPACE::options {
+namespace armonik {
+namespace api {
+namespace common {
+namespace options {
 /**
  * @brief The ComputePlane class manages the communication addresses for workers and agents.
  */
@@ -31,8 +34,8 @@ public:
    * @param socket_address The socket address to set for the worker.
    */
   void set_worker_address(std::string socket_address) {
-    if (socket_address.find("unix:") != 0) {
-      socket_address.insert(0, "unix:");
+    if (socket_address.find("unix://") != 0) {
+      socket_address.insert(0, "unix://");
     }
     worker_address_ = std::move(socket_address);
   }
@@ -42,8 +45,8 @@ public:
    * @param agent_address The agent address to set for the agent.
    */
   void set_agent_address(std::string agent_address) {
-    if (agent_address.find("unix:") != 0) {
-      agent_address.insert(0, "unix:");
+    if (agent_address.find("unix://") != 0) {
+      agent_address.insert(0, "unix://");
     }
     agent_address_ = std::move(agent_address);
   }
@@ -58,4 +61,7 @@ private:
   std::string worker_address_; ///< The worker address string.
   std::string agent_address_;  ///< The agent address string.
 };
-} // namespace API_COMMON_NAMESPACE::options
+} // namespace options
+} // namespace common
+} // namespace api
+} // namespace armonik

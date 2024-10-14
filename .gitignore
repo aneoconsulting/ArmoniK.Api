@@ -385,6 +385,7 @@ dist
 !packages/rust
 !packages/angular
 !packages/web
+!packages/java
 packages/web/LICENSE
 
 !.docs/content/**
@@ -394,3 +395,14 @@ packages/web/LICENSE
 **/.idea
 
 gen
+
+# Maven
+target/
+
+# Compiled class file
+*.class
+
+# IDE-specific files
+*.iml
+*.ipr
+*.iws

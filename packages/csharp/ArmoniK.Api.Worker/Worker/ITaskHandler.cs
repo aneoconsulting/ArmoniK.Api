@@ -23,6 +23,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.gRPC.V1;
@@ -32,6 +33,9 @@ using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Worker.Worker;
 
+/// <summary>
+///   Higher level interface to implement to create tasks and populate results
+/// </summary>
 [PublicAPI]
 public interface ITaskHandler : IAsyncDisposable
 {
@@ -68,87 +72,116 @@ public interface ITaskHandler : IAsyncDisposable
   /// <summary>
   ///   The configuration parameters for the interaction with ArmoniK.
   /// </summary>
-  Configuration? Configuration { get; }
+  Configuration Configuration { get; }
 
   /// <summary>
   ///   This method allows to create subtasks.
   /// </summary>
   /// <param name="tasks">Lists the tasks to submit</param>
   /// <param name="taskOptions">The task options. If no value is provided, will use the default session options</param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns></returns>
   Task<CreateTaskReply> CreateTasksAsync(IEnumerable<TaskRequest> tasks,
-                                         TaskOptions?             taskOptions = null);
+                                         TaskOptions?             taskOptions       = null,
+                                         CancellationToken?       cancellationToken = null);
 
   /// <summary>
   ///   NOT IMPLEMENTED
   ///   This method is used to retrieve data available system-wide.
   /// </summary>
   /// <param name="key">The data key identifier</param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns></returns>
-  Task<byte[]> RequestResource(string key);
+  Task<byte[]> RequestResource(string             key,
+                               CancellationToken? cancellationToken = null);
 
   /// <summary>
   ///   NOT IMPLEMENTED
   ///   This method is used to retrieve data provided when creating the session.
   /// </summary>
   /// <param name="key">The da ta key identifier</param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns></returns>
-  Task<byte[]> RequestCommonData(string key);
+  Task<byte[]> RequestCommonData(string             key,
+                                 CancellationToken? cancellationToken = null);
 
   /// <summary>
   ///   NOT IMPLEMENTED
   ///   This method is used to retrieve data directly from the submission client.
   /// </summary>
   /// <param name="key"></param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns></returns>
-  Task<byte[]> RequestDirectData(string key);
+  Task<byte[]> RequestDirectData(string             key,
+                                 CancellationToken? cancellationToken = null);
 
   /// <summary>
   ///   Send the results computed by the task
   /// </summary>
   /// <param name="key">The key identifier of the result.</param>
   /// <param name="data">The data corresponding to the result</param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns></returns>
-  Task SendResult(string key,
-                  byte[] data);
+  Task SendResult(string             key,
+                  byte[]             data,
+                  CancellationToken? cancellationToken = null);
 
   /// <summary>
   ///   Create results metadata
   /// </summary>
   /// <param name="results">The collection of results to be created</param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns>
   ///   The result creation response
   /// </returns>
-  Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results);
+  Task<CreateResultsMetaDataResponse> CreateResultsMetaDataAsync(IEnumerable<CreateResultsMetaDataRequest.Types.ResultCreate> results,
+                                                                 CancellationToken?                                           cancellationToken = null);
 
   /// <summary>
   ///   Submit tasks with existing payloads (results)
   /// </summary>
   /// <param name="taskCreations">The requests to create tasks</param>
   /// <param name="submissionTaskOptions">optional tasks for the whole submission</param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns>
   ///   The task submission response
   /// </returns>
   Task<SubmitTasksResponse> SubmitTasksAsync(IEnumerable<SubmitTasksRequest.Types.TaskCreation> taskCreations,
-                                             TaskOptions?                                       submissionTaskOptions);
+                                             TaskOptions?                                       submissionTaskOptions,
+                                             CancellationToken?                                 cancellationToken = null);
 
   /// <summary>
   ///   Create results from metadata and data in an unique request
   /// </summary>
   /// <param name="results">The results to create</param>
+  /// <param name="cancellationToken">
+  ///   Token used to cancel the execution of the method.
+  ///   If null, the cancellation token of the task handler is used
+  /// </param>
   /// <returns>
   ///   The task submission response
   /// </returns>
-  Task<CreateResultsResponse> CreateResultsAsync(IEnumerable<CreateResultsRequest.Types.ResultCreate> results);
-
-  /// <summary>
-  ///   Upload data to an existing result
-  /// </summary>
-  /// <param name="key">The result Id</param>
-  /// <param name="data">The data to submit for the given result</param>
-  /// <returns>
-  ///   The upload data response
-  /// </returns>
-  Task<UploadResultDataResponse> UploadResultData(string key,
-                                                  byte[] data);
+  Task<CreateResultsResponse> CreateResultsAsync(IEnumerable<CreateResultsRequest.Types.ResultCreate> results,
+                                                 CancellationToken?                                   cancellationToken = null);
 }

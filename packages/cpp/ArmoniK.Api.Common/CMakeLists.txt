@@ -3,7 +3,6 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 set(PROJECT_NAME ArmoniK.Api.Common)
-set(NAMESPACE ArmoniK::Api::Common)
 set(ARMONIK_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/armonik/common)
 set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
@@ -27,9 +26,12 @@ set(PROTO_FILES
 
 list(TRANSFORM PROTO_FILES PREPEND "${PROTO_FILES_DIR}/")
 
-set(CMAKE_FIND_DEBUG_MODE FALSE)
 # Trouver les packages requis
-find_package(Protobuf REQUIRED)
+if (UNIX)
+    find_package(Protobuf REQUIRED)
+else()
+    find_package(Protobuf CONFIG REQUIRED)
+endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
@@ -37,7 +39,8 @@ include(FetchContent)
 
 FETCHCONTENT_DECLARE(
         fmt
-        URL https://github.com/fmtlib/fmt/archive/refs/tags/10.1.0.tar.gz
+        URL "${SRC_FMT}"
+        TIMEOUT 180
 )
 
 FetchContent_GetProperties(fmt)
@@ -47,15 +50,14 @@ endif()
 
 FETCHCONTENT_DECLARE(
         simdjson
-        URL https://github.com/simdjson/simdjson/archive/refs/tags/v3.2.2.tar.gz
+        URL "${SRC_SIMDJSON}"
+        TIMEOUT 180
 )
 
 FetchContent_GetProperties(simdjson)
 if(NOT simdjson_POPULATED)
     FetchContent_Populate(simdjson)
 endif()
-
-set(CMAKE_FIND_DEBUG_MODE FALSE)
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
@@ -67,8 +69,9 @@ file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR})
 
 add_library(${PROJECT_NAME} ${PROTO_GENERATED_FILES} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES} ${simdjson_SOURCE_DIR}/singleheader/simdjson.cpp ${simdjson_SOURCE_DIR}/singleheader/simdjson.h)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure)
-target_compile_definitions(${PROJECT_NAME} PUBLIC API_COMMON_NAMESPACE=${NAMESPACE} FMT_HEADER_ONLY=1)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++)
+target_compile_definitions(${PROJECT_NAME} PUBLIC FMT_HEADER_ONLY=1)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
 setup_options(${PROJECT_NAME})
 

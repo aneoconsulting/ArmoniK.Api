@@ -1,4 +1,4 @@
-FROM dockerhubaneo/armonikworker-base:ubi7.9-0.0.1
+FROM dockerhubaneo/armonikworker-base:ubi7.9-0.0.2
 
 USER root
 # Update the PATH environment variable to include the gRPC libraries and binaries
@@ -28,6 +28,8 @@ COPY packages/cpp/ArmoniK.Api.Client/. ./ArmoniK.Api.Client/.
 COPY packages/cpp/ArmoniK.Api.Worker/. ./ArmoniK.Api.Worker/.
 COPY packages/cpp/CMakeLists.txt .
 COPY packages/cpp/Packaging.cmake .
+COPY packages/cpp/Dependencies.cmake .
+
 WORKDIR /rpm/build
 RUN cmake -DBUILD_SHARED_LIBS=ON -DBUILD_CLIENT:BOOL=ON -DCMAKE_BUILD_TYPE=Release -DBUILD_WORKER:BOOL=ON -DPROTO_FILES_DIR=/rpm/Protos -DCPACK_GENERATOR=RPM -DCMAKE_PREFIX_PATH=/usr/local/grpc .. && make package -j
 ENTRYPOINT ["bash"]

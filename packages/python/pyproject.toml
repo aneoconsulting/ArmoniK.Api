@@ -15,10 +15,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "grpcio",
-    "grpcio-tools"
+    "grpcio==1.62.3",
+    "grpcio-tools==1.62.3",
+    "deprecation",
+    "cryptography>=36"
 ]
-
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
 "Bug Tracker" = "https://github.com/aneoconsulting/ArmoniK/issues"
@@ -40,6 +41,12 @@ tests = [
   'pytest',
   'pytest-cov',
   'pytest-benchmark[histogram]',
+  'requests',
+]
+dev = [
+    'mypy',
+    'ruff',
+    'types-protobuf',
 ]
 
 [tool.pytest.ini_options]

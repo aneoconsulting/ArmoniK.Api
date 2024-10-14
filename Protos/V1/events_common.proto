@@ -3,15 +3,32 @@ syntax = "proto3";
 package armonik.api.grpc.v1.events;
 
 import "result_status.proto";
+import "results_filters.proto";
 import "task_status.proto";
+import "tasks_filters.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
+
+/**
+ * Represents the events that can be returned in the EventSubscriptionResponse
+ */
+enum EventsEnum {
+  EVENTS_ENUM_UNSPECIFIED = 0; /** Unspecified */
+  EVENTS_ENUM_NEW_TASK = 1; /** New task */
+  EVENTS_ENUM_TASK_STATUS_UPDATE = 2; /** Task status update */
+  EVENTS_ENUM_NEW_RESULT = 3; /** New restult */
+  EVENTS_ENUM_RESULT_STATUS_UPDATE = 4; /** Result status update */
+  EVENTS_ENUM_RESULT_OWNER_UPDATE = 5; /** Result owner update */
+}
 
 /**
  * Request to subscribe to the event stream.
  */
 message EventSubscriptionRequest {
   string session_id = 1; /** Id of the session that will be used to subscribe events for. **/
+  tasks.Filters tasks_filters = 2; /** Filter for task related events. */
+  results.Filters results_filters = 3; /** Filter for result related events. */
+  repeated EventsEnum returned_events = 4; /** Filter the type of events to return. Empty means all. */
 }
 
 /**

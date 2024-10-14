@@ -56,17 +56,17 @@ public class WorkerServerTest
   [Test]
   public Task BuildServer()
   {
-    var collection = new List<KeyValuePair<string, string>>();
-
-    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.Address)}",
-                                                    "/tmp/worker.sock"));
-    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
-                                                    GrpcSocketType.UnixDomainSocket.ToString()));
-
-    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
-                                                    "/tmp/agent.sock"));
-    collection.Add(new KeyValuePair<string, string>($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
-                                                    GrpcSocketType.UnixDomainSocket.ToString()));
+    var collection = new List<KeyValuePair<string, string>>
+                     {
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.Address)}",
+                           "/tmp/worker.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
+                           "/tmp/agent.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                     };
 
     var configuration = new ConfigurationBuilder().AddInMemoryCollection(collection)
                                                   .Build();
@@ -77,6 +77,32 @@ public class WorkerServerTest
     }
 
     var app = WorkerServer.Create<TestService>(configuration);
+    return Task.CompletedTask;
+  }
+
+  [Test]
+  public Task BuildServerConfigurator()
+  {
+    var collection = new List<KeyValuePair<string, string>>
+                     {
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.Address)}",
+                           "/tmp/worker.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
+                           "/tmp/agent.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                     };
+
+    var app = WorkerServer.Create<TestService>((_,
+                                                configuration) =>
+                                               {
+                                                 foreach (var pair in collection)
+                                                 {
+                                                   configuration[pair.Key] = pair.Value;
+                                                 }
+                                               });
     return Task.CompletedTask;
   }
 
@@ -102,8 +128,10 @@ public class WorkerServerTest
 public class TestService : WorkerStreamWrapper
 {
   public TestService([NotNull] ILoggerFactory      loggerFactory,
+                     [NotNull] ComputePlane        computePlane,
                      [NotNull] GrpcChannelProvider provider)
     : base(loggerFactory,
+           computePlane,
            provider)
   {
   }

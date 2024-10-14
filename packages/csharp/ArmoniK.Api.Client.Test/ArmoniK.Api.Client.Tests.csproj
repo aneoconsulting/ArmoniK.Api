@@ -1,15 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net6.0</TargetFrameworks>
+    <TargetFrameworks>net4.7;net4.8;net6.0;net8.0</TargetFrameworks>
     <Company>ANEO</Company>
-    <Copyright>Copyright (C) ANEO, 2021-2022</Copyright>
+    <Copyright>Copyright (C) ANEO, 2021-2024</Copyright>
     <IsPackable>false</IsPackable>
     <LangVersion>10</LangVersion>
     <Optimize>true</Optimize>
     <DebugType>Embedded</DebugType>
     <IncludeSymbols>true</IncludeSymbols>
-    <PackageVersion>3.11.0</PackageVersion>
+    <PackageVersion>3.21.0</PackageVersion>
+    <Version>3.21.0</Version>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
@@ -21,7 +22,7 @@
   <ItemGroup>
     <PackageReference Include="NUnit" Version="3.13.3" />
     <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.7.1" />
   </ItemGroup>
 
   <ItemGroup>

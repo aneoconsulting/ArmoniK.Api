@@ -1,207 +1,195 @@
-import uuid
-from typing import Optional, Dict, List, Tuple, Union, cast
+from __future__ import annotations
 
-from ..common import TaskOptions, TaskDefinition, Task
-from ..protogen.common.agent_common_pb2 import Result, CreateTaskRequest, CreateResultsMetaDataRequest, CreateResultsMetaDataResponse
-from ..protogen.common.objects_pb2 import TaskRequest, InitKeyedDataStream, DataChunk, InitTaskRequest, TaskRequestHeader, Configuration
+import os
+from collections.abc import Mapping
+from typing import Optional, Dict, List, Union, Iterator
+
+from ..common import TaskOptions, TaskDefinition, Result, Task
+from ..common.helpers import batched
+from ..protogen.common.agent_common_pb2 import (
+    CreateResultsMetaDataRequest,
+    CreateResultsMetaDataResponse,
+    NotifyResultDataRequest,
+    CreateResultsRequest,
+    CreateResultsResponse,
+    SubmitTasksRequest,
+)
+from ..protogen.common.objects_pb2 import (
+    Configuration,
+)
+from ..protogen.common.worker_common_pb2 import ProcessRequest
 from ..protogen.worker.agent_service_pb2_grpc import AgentStub
 
 
+class LazyLoadDict(Mapping):
+    def __init__(self, data_folder: str, ids: List[str]):
+        self.__data_folder = data_folder
+        self._data: Dict[str, Optional[bytes]] = {k: None for k in ids}
+
+    def __iter__(self) -> Iterator[str, bytes]:
+        for k in self._data.keys():
+            yield k, self[k]
+
+    def keys(self):
+        # Overridden to prevent loading
+        for k in self._data.keys():
+            yield k
+
+    def __getitem__(self, __key) -> bytes:
+        if __key not in self._data:
+            raise KeyError(__key)
+        if self._data[__key] is None:
+            with open(os.path.join(self.__data_folder, __key), "rb") as f:
+                self._data[__key] = f.read()
+        return self._data[__key]
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+
 class TaskHandler:
-    def __init__(self, request_iterator, agent_client):
-        self.request_iterator = request_iterator
+    def __init__(self, request: ProcessRequest, agent_client: AgentStub):
         self._client: AgentStub = agent_client
-        self.payload = bytearray()
-        self.session_id: Optional[str] = None
-        self.task_id: Optional[str] = None
-        self.task_options: Optional[TaskOptions] = None
-        self.token: Optional[str] = None
-        self.expected_results: List[str] = []
-        self.data_dependencies: Dict[str, bytearray] = {}
-        self.configuration: Optional[Configuration] = None
+        self.session_id: str = request.session_id
+        self.task_id: str = request.task_id
+        self.task_options: TaskOptions = TaskOptions.from_message(request.task_options)
+        self.token: str = request.communication_token
+        self.expected_results: List[str] = list(request.expected_output_keys)
+        self.configuration: Configuration = request.configuration
+        self.payload_id: str = request.payload_id
+        self.data_folder: str = request.data_folder
 
-    @classmethod
-    def create(cls, request_iterator, agent_client) -> "TaskHandler":
-        output = cls(request_iterator, agent_client)
-        output.init()
-        return output
+        self._payload = None
+        self.data_dependencies = LazyLoadDict(self.data_folder, list(request.data_dependencies))
 
-    def init(self):
-        current = next(self.request_iterator, None)
-        if current is None:
-            raise ValueError("Request stream ended unexpectedly")
+    @property
+    def payload(self) -> bytes:
+        if self._payload is None:
+            with open(os.path.join(self.data_folder, self.payload_id), "rb") as f:
+                self._payload = f.read()
+        return self._payload
 
-        if current.compute.WhichOneof("type") != "init_request":
-            raise ValueError("Expected a Compute request type with InitRequest to start the stream.")
-
-        init_request = current.compute.init_request
-        self.session_id = init_request.session_id
-        self.task_id = init_request.task_id
-        self.task_options = TaskOptions.from_message(init_request.task_options)
-        self.expected_results = list(init_request.expected_output_keys)
-        self.configuration = init_request.configuration
-        self.token = current.communication_token
-
-        datachunk = init_request.payload
-        self.payload.extend(datachunk.data)
-        while not datachunk.data_complete:
-            current = next(self.request_iterator, None)
-            if current is None:
-                raise ValueError("Request stream ended unexpectedly")
-            if current.compute.WhichOneof("type") != "payload":
-                raise ValueError("Expected a Compute request type with Payload to continue the stream.")
-            datachunk = current.compute.payload
-            self.payload.extend(datachunk.data)
-
-        while True:
-            current = next(self.request_iterator, None)
-            if current is None:
-                raise ValueError("Request stream ended unexpectedly")
-            if current.compute.WhichOneof("type") != "init_data":
-                raise ValueError("Expected a Compute request type with InitData to continue the stream.")
-            init_data = current.compute.init_data
-            if not (init_data.key is None or init_data.key == ""):
-                chunk = bytearray()
-                while True:
-                    current = next(self.request_iterator, None)
-                    if current is None:
-                        raise ValueError("Request stream ended unexpectedly")
-                    if current.compute.WhichOneof("type") != "data":
-                        raise ValueError("Expected a Compute request type with Data to continue the stream.")
-                    datachunk = current.compute.data
-                    if datachunk.WhichOneof("type") == "data":
-                        chunk.extend(datachunk.data)
-                    elif datachunk.WhichOneof("type") is None or datachunk.WhichOneof("type") == "":
-                        raise ValueError("Expected a Compute request type with Datachunk Payload to continue the stream.")
-                    elif datachunk.WhichOneof("type") == "data_complete":
-                        break
-                self.data_dependencies[init_data.key] = chunk
-            else:
-                break
-
-    def create_tasks(self, tasks: List[TaskDefinition], task_options: Optional[TaskOptions] = None) -> Tuple[List[Task], List[str]]:
-        """Create new tasks for ArmoniK
+    def submit_tasks(
+        self,
+        tasks: List[TaskDefinition],
+        default_task_options: Optional[TaskOptions] = None,
+        batch_size: Optional[int] = 100,
+    ) -> List[Task]:
+        """Submit tasks to the agent.
 
         Args:
             tasks: List of task definitions
-            task_options: Task Options used for this batch of tasks
-
-        Returns:
-            Tuple containing the list of successfully sent tasks, and
-            the list of submission errors if any
+            default_task_options: Default Task Options used if a task has its options not set
+            batch_size: Batch size for submission
         """
-        task_requests = []
+        submitted_tasks: List[Task] = []
+        for tasks_batch in batched(tasks, batch_size):
+            task_creations = []
 
-        for t in tasks:
-            task_request = TaskRequest()
-            task_request.expected_output_keys.extend(t.expected_output_ids)
-            task_request.data_dependencies.extend(t.data_dependencies)
-            task_request.payload = t.payload
-            task_requests.append(task_request)
-        assert self.configuration is not None
-        create_tasks_reply = self._client.CreateTask(_to_request_stream(task_requests, self.token, task_options.to_message() if task_options is not None else None, self.configuration.data_chunk_max_size))
-        ret = create_tasks_reply.WhichOneof("Response")
-        if ret is None or ret == "error":
-            raise Exception(f'Issue with server when submitting tasks : {create_tasks_reply.error}')
-        elif ret == "creation_status_list":
-            tasks_created = []
-            tasks_creation_failed = []
-            for creation_status in create_tasks_reply.creation_status_list.creation_statuses:
-                if creation_status.WhichOneof("Status") == "task_info":
-                    tasks_created.append(Task(id=creation_status.task_info.task_id, session_id=self.session_id, expected_output_ids=[k for k in creation_status.task_info.expected_output_keys], data_dependencies=[k for k in creation_status.task_info.data_dependencies]))
-                else:
-                    tasks_creation_failed.append(creation_status.error)
-        else:
-            raise Exception("Unknown value")
-        return tasks_created, tasks_creation_failed
+            for t in tasks_batch:
+                task_creation = SubmitTasksRequest.TaskCreation(
+                    expected_output_keys=t.expected_output_ids,
+                    payload_id=t.payload_id,
+                    data_dependencies=t.data_dependencies,
+                )
+                if t.options:
+                    task_creation.task_options = t.options.to_message()
+                task_creations.append(task_creation)
 
-    def send_result(self, key: str, data: Union[bytes, bytearray]) -> None:
-        """ Send task result
+            request = SubmitTasksRequest(
+                session_id=self.session_id,
+                communication_token=self.token,
+                task_creations=task_creations,
+            )
+
+            if default_task_options:
+                request.task_options = (default_task_options.to_message(),)
+
+            submitted_tasks.extend(
+                Task(
+                    id=t.task_id,
+                    expected_output_ids=list(t.expected_output_ids),
+                    data_dependencies=list(t.data_dependencies),
+                    session_id=self.session_id,
+                    payload_id=self.payload_id,
+                )
+                for t in self._client.SubmitTasks(request).task_infos
+            )
+        return submitted_tasks
+
+    def send_results(self, results_data: Dict[str, Union[bytes, bytearray]]) -> None:
+        """Send results.
 
         Args:
-            key: Result key
-            data: Result data
+            results_data: A dictionary mapping each result ID to its data.
         """
-        def result_stream():
-            res = Result(communication_token=self.token, init=InitKeyedDataStream(key=key))
-            assert self.configuration is not None
-            yield res
-            start = 0
-            data_len = len(data)
-            while start < data_len:
-                chunksize = min(self.configuration.data_chunk_max_size, data_len - start)
-                res = Result(communication_token=self.token, data=DataChunk(data=data[start:start + chunksize]))
-                yield res
-                start += chunksize
-            res = Result(communication_token=self.token, data=DataChunk(data_complete=True))
-            yield res
-            res = Result(communication_token=self.token, init=InitKeyedDataStream(last_result=True))
-            yield res
+        for result_id, result_data in results_data.items():
+            with open(os.path.join(self.data_folder, result_id), "wb") as f:
+                f.write(result_data)
 
-        result_reply = self._client.SendResult(result_stream())
-        if result_reply.WhichOneof("type") == "error":
-            raise Exception(f"Cannot send result id={key}")
-    
-    def get_results_ids(self, names : List[str]) -> Dict[str, str]:
-        return {r.name : r.result_id for r in cast(CreateResultsMetaDataResponse, self._client.CreateResultsMetaData(CreateResultsMetaDataRequest(results=[CreateResultsMetaDataRequest.ResultCreate(name = n) for n in names], session_id=self.session_id, communication_token=self.token))).results}
+        request = NotifyResultDataRequest(
+            ids=[
+                NotifyResultDataRequest.ResultIdentifier(
+                    session_id=self.session_id, result_id=result_id
+                )
+                for result_id in results_data.keys()
+            ],
+            communication_token=self.token,
+        )
+        self._client.NotifyResultData(request)
 
+    def create_results_metadata(
+        self, result_names: List[str], batch_size: int = 100
+    ) -> Dict[str, Result]:
+        """
+        Create the metadata of multiple results at once.
+        Data have to be uploaded separately.
 
+        Args:
+            result_names: The names of the results to create.
+            batch_size: Batch size for querying.
 
-def _to_request_stream_internal(request, communication_token, is_last, chunk_max_size):
-    req = CreateTaskRequest(
-        init_task=InitTaskRequest(
-            header=TaskRequestHeader(
-                data_dependencies=request.data_dependencies,
-                expected_output_keys=request.expected_output_keys
+        Return:
+            A dictionary mapping each result name to its result summary.
+        """
+        results = {}
+        for result_names_batch in batched(result_names, batch_size):
+            request = CreateResultsMetaDataRequest(
+                results=[
+                    CreateResultsMetaDataRequest.ResultCreate(name=result_name)
+                    for result_name in result_names_batch
+                ],
+                session_id=self.session_id,
+                communication_token=self.token,
             )
-        ),
-        communication_token=communication_token
-    )
-    yield req
-    start = 0
-    payload_length = len(request.payload)
-    if payload_length == 0:
-        req = CreateTaskRequest(
-            task_payload=DataChunk(data=b''),
-            communication_token=communication_token
-        )
-        yield req
-    while start < payload_length:
-        chunk_size = min(chunk_max_size, payload_length - start)
-        req = CreateTaskRequest(
-            task_payload=DataChunk(data=request.payload[start:start + chunk_size]),
-            communication_token=communication_token
-        )
-        yield req
-        start += chunk_size
-    req = CreateTaskRequest(
-        task_payload=DataChunk(data_complete=True),
-        communication_token=communication_token
-    )
-    yield req
+            response: CreateResultsMetaDataResponse = self._client.CreateResultsMetaData(request)
+            for result_message in response.results:
+                results[result_message.name] = Result.from_result_metadata(result_message)
+        return results
 
-    if is_last:
-        req = CreateTaskRequest(
-            init_task=InitTaskRequest(last_task=True),
-            communication_token=communication_token
-        )
-        yield req
+    def create_results(
+        self, results_data: Dict[str, bytes], batch_size: int = 1
+    ) -> Dict[str, Result]:
+        """Create one result with data included in the request.
 
+        Args:
+            results_data: A dictionary mapping the result names to their actual data.
+            batch_size: Batch size for querying.
 
-def _to_request_stream(requests, communication_token, t_options, chunk_max_size):
-    if t_options is None:
-        req = CreateTaskRequest(
-            init_request=CreateTaskRequest.InitRequest(),
-            communication_token=communication_token)
-    else:
-        req = CreateTaskRequest(
-            init_request=CreateTaskRequest.InitRequest(task_options=t_options),
-            communication_token=communication_token)
-    yield req
-    if len(requests) == 0:
-        return
-    for r in requests[:-1]:
-        for req in _to_request_stream_internal(r, communication_token, False, chunk_max_size):
-            yield req
-    for req in _to_request_stream_internal(requests[-1], communication_token, True, chunk_max_size):
-        yield req
+        Return:
+            A dictionary mapping each result name to its corresponding result summary.
+        """
+        results = {}
+        for results_ids_batch in batched(results_data.keys(), batch_size):
+            request = CreateResultsRequest(
+                results=[
+                    CreateResultsRequest.ResultCreate(name=name, data=results_data[name])
+                    for name in results_ids_batch
+                ],
+                session_id=self.session_id,
+                communication_token=self.token,
+            )
+            response: CreateResultsResponse = self._client.CreateResults(request)
+            for message in response.results:
+                results[message.name] = Result.from_result_metadata(message)
+        return results

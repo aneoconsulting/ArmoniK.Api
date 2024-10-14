@@ -20,11 +20,12 @@
 #include "utils/EnvConfiguration.h"
 #include "utils/GuuId.h"
 
+#include "common.h"
+#include "results/ResultsClient.h"
 #include "results_common.pb.h"
 #include "results_service.grpc.pb.h"
-#include "submitter/ResultsClient.h"
 
-using ArmoniK::Api::Common::utils::Configuration;
+using armonik::api::common::utils::Configuration;
 using armonik::api::grpc::v1::TaskOptions;
 using armonik::api::grpc::v1::submitter::CreateSessionReply;
 using armonik::api::grpc::v1::submitter::CreateSessionRequest;
@@ -32,51 +33,22 @@ using armonik::api::grpc::v1::submitter::Submitter;
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using namespace ArmoniK::Api::Common::utils;
+using namespace armonik::api::common::utils;
 
 using ::testing::_;
 using ::testing::AtLeast;
 
-namespace logger = ArmoniK::Api::Common::logger;
+namespace logger = armonik::api::common::logger;
 
 /**
- * @brief Initializes task options creates channel with server address
- *
- * @param channel The gRPC channel to communicate with the server.
- * @param default_task_options The default task options.
+ * Fixture class for submitter, inherit from MockFixture
  */
-void init(std::shared_ptr<Channel> &channel, TaskOptions &default_task_options) {
+class testMock : public MockFixture {};
 
-  Configuration configuration;
-  // auto server = std::make_shared<EnvConfiguration>(configuration_t);
-
-  configuration.add_json_configuration("appsettings.json").add_env_configuration();
-
-  std::string server_address = configuration.get("Grpc__EndPoint");
-
-  std::cout << " Server address " << server_address << std::endl;
-
-  channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
-
-  // stub_ = Submitter::NewStub(channel);
-
-  default_task_options.mutable_options()->insert({"key1", "value1"});
-  default_task_options.mutable_options()->insert({"key2", "value2"});
-  default_task_options.mutable_max_duration()->set_seconds(3600);
-  default_task_options.mutable_max_duration()->set_nanos(0);
-  default_task_options.set_max_retries(1);
-  default_task_options.set_priority(1);
-  default_task_options.set_partition_id("");
-  default_task_options.set_application_name("my-app");
-  default_task_options.set_application_version("1.0");
-  default_task_options.set_application_namespace("my-namespace");
-  default_task_options.set_application_service("my-service");
-  default_task_options.set_engine_type("Unified");
-}
-
-TEST(testMock, createSession) {
+TEST_F(testMock, createSessionSubmitter) {
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
+  logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
 
   ClientContext context;
   CreateSessionReply reply;
@@ -85,21 +57,23 @@ TEST(testMock, createSession) {
   const std::vector<std::string> &partition_ids = {""};
 
   TaskOptions task_options;
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   ASSERT_EQ(task_options.partition_id(), "");
 
   std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
   // EXPECT_CALL(*stub, CreateSession(_, _, _)).Times(AtLeast(1));
-  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub));
+  armonik::api::client::SubmitterClient submitter(std::move(stub));
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   std::cout << "create_session response: " << session_id << std::endl;
 
   ASSERT_FALSE(session_id.empty());
+  ASSERT_TRUE(rpcCalled("Submitter", "CreateSession"));
 }
 
-TEST(testMock, submitTask) {
+TEST_F(testMock, submitTask) {
+  GTEST_SKIP() << "Testing Mock server";
 
   logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
 
@@ -126,7 +100,7 @@ TEST(testMock, submitTask) {
   TaskOptions task_options;
 
   std::shared_ptr<Channel> channel;
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   // MockStubInterface stub;
   std::unique_ptr<Submitter::StubInterface> stub = Submitter::NewStub(channel);
@@ -141,43 +115,42 @@ TEST(testMock, submitTask) {
   CreateSessionReply reply;
   grpc::ClientContext context;
 
-  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub));
+  armonik::api::client::SubmitterClient submitter(std::move(stub));
   const std::vector<std::string> &partition_ids = {""};
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   ASSERT_FALSE(session_id.empty());
 
-  ArmoniK::Api::Client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  armonik::api::client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
   std::vector<std::string> names;
   names.reserve(10);
   for (int i = 0; i < 10; i++) {
-    names.push_back(ArmoniK::Api::Common::utils::GuuId::generate_uuid());
+    names.push_back(armonik::api::common::utils::GuuId::generate_uuid());
   }
   auto result_mapping = results.create_results(session_id, names);
   int j = 0;
-  for (auto &&[k, v] : result_mapping) {
-    names[j++] = v;
+  for (auto &&kv : result_mapping) {
+    names[j++] = kv.second;
   }
 
   try {
-    std::vector<ArmoniK::Api::Client::payload_data> payloads;
+    std::vector<armonik::api::client::payload_data> payloads;
 
     for (int i = 0; i < 10; i++) {
-      ArmoniK::Api::Client::payload_data data;
+      armonik::api::client::payload_data data;
       data.keys = names[i];
       data.payload = {'a', 'r', 'm', 'o', 'n', 'i', 'k'};
       data.dependencies = {};
       payloads.push_back(data);
     }
-    const auto [task_ids, failed_task_ids] =
-        submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
-    for (const auto &task_id : task_ids) {
+    const auto taskId_failedTaskId = submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
+    for (const auto &task_id : taskId_failedTaskId.first) {
       std::stringstream out;
       out << "Generate task_ids : " << task_id;
       log.info(out.str());
     }
 
-    for (const auto &failed_task_id : failed_task_ids) {
+    for (const auto &failed_task_id : taskId_failedTaskId.second) {
       std::stringstream out;
       out << "Failed task_ids : " << failed_task_id;
       log.info(out.str());
@@ -190,7 +163,9 @@ TEST(testMock, submitTask) {
   log.info("Stopping client...OK");
 }
 
-TEST(testMock, testWorker) {
+TEST_F(testMock, testWorker) {
+  GTEST_SKIP() << "Testing Mock server";
+  logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   std::shared_ptr<Channel> channel;
 
   CreateSessionReply reply;
@@ -200,31 +175,31 @@ TEST(testMock, testWorker) {
 
   TaskOptions task_options;
 
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   auto stub = armonik::api::grpc::v1::results::Results::NewStub(channel);
 
   grpc::ClientContext context;
 
   std::unique_ptr<Submitter::StubInterface> stub_client = Submitter::NewStub(channel);
-  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub_client));
+  armonik::api::client::SubmitterClient submitter(std::move(stub_client));
   std::string session_id = submitter.create_session(task_options, partition_ids);
 
   auto name = "test";
 
   armonik::api::grpc::v1::results::CreateResultsMetaDataRequest request_create;
   request_create.set_session_id(session_id);
-  ArmoniK::Api::Client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  armonik::api::client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
   auto mapping = results.create_results(session_id, {name});
   ASSERT_TRUE(mapping.size() == 1);
 
-  std::vector<ArmoniK::Api::Client::payload_data> payloads;
-  ArmoniK::Api::Client::payload_data data;
+  std::vector<armonik::api::client::payload_data> payloads;
+  armonik::api::client::payload_data data;
   data.keys = mapping[name];
   data.payload = "armonik";
   data.dependencies = {};
   payloads.push_back(data);
-  const auto [task_ids, failed] = submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
+  const auto task_id_failed = submitter.submit_tasks_with_dependencies(session_id, task_options, payloads, 5);
 
   while (true) {
     auto status = submitter.get_result_status(session_id, {mapping[name]})[mapping[name]];
@@ -242,7 +217,9 @@ TEST(testMock, testWorker) {
   ASSERT_TRUE(!result_payload.empty());
 }
 
-TEST(testMock, getResult) {
+TEST_F(testMock, getResult) {
+  GTEST_SKIP() << "Testing Mock server";
+  logger::Logger log{logger::writer_console(), logger::formatter_plain(true)};
   // MockStubInterface stub;
   std::shared_ptr<Channel> channel;
 
@@ -254,26 +231,31 @@ TEST(testMock, getResult) {
   TaskOptions task_options;
   armonik::api::grpc::v1::ResultRequest result_request;
 
-  init(channel, task_options);
+  init(channel, task_options, log);
 
   auto stub = armonik::api::grpc::v1::results::Results::NewStub(channel);
 
   grpc::ClientContext context;
 
+  log.debug("Creating Client");
   std::unique_ptr<Submitter::StubInterface> stub_client = Submitter::NewStub(channel);
-  ArmoniK::Api::Client::SubmitterClient submitter(std::move(stub_client));
+  armonik::api::client::SubmitterClient submitter(std::move(stub_client));
   std::string session_id = submitter.create_session(task_options, partition_ids);
+  log.debug("Received session id {session_id}", {{"session_id", session_id}});
 
   auto name = "test";
 
   armonik::api::grpc::v1::results::CreateResultsMetaDataRequest request_create;
   request_create.set_session_id(session_id);
-  ArmoniK::Api::Client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
-  auto mapping = results.create_results(session_id, {name});
+  armonik::api::client::ResultsClient results(armonik::api::grpc::v1::results::Results::NewStub(channel));
+  auto mapping = results.create_results_metadata(session_id, {name});
+  log.debug("Created result {result_id}", {{"result_id", mapping[name]}});
   ASSERT_TRUE(mapping.size() == 1);
 
   std::string payload = "TestPayload";
+
   results.upload_result_data(session_id, mapping[name], payload);
+  log.debug("Uploaded result {result_id}", {{"result_id", mapping[name]}});
 
   // EXPECT_CALL(*stub, GetServiceConfiguration(_, _, _)).Times(AtLeast(1));
   // EXPECT_CALL(*stub, TryGetResultStreamRaw(_, _)).Times(AtLeast(1));
@@ -282,6 +264,7 @@ TEST(testMock, getResult) {
   result_request.set_session(session_id);
 
   auto result = submitter.get_result_async(result_request).get();
+  log.debug("Received result {result_id}", {{"result_id", mapping[name]}});
 
   ASSERT_FALSE(result.empty());
   ASSERT_EQ(payload, result);

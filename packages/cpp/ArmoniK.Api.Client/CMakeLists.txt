@@ -1,13 +1,13 @@
 set(PROJECT_NAME ArmoniK.Api.Client)
-set(NAMESPACE ArmoniK::Api::Client)
 set(ARMONIK_INSTALL_INCLUDE_DIR ${CMAKE_INSTALL_INCLUDEDIR}/armonik/client)
 set(PROJECT_BUILD_DIR ${BUILD_DIR}/${PROJECT_NAME})
 
 set(PROTO_FILES
     "submitter_service.proto"
+    "health_checks_service.proto"
     "applications_service.proto"
     "sessions_service.proto"
-    #"tasks_service.proto"
+    "tasks_service.proto"
     "results_service.proto"
     "auth_service.proto"
     "partitions_service.proto"
@@ -18,6 +18,7 @@ set(PROTO_MESSAGES
     "auth_common.proto"
     "sessions_common.proto"
     "submitter_common.proto"
+    "health_checks_common.proto"
     "tasks_common.proto"
     "results_common.proto"
     "partitions_common.proto"
@@ -28,16 +29,20 @@ set(PROTO_MESSAGES
 list(TRANSFORM PROTO_FILES PREPEND "${PROTO_FILES_DIR}/")
 list(TRANSFORM PROTO_MESSAGES PREPEND "${PROTO_FILES_DIR}/")
 
-find_package(Protobuf REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
-find_package(Threads)
-
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
 
 FILE(GLOB_RECURSE SRC_CLIENT_FILES ${SOURCES_FILES_DIR}/*.cpp)
 FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
 
+# Trouver les packages requis
+if (UNIX)
+        find_package(Protobuf REQUIRED)
+else()
+        find_package(Protobuf CONFIG REQUIRED)
+endif()
+find_package(gRPC CONFIG REQUIRED)
+find_package(Threads)
 
 file(MAKE_DIRECTORY ${PROJECT_BUILD_DIR})
 
@@ -72,11 +77,10 @@ protobuf_generate(
 set_source_files_properties(${PROTO_GENERATED_FILES} PROPERTIES SKIP_UNITY_BUILD_INCLUSION on)
 list(APPEND PROTO_GENERATED_FILES ${PROTO_GENERATED_MESSAGES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common)
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++ ArmoniK.Api.Common)
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
 setup_options(${PROJECT_NAME})
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC API_CLIENT_NAMESPACE=${NAMESPACE})
 
 target_include_directories(${PROJECT_NAME}
                            PUBLIC

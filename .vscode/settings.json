@@ -3,7 +3,7 @@
     "compile_on_save": true,
     "options": [
       "--proto_path=${workspaceRoot}/Protos/V1",
-      "--csharp_out=${workspaceRoot}/gen/csharp"
+      "--csharp_out=${workspaceRoot}/packages/csharp/generated/"
     ]
   },
   "cSpell.words": [

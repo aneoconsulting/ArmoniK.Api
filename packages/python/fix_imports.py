@@ -11,7 +11,7 @@ if sys.version_info >= (3, 8):
 else:
     from typing_extensions import TypedDict
 
-import click
+import argparse
 
 
 class ProtobufFilePathInfo(TypedDict):
@@ -20,13 +20,9 @@ class ProtobufFilePathInfo(TypedDict):
     rel_path: Path
 
 
-@click.command()
-@click.option("--dry", is_flag=True, show_default=True, default=False,
-              help="Do not write out the changes to the files.")
-@click.argument("root_dir", type=click.Path(exists=True))
 def fix_protobuf_imports(root_dir, dry):
     """
-      A script to fix relative imports (from and to nested sub-directories) within compiled `*_pb2*.py` Protobuf files.
+    A script to fix relative imports (from and to nested sub-directories) within compiled `*_pb2*.py` Protobuf files.
     """
 
     root_dir = Path(root_dir)
@@ -78,10 +74,12 @@ def fix_protobuf_imports(root_dir, dry):
             )
             if referenced_alias:
                 line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name} as {referenced_alias}\n'.replace(
-                    "from ...", "from ..")
+                    "from ...", "from .."
+                )
             else:
                 line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name}\n'.replace(
-                    "from ...", "from ..")
+                    "from ...", "from .."
+                )
 
             new_line = line.replace("\n", "")
 
@@ -95,9 +93,7 @@ def fix_protobuf_imports(root_dir, dry):
                 referenced_directory = root_dir / import_path
 
                 if referenced_directory.exists():
-                    relative_path_to_root = os.path.relpath(
-                        root_dir, referencing_info["dir"]
-                    )
+                    relative_path_to_root = os.path.relpath(root_dir, referencing_info["dir"])
 
                     uppath_levels = relative_path_to_root.count("..")
 
@@ -109,9 +105,7 @@ def fix_protobuf_imports(root_dir, dry):
 
                     new_line = line.replace("\n", "")
 
-                    print(
-                        f'{referencing_info["rel_path"]}: "{original_line}" -> "{new_line}"'
-                    )
+                    print(f'{referencing_info["rel_path"]}: "{original_line}" -> "{new_line}"')
 
         return line
 
@@ -131,7 +125,7 @@ def fix_protobuf_imports(root_dir, dry):
                 f.truncate()
             f.close()
 
-    for (name, info) in py_files_dictionary.items():
+    for name, info in py_files_dictionary.items():
         fix_protobuf_imports_in_file(name, info)
 
     for (
@@ -142,9 +136,20 @@ def fix_protobuf_imports(root_dir, dry):
 
 
 def main():
-    fix_protobuf_imports()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("root_dir", type=Path, help="Path to the root directory")
+    parser.add_argument(
+        "--dry",
+        action="store_true",
+        default=False,
+        help="Do not write out the changes to the files.",
+    )
+    args = parser.parse_args()
+    if not args.root_dir.is_dir():
+        raise argparse.ArgumentTypeError(f"Directory '{args.root_dir}' does not exist.")
+    fix_protobuf_imports(args.root_dir, args.dry)
 
 
-if __name__ == '__main__':
-    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+if __name__ == "__main__":
+    sys.argv[0] = re.sub(r"(-script\.pyw|\.exe)?$", "", sys.argv[0])
     exit(main())

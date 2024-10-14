@@ -29,10 +29,10 @@ mkdir -p $ARMONIK_WORKER $ARMONIK_CLIENT $ARMONIK_COMMON $PACKAGE_PATH
 # for debian/ubuntu if you don't have python 3 installed:
 # sudo apt install python3-venv python3 python-is-python3 python3-pip
 
-python -m pip install --upgrade pip
 python -m venv $PYTHON_VENV
 source $PYTHON_VENV/bin/activate
-python -m pip install build grpcio grpcio-tools click pytest setuptools_scm[toml]
+python -m pip install uv
+python -m uv pip install build "grpcio==1.62.3" "grpcio-tools==1.62.3" setuptools_scm[toml] "setuptools>=61" deprecation "cryptography>=36"
 
 unset proto_files
 for proto in ${armonik_worker_files[@]}; do
@@ -61,6 +61,7 @@ python -m grpc_tools.protoc -I $PROTO_PATH --proto_path=$PROTO_PATH \
 touch $ARMONIK_WORKER/__init__.py
 touch $ARMONIK_CLIENT/__init__.py
 touch $ARMONIK_COMMON/__init__.py
+touch $GENERATED_PATH/__init__.py
 
 # Need to fix the relative import
 python fix_imports.py $GENERATED_PATH

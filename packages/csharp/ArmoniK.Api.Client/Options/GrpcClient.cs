@@ -36,6 +36,9 @@ namespace ArmoniK.Api.Client.Options
   [PublicAPI]
   public class GrpcClient
   {
+    /// <summary>
+    ///   Path to the section containing the values in the configuration object
+    /// </summary>
     public const string SettingSection = nameof(GrpcClient);
 
     /// <summary>
@@ -122,5 +125,39 @@ namespace ArmoniK.Api.Client.Options
     ///   Timeout for grpc requests. Defaults to no timeout.
     /// </summary>
     public TimeSpan RequestTimeout { get; set; } = Timeout.InfiniteTimeSpan;
+
+    /// <summary>
+    ///   Which HttpMessageHandler to use.
+    ///   Valid options:
+    ///   - `HttpClientHandler`
+    ///   - `WinHttpHandler`
+    ///   - `GrpcWebHandler`
+    ///   If the handler is not set, the best one will be used.
+    /// </summary>
+    public string HttpMessageHandler { get; set; } = "";
+
+    /// <summary>
+    ///   Proxy configuration.
+    ///   If empty, the default proxy configuration is used.
+    ///   If "none", proxy is disabled.
+    ///   If "system", the system proxy is used
+    ///   Otherwise, it is the URL of the proxy to use
+    /// </summary>
+    public string Proxy { get; set; } = "";
+
+    /// <summary>
+    ///   Username used for proxy authentication
+    /// </summary>
+    public string ProxyUsername { get; set; } = "";
+
+    /// <summary>
+    ///   Password used for proxy authentication
+    /// </summary>
+    public string ProxyPassword { get; set; } = "";
+
+    /// <summary>
+    ///   Enable the option SO_REUSE_UNICASTPORT upon socket opening to limit port exhaustion
+    /// </summary>
+    public bool ReusePorts { get; set; } = true;
   }
 }

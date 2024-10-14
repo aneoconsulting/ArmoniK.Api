@@ -7,6 +7,7 @@ export README_PATH=$REPOSITORY_PATH/README.md
 armonik_worker_files=("agent_service.proto" "worker_service.proto")
 armonik_client_files=("submitter_service.proto" "tasks_service.proto" "sessions_service.proto" \
                       "results_service.proto" "applications_service.proto" "auth_service.proto" \
+                      "health_checks_service.proto" \
                       "events_service.proto" "partitions_service.proto" "versions_service.proto")
 armonik_common_files=("objects.proto" "task_status.proto" "session_status.proto" \
                       "result_status.proto" "agent_common.proto" "sessions_common.proto"  \
@@ -17,5 +18,5 @@ armonik_common_files=("objects.proto" "task_status.proto" "session_status.proto"
                       "sessions_fields.proto" "sessions_filters.proto" \
                       "applications_fields.proto" "applications_filters.proto" \
                       "partitions_fields.proto" "partitions_filters.proto" \
-                      "results_fields.proto" "results_filters.proto" \
+                      "results_fields.proto" "results_filters.proto" "health_checks_common.proto" \
                       "filters_common.proto")

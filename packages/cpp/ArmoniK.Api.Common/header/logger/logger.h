@@ -5,7 +5,6 @@
 
 #include <functional>
 #include <memory>
-#include <string_view>
 
 #include "base.h"
 #include "context.h"
@@ -13,7 +12,10 @@
 #include "level.h"
 #include "local_logger.h"
 
-namespace API_COMMON_NAMESPACE::logger {
+namespace armonik {
+namespace api {
+namespace common {
+namespace logger {
 /**
  * @brief Default Logger.
  */
@@ -106,6 +108,9 @@ public:
    * @copydoc ILogger::log()
    * @details Thread-safe.
    */
-  void log(Level level, std::string_view message, const Context &message_context = {}) override;
+  void log(Level level, absl::string_view message, const Context &message_context = {}) override;
 };
-} // namespace API_COMMON_NAMESPACE::logger
+} // namespace logger
+} // namespace common
+} // namespace api
+} // namespace armonik

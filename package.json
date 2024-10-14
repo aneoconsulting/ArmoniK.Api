@@ -1,25 +1,28 @@
 {
   "name": "armonik.api",
-  "packageManager": "pnpm@8.6.10",
+  "packageManager": "pnpm@9.1.4",
   "scripts": {
     "ci:publish": "zx scripts/publish.mjs",
     "ci:publish-edge": "zx scripts/publish-edge.mjs",
     "update-versions": "jiti ./scripts/update-versions.ts",
-    "verify-versions": "jiti ./scripts/verify-versions.ts"
+    "verify-versions": "jiti ./scripts/verify-versions.ts",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix ."
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^5.62.0",
-    "consola": "^2.15.3",
-    "eslint": "^8.45.0",
-    "eslint-config-standard-with-typescript": "^32.0.0",
-    "eslint-plugin-import": "^2.27.5",
-    "eslint-plugin-n": "^15.7.0",
-    "eslint-plugin-promise": "^6.1.1",
-    "glob": "^8.1.0",
-    "jiti": "^1.19.1",
-    "pathe": "^1.1.1",
-    "tslib": "^2.6.1",
-    "typescript": "^4.9.5",
-    "zx": "^7.2.3"
+    "@antfu/eslint-config": "^2.27.3",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "consola": "^3.2.3",
+    "eslint": "^9.9.1",
+    "eslint-config-standard-with-typescript": "^43.0.1",
+    "eslint-plugin-import": "^2.30.0",
+    "eslint-plugin-n": "^17.10.2",
+    "eslint-plugin-promise": "^6.6.0",
+    "glob": "^10.4.5",
+    "jiti": "^1.21.6",
+    "pathe": "^1.1.2",
+    "tslib": "^2.7.0",
+    "typescript": "^5.5.4",
+    "zx": "^8.1.5"
   }
 }

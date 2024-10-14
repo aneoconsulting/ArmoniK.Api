@@ -8,26 +8,52 @@ import "submitter_common.proto";
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Submitter";
 
 service Submitter {
-  rpc GetServiceConfiguration(Empty) returns (Configuration);
+  rpc GetServiceConfiguration(Empty) returns (Configuration) {
+    option deprecated = true;
+  }
 
-  rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply);
-  rpc CancelSession(Session) returns (Empty);
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionReply) {
+    option deprecated = true;
+  }
+  rpc CancelSession(Session) returns (Empty) {
+    option deprecated = true;
+  }
 
-  rpc CreateSmallTasks(CreateSmallTaskRequest) returns (CreateTaskReply);
-  rpc CreateLargeTasks(stream CreateLargeTaskRequest) returns (CreateTaskReply);
+  rpc CreateSmallTasks(CreateSmallTaskRequest) returns (CreateTaskReply) {
+    option deprecated = true;
+  }
+  rpc CreateLargeTasks(stream CreateLargeTaskRequest) returns (CreateTaskReply) {
+    option deprecated = true;
+  }
 
-  rpc ListTasks(TaskFilter) returns (TaskIdList);
-  rpc ListSessions(SessionFilter) returns (SessionIdList);
+  rpc ListTasks(TaskFilter) returns (TaskIdList) {
+    option deprecated = true;
+  }
+  rpc ListSessions(SessionFilter) returns (SessionIdList) {
+    option deprecated = true;
+  }
 
-  rpc CountTasks(TaskFilter) returns (Count);
-  rpc TryGetResultStream(ResultRequest) returns (stream ResultReply);
-  rpc TryGetTaskOutput(TaskOutputRequest) returns (Output);
+  rpc CountTasks(TaskFilter) returns (Count) {
+    option deprecated = true;
+  }
+  rpc TryGetResultStream(ResultRequest) returns (stream ResultReply) {
+    option deprecated = true;
+  }
+  rpc TryGetTaskOutput(TaskOutputRequest) returns (Output) {
+    option deprecated = true;
+  }
   rpc WaitForAvailability(ResultRequest) returns (AvailabilityReply) {
     option deprecated = true;
   }
-  rpc WaitForCompletion(WaitRequest) returns (Count);
-  rpc CancelTasks(TaskFilter) returns (Empty);
-  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusReply);
+  rpc WaitForCompletion(WaitRequest) returns (Count) {
+    option deprecated = true;
+  }
+  rpc CancelTasks(TaskFilter) returns (Empty) {
+    option deprecated = true;
+  }
+  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusReply) {
+    option deprecated = true;
+  }
   rpc GetResultStatus(GetResultStatusRequest) returns (GetResultStatusReply) {
     option deprecated = true;
   }
@@ -41,5 +67,7 @@ service Submitter {
 	 * Any reply can be implicitely chunked if there are too many event to report at the same time (or for the first reply).
 	 * It is possible to filter out specific statuses from events.
 	 */
-  rpc WatchResults(stream WatchResultRequest) returns (stream WatchResultStream);
+  rpc WatchResults(stream WatchResultRequest) returns (stream WatchResultStream) {
+    option deprecated = true;
+  }
 }

@@ -11,7 +11,7 @@ using namespace simdjson;
  * @param prefix Prefix for the key
  * @param element json element
  */
-void populate(API_COMMON_NAMESPACE::utils::Configuration &config, const std::string &prefix,
+void populate(armonik::api::common::utils::Configuration &config, const std::string &prefix,
               const dom::element &element) {
   switch (element.type()) {
   case dom::element_type::ARRAY: {
@@ -33,8 +33,8 @@ void populate(API_COMMON_NAMESPACE::utils::Configuration &config, const std::str
   }
 }
 
-void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromPath(API_COMMON_NAMESPACE::utils::Configuration &config,
-                                                              std::string_view filepath) {
+void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::common::utils::Configuration &config,
+                                                              absl::string_view filepath) {
   dom::parser parser;
   dom::element elem;
   try {
@@ -44,8 +44,8 @@ void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromPath(API_COMMON_NAMESPA
     std::cerr << "Unable to load json file " << filepath << " : " << e.what();
   }
 }
-void API_COMMON_NAMESPACE::utils::JsonConfiguration::fromString(API_COMMON_NAMESPACE::utils::Configuration &config,
-                                                                std::string_view json_string) {
+void armonik::api::common::utils::JsonConfiguration::fromString(armonik::api::common::utils::Configuration &config,
+                                                                absl::string_view json_string) {
   dom::parser parser;
-  populate(config, "", parser.parse(padded_string(json_string)));
+  populate(config, "", parser.parse(padded_string(json_string.data(), json_string.size())));
 }
