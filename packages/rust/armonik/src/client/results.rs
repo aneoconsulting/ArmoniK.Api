@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use snafu::ResultExt;
 use tokio_stream::StreamExt;
 
 use crate::objects::results::{
@@ -24,19 +25,22 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::results::results_client::ResultsClient::new(channel),
         }
     }
 
     /// Get a results list using pagination, filters and sorting.
-    pub async fn list(&mut self, request: list::Request) -> Result<list::Response, tonic::Status> {
+    pub async fn list(
+        &mut self,
+        request: list::Request,
+    ) -> Result<list::Response, super::RequestError> {
         self.call(request).await
     }
 
     /// Get the id of the task that should produce the result.
-    pub async fn get(&mut self, result_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn get(&mut self, result_id: impl Into<String>) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(get::Request {
                 id: result_id.into(),
@@ -50,7 +54,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         result_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, String>, tonic::Status> {
+    ) -> Result<HashMap<String, String>, super::RequestError> {
         Ok(self
             .call(owner::Request {
                 session_id: session_id.into(),
@@ -66,7 +70,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         names: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, Raw>, tonic::Status> {
+    ) -> Result<HashMap<String, Raw>, super::RequestError> {
         Ok(self
             .call(create_metadata::Request {
                 results: names.into_collect(),
@@ -81,7 +85,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
-    ) -> Result<HashMap<String, Raw>, tonic::Status> {
+    ) -> Result<HashMap<String, Raw>, super::RequestError> {
         Ok(self
             .call(create::Request {
                 results: results
@@ -100,7 +104,7 @@ where
         session_id: impl Into<String>,
         result_id: impl Into<String>,
         data: S,
-    ) -> Result<Raw, tonic::Status>
+    ) -> Result<Raw, super::RequestError>
     where
         S: futures::Stream + Send + Unpin + 'static,
         <S as futures::Stream>::Item: Into<Vec<u8>>,
@@ -122,7 +126,8 @@ where
         Ok(self
             .inner
             .upload_result_data(request)
-            .await?
+            .await
+            .context(super::GrpcSnafu {})?
             .into_inner()
             .result
             .map_or_else(Default::default, Into::into))
@@ -133,16 +138,24 @@ where
         &mut self,
         session_id: impl Into<String>,
         result_id: impl Into<String>,
-    ) -> Result<impl futures::Stream<Item = Result<Vec<u8>, tonic::Status>>, tonic::Status> {
+    ) -> Result<
+        impl futures::Stream<Item = Result<Vec<u8>, super::RequestError>>,
+        super::RequestError,
+    > {
         Ok(self
             .inner
             .download_result_data(download::Request {
                 session_id: session_id.into(),
                 result_id: result_id.into(),
             })
-            .await?
+            .await
+            .context(super::GrpcSnafu {})?
             .into_inner()
-            .map(|response| response.map(|response| response.data_chunk)))
+            .map(|response| {
+                response
+                    .map(|response| response.data_chunk)
+                    .context(super::GrpcSnafu {})
+            }))
     }
 
     /// Delete data from multiple results.
@@ -150,7 +163,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         result_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<Vec<String>, tonic::Status> {
+    ) -> Result<Vec<String>, super::RequestError> {
         Ok(self
             .call(delete::Request {
                 session_id: session_id.into(),
@@ -163,7 +176,7 @@ where
     /// Get the configuration of the service.
     pub async fn get_service_configuration(
         &mut self,
-    ) -> Result<service_configuration::Response, tonic::Status> {
+    ) -> Result<service_configuration::Response, super::RequestError> {
         self.call(service_configuration::Request {}).await
     }
 
@@ -185,7 +198,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_results(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -194,7 +208,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_result(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -203,7 +218,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_owner_task_id(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -212,7 +228,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_results_meta_data(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -221,7 +238,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_results(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -230,7 +248,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .delete_results_data(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -239,7 +258,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_service_configuration(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }

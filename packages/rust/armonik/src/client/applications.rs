@@ -1,3 +1,5 @@
+use snafu::ResultExt;
+
 use crate::{api::v3, objects::applications::list};
 
 use super::GrpcCall;
@@ -14,13 +16,16 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::applications::applications_client::ApplicationsClient::new(channel),
         }
     }
 
-    pub async fn list(&mut self, request: list::Request) -> Result<list::Response, tonic::Status> {
+    pub async fn list(
+        &mut self,
+        request: list::Request,
+    ) -> Result<list::Response, super::RequestError> {
         self.call(request).await
     }
 
@@ -42,7 +47,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_applications(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

@@ -1,6 +1,6 @@
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = armonik::Client::connect("http://localhost:5001").await?;
+async fn main() -> Result<(), eyre::Report> {
+    let client = armonik::Client::new().await?;
 
     // Get version
     let response = client.versions().list().await?;

@@ -1,3 +1,5 @@
+use snafu::ResultExt;
+
 use crate::{
     api::v3,
     objects::{
@@ -24,19 +26,22 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::sessions::sessions_client::SessionsClient::new(channel),
         }
     }
 
     /// Get a sessions list using pagination, filters and sorting.
-    pub async fn list(&mut self, request: list::Request) -> Result<list::Response, tonic::Status> {
+    pub async fn list(
+        &mut self,
+        request: list::Request,
+    ) -> Result<list::Response, super::RequestError> {
         self.call(request).await
     }
 
     /// Get a session by its id.
-    pub async fn get(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn get(&mut self, session_id: impl Into<String>) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(get::Request {
                 id: session_id.into(),
@@ -46,7 +51,10 @@ where
     }
 
     /// Cancel a session by its id.
-    pub async fn cancel(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn cancel(
+        &mut self,
+        session_id: impl Into<String>,
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(cancel::Request {
                 id: session_id.into(),
@@ -60,7 +68,7 @@ where
         &mut self,
         partitions: impl IntoIterator<Item = impl Into<String>>,
         task_options: TaskOptions,
-    ) -> Result<String, tonic::Status> {
+    ) -> Result<String, super::RequestError> {
         Ok(self
             .call(create::Request {
                 default_task_option: task_options,
@@ -71,7 +79,10 @@ where
     }
 
     /// Pause a session by its id.
-    pub async fn pause(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn pause(
+        &mut self,
+        session_id: impl Into<String>,
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(pause::Request {
                 id: session_id.into(),
@@ -81,7 +92,10 @@ where
     }
 
     /// Resume a paused session by its id.
-    pub async fn resume(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn resume(
+        &mut self,
+        session_id: impl Into<String>,
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(resume::Request {
                 id: session_id.into(),
@@ -91,7 +105,10 @@ where
     }
 
     /// Close a session by its id.
-    pub async fn close(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn close(
+        &mut self,
+        session_id: impl Into<String>,
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(close::Request {
                 id: session_id.into(),
@@ -101,7 +118,10 @@ where
     }
 
     /// Purge a session by its id. Removes Results data.
-    pub async fn purge(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn purge(
+        &mut self,
+        session_id: impl Into<String>,
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(purge::Request {
                 id: session_id.into(),
@@ -111,7 +131,10 @@ where
     }
 
     /// Delete a session by its id. Removes metadata from Results, Sessions and Tasks associated to the session.
-    pub async fn delete(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+    pub async fn delete(
+        &mut self,
+        session_id: impl Into<String>,
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(delete::Request {
                 id: session_id.into(),
@@ -126,7 +149,7 @@ where
         session_id: impl Into<String>,
         stop_client: bool,
         stop_worker: bool,
-    ) -> Result<Raw, tonic::Status> {
+    ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(stop_submission::Request {
                 id: session_id.into(),
@@ -155,7 +178,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .list_sessions(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -164,7 +188,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -173,7 +198,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .cancel_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -182,7 +208,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -191,7 +218,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .pause_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -201,7 +229,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .resume_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -210,7 +239,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .close_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -219,7 +249,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .purge_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -228,7 +259,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .delete_session(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }
@@ -237,7 +269,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .stop_submission(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }

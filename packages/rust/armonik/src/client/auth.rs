@@ -1,3 +1,5 @@
+use snafu::ResultExt;
+
 use crate::{
     api::v3,
     objects::auth::{current_user, User},
@@ -18,14 +20,14 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::auth::authentication_client::AuthenticationClient::new(channel),
         }
     }
 
     /// Get current user
-    pub async fn current_user(&mut self) -> Result<User, tonic::Status> {
+    pub async fn current_user(&mut self) -> Result<User, super::RequestError> {
         Ok(self.call(current_user::Request {}).await?.user)
     }
 
@@ -47,7 +49,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_current_user(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu {})?
                 .into_inner()
                 .into())
         }

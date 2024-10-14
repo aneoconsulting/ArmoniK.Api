@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use futures::{Stream, StreamExt};
+use snafu::ResultExt;
 
 use crate::objects::agent::{
     create_results, create_results_metadata, create_tasks, get_common_data, get_direct_data,
@@ -26,7 +27,7 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
-    pub fn new(channel: T) -> Self {
+    pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::agent::agent_client::AgentClient::new(channel),
         }
@@ -39,7 +40,7 @@ where
         token: impl Into<String>,
         session_id: impl Into<String>,
         names: impl std::iter::IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, ResultMetaData>, tonic::Status> {
+    ) -> Result<HashMap<String, ResultMetaData>, super::RequestError> {
         Ok(self
             .call(create_results_metadata::Request {
                 communication_token: token.into(),
@@ -56,7 +57,7 @@ where
         token: impl Into<String>,
         session_id: impl Into<String>,
         results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
-    ) -> Result<HashMap<String, ResultMetaData>, tonic::Status> {
+    ) -> Result<HashMap<String, ResultMetaData>, super::RequestError> {
         Ok(self
             .call(create_results::Request {
                 communication_token: token.into(),
@@ -77,7 +78,7 @@ where
         session_id: impl Into<String>,
         task_options: Option<TaskOptions>,
         items: impl IntoIterator<Item = submit_tasks::RequestItem>,
-    ) -> Result<Vec<submit_tasks::ResponseItem>, tonic::Status> {
+    ) -> Result<Vec<submit_tasks::ResponseItem>, super::RequestError> {
         Ok(self
             .call(submit_tasks::Request {
                 communication_token: token.into(),
@@ -92,7 +93,7 @@ where
     pub async fn create_tasks(
         &mut self,
         request: impl Stream<Item = create_tasks::Request> + Send + 'static,
-    ) -> Result<Vec<create_tasks::Status>, tonic::Status> {
+    ) -> Result<Vec<create_tasks::Status>, super::RequestError> {
         let response = self.call(request).await?;
 
         match response {
@@ -103,7 +104,7 @@ where
             create_tasks::Response::Error {
                 communication_token: _,
                 error,
-            } => Err(tonic::Status::internal(error)),
+            } => Err(tonic::Status::internal(error)).context(super::GrpcSnafu {}),
         }
     }
 
@@ -125,7 +126,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_results_meta_data(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
@@ -134,7 +136,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_results(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
@@ -143,7 +146,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .notify_result_data(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
@@ -152,7 +156,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .submit_tasks(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
@@ -161,7 +166,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_resource_data(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner().into())
         }
 
@@ -169,7 +175,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_common_data(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner().into())
         }
 
@@ -177,7 +184,8 @@ super::impl_call! {
             Ok(self
                 .inner
                 .get_direct_data(request)
-                .await?
+                .await
+                .context(super::GrpcSnafu{})?
                 .into_inner().into())
         }
     }
@@ -193,13 +201,14 @@ where
     S: Stream<Item = create_tasks::Request> + Send + 'static,
 {
     type Response = create_tasks::Response;
-    type Error = tonic::Status;
+    type Error = super::RequestError;
 
     async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
         Ok(self
             .inner
             .create_task(request.map(Into::into))
-            .await?
+            .await
+            .context(super::GrpcSnafu {})?
             .into_inner()
             .into())
     }
