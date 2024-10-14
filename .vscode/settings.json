@@ -14,7 +14,6 @@
   },
   "rust-analyzer.cachePriming.enable": true,
   "rust-analyzer.linkedProjects": [
-    "./packages/rust/armonik/Cargo.toml",
-    "./packages/rust/armonik-client-test/Cargo.toml"
+    "./packages/rust/armonik/Cargo.toml"
   ]
 }
