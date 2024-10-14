@@ -1,3 +1,4 @@
+mod events_enum;
 mod new_result;
 mod new_task;
 mod result_owner_update;
@@ -7,6 +8,7 @@ mod update;
 
 pub mod subscribe;
 
+pub use events_enum::EventsEnum;
 pub use new_result::NewResult;
 pub use new_task::NewTask;
 pub use result_owner_update::ResultOwnerUpdate;

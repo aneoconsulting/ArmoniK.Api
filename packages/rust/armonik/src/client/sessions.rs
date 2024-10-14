@@ -1,7 +1,9 @@
 use crate::{
     api::v3,
     objects::{
-        sessions::{cancel, create, get, list, Raw},
+        sessions::{
+            cancel, close, create, delete, get, list, pause, purge, resume, stop_submission, Raw,
+        },
         TaskOptions,
     },
     utils::IntoCollection,
@@ -68,6 +70,73 @@ where
             .session_id)
     }
 
+    /// Pause a session by its id.
+    pub async fn pause(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(pause::Request {
+                id: session_id.into(),
+            })
+            .await?
+            .session)
+    }
+
+    /// Resume a paused session by its id.
+    pub async fn resume(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(resume::Request {
+                id: session_id.into(),
+            })
+            .await?
+            .session)
+    }
+
+    /// Close a session by its id.
+    pub async fn close(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(close::Request {
+                id: session_id.into(),
+            })
+            .await?
+            .session)
+    }
+
+    /// Purge a session by its id. Removes Results data.
+    pub async fn purge(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(purge::Request {
+                id: session_id.into(),
+            })
+            .await?
+            .session)
+    }
+
+    /// Delete a session by its id. Removes metadata from Results, Sessions and Tasks associated to the session.
+    pub async fn delete(&mut self, session_id: impl Into<String>) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(delete::Request {
+                id: session_id.into(),
+            })
+            .await?
+            .session)
+    }
+
+    /// Stops clients and/or workers from submitting new tasks in the given session.
+    pub async fn stop_submission(
+        &mut self,
+        session_id: impl Into<String>,
+        stop_client: bool,
+        stop_worker: bool,
+    ) -> Result<Raw, tonic::Status> {
+        Ok(self
+            .call(stop_submission::Request {
+                id: session_id.into(),
+                client: stop_client,
+                worker: stop_worker,
+            })
+            .await?
+            .session)
+    }
+
     /// Perform a gRPC call from a raw request.
     pub async fn call<Request>(
         &mut self,
@@ -113,6 +182,61 @@ super::impl_call! {
             Ok(self
                 .inner
                 .create_session(request)
+                .await?
+                .into_inner()
+                .into())
+        }
+
+        async fn call(self, request: pause::Request) -> Result<pause::Response> {
+            Ok(self
+                .inner
+                .pause_session(request)
+                .await?
+                .into_inner()
+                .into())
+        }
+
+
+        async fn call(self, request: resume::Request) -> Result<resume::Response> {
+            Ok(self
+                .inner
+                .resume_session(request)
+                .await?
+                .into_inner()
+                .into())
+        }
+
+        async fn call(self, request: close::Request) -> Result<close::Response> {
+            Ok(self
+                .inner
+                .close_session(request)
+                .await?
+                .into_inner()
+                .into())
+        }
+
+        async fn call(self, request: purge::Request) -> Result<purge::Response> {
+            Ok(self
+                .inner
+                .purge_session(request)
+                .await?
+                .into_inner()
+                .into())
+        }
+
+        async fn call(self, request: delete::Request) -> Result<delete::Response> {
+            Ok(self
+                .inner
+                .delete_session(request)
+                .await?
+                .into_inner()
+                .into())
+        }
+
+        async fn call(self, request: stop_submission::Request) -> Result<stop_submission::Response> {
+            Ok(self
+                .inner
+                .stop_submission(request)
                 .await?
                 .into_inner()
                 .into())

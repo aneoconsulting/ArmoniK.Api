@@ -11,10 +11,15 @@ pub enum RawField {
     #[default]
     SessionId = 1,
     Status = 2,
+    ClientSubmission = 8,
+    WorkerSubmission = 9,
     PartitionIds = 3,
     Options = 4,
     CreatedAt = 5,
     CancelledAt = 6,
+    ClosedAt = 12,
+    PurgedAt = 10,
+    DeletedAt = 11,
     Duration = 7,
 }
 
@@ -24,10 +29,15 @@ impl From<i32> for RawField {
             0 => Self::Unspecified,
             1 => Self::SessionId,
             2 => Self::Status,
+            8 => Self::ClientSubmission,
+            9 => Self::WorkerSubmission,
             3 => Self::PartitionIds,
             4 => Self::Options,
             5 => Self::CreatedAt,
             6 => Self::CancelledAt,
+            12 => Self::ClosedAt,
+            10 => Self::PurgedAt,
+            11 => Self::DeletedAt,
             7 => Self::Duration,
             _ => Self::Unspecified,
         }

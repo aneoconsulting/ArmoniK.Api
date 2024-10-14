@@ -1,5 +1,6 @@
 use super::super::{
-    FilterArray, FilterBoolean, FilterDate, FilterNumber, FilterString, SessionStatus,
+    FilterArray, FilterBoolean, FilterDate, FilterDuration, FilterNumber, FilterString,
+    SessionStatus,
 };
 
 use crate::api::v3;
@@ -55,6 +56,7 @@ pub enum Condition {
     Boolean(FilterBoolean),
     Status(Status),
     Date(FilterDate),
+    Duration(FilterDuration),
     Array(FilterArray),
 }
 
@@ -72,6 +74,7 @@ impl From<Condition> for v3::sessions::filter_field::ValueCondition {
             Condition::Boolean(cond) => Self::FilterBoolean(cond.into()),
             Condition::Status(cond) => Self::FilterStatus(cond.into()),
             Condition::Date(cond) => Self::FilterDate(cond.into()),
+            Condition::Duration(cond) => Self::FilterDuration(cond.into()),
             Condition::Array(cond) => Self::FilterArray(cond.into()),
         }
     }
@@ -95,6 +98,9 @@ impl From<v3::sessions::filter_field::ValueCondition> for Condition {
             v3::sessions::filter_field::ValueCondition::FilterDate(cond) => Self::Date(cond.into()),
             v3::sessions::filter_field::ValueCondition::FilterArray(cond) => {
                 Self::Array(cond.into())
+            }
+            v3::sessions::filter_field::ValueCondition::FilterDuration(cond) => {
+                Self::Duration(cond.into())
             }
         }
     }

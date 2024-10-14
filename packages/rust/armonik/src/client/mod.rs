@@ -7,6 +7,7 @@ mod sessions;
 mod submitter;
 mod tasks;
 mod versions;
+mod worker;
 
 pub use agent::AgentClient;
 pub use applications::ApplicationsClient;
@@ -17,6 +18,7 @@ pub use sessions::SessionsClient;
 pub use submitter::SubmitterClient;
 pub use tasks::TasksClient;
 pub use versions::VersionsClient;
+pub use worker::WorkerClient;
 
 #[derive(Clone)]
 pub struct Client<T> {
@@ -80,6 +82,10 @@ where
 
     pub fn versions(&self) -> VersionsClient<T> {
         VersionsClient::new(self.channel.clone())
+    }
+
+    pub fn worker(&self) -> WorkerClient<T> {
+        WorkerClient::new(self.channel.clone())
     }
 }
 

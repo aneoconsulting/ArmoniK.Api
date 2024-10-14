@@ -16,6 +16,8 @@ pub enum TaskStatus {
     Processing = 9, /* Task is being processed. */
     Processed = 10, /* Task is processed. */
     Retried = 11,   /* Task is retried. */
+    Pending = 12,   /* Task is waiting for its dependencies before becoming executable. */
+    Paused = 13,    /* Task is paused and will not be executed until session is resumed. */
 }
 
 impl From<i32> for TaskStatus {
@@ -33,6 +35,8 @@ impl From<i32> for TaskStatus {
             9 => Self::Processing,
             10 => Self::Processed,
             11 => Self::Retried,
+            12 => Self::Pending,
+            13 => Self::Paused,
             _ => Default::default(),
         }
     }
@@ -53,6 +57,8 @@ impl From<TaskStatus> for v3::task_status::TaskStatus {
             TaskStatus::Processing => Self::Processing,
             TaskStatus::Processed => Self::Processed,
             TaskStatus::Retried => Self::Retried,
+            TaskStatus::Pending => Self::Pending,
+            TaskStatus::Paused => Self::Paused,
         }
     }
 }
@@ -72,6 +78,8 @@ impl From<v3::task_status::TaskStatus> for TaskStatus {
             v3::task_status::TaskStatus::Processing => Self::Processing,
             v3::task_status::TaskStatus::Processed => Self::Processed,
             v3::task_status::TaskStatus::Retried => Self::Retried,
+            v3::task_status::TaskStatus::Pending => Self::Pending,
+            v3::task_status::TaskStatus::Paused => Self::Paused,
         }
     }
 }

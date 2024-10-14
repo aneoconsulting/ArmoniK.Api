@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
 use futures::{Stream, StreamExt};
-use futures_util::TryStreamExt;
 
 use crate::objects::agent::{
     create_results, create_results_metadata, create_tasks, get_common_data, get_direct_data,
-    get_resource_data, send_result, submit_tasks, upload_result, ResultMetaData,
+    get_resource_data, notify_result_data, submit_tasks, ResultMetaData,
 };
-use crate::objects::{DataChunk, TaskOptions};
+use crate::objects::TaskOptions;
 use crate::utils::IntoCollection;
 
 use crate::api::v3;
@@ -18,53 +17,6 @@ use super::{GrpcCall, GrpcCallStream};
 #[derive(Clone)]
 pub struct AgentClient<T> {
     inner: v3::agent::agent_client::AgentClient<T>,
-}
-
-macro_rules! impl_get_data {
-    ($name:ident) => {
-        pub async fn $name(
-            &mut self,
-            token: impl Into<String>,
-            key: impl Into<String>,
-        ) -> Result<impl Stream<Item = Result<Vec<u8>, tonic::Status>>, tonic::Status> {
-            let mut stream = self
-                .inner
-                .$name($name::Request {
-                    communication_token: token.into(),
-                    key: key.into(),
-                })
-                .await?
-                .into_inner();
-
-            Ok(async_stream::try_stream! {
-                while let Some(response) = stream.try_next().await? {
-                    let response: $name::Response = response.into();
-                    match response {
-                        $name::Response::DataChunk {
-                            communication_token: _,
-                            key: _,
-                            chunk: DataChunk::Data(chunk),
-                        } => yield chunk,
-                        $name::Response::DataChunk {
-                            communication_token: _,
-                            key: _,
-                            chunk: DataChunk::Complete,
-                        } => (),
-                        $name::Response::Error {
-                            communication_token: _,
-                            key: Some(_),
-                            error,
-                        } => Err(tonic::Status::not_found(error))?,
-                        $name::Response::Error {
-                            communication_token: _,
-                            key: None,
-                            error,
-                        } => Err(tonic::Status::internal(error))?,
-                    }
-                }
-            })
-        }
-    };
 }
 
 impl<T> AgentClient<T>
@@ -118,40 +70,6 @@ where
             .results)
     }
 
-    /// Upload data for result with stream.
-    pub async fn upload_result<S>(
-        &mut self,
-        token: impl Into<String>,
-        session_id: impl Into<String>,
-        result_id: impl Into<String>,
-        data: impl futures::Stream<Item = impl Into<Vec<u8>>> + Send + Unpin + 'static,
-    ) -> Result<(), tonic::Status> {
-        let token: String = token.into();
-        let session_id: String = session_id.into();
-        let result_id: String = result_id.into();
-        let request = {
-            let token = token.clone();
-            async_stream::stream! {
-                yield
-                    upload_result::Request::Identifier {
-                        communication_token: token,
-                        session: session_id,
-                        result_id,
-                    }
-                ;
-            }
-        };
-
-        let request = request.chain(data.map(move |chunk| upload_result::Request::DataChunk {
-            communication_token: token.clone(),
-            chunk: chunk.into(),
-        }));
-
-        self.call(request).await?;
-
-        Ok(())
-    }
-
     /// Create tasks metadata and submit task for processing.
     pub async fn submit(
         &mut self,
@@ -189,43 +107,6 @@ where
         }
     }
 
-    impl_get_data!(get_resource_data);
-    impl_get_data!(get_common_data);
-    impl_get_data!(get_direct_data);
-
-    pub async fn send_result<Stream, Key, Chunk>(
-        &mut self,
-        token: impl Into<String>,
-        mut data: Stream,
-    ) -> Result<(), tonic::Status>
-    where
-        Key: Into<String> + Send,
-        Chunk: Into<Vec<u8>> + Send,
-        Stream: futures::Stream<Item = (Key, Chunk)> + Send + Unpin + 'static,
-    {
-        let token: String = token.into();
-        let request = async_stream::stream! {
-            let previous = String::new();
-            while let Some((key, chunk)) = data.next().await {
-                let key = key.into();
-                if key != previous {
-                    yield send_result::Request::Init { communication_token: token.clone(), key };
-                }
-
-                yield send_result::Request::DataChunk {
-                    communication_token: token.clone(),
-                    chunk: DataChunk::Data(chunk.into()),
-                };
-            }
-
-            yield send_result::Request::LastResult { communication_token: token };
-        };
-
-        self.call(Box::pin(request)).await?;
-
-        Ok(())
-    }
-
     /// Perform a gRPC call from a raw request.
     pub async fn call<Request>(
         &mut self,
@@ -258,6 +139,15 @@ super::impl_call! {
                 .into())
         }
 
+        async fn call(self, request: notify_result_data::Request) -> Result<notify_result_data::Response> {
+            Ok(self
+                .inner
+                .notify_result_data(request)
+                .await?
+                .into_inner()
+                .into())
+        }
+
         async fn call(self, request: submit_tasks::Request) -> Result<submit_tasks::Response> {
             Ok(self
                 .inner
@@ -267,54 +157,29 @@ super::impl_call! {
                 .into())
         }
 
-        async fn call(self, request: get_resource_data::Request) -> Result<Box<dyn Stream<Item = Result<get_resource_data::Response, tonic::Status>>>> {
-            Ok(Box::new(self
+        async fn call(self, request: get_resource_data::Request) -> Result<get_resource_data::Response> {
+            Ok(self
                 .inner
                 .get_resource_data(request)
                 .await?
-                .into_inner()
-                .map(|item| item.map(Into::into))))
+                .into_inner().into())
         }
 
-        async fn call(self, request: get_common_data::Request) -> Result<Box<dyn Stream<Item = Result<get_common_data::Response, tonic::Status>>>> {
-            Ok(Box::new(self
+        async fn call(self, request: get_common_data::Request) -> Result<get_common_data::Response> {
+            Ok(self
                 .inner
                 .get_common_data(request)
                 .await?
-                .into_inner()
-                .map(|item| item.map(Into::into))))
+                .into_inner().into())
         }
 
-        async fn call(self, request: get_direct_data::Request) -> Result<Box<dyn Stream<Item = Result<get_direct_data::Response, tonic::Status>>>> {
-            Ok(Box::new(self
+        async fn call(self, request: get_direct_data::Request) -> Result<get_direct_data::Response> {
+            Ok(self
                 .inner
                 .get_direct_data(request)
                 .await?
-                .into_inner()
-                .map(|item| item.map(Into::into))))
+                .into_inner().into())
         }
-    }
-}
-
-#[async_trait::async_trait(?Send)]
-impl<T, S> GrpcCallStream<upload_result::Request, S> for &'_ mut AgentClient<T>
-where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
-    S: Stream<Item = upload_result::Request> + Send + 'static,
-{
-    type Response = upload_result::Response;
-    type Error = tonic::Status;
-
-    async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        Ok(self
-            .inner
-            .upload_result_data(request.map(Into::into))
-            .await?
-            .into_inner()
-            .into())
     }
 }
 
@@ -334,28 +199,6 @@ where
         Ok(self
             .inner
             .create_task(request.map(Into::into))
-            .await?
-            .into_inner()
-            .into())
-    }
-}
-
-#[async_trait::async_trait(?Send)]
-impl<S, T> GrpcCallStream<send_result::Request, S> for &'_ mut AgentClient<T>
-where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
-    S: Stream<Item = send_result::Request> + Send + 'static,
-{
-    type Response = send_result::Response;
-    type Error = tonic::Status;
-
-    async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        Ok(self
-            .inner
-            .send_result(request.map(Into::into))
             .await?
             .into_inner()
             .into())
