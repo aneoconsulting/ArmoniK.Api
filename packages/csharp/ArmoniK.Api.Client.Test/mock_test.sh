@@ -42,6 +42,8 @@ source "$TEST_ENV"
 set +a
 
 $TEST_COMMAND
+ret=$?
+exit $ret
 set +e
 
 echo $server_pid
