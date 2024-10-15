@@ -42,10 +42,12 @@ pub(crate) fn read_env_bool(name: &str) -> Result<bool, ReadEnvError> {
 }
 
 #[derive(Debug, Snafu)]
+#[non_exhaustive]
 pub enum ReadEnvError {
     #[snafu(display(
         "Environment variable `{name}={value:?}` is not a valid unicode string [{location}]"
     ))]
+    #[non_exhaustive]
     NotUnicode {
         name: String,
         value: std::ffi::OsString,
@@ -54,6 +56,7 @@ pub enum ReadEnvError {
         location: snafu::Location,
     },
     #[snafu(display("Environment variable `{name}={value}` is not a valid boolean [{location}]"))]
+    #[non_exhaustive]
     NotBoolean {
         name: String,
         value: String,

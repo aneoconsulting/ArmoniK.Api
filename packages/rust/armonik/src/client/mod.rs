@@ -12,6 +12,7 @@ mod tasks;
 mod versions;
 mod worker;
 
+pub use crate::utils::ReadEnvError;
 pub use agent::AgentClient;
 pub use applications::ApplicationsClient;
 pub use auth::AuthClient;
@@ -142,8 +143,10 @@ where
 }
 
 #[derive(Debug, Snafu)]
+#[non_exhaustive]
 pub enum ConnectionError {
     #[snafu(display("Unable to read the client config [{location}]"))]
+    #[non_exhaustive]
     Config {
         #[snafu(source(from(ConfigError, Box::new)))]
         source: Box<ConfigError>,
@@ -151,6 +154,7 @@ pub enum ConnectionError {
         location: snafu::Location,
     },
     #[snafu(display("Error connecting to the remote {endpoint} [{location}]"))]
+    #[non_exhaustive]
     Transport {
         endpoint: http::Uri,
         #[snafu(source(from(tonic::transport::Error, Box::new)))]
@@ -161,8 +165,10 @@ pub enum ConnectionError {
 }
 
 #[derive(Debug, Snafu)]
+#[non_exhaustive]
 pub enum RequestError {
     #[snafu(display("Grpc request error [{location}]"))]
+    #[non_exhaustive]
     Grpc {
         #[snafu(source(from(tonic::Status, Box::new)))]
         source: Box<tonic::Status>,
