@@ -29,15 +29,15 @@ using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Events;
-using ArmoniK.Api.gRPC.V1.Sessions;
 using ArmoniK.Api.gRPC.V1.Results;
+using ArmoniK.Api.gRPC.V1.Sessions;
 
 using Google.Protobuf.WellKnownTypes;
 
 using NUnit.Framework;
 
-using Filters = ArmoniK.Api.gRPC.V1.Results.Filters;
 using FilterField = ArmoniK.Api.gRPC.V1.Results.FilterField;
+using Filters = ArmoniK.Api.gRPC.V1.Results.Filters;
 using FiltersAnd = ArmoniK.Api.gRPC.V1.Results.FiltersAnd;
 
 namespace ArmoniK.Api.Client.Tests;
@@ -50,26 +50,26 @@ public class EventsClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
 
     var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                                                     {
+                                                                       DefaultTaskOption = taskOptions,
+                                                                       PartitionIds =
                                                                        {
                                                                          partition,
                                                                        },
-    });
+                                                                     });
 
     var client = new Events.EventsClient(channel);
 
@@ -81,7 +81,7 @@ public class EventsClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
                                                                             })
                                                      .Results.Single()
@@ -118,10 +118,11 @@ public class EventsClientTest
                                                                                      Value    = resultId,
                                                                                    },
                                                                   },
-                                                                }
-                                                              }
-                                                            }
-                                                          }
-                                       }), Throws.Nothing);
+                                                                },
+                                                              },
+                                                            },
+                                                          },
+                                       }),
+                Throws.Nothing);
   }
 }

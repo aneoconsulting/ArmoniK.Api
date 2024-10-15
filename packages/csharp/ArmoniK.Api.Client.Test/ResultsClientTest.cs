@@ -21,20 +21,20 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 using System;
 using System.Linq;
 using System.Text;
 using System.Threading;
 
-using Google.Protobuf.WellKnownTypes;
-
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
-using ArmoniK.Api.gRPC.V1.Sessions;
 using ArmoniK.Api.gRPC.V1.Results;
+using ArmoniK.Api.gRPC.V1.Sessions;
 
 using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
 
 using NUnit.Framework;
 
@@ -76,12 +76,14 @@ public class ResultsClientTest
                                                    {
                                                      SessionId = session.SessionId,
                                                      Results =
-                                                     { new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                 {
-                                                                   Name = Guid.NewGuid() + "_" + 0,
-                                                                 }
+                                                     {
+                                                       new CreateResultsMetaDataRequest.Types.ResultCreate
+                                                       {
+                                                         Name = Guid.NewGuid() + "_" + 0,
+                                                       },
                                                      },
-                                                   }), Throws.Nothing);
+                                                   }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -118,9 +120,10 @@ public class ResultsClientTest
                                                {
                                                  Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("TestPayload")),
                                                  Name = "Payload",
-                                               }
-                                             }
-                                           }), Throws.Nothing);
+                                               },
+                                             },
+                                           }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -149,46 +152,51 @@ public class ResultsClientTest
                                                                        },
                                                                      });
     var resultId = client.CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                   {
-                                                     SessionId = session.SessionId,
-                                                     Results =
-                                                     { Enumerable.Range(0, 4).Select(i =>
-                                                       new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                       {
-                                                         Name = Guid.NewGuid() + "_" + i,
-                                                       }),
-                                                     },
-                                                   }).Results.Single().ResultId;
+                                                {
+                                                  SessionId = session.SessionId,
+                                                  Results =
+                                                  {
+                                                    Enumerable.Range(0,
+                                                                     4)
+                                                              .Select(i => new CreateResultsMetaDataRequest.Types.ResultCreate
+                                                                           {
+                                                                             Name = Guid.NewGuid() + "_" + i,
+                                                                           }),
+                                                  },
+                                                })
+                         .Results.Single()
+                         .ResultId;
     Assert.That(() => client.ListResults(new ListResultsRequest
                                          {
-                                            Filters = new Filters
-                                                      {
-                                                        Or =
-                                                        {
-                                                          new FiltersAnd
-                                                          {
-                                                            And =
-                                                            {
-                                                              new FilterField
-                                                              {
-                                                                Field = new ResultField
-                                                                        {
-                                                                          ResultRawField = new ResultRawField
-                                                                                           {
-                                                                                             Field = ResultRawEnumField.ResultId,
-                                                                                           },
-                                                                        },
-                                                                FilterString = new FilterString
-                                                                               {
-                                                                                 Operator = FilterStringOperator.Equal,
-                                                                                 Value = resultId,
-                                                                               },
-                                                              },
-                                                            },
-                                                          },
-                                                        },
-                                                      },
-                                         }), Throws.Nothing);
+                                           Filters = new Filters
+                                                     {
+                                                       Or =
+                                                       {
+                                                         new FiltersAnd
+                                                         {
+                                                           And =
+                                                           {
+                                                             new FilterField
+                                                             {
+                                                               Field = new ResultField
+                                                                       {
+                                                                         ResultRawField = new ResultRawField
+                                                                                          {
+                                                                                            Field = ResultRawEnumField.ResultId,
+                                                                                          },
+                                                                       },
+                                                               FilterString = new FilterString
+                                                                              {
+                                                                                Operator = FilterStringOperator.Equal,
+                                                                                Value    = resultId,
+                                                                              },
+                                                             },
+                                                           },
+                                                         },
+                                                       },
+                                                     },
+                                         }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -224,10 +232,16 @@ public class ResultsClientTest
                                                    new CreateResultsMetaDataRequest.Types.ResultCreate
                                                    {
                                                      Name = "TestResult",
-                                                   }
+                                                   },
                                                  },
-                                               }).Results.Single().ResultId;
-    Assert.That(() => client.UploadResultData(), Throws.Nothing);
-    Assert.That(() => client.DownloadResultData(session.SessionId, resulId, CancellationToken.None), Throws.Nothing);
+                                               })
+                        .Results.Single()
+                        .ResultId;
+    Assert.That(() => client.UploadResultData(),
+                Throws.Nothing);
+    Assert.That(() => client.DownloadResultData(session.SessionId,
+                                                resulId,
+                                                CancellationToken.None),
+                Throws.Nothing);
   }
 }

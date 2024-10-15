@@ -22,6 +22,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System;
+
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
@@ -30,8 +32,6 @@ using ArmoniK.Api.gRPC.V1.Partitions;
 using Google.Protobuf.WellKnownTypes;
 
 using NUnit.Framework;
-
-using System;
 
 namespace ArmoniK.Api.Client.Tests;
 
@@ -43,24 +43,25 @@ public class PartitionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var client = new Partitions.PartitionsClient(channel);
 
 
     Assert.That(() => client.GetPartition(new GetPartitionRequest
-    {
-      Id = taskOptions.PartitionId,
-    }), Throws.Nothing);
+                                          {
+                                            Id = taskOptions.PartitionId,
+                                          }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -68,23 +69,23 @@ public class PartitionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var client = new Partitions.PartitionsClient(channel);
 
     Assert.That(() => client.ListPartitions(new ListPartitionsRequest
-    {
-      Filters = new Filters()
-    }), Throws.Nothing);
-
+                                            {
+                                              Filters = new Filters(),
+                                            }),
+                Throws.Nothing);
   }
 }

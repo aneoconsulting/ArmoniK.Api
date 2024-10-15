@@ -22,13 +22,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System;
+
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1.Versions;
 
 using NUnit.Framework;
-
-using System;
 
 namespace ArmoniK.Api.Client.Tests;
 
@@ -40,11 +40,12 @@ public class VersionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var client = new Versions.VersionsClient(channel);
 
-    Assert.That(() => client.ListVersions(new ListVersionsRequest()), Throws.Nothing);
+    Assert.That(() => client.ListVersions(new ListVersionsRequest()),
+                Throws.Nothing);
   }
 }
