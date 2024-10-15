@@ -3,6 +3,7 @@ use snafu::{ResultExt, Snafu};
 
 /// Options for creating a gRPC Client
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct ClientConfig {
     /// Endpoint for sending requests
     pub endpoint: Uri,
@@ -56,6 +57,7 @@ impl TryFrom<ClientConfig> for tonic::transport::Endpoint {
 #[non_exhaustive]
 pub enum ConfigError {
     #[snafu(display("Could not read environment variable [{location}]"))]
+    #[non_exhaustive]
     Env {
         #[snafu(source(from(crate::utils::ReadEnvError, Box::new)))]
         source: Box<crate::utils::ReadEnvError>,
@@ -63,6 +65,7 @@ pub enum ConfigError {
         location: snafu::Location,
     },
     #[snafu(display("Endpoint URI is not valid: `{uri}` [{location}]"))]
+    #[non_exhaustive]
     Uri {
         #[snafu(source(from(http::uri::InvalidUri, Box::new)))]
         source: Box<http::uri::InvalidUri>,
