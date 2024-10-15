@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
+use futures::{Stream, StreamExt};
 use snafu::ResultExt;
-use tokio_stream::StreamExt;
 
 use crate::objects::results::{
     create, create_metadata, delete, download, get, list, owner, service_configuration, upload, Raw,
@@ -10,7 +10,7 @@ use crate::utils::IntoCollection;
 
 use crate::api::v3;
 
-use super::GrpcCall;
+use super::{GrpcCall, GrpcCallStream};
 
 /// The ResultsService provides methods for interacting with results.
 #[derive(Clone)]
@@ -263,5 +263,51 @@ super::impl_call! {
                 .into_inner()
                 .into())
         }
+    }
+}
+
+#[async_trait::async_trait(?Send)]
+impl<T> GrpcCall<download::Request> for &'_ mut ResultsClient<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T::Error: Into<tonic::codegen::StdError>,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+{
+    type Response = Box<dyn Stream<Item = Result<download::Response, super::RequestError>>>;
+    type Error = super::RequestError;
+
+    async fn call(self, request: download::Request) -> Result<Self::Response, Self::Error> {
+        Ok(Box::new(
+            self.inner
+                .download_result_data(request)
+                .await
+                .context(super::GrpcSnafu {})?
+                .into_inner()
+                .map(|response| response.map(Into::into).context(super::GrpcSnafu {})),
+        ))
+    }
+}
+
+#[async_trait::async_trait(?Send)]
+impl<T, S> GrpcCallStream<upload::Request, S> for &'_ mut ResultsClient<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T::Error: Into<tonic::codegen::StdError>,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    S: Stream<Item = upload::Request> + Send + 'static,
+{
+    type Response = upload::Response;
+    type Error = super::RequestError;
+
+    async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
+        Ok(self
+            .inner
+            .upload_result_data(request.map(Into::into))
+            .await
+            .context(super::GrpcSnafu {})?
+            .into_inner()
+            .into())
     }
 }
