@@ -1,4 +1,4 @@
-﻿// This file is part of the ArmoniK project
+// This file is part of the ArmoniK project
 //
 // Copyright (C) ANEO, 2021-$CURRENT_YEAR$. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
@@ -29,12 +29,12 @@ using System.Text;
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
+using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Api.gRPC.V1.Sessions;
 using ArmoniK.Api.gRPC.V1.Tasks;
-using ArmoniK.Api.gRPC.V1.Results;
 
-using Google.Protobuf.WellKnownTypes;
 using Google.Protobuf;
+using Google.Protobuf.WellKnownTypes;
 
 using NUnit.Framework;
 
@@ -64,7 +64,7 @@ public class TasksClientTest
              FilterString = new FilterString
                             {
                               Operator = FilterStringOperator.Equal,
-                              Value = sessionId,
+                              Value    = sessionId,
                             },
            },
          },
@@ -103,24 +103,25 @@ public class TasksClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
-                                                                            }).Results.Single().ResultId;
-    var payloadId = new Results.ResultsClient(channel)
-                           .CreateResults(new CreateResultsRequest
-                                          {
-                                            SessionId = session.SessionId,
-                                            Results =
-                                            {
-                                              new CreateResultsRequest.Types.ResultCreate
-                                              {
-                                                Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("Hello")),
-                                                Name = "Payload",
-                                              },
-                                            },
-                                          })
-                           .Results.Single()
-                           .ResultId;
+                                                                            })
+                                                     .Results.Single()
+                                                     .ResultId;
+    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
+                                                                     {
+                                                                       SessionId = session.SessionId,
+                                                                       Results =
+                                                                       {
+                                                                         new CreateResultsRequest.Types.ResultCreate
+                                                                         {
+                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("Hello")),
+                                                                           Name = "Payload",
+                                                                         },
+                                                                       },
+                                                                     })
+                                                      .Results.Single()
+                                                      .ResultId;
     Assert.That(() => client.SubmitTasks(new SubmitTasksRequest
                                          {
                                            SessionId = session.SessionId,
@@ -132,10 +133,11 @@ public class TasksClientTest
                                                ExpectedOutputKeys =
                                                {
                                                  resultId,
-                                               }
-                                             }
-                                           }
-                                         }), Throws.Nothing);
+                                               },
+                                             },
+                                           },
+                                         }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -171,7 +173,7 @@ public class TasksClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
                                                                             })
                                                      .Results.Single()
@@ -201,9 +203,9 @@ public class TasksClientTest
                                                   ExpectedOutputKeys =
                                                   {
                                                     resultId,
-                                                  }
-                                                }
-                                              }
+                                                  },
+                                                },
+                                              },
                                             });
     Assert.That(() => client.CountTasksByStatus(new CountTasksByStatusRequest
                                                 {
@@ -214,7 +216,8 @@ public class TasksClientTest
                                                                 TasksFilter(session.SessionId),
                                                               },
                                                             },
-                                                }), Throws.Nothing);
+                                                }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -250,7 +253,7 @@ public class TasksClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
                                                                             })
                                                      .Results.Single()
@@ -270,27 +273,30 @@ public class TasksClientTest
                                                       .Results.Single()
                                                       .ResultId;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                            {
-                                              SessionId = session.SessionId,
-                                              TaskCreations =
-                                              {
-                                                new SubmitTasksRequest.Types.TaskCreation
-                                                {
-                                                  PayloadId = payloadId,
-                                                  ExpectedOutputKeys =
-                                                  {
-                                                    resultId,
-                                                  }
-                                                }
-                                              }
-                                            }).TaskInfos.Single().TaskId;
+                                    {
+                                      SessionId = session.SessionId,
+                                      TaskCreations =
+                                      {
+                                        new SubmitTasksRequest.Types.TaskCreation
+                                        {
+                                          PayloadId = payloadId,
+                                          ExpectedOutputKeys =
+                                          {
+                                            resultId,
+                                          },
+                                        },
+                                      },
+                                    })
+                       .TaskInfos.Single()
+                       .TaskId;
     Assert.That(() => client.GetResultIds(new GetResultIdsRequest
-                                     {
-                                       TaskId =
-                                       {
-                                         taskId,
-                                       }
-                                     }), Throws.Nothing);
+                                          {
+                                            TaskId =
+                                            {
+                                              taskId,
+                                            },
+                                          }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -326,7 +332,7 @@ public class TasksClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
                                                                             })
                                                      .Results.Single()
@@ -346,24 +352,27 @@ public class TasksClientTest
                                                       .Results.Single()
                                                       .ResultId;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                            {
-                                              SessionId = session.SessionId,
-                                              TaskCreations =
-                                              {
-                                                new SubmitTasksRequest.Types.TaskCreation
-                                                {
-                                                  PayloadId = payloadId,
-                                                  ExpectedOutputKeys =
-                                                  {
-                                                    resultId,
-                                                  }
-                                                }
-                                              }
-                                            }).TaskInfos.Single().TaskId;
+                                    {
+                                      SessionId = session.SessionId,
+                                      TaskCreations =
+                                      {
+                                        new SubmitTasksRequest.Types.TaskCreation
+                                        {
+                                          PayloadId = payloadId,
+                                          ExpectedOutputKeys =
+                                          {
+                                            resultId,
+                                          },
+                                        },
+                                      },
+                                    })
+                       .TaskInfos.Single()
+                       .TaskId;
     Assert.That(() => client.GetTask(new GetTaskRequest
                                      {
                                        TaskId = taskId,
-                                     }), Throws.Nothing);
+                                     }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -399,7 +408,7 @@ public class TasksClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
                                                                             })
                                                      .Results.Single()
@@ -419,32 +428,36 @@ public class TasksClientTest
                                                       .Results.Single()
                                                       .ResultId;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                            {
-                                              SessionId = session.SessionId,
-                                              TaskCreations =
-                                              {
-                                                new SubmitTasksRequest.Types.TaskCreation
-                                                {
-                                                  PayloadId = payloadId,
-                                                  ExpectedOutputKeys =
-                                                  {
-                                                    resultId,
-                                                  }
-                                                }
-                                              }
-                                            }).TaskInfos.Single().TaskId;
+                                    {
+                                      SessionId = session.SessionId,
+                                      TaskCreations =
+                                      {
+                                        new SubmitTasksRequest.Types.TaskCreation
+                                        {
+                                          PayloadId = payloadId,
+                                          ExpectedOutputKeys =
+                                          {
+                                            resultId,
+                                          },
+                                        },
+                                      },
+                                    })
+                       .TaskInfos.Single()
+                       .TaskId;
     Assert.AreNotEqual(client.GetTask(new GetTaskRequest
                                       {
                                         TaskId = taskId,
-                                      }).Task.Status,
+                                      })
+                             .Task.Status,
                        TaskStatus.Cancelled);
     Assert.That(() => client.CancelTasks(new CancelTasksRequest
                                          {
                                            TaskIds =
                                            {
                                              taskId,
-                                           }
-                                         }), Throws.Nothing);
+                                           },
+                                         }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -480,7 +493,7 @@ public class TasksClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
                                                                             })
                                                      .Results.Single()
@@ -500,34 +513,37 @@ public class TasksClientTest
                                                       .Results.Single()
                                                       .ResultId;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                            {
-                                              SessionId = session.SessionId,
-                                              TaskCreations =
-                                              {
-                                                new SubmitTasksRequest.Types.TaskCreation
-                                                {
-                                                  PayloadId = payloadId,
-                                                  ExpectedOutputKeys =
-                                                  {
-                                                    resultId,
-                                                  }
-                                                }
-                                              }
-                                            }).TaskInfos.Single().TaskId;
+                                    {
+                                      SessionId = session.SessionId,
+                                      TaskCreations =
+                                      {
+                                        new SubmitTasksRequest.Types.TaskCreation
+                                        {
+                                          PayloadId = payloadId,
+                                          ExpectedOutputKeys =
+                                          {
+                                            resultId,
+                                          },
+                                        },
+                                      },
+                                    })
+                       .TaskInfos.Single()
+                       .TaskId;
     Assert.That(() => client.ListTasks(new ListTasksRequest
                                        {
                                          Filters = new Filters
-                                                            {
-                                                              Or =
-                                                              {
-                                                                TasksFilter(session.SessionId),
-                                                              },
-                                                            },
-                                       }), Throws.Nothing);
+                                                   {
+                                                     Or =
+                                                     {
+                                                       TasksFilter(session.SessionId),
+                                                     },
+                                                   },
+                                       }),
+                Throws.Nothing);
   }
 
   [Test]
-  public void TestListTaskDetailled()
+  public void TestListTaskDetailed()
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
@@ -559,7 +575,7 @@ public class TasksClientTest
                                                                                 new CreateResultsMetaDataRequest.Types.ResultCreate
                                                                                 {
                                                                                   Name = "Result",
-                                                                                }
+                                                                                },
                                                                               },
                                                                             })
                                                      .Results.Single()
@@ -579,29 +595,32 @@ public class TasksClientTest
                                                       .Results.Single()
                                                       .ResultId;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                            {
-                                              SessionId = session.SessionId,
-                                              TaskCreations =
-                                              {
-                                                new SubmitTasksRequest.Types.TaskCreation
-                                                {
-                                                  PayloadId = payloadId,
-                                                  ExpectedOutputKeys =
-                                                  {
-                                                    resultId,
-                                                  }
-                                                }
-                                              }
-                                            }).TaskInfos.Single().TaskId;
-   Assert.That(() => client.ListTasksDetailed(new ListTasksRequest
-                                              {
-                                                Filters = new Filters
-                                                            {
-                                                              Or =
-                                                              {
-                                                                TasksFilter(session.SessionId),
-                                                              },
-                                                            },
-                                              }), Throws.Nothing);
+                                    {
+                                      SessionId = session.SessionId,
+                                      TaskCreations =
+                                      {
+                                        new SubmitTasksRequest.Types.TaskCreation
+                                        {
+                                          PayloadId = payloadId,
+                                          ExpectedOutputKeys =
+                                          {
+                                            resultId,
+                                          },
+                                        },
+                                      },
+                                    })
+                       .TaskInfos.Single()
+                       .TaskId;
+    Assert.That(() => client.ListTasksDetailed(new ListTasksRequest
+                                               {
+                                                 Filters = new Filters
+                                                           {
+                                                             Or =
+                                                             {
+                                                               TasksFilter(session.SessionId),
+                                                             },
+                                                           },
+                                               }),
+                Throws.Nothing);
   }
 }

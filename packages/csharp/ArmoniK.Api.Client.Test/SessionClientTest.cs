@@ -1,4 +1,4 @@
-﻿// This file is part of the ArmoniK project
+// This file is part of the ArmoniK project
 //
 // Copyright (C) ANEO, 2021-$CURRENT_YEAR$. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
@@ -22,6 +22,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+using System;
+
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
@@ -30,8 +32,6 @@ using ArmoniK.Api.gRPC.V1.Sessions;
 using Google.Protobuf.WellKnownTypes;
 
 using NUnit.Framework;
-
-using System;
 
 namespace ArmoniK.Api.Client.Tests;
 
@@ -43,28 +43,28 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
 
     Assert.That(() => client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                           {
+                                             DefaultTaskOption = taskOptions,
+                                             PartitionIds =
                                              {
-                                              partition,
+                                               partition,
                                              },
-    }), Throws.Nothing);
-
+                                           }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -72,31 +72,32 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
 
     Assert.That(() => client.CancelSession(new CancelSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                           {
+                                             SessionId = session.SessionId,
+                                           }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -104,31 +105,32 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
 
     Assert.That(() => client.GetSession(new GetSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                        {
+                                          SessionId = session.SessionId,
+                                        }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -136,36 +138,36 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
 
     var numSessions = 5;
 
-    for (int i = 0; i < numSessions; i++)
+    for (var i = 0; i < numSessions; i++)
     {
       Assert.That(() => client.CreateSession(new CreateSessionRequest
-      {
-        DefaultTaskOption = taskOptions,
-        PartitionIds =
+                                             {
+                                               DefaultTaskOption = taskOptions,
+                                               PartitionIds =
                                                {
                                                  partition,
                                                },
-      }),
+                                             }),
                   Throws.Nothing);
     }
 
-    Assert.That(() => client.ListSessions(new ListSessionsRequest()), Throws.Nothing);
-
+    Assert.That(() => client.ListSessions(new ListSessionsRequest()),
+                Throws.Nothing);
   }
 
   [Test]
@@ -173,31 +175,32 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
 
     Assert.That(() => client.PauseSession(new PauseSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                          {
+                                            SessionId = session.SessionId,
+                                          }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -205,36 +208,36 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
     Assert.That(() => client.PauseSession(new PauseSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                          {
+                                            SessionId = session.SessionId,
+                                          }),
+                Throws.Nothing);
     Assert.That(() => client.ResumeSession(new ResumeSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
-
-
+                                           {
+                                             SessionId = session.SessionId,
+                                           }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -242,35 +245,37 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
 
     Assert.That(() => client.CloseSession(new CloseSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                          {
+                                            SessionId = session.SessionId,
+                                          }),
+                Throws.Nothing);
     Assert.That(() => client.PurgeSession(new PurgeSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                          {
+                                            SessionId = session.SessionId,
+                                          }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -278,31 +283,32 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
 
     Assert.That(() => client.DeleteSession(new DeleteSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                           {
+                                             SessionId = session.SessionId,
+                                           }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -310,31 +316,32 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
 
     Assert.That(() => client.StopSubmission(new StopSubmissionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                            {
+                                              SessionId = session.SessionId,
+                                            }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -342,30 +349,31 @@ public class SessionClientTest
   {
     var endpoint = Environment.GetEnvironmentVariable("Grpc__Endpoint");
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-    {
-      Endpoint = endpoint,
-    });
+                                                   {
+                                                     Endpoint = endpoint,
+                                                   });
     var partition = "default";
-    var client = new Sessions.SessionsClient(channel);
+    var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
-    {
-      MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-      MaxRetries = 2,
-      Priority = 1,
-      PartitionId = partition,
-    };
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
     var session = client.CreateSession(new CreateSessionRequest
-    {
-      DefaultTaskOption = taskOptions,
-      PartitionIds =
+                                       {
+                                         DefaultTaskOption = taskOptions,
+                                         PartitionIds =
                                          {
                                            partition,
                                          },
-    });
+                                       });
 
     Assert.That(() => client.CloseSession(new CloseSessionRequest
-    {
-      SessionId = session.SessionId,
-    }), Throws.Nothing);
+                                          {
+                                            SessionId = session.SessionId,
+                                          }),
+                Throws.Nothing);
   }
 }
