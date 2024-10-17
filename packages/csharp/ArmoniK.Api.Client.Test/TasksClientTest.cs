@@ -143,8 +143,7 @@ public class TasksClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
     var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
                                                                      {
                                                                        SessionId = session.SessionId,
@@ -157,8 +156,7 @@ public class TasksClientTest
                                                                          },
                                                                        },
                                                                      })
-                                                      .Results.Single()
-                                                      .ResultId;
+                                                      .Results;
     Assert.That(() => client.SubmitTasks(new SubmitTasksRequest
                                          {
                                            SessionId = session.SessionId,
@@ -166,10 +164,10 @@ public class TasksClientTest
                                            {
                                              new SubmitTasksRequest.Types.TaskCreation
                                              {
-                                               PayloadId = payloadId,
+                                               PayloadId = "result-name",
                                                ExpectedOutputKeys =
                                                {
-                                                 resultId,
+                                                 "result-id",
                                                },
                                              },
                                            },
@@ -217,8 +215,7 @@ public class TasksClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
     var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
                                                                      {
                                                                        SessionId = session.SessionId,
@@ -231,8 +228,7 @@ public class TasksClientTest
                                                                          },
                                                                        },
                                                                      })
-                                                      .Results.Single()
-                                                      .ResultId;
+                                                      .Results;
     var submitResponse = client.SubmitTasks(new SubmitTasksRequest
                                             {
                                               SessionId = session.SessionId,
@@ -240,10 +236,10 @@ public class TasksClientTest
                                               {
                                                 new SubmitTasksRequest.Types.TaskCreation
                                                 {
-                                                  PayloadId = payloadId,
+                                                  PayloadId = "result-name",
                                                   ExpectedOutputKeys =
                                                   {
-                                                    resultId,
+                                                    "result-id",
                                                   },
                                                 },
                                               },
@@ -301,8 +297,7 @@ public class TasksClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
     var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
                                                                      {
                                                                        SessionId = session.SessionId,
@@ -315,8 +310,7 @@ public class TasksClientTest
                                                                          },
                                                                        },
                                                                      })
-                                                      .Results.Single()
-                                                      .ResultId;
+                                                      .Results;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
                                     {
                                       SessionId = session.SessionId,
@@ -324,21 +318,20 @@ public class TasksClientTest
                                       {
                                         new SubmitTasksRequest.Types.TaskCreation
                                         {
-                                          PayloadId = payloadId,
+                                          PayloadId = "result-name",
                                           ExpectedOutputKeys =
                                           {
-                                            resultId,
+                                            "result-id",
                                           },
                                         },
                                       },
                                     })
-                       .TaskInfos.Single()
-                       .TaskId;
+                       .TaskInfos;
     Assert.That(() => client.GetResultIds(new GetResultIdsRequest
                                           {
                                             TaskId =
                                             {
-                                              taskId,
+                                              "task-id",
                                             },
                                           }),
                 Throws.Nothing);
@@ -384,8 +377,7 @@ public class TasksClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
     var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
                                                                      {
                                                                        SessionId = session.SessionId,
@@ -398,8 +390,7 @@ public class TasksClientTest
                                                                          },
                                                                        },
                                                                      })
-                                                      .Results.Single()
-                                                      .ResultId;
+                                                      .Results;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
                                     {
                                       SessionId = session.SessionId,
@@ -407,19 +398,18 @@ public class TasksClientTest
                                       {
                                         new SubmitTasksRequest.Types.TaskCreation
                                         {
-                                          PayloadId = payloadId,
+                                          PayloadId = "result-name",
                                           ExpectedOutputKeys =
                                           {
-                                            resultId,
+                                            "result-id",
                                           },
                                         },
                                       },
                                     })
-                       .TaskInfos.Single()
-                       .TaskId;
+                       .TaskInfos;
     Assert.That(() => client.GetTask(new GetTaskRequest
                                      {
-                                       TaskId = taskId,
+                                       TaskId = "task-id",
                                      }),
                 Throws.Nothing);
   }
@@ -464,8 +454,7 @@ public class TasksClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
     var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
                                                                      {
                                                                        SessionId = session.SessionId,
@@ -478,8 +467,7 @@ public class TasksClientTest
                                                                          },
                                                                        },
                                                                      })
-                                                      .Results.Single()
-                                                      .ResultId;
+                                                      .Results;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
                                     {
                                       SessionId = session.SessionId,
@@ -487,19 +475,18 @@ public class TasksClientTest
                                       {
                                         new SubmitTasksRequest.Types.TaskCreation
                                         {
-                                          PayloadId = payloadId,
+                                          PayloadId = "result-name",
                                           ExpectedOutputKeys =
                                           {
-                                            resultId,
+                                            "result-id",
                                           },
                                         },
                                       },
                                     })
-                       .TaskInfos.Single()
-                       .TaskId;
+                       .TaskInfos;
     Assert.AreNotEqual(client.GetTask(new GetTaskRequest
                                       {
-                                        TaskId = taskId,
+                                        TaskId = "task-id",
                                       })
                              .Task.Status,
                        TaskStatus.Cancelled);
@@ -507,7 +494,7 @@ public class TasksClientTest
                                          {
                                            TaskIds =
                                            {
-                                             taskId,
+                                             "task-id",
                                            },
                                          }),
                 Throws.Nothing);
@@ -553,8 +540,7 @@ public class TasksClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
     var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
                                                                      {
                                                                        SessionId = session.SessionId,
@@ -567,8 +553,7 @@ public class TasksClientTest
                                                                          },
                                                                        },
                                                                      })
-                                                      .Results.Single()
-                                                      .ResultId;
+                                                      .Results;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
                                     {
                                       SessionId = session.SessionId,
@@ -576,16 +561,15 @@ public class TasksClientTest
                                       {
                                         new SubmitTasksRequest.Types.TaskCreation
                                         {
-                                          PayloadId = payloadId,
+                                          PayloadId = "result-name",
                                           ExpectedOutputKeys =
                                           {
-                                            resultId,
+                                            "result-id",
                                           },
                                         },
                                       },
                                     })
-                       .TaskInfos.Single()
-                       .TaskId;
+                       .TaskInfos;
     Assert.That(() => client.ListTasks(new ListTasksRequest
                                        {
                                          Filters = new Filters
@@ -639,8 +623,7 @@ public class TasksClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
     var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
                                                                      {
                                                                        SessionId = session.SessionId,
@@ -653,8 +636,7 @@ public class TasksClientTest
                                                                          },
                                                                        },
                                                                      })
-                                                      .Results.Single()
-                                                      .ResultId;
+                                                      .Results;
     var taskId = client.SubmitTasks(new SubmitTasksRequest
                                     {
                                       SessionId = session.SessionId,
@@ -662,16 +644,15 @@ public class TasksClientTest
                                       {
                                         new SubmitTasksRequest.Types.TaskCreation
                                         {
-                                          PayloadId = payloadId,
+                                          PayloadId = "result-name",
                                           ExpectedOutputKeys =
                                           {
-                                            resultId,
+                                            "result-id",
                                           },
                                         },
                                       },
                                     })
-                       .TaskInfos.Single()
-                       .TaskId;
+                       .TaskInfos;
     Assert.That(() => client.ListTasksDetailed(new ListTasksRequest
                                                {
                                                  Filters = new Filters

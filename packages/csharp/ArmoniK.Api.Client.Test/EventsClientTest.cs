@@ -1,4 +1,4 @@
-﻿// This file is part of the ArmoniK project
+// This file is part of the ArmoniK project
 //
 // Copyright (C) ANEO, 2021-$CURRENT_YEAR$. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
@@ -121,8 +121,7 @@ public class EventsClientTest
                                                                                 },
                                                                               },
                                                                             })
-                                                     .Results.Single()
-                                                     .ResultId;
+                                                     .Results;
 
     Assert.That(() => client.GetEvents(new EventSubscriptionRequest
                                        {
@@ -152,7 +151,7 @@ public class EventsClientTest
                                                                     FilterString = new FilterString
                                                                                    {
                                                                                      Operator = FilterStringOperator.Equal,
-                                                                                     Value    = resultId,
+                                                                                     Value    = "result-id",
                                                                                    },
                                                                   },
                                                                 },

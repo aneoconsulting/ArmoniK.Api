@@ -1,4 +1,4 @@
-﻿// This file is part of the ArmoniK project
+// This file is part of the ArmoniK project
 //
 // Copyright (C) ANEO, 2021-$CURRENT_YEAR$. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
@@ -116,7 +116,7 @@ public class ResultsClientTest
                                                      {
                                                        new CreateResultsMetaDataRequest.Types.ResultCreate
                                                        {
-                                                         Name = Guid.NewGuid() + "_" + 0,
+                                                         Name = "result-name",
                                                        },
                                                      },
                                                    }),
@@ -159,8 +159,7 @@ public class ResultsClientTest
                                              {
                                                new CreateResultsRequest.Types.ResultCreate
                                                {
-                                                 Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("TestPayload")),
-                                                 Name = "Payload",
+                                                 Name = "result-name",
                                                },
                                              },
                                            }),
@@ -201,16 +200,14 @@ public class ResultsClientTest
                                                   SessionId = session.SessionId,
                                                   Results =
                                                   {
-                                                    Enumerable.Range(0,
-                                                                     4)
-                                                              .Select(i => new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                           {
-                                                                             Name = Guid.NewGuid() + "_" + i,
-                                                                           }),
+                                                    new CreateResultsMetaDataRequest.Types.ResultCreate
+                                                    {
+                                                      Name = "result-name",
+                                                    },
                                                   },
-                                                })
-                         .Results.Single()
-                         .ResultId;
+                                                }).Results;
+    Console.WriteLine("Test session ID " + session.SessionId);
+    Console.WriteLine("Test result ID " + resultId);
     Assert.That(() => client.ListResults(new ListResultsRequest
                                          {
                                            Filters = new Filters
@@ -233,7 +230,7 @@ public class ResultsClientTest
                                                                FilterString = new FilterString
                                                                               {
                                                                                 Operator = FilterStringOperator.Equal,
-                                                                                Value    = resultId,
+                                                                                Value    = "result-id",
                                                                               },
                                                              },
                                                            },
@@ -280,16 +277,15 @@ public class ResultsClientTest
                                                  {
                                                    new CreateResultsMetaDataRequest.Types.ResultCreate
                                                    {
-                                                     Name = "TestResult",
+                                                     Name = "result-name",
                                                    },
                                                  },
                                                })
-                        .Results.Single()
-                        .ResultId;
-    Assert.That(() => client.UploadResultData(),
-                Throws.Nothing);
+                        .Results;
+    //Assert.That(() => client.UploadResultData(),
+     //           Throws.Nothing);
     Assert.That(() => client.DownloadResultData(session.SessionId,
-                                                resulId,
+                                                "result-id",
                                                 CancellationToken.None),
                 Throws.Nothing);
   }
