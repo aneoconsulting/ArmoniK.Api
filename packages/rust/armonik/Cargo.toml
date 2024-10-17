@@ -26,6 +26,10 @@ tower-http = { version = "0.6", features = ["trace"] }
 snafu = "0.8"
 http = "1.1"
 eyre = "0.6"
+tracing = "0.1"
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [build-dependencies]
 tonic-build = "0.12"
