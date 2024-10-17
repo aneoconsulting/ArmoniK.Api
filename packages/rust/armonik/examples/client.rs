@@ -1,5 +1,12 @@
+use armonik::TaskOptions;
+use tracing_subscriber::{prelude::*, EnvFilter};
+
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::from_default_env())
+        .init();
     let client = armonik::Client::new().await?;
 
     // Get version
@@ -23,7 +30,13 @@ async fn main() -> Result<(), eyre::Report> {
     // Create session
     let session = client
         .sessions()
-        .create([partition.clone()], Default::default())
+        .create(
+            [partition.clone()],
+            TaskOptions {
+                partition_id: partition.clone(),
+                ..Default::default()
+            },
+        )
         .await?;
 
     println!("Created session {session} using partition {partition}");
