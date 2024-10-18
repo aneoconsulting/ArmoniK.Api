@@ -1,4 +1,4 @@
-use http::Uri;
+use hyper::Uri;
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
@@ -110,8 +110,8 @@ pub enum ConfigError {
     #[snafu(display("Endpoint URI is not valid: `{uri}` [{location}]"))]
     #[non_exhaustive]
     Uri {
-        #[snafu(source(from(http::uri::InvalidUri, Box::new)))]
-        source: Box<http::uri::InvalidUri>,
+        #[snafu(source(from(hyper::http::uri::InvalidUri, Box::new)))]
+        source: Box<hyper::http::uri::InvalidUri>,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,
