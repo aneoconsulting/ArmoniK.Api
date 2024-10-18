@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use hyper::Uri;
 use hyper_rustls::ConfigBuilderExt;
 use snafu::{ResultExt, Snafu};
 
@@ -212,7 +213,7 @@ pub enum ConnectionError {
     #[snafu(display("Could not connect to the remote {endpoint} [{location}]"))]
     #[non_exhaustive]
     Transport {
-        endpoint: http::Uri,
+        endpoint: Uri,
         #[snafu(source(from(tonic::transport::Error, Box::new)))]
         source: Box<tonic::transport::Error>,
         #[snafu(implicit)]
@@ -221,7 +222,7 @@ pub enum ConnectionError {
     #[snafu(display("Could not establish TLS connection to the remote {endpoint} [{location}]"))]
     #[non_exhaustive]
     Tls {
-        endpoint: http::Uri,
+        endpoint: Uri,
         #[snafu(source(from(rustls::Error, Box::new)))]
         source: Box<rustls::Error>,
         #[snafu(implicit)]
