@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use hyper_rustls::ConfigBuilderExt;
 use snafu::{ResultExt, Snafu};
 
 mod agent;
@@ -32,20 +35,73 @@ pub struct Client<T> {
 }
 
 impl Client<tonic::transport::Channel> {
-    pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
-    where
-        D: TryInto<tonic::transport::Endpoint>,
-        D::Error: Into<tonic::codegen::StdError>,
-    {
-        let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
-        Ok(Self::with_channel(conn))
-    }
+    /// Create a new client using the configuration from the environment variables
     pub async fn new() -> Result<Self, ConnectionError> {
-        let config = ClientConfig::from_env().context(ConfigSnafu {})?;
-        let endpoint = config.endpoint.clone();
-        Self::connect(config)
+        Self::with_config(ClientConfig::from_env().context(ConfigSnafu {})?).await
+    }
+
+    /// Create a new client with the specified client configuration
+    pub async fn with_config(config: ClientConfig) -> Result<Self, ConnectionError> {
+        let endpoint = config.endpoint;
+
+        // Configure TLS with sane protocol defaults
+        let tls_config = rustls::ClientConfig::builder_with_provider(Arc::new(
+            rustls::crypto::ring::default_provider(),
+        ))
+        .with_safe_default_protocol_versions()
+        .with_context(|_| TlsSnafu {
+            endpoint: endpoint.clone(),
+        })?;
+
+        // Configure the server verification
+        let tls_config = if config.allow_unsafe_connection {
+            // Do not verify the server
+            tls_config
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(crate::utils::InsecureCertVerifier))
+        } else if let Some(cacert) = config.cacert {
+            // Verify that the server certificate is signed with a specific CA cert
+            let mut root_cert_store = rustls::RootCertStore::empty();
+            root_cert_store.add(cacert).with_context(|_| TlsSnafu {
+                endpoint: endpoint.clone(),
+            })?;
+            tls_config.with_root_certificates(root_cert_store)
+        } else {
+            // Verify the server certificate using the system CAs
+            tls_config
+                .with_native_roots()
+                .with_context(|_| IoSnafu {})?
+        };
+
+        // Configure client identity for mTLS
+        let tls_config = if let Some((cert, key)) = config.identity {
+            // Use the the specified client certificate and key for the client authentication
+            tls_config
+                .with_client_auth_cert(vec![cert], key)
+                .with_context(|_| TlsSnafu {
+                    endpoint: endpoint.clone(),
+                })?
+        } else {
+            // No mTLS
+            tls_config.with_no_client_auth()
+        };
+
+        // Configure the connector to use http or https depending on the URI scheme
+        let https = hyper_rustls::HttpsConnectorBuilder::new()
+            .with_tls_config(tls_config)
+            .https_or_http()
+            .enable_http1()
+            .enable_http2()
+            .build();
+
+        // Build the actual channel from the configuration
+        let channel = tonic::transport::Endpoint::from(endpoint.clone())
+            .origin(endpoint.clone())
+            .connect_with_connector(https)
             .await
-            .context(TransportSnafu { endpoint })
+            .context(TransportSnafu { endpoint })?;
+
+        Ok(Self::with_channel(channel))
     }
 }
 
@@ -145,7 +201,7 @@ where
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum ConnectionError {
-    #[snafu(display("Unable to read the client config [{location}]"))]
+    #[snafu(display("Could not read the client config [{location}]"))]
     #[non_exhaustive]
     Config {
         #[snafu(source(from(ConfigError, Box::new)))]
@@ -153,12 +209,29 @@ pub enum ConnectionError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Error connecting to the remote {endpoint} [{location}]"))]
+    #[snafu(display("Could not connect to the remote {endpoint} [{location}]"))]
     #[non_exhaustive]
     Transport {
         endpoint: http::Uri,
         #[snafu(source(from(tonic::transport::Error, Box::new)))]
         source: Box<tonic::transport::Error>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("Could not establish TLS connection to the remote {endpoint} [{location}]"))]
+    #[non_exhaustive]
+    Tls {
+        endpoint: http::Uri,
+        #[snafu(source(from(rustls::Error, Box::new)))]
+        source: Box<rustls::Error>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("Could not read system cert store [{location}]"))]
+    #[non_exhaustive]
+    Io {
+        #[snafu(source(from(std::io::Error, Box::new)))]
+        source: Box<std::io::Error>,
         #[snafu(implicit)]
         location: snafu::Location,
     },

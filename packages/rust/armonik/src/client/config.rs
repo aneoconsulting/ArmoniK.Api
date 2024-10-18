@@ -1,9 +1,9 @@
 use http::Uri;
+use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
-use tonic::transport::{Certificate, ClientTlsConfig, Identity};
 
 /// Options for creating a gRPC Client
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 #[non_exhaustive]
 pub struct ClientConfig {
     /// Endpoint for sending requests
@@ -11,11 +11,26 @@ pub struct ClientConfig {
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
     pub allow_unsafe_connection: bool,
     /// TLS identity of the client: key + cert
-    pub identity: Option<Identity>,
+    pub identity: Option<(CertificateDer<'static>, PrivateKeyDer<'static>)>,
     /// CA certificate to authenticate the server
-    pub cacert: Option<Certificate>,
+    pub cacert: Option<CertificateDer<'static>>,
     /// Override the endpoint name during SSL verification
     pub override_target_name: String,
+}
+
+impl Clone for ClientConfig {
+    fn clone(&self) -> Self {
+        Self {
+            endpoint: self.endpoint.clone(),
+            allow_unsafe_connection: self.allow_unsafe_connection,
+            identity: self
+                .identity
+                .as_ref()
+                .map(|(cert, key)| (cert.clone(), key.clone_key())),
+            cacert: self.cacert.clone(),
+            override_target_name: self.override_target_name.clone(),
+        }
+    }
 }
 
 impl ClientConfig {
@@ -27,23 +42,27 @@ impl ClientConfig {
         let key_path = crate::utils::read_env("GrpcClient__KeyPem").context(ctx)?;
         let cacert_path = crate::utils::read_env("GrpcClient__CaCert").context(ctx)?;
 
+        // Read CAcert file
         let cacert = if !cacert_path.is_empty() {
             let cacert_pem = std::fs::read_to_string(cacert_path.clone())
                 .context(IoSnafu { path: cacert_path })?;
-            Some(Certificate::from_pem(cacert_pem))
+            Some(CertificateDer::from_pem_slice(cacert_pem.as_bytes()).context(TlsSnafu {})?)
         } else {
             None
         };
 
+        // Read client cert and key files
         let identity = match (cert_path.as_str(), key_path.as_str()) {
             ("", "") => None,
             ("", _) | (_, "") => return IncompatibleOptionsSnafu{msg: format!("`GrpcClient__CertPem={cert_path}` and `GrpcClient__KeyPem={key_path}` must be either both empty or both set")}.fail(),
             (cert_path, key_path) => {
                 let cert_pem =
                     std::fs::read_to_string(cert_path).context(IoSnafu { path: cert_path })?;
-                let key = std::fs::read(key_path).context(IoSnafu { path: key_path })?;
-                let cert = Certificate::from_pem(cert_pem);
-                Some(Identity::from_pem(cert, key))
+                let key_pem = std::fs::read(key_path).context(IoSnafu { path: key_path })?;
+                let cert = CertificateDer::from_pem_slice(cert_pem.as_bytes()).context(TlsSnafu {})?;
+                let key = PrivateKeyDer::from_pem_slice(key_pem.as_slice()).context(TlsSnafu{})?;
+
+                Some((cert, key))
             }
         };
 
@@ -68,31 +87,6 @@ impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
         Ok(Self::from(value.endpoint.clone()))
     }
 }
-impl TryFrom<ClientConfig> for tonic::transport::Endpoint {
-    type Error = ConfigError;
-
-    fn try_from(value: ClientConfig) -> Result<Self, Self::Error> {
-        let mut endpoint = Self::from(value.endpoint);
-
-        if endpoint.uri().scheme_str().unwrap_or("http") == "https" {
-            let mut tls_config = ClientTlsConfig::new();
-            if let Some(cacert) = value.cacert {
-                tls_config = tls_config.ca_certificate(cacert);
-            }
-            if let Some(identity) = value.identity {
-                tls_config = tls_config.identity(identity);
-            }
-
-            if !value.override_target_name.is_empty() {
-                tls_config = tls_config.domain_name(value.override_target_name.clone());
-            }
-
-            endpoint = endpoint.tls_config(tls_config).context(TlsSnafu {})?;
-        }
-
-        Ok(endpoint)
-    }
-}
 
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
@@ -108,8 +102,8 @@ pub enum ConfigError {
     #[snafu(display("Invalid TLS configuration [{location}]"))]
     #[non_exhaustive]
     Tls {
-        #[snafu(source(from(tonic::transport::Error, Box::new)))]
-        source: Box<tonic::transport::Error>,
+        #[snafu(source(from(rustls::pki_types::pem::Error, Box::new)))]
+        source: Box<rustls::pki_types::pem::Error>,
         #[snafu(implicit)]
         location: snafu::Location,
     },
