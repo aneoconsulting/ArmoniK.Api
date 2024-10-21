@@ -45,14 +45,17 @@ impl Client<tonic::transport::Channel> {
     pub async fn with_config(config: ClientConfig) -> Result<Self, ConnectionError> {
         let endpoint = config.endpoint;
 
+        // Get the default crypto provider or fallback to the ring crypto provider
+        let crypto_provider = rustls::crypto::CryptoProvider::get_default()
+            .cloned()
+            .unwrap_or_else(|| Arc::new(rustls::crypto::ring::default_provider()));
+
         // Configure TLS with sane protocol defaults
-        let tls_config = rustls::ClientConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
-        .with_safe_default_protocol_versions()
-        .with_context(|_| TlsSnafu {
-            endpoint: endpoint.clone(),
-        })?;
+        let tls_config = rustls::ClientConfig::builder_with_provider(crypto_provider)
+            .with_safe_default_protocol_versions()
+            .with_context(|_| TlsSnafu {
+                endpoint: endpoint.clone(),
+            })?;
 
         // Configure the server verification
         let tls_config = if config.allow_unsafe_connection {
