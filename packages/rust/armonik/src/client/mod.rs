@@ -20,7 +20,7 @@ pub use crate::utils::ReadEnvError;
 pub use agent::AgentClient;
 pub use applications::ApplicationsClient;
 pub use auth::AuthClient;
-pub use config::{ClientConfig, ConfigError};
+pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
 pub use partitions::PartitionsClient;
 pub use results::ResultsClient;
 pub use sessions::SessionsClient;

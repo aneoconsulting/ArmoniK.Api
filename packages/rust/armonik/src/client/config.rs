@@ -33,14 +33,54 @@ impl Clone for ClientConfig {
     }
 }
 
+/// Options for creating a gRPC Client (as given in the environment)
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct ClientConfigArgs {
+    /// Endpoint for sending requests
+    pub endpoint: String,
+    /// Path to the certificate file in pem format
+    pub cert_pem: String,
+    /// Path to the key file in pem format
+    pub key_pem: String,
+    /// Path to the Certificate Authority file in pem format
+    pub ca_cert: String,
+    /// Allow unsafe connections to the endpoint (without SSL), defaults to false
+    pub allow_unsafe_connection: bool,
+    /// Override the endpoint name during SSL verification
+    pub override_target_name: String,
+}
+
+impl ClientConfigArgs {
+    pub fn from_env() -> Result<Self, super::ConfigError> {
+        use crate::utils::{read_env, read_env_bool};
+        let ctx = EnvSnafu {};
+        Ok(Self {
+            endpoint: read_env("GrpcClient__Endpoint").context(ctx)?,
+            cert_pem: read_env("GrpcClient__CertPem").context(ctx)?,
+            key_pem: read_env("GrpcClient__KeyPem").context(ctx)?,
+            ca_cert: read_env("GrpcClient__CaCert").context(ctx)?,
+            allow_unsafe_connection: read_env_bool("GrpcClient__AllowUnsafeConnection")
+                .context(ctx)?,
+            override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
+        })
+    }
+}
+
 impl ClientConfig {
     pub fn from_env() -> Result<Self, ConfigError> {
-        let ctx = EnvSnafu {};
-        let endpoint = crate::utils::read_env("GrpcClient__Endpoint").context(ctx)?;
+        Self::from_config_args(ClientConfigArgs::from_env()?)
+    }
+    pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
+        tracing::debug!("GrpcClientConfig: {args:?}");
 
-        let cert_path = crate::utils::read_env("GrpcClient__CertPem").context(ctx)?;
-        let key_path = crate::utils::read_env("GrpcClient__KeyPem").context(ctx)?;
-        let cacert_path = crate::utils::read_env("GrpcClient__CaCert").context(ctx)?;
+        let ClientConfigArgs {
+            endpoint,
+            cert_pem: cert_path,
+            key_pem: key_path,
+            ca_cert: cacert_path,
+            allow_unsafe_connection,
+            override_target_name,
+        } = args;
 
         // Read CAcert file
         let cacert = if !cacert_path.is_empty() {
@@ -68,14 +108,10 @@ impl ClientConfig {
 
         Ok(Self {
             endpoint: Uri::try_from(endpoint.clone()).context(UriSnafu { uri: endpoint })?,
-            allow_unsafe_connection: crate::utils::read_env_bool(
-                "GrpcClient__AllowUnsafeConnection",
-            )
-            .context(ctx)?,
+            allow_unsafe_connection,
             identity,
             cacert,
-            override_target_name: crate::utils::read_env("GrpcClient__OverrideTargetName")
-                .context(ctx)?,
+            override_target_name,
         })
     }
 }
