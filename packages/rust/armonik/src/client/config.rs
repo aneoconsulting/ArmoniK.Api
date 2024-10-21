@@ -15,7 +15,7 @@ pub struct ClientConfig {
     /// CA certificate to authenticate the server
     pub cacert: Option<CertificateDer<'static>>,
     /// Override the endpoint name during SSL verification
-    pub override_target_name: String,
+    pub override_target: Option<Uri>,
 }
 
 impl Clone for ClientConfig {
@@ -28,7 +28,7 @@ impl Clone for ClientConfig {
                 .as_ref()
                 .map(|(cert, key)| (cert.clone(), key.clone_key())),
             cacert: self.cacert.clone(),
-            override_target_name: self.override_target_name.clone(),
+            override_target: self.override_target.clone(),
         }
     }
 }
@@ -106,12 +106,52 @@ impl ClientConfig {
             }
         };
 
+        let endpoint = Uri::try_from(endpoint.clone()).context(UriSnafu { uri: endpoint })?;
+
+        let override_target = if override_target_name.is_empty() {
+            None
+        } else {
+            let authority;
+            let path_and_query;
+
+            if let Ok(auth) = override_target_name.parse::<hyper::http::uri::Authority>() {
+                authority = Some(auth);
+                path_and_query = endpoint.path_and_query().cloned();
+            } else {
+                hyper::http::uri::Parts {
+                    authority,
+                    path_and_query,
+                    ..
+                } = Uri::try_from(override_target_name.clone())
+                    .context(UriSnafu {
+                        uri: endpoint.to_string(),
+                    })?
+                    .into_parts();
+            }
+
+            let mut uri = hyper::http::uri::Builder::new();
+
+            if let Some(scheme) = endpoint.scheme() {
+                uri = uri.scheme(scheme.clone());
+            }
+            if let Some(authority) = authority.or_else(|| endpoint.authority().cloned()) {
+                uri = uri.authority(authority);
+            }
+            if let Some(path_and_query) = path_and_query {
+                uri = uri.path_and_query(path_and_query);
+            }
+
+            Some(uri.build().context(HttpSnafu {
+                uri: override_target_name,
+            })?)
+        };
+
         Ok(Self {
-            endpoint: Uri::try_from(endpoint.clone()).context(UriSnafu { uri: endpoint })?,
+            endpoint,
             allow_unsafe_connection,
             identity,
             cacert,
-            override_target_name,
+            override_target,
         })
     }
 }
@@ -148,6 +188,15 @@ pub enum ConfigError {
     Uri {
         #[snafu(source(from(hyper::http::uri::InvalidUri, Box::new)))]
         source: Box<hyper::http::uri::InvalidUri>,
+        uri: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("Override URI is not valid: `{uri}` [{location}]"))]
+    #[non_exhaustive]
+    Http {
+        #[snafu(source(from(hyper::http::Error, Box::new)))]
+        source: Box<hyper::http::Error>,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,

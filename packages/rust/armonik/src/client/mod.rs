@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
 use hyper::Uri;
-use hyper_rustls::ConfigBuilderExt;
+use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver};
+use rustls::pki_types::ServerName;
 use snafu::{ResultExt, Snafu};
 
 mod agent;
@@ -91,16 +92,26 @@ impl Client<tonic::transport::Channel> {
         };
 
         // Configure the connector to use http or https depending on the URI scheme
-        let https = hyper_rustls::HttpsConnectorBuilder::new()
+        let mut https = hyper_rustls::HttpsConnectorBuilder::new()
             .with_tls_config(tls_config)
-            .https_or_http()
-            .enable_http1()
-            .enable_http2()
-            .build();
+            .https_or_http();
+
+        if let Some(hostname) = &config.override_target {
+            let server_name = ServerName::try_from(hostname.host().unwrap_or_default())
+                .expect("A valid URI host should be a valid ServerName")
+                .to_owned();
+            https = https.with_server_name_resolver(FixedServerNameResolver::new(server_name));
+        };
+
+        let https = https.enable_http1().enable_http2().build();
+
+        let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
+        if let Some(target) = config.override_target {
+            transport_endpoint = transport_endpoint.origin(target);
+        }
 
         // Build the actual channel from the configuration
-        let channel = tonic::transport::Endpoint::from(endpoint.clone())
-            .origin(endpoint.clone())
+        let channel = transport_endpoint
             .connect_with_connector(https)
             .await
             .context(TransportSnafu { endpoint })?;
