@@ -11,79 +11,75 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  csharp:
-    name: Test C#
+  test:
+    name: Test API
     strategy:
       fail-fast: false
       matrix:
-        dotnet:
-          - version: ''
-            framework: net4.7
-          - version: ''
-            framework: net4.8
-          - version: 6.0
-            framework: net6.0
-          - version: 8.0
-            framework: net8.0
-        platform:
+        language:
+          - lang: C#
+            dir: csharp/ArmoniK.Api.Client.Test
+            cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
+            dotnet: ''
+            handler: ''
+          - lang: C#
+            dir: csharp/ArmoniK.Api.Client.Test
+            cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
+            dotnet: ''
+            handler: GrpcWebHandler
+          - lang: C#
+            dir: csharp/ArmoniK.Api.Client.Test
+            cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
+            dotnet: ''
+            handler: ''
+          - lang: C#
+            dir: csharp/ArmoniK.Api.Client.Test
+            cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
+            dotnet: ''
+            handler: GrpcWebHandler
+          - lang: C#
+            dir: csharp/ArmoniK.Api.Client.Test
+            cmd: dotnet test -f net6.0 --logger "trx;LogFileName=test-results.trx"
+            dotnet: 6.0
+            handler: ''
+          - lang: C#
+            dir: csharp/ArmoniK.Api.Client.Test
+            cmd: dotnet test -f net8.0 --logger "trx;LogFileName=test-results.trx"
+            dotnet: 8.0
+            handler: ''
+          - lang: C++
+            dir: cpp
+            cmd: ./tools/run_test.sh
+          - lang: Python
+            dir: python
+            cmd: pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+        plateform:
           - os: ubuntu-latest
-            runtime: linux-x64
+          - os: windows-latest
           - os: windows-2019
-            runtime: windows-x64
-          - os: windows-2022
-            runtime: windows-x64
-        handler:
-          - ''
-          - GrpcWebHandler
         exclude:
-          - dotnet:
-              version: ''
-            platform:
+          - language:
+              lang: Python
+            plateform:
+              os: windows-latest
+          - language:
+              lang: C++
+            plateform:
+              os: windows-latest
+          - language:
+              lang: C++
+            plateform:
+              os: windows-2019
+          - language:
+              lang: Python
+            plateform:
+              os: windows-2019
+          - language:
+              lang: C#
+              dotnet: ''
+            plateform:
               os: ubuntu-latest
-          - dotnet:
-              version: 6.0
-            handler: GrpcWebHandler
-          - dotnet:
-              version: 8.0
-            handler: GrpcWebHandler
-        endpoint:
-          - mock_env:
-              Grpc__Port: 5000
-              Http__Port: 4999
-              Grpc__Endpoint: http://localhost:5000
-          - mock_env:
-              Grpc__Port: 5001
-              Http__Port: 5001
-              Http__Cert: certs/server1.pem
-              Http__Key: certs/server1.key
-              Grpc__Endpoint: https://localhost:5001
-              Grpc__CaCert: server1-ca.pem
-          - mock_env:
-              Grpc__Port: 5002
-              Http__Port: 5002
-              Http__Cert: certs/server2.pem
-              Http__Key: certs/server2.key
-              Grpc__Endpoint: https://localhost:5002
-          - mock_env:
-              Grpc__Port: 5003
-              Http__Port: 5003
-              Http__Cert: certs/server1.pem
-              Http__Key: certs/server1.key
-              Http__ClientCert: certs/client-ca.pem
-              Grpc__Endpoint: https://localhost:5003
-              Grpc__CaCert: server1-ca.pem
-              Grpc__ClientCert: client.pem
-              Grpc__ClientKey: client.key
-          - mock_env:
-              Grpc__Port: 5004
-              Http__Port: 5004
-              Http__Cert: certs/server2.pem
-              Http__Key: certs/server2.key
-              Http__ClientCert: certs/client-ca.pem
-              Grpc__Endpoint: https://localhost:5004
-              Grpc__ClientCert: client.pem
-              Grpc__ClientKey: client.key
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.plateform.os }}
 
     steps:
       - name: Checkout
@@ -99,7 +95,7 @@ jobs:
           cd certs
           ../../../scripts/certs.sh
       - name: Install certs
-        if: ${{ matrix.platform.os == 'ubuntu-latest' }}
+        if: ${{ matrix.plateform.os == 'ubuntu-latest' }}
         working-directory: packages/csharp/certs
         run: |
           sudo apt install ca-certificates
@@ -107,16 +103,38 @@ jobs:
           sudo cp server2-ca.pem /usr/local/share/ca-certificates/ca.crt
           sudo update-ca-certificates
       - name: Install certs
-        if: ${{ contains(matrix.platform.os, 'windows') }}
+        if: ${{ contains(matrix.plateform.os, 'windows') }}
         working-directory: packages/csharp/certs
         run: |
           certutil -addstore -f "ROOT" server2-ca.pem
 
       - name: Install .NET Core
         uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
-        if: ${{ matrix.dotnet.version }} != ""
+        if: ${{ matrix.language.dotnet }} != ""
         with:
-          dotnet-version: ${{ matrix.dotnet.version }}
+          dotnet-version: ${{ matrix.language.dotnet }}
+
+      - name: Print language
+        run: |
+          echo "Current language: ${{ matrix.language.lang }}"
+
+      - name: pip update and add build package
+        if: ${{ matrix.language.lang == 'Python' }}
+        working-directory: packages/python
+        run: bash proto2python.sh ~/pyvenv
+
+      - name: Install python dependencies
+        if: ${{ matrix.language.lang == 'Python' }}
+        working-directory: packages/python
+        run: |
+          pwd
+          pip install "$(echo pkg/armonik*.whl)[tests]"
+
+      - name: Build C++ package
+        if: ${{ matrix.language.lang == 'C++' }}
+        working-directory: packages/cpp
+        run: |
+          ./tools/build_test.sh
 
       - name: Build Mock server
         working-directory: packages/csharp/ArmoniK.Api.Mock
@@ -125,169 +143,141 @@ jobs:
           dotnet publish -o ../out
           [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
 
-      - name: Run Test
+      - name: noTLS
         working-directory: packages/csharp/
         shell: bash
-        env: ${{ matrix.endpoint.mock_env }}
         run: |
-          export GrpcClient__HttpMessageHandler=${{ matrix.handler }}
-          export CertFolder="$PWD/certs"
-          if [ -n "$Grpc__CaCert" ]; then
-            export Grpc__CaCert=$CertFolder/$Grpc__CaCert
-          fi
-          if [ -n "$Grpc__ClientCert" ]; then
-            export Grpc__ClientCert=$CertFolder/$Grpc__ClientCert
-          fi
-          if [ -n "$Grpc__ClientKey" ]; then
-            export Grpc__ClientKey=$CertFolder/$Grpc__ClientKey
-          fi
-          cd ArmoniK.Api.Client.Test
-          mock_file="mock_env.env"
-          test_file="test_env.env"
-          mock_conf=("Grpc__Port" "Http__Port" "Http__Cert" "Http__Key" "Http__ClientCert")
-          test_conf=("Grpc__Endpoint" "Grpc__CaCert" "Grpc__ClientCert" "Grpc__ClientKey" "GrpcClient__HttpMessageHandler")
-          for var in "${test_conf[@]}"; do
-            if [ -n "${!var}" ]; then
-              echo "$var=${!var}" >> "$mock_file"
-            fi
-          done
-          for var in "${mock_conf[@]}"; do
-            if [ -n "${!var}" ]; then
-              echo "$var=${!var}" >> "$test_file"
-            fi
-          done
-          ./mock_test.sh mock_env.env test_env.env 'dotnet test -f ${{ matrix.dotnet.framework }} --logger "trx;LogFileName=test-results.trx"'
+          export Grpc__Port=5000
+          export Http__Port=4999
+          export Grpc__Endpoint=http://localhost:5000
+          export Http__Endpoint=http://localhost:4999
+          export Grpc__AllowUnsafeConnection=true
+          ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+
+      - name: TLS Insecure
+        if: ${{ matrix.language.lang == 'C#' }}
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          export Grpc__Port=5001
+          export Http__Port=5001
+          export Http__Cert=certs/server1.pem
+          export Http__Key=certs/server1.key
+          export Grpc__Endpoint=https://localhost:5001
+          export Http__Endpoint=https://localhost:5001
+          export Grpc__AllowUnsafeConnection=true
+          export Grpc__SSLValidation=enable
+          ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+
+      - name: TLS secure
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          export Grpc__Port=5001
+          export Http__Port=5001
+          export Http__Cert=certs/server1.pem
+          export Http__Key=certs/server1.key
+          export Grpc__Endpoint=https://localhost:5001
+          export Http__Endpoint=https://localhost:5001
+          export Grpc__AllowUnsafeConnection=false
+          export Grpc__CaCert=certs/server1-ca.pem
+          export Grpc__SSLValidation=enable
+          ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+
+      - name: TLS store
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          export Grpc__Port=5002
+          export Http__Port=5002
+          export Http__Cert=certs/server2.pem
+          export Http__Key=certs/server2.key
+          export Grpc__Endpoint=https://localhost:5002
+          export Http__Endpoint=https://localhost:5002
+          export Grpc__AllowUnsafeConnection=false
+          export Grpc__SSLValidation=enable
+          ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+
+      - name: mTLS Insecure
+        if: ${{ matrix.language.lang == 'C#' }}
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          export Grpc__Port=5003
+          export Http__Port=5003
+          export Http__Cert=certs/server1.pem
+          export Http__Key=certs/server1.key
+          export Grpc__Endpoint=https://localhost:5003
+          export Http__Endpoint=https://localhost:5003
+          export Grpc__AllowUnsafeConnection=true
+          export Grpc__ClientCert=certs/client.pem
+          export Grpc__ClientKey=certs/client.key
+          export Grpc__SSLValidation=enable
+          export Grpc__mTLS=true
+          ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+
+      - name: mTLS secure
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          export Grpc__Port=5003
+          export Http__Port=5003
+          export Http__Cert=certs/server1.pem
+          export Http__Key=certs/server1.key
+          export Http__ClientCert=certs/client-ca.pem
+          export Grpc__Endpoint=https://localhost:5003
+          export Http__Endpoint=https://localhost:5003
+          export Grpc__AllowUnsafeConnection=false
+          export Grpc__CaCert=certs/server1-ca.pem
+          export Grpc__ClientCert=certs/client.pem
+          export Grpc__ClientKey=certs/client.key
+          export Grpc__SSLValidation=enable
+          export Grpc__mTLS=true
+          ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+
+      - name: mTLS store
+        working-directory: packages/csharp/
+        shell: bash
+        run: |
+          export Grpc__Port=5004
+          export Http__Port=5004
+          export Http__Cert=certs/server2.pem
+          export Http__Key=certs/server2.key
+          export Http__ClientCert=certs/client-ca.pem
+          export Grpc__Endpoint=https://localhost:5004
+          export Http__Endpoint=https://localhost:5004
+          export Grpc__AllowUnsafeConnection=false
+          export Grpc__ClientCert=certs/client.pem
+          export Grpc__ClientKey=certs/client.key
+          export Grpc__SSLValidation=enable
+          export Grpc__mTLS=true
+          ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: Test Report
         uses: dorny/test-reporter@v1
-        if: always()
+        if: ${{ matrix.language.lang == 'C#' && always() }}
         with:
-          name: ConnectivityTests ${{ matrix.platform.os }} ${{ matrix.dotnet.framework }} ${{ matrix.handler }}
+          name: ConnectivityTests ${{ matrix.plateform.os }} ${{ matrix.dotnet.framework }} ${{ matrix.language.handler }}
           path: ./packages/csharp/ArmoniK.Api.Client.Test/TestResults/test-results.trx
           reporter: dotnet-trx
 
-  cpp:
-    strategy:
-      fail-fast: false
-      matrix:
-        endpoint:
-          - mock_env:
-              Grpc__Port: 5000
-              Http__Port: 4999
-            test_env:
-              Grpc__Endpoint: http://localhost:5000
-              Http__Endpoint: http://localhost:4999
-          - mock_env:
-              Grpc__Port: 5001
-              Http__Port: 5001
-              Http__Cert: ../cpp/certs/server1.pem
-              Http__Key: ../cpp/certs/server1.key
-            test_env:
-              Grpc__Endpoint: https://localhost:5001
-              Grpc__SSLValidation: enable
-              Grpc__CaCert: /app/source/certs/server1-ca.pem
-          - mock_env:
-              Grpc__Port: 5002
-              Http__Port: 5002
-              Http__Cert: ../cpp/certs/server2.pem
-              Http__Key: ../cpp/certs/server2.key
-            test_env:
-              Grpc__Endpoint: https://localhost:5002
-              Grpc__SSLValidation: enable
-          - mock_env:
-              Grpc__Port: 5003
-              Http__Port: 5003
-              Http__Cert: ../cpp/certs/server1.pem
-              Http__Key: ../cpp/certs/server1.key
-              Http__ClientCert: ../cpp/certs/client-ca.pem
-            test_env:
-              Grpc__Endpoint: https://localhost:5003
-              Grpc__SSLValidation: enable
-              Grpc__mTLS: true
-              Grpc__CaCert: /app/source/certs/server1-ca.pem
-              Grpc__ClientCert: /app/source/certs/client.pem
-              Grpc__ClientKey: /app/source/certs/client.key
-          - mock_env:
-              Grpc__Port: 5004
-              Http__Port: 5004
-              Http__Cert: ../cpp/certs/server2.pem
-              Http__Key: ../cpp/certs/server2.key
-              Http__ClientCert: ../cpp/certs/client-ca.pem
-            test_env:
-              Grpc__Endpoint: https://localhost:5004
-              Grpc__SSLValidation: enable
-              Grpc__mTLS: true
-              Grpc__ClientCert: /app/source/certs/client.pem
-              Grpc__ClientKey: /app/source/certs/client.key
-
-    name: Test C++
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - name: Get Cover Python
+        uses: orgoro/coverage@3f13a558c5af7376496aa4848bf0224aead366ac
+        if: ${{ matrix.language.lang == 'Python' && always() }}
         with:
-          ref: ${{ github.ref }}
+          coverageFile: packages/python/coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate certs
-        working-directory: packages/cpp/
-        shell: bash
-        run: |
-          mkdir certs
-          cd certs
-          ../../../scripts/certs.sh
-
-      - name: Install certs
-        working-directory: packages/cpp/certs
-        run: |
-          sudo apt install ca-certificates
-          sudo mkdir -p /usr/local/share/ca-certificates/
-          sudo cp server2-ca.pem /usr/local/share/ca-certificates/ca.crt
-          sudo update-ca-certificates
-
-      - name: Install .NET Core
-        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
+      - name: Archive code coverage results html
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        if: ${{ matrix.language.lang == 'Python' && always() }}
         with:
-          dotnet-version: 8.x
+          name: code-coverage-report-html
+          path: packages/python/coverage_report
 
-      - name: Build Mock server
-        working-directory: packages/csharp/ArmoniK.Api.Mock
-        shell: bash
-        run: |
-          dotnet publish -o ../out
-          [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
-
-      - name: Run Mock servers
-        working-directory: packages/csharp/
-        shell: bash
-        env: ${{ matrix.endpoint.mock_env }}
-        run: |
-          export CertFolder="$PWD/../cpp/certs"
-          ./out/ArmoniK.Api.Mock.exe > mock.log 2>&1 &
-          echo "server_pid=$!" >> $GITHUB_ENV
-          sleep 5
-
-      - name: Build Test
-        working-directory: packages/cpp
-        run: |
-          ./tools/run_test.sh
-
-      - name: Run Test
-        env: ${{ matrix.endpoint.test_env }}
-        run: |
-          echo "$PWD/packages/cpp/certs"
-          docker run --rm -t --network host -v "$PWD/packages/cpp/certs:/app/source/certs" -v "/usr/local/share/ca-certificates/:/usr/local/share/ca-certificates" \
-            -e Grpc__EndPoint="$Grpc__Endpoint" \
-            -e Http__EndPoint="${Http__Endpoint:-$Grpc__Endpoint}" \
-            ${Grpc__SSLValidation:+-e Grpc__SSLValidation="$Grpc__SSLValidation"} \
-            ${Grpc__CaCert:+-e Grpc__CaCert="$Grpc__CaCert"} \
-            ${Grpc__mTLS:+-e Grpc__mTLS="$Grpc__mTLS"} \
-            ${Grpc__ClientCert:+-e Grpc__ClientCert="$Grpc__ClientCert"} \
-            ${Grpc__ClientKey:+-e Grpc__ClientKey="$Grpc__ClientKey"} \
-            "armonik-api-cpp:0.1.0"
-
-      - name: Stop Mock Server
-        if: always()
-        working-directory: packages/csharp/
-        run: |
-          kill $server_pid || true
-          cat mock.log
+      - name: Archive code coverage results xml
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        if: ${{ matrix.language.lang == 'Python' && always() }}
+        with:
+          name: code-coverage-report-xml
+          path: packages/python/coverage.xml
