@@ -44,6 +44,31 @@ impl Client<tonic::transport::Channel> {
 
     /// Create a new client with the specified client configuration
     pub async fn with_config(config: ClientConfig) -> Result<Self, ConnectionError> {
+        let endpoint = config.endpoint.clone();
+        let override_target = config.override_target.clone();
+
+        let https = Self::https_connector_builder(config).await?.build();
+
+        let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
+        if let Some(target) = override_target {
+            transport_endpoint = transport_endpoint.origin(target);
+        }
+
+        // Build the actual channel from the configuration
+        let channel = transport_endpoint
+            .connect_with_connector(https)
+            .await
+            .context(TransportSnafu { endpoint })?;
+
+        Ok(Self::with_channel(channel))
+    }
+
+    async fn https_connector_builder(
+        config: ClientConfig,
+    ) -> Result<
+        hyper_rustls::HttpsConnectorBuilder<hyper_rustls::builderstates::WantsProtocols3>,
+        ConnectionError,
+    > {
         let endpoint = config.endpoint;
 
         // Get the default crypto provider or fallback to the ring crypto provider
@@ -103,20 +128,48 @@ impl Client<tonic::transport::Channel> {
             https = https.with_server_name_resolver(FixedServerNameResolver::new(server_name));
         };
 
-        let https = https.enable_http1().enable_http2().build();
+        Ok(https.enable_http1().enable_http2())
+    }
 
-        let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
-        if let Some(target) = config.override_target {
-            transport_endpoint = transport_endpoint.origin(target);
+    #[cfg(test)]
+    async fn get_nb_request(service: &str, rpc: &str) -> usize {
+        use std::collections::HashMap;
+
+        use http_body_util::BodyExt;
+        use hyper_util::rt::TokioExecutor;
+
+        let mut config = ClientConfig::from_env().unwrap();
+
+        match std::env::var("Http__Endpoint") {
+            Ok(value) if !value.is_empty() => {
+                config.endpoint = hyper::Uri::try_from(value).expect("HTTP endpoint");
+            }
+            Ok(_) | Err(std::env::VarError::NotPresent) => {}
+            Err(std::env::VarError::NotUnicode(value)) => {
+                panic!("{value:?} is not a valid unicode string")
+            }
         }
 
-        // Build the actual channel from the configuration
-        let channel = transport_endpoint
-            .connect_with_connector(https)
-            .await
-            .context(TransportSnafu { endpoint })?;
+        let request = hyper::Request::get(format!("{}calls.json", config.endpoint))
+            .body(http_body_util::Empty::<&[u8]>::new())
+            .expect("Request");
 
-        Ok(Self::with_channel(channel))
+        let https = Self::https_connector_builder(config)
+            .await
+            .expect("Build connection information")
+            .build();
+
+        let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(https);
+
+        let response = client.request(request).await.expect("/calls.json");
+
+        let body = response.collect().await.expect("Response").to_bytes();
+
+        let calls =
+            serde_json::from_slice::<HashMap<String, HashMap<String, usize>>>(body.as_ref())
+                .expect("Invalid JSON request");
+
+        calls[service][rpc]
     }
 }
 

@@ -213,3 +213,190 @@ where
             .into())
     }
 }
+
+#[cfg(test)]
+#[serial_test::serial(agent)]
+mod tests {
+    use std::collections::{HashMap, HashSet};
+
+    use crate::Client;
+
+    // Named methods
+
+    #[tokio::test]
+    async fn create_results_metadata() {
+        let before = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .create_results_metadata("token", "session-id", ["result1", "result2"])
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn create_results() {
+        let before = Client::get_nb_request("Agent", "CreateResults").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .create_results("token", "session-id", [("result1", "payload")])
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "CreateResults").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn submit() {
+        let before = Client::get_nb_request("Agent", "SubmitTasks").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .submit("token", "session-id", None, [])
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "SubmitTasks").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn create_tasks() {
+        let before = Client::get_nb_request("Agent", "CreateTask").await;
+        let mut client = Client::new().await.unwrap().agent();
+
+        client
+            .create_tasks(async_stream::stream! {
+                yield crate::agent::create_tasks::Request::Invalid;
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "CreateTask").await;
+        assert_eq!(after - before, 1);
+    }
+
+    // Explicit call request
+
+    #[tokio::test]
+    async fn create_results_metadata_call() {
+        let before = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .call(crate::agent::create_results_metadata::Request {
+                communication_token: String::from("token"),
+                session_id: String::from("session-id"),
+                results: HashSet::new(),
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn create_results_call() {
+        let before = Client::get_nb_request("Agent", "CreateResults").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .call(crate::agent::create_results::Request {
+                communication_token: String::from("token"),
+                session_id: String::from("session-id"),
+                results: HashMap::new(),
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "CreateResults").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn notify_result_data_call() {
+        let before = Client::get_nb_request("Agent", "NotifyResultData").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .call(crate::agent::notify_result_data::Request {
+                communication_token: String::from("token"),
+                result_ids: vec![],
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "NotifyResultData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn submit_tasks_call() {
+        let before = Client::get_nb_request("Agent", "SubmitTasks").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .call(crate::agent::submit_tasks::Request {
+                communication_token: String::from("token"),
+                session_id: String::from("session-id"),
+                task_options: None,
+                items: vec![],
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "SubmitTasks").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get_resource_data_call() {
+        let before = Client::get_nb_request("Agent", "GetResourceData").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .call(crate::agent::get_resource_data::Request {
+                communication_token: String::from("token"),
+                result_id: String::from("result-id"),
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "GetResourceData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get_common_data_call() {
+        let before = Client::get_nb_request("Agent", "GetCommonData").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .call(crate::agent::get_common_data::Request {
+                communication_token: String::from("token"),
+                result_id: String::from("result-id"),
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "GetCommonData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get_direct_data_call() {
+        let before = Client::get_nb_request("Agent", "GetDirectData").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .call(crate::agent::get_direct_data::Request {
+                communication_token: String::from("token"),
+                result_id: String::from("result-id"),
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "GetDirectData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn create_tasks_call() {
+        let before = Client::get_nb_request("Agent", "CreateTask").await;
+        let mut client = Client::new().await.unwrap().agent();
+
+        client
+            .call(async_stream::stream! {
+                yield crate::agent::create_tasks::Request::Invalid;
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "CreateTask").await;
+        assert_eq!(after - before, 1);
+    }
+}

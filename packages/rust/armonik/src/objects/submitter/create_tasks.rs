@@ -157,7 +157,8 @@ pub enum Response {
 
 impl Default for Response {
     fn default() -> Self {
-        Self::Error(Default::default())
+        //Self::Error(Default::default())
+        Self::Status(vec![])
     }
 }
 
@@ -182,6 +183,7 @@ impl From<Response> for v3::submitter::CreateTaskReply {
 
 impl From<v3::submitter::CreateTaskReply> for Response {
     fn from(value: v3::submitter::CreateTaskReply) -> Self {
+        eprintln!("{value:?}");
         match value.response {
             Some(v3::submitter::create_task_reply::Response::CreationStatusList(status)) => {
                 Self::Status(status.creation_statuses.into_collect())
