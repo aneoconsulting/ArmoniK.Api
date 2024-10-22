@@ -194,3 +194,203 @@ super::impl_call! {
         }
     }
 }
+
+#[cfg(test)]
+#[serial_test::serial(tasks)]
+mod tests {
+    use crate::Client;
+
+    // Named methods
+
+    #[tokio::test]
+    async fn list() {
+        let before = Client::get_nb_request("Tasks", "ListTasks").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .list(crate::tasks::list::Request {
+                filters: crate::tasks::filter::Or {
+                    or: vec![crate::tasks::filter::And { and: vec![] }],
+                },
+                page_size: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "ListTasks").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn list_detailed() {
+        let before = Client::get_nb_request("Tasks", "ListTasksDetailed").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .list_detailed(crate::tasks::list_detailed::Request {
+                filters: crate::tasks::filter::Or {
+                    or: vec![crate::tasks::filter::And { and: vec![] }],
+                },
+                page_size: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "ListTasksDetailed").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get() {
+        let before = Client::get_nb_request("Tasks", "GetTask").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client.get("task-id").await.unwrap();
+        let after = Client::get_nb_request("Tasks", "GetTask").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn cancel() {
+        let before = Client::get_nb_request("Tasks", "CancelTasks").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client.cancel(["task1", "task2"]).await.unwrap();
+        let after = Client::get_nb_request("Tasks", "CancelTasks").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get_result_ids() {
+        let before = Client::get_nb_request("Tasks", "GetResultIds").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client.get_result_ids(["task1", "task2"]).await.unwrap();
+        let after = Client::get_nb_request("Tasks", "GetResultIds").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn count_status() {
+        let before = Client::get_nb_request("Tasks", "CountTasksByStatus").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .count_status(crate::tasks::filter::Or {
+                or: vec![crate::tasks::filter::And { and: vec![] }],
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "CountTasksByStatus").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn submit() {
+        let before = Client::get_nb_request("Tasks", "SubmitTasks").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client.submit("session-id", None, []).await.unwrap();
+        let after = Client::get_nb_request("Tasks", "SubmitTasks").await;
+        assert_eq!(after - before, 1);
+    }
+
+    // Explicit call request
+
+    #[tokio::test]
+    async fn list_call() {
+        let before = Client::get_nb_request("Tasks", "ListTasks").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .call(crate::tasks::list::Request {
+                page_size: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "ListTasks").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn list_detailed_call() {
+        let before = Client::get_nb_request("Tasks", "ListTasksDetailed").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .call(crate::tasks::list_detailed::Request {
+                page_size: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "ListTasksDetailed").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get_call() {
+        let before = Client::get_nb_request("Tasks", "GetTask").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .call(crate::tasks::get::Request {
+                task_id: String::from("task-id"),
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "GetTask").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn cancel_call() {
+        let before = Client::get_nb_request("Tasks", "CancelTasks").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .call(crate::tasks::cancel::Request {
+                task_ids: vec![String::from("task1"), String::from("task2")],
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "CancelTasks").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn result_ids_call() {
+        let before = Client::get_nb_request("Tasks", "GetResultIds").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .call(crate::tasks::result_ids::Request {
+                task_ids: vec![String::from("task1"), String::from("task2")],
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "GetResultIds").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn count_status_call() {
+        let before = Client::get_nb_request("Tasks", "CountTasksByStatus").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .call(crate::tasks::count_status::Request {
+                filters: crate::tasks::filter::Or {
+                    or: vec![crate::tasks::filter::And { and: vec![] }],
+                },
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "CountTasksByStatus").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn submit_call() {
+        let before = Client::get_nb_request("Tasks", "SubmitTasks").await;
+        let mut client = Client::new().await.unwrap().tasks();
+        client
+            .call(crate::tasks::submit::Request {
+                session_id: String::from("session-id"),
+                task_options: None,
+                items: vec![],
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Tasks", "SubmitTasks").await;
+        assert_eq!(after - before, 1);
+    }
+}

@@ -79,3 +79,69 @@ super::impl_call! {
         }
     }
 }
+
+#[cfg(test)]
+#[serial_test::serial(partitions)]
+mod tests {
+    use crate::Client;
+
+    // Named methods
+
+    #[tokio::test]
+    async fn list() {
+        let before = Client::get_nb_request("Partitions", "ListPartitions").await;
+        let mut client = Client::new().await.unwrap().partitions();
+        client
+            .list(crate::partitions::list::Request {
+                filters: crate::partitions::filter::Or {
+                    or: vec![crate::partitions::filter::And { and: vec![] }],
+                },
+                page_size: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Partitions", "ListPartitions").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get() {
+        let before = Client::get_nb_request("Partitions", "GetPartition").await;
+        let mut client = Client::new().await.unwrap().partitions();
+        client.get("part1").await.unwrap();
+        let after = Client::get_nb_request("Partitions", "GetPartition").await;
+        assert_eq!(after - before, 1);
+    }
+
+    // Explicit call request
+
+    #[tokio::test]
+    async fn list_call() {
+        let before = Client::get_nb_request("Partitions", "ListPartitions").await;
+        let mut client = Client::new().await.unwrap().partitions();
+        client
+            .call(crate::partitions::list::Request {
+                page_size: 10,
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Partitions", "ListPartitions").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn get_call() {
+        let before = Client::get_nb_request("Partitions", "GetPartition").await;
+        let mut client = Client::new().await.unwrap().partitions();
+        client
+            .call(crate::partitions::get::Request {
+                id: String::from("part1"),
+            })
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Partitions", "GetPartition").await;
+        assert_eq!(after - before, 1);
+    }
+}

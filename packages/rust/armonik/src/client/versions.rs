@@ -52,3 +52,34 @@ super::impl_call! {
         }
     }
 }
+
+#[cfg(test)]
+#[serial_test::serial(versions)]
+mod tests {
+    use crate::Client;
+
+    // Named methods
+
+    #[tokio::test]
+    async fn list() {
+        let before = Client::get_nb_request("Versions", "ListVersions").await;
+        let mut client = Client::new().await.unwrap().versions();
+        client.list().await.unwrap();
+        let after = Client::get_nb_request("Versions", "ListVersions").await;
+        assert_eq!(after - before, 1);
+    }
+
+    // Explicit call request
+
+    #[tokio::test]
+    async fn list_call() {
+        let before = Client::get_nb_request("Versions", "ListVersions").await;
+        let mut client = Client::new().await.unwrap().versions();
+        client
+            .call(crate::versions::list::Request {})
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Versions", "ListVersions").await;
+        assert_eq!(after - before, 1);
+    }
+}
