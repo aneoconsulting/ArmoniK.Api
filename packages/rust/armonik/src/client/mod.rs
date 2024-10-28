@@ -9,6 +9,7 @@ mod agent;
 mod applications;
 mod auth;
 mod config;
+mod events;
 mod partitions;
 mod results;
 mod sessions;
@@ -22,6 +23,7 @@ pub use agent::AgentClient;
 pub use applications::ApplicationsClient;
 pub use auth::AuthClient;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
+pub use events::EventsClient;
 pub use partitions::PartitionsClient;
 pub use results::ResultsClient;
 pub use sessions::SessionsClient;
@@ -195,6 +197,10 @@ where
 
     pub fn auth(&self) -> AuthClient<T> {
         AuthClient::with_channel(self.channel.clone())
+    }
+
+    pub fn events(&self) -> EventsClient<T> {
+        EventsClient::with_channel(self.channel.clone())
     }
 
     pub fn partitions(&self) -> PartitionsClient<T> {
