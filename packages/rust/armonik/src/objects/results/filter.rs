@@ -1,40 +1,15 @@
 use super::super::{FilterArray, FilterDate, FilterNumber, FilterString, ResultStatus};
 
-use crate::api::v3;
+use crate::{api::v3, impl_filter};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Or {
-    pub or: Vec<And>,
-}
-
-super::super::impl_convert!(
-    struct Or = v3::results::Filters {
-        list or,
-    }
-);
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct And {
-    pub and: Vec<Field>,
-}
-
-super::super::impl_convert!(
-    struct And = v3::results::FiltersAnd {
-        list and,
-    }
-);
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Field {
-    pub field: super::Field,
-    pub condition: Condition,
-}
-
-super::super::impl_convert!(
-    struct Field = v3::results::FilterField {
-        field = option field,
-        condition = option value_condition,
-    }
+impl_filter!(
+    Filter[super::Field, Condition]:
+    v3::results::Filters[
+        v3::results::FiltersAnd[
+            v3::results::FilterField,
+            v3::results::filter_field::ValueCondition
+        ]
+    ]
 );
 
 pub type Status = super::super::FilterStatus<ResultStatus>;
