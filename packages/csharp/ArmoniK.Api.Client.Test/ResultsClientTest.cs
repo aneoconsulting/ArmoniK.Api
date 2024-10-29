@@ -403,23 +403,7 @@ public class ResultsClientTest
                                                      CaCert                = CaCertPath_!,
                                                      HttpMessageHandler    = MessageHandler_!,
                                                    });
-    var partition = "default";
-    var client    = new Results.ResultsClient(channel);
-    var taskOptions = new TaskOptions
-                      {
-                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-                        MaxRetries  = 2,
-                        Priority    = 1,
-                        PartitionId = partition,
-                      };
-    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
-                                                                     {
-                                                                       DefaultTaskOption = taskOptions,
-                                                                       PartitionIds =
-                                                                       {
-                                                                         partition,
-                                                                       },
-                                                                     });
+    var client = new Results.ResultsClient(channel);
     Assert.That(() => client.WatchResults(),
                 Throws.Nothing);
   }

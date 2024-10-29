@@ -23,17 +23,14 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Text;
 using System.Runtime.InteropServices;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
-using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Api.gRPC.V1.Sessions;
 using ArmoniK.Api.gRPC.V1.Tasks;
 
-using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
 using NUnit.Framework;
@@ -125,31 +122,6 @@ public class TasksClientTest
                                                                          partition,
                                                                        },
                                                                      });
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
-    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
-                                                                     {
-                                                                       SessionId = session.SessionId,
-                                                                       Results =
-                                                                       {
-                                                                         new CreateResultsRequest.Types.ResultCreate
-                                                                         {
-                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("Hello")),
-                                                                           Name = "Payload",
-                                                                         },
-                                                                       },
-                                                                     })
-                                                      .Results;
     Assert.That(() => client.SubmitTasks(new SubmitTasksRequest
                                          {
                                            SessionId = session.SessionId,
@@ -197,46 +169,6 @@ public class TasksClientTest
                                                                          partition,
                                                                        },
                                                                      });
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
-    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
-                                                                     {
-                                                                       SessionId = session.SessionId,
-                                                                       Results =
-                                                                       {
-                                                                         new CreateResultsRequest.Types.ResultCreate
-                                                                         {
-                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("Hello")),
-                                                                           Name = "Payload",
-                                                                         },
-                                                                       },
-                                                                     })
-                                                      .Results;
-    var submitResponse = client.SubmitTasks(new SubmitTasksRequest
-                                            {
-                                              SessionId = session.SessionId,
-                                              TaskCreations =
-                                              {
-                                                new SubmitTasksRequest.Types.TaskCreation
-                                                {
-                                                  PayloadId = "result-name",
-                                                  ExpectedOutputKeys =
-                                                  {
-                                                    "result-id",
-                                                  },
-                                                },
-                                              },
-                                            });
     Assert.That(() => client.CountTasksByStatus(new CountTasksByStatusRequest
                                                 {
                                                   Filters = new Filters
@@ -262,64 +194,7 @@ public class TasksClientTest
                                                      CaCert                = CaCertPath_!,
                                                      HttpMessageHandler    = MessageHandler_!,
                                                    });
-    var partition = "default";
-    var client    = new Tasks.TasksClient(channel);
-    var taskOptions = new TaskOptions
-                      {
-                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-                        MaxRetries  = 2,
-                        Priority    = 1,
-                        PartitionId = partition,
-                      };
-    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
-                                                                     {
-                                                                       DefaultTaskOption = taskOptions,
-                                                                       PartitionIds =
-                                                                       {
-                                                                         partition,
-                                                                       },
-                                                                     });
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
-    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
-                                                                     {
-                                                                       SessionId = session.SessionId,
-                                                                       Results =
-                                                                       {
-                                                                         new CreateResultsRequest.Types.ResultCreate
-                                                                         {
-                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("TestPayload")),
-                                                                           Name = "Payload",
-                                                                         },
-                                                                       },
-                                                                     })
-                                                      .Results;
-    var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                    {
-                                      SessionId = session.SessionId,
-                                      TaskCreations =
-                                      {
-                                        new SubmitTasksRequest.Types.TaskCreation
-                                        {
-                                          PayloadId = "result-name",
-                                          ExpectedOutputKeys =
-                                          {
-                                            "result-id",
-                                          },
-                                        },
-                                      },
-                                    })
-                       .TaskInfos;
+    var client = new Tasks.TasksClient(channel);
     Assert.That(() => client.GetResultIds(new GetResultIdsRequest
                                           {
                                             TaskId =
@@ -342,64 +217,7 @@ public class TasksClientTest
                                                      CaCert                = CaCertPath_!,
                                                      HttpMessageHandler    = MessageHandler_!,
                                                    });
-    var partition = "default";
-    var client    = new Tasks.TasksClient(channel);
-    var taskOptions = new TaskOptions
-                      {
-                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-                        MaxRetries  = 2,
-                        Priority    = 1,
-                        PartitionId = partition,
-                      };
-    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
-                                                                     {
-                                                                       DefaultTaskOption = taskOptions,
-                                                                       PartitionIds =
-                                                                       {
-                                                                         partition,
-                                                                       },
-                                                                     });
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
-    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
-                                                                     {
-                                                                       SessionId = session.SessionId,
-                                                                       Results =
-                                                                       {
-                                                                         new CreateResultsRequest.Types.ResultCreate
-                                                                         {
-                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("TestPayload")),
-                                                                           Name = "Payload",
-                                                                         },
-                                                                       },
-                                                                     })
-                                                      .Results;
-    var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                    {
-                                      SessionId = session.SessionId,
-                                      TaskCreations =
-                                      {
-                                        new SubmitTasksRequest.Types.TaskCreation
-                                        {
-                                          PayloadId = "result-name",
-                                          ExpectedOutputKeys =
-                                          {
-                                            "result-id",
-                                          },
-                                        },
-                                      },
-                                    })
-                       .TaskInfos;
+    var client = new Tasks.TasksClient(channel);
     Assert.That(() => client.GetTask(new GetTaskRequest
                                      {
                                        TaskId = "task-id",
@@ -419,64 +237,7 @@ public class TasksClientTest
                                                      CaCert                = CaCertPath_!,
                                                      HttpMessageHandler    = MessageHandler_!,
                                                    });
-    var partition = "default";
-    var client    = new Tasks.TasksClient(channel);
-    var taskOptions = new TaskOptions
-                      {
-                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-                        MaxRetries  = 2,
-                        Priority    = 1,
-                        PartitionId = partition,
-                      };
-    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
-                                                                     {
-                                                                       DefaultTaskOption = taskOptions,
-                                                                       PartitionIds =
-                                                                       {
-                                                                         partition,
-                                                                       },
-                                                                     });
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
-    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
-                                                                     {
-                                                                       SessionId = session.SessionId,
-                                                                       Results =
-                                                                       {
-                                                                         new CreateResultsRequest.Types.ResultCreate
-                                                                         {
-                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("TestPayload")),
-                                                                           Name = "Payload",
-                                                                         },
-                                                                       },
-                                                                     })
-                                                      .Results;
-    var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                    {
-                                      SessionId = session.SessionId,
-                                      TaskCreations =
-                                      {
-                                        new SubmitTasksRequest.Types.TaskCreation
-                                        {
-                                          PayloadId = "result-name",
-                                          ExpectedOutputKeys =
-                                          {
-                                            "result-id",
-                                          },
-                                        },
-                                      },
-                                    })
-                       .TaskInfos;
+    var client = new Tasks.TasksClient(channel);
     Assert.AreNotEqual(client.GetTask(new GetTaskRequest
                                       {
                                         TaskId = "task-id",
@@ -522,47 +283,6 @@ public class TasksClientTest
                                                                          partition,
                                                                        },
                                                                      });
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
-    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
-                                                                     {
-                                                                       SessionId = session.SessionId,
-                                                                       Results =
-                                                                       {
-                                                                         new CreateResultsRequest.Types.ResultCreate
-                                                                         {
-                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("TestPayload")),
-                                                                           Name = "Payload",
-                                                                         },
-                                                                       },
-                                                                     })
-                                                      .Results;
-    var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                    {
-                                      SessionId = session.SessionId,
-                                      TaskCreations =
-                                      {
-                                        new SubmitTasksRequest.Types.TaskCreation
-                                        {
-                                          PayloadId = "result-name",
-                                          ExpectedOutputKeys =
-                                          {
-                                            "result-id",
-                                          },
-                                        },
-                                      },
-                                    })
-                       .TaskInfos;
     Assert.That(() => client.ListTasks(new ListTasksRequest
                                        {
                                          Filters = new Filters
@@ -605,47 +325,6 @@ public class TasksClientTest
                                                                          partition,
                                                                        },
                                                                      });
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
-    var payloadId = new Results.ResultsClient(channel).CreateResults(new CreateResultsRequest
-                                                                     {
-                                                                       SessionId = session.SessionId,
-                                                                       Results =
-                                                                       {
-                                                                         new CreateResultsRequest.Types.ResultCreate
-                                                                         {
-                                                                           Data = UnsafeByteOperations.UnsafeWrap(Encoding.ASCII.GetBytes("TestPayload")),
-                                                                           Name = "Payload",
-                                                                         },
-                                                                       },
-                                                                     })
-                                                      .Results;
-    var taskId = client.SubmitTasks(new SubmitTasksRequest
-                                    {
-                                      SessionId = session.SessionId,
-                                      TaskCreations =
-                                      {
-                                        new SubmitTasksRequest.Types.TaskCreation
-                                        {
-                                          PayloadId = "result-name",
-                                          ExpectedOutputKeys =
-                                          {
-                                            "result-id",
-                                          },
-                                        },
-                                      },
-                                    })
-                       .TaskInfos;
     Assert.That(() => client.ListTasksDetailed(new ListTasksRequest
                                                {
                                                  Filters = new Filters
