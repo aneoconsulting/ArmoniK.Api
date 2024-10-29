@@ -23,7 +23,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Runtime.InteropServices;
@@ -34,7 +33,6 @@ using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Api.gRPC.V1.Sessions;
 
-using Google.Protobuf;
 using Google.Protobuf.WellKnownTypes;
 
 using NUnit.Framework;
@@ -56,7 +54,7 @@ public class ResultsClientTest
     CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
     MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
     endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
-    isInsecure_     = IsInsecure(endpoint_);
+    isInsecure_     = Environment.GetEnvironmentVariable("Grpc__AllowUnsafeConnection") == "true";
 
     if (isInsecure_)
     {
@@ -74,10 +72,64 @@ public class ResultsClientTest
   private static string? MessageHandler_;
   private        bool    isInsecure_;
 
-  private static bool IsInsecure(string endpoint)
+  [Test]
+  public void TestGetResult()
   {
-    var uri = new Uri(endpoint);
-    return uri.Scheme == Uri.UriSchemeHttp;
+    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
+                                                   {
+                                                     Endpoint              = endpoint_,
+                                                     AllowUnsafeConnection = isInsecure_,
+                                                     CertPem               = certPath_!,
+                                                     KeyPem                = keyPath_!,
+                                                     CaCert                = CaCertPath_!,
+                                                     HttpMessageHandler    = MessageHandler_!,
+                                                   });
+    var client = new Results.ResultsClient(channel);
+    Assert.That(() => client.GetResult(new GetResultRequest
+                                       {
+                                         ResultId = "result-name",
+                                       }),
+                Throws.Nothing);
+  }
+
+  [Test]
+  public void TestGetOwnerTaskId()
+  {
+    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
+                                                   {
+                                                     Endpoint              = endpoint_,
+                                                     AllowUnsafeConnection = isInsecure_,
+                                                     CertPem               = certPath_!,
+                                                     KeyPem                = keyPath_!,
+                                                     CaCert                = CaCertPath_!,
+                                                     HttpMessageHandler    = MessageHandler_!,
+                                                   });
+    var partition = "default";
+    var client    = new Results.ResultsClient(channel);
+    var taskOptions = new TaskOptions
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
+    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
+                                                                     {
+                                                                       DefaultTaskOption = taskOptions,
+                                                                       PartitionIds =
+                                                                       {
+                                                                         partition,
+                                                                       },
+                                                                     });
+    Assert.That(() => client.GetOwnerTaskId(new GetOwnerTaskIdRequest
+                                            {
+                                              SessionId = session.SessionId,
+                                              ResultId =
+                                              {
+                                                "result-name",
+                                              },
+                                            }),
+                Throws.Nothing);
   }
 
   [Test]
@@ -195,19 +247,6 @@ public class ResultsClientTest
                                                                          partition,
                                                                        },
                                                                      });
-    var resultId = client.CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                {
-                                                  SessionId = session.SessionId,
-                                                  Results =
-                                                  {
-                                                    new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                    {
-                                                      Name = "result-name",
-                                                    },
-                                                  },
-                                                }).Results;
-    Console.WriteLine("Test session ID " + session.SessionId);
-    Console.WriteLine("Test result ID " + resultId);
     Assert.That(() => client.ListResults(new ListResultsRequest
                                          {
                                            Filters = new Filters
@@ -242,7 +281,7 @@ public class ResultsClientTest
   }
 
   [Test]
-  public void TestUploadDownloadResults()
+  public void TestUploadResults()
   {
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
@@ -270,23 +309,118 @@ public class ResultsClientTest
                                                                          partition,
                                                                        },
                                                                      });
-    var resulId = client.CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                               {
-                                                 SessionId = session.SessionId,
-                                                 Results =
-                                                 {
-                                                   new CreateResultsMetaDataRequest.Types.ResultCreate
+
+    Assert.That(() => client.UploadResultData(session.SessionId,
+                                              "result-id",
+                                              Encoding.ASCII.GetBytes("result data")),
+                Throws.Nothing);
+  }
+
+  [Test]
+  public void TestDownloadResults()
+  {
+    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
-                                                     Name = "result-name",
-                                                   },
-                                                 },
-                                               })
-                        .Results;
-    //Assert.That(() => client.UploadResultData(),
-     //           Throws.Nothing);
+                                                     Endpoint              = endpoint_,
+                                                     AllowUnsafeConnection = isInsecure_,
+                                                     CertPem               = certPath_!,
+                                                     KeyPem                = keyPath_!,
+                                                     CaCert                = CaCertPath_!,
+                                                     HttpMessageHandler    = MessageHandler_!,
+                                                   });
+    var partition = "default";
+    var client    = new Results.ResultsClient(channel);
+    var taskOptions = new TaskOptions
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
+    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
+                                                                     {
+                                                                       DefaultTaskOption = taskOptions,
+                                                                       PartitionIds =
+                                                                       {
+                                                                         partition,
+                                                                       },
+                                                                     });
     Assert.That(() => client.DownloadResultData(session.SessionId,
                                                 "result-id",
                                                 CancellationToken.None),
+                Throws.Nothing);
+  }
+
+  [Test]
+  public void TestDeleteResults()
+  {
+    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
+                                                   {
+                                                     Endpoint              = endpoint_,
+                                                     AllowUnsafeConnection = isInsecure_,
+                                                     CertPem               = certPath_!,
+                                                     KeyPem                = keyPath_!,
+                                                     CaCert                = CaCertPath_!,
+                                                     HttpMessageHandler    = MessageHandler_!,
+                                                   });
+    var partition = "default";
+    var client    = new Results.ResultsClient(channel);
+    var taskOptions = new TaskOptions
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
+    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
+                                                                     {
+                                                                       DefaultTaskOption = taskOptions,
+                                                                       PartitionIds =
+                                                                       {
+                                                                         partition,
+                                                                       },
+                                                                     });
+    Assert.That(() => client.DeleteResultsData(new DeleteResultsDataRequest
+                                               {
+                                                 SessionId = session.SessionId,
+                                                 ResultId =
+                                                 {
+                                                   "result-id",
+                                                 },
+                                               }),
+                Throws.Nothing);
+  }
+
+  [Test]
+  public void TestWatchResults()
+  {
+    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
+                                                   {
+                                                     Endpoint              = endpoint_,
+                                                     AllowUnsafeConnection = isInsecure_,
+                                                     CertPem               = certPath_!,
+                                                     KeyPem                = keyPath_!,
+                                                     CaCert                = CaCertPath_!,
+                                                     HttpMessageHandler    = MessageHandler_!,
+                                                   });
+    var partition = "default";
+    var client    = new Results.ResultsClient(channel);
+    var taskOptions = new TaskOptions
+                      {
+                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
+                        MaxRetries  = 2,
+                        Priority    = 1,
+                        PartitionId = partition,
+                      };
+    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
+                                                                     {
+                                                                       DefaultTaskOption = taskOptions,
+                                                                       PartitionIds =
+                                                                       {
+                                                                         partition,
+                                                                       },
+                                                                     });
+    Assert.That(() => client.WatchResults(),
                 Throws.Nothing);
   }
 }
