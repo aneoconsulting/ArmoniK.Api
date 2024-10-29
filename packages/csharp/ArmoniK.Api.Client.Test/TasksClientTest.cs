@@ -23,7 +23,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
 
@@ -79,7 +78,7 @@ public class TasksClientTest
     CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
     MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
     endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
-    isInsecure_     = IsInsecure(endpoint_);
+    isInsecure_     = Environment.GetEnvironmentVariable("Grpc__AllowUnsafeConnection") == "true";
 
     if (isInsecure_)
     {
@@ -96,12 +95,6 @@ public class TasksClientTest
   private static string? CaCertPath_;
   private static string? MessageHandler_;
   private        bool    isInsecure_;
-
-  private static bool IsInsecure(string endpoint)
-  {
-    var uri = new Uri(endpoint);
-    return uri.Scheme == Uri.UriSchemeHttp;
-  }
 
   [Test]
   public void TestSubmitTask()

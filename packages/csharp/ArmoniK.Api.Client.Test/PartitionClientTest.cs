@@ -47,7 +47,7 @@ public class PartitionClientTest
     CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
     MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
     endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
-    isInsecure_     = IsInsecure(endpoint_);
+    isInsecure_     = Environment.GetEnvironmentVariable("Grpc__AllowUnsafeConnection") == "true";
 
     if (isInsecure_)
     {
@@ -64,12 +64,6 @@ public class PartitionClientTest
   private static string? CaCertPath_;
   private static string? MessageHandler_;
   private        bool    isInsecure_;
-
-  private static bool IsInsecure(string endpoint)
-  {
-    var uri = new Uri(endpoint);
-    return uri.Scheme == Uri.UriSchemeHttp;
-  }
 
   [Test]
   public void TestGetPartition()
