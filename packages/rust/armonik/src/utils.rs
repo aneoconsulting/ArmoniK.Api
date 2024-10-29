@@ -117,3 +117,166 @@ impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
         ]
     }
 }
+
+struct Foo {}
+struct Bar(Vec<Foo>);
+
+impl_vec_wrapper!(Bar(Foo));
+
+/// Implement all traits and functions to define a wrapper around a [`Vec`]
+///
+/// # Examples
+///
+/// ```ignore
+/// struct Foo();
+/// struct Bar(Vec<Foo>);
+///
+/// crate::utils::impl_vec_wrapper!(Bar(Foo));
+/// ```
+///
+/// ```ignore
+/// struct Foo();
+/// struct Bar{ bar: Vec<Foo>};
+///
+/// crate::utils::impl_vec_wrapper!(Bar{bar: Foo});
+/// ```
+///
+/// # Examples without FromIterator
+///
+/// ```ignore
+/// struct Foo();
+/// struct Bar(Vec<Foo>, i64);
+///
+/// crate::utils::impl_vec_wrapper!(Bar[0: Foo]);
+/// ```
+///
+/// ```ignore
+/// struct Foo();
+/// struct Bar{ bar: Vec<Foo>, dummy: i64};
+///
+/// crate::utils::impl_vec_wrapper!(Bar[bar: Foo]);
+/// ```
+macro_rules! impl_vec_wrapper {
+    ($wrapper:ident{$inner:ident: $inner_type:ty}) => {
+        crate::utils::impl_vec_wrapper!($wrapper[$inner: $inner_type]);
+
+        impl FromIterator<$inner_type> for $wrapper {
+            fn from_iter<T: IntoIterator<Item = $inner_type>>(iter: T) -> Self {
+                Self{$inner: iter.into_iter().collect()}
+            }
+        }
+    };
+    ($wrapper:ident($inner_type:ty)) => {
+        crate::utils::impl_vec_wrapper!($wrapper[0: $inner_type]);
+
+        impl FromIterator<$inner_type> for $wrapper {
+            fn from_iter<T: IntoIterator<Item = $inner_type>>(iter: T) -> Self {
+                Self(iter.into_iter().collect())
+            }
+        }
+    };
+    ($wrapper:ident[$inner:tt: $inner_type:ty]) => {
+        impl $wrapper {
+            pub fn iter(&self) -> std::slice::Iter<'_, $inner_type> {
+                self.$inner.iter()
+            }
+            pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, $inner_type> {
+                self.$inner.iter_mut()
+            }
+        }
+
+        impl IntoIterator for $wrapper {
+            type Item = $inner_type;
+
+            type IntoIter = std::vec::IntoIter<$inner_type>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.$inner.into_iter()
+            }
+        }
+
+        impl<'a> IntoIterator for &'a $wrapper {
+            type Item = &'a $inner_type;
+
+            type IntoIter = std::slice::Iter<'a, $inner_type>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.iter()
+            }
+        }
+
+        impl<'a> IntoIterator for &'a mut $wrapper {
+            type Item = &'a mut $inner_type;
+
+            type IntoIter = std::slice::IterMut<'a, $inner_type>;
+
+            fn into_iter(self) -> Self::IntoIter {
+                self.iter_mut()
+            }
+        }
+
+        impl AsRef<[$inner_type]> for $wrapper {
+            fn as_ref(&self) -> &[$inner_type] {
+                &self.$inner
+            }
+        }
+
+        impl AsMut<[$inner_type]> for $wrapper {
+            fn as_mut(&mut self) -> &mut [$inner_type] {
+                &mut self.$inner
+            }
+        }
+
+        impl AsRef<Vec<$inner_type>> for $wrapper {
+            fn as_ref(&self) -> &Vec<$inner_type> {
+                &self.$inner
+            }
+        }
+
+        impl AsMut<Vec<$inner_type>> for $wrapper {
+            fn as_mut(&mut self) -> &mut Vec<$inner_type> {
+                &mut self.$inner
+            }
+        }
+
+        impl std::borrow::Borrow<[$inner_type]> for $wrapper {
+            fn borrow(&self) -> &[$inner_type] {
+                &self.$inner
+            }
+        }
+
+        impl std::borrow::BorrowMut<[$inner_type]> for $wrapper {
+            fn borrow_mut(&mut self) -> &mut [$inner_type] {
+                &mut self.$inner
+            }
+        }
+
+        impl std::borrow::Borrow<Vec<$inner_type>> for $wrapper {
+            fn borrow(&self) -> &Vec<$inner_type> {
+                &self.$inner
+            }
+        }
+
+        impl std::borrow::BorrowMut<Vec<$inner_type>> for $wrapper {
+            fn borrow_mut(&mut self) -> &mut Vec<$inner_type> {
+                &mut self.$inner
+            }
+        }
+
+        impl std::ops::Deref for $wrapper {
+            type Target = Vec<$inner_type>;
+
+            fn deref(&self) -> &Self::Target {
+                &self.$inner
+            }
+        }
+
+        impl std::ops::DerefMut for $wrapper {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.$inner
+            }
+        }
+    };
+}
+
+pub(crate) use impl_vec_wrapper;

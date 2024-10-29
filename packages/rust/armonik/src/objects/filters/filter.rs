@@ -5,7 +5,7 @@ use super::{
     FilterNumberOperator, FilterStatusOperator, FilterStringOperator,
 };
 
-macro_rules! impl_filter {
+macro_rules! impl_filter_condition {
     ($name:ident => $type:ty : $op:ident) => {
         #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct $name {
@@ -35,10 +35,10 @@ macro_rules! impl_filter {
     };
 }
 
-impl_filter!(FilterString => String: FilterStringOperator);
-impl_filter!(FilterNumber => i64: FilterNumberOperator);
-impl_filter!(FilterArray => String: FilterArrayOperator);
-impl_filter!(FilterBoolean => bool: FilterBooleanOperator);
+impl_filter_condition!(FilterString => String: FilterStringOperator);
+impl_filter_condition!(FilterNumber => i64: FilterNumberOperator);
+impl_filter_condition!(FilterArray => String: FilterArrayOperator);
+impl_filter_condition!(FilterBoolean => bool: FilterBooleanOperator);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct FilterDate {

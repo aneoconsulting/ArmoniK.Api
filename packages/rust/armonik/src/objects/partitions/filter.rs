@@ -1,40 +1,15 @@
 use super::super::{FilterArray, FilterBoolean, FilterNumber, FilterString};
 
-use crate::api::v3;
+use crate::{api::v3, impl_filter};
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Or {
-    pub or: Vec<And>,
-}
-
-super::super::impl_convert!(
-    struct Or = v3::partitions::Filters {
-        list or,
-    }
-);
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct And {
-    pub and: Vec<Field>,
-}
-
-super::super::impl_convert!(
-    struct And = v3::partitions::FiltersAnd {
-        list and,
-    }
-);
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Field {
-    pub field: super::Field,
-    pub condition: Condition,
-}
-
-super::super::impl_convert!(
-    struct Field = v3::partitions::FilterField {
-        field = option field,
-        condition = option value_condition,
-    }
+impl_filter!(
+    Filter[super::Field, Condition]:
+    v3::partitions::Filters[
+        v3::partitions::FiltersAnd[
+            v3::partitions::FilterField,
+            v3::partitions::filter_field::ValueCondition
+        ]
+    ]
 );
 
 #[derive(Debug, Clone, PartialEq, Eq)]
