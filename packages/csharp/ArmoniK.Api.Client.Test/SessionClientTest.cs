@@ -68,6 +68,10 @@ public class SessionClientTest
   [Test]
   public void TestCreateSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "CreateSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -96,11 +100,21 @@ public class SessionClientTest
                                              },
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "CreateSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCancelSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "CancelSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -133,11 +147,21 @@ public class SessionClientTest
                                              SessionId = session.SessionId,
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "CancelSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestGetSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "GetSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -170,11 +194,21 @@ public class SessionClientTest
                                           SessionId = session.SessionId,
                                         }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "GetSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestListSessions()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "ListSessions")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -211,11 +245,21 @@ public class SessionClientTest
 
     Assert.That(() => client.ListSessions(new ListSessionsRequest()),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "ListSessions")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestPauseSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "PauseSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -248,11 +292,21 @@ public class SessionClientTest
                                             SessionId = session.SessionId,
                                           }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "PauseSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestResumeSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "ResumeSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -289,11 +343,21 @@ public class SessionClientTest
                                              SessionId = session.SessionId,
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "ResumeSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestPurgeSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "PurgeSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -331,11 +395,21 @@ public class SessionClientTest
                                             SessionId = session.SessionId,
                                           }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "PurgeSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestDeleteSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "DeleteSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -368,11 +442,21 @@ public class SessionClientTest
                                              SessionId = session.SessionId,
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "DeleteSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestStopSubmission()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "StopSubmission")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -405,11 +489,21 @@ public class SessionClientTest
                                               SessionId = session.SessionId,
                                             }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "StopSubmission")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCloseSession()
   {
+    var before = ConfTest.RpcCalled("Sessions",
+                                    "CloseSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -442,5 +536,11 @@ public class SessionClientTest
                                             SessionId = session.SessionId,
                                           }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Sessions",
+                                   "CloseSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 }

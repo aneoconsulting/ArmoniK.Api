@@ -75,6 +75,10 @@ public class ResultsClientTest
   [Test]
   public void TestGetResult()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "GetResult")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -90,11 +94,21 @@ public class ResultsClientTest
                                          ResultId = "result-name",
                                        }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "GetResult")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestGetOwnerTaskId()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "GetOwnerTaskId")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -130,11 +144,21 @@ public class ResultsClientTest
                                               },
                                             }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "GetOwnerTaskId")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCreateResultMetaData()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "CreateResultsMetaData")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -173,11 +197,21 @@ public class ResultsClientTest
                                                      },
                                                    }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "CreateResultsMetaData")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCreateResult()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "CreateResults")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -216,11 +250,21 @@ public class ResultsClientTest
                                              },
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "CreateResults")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestListResults()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "ListResults")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -230,23 +274,7 @@ public class ResultsClientTest
                                                      CaCert                = CaCertPath_!,
                                                      HttpMessageHandler    = MessageHandler_!,
                                                    });
-    var partition = "default";
     var client    = new Results.ResultsClient(channel);
-    var taskOptions = new TaskOptions
-                      {
-                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-                        MaxRetries  = 2,
-                        Priority    = 1,
-                        PartitionId = partition,
-                      };
-    var session = new Sessions.SessionsClient(channel).CreateSession(new CreateSessionRequest
-                                                                     {
-                                                                       DefaultTaskOption = taskOptions,
-                                                                       PartitionIds =
-                                                                       {
-                                                                         partition,
-                                                                       },
-                                                                     });
     Assert.That(() => client.ListResults(new ListResultsRequest
                                          {
                                            Filters = new Filters
@@ -278,11 +306,21 @@ public class ResultsClientTest
                                                      },
                                          }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "ListResults")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestUploadResults()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "UploadResultData")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -314,11 +352,21 @@ public class ResultsClientTest
                                               "result-id",
                                               Encoding.ASCII.GetBytes("result data")),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "UploadResultData")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestDownloadResults()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "DownloadResultData")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -349,11 +397,21 @@ public class ResultsClientTest
                                                 "result-id",
                                                 CancellationToken.None),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "DownloadResultData")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestDeleteResults()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "DeleteResultsData")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -389,11 +447,21 @@ public class ResultsClientTest
                                                  },
                                                }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "DeleteResultsData")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestWatchResults()
   {
+    var before = ConfTest.RpcCalled("Results",
+                                    "WatchResults")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -406,5 +474,11 @@ public class ResultsClientTest
     var client = new Results.ResultsClient(channel);
     Assert.That(() => client.WatchResults(),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Results",
+                                   "WatchResults")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    0);
   }
 }

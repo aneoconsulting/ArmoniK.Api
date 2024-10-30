@@ -65,6 +65,10 @@ public class VersionClientTest
   [Test]
   public void TestListVersions()
   {
+    var before = ConfTest.RpcCalled("Versions",
+                                    "ListVersions")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -78,5 +82,11 @@ public class VersionClientTest
 
     Assert.That(() => client.ListVersions(new ListVersionsRequest()),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Versions",
+                                   "ListVersions")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 }

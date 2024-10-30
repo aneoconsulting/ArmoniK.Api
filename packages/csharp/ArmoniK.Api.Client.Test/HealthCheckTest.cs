@@ -65,6 +65,10 @@ public class HealthCheckTest
   [Test]
   public void TestHealthCheck()
   {
+    var before = ConfTest.RpcCalled("HealthChecks",
+                                    "CheckHealth")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -77,5 +81,11 @@ public class HealthCheckTest
     var client = new HealthChecksService.HealthChecksServiceClient(channel);
     Assert.That(() => client.CheckHealth(new CheckHealthRequest()),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("HealthChecks",
+                                   "CheckHealth")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 }

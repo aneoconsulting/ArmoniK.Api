@@ -72,8 +72,10 @@ public class SubmitterClientTest
   [Test]
   public void TestGetServiceConfiguration()
   {
-    var val = ConfTest.RpcCalled("",
-                                 "");
+    var before = ConfTest.RpcCalled("Submitter",
+                                 "GetServiceConfiguration")
+                      .GetAwaiter()
+                      .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -86,11 +88,21 @@ public class SubmitterClientTest
     var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.GetServiceConfiguration(new Empty()),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                    "GetServiceConfiguration")
+                         .GetAwaiter()
+                         .GetResult();
+    Assert.AreEqual(after - before,
+                  1);
   }
 
   [Test]
   public void TestCreateSession()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "CreateSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -118,11 +130,21 @@ public class SubmitterClientTest
                                              },
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "CreateSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCancelSession()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "CancelSession")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -138,11 +160,21 @@ public class SubmitterClientTest
                                              Id = "session-id",
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "CancelSession")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCreateSmallTasks()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "CreateSmallTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -170,11 +202,21 @@ public class SubmitterClientTest
                                                 },
                                               }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "CreateSmallTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCreateLargeTasks()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "CreateLargeTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -199,11 +241,21 @@ public class SubmitterClientTest
                                                           Enumerable.Empty<TaskRequest>(),
                                                           CancellationToken.None),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "CreateLargeTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestListTasks()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "ListTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -218,11 +270,21 @@ public class SubmitterClientTest
                                        {
                                        }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "ListTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestListSessions()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "ListSessions")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -237,11 +299,21 @@ public class SubmitterClientTest
                                           {
                                           }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "ListSessions")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCountTasks()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "CountTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -256,11 +328,21 @@ public class SubmitterClientTest
                                         {
                                         }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "CountTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestTryGetResult()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "TryGetResultStream")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -277,11 +359,21 @@ public class SubmitterClientTest
                                                   Session  = "session-id",
                                                 }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "TryGetResultStream")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    0);
   }
 
   [Test]
   public void TestTryGetTaskOutput()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "TryGetTaskOutput")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -298,11 +390,21 @@ public class SubmitterClientTest
                                                 TaskId  = "task-id",
                                               }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "TryGetTaskOutput")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestWaitForAvailability()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "WaitForAvailability")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -319,11 +421,21 @@ public class SubmitterClientTest
                                                    Session  = "session-id",
                                                  }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "WaitForAvailability")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestWaitForCompletion()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "WaitForCompletion")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -343,11 +455,21 @@ public class SubmitterClientTest
                                                  StopOnFirstTaskCancellation = true,
                                                }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "WaitForCompletion")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCancelTasks()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "CancelTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -362,11 +484,21 @@ public class SubmitterClientTest
                                          {
                                          }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "CancelTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestTaskStatus()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "GetTaskStatus")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -385,11 +517,21 @@ public class SubmitterClientTest
                                              },
                                            }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "GetTaskStatus")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestResultStatus()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "GetResultStatus")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -409,11 +551,21 @@ public class SubmitterClientTest
                                                },
                                              }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "GetResultStatus")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestWatchResults()
   {
+    var before = ConfTest.RpcCalled("Submitter",
+                                    "WatchResults")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -426,5 +578,11 @@ public class SubmitterClientTest
     var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.WatchResults(),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "WatchResults")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    0);
   }
 }

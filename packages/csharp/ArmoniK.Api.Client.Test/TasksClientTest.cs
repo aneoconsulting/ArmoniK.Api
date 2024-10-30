@@ -96,6 +96,10 @@ public class TasksClientTest
   [Test]
   public void TestSubmitTask()
   {
+    var before = ConfTest.RpcCalled("Tasks",
+                                    "SubmitTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -138,11 +142,21 @@ public class TasksClientTest
                                            },
                                          }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Tasks",
+                                   "SubmitTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCountTask()
   {
+    var before = ConfTest.RpcCalled("Tasks",
+                                    "CountTasksByStatus")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -180,11 +194,21 @@ public class TasksClientTest
                                                             },
                                                 }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Tasks",
+                                   "CountTasksByStatus")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestGetResultsIds()
   {
+    var before = ConfTest.RpcCalled("Tasks",
+                                    "GetResultIds")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -203,11 +227,21 @@ public class TasksClientTest
                                             },
                                           }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Tasks",
+                                   "GetResultIds")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestGetTask()
   {
+    var before = ConfTest.RpcCalled("Tasks",
+                                    "GetTask")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -223,11 +257,21 @@ public class TasksClientTest
                                        TaskId = "task-id",
                                      }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Tasks",
+                                   "GetTask")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestCancelTask()
   {
+    var before = ConfTest.RpcCalled("Tasks",
+                                    "CancelTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -252,11 +296,21 @@ public class TasksClientTest
                                            },
                                          }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Tasks",
+                                   "CancelTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestListTasks()
   {
+    var before = ConfTest.RpcCalled("Tasks",
+                                    "ListTasks")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -294,11 +348,21 @@ public class TasksClientTest
                                                    },
                                        }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Tasks",
+                                   "ListTasks")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestListTaskDetailed()
   {
+    var before = ConfTest.RpcCalled("Tasks",
+                                    "ListTasksDetailed")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -336,5 +400,11 @@ public class TasksClientTest
                                                            },
                                                }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Tasks",
+                                   "ListTasksDetailed")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 }

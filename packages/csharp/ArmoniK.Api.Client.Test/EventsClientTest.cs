@@ -74,6 +74,10 @@ public class EventsClientTest
   [Test]
   public void TestGetEvents()
   {
+    var before = ConfTest.RpcCalled("Events",
+                                    "GetEvents")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -102,19 +106,6 @@ public class EventsClientTest
                                                                      });
 
     var client = new Events.EventsClient(channel);
-
-    var resultId = new Results.ResultsClient(channel).CreateResultsMetaData(new CreateResultsMetaDataRequest
-                                                                            {
-                                                                              SessionId = session.SessionId,
-                                                                              Results =
-                                                                              {
-                                                                                new CreateResultsMetaDataRequest.Types.ResultCreate
-                                                                                {
-                                                                                  Name = "Result",
-                                                                                },
-                                                                              },
-                                                                            })
-                                                     .Results;
 
     Assert.That(() => client.GetEvents(new EventSubscriptionRequest
                                        {
@@ -153,5 +144,11 @@ public class EventsClientTest
                                                           },
                                        }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Events",
+                                   "GetEvents")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    0);
   }
 }

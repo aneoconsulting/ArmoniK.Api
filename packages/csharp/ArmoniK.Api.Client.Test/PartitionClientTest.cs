@@ -68,6 +68,10 @@ public class PartitionClientTest
   [Test]
   public void TestGetPartition()
   {
+    var before = ConfTest.RpcCalled("Partitions",
+                                    "GetPartition")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -93,11 +97,21 @@ public class PartitionClientTest
                                             Id = taskOptions.PartitionId,
                                           }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Partitions",
+                                   "GetPartition")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 
   [Test]
   public void TestListPartitions()
   {
+    var before = ConfTest.RpcCalled("Partitions",
+                                    "ListPartitions")
+                         .GetAwaiter()
+                         .GetResult();
     var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
                                                    {
                                                      Endpoint              = endpoint_,
@@ -107,14 +121,6 @@ public class PartitionClientTest
                                                      CaCert                = CaCertPath_!,
                                                      HttpMessageHandler    = MessageHandler_!,
                                                    });
-    var partition = "default";
-    var taskOptions = new TaskOptions
-                      {
-                        MaxDuration = Duration.FromTimeSpan(TimeSpan.FromHours(1)),
-                        MaxRetries  = 2,
-                        Priority    = 1,
-                        PartitionId = partition,
-                      };
     var client = new Partitions.PartitionsClient(channel);
 
     Assert.That(() => client.ListPartitions(new ListPartitionsRequest
@@ -122,5 +128,11 @@ public class PartitionClientTest
                                               Filters = new Filters(),
                                             }),
                 Throws.Nothing);
+    var after = ConfTest.RpcCalled("Partitions",
+                                   "ListPartitions")
+                        .GetAwaiter()
+                        .GetResult();
+    Assert.AreEqual(after - before,
+                    1);
   }
 }
