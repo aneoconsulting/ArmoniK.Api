@@ -151,7 +151,8 @@ jobs:
           export Http__Port=4999
           export Grpc__Endpoint=http://localhost:5000
           export Http__Endpoint=http://localhost:4999
-          export Grpc__AllowUnsafeConnection=true
+          export GrpcClient__Endpoint=http://localhost:5000
+          export GrpcClient__AllowUnsafeConnection=true
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: TLS Insecure
@@ -166,6 +167,8 @@ jobs:
           export Grpc__Endpoint=https://localhost:5001
           export Http__Endpoint=https://localhost:5001
           export Grpc__AllowUnsafeConnection=true
+          export GrpcClient__Endpoint=https://localhost:5001
+          export GrpcClient__AllowUnsafeConnection=true
           export Grpc__SSLValidation=enable
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
@@ -173,14 +176,17 @@ jobs:
         working-directory: packages/csharp/
         shell: bash
         run: |
+          export CertFolder="$PWD/certs"
           export Grpc__Port=5001
           export Http__Port=5001
           export Http__Cert=certs/server1.pem
           export Http__Key=certs/server1.key
           export Grpc__Endpoint=https://localhost:5001
           export Http__Endpoint=https://localhost:5001
-          export Grpc__AllowUnsafeConnection=false
           export Grpc__CaCert=certs/server1-ca.pem
+          export GrpcClient__Endpoint=https://localhost:5001
+          export GrpcClient__AllowUnsafeConnection=false
+          export GrpcClient__CaCert=$CertFolder/server1-ca.pem
           export Grpc__SSLValidation=enable
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
@@ -194,7 +200,8 @@ jobs:
           export Http__Key=certs/server2.key
           export Grpc__Endpoint=https://localhost:5002
           export Http__Endpoint=https://localhost:5002
-          export Grpc__AllowUnsafeConnection=false
+          export GrpcClient__Endpoint=https://localhost:5002
+          export GrpcClient__AllowUnsafeConnection=false
           export Grpc__SSLValidation=enable
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
@@ -203,15 +210,19 @@ jobs:
         working-directory: packages/csharp/
         shell: bash
         run: |
+          export CertFolder="$PWD/certs"
           export Grpc__Port=5003
           export Http__Port=5003
           export Http__Cert=certs/server1.pem
           export Http__Key=certs/server1.key
           export Grpc__Endpoint=https://localhost:5003
           export Http__Endpoint=https://localhost:5003
-          export Grpc__AllowUnsafeConnection=true
           export Grpc__ClientCert=certs/client.pem
           export Grpc__ClientKey=certs/client.key
+          export GrpcClient__Endpoint=https://localhost:5003
+          export GrpcClient__AllowUnsafeConnection=true
+          export GrpcClient__CertPem=$CertFolder/client.pem
+          export GrpcClient__KeyPem=$CertFolder/client.key
           export Grpc__SSLValidation=enable
           export Grpc__mTLS=true
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
@@ -220,6 +231,7 @@ jobs:
         working-directory: packages/csharp/
         shell: bash
         run: |
+          export CertFolder="$PWD/certs"
           export Grpc__Port=5003
           export Http__Port=5003
           export Http__Cert=certs/server1.pem
@@ -227,10 +239,14 @@ jobs:
           export Http__ClientCert=certs/client-ca.pem
           export Grpc__Endpoint=https://localhost:5003
           export Http__Endpoint=https://localhost:5003
-          export Grpc__AllowUnsafeConnection=false
           export Grpc__CaCert=certs/server1-ca.pem
           export Grpc__ClientCert=certs/client.pem
           export Grpc__ClientKey=certs/client.key
+          export GrpcClient__Endpoint=https://localhost:5003
+          export GrpcClient__AllowUnsafeConnection=false
+          export GrpcClient__CaCert=$CertFolder/server1-ca.pem
+          export GrpcClient__CertPem=$CertFolder/client.pem
+          export GrpcClient__KeyPem=$CertFolder/client.key
           export Grpc__SSLValidation=enable
           export Grpc__mTLS=true
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
@@ -239,6 +255,7 @@ jobs:
         working-directory: packages/csharp/
         shell: bash
         run: |
+          export CertFolder="$PWD/certs"
           export Grpc__Port=5004
           export Http__Port=5004
           export Http__Cert=certs/server2.pem
@@ -246,9 +263,12 @@ jobs:
           export Http__ClientCert=certs/client-ca.pem
           export Grpc__Endpoint=https://localhost:5004
           export Http__Endpoint=https://localhost:5004
-          export Grpc__AllowUnsafeConnection=false
           export Grpc__ClientCert=certs/client.pem
           export Grpc__ClientKey=certs/client.key
+          export GrpcClient__Endpoint=https://localhost:5004
+          export GrpcClient__AllowUnsafeConnection=false
+          export GrpcClient__CertPem=$CertFolder/client.pem
+          export GrpcClient__KeyPem=$CertFolder/client.key
           export Grpc__SSLValidation=enable
           export Grpc__mTLS=true
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
