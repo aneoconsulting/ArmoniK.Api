@@ -3,14 +3,13 @@ use std::collections::HashMap;
 use futures::{Stream, StreamExt};
 use snafu::ResultExt;
 
-use crate::objects::agent::{
+use crate::agent::{
     create_results, create_results_metadata, create_tasks, get_common_data, get_direct_data,
     get_resource_data, notify_result_data, submit_tasks, ResultMetaData,
 };
-use crate::objects::TaskOptions;
-use crate::utils::IntoCollection;
-
 use crate::api::v3;
+use crate::utils::IntoCollection;
+use crate::TaskOptions;
 
 use super::{GrpcCall, GrpcCallStream};
 
@@ -44,7 +43,7 @@ where
         Ok(self
             .call(create_results_metadata::Request {
                 communication_token: token.into(),
-                results: names.into_collect(),
+                names: names.into_collect(),
                 session_id: session_id.into(),
             })
             .await?
@@ -71,8 +70,25 @@ where
             .results)
     }
 
+    /// Notify results data are available in files.
+    pub async fn notify_result_data(
+        &mut self,
+        token: impl Into<String>,
+        session_id: impl Into<String>,
+        result_ids: impl std::iter::IntoIterator<Item = impl Into<String>>,
+    ) -> Result<Vec<String>, super::RequestError> {
+        Ok(self
+            .call(notify_result_data::Request {
+                communication_token: token.into(),
+                session_id: session_id.into(),
+                result_ids: result_ids.into_collect(),
+            })
+            .await?
+            .result_ids)
+    }
+
     /// Create tasks metadata and submit task for processing.
-    pub async fn submit(
+    pub async fn submit_tasks(
         &mut self,
         token: impl Into<String>,
         session_id: impl Into<String>,
@@ -217,7 +233,7 @@ where
 #[cfg(test)]
 #[serial_test::serial(agent)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     use crate::Client;
 
@@ -248,11 +264,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn notify_result_data() {
+        let before = Client::get_nb_request("Agent", "NotifyResultData").await;
+        let mut client = Client::new().await.unwrap().agent();
+        client
+            .notify_result_data("token", "session-id", ["result1", "result2"])
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Agent", "NotifyResultData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
     async fn submit() {
         let before = Client::get_nb_request("Agent", "SubmitTasks").await;
         let mut client = Client::new().await.unwrap().agent();
         client
-            .submit("token", "session-id", None, [])
+            .submit_tasks("token", "session-id", None, [])
             .await
             .unwrap();
         let after = Client::get_nb_request("Agent", "SubmitTasks").await;
@@ -265,9 +293,9 @@ mod tests {
         let mut client = Client::new().await.unwrap().agent();
 
         client
-            .create_tasks(async_stream::stream! {
-                yield crate::agent::create_tasks::Request::Invalid;
-            })
+            .create_tasks(futures::stream::iter([
+                crate::agent::create_tasks::Request::Invalid,
+            ]))
             .await
             .unwrap();
         let after = Client::get_nb_request("Agent", "CreateTask").await;
@@ -284,7 +312,7 @@ mod tests {
             .call(crate::agent::create_results_metadata::Request {
                 communication_token: String::from("token"),
                 session_id: String::from("session-id"),
-                results: HashSet::new(),
+                names: Vec::new(),
             })
             .await
             .unwrap();
@@ -315,6 +343,7 @@ mod tests {
         client
             .call(crate::agent::notify_result_data::Request {
                 communication_token: String::from("token"),
+                session_id: String::from("session-id"),
                 result_ids: vec![],
             })
             .await
@@ -391,9 +420,9 @@ mod tests {
         let mut client = Client::new().await.unwrap().agent();
 
         client
-            .call(async_stream::stream! {
-                yield crate::agent::create_tasks::Request::Invalid;
-            })
+            .call(futures::stream::iter([
+                crate::agent::create_tasks::Request::Invalid,
+            ]))
             .await
             .unwrap();
         let after = Client::get_nb_request("Agent", "CreateTask").await;

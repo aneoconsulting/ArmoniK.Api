@@ -1,6 +1,8 @@
 use snafu::ResultExt;
 
-use crate::{api::v3, objects::applications::list};
+use crate::api::v3;
+use crate::applications::{filter, list, Sort};
+use crate::utils::IntoCollection;
 
 use super::GrpcCall;
 
@@ -24,9 +26,21 @@ where
 
     pub async fn list(
         &mut self,
-        request: list::Request,
+        filters: impl IntoIterator<Item = impl IntoIterator<Item = filter::Field>>,
+        sort: Sort,
+        page: i32,
+        page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
-        self.call(request).await
+        self.call(list::Request {
+            filters: filters
+                .into_iter()
+                .map(IntoCollection::into_collect)
+                .collect(),
+            sort,
+            page,
+            page_size,
+        })
+        .await
     }
 
     /// Perform a gRPC call from a raw request.
@@ -67,13 +81,14 @@ mod tests {
         let before = Client::get_nb_request("Applications", "ListApplications").await;
         let mut client = Client::new().await.unwrap().applications();
         client
-            .list(crate::applications::list::Request {
-                filters: crate::applications::filter::Or {
+            .list(
+                crate::applications::filter::Or {
                     or: vec![crate::applications::filter::And { and: vec![] }],
                 },
-                page_size: 10,
-                ..Default::default()
-            })
+                crate::applications::Sort::default(),
+                0,
+                10,
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Applications", "ListApplications").await;

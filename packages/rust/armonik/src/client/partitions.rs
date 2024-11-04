@@ -1,9 +1,8 @@
 use snafu::ResultExt;
 
-use crate::{
-    api::v3,
-    objects::partitions::{get, list, Raw},
-};
+use crate::api::v3;
+use crate::partitions::{get, list, Raw};
+use crate::utils::IntoCollection;
 
 use super::GrpcCall;
 
@@ -27,9 +26,21 @@ where
 
     pub async fn list(
         &mut self,
-        request: list::Request,
+        filters: impl IntoIterator<Item = impl IntoIterator<Item = crate::partitions::filter::Field>>,
+        sort: crate::partitions::Sort,
+        page: i32,
+        page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
-        self.call(request).await
+        self.call(list::Request {
+            filters: filters
+                .into_iter()
+                .map(IntoCollection::into_collect)
+                .collect(),
+            sort,
+            page,
+            page_size,
+        })
+        .await
     }
 
     pub async fn get(
@@ -38,7 +49,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(get::Request {
-                id: partition_id.into(),
+                partition_id: partition_id.into(),
             })
             .await?
             .partition)
@@ -92,13 +103,14 @@ mod tests {
         let before = Client::get_nb_request("Partitions", "ListPartitions").await;
         let mut client = Client::new().await.unwrap().partitions();
         client
-            .list(crate::partitions::list::Request {
-                filters: crate::partitions::filter::Or {
+            .list(
+                crate::partitions::filter::Or {
                     or: vec![crate::partitions::filter::And { and: vec![] }],
                 },
-                page_size: 10,
-                ..Default::default()
-            })
+                crate::partitions::Sort::default(),
+                0,
+                10,
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Partitions", "ListPartitions").await;
@@ -137,7 +149,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().partitions();
         client
             .call(crate::partitions::get::Request {
-                id: String::from("part1"),
+                partition_id: String::from("part1"),
             })
             .await
             .unwrap();

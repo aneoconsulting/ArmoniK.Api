@@ -1,9 +1,7 @@
 use snafu::ResultExt;
 
-use crate::{
-    api::v3,
-    objects::auth::{current_user, User},
-};
+use crate::api::v3;
+use crate::auth::{current_user, User};
 
 use super::GrpcCall;
 

@@ -13,7 +13,7 @@ pub enum Request {
     /// The identifier of the result to which add data.
     Identifier {
         /// The session of the result.
-        session: String,
+        session_id: String,
         /// The ID of the result.
         result_id: String,
     },
@@ -24,7 +24,7 @@ pub enum Request {
 impl Default for Request {
     fn default() -> Self {
         Self::Identifier {
-            session: Default::default(),
+            session_id: Default::default(),
             result_id: Default::default(),
         }
     }
@@ -33,7 +33,10 @@ impl Default for Request {
 impl From<Request> for v3::results::UploadResultDataRequest {
     fn from(value: Request) -> Self {
         match value {
-            Request::Identifier { session, result_id } => Self {
+            Request::Identifier {
+                session_id: session,
+                result_id,
+            } => Self {
                 r#type: Some(v3::results::upload_result_data_request::Type::Id(
                     v3::results::upload_result_data_request::ResultIdentifier {
                         session_id: session,
@@ -54,7 +57,7 @@ impl From<v3::results::UploadResultDataRequest> for Request {
     fn from(value: v3::results::UploadResultDataRequest) -> Self {
         match value.r#type {
             Some(v3::results::upload_result_data_request::Type::Id(id)) => Self::Identifier {
-                session: id.session_id,
+                session_id: id.session_id,
                 result_id: id.result_id,
             },
             Some(v3::results::upload_result_data_request::Type::DataChunk(data)) => {

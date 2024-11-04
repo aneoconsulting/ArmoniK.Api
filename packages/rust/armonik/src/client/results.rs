@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use futures::{Stream, StreamExt};
 use snafu::ResultExt;
 
-use crate::objects::results::{
-    create, create_metadata, delete, download, get, list, owner, service_configuration, upload, Raw,
+use crate::api::v3;
+use crate::results::{
+    create, create_metadata, delete, download, filter, get, list, owner, service_configuration,
+    upload, Raw, Sort,
 };
 use crate::utils::IntoCollection;
-
-use crate::api::v3;
 
 use super::{GrpcCall, GrpcCallStream};
 
@@ -34,9 +34,21 @@ where
     /// Get a results list using pagination, filters and sorting.
     pub async fn list(
         &mut self,
-        request: list::Request,
+        filters: impl IntoIterator<Item = impl IntoIterator<Item = filter::Field>>,
+        sort: Sort,
+        page: i32,
+        page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
-        self.call(request).await
+        self.call(list::Request {
+            filters: filters
+                .into_iter()
+                .map(IntoCollection::into_collect)
+                .collect(),
+            sort,
+            page,
+            page_size,
+        })
+        .await
     }
 
     /// Get the id of the task that should produce the result.
@@ -73,7 +85,7 @@ where
     ) -> Result<HashMap<String, Raw>, super::RequestError> {
         Ok(self
             .call(create_metadata::Request {
-                results: names.into_collect(),
+                names: names.into_collect(),
                 session_id: session_id.into(),
             })
             .await?
@@ -106,19 +118,18 @@ where
         data: S,
     ) -> Result<Raw, super::RequestError>
     where
-        S: futures::Stream + Send + Unpin + 'static,
+        S: futures::Stream + Send + 'static,
         <S as futures::Stream>::Item: Into<Vec<u8>>,
     {
         let session_id: String = session_id.into();
         let result_id: String = result_id.into();
-        let request = async_stream::stream! {
-            yield v3::results::UploadResultDataRequest::from(
-                upload::Request::Identifier {
-                    session: session_id,
-                    result_id,
-                }
-            );
-        };
+
+        let request = futures::stream::iter([v3::results::UploadResultDataRequest::from(
+            upload::Request::Identifier {
+                session_id,
+                result_id,
+            },
+        )]);
         let request = request.chain(data.map(|chunk| {
             v3::results::UploadResultDataRequest::from(upload::Request::DataChunk(chunk.into()))
         }));
@@ -316,7 +327,7 @@ where
 #[cfg(test)]
 #[serial_test::serial(results)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     use crate::Client;
     use futures::TryStreamExt;
@@ -328,13 +339,14 @@ mod tests {
         let before = Client::get_nb_request("Results", "ListResults").await;
         let mut client = Client::new().await.unwrap().results();
         client
-            .list(crate::results::list::Request {
-                filters: crate::results::filter::Or {
+            .list(
+                crate::results::filter::Or {
                     or: vec![crate::results::filter::And { and: vec![] }],
                 },
-                page_size: 10,
-                ..Default::default()
-            })
+                crate::results::Sort::default(),
+                0,
+                10,
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "ListResults").await;
@@ -394,11 +406,7 @@ mod tests {
         let before = Client::get_nb_request("Results", "UploadResultData").await;
         let mut client = Client::new().await.unwrap().results();
         client
-            .upload(
-                "session-id",
-                "result-id",
-                Box::pin(async_stream::stream! {yield b"";}),
-            )
+            .upload("session-id", "result-id", futures::stream::iter([b""]))
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "UploadResultData").await;
@@ -479,7 +487,7 @@ mod tests {
         client
             .call(crate::results::owner::Request {
                 session_id: String::from("session-id"),
-                result_ids: HashSet::new(),
+                result_ids: Vec::new(),
             })
             .await
             .unwrap();
@@ -494,7 +502,7 @@ mod tests {
         client
             .call(crate::results::create_metadata::Request {
                 session_id: String::from("session-id"),
-                results: HashSet::new(),
+                names: Vec::new(),
             })
             .await
             .unwrap();
@@ -567,12 +575,12 @@ mod tests {
         let before = Client::get_nb_request("Results", "UploadResultData").await;
         let mut client = Client::new().await.unwrap().results();
         client
-            .call(Box::pin(async_stream::stream! {
-                yield crate::results::upload::Request::Identifier {
-                    session: String::from("session-id"),
-                    result_id: String::from("result-id")
-                };
-            }))
+            .call(Box::pin(futures::stream::iter([
+                crate::results::upload::Request::Identifier {
+                    session_id: String::from("session-id"),
+                    result_id: String::from("result-id"),
+                },
+            ])))
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "UploadResultData").await;

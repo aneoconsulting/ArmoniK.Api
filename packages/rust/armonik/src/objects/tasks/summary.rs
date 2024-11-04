@@ -10,7 +10,7 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default)]
 pub struct Summary {
     /// The task ID.
-    pub id: String,
+    pub task_id: String,
     /// The session ID. A task have only one related session but a session have many tasks.
     pub session_id: String,
     /// The owner pod ID.
@@ -68,7 +68,7 @@ pub struct Summary {
 impl From<Summary> for v3::tasks::TaskSummary {
     fn from(value: Summary) -> Self {
         Self {
-            id: value.id,
+            id: value.task_id,
             session_id: value.session_id,
             owner_pod_id: value.owner_pod_id,
             initial_task_id: value.initial_task_id,
@@ -105,7 +105,7 @@ impl From<Summary> for v3::tasks::TaskSummary {
 impl From<v3::tasks::TaskSummary> for Summary {
     fn from(value: v3::tasks::TaskSummary) -> Self {
         Self {
-            id: value.id,
+            task_id: value.id,
             session_id: value.session_id,
             owner_pod_id: value.owner_pod_id,
             initial_task_id: value.initial_task_id,

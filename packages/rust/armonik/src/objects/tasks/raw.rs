@@ -10,7 +10,7 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default)]
 pub struct Raw {
     /// The task ID.
-    pub id: String,
+    pub task_id: String,
     /// The session ID. A task have only one related session but a session have many tasks.
     pub session_id: String,
     /// The owner pod ID.
@@ -67,7 +67,7 @@ pub struct Raw {
 
 super::super::impl_convert!(
     struct Raw = v3::tasks::TaskDetailed {
-        id,
+        task_id = id,
         session_id,
         owner_pod_id,
         initial_task_id,

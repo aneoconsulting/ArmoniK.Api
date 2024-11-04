@@ -6,12 +6,12 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Request {
     /// The partition ID.
-    pub id: String,
+    pub partition_id: String,
 }
 
 super::super::impl_convert!(
     struct Request = v3::partitions::GetPartitionRequest {
-        id,
+        partition_id = id,
     }
 );
 

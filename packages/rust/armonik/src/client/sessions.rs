@@ -1,15 +1,12 @@
 use snafu::ResultExt;
 
-use crate::{
-    api::v3,
-    objects::{
-        sessions::{
-            cancel, close, create, delete, get, list, pause, purge, resume, stop_submission, Raw,
-        },
-        TaskOptions,
-    },
-    utils::IntoCollection,
+use crate::api::v3;
+use crate::sessions::{
+    cancel, close, create, delete, filter, get, list, pause, purge, resume, stop_submission, Raw,
+    Sort,
 };
+use crate::utils::IntoCollection;
+use crate::TaskOptions;
 
 use super::GrpcCall;
 
@@ -35,16 +32,30 @@ where
     /// Get a sessions list using pagination, filters and sorting.
     pub async fn list(
         &mut self,
-        request: list::Request,
+        filters: impl IntoIterator<Item = impl IntoIterator<Item = filter::Field>>,
+        sort: Sort,
+        with_task_options: bool,
+        page: i32,
+        page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
-        self.call(request).await
+        self.call(list::Request {
+            filters: filters
+                .into_iter()
+                .map(crate::utils::IntoCollection::into_collect)
+                .collect(),
+            sort,
+            with_task_options,
+            page,
+            page_size,
+        })
+        .await
     }
 
     /// Get a session by its id.
     pub async fn get(&mut self, session_id: impl Into<String>) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(get::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
             })
             .await?
             .session)
@@ -57,7 +68,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(cancel::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
             })
             .await?
             .session)
@@ -67,11 +78,11 @@ where
     pub async fn create(
         &mut self,
         partitions: impl IntoIterator<Item = impl Into<String>>,
-        task_options: TaskOptions,
+        default_task_options: TaskOptions,
     ) -> Result<String, super::RequestError> {
         Ok(self
             .call(create::Request {
-                default_task_option: task_options,
+                default_task_options,
                 partition_ids: partitions.into_collect(),
             })
             .await?
@@ -85,7 +96,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(pause::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
             })
             .await?
             .session)
@@ -98,7 +109,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(resume::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
             })
             .await?
             .session)
@@ -111,7 +122,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(close::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
             })
             .await?
             .session)
@@ -124,7 +135,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(purge::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
             })
             .await?
             .session)
@@ -137,7 +148,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(delete::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
             })
             .await?
             .session)
@@ -152,7 +163,7 @@ where
     ) -> Result<Raw, super::RequestError> {
         Ok(self
             .call(stop_submission::Request {
-                id: session_id.into(),
+                session_id: session_id.into(),
                 client: stop_client,
                 worker: stop_worker,
             })
@@ -289,13 +300,15 @@ mod tests {
         let before = Client::get_nb_request("Sessions", "ListSessions").await;
         let mut client = Client::new().await.unwrap().sessions();
         client
-            .list(crate::sessions::list::Request {
-                filters: crate::sessions::filter::Or {
+            .list(
+                crate::sessions::filter::Or {
                     or: vec![crate::sessions::filter::And { and: vec![] }],
                 },
-                page_size: 10,
-                ..Default::default()
-            })
+                crate::sessions::Sort::default(),
+                true,
+                0,
+                10,
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Sessions", "ListSessions").await;
@@ -418,7 +431,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::get::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
             })
             .await
             .unwrap();
@@ -432,7 +445,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::cancel::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
             })
             .await
             .unwrap();
@@ -446,7 +459,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::create::Request {
-                default_task_option: TaskOptions {
+                default_task_options: TaskOptions {
                     partition_id: String::from("part1"),
                     ..Default::default()
                 },
@@ -464,7 +477,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::pause::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
             })
             .await
             .unwrap();
@@ -478,7 +491,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::resume::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
             })
             .await
             .unwrap();
@@ -492,7 +505,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::close::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
             })
             .await
             .unwrap();
@@ -506,7 +519,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::purge::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
             })
             .await
             .unwrap();
@@ -520,7 +533,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::delete::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
             })
             .await
             .unwrap();
@@ -534,7 +547,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().sessions();
         client
             .call(crate::sessions::stop_submission::Request {
-                id: String::from("session-id"),
+                session_id: String::from("session-id"),
                 client: true,
                 worker: true,
             })

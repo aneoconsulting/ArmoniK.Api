@@ -6,14 +6,14 @@ use super::super::TaskOptions;
 #[derive(Debug, Clone, Default)]
 pub struct Request {
     /// Default tasks options for tasks in the session.
-    pub default_task_option: TaskOptions,
+    pub default_task_options: TaskOptions,
     /// List of partitions allowed during the session.
     pub partition_ids: Vec<String>,
 }
 
 super::super::impl_convert!(
     struct Request = v3::sessions::CreateSessionRequest {
-        default_task_option = option default_task_option,
+        default_task_options = option default_task_option,
         partition_ids,
     }
 );

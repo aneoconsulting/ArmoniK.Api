@@ -8,7 +8,7 @@ use crate::api::v3;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Raw {
     /// The partition ID.
-    pub id: String,
+    pub partition_id: String,
     /// The parent partition IDs.
     pub parent_partition_ids: Vec<String>,
     /// Whether the partition is reserved for pods.
@@ -25,7 +25,7 @@ pub struct Raw {
 
 super::super::impl_convert!(
     struct Raw = v3::partitions::PartitionRaw {
-        id,
+        partition_id = id,
         parent_partition_ids,
         pod_reserved,
         pod_max,

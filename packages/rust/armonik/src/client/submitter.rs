@@ -7,13 +7,13 @@ use futures::{Stream, StreamExt};
 use snafu::ResultExt;
 
 use crate::api::v3;
-use crate::objects::submitter::{
+use crate::submitter::{
     cancel_session, cancel_tasks, count_tasks, create_session, create_tasks, list_sessions,
     list_tasks, result_status, service_configuration, task_status, try_get_result,
     try_get_task_output, wait_for_availability, wait_for_completion, SessionFilter, TaskFilter,
 };
-use crate::objects::{Configuration, Output, ResultStatus, TaskOptions, TaskRequest, TaskStatus};
 use crate::utils::IntoCollection;
+use crate::{Configuration, Output, ResultStatus, TaskOptions, TaskRequest, TaskStatus};
 
 use super::{GrpcCall, GrpcCallStream};
 
@@ -44,11 +44,11 @@ where
     pub async fn create_session(
         &mut self,
         partitions: impl IntoIterator<Item = impl Into<String>>,
-        task_options: TaskOptions,
+        default_task_options: TaskOptions,
     ) -> Result<String, super::RequestError> {
         Ok(self
             .call(create_session::Request {
-                default_task_option: task_options,
+                default_task_options,
                 partition_ids: partitions.into_collect(),
             })
             .await?
@@ -407,8 +407,6 @@ where
 #[cfg(test)]
 #[serial_test::serial(submitter)]
 mod tests {
-    use std::collections::HashSet;
-
     use futures::TryStreamExt;
 
     use crate::Client;
@@ -472,9 +470,9 @@ mod tests {
         let before = Client::get_nb_request("Submitter", "CreateLargeTasks").await;
         let mut client = Client::new().await.unwrap().submitter();
         match client
-            .create_large_tasks(async_stream::stream! {
-                yield crate::submitter::create_tasks::LargeRequest::Invalid;
-            })
+            .create_large_tasks(futures::stream::iter([
+                crate::submitter::create_tasks::LargeRequest::Invalid,
+            ]))
             .await
         {
             Ok(_) => (),
@@ -650,7 +648,7 @@ mod tests {
         client
             .call(crate::submitter::create_session::Request {
                 partition_ids: vec![String::from("part1"), String::from("part2")],
-                default_task_option: crate::TaskOptions {
+                default_task_options: crate::TaskOptions {
                     partition_id: String::from("part1"),
                     ..Default::default()
                 },
@@ -703,9 +701,9 @@ mod tests {
         let before = Client::get_nb_request("Submitter", "CreateLargeTasks").await;
         let mut client = Client::new().await.unwrap().submitter();
         match client
-            .call(async_stream::stream! {
-                yield crate::submitter::create_tasks::LargeRequest::Invalid;
-            })
+            .call(futures::stream::iter([
+                crate::submitter::create_tasks::LargeRequest::Invalid,
+            ]))
             .await
         {
             Ok(_) => (),
@@ -868,7 +866,7 @@ mod tests {
         let mut client = Client::new().await.unwrap().submitter();
         client
             .call(crate::submitter::task_status::Request {
-                task_ids: HashSet::new(),
+                task_ids: Vec::new(),
             })
             .await
             .unwrap();
@@ -883,7 +881,7 @@ mod tests {
         client
             .call(crate::submitter::result_status::Request {
                 session_id: String::from("session-id"),
-                result_ids: HashSet::new(),
+                result_ids: Vec::new(),
             })
             .await
             .unwrap();

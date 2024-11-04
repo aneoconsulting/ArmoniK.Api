@@ -29,10 +29,11 @@ where
     /// Get current user
     pub async fn subscribe(
         &mut self,
-
         session_id: impl Into<String>,
-        task_filters: crate::tasks::filter::Or,
-        result_filters: crate::results::filter::Or,
+        task_filters: impl IntoIterator<Item = impl IntoIterator<Item = crate::tasks::filter::Field>>,
+        result_filters: impl IntoIterator<
+            Item = impl IntoIterator<Item = crate::results::filter::Field>,
+        >,
         returned_events: impl IntoIterator<Item = impl Into<crate::events::EventsEnum>>,
     ) -> Result<
         impl Stream<Item = Result<subscribe::Response, super::RequestError>>,
@@ -42,8 +43,14 @@ where
             .inner
             .get_events(subscribe::Request {
                 session_id: session_id.into(),
-                task_filters,
-                result_filters,
+                task_filters: task_filters
+                    .into_iter()
+                    .map(IntoCollection::into_collect)
+                    .collect(),
+                result_filters: result_filters
+                    .into_iter()
+                    .map(IntoCollection::into_collect)
+                    .collect(),
                 returned_events: returned_events.into_collect(),
             })
             .await

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use super::Raw;
 
@@ -7,8 +7,8 @@ use crate::api::v3;
 /// Request for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Request {
-    /// The list of results to create.
-    pub results: HashSet<String>,
+    /// The list of names for the results to create.
+    pub names: Vec<String>,
     /// The session in which create results.
     pub session_id: String,
 }
@@ -17,7 +17,7 @@ impl From<Request> for v3::results::CreateResultsMetaDataRequest {
     fn from(value: Request) -> Self {
         Self {
             results: value
-                .results
+                .names
                 .into_iter()
                 .map(
                     |result| v3::results::create_results_meta_data_request::ResultCreate {
@@ -33,7 +33,7 @@ impl From<Request> for v3::results::CreateResultsMetaDataRequest {
 impl From<v3::results::CreateResultsMetaDataRequest> for Request {
     fn from(value: v3::results::CreateResultsMetaDataRequest) -> Self {
         Self {
-            results: value
+            names: value
                 .results
                 .into_iter()
                 .map(|result| result.name)
