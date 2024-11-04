@@ -7,6 +7,7 @@ export default antfu({
     '.docs',
     'packages/csharp',
     'packages/cpp',
+    'packages/rust',
   ],
 }).overrideRules({
   'antfu/consistent-list-newline': 'off',
