@@ -1,3 +1,5 @@
+//! ArmoniK objects related to the Submitter service
+
 pub mod cancel_session;
 pub mod cancel_tasks;
 pub mod count_tasks;

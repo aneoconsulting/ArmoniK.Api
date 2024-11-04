@@ -1,3 +1,5 @@
+//! ArmoniK objects related to common filters
+
 mod array_operator;
 mod boolean_operator;
 mod date_operator;

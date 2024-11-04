@@ -1,3 +1,5 @@
+//! ArmoniK objects related to the Results service
+
 pub mod create;
 pub mod create_metadata;
 pub mod delete;

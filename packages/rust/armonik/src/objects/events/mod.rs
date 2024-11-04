@@ -1,3 +1,5 @@
+//! ArmoniK objects related to the Events service
+
 mod events_enum;
 mod new_result;
 mod new_task;

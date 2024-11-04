@@ -1,3 +1,5 @@
+//! ArmoniK objects related to the Agent service
+
 mod result_metadata;
 
 pub mod create_results;

@@ -1,3 +1,31 @@
+//! The object module contains all the armonik objects for the API.
+//! Each object has its own dedicated file that is re-exported here.
+//! All services have their dedicated sub-modules, and rpcs have their own files within the service module which contains both a Request and Response object.
+//!
+//! Example:
+//!
+//! ```text
+//! objects
+//! + service1
+//! | + rpc1
+//! | | + Request
+//! | | + Response
+//! | + rpc2
+//! |   + Request
+//! |   + Response
+//! + service2
+//! | + rpc1
+//! |   + Request
+//! |   + Response
+//! + common1
+//! | + object1
+//! | | + Object1
+//! | + object2
+//! |   + Object2
+//! + object1
+//!   + Object1
+//! ```
+
 mod configuration;
 mod count;
 mod data_chunk;

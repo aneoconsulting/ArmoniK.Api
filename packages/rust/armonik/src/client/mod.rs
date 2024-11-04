@@ -1,3 +1,5 @@
+//! ArmoniK clients for all the services
+
 use std::sync::Arc;
 
 use hyper::Uri;
@@ -33,8 +35,9 @@ pub use tasks::TasksClient;
 pub use versions::VersionsClient;
 pub use worker::WorkerClient;
 
+/// ArmoniK Client
 #[derive(Clone)]
-pub struct Client<T> {
+pub struct Client<T = tonic::transport::Channel> {
     channel: T,
 }
 
@@ -183,52 +186,64 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
+    /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self { channel }
     }
 
+    /// Create an [`AgentClient`]
     pub fn agent(&self) -> AgentClient<T> {
         AgentClient::with_channel(self.channel.clone())
     }
 
+    /// Create an [`ApplicationsClient`]
     pub fn applications(&self) -> ApplicationsClient<T> {
         ApplicationsClient::with_channel(self.channel.clone())
     }
 
+    /// Create an [`AuthClient`]
     pub fn auth(&self) -> AuthClient<T> {
         AuthClient::with_channel(self.channel.clone())
     }
 
+    /// Create an [`EventsClient`]
     pub fn events(&self) -> EventsClient<T> {
         EventsClient::with_channel(self.channel.clone())
     }
 
+    /// Create a [`PartitionsClient`]
     pub fn partitions(&self) -> PartitionsClient<T> {
         PartitionsClient::with_channel(self.channel.clone())
     }
 
+    /// Create a [`ResultsClient`]
     pub fn results(&self) -> ResultsClient<T> {
         ResultsClient::with_channel(self.channel.clone())
     }
 
+    /// Create a [`SessionsClient`]
     pub fn sessions(&self) -> SessionsClient<T> {
         SessionsClient::with_channel(self.channel.clone())
     }
 
+    /// Create a [`SubmitterClient`]
     #[deprecated]
     #[allow(deprecated)]
     pub fn submitter(&self) -> SubmitterClient<T> {
         SubmitterClient::with_channel(self.channel.clone())
     }
 
+    /// Create a [`TasksClient`]
     pub fn tasks(&self) -> TasksClient<T> {
         TasksClient::with_channel(self.channel.clone())
     }
 
+    /// Create a [`VersionsClient`]
     pub fn versions(&self) -> VersionsClient<T> {
         VersionsClient::with_channel(self.channel.clone())
     }
 
+    /// Create a [`WorkerClient`]
     pub fn worker(&self) -> WorkerClient<T> {
         WorkerClient::with_channel(self.channel.clone())
     }

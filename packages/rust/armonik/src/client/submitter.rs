@@ -31,6 +31,7 @@ where
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
+    /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
             inner: v3::submitter::submitter_client::SubmitterClient::new(channel),
