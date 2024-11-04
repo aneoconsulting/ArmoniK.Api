@@ -1,3 +1,5 @@
+//! ArmoniK objects related to the Sessions service
+
 pub mod cancel;
 pub mod close;
 pub mod create;

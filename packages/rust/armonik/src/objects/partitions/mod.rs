@@ -1,3 +1,5 @@
+//! ArmoniK objects related to the Partitions service
+
 pub mod filter;
 pub mod get;
 pub mod list;

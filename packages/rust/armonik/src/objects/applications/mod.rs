@@ -1,3 +1,5 @@
+//! ArmoniK objects related to the Applications service
+
 pub mod filter;
 pub mod list;
 
