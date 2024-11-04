@@ -25,7 +25,7 @@ async fn main() -> Result<(), eyre::Report> {
         })
         .await?;
     println!("Partitions: {:?}", response);
-    let partition = response.partitions[0].id.clone();
+    let partition = response.partitions[0].partition_id.clone();
 
     // Create session
     let session = client
@@ -56,9 +56,7 @@ async fn main() -> Result<(), eyre::Report> {
         .upload(
             session.clone(),
             input.result_id.clone(),
-            Box::pin(async_stream::stream! {
-                yield b"payload".to_vec();
-            }),
+            futures::stream::iter([b"payload".to_vec()]),
         )
         .await?;
 

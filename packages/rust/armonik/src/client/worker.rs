@@ -1,10 +1,8 @@
 use snafu::ResultExt;
 
-use crate::{
-    api::v3,
-    objects::worker::{health_check, process},
-    objects::Output,
-};
+use crate::api::v3;
+use crate::worker::{health_check, process};
+use crate::Output;
 
 use super::GrpcCall;
 

@@ -1,6 +1,7 @@
 use snafu::ResultExt;
 
-use crate::{api::v3, objects::versions::list};
+use crate::api::v3;
+use crate::versions::list;
 
 use super::GrpcCall;
 

@@ -1,6 +1,6 @@
 pub mod api;
 pub mod client;
-pub mod objects;
+mod objects;
 
 pub use client::{Client, ClientConfig};
 pub use objects::*;

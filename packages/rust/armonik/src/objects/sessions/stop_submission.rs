@@ -6,7 +6,7 @@ use super::Raw;
 #[derive(Debug, Clone, Default)]
 pub struct Request {
     /// The session ID.
-    pub id: String,
+    pub session_id: String,
     /// Whether to stop client submission.
     pub client: bool,
     /// Whether to stop worker submission.
@@ -15,7 +15,7 @@ pub struct Request {
 
 super::super::impl_convert!(
     struct Request = v3::sessions::StopSubmissionRequest {
-        id = session_id,
+        session_id,
         client,
         worker,
     }

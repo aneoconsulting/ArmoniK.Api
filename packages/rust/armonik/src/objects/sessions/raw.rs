@@ -16,7 +16,7 @@ pub struct Raw {
     /// The partition IDs.
     pub partition_ids: Vec<String>,
     /// The task options. In fact, these are used as default value in child tasks.
-    pub options: TaskOptions,
+    pub default_task_options: TaskOptions,
     /// The creation date.
     pub created_at: Option<prost_types::Timestamp>,
     /// The cancellation date. Only set when status is 'cancelled'.
@@ -38,7 +38,7 @@ super::super::impl_convert!(
         client_submission,
         worker_submission,
         partition_ids,
-        options = option options,
+        default_task_options = option options,
         created_at,
         cancelled_at,
         closed_at,

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::api::v3;
 
@@ -6,7 +6,7 @@ use super::super::TaskStatus;
 
 #[derive(Debug, Clone, Default)]
 pub struct Request {
-    pub task_ids: HashSet<String>,
+    pub task_ids: Vec<String>,
 }
 
 super::super::impl_convert!(

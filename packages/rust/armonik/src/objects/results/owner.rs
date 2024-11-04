@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::api::v3;
 
@@ -8,7 +8,7 @@ pub struct Request {
     /// The session ID.
     pub session_id: String,
     /// The list of result ID/name.
-    pub result_ids: HashSet<String>,
+    pub result_ids: Vec<String>,
 }
 
 super::super::impl_convert!(

@@ -6,12 +6,12 @@ use super::Raw;
 #[derive(Debug, Clone, Default)]
 pub struct Request {
     /// The session ID.
-    pub id: String,
+    pub session_id: String,
 }
 
 super::super::impl_convert!(
     struct Request = v3::sessions::PauseSessionRequest {
-        id = session_id,
+        session_id,
     }
 );
 

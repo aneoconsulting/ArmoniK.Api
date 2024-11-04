@@ -2,14 +2,12 @@ use std::collections::HashMap;
 
 use snafu::ResultExt;
 
-use crate::{
-    api::v3,
-    objects::tasks::{
-        cancel, count_status, filter, get, list, list_detailed, result_ids, submit, Raw, Summary,
-    },
-    objects::{StatusCount, TaskOptions},
-    utils::IntoCollection,
+use crate::api::v3;
+use crate::tasks::{
+    cancel, count_status, filter, get, list, list_detailed, result_ids, submit, Raw, Sort, Summary,
 };
+use crate::utils::IntoCollection;
+use crate::{StatusCount, TaskOptions};
 
 use super::GrpcCall;
 
@@ -35,17 +33,45 @@ where
     /// Get a tasks list using pagination, filters and sorting.
     pub async fn list(
         &mut self,
-        request: list::Request,
+        filters: impl IntoIterator<Item = impl IntoIterator<Item = filter::Field>>,
+        sort: Sort,
+        with_errors: bool,
+        page: i32,
+        page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
-        self.call(request).await
+        self.call(list::Request {
+            filters: filters
+                .into_iter()
+                .map(crate::utils::IntoCollection::into_collect)
+                .collect(),
+            sort,
+            with_errors,
+            page,
+            page_size,
+        })
+        .await
     }
 
     /// Get a tasks list using pagination, filters and sorting.
     pub async fn list_detailed(
         &mut self,
-        request: list_detailed::Request,
+        filters: impl IntoIterator<Item = impl IntoIterator<Item = filter::Field>>,
+        sort: Sort,
+        with_errors: bool,
+        page: i32,
+        page_size: i32,
     ) -> Result<list_detailed::Response, super::RequestError> {
-        self.call(request).await
+        self.call(list_detailed::Request {
+            filters: filters
+                .into_iter()
+                .map(crate::utils::IntoCollection::into_collect)
+                .collect(),
+            sort,
+            with_errors,
+            page,
+            page_size,
+        })
+        .await
     }
 
     /// Get a task by its id.
@@ -207,13 +233,15 @@ mod tests {
         let before = Client::get_nb_request("Tasks", "ListTasks").await;
         let mut client = Client::new().await.unwrap().tasks();
         client
-            .list(crate::tasks::list::Request {
-                filters: crate::tasks::filter::Or {
+            .list(
+                crate::tasks::filter::Or {
                     or: vec![crate::tasks::filter::And { and: vec![] }],
                 },
-                page_size: 10,
-                ..Default::default()
-            })
+                crate::tasks::Sort::default(),
+                true,
+                0,
+                10,
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Tasks", "ListTasks").await;
@@ -225,13 +253,15 @@ mod tests {
         let before = Client::get_nb_request("Tasks", "ListTasksDetailed").await;
         let mut client = Client::new().await.unwrap().tasks();
         client
-            .list_detailed(crate::tasks::list_detailed::Request {
-                filters: crate::tasks::filter::Or {
+            .list_detailed(
+                crate::tasks::filter::Or {
                     or: vec![crate::tasks::filter::And { and: vec![] }],
                 },
-                page_size: 10,
-                ..Default::default()
-            })
+                crate::tasks::Sort::default(),
+                true,
+                0,
+                10,
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Tasks", "ListTasksDetailed").await;

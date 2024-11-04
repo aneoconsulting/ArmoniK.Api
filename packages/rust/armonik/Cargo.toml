@@ -10,31 +10,26 @@ tonic = "0.12"
 prost = "0.13"
 prost-types = "0.13"
 futures = "0.3"
-futures-core = "0.3"
-futures-util = "0.3"
-tokio = { version = "1.40", features = [
-  "rt-multi-thread",
-  "macros",
-  "sync",
-  "time",
-] }
-tokio-stream = { version = "0.1", features = ["sync", "net"] }
-tokio-util = "0.7"
-async-stream = "0.3"
 async-trait = "0.1"
 snafu = "0.8"
-eyre = "0.6"
 tracing = "0.1"
 hyper = { version = "1.5", features = ["client", "http1", "http2"] }
 hyper-rustls = { version = "0.27", features = ["http1", "http2"] }
 rustls = { version = "0.23", features = ["ring"] }
 
 [dev-dependencies]
+eyre = "0.6"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 hyper-util = { version = "0.1", features = ["client", "http1"] }
 http-body-util = "0.1"
 serde_json = "1.0"
 serial_test = "3.1"
+tokio = { version = "1.40", features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "time",
+] }
 
 [build-dependencies]
 tonic-build = "0.12"

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use super::ResultMetaData;
 
@@ -9,8 +9,8 @@ use crate::api::v3;
 pub struct Request {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
-    /// The list of results to create.
-    pub results: HashSet<String>,
+    /// The list of names for the results to create.
+    pub names: Vec<String>,
     /// The session in which create results.
     pub session_id: String,
 }
@@ -20,7 +20,7 @@ impl From<Request> for v3::agent::CreateResultsMetaDataRequest {
         Self {
             communication_token: value.communication_token,
             results: value
-                .results
+                .names
                 .into_iter()
                 .map(
                     |result| v3::agent::create_results_meta_data_request::ResultCreate {
@@ -37,7 +37,7 @@ impl From<v3::agent::CreateResultsMetaDataRequest> for Request {
     fn from(value: v3::agent::CreateResultsMetaDataRequest) -> Self {
         Self {
             communication_token: value.communication_token,
-            results: value
+            names: value
                 .results
                 .into_iter()
                 .map(|result| result.name)
