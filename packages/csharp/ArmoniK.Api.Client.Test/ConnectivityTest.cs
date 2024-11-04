@@ -32,6 +32,8 @@ using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Utils;
 
+using Microsoft.Extensions.Configuration;
+
 using NUnit.Framework;
 
 namespace ArmoniK.Api.Client.Tests;
@@ -42,43 +44,26 @@ public class ConnectivityTests
   [SetUp]
   public void SetUp()
   {
-    certPath_       = Environment.GetEnvironmentVariable("Grpc__ClientCert")               ?? "";
-    keyPath_        = Environment.GetEnvironmentVariable("Grpc__ClientKey")                ?? "";
-    CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
-    MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
-    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
-    isInsecure_ = Environment.GetEnvironmentVariable("Grpc__AllowUnsafeConnection") == "true"
-                    ? true
-                    : false;
-
-    if (isInsecure_)
+    var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
+    var configuration = builder.Build();
+    options_ = configuration.GetRequiredSection(GrpcClient.SettingSection)
+                            .Get<GrpcClient>();
+    if (options_!.AllowUnsafeConnection)
     {
-      endpoint_ = RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler_.ToLower()
-                                                                                                         .Contains("web")
-                    ? "http://localhost:4999"
-                    : endpoint_;
+      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options_.HttpMessageHandler.ToLower()
+                                                                                          .Contains("web"))
+      {
+        options_!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
+      }
     }
   }
 
-  private static string? endpoint_;
-  private static string? certPath_;
-  private static string? keyPath_;
-  private static string? CaCertPath_;
-  private static string? MessageHandler_;
-  private        bool    isInsecure_;
+  private GrpcClient? options_;
 
   [Test]
   public void ResultsGetServiceConfiguration()
   {
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
 
     var resultClient = new Results.ResultsClient(channel);
 
@@ -96,15 +81,7 @@ public class ConnectivityTests
     var channels = await Enumerable.Range(0,
                                           concurrency)
                                    .ParallelSelect(new ParallelTaskOptions(-1),
-                                                   i => Task.FromResult(GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                                                                         {
-                                                                                                           Endpoint              = endpoint_,
-                                                                                                           AllowUnsafeConnection = isInsecure_,
-                                                                                                           CertPem               = certPath_!,
-                                                                                                           KeyPem                = keyPath_!,
-                                                                                                           CaCert                = CaCertPath_!,
-                                                                                                           HttpMessageHandler    = MessageHandler_!,
-                                                                                                         })))
+                                                   i => Task.FromResult(GrpcChannelFactory.CreateChannel(options_!)))
                                    .ToListAsync()
                                    .ConfigureAwait(false);
 

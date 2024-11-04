@@ -35,8 +35,8 @@ cd $TEST_DIR
 
 $TEST_COMMAND
 ret=$?
-exit $ret
 set +e
 
 echo $server_pid
 kill $server_pid
+exit $ret
