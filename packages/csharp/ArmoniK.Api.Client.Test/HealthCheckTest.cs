@@ -25,6 +25,7 @@
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1.HealthChecks;
+using ArmoniK.Utils;
 
 using NUnit.Framework;
 
@@ -44,16 +45,14 @@ public class HealthCheckTest
   {
     var before = ConfTest.RpcCalled("HealthChecks",
                                     "CheckHealth")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel = GrpcChannelFactory.CreateChannel(options_!);
     var client  = new HealthChecksService.HealthChecksServiceClient(channel);
     Assert.That(() => client.CheckHealth(new CheckHealthRequest()),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("HealthChecks",
                                    "CheckHealth")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }

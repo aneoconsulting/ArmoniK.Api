@@ -29,6 +29,7 @@ using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Sessions;
 using ArmoniK.Api.gRPC.V1.Tasks;
+using ArmoniK.Utils;
 
 using Google.Protobuf.WellKnownTypes;
 
@@ -77,8 +78,7 @@ public class TasksClientTest
   {
     var before = ConfTest.RpcCalled("Tasks",
                                     "SubmitTasks")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var client    = new Tasks.TasksClient(channel);
@@ -115,8 +115,7 @@ public class TasksClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Tasks",
                                    "SubmitTasks")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -126,8 +125,7 @@ public class TasksClientTest
   {
     var before = ConfTest.RpcCalled("Tasks",
                                     "CountTasksByStatus")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var client    = new Tasks.TasksClient(channel);
@@ -159,8 +157,7 @@ public class TasksClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Tasks",
                                    "CountTasksByStatus")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -170,8 +167,7 @@ public class TasksClientTest
   {
     var before = ConfTest.RpcCalled("Tasks",
                                     "GetResultIds")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel = GrpcChannelFactory.CreateChannel(options_!);
     var client  = new Tasks.TasksClient(channel);
     Assert.That(() => client.GetResultIds(new GetResultIdsRequest
@@ -184,8 +180,7 @@ public class TasksClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Tasks",
                                    "GetResultIds")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -195,8 +190,7 @@ public class TasksClientTest
   {
     var before = ConfTest.RpcCalled("Tasks",
                                     "GetTask")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel = GrpcChannelFactory.CreateChannel(options_!);
     var client  = new Tasks.TasksClient(channel);
     Assert.That(() => client.GetTask(new GetTaskRequest
@@ -206,8 +200,7 @@ public class TasksClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Tasks",
                                    "GetTask")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -217,8 +210,7 @@ public class TasksClientTest
   {
     var before = ConfTest.RpcCalled("Tasks",
                                     "CancelTasks")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel = GrpcChannelFactory.CreateChannel(options_!);
     var client  = new Tasks.TasksClient(channel);
     Assert.AreNotEqual(client.GetTask(new GetTaskRequest
@@ -237,8 +229,7 @@ public class TasksClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Tasks",
                                    "CancelTasks")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -248,8 +239,7 @@ public class TasksClientTest
   {
     var before = ConfTest.RpcCalled("Tasks",
                                     "ListTasks")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var client    = new Tasks.TasksClient(channel);
@@ -281,8 +271,7 @@ public class TasksClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Tasks",
                                    "ListTasks")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -292,8 +281,7 @@ public class TasksClientTest
   {
     var before = ConfTest.RpcCalled("Tasks",
                                     "ListTasksDetailed")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var client    = new Tasks.TasksClient(channel);
@@ -325,8 +313,7 @@ public class TasksClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Tasks",
                                    "ListTasksDetailed")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }

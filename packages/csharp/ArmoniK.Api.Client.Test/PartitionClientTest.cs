@@ -28,6 +28,7 @@ using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Partitions;
+using ArmoniK.Utils;
 
 using Google.Protobuf.WellKnownTypes;
 
@@ -49,8 +50,7 @@ public class PartitionClientTest
   {
     var before = ConfTest.RpcCalled("Partitions",
                                     "GetPartition")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var taskOptions = new TaskOptions
@@ -70,8 +70,7 @@ public class PartitionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Partitions",
                                    "GetPartition")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -81,8 +80,7 @@ public class PartitionClientTest
   {
     var before = ConfTest.RpcCalled("Partitions",
                                     "ListPartitions")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel = GrpcChannelFactory.CreateChannel(options_!);
     var client  = new Partitions.PartitionsClient(channel);
 
@@ -93,8 +91,7 @@ public class PartitionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Partitions",
                                    "ListPartitions")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }

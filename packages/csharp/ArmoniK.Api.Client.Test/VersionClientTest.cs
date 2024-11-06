@@ -25,6 +25,7 @@
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1.Versions;
+using ArmoniK.Utils;
 
 using NUnit.Framework;
 
@@ -44,8 +45,7 @@ public class VersionClientTest
   {
     var before = ConfTest.RpcCalled("Versions",
                                     "ListVersions")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel = GrpcChannelFactory.CreateChannel(options_!);
     var client  = new Versions.VersionsClient(channel);
 
@@ -53,8 +53,7 @@ public class VersionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Versions",
                                    "ListVersions")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }

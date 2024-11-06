@@ -30,6 +30,7 @@ using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Events;
 using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Api.gRPC.V1.Sessions;
+using ArmoniK.Utils;
 
 using Google.Protobuf.WellKnownTypes;
 
@@ -55,8 +56,7 @@ public class EventsClientTest
   {
     var before = ConfTest.RpcCalled("Events",
                                     "GetEvents")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(options_);
     var partition = "default";
     var taskOptions = new TaskOptions
@@ -117,8 +117,7 @@ public class EventsClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Events",
                                    "GetEvents")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }

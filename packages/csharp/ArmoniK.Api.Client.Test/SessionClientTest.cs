@@ -28,6 +28,7 @@ using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Sessions;
+using ArmoniK.Utils;
 
 using Google.Protobuf.WellKnownTypes;
 
@@ -49,8 +50,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "CreateSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -73,8 +73,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "CreateSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -84,8 +83,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "CancelSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -112,8 +110,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "CancelSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -123,8 +120,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "GetSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -151,8 +147,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "GetSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -162,8 +157,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "ListSessions")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -194,8 +188,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "ListSessions")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -205,8 +198,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "PauseSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -233,8 +225,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "PauseSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -244,8 +235,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "ResumeSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -276,8 +266,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "ResumeSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -287,8 +276,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "PurgeSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -320,8 +308,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "PurgeSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -331,8 +318,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "DeleteSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -359,8 +345,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "DeleteSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -370,8 +355,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "StopSubmission")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -398,8 +382,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "StopSubmission")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
@@ -409,8 +392,7 @@ public class SessionClientTest
   {
     var before = ConfTest.RpcCalled("Sessions",
                                     "CloseSession")
-                         .GetAwaiter()
-                         .GetResult();
+                         .WaitSync();
     var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
@@ -437,8 +419,7 @@ public class SessionClientTest
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Sessions",
                                    "CloseSession")
-                        .GetAwaiter()
-                        .GetResult();
+                        .WaitSync();
     Assert.AreEqual(after - before,
                     1);
   }
