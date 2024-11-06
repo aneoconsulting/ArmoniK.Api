@@ -4,7 +4,8 @@ use snafu::ResultExt;
 
 use crate::api::v3;
 use crate::tasks::{
-    cancel, count_status, filter, get, list, list_detailed, result_ids, submit, Raw, Sort, Summary,
+    cancel, count_status, filter, get, get_result_ids, list, list_detailed, submit, Raw, Sort,
+    Summary,
 };
 use crate::utils::IntoCollection;
 use crate::{StatusCount, TaskOptions};
@@ -104,7 +105,7 @@ where
         task_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, Vec<String>>, super::RequestError> {
         Ok(self
-            .call(result_ids::Request {
+            .call(get_result_ids::Request {
                 task_ids: task_ids.into_collect(),
             })
             .await?
@@ -190,7 +191,7 @@ super::impl_call! {
                 .into())
         }
 
-        async fn call(self, request: result_ids::Request) -> Result<result_ids::Response> {
+        async fn call(self, request: get_result_ids::Request) -> Result<get_result_ids::Response> {
             Ok(self
                 .inner
                 .get_result_ids(request)
@@ -380,11 +381,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn result_ids_call() {
+    async fn get_result_ids_call() {
         let before = Client::get_nb_request("Tasks", "GetResultIds").await;
         let mut client = Client::new().await.unwrap().tasks();
         client
-            .call(crate::tasks::result_ids::Request {
+            .call(crate::tasks::get_result_ids::Request {
                 task_ids: vec![String::from("task1"), String::from("task2")],
             })
             .await

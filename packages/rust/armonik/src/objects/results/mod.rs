@@ -2,13 +2,13 @@
 
 pub mod create;
 pub mod create_metadata;
-pub mod delete;
+pub mod delete_data;
 pub mod download;
 pub mod filter;
 pub mod get;
+pub mod get_owner_task_id;
+pub mod get_service_configuration;
 pub mod list;
-pub mod owner;
-pub mod service_configuration;
 pub mod upload;
 
 mod field;

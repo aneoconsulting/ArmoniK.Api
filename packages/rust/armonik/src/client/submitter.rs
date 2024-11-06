@@ -8,9 +8,10 @@ use snafu::ResultExt;
 
 use crate::api::v3;
 use crate::submitter::{
-    cancel_session, cancel_tasks, count_tasks, create_session, create_tasks, list_sessions,
-    list_tasks, result_status, service_configuration, task_status, try_get_result,
-    try_get_task_output, wait_for_availability, wait_for_completion, SessionFilter, TaskFilter,
+    cancel_session, cancel_tasks, count_tasks, create_session, create_tasks,
+    get_service_configuration, list_sessions, list_tasks, result_status, task_status,
+    try_get_result, try_get_task_output, wait_for_availability, wait_for_completion, SessionFilter,
+    TaskFilter,
 };
 use crate::utils::IntoCollection;
 use crate::{Configuration, Output, ResultStatus, TaskOptions, TaskRequest, TaskStatus};
@@ -38,8 +39,10 @@ where
         }
     }
 
-    pub async fn service_configuration(&mut self) -> Result<Configuration, super::RequestError> {
-        self.call(service_configuration::Request {}).await
+    pub async fn get_service_configuration(
+        &mut self,
+    ) -> Result<Configuration, super::RequestError> {
+        self.call(get_service_configuration::Request {}).await
     }
 
     pub async fn create_session(
@@ -240,7 +243,7 @@ where
 
 super::impl_call! {
     SubmitterClient {
-        async fn call(self, request: service_configuration::Request) -> Result<service_configuration::Response> {
+        async fn call(self, request: get_service_configuration::Request) -> Result<get_service_configuration::Response> {
             Ok(self
                 .inner
                 .get_service_configuration(request)
@@ -415,10 +418,10 @@ mod tests {
     // Named methods
 
     #[tokio::test]
-    async fn service_configuration() {
+    async fn get_service_configuration() {
         let before = Client::get_nb_request("Submitter", "GetServiceConfiguration").await;
         let mut client = Client::new().await.unwrap().submitter();
-        client.service_configuration().await.unwrap();
+        client.get_service_configuration().await.unwrap();
         let after = Client::get_nb_request("Submitter", "GetServiceConfiguration").await;
         assert_eq!(after - before, 1);
     }
@@ -631,11 +634,11 @@ mod tests {
     // Explicit call request
 
     #[tokio::test]
-    async fn service_configuration_call() {
+    async fn get_service_configuration_call() {
         let before = Client::get_nb_request("Submitter", "GetServiceConfiguration").await;
         let mut client = Client::new().await.unwrap().submitter();
         client
-            .call(crate::submitter::service_configuration::Request {})
+            .call(crate::submitter::get_service_configuration::Request {})
             .await
             .unwrap();
         let after = Client::get_nb_request("Submitter", "GetServiceConfiguration").await;
