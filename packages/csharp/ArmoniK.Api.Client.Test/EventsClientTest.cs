@@ -23,8 +23,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Linq;
-using System.Runtime.InteropServices;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
@@ -48,28 +46,9 @@ public class EventsClientTest
 {
   [SetUp]
   public void SetUp()
-  {
-    certPath_       = Environment.GetEnvironmentVariable("Grpc__ClientCert")               ?? "";
-    keyPath_        = Environment.GetEnvironmentVariable("Grpc__ClientKey")                ?? "";
-    CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
-    MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
-    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
-    isInsecure_     = Environment.GetEnvironmentVariable("Grpc__AllowUnsafeConnection") == "true";
-    if (isInsecure_)
-    {
-      endpoint_ = RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler_.ToLower()
-                                                                                                         .Contains("web")
-                    ? "http://localhost:4999"
-                    : endpoint_;
-    }
-  }
+    => options_ = ConfTest.GetChannelOptions();
 
-  private static string? endpoint_;
-  private static string? certPath_;
-  private static string? keyPath_;
-  private static string? CaCertPath_;
-  private static string? MessageHandler_;
-  private        bool    isInsecure_;
+  private GrpcClient options_;
 
   [Test]
   public void TestGetEvents()
@@ -78,15 +57,7 @@ public class EventsClientTest
                                     "GetEvents")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(options_);
     var partition = "default";
     var taskOptions = new TaskOptions
                       {
@@ -149,6 +120,6 @@ public class EventsClientTest
                         .GetAwaiter()
                         .GetResult();
     Assert.AreEqual(after - before,
-                    0);
+                    1);
   }
 }

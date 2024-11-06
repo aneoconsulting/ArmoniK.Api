@@ -25,14 +25,14 @@
 using System;
 using System.IO;
 using System.Net.Http;
-using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
-
-using Microsoft.Extensions.Configuration;
+using System.Threading.Tasks;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
+
+using Microsoft.Extensions.Configuration;
 
 using Newtonsoft.Json.Linq;
 
@@ -49,11 +49,11 @@ public class ConfTest
     var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
     var configuration = builder.Build();
     var options = configuration.GetRequiredSection(GrpcClient.SettingSection)
-                            .Get<GrpcClient>();
+                               .Get<GrpcClient>();
     if (options!.AllowUnsafeConnection)
     {
       if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options.HttpMessageHandler.ToLower()
-                                                                                          .Contains("web"))
+                                                                                         .Contains("web"))
       {
         options!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
       }
@@ -63,9 +63,9 @@ public class ConfTest
   }
 
   public static async Task<uint> RpcCalled(string service_name,
-                                          string rpc_name)
+                                           string rpc_name)
   {
-    var options       = GetChannelOptions();
+    var options = GetChannelOptions();
 
     X509Certificate? caCert = null;
     if (!string.IsNullOrWhiteSpace(options.CaCert) && !options.AllowUnsafeConnection)
@@ -92,6 +92,7 @@ public class ConfTest
     {
       handler.ClientCertificates.Add(clientCert!);
     }
+
     handler.ServerCertificateCustomValidationCallback = (httpRequestMessage,
                                                          cert,
                                                          certChain,
@@ -111,10 +112,11 @@ public class ConfTest
     var call_endpoint = Environment.GetEnvironmentVariable("Http__Endpoint") + "/calls.json";
     try
     {
-      using HttpResponseMessage response     = await client.GetAsync(call_endpoint);
+      using var response = await client.GetAsync(call_endpoint);
       response.EnsureSuccessStatusCode();
-      string  responseBody = response.Content.ReadAsStringAsync().Result;
-      JObject jsonResponse = JObject.Parse(responseBody);
+      var responseBody = response.Content.ReadAsStringAsync()
+                                 .Result;
+      var jsonResponse = JObject.Parse(responseBody);
       return (uint)jsonResponse[service_name][rpc_name];
     }
     catch (HttpRequestException e)

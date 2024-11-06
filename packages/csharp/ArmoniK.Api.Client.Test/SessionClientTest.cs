@@ -23,7 +23,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
-using System.Runtime.InteropServices;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
@@ -41,29 +40,9 @@ public class SessionClientTest
 {
   [SetUp]
   public void SetUp()
-  {
-    certPath_       = Environment.GetEnvironmentVariable("Grpc__ClientCert")               ?? "";
-    keyPath_        = Environment.GetEnvironmentVariable("Grpc__ClientKey")                ?? "";
-    CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
-    MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
-    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
-    isInsecure_     = Environment.GetEnvironmentVariable("Grpc__AllowUnsafeConnection") == "true";
+    => option_ = ConfTest.GetChannelOptions();
 
-    if (isInsecure_)
-    {
-      endpoint_ = RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler_.ToLower()
-                                                                                                         .Contains("web")
-                    ? "http://localhost:4999"
-                    : endpoint_;
-    }
-  }
-
-  private static string? endpoint_;
-  private static string? certPath_;
-  private static string? keyPath_;
-  private static string? CaCertPath_;
-  private static string? MessageHandler_;
-  private        bool    isInsecure_;
+  private GrpcClient? option_;
 
   [Test]
   public void TestCreateSession()
@@ -72,15 +51,7 @@ public class SessionClientTest
                                     "CreateSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -115,15 +86,7 @@ public class SessionClientTest
                                     "CancelSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -162,15 +125,7 @@ public class SessionClientTest
                                     "GetSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -209,15 +164,7 @@ public class SessionClientTest
                                     "ListSessions")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -260,15 +207,7 @@ public class SessionClientTest
                                     "PauseSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -307,15 +246,7 @@ public class SessionClientTest
                                     "ResumeSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -358,15 +289,7 @@ public class SessionClientTest
                                     "PurgeSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -410,15 +333,7 @@ public class SessionClientTest
                                     "DeleteSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -457,15 +372,7 @@ public class SessionClientTest
                                     "StopSubmission")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions
@@ -504,15 +411,7 @@ public class SessionClientTest
                                     "CloseSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(option_!);
     var partition = "default";
     var client    = new Sessions.SessionsClient(channel);
     var taskOptions = new TaskOptions

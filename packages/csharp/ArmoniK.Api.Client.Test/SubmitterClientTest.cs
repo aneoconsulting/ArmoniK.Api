@@ -24,13 +24,12 @@
 
 using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 using ArmoniK.Api.Client.Options;
 using ArmoniK.Api.Client.Submitter;
-using ArmoniK.Api.gRPC.V1.Submitter;
 using ArmoniK.Api.gRPC.V1;
+using ArmoniK.Api.gRPC.V1.Submitter;
 
 using Google.Protobuf.WellKnownTypes;
 
@@ -45,55 +44,27 @@ public class SubmitterClientTest
 {
   [SetUp]
   public void SetUp()
-  {
-    certPath_       = Environment.GetEnvironmentVariable("Grpc__ClientCert")               ?? "";
-    keyPath_        = Environment.GetEnvironmentVariable("Grpc__ClientKey")                ?? "";
-    CaCertPath_     = Environment.GetEnvironmentVariable("Grpc__CaCert")                   ?? "";
-    MessageHandler_ = Environment.GetEnvironmentVariable("GrpcClient__HttpMessageHandler") ?? "";
-    endpoint_       = Environment.GetEnvironmentVariable("Grpc__Endpoint")                 ?? "";
-    isInsecure_     = Environment.GetEnvironmentVariable("Grpc__AllowUnsafeConnection") == "true";
+    => options_ = ConfTest.GetChannelOptions();
 
-    if (isInsecure_)
-    {
-      endpoint_ = RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || MessageHandler_.ToLower()
-                                                                                                         .Contains("web")
-                    ? "http://localhost:4999"
-                    : endpoint_;
-    }
-  }
-
-  private static string? endpoint_;
-  private static string? certPath_;
-  private static string? keyPath_;
-  private static string? CaCertPath_;
-  private static string? MessageHandler_;
-  private        bool    isInsecure_;
+  private GrpcClient? options_;
 
   [Test]
   public void TestGetServiceConfiguration()
   {
     var before = ConfTest.RpcCalled("Submitter",
-                                 "GetServiceConfiguration")
-                      .GetAwaiter()
-                      .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
-    Assert.That(() => client.GetServiceConfiguration(new Empty()),
-                Throws.Nothing);
-    var after = ConfTest.RpcCalled("Submitter",
                                     "GetServiceConfiguration")
                          .GetAwaiter()
                          .GetResult();
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    Assert.That(() => client.GetServiceConfiguration(new Empty()),
+                Throws.Nothing);
+    var after = ConfTest.RpcCalled("Submitter",
+                                   "GetServiceConfiguration")
+                        .GetAwaiter()
+                        .GetResult();
     Assert.AreEqual(after - before,
-                  1);
+                    1);
   }
 
   [Test]
@@ -103,15 +74,7 @@ public class SubmitterClientTest
                                     "CreateSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var client    = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     var taskOptions = new TaskOptions
@@ -145,16 +108,8 @@ public class SubmitterClientTest
                                     "CancelSession")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.CancelSession(new Session
                                            {
                                              Id = "session-id",
@@ -175,15 +130,7 @@ public class SubmitterClientTest
                                     "CreateSmallTasks")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var client    = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     var taskOptions = new TaskOptions
@@ -197,9 +144,6 @@ public class SubmitterClientTest
                                               {
                                                 SessionId   = "session-id",
                                                 TaskOptions = taskOptions,
-                                                TaskRequests =
-                                                {
-                                                },
                                               }),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Submitter",
@@ -217,15 +161,7 @@ public class SubmitterClientTest
                                     "CreateLargeTasks")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
+    var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var client    = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     var taskOptions = new TaskOptions
@@ -235,11 +171,10 @@ public class SubmitterClientTest
                         Priority    = 1,
                         PartitionId = partition,
                       };
-    Assert.That(() => SubmitterClientExt.CreateTasksAsync(client,
-                                                          "session-id",
-                                                          taskOptions,
-                                                          Enumerable.Empty<TaskRequest>(),
-                                                          CancellationToken.None),
+    Assert.That(() => client.CreateTasksAsync("session-id",
+                                              taskOptions,
+                                              Enumerable.Empty<TaskRequest>(),
+                                              CancellationToken.None),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Submitter",
                                    "CreateLargeTasks")
@@ -256,19 +191,9 @@ public class SubmitterClientTest
                                     "ListTasks")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
-    Assert.That(() => client.ListTasks(new TaskFilter
-                                       {
-                                       }),
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    Assert.That(() => client.ListTasks(new TaskFilter()),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Submitter",
                                    "ListTasks")
@@ -285,19 +210,9 @@ public class SubmitterClientTest
                                     "ListSessions")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
-    Assert.That(() => client.ListSessions(new SessionFilter
-                                          {
-                                          }),
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    Assert.That(() => client.ListSessions(new SessionFilter()),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Submitter",
                                    "ListSessions")
@@ -314,19 +229,9 @@ public class SubmitterClientTest
                                     "CountTasks")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
-    Assert.That(() => client.CountTasks(new TaskFilter
-                                        {
-                                        }),
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    Assert.That(() => client.CountTasks(new TaskFilter()),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Submitter",
                                    "CountTasks")
@@ -343,16 +248,8 @@ public class SubmitterClientTest
                                     "TryGetResultStream")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.TryGetResultStream(new ResultRequest
                                                 {
                                                   ResultId = "result-id",
@@ -374,16 +271,8 @@ public class SubmitterClientTest
                                     "TryGetTaskOutput")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.TryGetTaskOutput(new TaskOutputRequest
                                               {
                                                 Session = "session-id",
@@ -405,16 +294,8 @@ public class SubmitterClientTest
                                     "WaitForAvailability")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.WaitForAvailability(new ResultRequest
                                                  {
                                                    ResultId = "result-id",
@@ -436,21 +317,11 @@ public class SubmitterClientTest
                                     "WaitForCompletion")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.WaitForCompletion(new WaitRequest
                                                {
-                                                 Filter = new TaskFilter
-                                                          {
-                                                          },
+                                                 Filter                      = new TaskFilter(),
                                                  StopOnFirstTaskError        = true,
                                                  StopOnFirstTaskCancellation = true,
                                                }),
@@ -470,19 +341,9 @@ public class SubmitterClientTest
                                     "CancelTasks")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
-    Assert.That(() => client.CancelTasks(new TaskFilter
-                                         {
-                                         }),
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    Assert.That(() => client.CancelTasks(new TaskFilter()),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Submitter",
                                    "CancelTasks")
@@ -499,16 +360,8 @@ public class SubmitterClientTest
                                     "GetTaskStatus")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.GetTaskStatus(new GetTaskStatusRequest
                                            {
                                              TaskIds =
@@ -532,16 +385,8 @@ public class SubmitterClientTest
                                     "GetResultStatus")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.GetResultStatus(new GetResultStatusRequest
                                              {
                                                SessionId = "session-id",
@@ -566,16 +411,8 @@ public class SubmitterClientTest
                                     "WatchResults")
                          .GetAwaiter()
                          .GetResult();
-    var channel = GrpcChannelFactory.CreateChannel(new GrpcClient
-                                                   {
-                                                     Endpoint              = endpoint_,
-                                                     AllowUnsafeConnection = isInsecure_,
-                                                     CertPem               = certPath_!,
-                                                     KeyPem                = keyPath_!,
-                                                     CaCert                = CaCertPath_!,
-                                                     HttpMessageHandler    = MessageHandler_!,
-                                                   });
-    var client = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+    var client  = new gRPC.V1.Submitter.Submitter.SubmitterClient(channel);
     Assert.That(() => client.WatchResults(),
                 Throws.Nothing);
     var after = ConfTest.RpcCalled("Submitter",
