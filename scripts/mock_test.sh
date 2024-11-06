@@ -1,4 +1,6 @@
-#!/bin/bash
+#! /bin/sh
+
+set -x
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 <test_dir> <test_command>"
@@ -8,34 +10,26 @@ fi
 script_path="$(dirname "${BASH_SOURCE:-$0}")"
 working_dir="$(realpath "$script_path/../packages" )"
 
-TEST_DIR=$1
-TEST_COMMAND=$2
+TEST_DIR="${1:?Test dir is not set}"
+TEST_COMMAND="${2:?Command is not set}"
 
 if [ -n "$Grpc__CaCert" ]; then
-  export Grpc__CaCert=$working_dir/csharp/$Grpc__CaCert
+  export Grpc__CaCert="$working_dir/csharp/$Grpc__CaCert"
 fi
 if [ -n "$Grpc__ClientCert" ]; then
-  export Grpc__ClientCert=$working_dir/csharp/$Grpc__ClientCert
+  export Grpc__ClientCert="$working_dir/csharp/$Grpc__ClientCert"
 fi
 if [ -n "$Grpc__ClientKey" ]; then
-  export Grpc__ClientKey=$working_dir/csharp/$Grpc__ClientKey
+  export Grpc__ClientKey="$working_dir/csharp/$Grpc__ClientKey"
 fi
 
-cd $working_dir/csharp
-set +e
-set -x
-./out/ArmoniK.Api.Mock.exe &
+"$working_dir/csharp/out/ArmoniK.Api.Mock.exe" &
   server_pid=$!
-  sleep 5
+sleep 5
 
-set -e
+cd "$working_dir/$TEST_DIR"
 
-cd $working_dir
-cd $TEST_DIR
-
-$TEST_COMMAND
-ret=$?
-set +e
+$TEST_COMMAND || ret=$?
 
 echo $server_pid
 kill $server_pid
