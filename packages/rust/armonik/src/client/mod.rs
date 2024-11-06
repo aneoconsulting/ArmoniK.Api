@@ -250,7 +250,7 @@ where
 }
 
 /// Perform a gRPC call from a raw request.
-#[async_trait::async_trait(?Send)]
+#[crate::reexports::async_trait(?Send)]
 pub trait GrpcCall<Request> {
     type Response;
     type Error;
@@ -260,7 +260,7 @@ pub trait GrpcCall<Request> {
 }
 
 /// Perform a gRPC call from a raw request.
-#[async_trait::async_trait(?Send)]
+#[crate::reexports::async_trait(?Send)]
 pub trait GrpcCallStream<Request, Stream>
 where
     Stream: futures::Stream<Item = Request> + Send + 'static,
@@ -272,7 +272,7 @@ where
     async fn call(self, request: Stream) -> Result<Self::Response, Self::Error>;
 }
 
-#[async_trait::async_trait(?Send)]
+#[crate::reexports::async_trait(?Send)]
 impl<Stream, Request, T> GrpcCall<Stream> for T
 where
     Stream: futures::Stream<Item = Request> + Send + 'static,
@@ -346,7 +346,7 @@ macro_rules! impl_call {
         }
     };
     (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty, $Error:ty> $block:block) => {
-        #[async_trait::async_trait(?Send)]
+        #[crate::reexports::async_trait(?Send)]
         impl<T> $crate::client::GrpcCall<$Request> for &'_ mut $Client<T>
         where
             T: tonic::client::GrpcService<tonic::body::BoxBody>,

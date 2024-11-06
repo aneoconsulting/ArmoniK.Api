@@ -69,6 +69,7 @@ pub enum ReadEnvError {
 #[derive(Debug)]
 pub(crate) struct InsecureCertVerifier;
 
+#[cfg(feature = "_gen-client")]
 impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
     fn verify_server_cert(
         &self,
@@ -117,11 +118,6 @@ impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
         ]
     }
 }
-
-struct Foo {}
-struct Bar(Vec<Foo>);
-
-impl_vec_wrapper!(Bar(Foo));
 
 /// Implement all traits and functions to define a wrapper around a [`Vec`]
 ///
