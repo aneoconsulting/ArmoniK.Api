@@ -69,6 +69,7 @@ pub enum ReadEnvError {
 #[derive(Debug)]
 pub(crate) struct InsecureCertVerifier;
 
+#[cfg(feature = "_gen-client")]
 impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
     fn verify_server_cert(
         &self,

@@ -36,7 +36,6 @@ checksum = "34ac096ce696dc2fcabef30516bb13c0a68a11d30131d3df6f04711467681b04"
 name = "armonik"
 version = "3.22.0-beta-0"
 dependencies = [
- "async-trait",
  "eyre",
  "futures",
  "http-body-util",
@@ -51,6 +50,7 @@ dependencies = [
  "serial_test",
  "snafu",
  "tokio",
+ "tokio-util",
  "tonic",
  "tonic-build",
  "tracing",
