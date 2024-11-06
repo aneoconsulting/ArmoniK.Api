@@ -21,32 +21,30 @@ jobs:
             dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
             dotnet: ''
-            handler: ''
           - lang: C#
             dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
             dotnet: ''
-            handler: GrpcWebHandler
+            env:
+              GrpcClient__HttpMessageHandler: GrpcWebHandler
           - lang: C#
             dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
             dotnet: ''
-            handler: ''
           - lang: C#
             dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
             dotnet: ''
-            handler: GrpcWebHandler
+            env:
+              GrpcClient__HttpMessageHandler: GrpcWebHandler
           - lang: C#
             dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net6.0 --logger "trx;LogFileName=test-results.trx"
             dotnet: 6.0
-            handler: ''
           - lang: C#
             dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net8.0 --logger "trx;LogFileName=test-results.trx"
             dotnet: 8.0
-            handler: ''
           - lang: C++
             dir: cpp
             cmd: ./tools/run_test.sh
@@ -80,6 +78,7 @@ jobs:
             plateform:
               os: ubuntu-latest
     runs-on: ${{ matrix.plateform.os }}
+    env: ${{ matrix.language.env }}
 
     steps:
       - name: Checkout
