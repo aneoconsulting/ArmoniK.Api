@@ -23,20 +23,92 @@
 // along with this program.If not, see <http://www.gnu.org/licenses/>.
 
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
+
+using Microsoft.Extensions.Configuration;
+
+using ArmoniK.Api.Client.Options;
+using ArmoniK.Api.Client.Submitter;
+
 using Newtonsoft.Json.Linq;
+
+using Org.BouncyCastle.X509;
+
+using X509Certificate = Org.BouncyCastle.X509.X509Certificate;
 
 namespace ArmoniK.Api.Client.Tests;
 
 public class ConfTest
 {
-  private static readonly HttpClient client = new HttpClient();
+  public static GrpcClient GetChannelOptions()
+  {
+    var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
+    var configuration = builder.Build();
+    var options = configuration.GetRequiredSection(GrpcClient.SettingSection)
+                            .Get<GrpcClient>();
+    if (options!.AllowUnsafeConnection)
+    {
+      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options.HttpMessageHandler.ToLower()
+                                                                                          .Contains("web"))
+      {
+        options!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
+      }
+    }
+
+    return options;
+  }
 
   public static async Task<uint> RpcCalled(string service_name,
                                           string rpc_name)
   {
-    var        call_endpoint = Environment.GetEnvironmentVariable("Http__Endpoint") + "/calls.json";
+    var options       = GetChannelOptions();
+
+    X509Certificate? caCert = null;
+    if (!string.IsNullOrWhiteSpace(options.CaCert) && !options.AllowUnsafeConnection)
+    {
+      if (!File.Exists(options.CaCert))
+      {
+        throw new FileNotFoundException("Couldn't find specified CA certificate",
+                                        options.CaCert);
+      }
+
+      var parser = new X509CertificateParser();
+      using var stream = File.Open(options.CaCert,
+                                   FileMode.Open,
+                                   FileAccess.Read,
+                                   FileShare.Read);
+      caCert = parser.ReadCertificate(stream);
+    }
+
+    var clientCert = options.HasClientCertificate
+                       ? GrpcChannelFactory.GetCertificate(options)
+                       : null;
+    var handler = new HttpClientHandler();
+    if (clientCert != null)
+    {
+      handler.ClientCertificates.Add(clientCert!);
+    }
+    handler.ServerCertificateCustomValidationCallback = (httpRequestMessage,
+                                                         cert,
+                                                         certChain,
+                                                         sslPolicyErrors) =>
+                                                        {
+                                                          if (caCert != null)
+                                                          {
+                                                            certChain.ChainPolicy.ExtraStore.Add(new X509Certificate2(caCert!.GetEncoded()));
+                                                            certChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                                                            certChain.ChainPolicy.RevocationMode    = X509RevocationMode.NoCheck;
+                                                          }
+
+                                                          return certChain.Build(cert);
+                                                        };
+
+    var client        = new HttpClient(handler);
+    var call_endpoint = Environment.GetEnvironmentVariable("Http__Endpoint") + "/calls.json";
     try
     {
       using HttpResponseMessage response     = await client.GetAsync(call_endpoint);
