@@ -50,6 +50,7 @@ dependencies = [
  "serial_test",
  "snafu",
  "tokio",
+ "tokio-util",
  "tonic",
  "tonic-build",
  "tracing",

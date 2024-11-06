@@ -12,20 +12,35 @@ version = "3.24.0-beta-0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
+default = ["client"]
 serde = ["dep:serde"]
-
+client = ["_gen-client"]
+server = ["_gen-server"]
+_gen-client = ["tonic/channel", "dep:rustls", "dep:hyper-rustls", "dep:hyper"]
+_gen-server = ["tonic/server", "dep:tokio-util", "dep:tokio"]
 
 [dependencies]
-tonic = "0.12"
+tonic = { version = "0.12", features = [
+  "codegen",
+  "prost",
+], default-features = false }
 prost = "0.13"
 prost-types = "0.13"
 futures = "0.3"
 snafu = "0.8"
 tracing = "0.1"
-hyper = { version = "1.5", features = ["client", "http1", "http2"] }
-hyper-rustls = { version = "0.27", features = ["http1", "http2"] }
-rustls = { version = "0.23", features = ["ring"] }
+hyper = { version = "1.5", features = [
+  "client",
+  "http1",
+  "http2",
+], optional = true }
+hyper-rustls = { version = "0.27", features = [
+  "http1",
+  "http2",
+], optional = true }
+rustls = { version = "0.23", features = ["ring"], optional = true }
+tokio-util = { version = "0.7", optional = true }
+tokio = { version = "1.41", default-features = false, optional = true }
 serde = { version = "1.0", features = [
   "derive",
 ], default-features = false, optional = true }
@@ -46,3 +61,11 @@ tokio = { version = "1.42", features = [
 
 [build-dependencies]
 tonic-build = "0.12"
+
+[[example]]
+name = "client"
+required-features = ["client"]
+
+[[example]]
+name = "server"
+required-features = ["server"]
