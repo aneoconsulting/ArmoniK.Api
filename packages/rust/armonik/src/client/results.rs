@@ -5,8 +5,8 @@ use snafu::ResultExt;
 
 use crate::api::v3;
 use crate::results::{
-    create, create_metadata, delete, download, filter, get, list, owner, service_configuration,
-    upload, Raw, Sort,
+    create, create_metadata, delete_data, download, filter, get, get_owner_task_id,
+    get_service_configuration, list, upload, Raw, Sort,
 };
 use crate::utils::IntoCollection;
 
@@ -69,7 +69,7 @@ where
         result_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<HashMap<String, String>, super::RequestError> {
         Ok(self
-            .call(owner::Request {
+            .call(get_owner_task_id::Request {
                 session_id: session_id.into(),
                 result_ids: result_ids.into_collect(),
             })
@@ -177,7 +177,7 @@ where
         result_ids: impl IntoIterator<Item = impl Into<String>>,
     ) -> Result<Vec<String>, super::RequestError> {
         Ok(self
-            .call(delete::Request {
+            .call(delete_data::Request {
                 session_id: session_id.into(),
                 result_ids: result_ids.into_collect(),
             })
@@ -188,8 +188,8 @@ where
     /// Get the configuration of the service.
     pub async fn get_service_configuration(
         &mut self,
-    ) -> Result<service_configuration::Response, super::RequestError> {
-        self.call(service_configuration::Request {}).await
+    ) -> Result<get_service_configuration::Response, super::RequestError> {
+        self.call(get_service_configuration::Request {}).await
     }
 
     /// Perform a gRPC call from a raw request.
@@ -226,7 +226,7 @@ super::impl_call! {
                 .into())
         }
 
-        async fn call(self, request: owner::Request) -> Result<owner::Response> {
+        async fn call(self, request: get_owner_task_id::Request) -> Result<get_owner_task_id::Response> {
             Ok(self
                 .inner
                 .get_owner_task_id(request)
@@ -256,7 +256,7 @@ super::impl_call! {
                 .into())
         }
 
-        async fn call(self, request: delete::Request) -> Result<delete::Response> {
+        async fn call(self, request: delete_data::Request) -> Result<delete_data::Response> {
             Ok(self
                 .inner
                 .delete_results_data(request)
@@ -266,7 +266,7 @@ super::impl_call! {
                 .into())
         }
 
-        async fn call(self, request: service_configuration::Request) -> Result<service_configuration::Response> {
+        async fn call(self, request: get_service_configuration::Request) -> Result<get_service_configuration::Response> {
             Ok(self
                 .inner
                 .get_service_configuration(request)
@@ -482,11 +482,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn owner_call() {
+    async fn get_owner_task_id_call() {
         let before = Client::get_nb_request("Results", "GetOwnerTaskId").await;
         let mut client = Client::new().await.unwrap().results();
         client
-            .call(crate::results::owner::Request {
+            .call(crate::results::get_owner_task_id::Request {
                 session_id: String::from("session-id"),
                 result_ids: Vec::new(),
             })
@@ -527,11 +527,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn delete_call() {
+    async fn delete_data_call() {
         let before = Client::get_nb_request("Results", "DeleteResultsData").await;
         let mut client = Client::new().await.unwrap().results();
         client
-            .call(crate::results::delete::Request {
+            .call(crate::results::delete_data::Request {
                 session_id: String::from("session-id"),
                 result_ids: vec![String::from("result-id")],
             })
@@ -542,11 +542,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn service_configuration_call() {
+    async fn get_service_configuration_call() {
         let before = Client::get_nb_request("Results", "GetServiceConfiguration").await;
         let mut client = Client::new().await.unwrap().results();
         client
-            .call(crate::results::service_configuration::Request {})
+            .call(crate::results::get_service_configuration::Request {})
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "GetServiceConfiguration").await;

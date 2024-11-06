@@ -4,9 +4,9 @@ pub mod cancel;
 pub mod count_status;
 pub mod filter;
 pub mod get;
+pub mod get_result_ids;
 pub mod list;
 pub mod list_detailed;
-pub mod result_ids;
 pub mod submit;
 
 mod field;
