@@ -21,7 +21,7 @@ jobs:
             cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
-            env: []
+            env: {}
           - lang: C#
             cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
@@ -32,7 +32,7 @@ jobs:
             cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
-            env: []
+            env: {}
           - lang: C#
             cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
@@ -43,20 +43,20 @@ jobs:
             cmd: dotnet test -f net6.0 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
             dotnet: 6.0
-            env: []
+            env: {}
           - lang: C#
             cmd: dotnet test -f net8.0 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
             dotnet: 8.0
-            env: []
+            env: {}
           - lang: C++
             cmd: ./tools/run_test.sh
             dir: cpp
-            env: []
+            env: {}
           - lang: Python
             cmd: pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
             dir: python
-            env: []
+            env: {}
         plateform:
           - os: ubuntu-latest
           - os: windows-latest

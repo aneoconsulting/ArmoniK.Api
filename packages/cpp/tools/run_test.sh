@@ -4,7 +4,7 @@ set -x
 script_path="$(dirname "${BASH_SOURCE:-$0}")"
 CertFolder="$(realpath "$script_path/../../csharp/certs" )"
 docker run --rm -t --network host -v "$CertFolder:/app/source/certs" -v "/usr/local/share/ca-certificates/:/usr/local/share/ca-certificates" \
-            -e Grpc__EndPoint \
+            -e Grpc__EndPoint="$Grpc__Endpoint" \
             -e Http__EndPoint="${Http__Endpoint:-$Grpc__Endpoint}" \
             ${Grpc__SSLValidation:+-e Grpc__SSLValidation} \
             ${Grpc__CaCert:+-e Grpc__CaCert="/app/source/certs/server1-ca.pem"} \
