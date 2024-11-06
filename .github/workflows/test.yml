@@ -18,39 +18,45 @@ jobs:
       matrix:
         language:
           - lang: C#
-            dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
+            dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
+            env: []
           - lang: C#
-            dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
+            dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
             env:
               GrpcClient__HttpMessageHandler: GrpcWebHandler
           - lang: C#
-            dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
+            dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
+            env: []
           - lang: C#
-            dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net4.8 --logger "trx;LogFileName=test-results.trx"
+            dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
             env:
               GrpcClient__HttpMessageHandler: GrpcWebHandler
           - lang: C#
-            dir: csharp/ArmoniK.Api.Client.Test
             cmd: dotnet test -f net6.0 --logger "trx;LogFileName=test-results.trx"
-            dotnet: 6.0
-          - lang: C#
             dir: csharp/ArmoniK.Api.Client.Test
+            dotnet: 6.0
+            env: []
+          - lang: C#
             cmd: dotnet test -f net8.0 --logger "trx;LogFileName=test-results.trx"
+            dir: csharp/ArmoniK.Api.Client.Test
             dotnet: 8.0
+            env: []
           - lang: C++
-            dir: cpp
             cmd: ./tools/run_test.sh
+            dir: cpp
+            env: []
           - lang: Python
-            dir: python
             cmd: pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+            dir: python
+            env: []
         plateform:
           - os: ubuntu-latest
           - os: windows-latest
