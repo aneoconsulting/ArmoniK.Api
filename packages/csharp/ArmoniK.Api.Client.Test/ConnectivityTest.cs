@@ -47,7 +47,7 @@ public class ConnectivityTests
     var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
     var configuration = builder.Build();
     options_ = configuration.GetRequiredSection(GrpcClient.SettingSection)
-                            .Get<GrpcClient>();
+                            .Get<GrpcClient>()!;
     if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options_.HttpMessageHandler.ToLower()
                                                                                         .Contains("web"))
     {
