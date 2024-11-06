@@ -21,12 +21,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
+using ArmoniK.Api.Client.Options;
+using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Utils;
+
+using Microsoft.Extensions.Configuration;
 
 using NUnit.Framework;
 
@@ -35,10 +41,27 @@ namespace ArmoniK.Api.Client.Tests;
 [TestFixture]
 public class ConnectivityTests
 {
-  [Test]
-  public void ResultsGetServiceConfiguration([Values] ConnectivityKind connectivityKind)
+  [SetUp]
+  public void SetUp()
   {
-    var channel      = connectivityKind.GetChannel();
+    var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
+    var configuration = builder.Build();
+    options_ = configuration.GetRequiredSection(GrpcClient.SettingSection)
+                            .Get<GrpcClient>()!;
+    if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options_.HttpMessageHandler.ToLower()
+                                                                                        .Contains("web"))
+    {
+      options_!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
+    }
+  }
+
+  private GrpcClient? options_;
+
+  [Test]
+  public void ResultsGetServiceConfiguration()
+  {
+    var channel = GrpcChannelFactory.CreateChannel(options_!);
+
     var resultClient = new Results.ResultsClient(channel);
 
     Assert.That(() => resultClient.GetServiceConfiguration(new Empty()),
@@ -46,8 +69,7 @@ public class ConnectivityTests
   }
 
   [Test]
-  public async Task MultipleChannels([Values] ConnectivityKind connectivityKind,
-                                     [Values(1,
+  public async Task MultipleChannels([Values(1,
                                              2,
                                              10,
                                              100)]
@@ -56,7 +78,7 @@ public class ConnectivityTests
     var channels = await Enumerable.Range(0,
                                           concurrency)
                                    .ParallelSelect(new ParallelTaskOptions(-1),
-                                                   i => Task.FromResult(connectivityKind.GetChannel()))
+                                                   i => Task.FromResult(GrpcChannelFactory.CreateChannel(options_!)))
                                    .ToListAsync()
                                    .ConfigureAwait(false);
 
