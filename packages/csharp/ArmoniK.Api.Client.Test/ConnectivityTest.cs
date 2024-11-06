@@ -44,15 +44,7 @@ public class ConnectivityTests
   [SetUp]
   public void SetUp()
   {
-    var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
-    var configuration = builder.Build();
-    options_ = configuration.GetRequiredSection(GrpcClient.SettingSection)
-                            .Get<GrpcClient>()!;
-    if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options_.HttpMessageHandler.ToLower()
-                                                                                        .Contains("web"))
-    {
-      options_!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
-    }
+    options_ = ConfTest.GetChannelOptions();
   }
 
   private GrpcClient? options_;

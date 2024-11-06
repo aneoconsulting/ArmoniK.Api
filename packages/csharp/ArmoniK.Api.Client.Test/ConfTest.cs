@@ -49,14 +49,11 @@ public class ConfTest
     var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
     var configuration = builder.Build();
     var options = configuration.GetRequiredSection(GrpcClient.SettingSection)
-                               .Get<GrpcClient>();
-    if (options!.AllowUnsafeConnection)
+                               .Get<GrpcClient>()!;
+    if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options.HttpMessageHandler.ToLower()
+                                                                                       .Contains("web"))
     {
-      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options.HttpMessageHandler.ToLower()
-                                                                                         .Contains("web"))
-      {
-        options!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
-      }
+      options!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
     }
 
     return options;
@@ -117,7 +114,7 @@ public class ConfTest
       var responseBody = response.Content.ReadAsStringAsync()
                                  .Result;
       var jsonResponse = JObject.Parse(responseBody);
-      return (uint)jsonResponse[service_name][rpc_name];
+      return (uint)jsonResponse[service_name]![rpc_name]!;
     }
     catch (HttpRequestException e)
     {
