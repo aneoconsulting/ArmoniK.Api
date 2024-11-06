@@ -7,6 +7,14 @@
     ]
   },
   "cSpell.words": [
-    "Armoni"
+    "Armoni",
+    "armonik"
+  ],
+  "[rust]": {
+    "editor.tabSize": 4
+  },
+  "rust-analyzer.cachePriming.enable": true,
+  "rust-analyzer.linkedProjects": [
+    "./packages/rust/armonik/Cargo.toml"
   ]
 }

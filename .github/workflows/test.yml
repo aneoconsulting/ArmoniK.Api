@@ -57,6 +57,16 @@ jobs:
             cmd: pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
             dir: python
             env: {}
+          - lang: Rust
+            toolchain: stable
+            cmd: cargo test --locked
+            dir: rust/armonik
+            env: {}
+          - lang: Rust
+            toolchain: nightly
+            cmd: cargo test --locked
+            dir: rust/armonik
+            env: {}
         plateform:
           - os: ubuntu-latest
           - os: windows-latest
@@ -76,6 +86,10 @@ jobs:
               os: windows-2019
           - language:
               lang: Python
+            plateform:
+              os: windows-2019
+          - language:
+              lang: Rust
             plateform:
               os: windows-2019
           - language:
@@ -123,11 +137,11 @@ jobs:
         run: |
           echo "Current language: ${{ matrix.language.lang }}"
 
+      # Prepare Python
       - name: pip update and add build package
         if: ${{ matrix.language.lang == 'Python' }}
         working-directory: packages/python
         run: bash proto2python.sh ~/pyvenv
-
       - name: Install python dependencies
         if: ${{ matrix.language.lang == 'Python' }}
         working-directory: packages/python
@@ -135,6 +149,24 @@ jobs:
           pwd
           pip install "$(echo pkg/armonik*.whl)[tests]"
 
+      # Prepare Rust
+      - uses: taiki-e/install-action@v2
+        if: ${{ matrix.language.lang == 'Rust' }}
+        with:
+          tool: protoc,sccache
+      - name: Install Rust toolchain
+        if: ${{ matrix.language.lang == 'Rust' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.language.toolchain }}
+          components: rust-src,rust-docs,rustfmt${{contains(matrix.language.toolchain, 'nightly') && ',miri' || ''}}
+      - name: Build Rust package
+        if: ${{ matrix.language.lang == 'Rust' }}
+        working-directory: packages/rust/armonik
+        run: |
+          cargo build --locked --tests
+
+      # Prepare C++
       - name: Build C++ package
         if: ${{ matrix.language.lang == 'C++' }}
         working-directory: packages/cpp
@@ -148,6 +180,7 @@ jobs:
           dotnet publish -o ../out
           [ -e ../out/ArmoniK.Api.Mock.exe ] || ln -s ArmoniK.Api.Mock ../out/ArmoniK.Api.Mock.exe
 
+      # Run tests
       - name: noTLS
         working-directory: packages/csharp/
         shell: bash
@@ -161,7 +194,7 @@ jobs:
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: TLS Insecure
-        if: ${{ matrix.language.lang == 'C#' }}
+        if: ${{ contains(fromJson('["C#", "Rust"]'), matrix.language.lang) }}
         working-directory: packages/csharp/
         shell: bash
         run: |
@@ -211,7 +244,7 @@ jobs:
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: mTLS Insecure
-        if: ${{ matrix.language.lang == 'C#' }}
+        if: ${{ contains(fromJson('["C#", "Rust"]'), matrix.language.lang) }}
         working-directory: packages/csharp/
         shell: bash
         run: |
