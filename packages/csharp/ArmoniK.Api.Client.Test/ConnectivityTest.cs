@@ -48,13 +48,10 @@ public class ConnectivityTests
     var configuration = builder.Build();
     options_ = configuration.GetRequiredSection(GrpcClient.SettingSection)
                             .Get<GrpcClient>();
-    if (options_!.AllowUnsafeConnection)
+    if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options_.HttpMessageHandler.ToLower()
+                                                                                        .Contains("web"))
     {
-      if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options_.HttpMessageHandler.ToLower()
-                                                                                          .Contains("web"))
-      {
-        options_!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
-      }
+      options_!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
     }
   }
 
