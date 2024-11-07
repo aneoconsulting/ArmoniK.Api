@@ -83,6 +83,18 @@ jobs:
               dotnet: ''
             plateform:
               os: ubuntu-latest
+          - language:
+              lang: C#
+              dotnet: ''
+              env: {}
+            plateform:
+              os: windows-2019
+          - language:
+              lang: C#
+              dotnet: ''
+              env: {}
+            plateform:
+              os: windows-2019
     runs-on: ${{ matrix.plateform.os }}
     env: ${{ matrix.language.env }}
 
