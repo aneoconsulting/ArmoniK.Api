@@ -49,6 +49,7 @@ public class SubmitterClientTest
 
   private GrpcClient? options_;
 
+  [Obsolete]
   [Test]
   public void TestGetServiceConfiguration()
   {
@@ -66,6 +67,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestCreateSession()
   {
@@ -98,6 +100,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestCancelSession()
   {
@@ -118,6 +121,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestCreateSmallTasks()
   {
@@ -147,6 +151,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestCreateLargeTasks()
   {
@@ -175,6 +180,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestListTasks()
   {
@@ -192,6 +198,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestListSessions()
   {
@@ -209,6 +216,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestCountTasks()
   {
@@ -226,6 +234,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestTryGetResult()
   {
@@ -247,6 +256,7 @@ public class SubmitterClientTest
     //                 1);
   }
 
+  [Obsolete]
   [Test]
   public void TestTryGetTaskOutput()
   {
@@ -268,6 +278,7 @@ public class SubmitterClientTest
     //                 1);
   }
 
+  [Obsolete]
   [Test]
   public void TestWaitForAvailability()
   {
@@ -289,6 +300,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestWaitForCompletion()
   {
@@ -311,6 +323,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestCancelTasks()
   {
@@ -328,6 +341,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestTaskStatus()
   {
@@ -351,6 +365,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestResultStatus()
   {
@@ -375,6 +390,7 @@ public class SubmitterClientTest
                     1);
   }
 
+  [Obsolete]
   [Test]
   public void TestWatchResults()
   {

@@ -49,7 +49,7 @@ public class EventsClientTest
   public void SetUp()
     => options_ = ConfTest.GetChannelOptions();
 
-  private GrpcClient options_;
+  private GrpcClient? options_;
 
   [Test]
   public void TestGetEvents()
@@ -57,7 +57,7 @@ public class EventsClientTest
     var before = ConfTest.RpcCalled("Events",
                                     "GetEvents")
                          .WaitSync();
-    var channel   = GrpcChannelFactory.CreateChannel(options_);
+    var channel   = GrpcChannelFactory.CreateChannel(options_!);
     var partition = "default";
     var taskOptions = new TaskOptions
                       {

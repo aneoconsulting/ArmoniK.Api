@@ -24,7 +24,6 @@
 
 using System;
 using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Net.Security;
 using System.Runtime.InteropServices;
@@ -102,10 +101,10 @@ public class ConfTest
                                                           {
                                                             if (caCert != null)
                                                             {
-                                                              certChain.ChainPolicy.ExtraStore.Add(new X509Certificate2(caCert!.GetEncoded()));
+                                                              certChain!.ChainPolicy.ExtraStore.Add(new X509Certificate2(caCert!.GetEncoded()));
                                                               certChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
                                                               certChain.ChainPolicy.RevocationMode    = X509RevocationMode.NoCheck;
-                                                              return certChain.Build(cert);
+                                                              return certChain!.Build(cert!);
                                                             }
 
                                                             return sslPolicyErrors == SslPolicyErrors.None;
