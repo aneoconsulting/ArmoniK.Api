@@ -24,7 +24,9 @@
 
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Security;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 using System.Threading.Tasks;
@@ -85,6 +87,7 @@ public class ConfTest
                        ? GrpcChannelFactory.GetCertificate(options)
                        : null;
     var handler = new HttpClientHandler();
+
     if (clientCert != null)
     {
       handler.ClientCertificates.Add(clientCert!);
@@ -95,16 +98,21 @@ public class ConfTest
                                                          certChain,
                                                          sslPolicyErrors) =>
                                                         {
-                                                          if (caCert != null)
+                                                          if (!options.AllowUnsafeConnection)
                                                           {
-                                                            certChain.ChainPolicy.ExtraStore.Add(new X509Certificate2(caCert!.GetEncoded()));
-                                                            certChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
-                                                            certChain.ChainPolicy.RevocationMode    = X509RevocationMode.NoCheck;
+                                                            if (caCert != null)
+                                                            {
+                                                              certChain.ChainPolicy.ExtraStore.Add(new X509Certificate2(caCert!.GetEncoded()));
+                                                              certChain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+                                                              certChain.ChainPolicy.RevocationMode    = X509RevocationMode.NoCheck;
+                                                              return certChain.Build(cert);
+                                                            }
+
+                                                            return sslPolicyErrors == SslPolicyErrors.None;
                                                           }
 
-                                                          return certChain.Build(cert);
+                                                          return true;
                                                         };
-
     var client        = new HttpClient(handler);
     var call_endpoint = Environment.GetEnvironmentVariable("Http__Endpoint") + "/calls.json";
     try
