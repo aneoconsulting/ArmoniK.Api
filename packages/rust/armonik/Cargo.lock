@@ -36,6 +36,7 @@ checksum = "74f37166d7d48a0284b99dd824694c26119c700b53bf0d1540cdb147dbdaaf13"
 name = "armonik"
 version = "3.21.0-beta-0"
 dependencies = [
+ "async-stream",
  "eyre",
  "futures",
  "http-body-util",
