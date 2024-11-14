@@ -60,7 +60,14 @@ impl From<Response> for v3::agent::CreateResultsResponse {
     fn from(value: Response) -> Self {
         Self {
             communication_token: value.communication_token,
-            results: value.results.into_values().map(Into::into).collect(),
+            results: value
+                .results
+                .into_iter()
+                .map(|(name, result)| {
+                    debug_assert_eq!(name, result.name);
+                    result.into()
+                })
+                .collect(),
         }
     }
 }

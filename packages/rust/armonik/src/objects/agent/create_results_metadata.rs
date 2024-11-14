@@ -64,7 +64,14 @@ impl From<Response> for v3::agent::CreateResultsMetaDataResponse {
     fn from(value: Response) -> Self {
         Self {
             communication_token: value.communication_token,
-            results: value.results.into_values().map(Into::into).collect(),
+            results: value
+                .results
+                .into_iter()
+                .map(|(k, v)| {
+                    debug_assert_eq!(k, v.name);
+                    v.into()
+                })
+                .collect(),
         }
     }
 }
