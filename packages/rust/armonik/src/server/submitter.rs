@@ -89,9 +89,7 @@ super::impl_trait_methods! {
         }
 
 
-        type TryGetResultStreamStream = crate::reexports::tokio_stream::wrappers::ReceiverStream<
-            Result<v3::submitter::ResultReply, tonic::Status>,
-        >;
+        type TryGetResultStreamStream = crate::server::ServerStream<v3::submitter::ResultReply>;
         async fn try_get_result_stream(
             self: std::sync::Arc<Self>,
             request: tonic::Request<v3::ResultRequest>,
@@ -103,9 +101,7 @@ super::impl_trait_methods! {
         }
 
 
-        type WatchResultsStream = crate::reexports::tokio_stream::wrappers::ReceiverStream<
-            Result<v3::submitter::WatchResultStream, tonic::Status>,
-        >;
+        type WatchResultsStream = crate::server::ServerStream<v3::submitter::WatchResultStream>;
         async fn watch_results(
             self: std::sync::Arc<Self>,
             _request: tonic::Request<tonic::Streaming<v3::submitter::WatchResultRequest>>,
