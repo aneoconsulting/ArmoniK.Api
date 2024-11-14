@@ -87,9 +87,7 @@ super::impl_trait_methods! {
             crate::server::impl_trait_methods!(stream client (self, request) {ResultsService::upload})
         }
 
-        type DownloadResultDataStream = crate::reexports::tokio_stream::wrappers::ReceiverStream<
-            Result<v3::results::DownloadResultDataResponse, tonic::Status>,
-        >;
+        type DownloadResultDataStream = crate::server::ServerStream<v3::results::DownloadResultDataResponse>;
         async fn download_result_data(
             self: std::sync::Arc<Self>,
             request: tonic::Request<v3::results::DownloadResultDataRequest>,
@@ -100,9 +98,7 @@ super::impl_trait_methods! {
             super::impl_trait_methods!(stream server (self, request) {ResultsService::download})
         }
 
-        type WatchResultsStream = crate::reexports::tokio_stream::wrappers::ReceiverStream<
-            Result<v3::results::WatchResultResponse, tonic::Status>,
-        >;
+        type WatchResultsStream = crate::server::ServerStream<v3::results::WatchResultResponse>;
         async fn watch_results(
             self: std::sync::Arc<Self>,
             _request: tonic::Request<tonic::Streaming<v3::results::WatchResultRequest>>,

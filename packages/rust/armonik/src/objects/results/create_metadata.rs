@@ -57,7 +57,14 @@ pub struct Response {
 impl From<Response> for v3::results::CreateResultsMetaDataResponse {
     fn from(value: Response) -> Self {
         Self {
-            results: value.results.into_values().map(Into::into).collect(),
+            results: value
+                .results
+                .into_iter()
+                .map(|(name, result)| {
+                    debug_assert_eq!(name, result.name);
+                    result.into()
+                })
+                .collect(),
         }
     }
 }

@@ -52,6 +52,7 @@ hyper-util = { version = "0.1", features = ["client", "http1"] }
 http-body-util = "0.1"
 serde_json = "1.0"
 serial_test = "3.2"
+async-stream = "0.3"
 tokio = { version = "1.42", features = [
   "rt-multi-thread",
   "macros",
@@ -62,10 +63,10 @@ tokio = { version = "1.42", features = [
 [build-dependencies]
 tonic-build = "0.12"
 
-[[example]]
-name = "client"
-required-features = ["client"]
+[[test]]
+name = "sessions"
+required-features = ["client", "server"]
 
-[[example]]
-name = "server"
-required-features = ["server"]
+[[test]]
+name = "agent"
+required-features = ["client", "server"]
