@@ -64,7 +64,7 @@ class TaskOptions:
             application_namespace=task_options.application_namespace,
             application_service=task_options.application_service,
             engine_type=task_options.engine_type,
-            options=task_options.options,
+            options={k: v for k, v in task_options.options.items()},
         )
 
     def to_message(self) -> RawTaskOptions:
