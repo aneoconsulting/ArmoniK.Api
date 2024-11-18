@@ -207,7 +207,6 @@ jobs:
           export Grpc__AllowUnsafeConnection=true
           export GrpcClient__Endpoint=https://localhost:5001
           export GrpcClient__AllowUnsafeConnection=true
-          export Grpc__SSLValidation=enable
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: TLS secure
@@ -225,7 +224,6 @@ jobs:
           export GrpcClient__Endpoint=https://localhost:5001
           export GrpcClient__AllowUnsafeConnection=false
           export GrpcClient__CaCert=$CertFolder/server1-ca.pem
-          export Grpc__SSLValidation=enable
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: TLS store
@@ -240,7 +238,6 @@ jobs:
           export Http__Endpoint=https://localhost:5002
           export GrpcClient__Endpoint=https://localhost:5002
           export GrpcClient__AllowUnsafeConnection=false
-          export Grpc__SSLValidation=enable
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: mTLS Insecure
@@ -261,8 +258,6 @@ jobs:
           export GrpcClient__AllowUnsafeConnection=true
           export GrpcClient__CertPem=$CertFolder/client.pem
           export GrpcClient__KeyPem=$CertFolder/client.key
-          export Grpc__SSLValidation=enable
-          export Grpc__mTLS=true
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: mTLS secure
@@ -285,8 +280,6 @@ jobs:
           export GrpcClient__CaCert=$CertFolder/server1-ca.pem
           export GrpcClient__CertPem=$CertFolder/client.pem
           export GrpcClient__KeyPem=$CertFolder/client.key
-          export Grpc__SSLValidation=enable
-          export Grpc__mTLS=true
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: mTLS store
@@ -307,8 +300,6 @@ jobs:
           export GrpcClient__AllowUnsafeConnection=false
           export GrpcClient__CertPem=$CertFolder/client.pem
           export GrpcClient__KeyPem=$CertFolder/client.key
-          export Grpc__SSLValidation=enable
-          export Grpc__mTLS=true
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: Test Report

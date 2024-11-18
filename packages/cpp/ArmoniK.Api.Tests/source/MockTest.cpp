@@ -8,6 +8,7 @@
 #include "logger/formatter.h"
 #include "logger/logger.h"
 #include "logger/writer.h"
+#include "options/ControlPlane.h"
 
 #include "channel/ChannelFactory.h"
 #include "sessions/SessionsClient.h"
@@ -24,20 +25,20 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
 
   armonik::api::common::utils::Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
-  std::string call_endpoint = config.get("Http__EndPoint") + "/calls.json";
+  std::string call_endpoint = config.get("Http__Endpoint") + "/calls.json";
   auto curl = curl_easy_init();
   std::string read_buffer;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
-    if (!config.get("Grpc__CaCert").empty()) {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    if (!config.get("GrpcClient__CaCert").empty()) {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
     } else {
       curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
     }
-    if (config.get("Grpc__mTLS") == "true") {
-      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
-      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    if (config.get_control_plane().hasClientCertificate()) {
+      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
+      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
     }
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
@@ -69,19 +70,19 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
 bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings) {
   armonik::api::common::utils::Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
-  std::string call_endpoint = config.get("Http__EndPoint") + "/calls.json";
+  std::string call_endpoint = config.get("Http__Endpoint") + "/calls.json";
   auto curl = curl_easy_init();
   std::string read_buffer;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, call_endpoint.c_str());
-    if (!config.get("Grpc__CaCert").empty()) {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    if (!config.get("GrpcClient__CaCert").empty()) {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
     } else {
       curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
     }
-    if (config.get("Grpc__mTLS") == "true") {
-      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
-      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    if (config.get_control_plane().hasClientCertificate()) {
+      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
+      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
     }
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
@@ -126,19 +127,19 @@ bool all_rpc_called(absl::string_view service_name, const std::vector<std::strin
 void clean_up() {
   armonik::api::common::utils::Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
-  std::string reset_endpoint = config.get("Http__EndPoint") + "/reset";
+  std::string reset_endpoint = config.get("Http__Endpoint") + "/reset";
   auto curl = curl_easy_init();
   std::string read_buffer;
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, reset_endpoint.c_str());
-    if (!config.get("Grpc__CaCert").empty()) {
-      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("Grpc__CaCert").c_str());
+    if (!config.get("GrpcClient__CaCert").empty()) {
+      curl_easy_setopt(curl, CURLOPT_CAINFO, config.get("GrpcClient__CaCert").c_str());
     } else {
       curl_easy_setopt(curl, CURLOPT_CAINFO, NULL);
     }
-    if (config.get("Grpc__mTLS") == "true") {
-      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("Grpc__ClientCert").c_str());
-      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("Grpc__ClientKey").c_str());
+    if (config.get_control_plane().hasClientCertificate()) {
+      curl_easy_setopt(curl, CURLOPT_SSLCERT, config.get("GrpcClient__CertPem").c_str());
+      curl_easy_setopt(curl, CURLOPT_SSLKEY, config.get("GrpcClient__KeyPem").c_str());
     }
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
