@@ -16,6 +16,8 @@ default = ["client"]
 serde = ["dep:serde"]
 client = ["_gen-client"]
 server = ["_gen-server"]
+agent = ["_gen-client", "_gen-server"]
+worker = ["_gen-client", "_gen-server"]
 _gen-client = ["tonic/channel", "dep:rustls", "dep:hyper-rustls", "dep:hyper"]
 _gen-server = ["tonic/server", "dep:tokio-util", "dep:tokio"]
 
@@ -64,9 +66,45 @@ tokio = { version = "1.42", features = [
 tonic-build = "0.12"
 
 [[test]]
+name = "agent"
+required-features = ["agent", "worker"]
+
+[[test]]
+name = "applications"
+required-features = ["client", "server"]
+
+[[test]]
+name = "auth"
+required-features = ["client", "server"]
+
+[[test]]
+name = "events"
+required-features = ["client", "server"]
+
+[[test]]
+name = "partitions"
+required-features = ["client", "server"]
+
+[[test]]
+name = "results"
+required-features = ["client", "server"]
+
+[[test]]
 name = "sessions"
 required-features = ["client", "server"]
 
 [[test]]
-name = "agent"
+name = "submitter"
 required-features = ["client", "server"]
+
+[[test]]
+name = "tasks"
+required-features = ["client", "server"]
+
+[[test]]
+name = "versions"
+required-features = ["client", "server"]
+
+[[test]]
+name = "worker"
+required-features = ["agent", "worker"]

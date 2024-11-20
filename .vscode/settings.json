@@ -22,6 +22,8 @@
     "_gen-server",
     "client",
     "server",
-    "serde"
+    "serde",
+    "agent",
+    "worker"
   ]
 }
