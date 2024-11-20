@@ -1,27 +1,51 @@
+#[cfg(feature = "agent")]
 mod agent;
+#[cfg(feature = "server")]
 mod applications;
+#[cfg(feature = "server")]
 mod auth;
+#[cfg(feature = "server")]
 mod events;
+#[cfg(feature = "server")]
 mod health_checks;
+#[cfg(feature = "server")]
 mod partitions;
+#[cfg(feature = "server")]
 mod results;
+#[cfg(feature = "server")]
 mod sessions;
+#[cfg(feature = "server")]
 mod submitter;
+#[cfg(feature = "server")]
 mod tasks;
+#[cfg(feature = "server")]
 mod versions;
+#[cfg(feature = "worker")]
 mod worker;
 
+#[cfg(feature = "agent")]
 pub use agent::{AgentService, AgentServiceExt};
+#[cfg(feature = "server")]
 pub use applications::{ApplicationsService, ApplicationsServiceExt};
+#[cfg(feature = "server")]
 pub use auth::{AuthService, AuthServiceExt};
+#[cfg(feature = "server")]
 pub use events::{EventsService, EventsServiceExt};
+#[cfg(feature = "server")]
 pub use health_checks::{HealthChecksService, HealthChecksServiceExt};
+#[cfg(feature = "server")]
 pub use partitions::{PartitionsService, PartitionsServiceExt};
+#[cfg(feature = "server")]
 pub use results::{ResultsService, ResultsServiceExt};
+#[cfg(feature = "server")]
 pub use sessions::{SessionsService, SessionsServiceExt};
+#[cfg(feature = "server")]
 pub use submitter::{SubmitterService, SubmitterServiceExt};
+#[cfg(feature = "server")]
 pub use tasks::{TasksService, TasksServiceExt};
+#[cfg(feature = "server")]
 pub use versions::{VersionsService, VersionsServiceExt};
+#[cfg(feature = "worker")]
 pub use worker::{WorkerService, WorkerServiceExt};
 
 macro_rules! define_trait_methods {
