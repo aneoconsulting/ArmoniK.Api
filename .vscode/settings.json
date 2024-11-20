@@ -21,6 +21,8 @@
     "_gen-client",
     "_gen-server",
     "client",
-    "server"
+    "server",
+    "agent",
+    "worker"
   ]
 }

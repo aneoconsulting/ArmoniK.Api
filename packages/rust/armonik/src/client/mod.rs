@@ -7,32 +7,54 @@ use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver};
 use rustls::pki_types::ServerName;
 use snafu::{ResultExt, Snafu};
 
+#[cfg(feature = "worker")]
 mod agent;
+#[cfg(feature = "client")]
 mod applications;
+#[cfg(feature = "client")]
 mod auth;
 mod config;
+#[cfg(feature = "client")]
 mod events;
+#[cfg(feature = "client")]
 mod partitions;
+#[cfg(feature = "client")]
 mod results;
+#[cfg(feature = "client")]
 mod sessions;
+#[cfg(feature = "client")]
 mod submitter;
+#[cfg(feature = "client")]
 mod tasks;
+#[cfg(feature = "client")]
 mod versions;
+#[cfg(feature = "agent")]
 mod worker;
 
 pub use crate::utils::ReadEnvError;
+#[cfg(feature = "worker")]
 pub use agent::AgentClient;
+#[cfg(feature = "client")]
 pub use applications::ApplicationsClient;
+#[cfg(feature = "client")]
 pub use auth::AuthClient;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
+#[cfg(feature = "client")]
 pub use events::EventsClient;
+#[cfg(feature = "client")]
 pub use partitions::PartitionsClient;
+#[cfg(feature = "client")]
 pub use results::ResultsClient;
+#[cfg(feature = "client")]
 pub use sessions::SessionsClient;
+#[cfg(feature = "client")]
 #[allow(deprecated)]
 pub use submitter::SubmitterClient;
+#[cfg(feature = "client")]
 pub use tasks::TasksClient;
+#[cfg(feature = "client")]
 pub use versions::VersionsClient;
+#[cfg(feature = "agent")]
 pub use worker::WorkerClient;
 
 /// ArmoniK Client
@@ -191,58 +213,69 @@ where
         Self { channel }
     }
 
+    #[cfg(feature = "worker")]
     /// Create an [`AgentClient`]
     pub fn agent(&self) -> AgentClient<T> {
         AgentClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create an [`ApplicationsClient`]
     pub fn applications(&self) -> ApplicationsClient<T> {
         ApplicationsClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create an [`AuthClient`]
     pub fn auth(&self) -> AuthClient<T> {
         AuthClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create an [`EventsClient`]
     pub fn events(&self) -> EventsClient<T> {
         EventsClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create a [`PartitionsClient`]
     pub fn partitions(&self) -> PartitionsClient<T> {
         PartitionsClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create a [`ResultsClient`]
     pub fn results(&self) -> ResultsClient<T> {
         ResultsClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create a [`SessionsClient`]
     pub fn sessions(&self) -> SessionsClient<T> {
         SessionsClient::with_channel(self.channel.clone())
     }
 
-    /// Create a [`SubmitterClient`]
+    #[cfg(feature = "client")]
     #[deprecated]
     #[allow(deprecated)]
+    /// Create a [`SubmitterClient`]
     pub fn submitter(&self) -> SubmitterClient<T> {
         SubmitterClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create a [`TasksClient`]
     pub fn tasks(&self) -> TasksClient<T> {
         TasksClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "client")]
     /// Create a [`VersionsClient`]
     pub fn versions(&self) -> VersionsClient<T> {
         VersionsClient::with_channel(self.channel.clone())
     }
 
+    #[cfg(feature = "agent")]
     /// Create a [`WorkerClient`]
     pub fn worker(&self) -> WorkerClient<T> {
         WorkerClient::with_channel(self.channel.clone())
