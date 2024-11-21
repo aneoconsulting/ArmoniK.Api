@@ -75,7 +75,7 @@ class TaskStatus(IntEnum):
     PAUSED = TASK_STATUS_PAUSED
 
 
-class EventTypes:
+class EventTypes(IntEnum):
     UNSPECIFIED = EVENTS_ENUM_UNSPECIFIED
     NEW_TASK = EVENTS_ENUM_NEW_TASK
     TASK_STATUS_UPDATE = EVENTS_ENUM_TASK_STATUS_UPDATE
@@ -88,7 +88,7 @@ class EventTypes:
         return getattr(cls, name.upper())
 
 
-class SessionStatus:
+class SessionStatus(IntEnum):
     @staticmethod
     def name_from_value(status: RawSessionStatus) -> str:
         return _SESSIONSTATUS.values_by_number[status].name
@@ -102,7 +102,7 @@ class SessionStatus:
     DELETED = SESSION_STATUS_DELETED
 
 
-class ResultStatus:
+class ResultStatus(IntEnum):
     @staticmethod
     def name_from_value(status: RawResultStatus) -> str:
         return _RESULTSTATUS.values_by_number[status].name
@@ -115,19 +115,19 @@ class ResultStatus:
     NOTFOUND = RESULT_STATUS_NOTFOUND
 
 
-class ServiceHealthCheckStatus:
+class ServiceHealthCheckStatus(IntEnum):
     UNSPECIFIED = HEALTH_STATUS_ENUM_UNSPECIFIED
     HEALTHY = HEALTH_STATUS_ENUM_HEALTHY
     DEGRADED = HEALTH_STATUS_ENUM_DEGRADED
     UNHEALTHY = HEALTH_STATUS_ENUM_UNHEALTHY
 
 
-class HealthCheckStatus:
+class HealthCheckStatus(IntEnum):
     UNKNOWN = HealthCheckReply.UNKNOWN
     SERVING = HealthCheckReply.SERVING
     NOT_SERVING = HealthCheckReply.NOT_SERVING
 
 
-class Direction:
+class Direction(IntEnum):
     ASC = SORT_DIRECTION_ASC
     DESC = SORT_DIRECTION_DESC
