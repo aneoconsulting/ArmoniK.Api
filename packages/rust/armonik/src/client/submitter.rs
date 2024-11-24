@@ -385,7 +385,6 @@ super::impl_call! {
     }
 }
 
-#[async_trait::async_trait(?Send)]
 impl<T, S> GrpcCallStream<create_tasks::LargeRequest, S> for &'_ mut Submitter<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
