@@ -21,7 +21,6 @@ tonic = "0.12"
 prost = "0.13"
 prost-types = "0.13"
 futures = "0.3"
-async-trait = "0.1"
 snafu = "0.8"
 tracing = "0.1"
 hyper = { version = "1.5", features = ["client", "http1", "http2"] }
