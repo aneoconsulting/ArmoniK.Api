@@ -72,7 +72,6 @@ where
     }
 }
 
-#[crate::reexports::async_trait(?Send)]
 impl<T> GrpcCall<subscribe::Request> for &'_ mut EventsClient<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,

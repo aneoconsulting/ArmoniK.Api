@@ -278,7 +278,6 @@ super::impl_call! {
     }
 }
 
-#[crate::reexports::async_trait(?Send)]
 impl<T> GrpcCall<download::Request> for &'_ mut ResultsClient<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
@@ -302,7 +301,6 @@ where
     }
 }
 
-#[crate::reexports::async_trait(?Send)]
 impl<T, S> GrpcCallStream<upload::Request, S> for &'_ mut ResultsClient<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
