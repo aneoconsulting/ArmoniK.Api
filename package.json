@@ -11,7 +11,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^2.27.3",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "^8.17.0",
     "consola": "^3.2.3",
     "eslint": "^9.16.0",
     "eslint-config-love": "^43.1.0",
@@ -22,7 +22,7 @@
     "jiti": "^1.21.6",
     "pathe": "^1.1.2",
     "tslib": "^2.8.1",
-    "typescript": "^5.7.2",
+    "typescript": "~5.5.4",
     "zx": "^8.2.4"
   }
 }
