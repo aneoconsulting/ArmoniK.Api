@@ -14,7 +14,7 @@ mod output;
 mod raw;
 mod summary;
 
-pub use field::Field;
+pub use field::{Field, SummaryField};
 pub use output::Output;
 pub use raw::{Raw, Raw as Task};
 pub use summary::Summary;
