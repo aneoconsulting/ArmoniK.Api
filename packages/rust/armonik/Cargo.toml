@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 name = "armonik"
 repository = "https://github.com/aneoconsulting/ArmoniK.Api"
-version = "3.21.0-beta-1"
+version = "3.21.0-beta-2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -41,7 +41,7 @@ hyper-rustls = { version = "0.27", features = [
 ], optional = true }
 rustls = { version = "0.23", features = ["ring"], optional = true }
 tokio-util = { version = "0.7", optional = true }
-tokio = { version = "1.41", default-features = false, optional = true }
+tokio = { version = "1.42", default-features = false, optional = true }
 
 [dev-dependencies]
 eyre = "0.6"
