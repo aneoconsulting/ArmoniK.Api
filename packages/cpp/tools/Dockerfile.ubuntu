@@ -1,5 +1,5 @@
 # Use the latest version of Ubuntu 20.04 as the base image
-FROM ubuntu:23.04
+FROM ubuntu:lunar-20231128
 
 # Install dependencies
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-get install -y \
