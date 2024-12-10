@@ -29,6 +29,7 @@ enum TaskSummaryEnumField {
   TASK_SUMMARY_ENUM_FIELD_ERROR = 8; /** The error message. Only set if task have failed. */
   TASK_SUMMARY_ENUM_FIELD_FETCHED_AT = 19; /** When task data are fetched by the agent. */
   TASK_SUMMARY_ENUM_FIELD_PAYLOAD_ID = 20; /** The ID of the Result that is used as a payload for this task. */
+  TASK_SUMMARY_ENUM_FIELD_CREATED_BY = 21; /** The ID of the Result that is used as a payload for this task. */
 }
 
 /**

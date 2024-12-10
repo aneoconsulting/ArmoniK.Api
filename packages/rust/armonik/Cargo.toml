@@ -1,0 +1,41 @@
+[package]
+authors = ["Florian Lemaitre <flemaitre@aneo.fr>"]
+description = "Rust bindings for the ArmoniK API"
+edition = "2021"
+include = ["**/*.rs", "Cargo.toml", "LICENSE", "README.md", "protos/**"]
+license = "Apache-2.0"
+readme = "README.md"
+name = "armonik"
+repository = "https://github.com/aneoconsulting/ArmoniK.Api"
+version = "3.21.0-beta-0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tonic = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+futures = "0.3"
+async-trait = "0.1"
+snafu = "0.8"
+tracing = "0.1"
+hyper = { version = "1.5", features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.27", features = ["http1", "http2"] }
+rustls = { version = "0.23", features = ["ring"] }
+
+[dev-dependencies]
+eyre = "0.6"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+hyper-util = { version = "0.1", features = ["client", "http1"] }
+http-body-util = "0.1"
+serde_json = "1.0"
+serial_test = "3.1"
+tokio = { version = "1.41", features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "time",
+] }
+
+[build-dependencies]
+tonic-build = "0.12"

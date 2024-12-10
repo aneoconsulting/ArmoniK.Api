@@ -8,7 +8,7 @@ armonik::api::common::options::ControlPlane::ControlPlane(const utils::Configura
   user_key_pem_path_ = config.get(UserKeyKey);
   user_p12_path_ = config.get(UserP12Key);
   ca_cert_pem_path_ = config.get(CaCertKey);
-  sslValidation_ = config.get(SSLValidationKey) != "disable";
+  sslValidation_ = config.get(AllowUnsafeConnectionKey) != "true";
 
   keep_alive_time_ = config.get(KeepAliveTimeKey).empty() ? utils::duration_from_values(0, 0, 0, 30)
                                                           : utils::duration_from_timespan(config.get(KeepAliveTimeKey));

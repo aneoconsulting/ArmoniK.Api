@@ -130,7 +130,7 @@ def batched(iterable: Iterable[T], n: int) -> Iterable[List[T]]:
         batch.append(c)
         if len(batch) == n:
             yield batch
-            batch.clear()
+            batch = []
         c = next(it, sentinel)
     if len(batch) > 0:
         yield batch

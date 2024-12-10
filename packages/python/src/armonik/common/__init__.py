@@ -1,3 +1,4 @@
+from .channel import create_channel
 from .enumwrapper import (
     Direction,
     EventTypes,
@@ -36,6 +37,7 @@ from .objects import (
 from .filter import Filter
 
 __all__ = [
+    "create_channel",
     "datetime_to_timestamp",
     "timestamp_to_datetime",
     "duration_to_timedelta",

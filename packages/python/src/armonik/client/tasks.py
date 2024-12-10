@@ -114,7 +114,7 @@ class ArmoniKTasks:
             page_size: size of a page, defaults to 1000
             sort_field: field on which to sort the resulting list, defaults to the task_id
             sort_direction: direction of the sort, defaults to ascending
-            detailed: Wether to retrieve the detailed description of the task.
+            detailed: Whether to retrieve the detailed description of the task.
 
         Returns:
             A tuple containing :
@@ -134,7 +134,7 @@ class ArmoniKTasks:
             response: ListTasksDetailedResponse = self._client.ListTasksDetailed(request)
             return response.total, [Task.from_message(t) for t in response.tasks]
         response: ListTasksResponse = self._client.ListTasks(request)
-        return response.total, [Task.from_message(t) for t in response.tasks]
+        return response.total, [Task.from_summary(t) for t in response.tasks]
 
     def cancel_tasks(self, task_ids: List[str], chunk_size: Optional[int] = 500):
         """Cancel tasks.
@@ -231,7 +231,7 @@ class ArmoniKTasks:
                 Task(
                     id=t.task_id,
                     session_id=session_id,
-                    expected_output_ids=list(t.expected_output_keys),
+                    expected_output_ids=list(t.expected_output_ids),
                     data_dependencies=list(t.data_dependencies),
                     payload_id=t.payload_id,
                 )

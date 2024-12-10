@@ -6,7 +6,7 @@
 
 constexpr char armonik::api::common::options::ControlPlane::CaCertKey[];
 constexpr char armonik::api::common::options::ControlPlane::EndpointKey[];
-constexpr char armonik::api::common::options::ControlPlane::SSLValidationKey[];
+constexpr char armonik::api::common::options::ControlPlane::AllowUnsafeConnectionKey[];
 constexpr char armonik::api::common::options::ControlPlane::UserCertKey[];
 constexpr char armonik::api::common::options::ControlPlane::UserKeyKey[];
 constexpr char armonik::api::common::options::ControlPlane::UserP12Key[];

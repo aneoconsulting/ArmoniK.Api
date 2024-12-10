@@ -17,6 +17,7 @@ enum ResultRawEnumField {
   RESULT_RAW_ENUM_FIELD_COMPLETED_AT = 6; /** The result completion date. */
   RESULT_RAW_ENUM_FIELD_RESULT_ID = 7; /** The result ID. */
   RESULT_RAW_ENUM_FIELD_SIZE = 8; /** The size of the result. */
+  RESULT_RAW_ENUM_FIELD_CREATED_BY = 9; /** The size of the result. */
 }
 
 /**

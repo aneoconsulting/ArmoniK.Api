@@ -13,14 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 18.x
           cache: pnpm
@@ -37,14 +37,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
           submodules: true
 
       - name: Install .NET Core
-        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
+        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
         with:
           dotnet-version: 6.x
 
@@ -83,7 +83,7 @@ jobs:
       run:
         working-directory: packages/python
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
@@ -132,7 +132,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -163,7 +163,7 @@ jobs:
         if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
         run: |
           git diff > patch-cpp.diff
-      - uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
+      - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
         with:
           name: patch-cpp
@@ -175,7 +175,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
@@ -184,16 +184,53 @@ jobs:
       - name: Check Diff
         run: docker run --rm --volume "$(pwd)/Protos/V1:/workspace" --workdir /workspace bufbuild/buf:1.8.0 format -d --exit-code
 
+  format-rust:
+    name: Format and check Rust
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - stable
+          - nightly
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/rust/armonik
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: protoc,sccache
+      - name: Install toolchain
+        if: ${{ !contains(matrix.toolchain, 'nightly') }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rust-src,rust-docs,rustfmt,clippy
+      - name: Build
+        run: |
+          cargo build --all --locked
+      - name: Format
+        run: |
+          cargo fmt --all --check
+      - name: Doc
+        run: |
+          RUSTDOCFLAGS="-Dwarnings" cargo doc
+      - name: Clippy
+        run: |
+          cargo clippy --all --no-deps -- -Dwarnings -Dunused-crate-dependencies
+
   lint-js:
     name: Lint JS
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
       - run: npm install -g pnpm@9.1.4
       - run: corepack enable
-      - uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4
+      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 20
           cache: pnpm
@@ -209,14 +246,14 @@ jobs:
       run:
         working-directory: packages/web
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 18.x
           cache: pnpm
@@ -240,14 +277,14 @@ jobs:
       run:
         working-directory: packages/angular
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
-        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 18.x
           cache: pnpm
@@ -264,55 +301,6 @@ jobs:
       - name: Build
         run: nr build
 
-  build-test-python:
-    name: Build and test Python
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/python
-    steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
-        with:
-          fetch-depth: 0
-
-      - name: pip update and add build package
-        run: bash proto2python.sh ~/pyvenv
-
-      - name: Install dependencies
-        run: pip install "$(echo pkg/armonik*.whl)[tests]"
-
-      - name: Install .NET Core
-        uses: actions/setup-dotnet@4d6c8fcf3c8f7a60068d26b594648e99df24cee3 # v4
-        with:
-          dotnet-version: 6.x
-
-      - name: Start Mock server
-        run: |
-          cd ../csharp/ArmoniK.Api.Mock
-          nohup dotnet run > /dev/null 2>&1 &
-          sleep 60
-
-      - name: Run tests
-        run: python -m pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-report xml:coverage.xml --cov-report html:coverage_report
-
-      - name: Get Cover
-        uses: orgoro/coverage@6d7a2607343d2abeab89ef40b54ec9785134e313
-        with:
-          coverageFile: packages/python/coverage.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Archive code coverage results html
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
-        with:
-          name: code-coverage-report-html
-          path: packages/python/coverage_report
-
-      - name: Archive code coverage results xml
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4
-        with:
-          name: code-coverage-report-xml
-          path: packages/python/coverage.xml
-
   build-cpp-packages:
     strategy:
       fail-fast: false
@@ -322,7 +310,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           ref: ${{ github.ref }}
 
@@ -331,7 +319,7 @@ jobs:
           cd packages/cpp/tools/packaging
           ./make-${{ matrix.type }}.sh
       - name: Publish package as artefact
-        uses: actions/upload-artifact@65d862660abb392b8c4a3d1195a2108db131dd05
+        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
         with:
           if-no-files-found: error
           path: packages/cpp/tools/packaging/*.${{ matrix.type }}
@@ -345,7 +333,7 @@ jobs:
         working-directory: packages/java
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
       - name: Set up java 17
@@ -354,5 +342,9 @@ jobs:
           distribution: oracle
           java-version: 17
           cache: maven
+          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
       - name: Build the package
         run: mvn clean install -DskipTests
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_SIGNING_KEY_PASSWORD }}

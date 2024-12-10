@@ -8,7 +8,7 @@ from deprecation import deprecated
 
 from ..protogen.common.agent_common_pb2 import ResultMetaData
 from ..protogen.common.applications_common_pb2 import ApplicationRaw
-from ..protogen.common.tasks_common_pb2 import TaskDetailed
+from ..protogen.common.tasks_common_pb2 import TaskDetailed, TaskSummary
 from .filter import (
     FilterDescriptor,
     GenericTaskOptionsFilter,
@@ -64,7 +64,7 @@ class TaskOptions:
             application_namespace=task_options.application_namespace,
             application_service=task_options.application_service,
             engine_type=task_options.engine_type,
-            options=task_options.options,
+            options={k: v for k, v in task_options.options.items()},
         )
 
     def to_message(self) -> RawTaskOptions:
@@ -135,6 +135,7 @@ class Task:
     owner_pod_id = FilterDescriptor(_task_filter)
 
     initial_task_id = FilterDescriptor(_task_filter)
+    created_by = FilterDescriptor(_task_filter)
     parent_task_ids = FilterDescriptor(_task_filter)
     data_dependencies = FilterDescriptor(_task_filter)
     expected_output_ids = FilterDescriptor(_task_filter)
@@ -169,6 +170,7 @@ class Task:
         session_id: Optional[str] = None,
         owner_pod_id: Optional[str] = None,
         initial_task_id: Optional[str] = None,
+        created_by: Optional[str] = None,
         parent_task_ids: Optional[List[str]] = None,
         data_dependencies: Optional[List[str]] = None,
         expected_output_ids: Optional[List[str]] = None,
@@ -196,10 +198,21 @@ class Task:
         self.session_id = session_id
         self.owner_pod_id = owner_pod_id
         self.initial_task_id = initial_task_id
-        self.parent_task_ids = parent_task_ids if parent_task_ids is not None else []
-        self.data_dependencies = data_dependencies if data_dependencies is not None else []
-        self.expected_output_ids = expected_output_ids if expected_output_ids is not None else []
-        self.retry_of_ids = retry_of_ids if retry_of_ids is not None else []
+        self.created_by = created_by
+        self.parent_task_ids = parent_task_ids
+        self.count_parent_task_ids = (
+            len(self.parent_task_ids) if self.parent_task_ids is not None else None
+        )
+        self.data_dependencies = data_dependencies
+        self.count_data_dependencies = (
+            len(self.data_dependencies) if self.data_dependencies is not None else None
+        )
+        self.expected_output_ids = expected_output_ids
+        self.count_expected_output_ids = (
+            len(self.expected_output_ids) if self.expected_output_ids is not None else None
+        )
+        self.retry_of_ids = retry_of_ids
+        self.count_retry_of_ids = len(self.retry_of_ids) if self.retry_of_ids is not None else None
         self.status = status
         self.status_message = status_message
         self.options = options
@@ -230,6 +243,7 @@ class Task:
         self.owner_pod_id = result.owner_pod_id
 
         self.initial_task_id = result.initial_task_id
+        self.created_by = result.created_by
         self.parent_task_ids = result.parent_task_ids
         self.data_dependencies = result.data_dependencies
         self.expected_output_ids = result.expected_output_ids
@@ -266,6 +280,7 @@ class Task:
             session_id=task_raw.session_id,
             owner_pod_id=task_raw.owner_pod_id,
             initial_task_id=task_raw.initial_task_id,
+            created_by=task_raw.created_by,
             parent_task_ids=list(task_raw.parent_task_ids),
             data_dependencies=list(task_raw.data_dependencies),
             expected_output_ids=list(task_raw.expected_output_ids),
@@ -290,12 +305,56 @@ class Task:
             payload_id=task_raw.payload_id,
         )
 
+    @staticmethod
+    def from_summary(task_raw: TaskSummary) -> "Task":
+        task = Task(
+            id=task_raw.id,
+            session_id=task_raw.session_id,
+            owner_pod_id=task_raw.owner_pod_id,
+            initial_task_id=task_raw.initial_task_id,
+            created_by=task_raw.created_by,
+            parent_task_ids=None,
+            data_dependencies=None,
+            expected_output_ids=None,
+            retry_of_ids=None,
+            status=task_raw.status,
+            status_message=task_raw.status_message,
+            options=TaskOptions.from_message(task_raw.options),
+            created_at=timestamp_to_datetime(task_raw.created_at),
+            submitted_at=timestamp_to_datetime(task_raw.submitted_at),
+            received_at=timestamp_to_datetime(task_raw.received_at),
+            acquired_at=timestamp_to_datetime(task_raw.acquired_at),
+            fetched_at=timestamp_to_datetime(task_raw.fetched_at),
+            started_at=timestamp_to_datetime(task_raw.started_at),
+            processed_at=timestamp_to_datetime(task_raw.processed_at),
+            ended_at=timestamp_to_datetime(task_raw.ended_at),
+            pod_ttl=timestamp_to_datetime(task_raw.pod_ttl),
+            creation_to_end_duration=duration_to_timedelta(task_raw.creation_to_end_duration),
+            processing_to_end_duration=duration_to_timedelta(task_raw.processing_to_end_duration),
+            received_to_end_duration=duration_to_timedelta(task_raw.received_to_end_duration),
+            output=Output(
+                error=(
+                    task_raw.error
+                    if task_raw.error is not None and len(task_raw.error) > 0
+                    else None
+                )
+            ),
+            pod_hostname=task_raw.pod_hostname,
+            payload_id=task_raw.payload_id,
+        )
+        task.count_parent_task_ids = task_raw.count_parent_task_ids
+        task.count_data_dependencies = task_raw.count_data_dependencies
+        task.count_expected_output_ids = task_raw.count_expected_output_ids
+        task.count_retry_of_ids = task_raw.count_retry_of_ids
+        return task
+
     def __eq__(self, other: "Task") -> bool:
         return (
             self.id == other.id
             and self.session_id == other.session_id
             and self.owner_pod_id == other.owner_pod_id
             and self.initial_task_id == other.initial_task_id
+            and self.created_by == other.created_by
             and self.parent_task_ids == other.parent_task_ids
             and self.data_dependencies == other.data_dependencies
             and self.expected_output_ids == other.expected_output_ids
@@ -415,6 +474,7 @@ _resultFilter = ResultFilter()
 class Result:
     session_id = FilterDescriptor(_resultFilter)
     name = FilterDescriptor(_resultFilter)
+    created_by = FilterDescriptor(_resultFilter)
     owner_task_id = FilterDescriptor(_resultFilter)
     status = FilterDescriptor(_resultFilter)
     created_at = FilterDescriptor(_resultFilter)
@@ -426,6 +486,7 @@ class Result:
         self,
         session_id: Optional[str] = None,
         name: Optional[str] = None,
+        created_by: Optional[str] = None,
         owner_task_id: Optional[str] = None,
         status: RawResultStatus = ResultStatus.UNSPECIFIED,
         created_at: Optional[datetime] = None,
@@ -435,6 +496,7 @@ class Result:
     ):
         self.session_id = session_id
         self.name = name
+        self.created_by = created_by
         self.owner_task_id = owner_task_id
         self.status = status
         self.created_at = created_at
@@ -447,6 +509,7 @@ class Result:
         return cls(
             session_id=result_raw.session_id,
             name=result_raw.name,
+            created_by=result_raw.created_by,
             owner_task_id=result_raw.owner_task_id,
             status=result_raw.status,
             created_at=timestamp_to_datetime(result_raw.created_at),
