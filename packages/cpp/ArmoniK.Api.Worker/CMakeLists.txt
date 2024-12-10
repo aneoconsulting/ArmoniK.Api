@@ -33,7 +33,8 @@ endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Common ${PROTO_TARGET})
+target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++ ArmoniK.Api.Common ${PROTO_TARGET})
+target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--copy-dt-needed-entries")
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC

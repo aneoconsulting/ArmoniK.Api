@@ -1,4 +1,5 @@
 #include "common.h"
+#include "channel/ChannelFactory.h"
 #include "utils/Configuration.h"
 #include <grpcpp/create_channel.h>
 
@@ -9,20 +10,17 @@
  * @param default_task_options The default task options.
  */
 void init(std::shared_ptr<::grpc::Channel> &channel, armonik::api::grpc::v1::TaskOptions &default_task_options,
-          armonik::api::common::logger::ILogger &logger) {
+          armonik::api::common::logger::Logger &logger) {
 
   armonik::api::common::utils::Configuration configuration;
-  // auto server = std::make_shared<EnvConfiguration>(configuration_t);
 
   configuration.add_json_configuration("appsettings.json").add_env_configuration();
 
-  std::string server_address = configuration.get("Grpc__EndPoint");
+  armonik::api::client::ChannelFactory channel_factory(configuration, logger);
 
-  logger.info(" Server address {address}", {{"address", server_address}});
+  channel = channel_factory.create_channel();
 
-  channel = ::grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
-
-  // stub_ = Submitter::NewStub(channel);
+  logger.info(" Server address {address}", {{"address", configuration.get("GrpcClient__Endpoint")}});
 
   default_task_options.mutable_options()->insert({"key1", "value1"});
   default_task_options.mutable_options()->insert({"key2", "value2"});

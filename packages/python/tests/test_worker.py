@@ -1,9 +1,10 @@
 import datetime
-import grpc
 import logging
 import os
 
-from .conftest import data_folder, grpc_endpoint
+from armonik.common.channel import create_channel
+
+from .conftest import data_folder, grpc_endpoint, ca_cert, client_cert, client_key
 from armonik.worker import ArmoniKWorker, TaskHandler, ClefLogger
 from armonik.common import Output, TaskOptions
 from armonik.protogen.common.objects_pb2 import Empty, Configuration
@@ -43,7 +44,12 @@ class TestWorker:
     )
 
     def test_do_nothing(self):
-        with grpc.insecure_channel(grpc_endpoint) as agent_channel:
+        with create_channel(
+            grpc_endpoint,
+            certificate_authority=ca_cert,
+            client_certificate=client_cert,
+            client_key=client_key,
+        ) as agent_channel:
             worker = ArmoniKWorker(
                 agent_channel,
                 do_nothing,
@@ -56,7 +62,12 @@ class TestWorker:
             worker.HealthCheck(Empty(), None)
 
     def test_should_return_none(self):
-        with grpc.insecure_channel(grpc_endpoint) as agent_channel:
+        with create_channel(
+            grpc_endpoint,
+            certificate_authority=ca_cert,
+            client_certificate=client_cert,
+            client_key=client_key,
+        ) as agent_channel:
             worker = ArmoniKWorker(
                 agent_channel,
                 throw_error,
@@ -66,7 +77,12 @@ class TestWorker:
             assert reply is None
 
     def test_should_error(self):
-        with grpc.insecure_channel(grpc_endpoint) as agent_channel:
+        with create_channel(
+            grpc_endpoint,
+            certificate_authority=ca_cert,
+            client_certificate=client_cert,
+            client_key=client_key,
+        ) as agent_channel:
             worker = ArmoniKWorker(
                 agent_channel,
                 return_error,
@@ -80,7 +96,12 @@ class TestWorker:
             assert output.error == "TestError"
 
     def test_should_write_result(self):
-        with grpc.insecure_channel(grpc_endpoint) as agent_channel:
+        with create_channel(
+            grpc_endpoint,
+            certificate_authority=ca_cert,
+            client_certificate=client_cert,
+            client_key=client_key,
+        ) as agent_channel:
             worker = ArmoniKWorker(
                 agent_channel,
                 return_and_send,

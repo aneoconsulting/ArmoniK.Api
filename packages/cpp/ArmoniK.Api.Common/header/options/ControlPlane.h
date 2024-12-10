@@ -27,21 +27,24 @@ public:
   const google::protobuf::Duration &getInitialBackoff() const { return initial_backoff_; }
   const google::protobuf::Duration &getMaxBackoff() const { return max_backoff_; }
   const google::protobuf::Duration &getRequestTimeout() const { return request_timeout_; }
+  bool hasClientCertificate() const {
+    return !user_p12_path_.empty() || !(user_cert_pem_path_.empty() || user_key_pem_path_.empty());
+  }
 
-  static constexpr char EndpointKey[] = "Grpc__EndPoint";
-  static constexpr char UserCertKey[] = "Grpc__ClientCert";
-  static constexpr char UserKeyKey[] = "Grpc__ClientKey";
-  static constexpr char UserP12Key[] = "Grpc__ClientP12";
-  static constexpr char CaCertKey[] = "Grpc__CaCert";
-  static constexpr char SSLValidationKey[] = "Grpc__SSLValidation";
-  static constexpr char KeepAliveTimeKey[] = "Grpc__KeepAliveTime";
-  static constexpr char KeepAliveTimeIntervalKey[] = "Grpc__KeepAliveTimeInterval";
-  static constexpr char MaxIdleTimeKey[] = "Grpc__MaxIdleTime";
-  static constexpr char MaxAttemptsKey[] = "Grpc__MaxAttempts";
-  static constexpr char BackoffMultiplierKey[] = "Grpc__BackoffMultiplier";
-  static constexpr char InitialBackOffKey[] = "Grpc__InitialBackOff";
-  static constexpr char MaxBackOffKey[] = "Grpc__MaxBackOff";
-  static constexpr char RequestTimeoutKey[] = "Grpc__RequestTimeout";
+  static constexpr char EndpointKey[] = "GrpcClient__Endpoint";
+  static constexpr char UserCertKey[] = "GrpcClient__CertPem";
+  static constexpr char UserKeyKey[] = "GrpcClient__KeyPem";
+  static constexpr char UserP12Key[] = "GrpcClient__CertP12";
+  static constexpr char CaCertKey[] = "GrpcClient__CaCert";
+  static constexpr char AllowUnsafeConnectionKey[] = "GrpcClient__AllowUnsafeConnection";
+  static constexpr char KeepAliveTimeKey[] = "GrpcClient__KeepAliveTime";
+  static constexpr char KeepAliveTimeIntervalKey[] = "GrpcClient__KeepAliveTimeInterval";
+  static constexpr char MaxIdleTimeKey[] = "GrpcClient__MaxIdleTime";
+  static constexpr char MaxAttemptsKey[] = "GrpcClient__MaxAttempts";
+  static constexpr char BackoffMultiplierKey[] = "GrpcClient__BackoffMultiplier";
+  static constexpr char InitialBackOffKey[] = "GrpcClient__InitialBackOff";
+  static constexpr char MaxBackOffKey[] = "GrpcClient__MaxBackOff";
+  static constexpr char RequestTimeoutKey[] = "GrpcClient__RequestTimeout";
 
 private:
   std::string endpoint_;

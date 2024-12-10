@@ -9,7 +9,12 @@
 
 using Logger = armonik::api::common::logger::Logger;
 
-TEST(Versions, can_list_versions) {
+/**
+ * Fixture class for versions, inherit from MockFixture
+ */
+class Versions : public MockFixture {};
+
+TEST_F(Versions, can_list_versions) {
   Logger log{armonik::api::common::logger::writer_console(), armonik::api::common::logger::formatter_plain(true)};
   std::shared_ptr<::grpc::Channel> channel;
   armonik::api::grpc::v1::TaskOptions task_options;
@@ -22,7 +27,10 @@ TEST(Versions, can_list_versions) {
 
   std::cout << "API version: " << versions.api << "\n"
             << "Core version: " << versions.core << std::endl;
-
-  ASSERT_NE(versions.api, "Unknown");
-  ASSERT_NE(versions.core, "Unknown");
+  ASSERT_TRUE(rpcCalled("Versions", "ListVersions"));
 }
+
+/**
+ * This test should be the last to run in the suit, which is why its name is prefixed with "z".
+ */
+TEST_F(Versions, z_service_fully_implemented) { all_rpc_called("Versions"); }
