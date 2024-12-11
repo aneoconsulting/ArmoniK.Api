@@ -1,7 +1,8 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
-        .build_client(true)
-        .build_server(true)
+        .use_arc_self(true)
+        .build_client(cfg!(feature = "_gen-client"))
+        .build_server(cfg!(feature = "_gen-server"))
         .compile_protos(
             &[
                 "protos/V1/agent_common.proto",
@@ -16,6 +17,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "protos/V1/events_service.proto",
                 "protos/V1/filters_common.proto",
                 "protos/V1/objects.proto",
+                "protos/V1/health_checks_common.proto",
+                "protos/V1/health_checks_service.proto",
                 "protos/V1/partitions_common.proto",
                 "protos/V1/partitions_fields.proto",
                 "protos/V1/partitions_filters.proto",
