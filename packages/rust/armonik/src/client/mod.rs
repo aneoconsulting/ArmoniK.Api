@@ -17,6 +17,8 @@ mod config;
 #[cfg(feature = "client")]
 mod events;
 #[cfg(feature = "client")]
+mod health_checks;
+#[cfg(feature = "client")]
 mod partitions;
 #[cfg(feature = "client")]
 mod results;
@@ -41,6 +43,8 @@ pub use auth::AuthClient;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
 #[cfg(feature = "client")]
 pub use events::EventsClient;
+#[cfg(feature = "client")]
+pub use health_checks::HealthChecksClient;
 #[cfg(feature = "client")]
 pub use partitions::PartitionsClient;
 #[cfg(feature = "client")]
@@ -255,6 +259,17 @@ where
     /// Create an [`EventsClient`]
     pub fn into_events(self) -> EventsClient<T> {
         EventsClient::with_channel(self.channel)
+    }
+
+    #[cfg(feature = "client")]
+    /// Create a [`HealthChecksClient`]
+    pub fn health_checks(&self) -> HealthChecksClient<T> {
+        HealthChecksClient::with_channel(self.channel.clone())
+    }
+    #[cfg(feature = "client")]
+    /// Create a [`HealthChecksClient`]
+    pub fn into_health_checks(self) -> HealthChecksClient<T> {
+        HealthChecksClient::with_channel(self.channel)
     }
 
     #[cfg(feature = "client")]

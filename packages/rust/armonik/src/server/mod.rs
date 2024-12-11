@@ -7,6 +7,8 @@ mod auth;
 #[cfg(feature = "server")]
 mod events;
 #[cfg(feature = "server")]
+mod health_checks;
+#[cfg(feature = "server")]
 mod partitions;
 #[cfg(feature = "server")]
 mod results;
@@ -29,6 +31,8 @@ pub use applications::{ApplicationsService, ApplicationsServiceExt};
 pub use auth::{AuthService, AuthServiceExt};
 #[cfg(feature = "server")]
 pub use events::{EventsService, EventsServiceExt};
+#[cfg(feature = "server")]
+pub use health_checks::{HealthChecksService, HealthChecksServiceExt};
 #[cfg(feature = "server")]
 pub use partitions::{PartitionsService, PartitionsServiceExt};
 #[cfg(feature = "server")]
