@@ -55,6 +55,7 @@ pub mod agent;
 pub mod applications;
 pub mod auth;
 pub mod events;
+pub mod health_checks;
 pub mod partitions;
 pub mod results;
 pub mod sessions;

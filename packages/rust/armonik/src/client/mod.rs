@@ -12,6 +12,7 @@ mod applications;
 mod auth;
 mod config;
 mod events;
+mod health_checks;
 mod partitions;
 mod results;
 mod sessions;
@@ -26,6 +27,7 @@ pub use applications::ApplicationsClient;
 pub use auth::AuthClient;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
 pub use events::EventsClient;
+pub use health_checks::HealthChecksClient;
 pub use partitions::PartitionsClient;
 pub use results::ResultsClient;
 pub use sessions::SessionsClient;
@@ -195,7 +197,6 @@ where
     pub fn agent(&self) -> AgentClient<T> {
         AgentClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "worker")]
     /// Create an [`AgentClient`]
     pub fn into_agent(self) -> AgentClient<T> {
         AgentClient::with_channel(self.channel)
@@ -205,7 +206,6 @@ where
     pub fn applications(&self) -> ApplicationsClient<T> {
         ApplicationsClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create an [`ApplicationsClient`]
     pub fn into_applications(self) -> ApplicationsClient<T> {
         ApplicationsClient::with_channel(self.channel)
@@ -215,7 +215,6 @@ where
     pub fn auth(&self) -> AuthClient<T> {
         AuthClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create an [`AuthClient`]
     pub fn into_auth(self) -> AuthClient<T> {
         AuthClient::with_channel(self.channel)
@@ -225,17 +224,24 @@ where
     pub fn events(&self) -> EventsClient<T> {
         EventsClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create an [`EventsClient`]
     pub fn into_events(self) -> EventsClient<T> {
         EventsClient::with_channel(self.channel)
+    }
+
+    /// Create a [`HealthChecksClient`]
+    pub fn health_checks(&self) -> HealthChecksClient<T> {
+        HealthChecksClient::with_channel(self.channel.clone())
+    }
+    /// Create a [`HealthChecksClient`]
+    pub fn into_health_checks(self) -> HealthChecksClient<T> {
+        HealthChecksClient::with_channel(self.channel)
     }
 
     /// Create a [`PartitionsClient`]
     pub fn partitions(&self) -> PartitionsClient<T> {
         PartitionsClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create a [`PartitionsClient`]
     pub fn into_partitions(self) -> PartitionsClient<T> {
         PartitionsClient::with_channel(self.channel)
@@ -245,7 +251,6 @@ where
     pub fn results(&self) -> ResultsClient<T> {
         ResultsClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create a [`ResultsClient`]
     pub fn into_results(self) -> ResultsClient<T> {
         ResultsClient::with_channel(self.channel)
@@ -255,7 +260,6 @@ where
     pub fn sessions(&self) -> SessionsClient<T> {
         SessionsClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create a [`SessionsClient`]
     pub fn into_sessions(self) -> SessionsClient<T> {
         SessionsClient::with_channel(self.channel)
@@ -267,7 +271,6 @@ where
     pub fn submitter(&self) -> SubmitterClient<T> {
         SubmitterClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     #[deprecated]
     #[allow(deprecated)]
     /// Create a [`SubmitterClient`]
@@ -279,7 +282,6 @@ where
     pub fn tasks(&self) -> TasksClient<T> {
         TasksClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create a [`TasksClient`]
     pub fn into_tasks(self) -> TasksClient<T> {
         TasksClient::with_channel(self.channel)
@@ -289,7 +291,6 @@ where
     pub fn versions(&self) -> VersionsClient<T> {
         VersionsClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "client")]
     /// Create a [`VersionsClient`]
     pub fn into_versions(self) -> VersionsClient<T> {
         VersionsClient::with_channel(self.channel)
@@ -299,7 +300,6 @@ where
     pub fn worker(&self) -> WorkerClient<T> {
         WorkerClient::with_channel(self.channel.clone())
     }
-    #[cfg(feature = "agent")]
     /// Create a [`WorkerClient`]
     pub fn into_worker(self) -> WorkerClient<T> {
         WorkerClient::with_channel(self.channel)
