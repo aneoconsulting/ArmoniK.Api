@@ -21,9 +21,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.Client.Options;
@@ -31,8 +29,6 @@ using ArmoniK.Api.Client.Submitter;
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
 using ArmoniK.Utils;
-
-using Microsoft.Extensions.Configuration;
 
 using NUnit.Framework;
 
@@ -43,17 +39,7 @@ public class ConnectivityTests
 {
   [SetUp]
   public void SetUp()
-  {
-    var builder       = new ConfigurationBuilder().AddEnvironmentVariables();
-    var configuration = builder.Build();
-    options_ = configuration.GetRequiredSection(GrpcClient.SettingSection)
-                            .Get<GrpcClient>()!;
-    if (RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework") || options_.HttpMessageHandler.ToLower()
-                                                                                        .Contains("web"))
-    {
-      options_!.Endpoint = Environment.GetEnvironmentVariable("Http__Endpoint");
-    }
-  }
+    => options_ = ConfTest.GetChannelOptions();
 
   private GrpcClient? options_;
 
