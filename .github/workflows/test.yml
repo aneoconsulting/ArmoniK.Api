@@ -102,7 +102,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
 
@@ -128,7 +128,7 @@ jobs:
           certutil -addstore -f "ROOT" server2-ca.pem
 
       - name: Install .NET Core
-        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
+        uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4
         if: ${{ matrix.language.dotnet }} != ""
         with:
           dotnet-version: ${{ matrix.language.dotnet }}
@@ -150,7 +150,7 @@ jobs:
           pip install "$(echo pkg/armonik*.whl)[tests]"
 
       # Prepare Rust
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@8484225d9734e230a8bf38421a4ffec1cc249372 # v2
         if: ${{ matrix.language.lang == 'Rust' }}
         with:
           tool: protoc,sccache
@@ -318,14 +318,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Archive code coverage results html
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b
         if: ${{ matrix.language.lang == 'Python' && always() }}
         with:
           name: code-coverage-report-html
           path: packages/python/coverage_report
 
       - name: Archive code coverage results xml
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b
         if: ${{ matrix.language.lang == 'Python' && always() }}
         with:
           name: code-coverage-report-xml
