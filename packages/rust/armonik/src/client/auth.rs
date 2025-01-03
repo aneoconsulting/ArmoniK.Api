@@ -7,11 +7,11 @@ use super::GrpcCall;
 
 /// Service for authentication management.
 #[derive(Clone)]
-pub struct AuthClient<T> {
+pub struct Auth<T> {
     inner: v3::auth::authentication_client::AuthenticationClient<T>,
 }
 
-impl<T> AuthClient<T>
+impl<T> Auth<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -43,7 +43,7 @@ where
 }
 
 super::impl_call! {
-    AuthClient {
+    Auth {
         async fn call(self, request: current_user::Request) -> Result<current_user::Response> {
             Ok(self
                 .inner
@@ -66,7 +66,7 @@ mod tests {
     #[tokio::test]
     async fn current_user() {
         let before = Client::get_nb_request("Authentication", "GetCurrentUser").await;
-        let mut client = Client::new().await.unwrap().auth();
+        let mut client = Client::new().await.unwrap().into_auth();
         client.current_user().await.unwrap();
         let after = Client::get_nb_request("Authentication", "GetCurrentUser").await;
         assert_eq!(after - before, 1);
@@ -77,7 +77,7 @@ mod tests {
     #[tokio::test]
     async fn current_user_call() {
         let before = Client::get_nb_request("Authentication", "GetCurrentUser").await;
-        let mut client = Client::new().await.unwrap().auth();
+        let mut client = Client::new().await.unwrap().into_auth();
         client
             .call(crate::auth::current_user::Request {})
             .await

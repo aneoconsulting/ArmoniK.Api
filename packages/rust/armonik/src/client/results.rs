@@ -14,11 +14,11 @@ use super::{GrpcCall, GrpcCallStream};
 
 /// The ResultsService provides methods for interacting with results.
 #[derive(Clone)]
-pub struct ResultsClient<T> {
+pub struct Results<T> {
     inner: v3::results::results_client::ResultsClient<T>,
 }
 
-impl<T> ResultsClient<T>
+impl<T> Results<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -205,7 +205,7 @@ where
 }
 
 super::impl_call! {
-    ResultsClient {
+    Results {
         async fn call(self, request: list::Request) -> Result<list::Response> {
             Ok(self
                 .inner
@@ -279,7 +279,7 @@ super::impl_call! {
 }
 
 #[async_trait::async_trait(?Send)]
-impl<T> GrpcCall<download::Request> for &'_ mut ResultsClient<T>
+impl<T> GrpcCall<download::Request> for &'_ mut Results<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -303,7 +303,7 @@ where
 }
 
 #[async_trait::async_trait(?Send)]
-impl<T, S> GrpcCallStream<upload::Request, S> for &'_ mut ResultsClient<T>
+impl<T, S> GrpcCallStream<upload::Request, S> for &'_ mut Results<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -338,7 +338,7 @@ mod tests {
     #[tokio::test]
     async fn list() {
         let before = Client::get_nb_request("Results", "ListResults").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .list(
                 crate::results::filter::Or {
@@ -357,7 +357,7 @@ mod tests {
     #[tokio::test]
     async fn get() {
         let before = Client::get_nb_request("Results", "GetResult").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client.get("result-id").await.unwrap();
         let after = Client::get_nb_request("Results", "GetResult").await;
         assert_eq!(after - before, 1);
@@ -366,7 +366,7 @@ mod tests {
     #[tokio::test]
     async fn get_owner_task_id() {
         let before = Client::get_nb_request("Results", "GetOwnerTaskId").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .get_owner_task_id("session-id", ["result1", "result2"])
             .await
@@ -378,7 +378,7 @@ mod tests {
     #[tokio::test]
     async fn create_metadata() {
         let before = Client::get_nb_request("Results", "CreateResultsMetaData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .create_metadata("session-id", ["result1", "result2"])
             .await
@@ -390,7 +390,7 @@ mod tests {
     #[tokio::test]
     async fn create() {
         let before = Client::get_nb_request("Results", "CreateResults").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .create(
                 "session-id",
@@ -405,7 +405,7 @@ mod tests {
     #[tokio::test]
     async fn upload() {
         let before = Client::get_nb_request("Results", "UploadResultData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .upload("session-id", "result-id", futures::stream::iter([b""]))
             .await
@@ -417,7 +417,7 @@ mod tests {
     #[tokio::test]
     async fn download() {
         let before = Client::get_nb_request("Results", "DownloadResultData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .download("session-id", "result-id")
             .await
@@ -432,7 +432,7 @@ mod tests {
     #[tokio::test]
     async fn delete_data() {
         let before = Client::get_nb_request("Results", "DeleteResultsData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .delete_data("session-id", ["result1", "result2"])
             .await
@@ -444,7 +444,7 @@ mod tests {
     #[tokio::test]
     async fn get_service_configuration() {
         let before = Client::get_nb_request("Results", "GetServiceConfiguration").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client.get_service_configuration().await.unwrap();
         let after = Client::get_nb_request("Results", "GetServiceConfiguration").await;
         assert_eq!(after - before, 1);
@@ -455,7 +455,7 @@ mod tests {
     #[tokio::test]
     async fn list_call() {
         let before = Client::get_nb_request("Results", "ListResults").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::list::Request {
                 page_size: 10,
@@ -470,7 +470,7 @@ mod tests {
     #[tokio::test]
     async fn get_call() {
         let before = Client::get_nb_request("Results", "GetResult").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::get::Request {
                 id: String::from("result-id"),
@@ -484,7 +484,7 @@ mod tests {
     #[tokio::test]
     async fn get_owner_task_id_call() {
         let before = Client::get_nb_request("Results", "GetOwnerTaskId").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::get_owner_task_id::Request {
                 session_id: String::from("session-id"),
@@ -499,7 +499,7 @@ mod tests {
     #[tokio::test]
     async fn create_metadata_call() {
         let before = Client::get_nb_request("Results", "CreateResultsMetaData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::create_metadata::Request {
                 session_id: String::from("session-id"),
@@ -514,7 +514,7 @@ mod tests {
     #[tokio::test]
     async fn create_call() {
         let before = Client::get_nb_request("Results", "CreateResults").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::create::Request {
                 session_id: String::from("session-id"),
@@ -529,7 +529,7 @@ mod tests {
     #[tokio::test]
     async fn delete_data_call() {
         let before = Client::get_nb_request("Results", "DeleteResultsData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::delete_data::Request {
                 session_id: String::from("session-id"),
@@ -544,7 +544,7 @@ mod tests {
     #[tokio::test]
     async fn get_service_configuration_call() {
         let before = Client::get_nb_request("Results", "GetServiceConfiguration").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::get_service_configuration::Request {})
             .await
@@ -556,7 +556,7 @@ mod tests {
     #[tokio::test]
     async fn download_call() {
         let before = Client::get_nb_request("Results", "DownloadResultData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(crate::results::download::Request {
                 session_id: String::from("session-id"),
@@ -574,7 +574,7 @@ mod tests {
     #[tokio::test]
     async fn upload_call() {
         let before = Client::get_nb_request("Results", "UploadResultData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
             .call(Box::pin(futures::stream::iter([
                 crate::results::upload::Request::Identifier {

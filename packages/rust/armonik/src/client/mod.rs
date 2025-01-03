@@ -22,20 +22,20 @@ mod versions;
 mod worker;
 
 pub use crate::utils::ReadEnvError;
-pub use agent::AgentClient;
-pub use applications::ApplicationsClient;
-pub use auth::AuthClient;
+pub use agent::Agent;
+pub use applications::Applications;
+pub use auth::Auth;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
-pub use events::EventsClient;
-pub use health_checks::HealthChecksClient;
-pub use partitions::PartitionsClient;
-pub use results::ResultsClient;
-pub use sessions::SessionsClient;
+pub use events::Events;
+pub use health_checks::HealthChecks;
+pub use partitions::Partitions;
+pub use results::Results;
+pub use sessions::Sessions;
 #[allow(deprecated)]
-pub use submitter::SubmitterClient;
-pub use tasks::TasksClient;
-pub use versions::VersionsClient;
-pub use worker::WorkerClient;
+pub use submitter::Submitter;
+pub use tasks::Tasks;
+pub use versions::Versions;
+pub use worker::Worker;
 
 /// ArmoniK Client
 #[derive(Clone)]
@@ -193,116 +193,162 @@ where
         Self { channel }
     }
 
-    /// Create an [`AgentClient`]
-    pub fn agent(&self) -> AgentClient<T> {
-        AgentClient::with_channel(self.channel.clone())
+    /// Create a borrowed [`Agent`]
+    pub fn agent(&mut self) -> Agent<&mut Self> {
+        Agent::with_channel(self)
     }
-    /// Create an [`AgentClient`]
-    pub fn into_agent(self) -> AgentClient<T> {
-        AgentClient::with_channel(self.channel)
-    }
-
-    /// Create an [`ApplicationsClient`]
-    pub fn applications(&self) -> ApplicationsClient<T> {
-        ApplicationsClient::with_channel(self.channel.clone())
-    }
-    /// Create an [`ApplicationsClient`]
-    pub fn into_applications(self) -> ApplicationsClient<T> {
-        ApplicationsClient::with_channel(self.channel)
+    /// Create an owned [`Agent`]
+    pub fn into_agent(self) -> Agent<Self> {
+        Agent::with_channel(self)
     }
 
-    /// Create an [`AuthClient`]
-    pub fn auth(&self) -> AuthClient<T> {
-        AuthClient::with_channel(self.channel.clone())
+    /// Create a borrowed [`Applications`]
+    pub fn applications(&mut self) -> Applications<&mut Self> {
+        Applications::with_channel(self)
     }
-    /// Create an [`AuthClient`]
-    pub fn into_auth(self) -> AuthClient<T> {
-        AuthClient::with_channel(self.channel)
-    }
-
-    /// Create an [`EventsClient`]
-    pub fn events(&self) -> EventsClient<T> {
-        EventsClient::with_channel(self.channel.clone())
-    }
-    /// Create an [`EventsClient`]
-    pub fn into_events(self) -> EventsClient<T> {
-        EventsClient::with_channel(self.channel)
+    /// Create an owned [`Applications`]
+    pub fn into_applications(self) -> Applications<Self> {
+        Applications::with_channel(self)
     }
 
-    /// Create a [`HealthChecksClient`]
-    pub fn health_checks(&self) -> HealthChecksClient<T> {
-        HealthChecksClient::with_channel(self.channel.clone())
+    /// Create a borrowed [`Auth`]
+    pub fn auth(&mut self) -> Auth<&mut Self> {
+        Auth::with_channel(self)
     }
-    /// Create a [`HealthChecksClient`]
-    pub fn into_health_checks(self) -> HealthChecksClient<T> {
-        HealthChecksClient::with_channel(self.channel)
-    }
-
-    /// Create a [`PartitionsClient`]
-    pub fn partitions(&self) -> PartitionsClient<T> {
-        PartitionsClient::with_channel(self.channel.clone())
-    }
-    /// Create a [`PartitionsClient`]
-    pub fn into_partitions(self) -> PartitionsClient<T> {
-        PartitionsClient::with_channel(self.channel)
+    /// Create an owned [`Auth`]
+    pub fn into_auth(self) -> Auth<Self> {
+        Auth::with_channel(self)
     }
 
-    /// Create a [`ResultsClient`]
-    pub fn results(&self) -> ResultsClient<T> {
-        ResultsClient::with_channel(self.channel.clone())
+    /// Create a borrowed [`Events`]
+    pub fn events(&mut self) -> Events<&mut Self> {
+        Events::with_channel(self)
     }
-    /// Create a [`ResultsClient`]
-    pub fn into_results(self) -> ResultsClient<T> {
-        ResultsClient::with_channel(self.channel)
-    }
-
-    /// Create a [`SessionsClient`]
-    pub fn sessions(&self) -> SessionsClient<T> {
-        SessionsClient::with_channel(self.channel.clone())
-    }
-    /// Create a [`SessionsClient`]
-    pub fn into_sessions(self) -> SessionsClient<T> {
-        SessionsClient::with_channel(self.channel)
+    /// Create an owned [`Events`]
+    pub fn into_events(self) -> Events<Self> {
+        Events::with_channel(self)
     }
 
-    /// Create a [`SubmitterClient`]
+    /// Create a borrowed [`HealthChecks`]
+    pub fn health_checks(&mut self) -> HealthChecks<&mut Self> {
+        HealthChecks::with_channel(self)
+    }
+    /// Create an owned [`HealthChecks`]
+    pub fn into_health_checks(self) -> HealthChecks<Self> {
+        HealthChecks::with_channel(self)
+    }
+
+    /// Create a borrowed [`Partitions`]
+    pub fn partitions(&mut self) -> Partitions<&mut Self> {
+        Partitions::with_channel(self)
+    }
+    /// Create an owned [`Partitions`]
+    pub fn into_partitions(self) -> Partitions<Self> {
+        Partitions::with_channel(self)
+    }
+
+    /// Create a borrowed [`Results`]
+    pub fn results(&mut self) -> Results<&mut Self> {
+        Results::with_channel(self)
+    }
+    /// Create an owned [`Results`]
+    pub fn into_results(self) -> Results<Self> {
+        Results::with_channel(self)
+    }
+
+    /// Create a borrowed [`Sessions`]
+    pub fn sessions(&mut self) -> Sessions<&mut Self> {
+        Sessions::with_channel(self)
+    }
+    /// Create an owned [`Sessions`]
+    pub fn into_sessions(self) -> Sessions<Self> {
+        Sessions::with_channel(self)
+    }
+
+    /// Create a borrowed [`Submitter`]
     #[deprecated]
     #[allow(deprecated)]
-    pub fn submitter(&self) -> SubmitterClient<T> {
-        SubmitterClient::with_channel(self.channel.clone())
+    pub fn submitter(&mut self) -> Submitter<&mut Self> {
+        Submitter::with_channel(self)
     }
     #[deprecated]
     #[allow(deprecated)]
-    /// Create a [`SubmitterClient`]
-    pub fn into_submitter(self) -> SubmitterClient<T> {
-        SubmitterClient::with_channel(self.channel)
+    /// Create an owned [`Submitter`]
+    pub fn into_submitter(self) -> Submitter<Self> {
+        Submitter::with_channel(self)
     }
 
-    /// Create a [`TasksClient`]
-    pub fn tasks(&self) -> TasksClient<T> {
-        TasksClient::with_channel(self.channel.clone())
+    /// Create a borrowed [`Tasks`]
+    pub fn tasks(&mut self) -> Tasks<&mut Self> {
+        Tasks::with_channel(self)
     }
-    /// Create a [`TasksClient`]
-    pub fn into_tasks(self) -> TasksClient<T> {
-        TasksClient::with_channel(self.channel)
-    }
-
-    /// Create a [`VersionsClient`]
-    pub fn versions(&self) -> VersionsClient<T> {
-        VersionsClient::with_channel(self.channel.clone())
-    }
-    /// Create a [`VersionsClient`]
-    pub fn into_versions(self) -> VersionsClient<T> {
-        VersionsClient::with_channel(self.channel)
+    /// Create an owned [`Tasks`]
+    pub fn into_tasks(self) -> Tasks<Self> {
+        Tasks::with_channel(self)
     }
 
-    /// Create a [`WorkerClient`]
-    pub fn worker(&self) -> WorkerClient<T> {
-        WorkerClient::with_channel(self.channel.clone())
+    /// Create a borrowed [`Versions`]
+    pub fn versions(&mut self) -> Versions<&mut Self> {
+        Versions::with_channel(self)
     }
-    /// Create a [`WorkerClient`]
-    pub fn into_worker(self) -> WorkerClient<T> {
-        WorkerClient::with_channel(self.channel)
+    /// Create an owned [`Versions`]
+    pub fn into_versions(self) -> Versions<Self> {
+        Versions::with_channel(self)
+    }
+
+    /// Create a borrowed [`Worker`]
+    pub fn worker(&mut self) -> Worker<&mut Self> {
+        Worker::with_channel(self)
+    }
+    /// Create an owned [`Worker`]
+    pub fn into_worker(self) -> Worker<Self> {
+        Worker::with_channel(self)
+    }
+}
+
+impl<T> tonic::client::GrpcService<tonic::body::BoxBody> for Client<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T::Error: Into<tonic::codegen::StdError>,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+{
+    type ResponseBody = T::ResponseBody;
+    type Error = T::Error;
+    type Future = T::Future;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.channel.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: hyper::http::Request<tonic::body::BoxBody>) -> Self::Future {
+        self.channel.call(request)
+    }
+}
+
+impl<T> tonic::client::GrpcService<tonic::body::BoxBody> for &'_ mut Client<T>
+where
+    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T::Error: Into<tonic::codegen::StdError>,
+    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
+    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+{
+    type ResponseBody = T::ResponseBody;
+    type Error = T::Error;
+    type Future = T::Future;
+
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.channel.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: hyper::http::Request<tonic::body::BoxBody>) -> Self::Future {
+        self.channel.call(request)
     }
 }
 
