@@ -8,8 +8,10 @@ const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
 };
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaskOptions {
     pub options: HashMap<String, String>,
+    #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_duration"))]
     pub max_duration: prost_types::Duration,
     pub max_retries: i32,
     pub priority: i32,
@@ -20,6 +22,23 @@ pub struct TaskOptions {
     pub application_service: String,
     pub engine_type: String,
 }
+
+impl std::cmp::PartialEq for TaskOptions {
+    fn eq(&self, other: &Self) -> bool {
+        self.max_duration.seconds == other.max_duration.seconds
+            && self.max_duration.nanos == other.max_duration.nanos
+            && self.max_retries == other.max_retries
+            && self.priority == other.priority
+            && self.partition_id == other.partition_id
+            && self.application_name == other.application_name
+            && self.application_version == other.application_version
+            && self.application_namespace == other.application_namespace
+            && self.application_service == other.application_service
+            && self.engine_type == other.engine_type
+    }
+}
+
+impl std::cmp::Eq for TaskOptions {}
 
 impl Default for TaskOptions {
     fn default() -> Self {
@@ -76,6 +95,7 @@ super::impl_convert!(req TaskOptions : v3::TaskOptions);
 
 /// Represents a field in a task option.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum TaskOptionField {
     /// Unspecified.

@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Represents every available field in a Task.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum SummaryField {
     /// Unspecified.
@@ -100,6 +101,7 @@ impl From<v3::tasks::TaskSummaryField> for SummaryField {
 super::super::impl_convert!(req SummaryField : v3::tasks::TaskSummaryField);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Field {
     Summary(SummaryField),
     /// The task option field.

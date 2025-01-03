@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Request to retrieve data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
@@ -16,6 +17,7 @@ super::super::impl_convert!(struct Request = v3::agent::DataRequest {
 
 /// Response when data is available in the shared folder.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Id of the result that will be retrieved.
     pub result_id: String,

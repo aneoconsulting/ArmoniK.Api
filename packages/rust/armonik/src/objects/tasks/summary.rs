@@ -8,6 +8,7 @@ use crate::api::v3;
 /// It contains only a subset of the fields from the underlying task object.
 /// Used when a list of tasks are returned.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Summary {
     /// The task ID.
     pub task_id: String,
@@ -32,28 +33,67 @@ pub struct Summary {
     /// The task options.
     pub options: TaskOptions,
     /// The task creation date
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub created_at: Option<prost_types::Timestamp>,
     /// The task submission date.
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub submitted_at: Option<prost_types::Timestamp>,
     /// When the task is received by the agent.
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub received_at: Option<prost_types::Timestamp>,
     /// When the task is acquired by the agent.
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub acquired_at: Option<prost_types::Timestamp>,
     /// Task data retrieval end date.
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub fetched_at: Option<prost_types::Timestamp>,
     /// The task start date.
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub started_at: Option<prost_types::Timestamp>,
     /// The end of task processing date.
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub processed_at: Option<prost_types::Timestamp>,
     /// The task end date. Also used when task failed.
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub ended_at: Option<prost_types::Timestamp>,
     /// The task duration. Between the creation date and the end date.
+    #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_option_duration"))]
     pub creation_to_end_duration: Option<prost_types::Duration>,
     /// The task calculated duration. Between the start date and the end date.
+    #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_option_duration"))]
     pub processing_to_end_duration: Option<prost_types::Duration>,
     /// The task calculated duration. Between the received date and the end date.
+    #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_option_duration"))]
     pub received_to_end_duration: Option<prost_types::Duration>,
     /// The pod TTL (Time To Live).
+    #[cfg_attr(
+        feature = "serde",
+        serde(with = "crate::utils::serde_option_timestamp")
+    )]
     pub pod_ttl: Option<prost_types::Timestamp>,
     /// The task output.
     pub output: Output,

@@ -6,6 +6,7 @@ use crate::api::v3;
 
 /// Request for creating results with data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
@@ -47,6 +48,7 @@ super::super::impl_convert!(req Request : v3::agent::CreateResultsRequest);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,

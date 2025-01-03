@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Request for notifying results data are available in files.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
@@ -55,6 +56,7 @@ super::super::impl_convert!(req Request: v3::agent::NotifyResultDataRequest);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The list of ResultMetaData results that were created.
     pub result_ids: Vec<String>,

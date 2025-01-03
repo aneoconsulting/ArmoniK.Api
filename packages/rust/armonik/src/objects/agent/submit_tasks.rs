@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Task creation requests.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RequestItem {
     /// Unique ID of the results that will be produced by the task. Results should be created using ResultsService.
     pub expected_output_keys: Vec<String>,
@@ -26,6 +27,7 @@ super::super::impl_convert!(
 
 /// Request to create tasks.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
@@ -48,6 +50,7 @@ super::super::impl_convert!(
 
 /// task infos if submission successful, else throw gRPC exception.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResponseItem {
     /// The task ID.
     pub task_id: String,
@@ -76,6 +79,7 @@ super::super::impl_convert!(
 /// Remark : this may have to be enriched to a better management of errors but
 /// will the client application be able to manage a missing data dependency or expected output ?
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,

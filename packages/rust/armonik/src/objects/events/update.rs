@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Represents an event update. Only one update will be sent per message.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum Update {
     /// Invalid update
