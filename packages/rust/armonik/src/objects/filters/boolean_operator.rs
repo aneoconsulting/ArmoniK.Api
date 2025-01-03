@@ -1,6 +1,7 @@
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum FilterBooleanOperator {
     /// Is the same as the specified boolean.

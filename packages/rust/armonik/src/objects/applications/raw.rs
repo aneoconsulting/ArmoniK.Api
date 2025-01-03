@@ -4,6 +4,7 @@ use crate::api::v3;
 ///
 /// Used when a list of applications is requested.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Raw {
     /// Application name.
     pub name: String,

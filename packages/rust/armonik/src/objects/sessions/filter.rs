@@ -25,6 +25,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Condition {
     String(FilterString),
     Number(FilterNumber),

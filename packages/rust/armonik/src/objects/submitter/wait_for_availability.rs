@@ -3,6 +3,7 @@ use super::super::TaskError;
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub session_id: String,
     pub result_id: String,
@@ -16,6 +17,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Response {
     Ok,
     TaskError(TaskError),

@@ -1,6 +1,7 @@
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {}
 
 super::super::impl_convert!(
@@ -9,6 +10,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Response {
     #[default]
     Unknown = 0,

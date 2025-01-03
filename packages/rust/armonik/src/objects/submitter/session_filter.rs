@@ -4,6 +4,7 @@ use crate::utils::IntoCollection;
 use crate::api::v3;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SessionFilterStatuses {
     Include(Vec<SessionStatus>),
     Exclude(Vec<SessionStatus>),
@@ -46,6 +47,7 @@ impl From<v3::submitter::session_filter::Statuses> for SessionFilterStatuses {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SessionFilter {
     pub ids: Vec<String>,
     pub statuses: SessionFilterStatuses,

@@ -8,6 +8,7 @@ use super::{
 macro_rules! impl_filter_condition {
     ($name:ident => $type:ty : $op:ident) => {
         #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct $name {
             pub value: $type,
             pub operator: $op,
@@ -41,7 +42,9 @@ impl_filter_condition!(FilterArray => String: FilterArrayOperator);
 impl_filter_condition!(FilterBoolean => bool: FilterBooleanOperator);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FilterDate {
+    #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_timestamp"))]
     pub value: prost_types::Timestamp,
     pub operator: FilterDateOperator,
 }
@@ -67,7 +70,9 @@ impl From<v3::FilterDate> for FilterDate {
 super::super::impl_convert!(req FilterDate : v3::FilterDate);
 
 #[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FilterDuration {
+    #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_duration"))]
     pub value: prost_types::Duration,
     pub operator: FilterDurationOperator,
 }
@@ -95,6 +100,7 @@ impl Eq for FilterDuration {}
 super::super::impl_convert!(req FilterDuration : v3::FilterDuration);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FilterStatus<T> {
     pub value: T,
     pub operator: FilterStatusOperator,

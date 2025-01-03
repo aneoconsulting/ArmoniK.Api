@@ -1,6 +1,7 @@
 use crate::api::v3;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InitKeyedDataStream {
     Key(String),
     LastResult,

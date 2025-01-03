@@ -4,6 +4,7 @@ use super::Raw;
 
 /// Request for stopping new tasks submissions from clients or workers in the given session.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The session ID.
     pub session_id: String,
@@ -25,6 +26,7 @@ super::super::impl_convert!(
 ///
 /// Return a raw session.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The session.
     pub session: Raw,

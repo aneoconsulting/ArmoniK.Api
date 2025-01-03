@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Represents an update to the status of a task.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaskStatusUpdate {
     /// The task id.
     pub task_id: String,

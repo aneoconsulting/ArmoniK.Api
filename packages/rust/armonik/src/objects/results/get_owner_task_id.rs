@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Request for getting the id of the task that should create this result.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The session ID.
     pub session_id: String,
@@ -20,6 +21,7 @@ super::super::impl_convert!(
 
 /// Response for getting the id of the task that should create this result.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Map to get the owner task id for each result id.
     pub result_task: HashMap<String, String>,

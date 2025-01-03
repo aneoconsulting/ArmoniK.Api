@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Response for obtaining results service configuration.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {}
 
 super::super::impl_convert!(
@@ -11,6 +12,7 @@ super::super::impl_convert!(
 
 /// Response for obtaining results service configuration.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Maximum size supported by a data chunk for the result service.
     pub data_chunk_max_size: i32,
