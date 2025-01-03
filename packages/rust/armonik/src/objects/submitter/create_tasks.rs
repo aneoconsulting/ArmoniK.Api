@@ -4,6 +4,7 @@ use crate::utils::IntoCollection;
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SmallRequest {
     pub session_id: String,
     pub task_options: Option<TaskOptions>,
@@ -19,6 +20,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InitRequest {
     pub session_id: String,
     pub task_options: Option<TaskOptions>,
@@ -32,6 +34,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LargeRequest {
     #[default]
     Invalid,
@@ -83,6 +86,7 @@ impl From<v3::submitter::CreateLargeTaskRequest> for LargeRequest {
 super::super::impl_convert!(req LargeRequest : v3::submitter::CreateLargeTaskRequest);
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Status {
     TaskInfo {
         /// Unique ID of the created task.
@@ -150,6 +154,7 @@ impl From<v3::submitter::create_task_reply::CreationStatus> for Status {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Response {
     Status(Vec<Status>),
     Error(String),

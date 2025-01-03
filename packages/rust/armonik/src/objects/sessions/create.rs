@@ -4,6 +4,7 @@ use super::super::TaskOptions;
 
 /// Request for creating session.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Default tasks options for tasks in the session.
     pub default_task_options: TaskOptions,
@@ -22,6 +23,7 @@ super::super::impl_convert!(
 /// We have this reply in case of success.
 /// When the session creation is not successful, there is an rpc exception.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Session id of the created session if successful
     pub session_id: String,

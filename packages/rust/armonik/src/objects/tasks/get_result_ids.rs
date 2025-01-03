@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Request for getting result ids of tasks ids.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The task IDs.
     pub task_ids: Vec<String>,
@@ -17,6 +18,7 @@ super::super::impl_convert!(
 
 /// Response for getting result ids of tasks ids.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The task results.
     pub task_results: HashMap<String, Vec<String>>,

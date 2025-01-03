@@ -1,6 +1,7 @@
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// Represents the task output.
 pub enum Output {
     /// To know if a task have failed or succeed.

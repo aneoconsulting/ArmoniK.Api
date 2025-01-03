@@ -5,6 +5,7 @@ use crate::api::v3;
 use super::super::ResultStatus;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub session_id: String,
     pub result_ids: Vec<String>,
@@ -18,6 +19,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub statuses: HashMap<String, ResultStatus>,
 }

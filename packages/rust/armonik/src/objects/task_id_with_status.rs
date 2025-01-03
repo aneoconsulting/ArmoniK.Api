@@ -3,6 +3,7 @@ use crate::api::v3;
 use super::{TaskId, TaskStatus};
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaskIdWithStatus {
     pub task_id: TaskId,
     pub status: TaskStatus,

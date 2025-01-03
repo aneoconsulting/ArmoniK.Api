@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Represents an update to the owner task id of a result.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResultOwnerUpdate {
     /// The result id.
     pub result_id: String,

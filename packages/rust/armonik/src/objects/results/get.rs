@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Request to get an result.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Result id. Must fail when name is empty.
     pub id: String,
@@ -17,6 +18,7 @@ super::super::impl_convert!(
 
 /// Response to get an result.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The result.
     pub result: Raw,

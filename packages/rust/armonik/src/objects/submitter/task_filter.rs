@@ -4,6 +4,7 @@ use crate::utils::IntoCollection;
 use crate::api::v3;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TaskFilterIds {
     Sessions(Vec<String>),
     Tasks(Vec<String>),
@@ -38,6 +39,7 @@ impl From<v3::submitter::task_filter::Ids> for TaskFilterIds {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TaskFilterStatuses {
     Include(Vec<TaskStatus>),
     Exclude(Vec<TaskStatus>),
@@ -80,6 +82,7 @@ impl From<v3::submitter::task_filter::Statuses> for TaskFilterStatuses {
 }
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaskFilter {
     pub ids: TaskFilterIds,
     pub statuses: TaskFilterStatuses,

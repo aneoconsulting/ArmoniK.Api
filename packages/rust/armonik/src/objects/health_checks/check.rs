@@ -4,6 +4,7 @@ use super::ServiceHealth;
 
 /// Request to check if all services are healthy.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {}
 
 super::super::impl_convert!(
@@ -13,6 +14,7 @@ super::super::impl_convert!(
 
 /// Response to check if all services are healthy.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub services: Vec<ServiceHealth>,
 }

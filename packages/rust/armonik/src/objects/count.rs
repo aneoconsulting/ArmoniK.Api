@@ -5,6 +5,7 @@ use crate::api::v3;
 use super::TaskStatus;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Count {
     pub values: HashMap<TaskStatus, i32>,
 }
