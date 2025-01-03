@@ -14,28 +14,22 @@ impl armonik::server::AuthService for Service {
     async fn current_user(
         self: Arc<Self>,
         _request: auth::current_user::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<auth::current_user::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(auth::current_user::Response {
-                    user: auth::User {
-                        username: String::from("rpc-current-user-output"),
-                        ..Default::default()
-                    },
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(auth::current_user::Response {
+                user: auth::User {
+                    username: String::from("rpc-current-user-output"),
+                    ..Default::default()
+                },
+            })
+        })
         .await
     }
 }
 
 #[tokio::test]
 async fn current_user() {
-    let mut client = armonik::Client::with_channel(Service::default().auth_server()).auth();
+    let mut client = armonik::Client::with_channel(Service::default().auth_server()).into_auth();
 
     let response = client.current_user().await.unwrap();
 

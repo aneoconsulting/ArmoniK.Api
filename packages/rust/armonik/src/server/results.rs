@@ -32,7 +32,6 @@ super::define_trait_methods! {
         fn download(
             self: Arc<Self>,
             request: results::download::Request,
-            cancellation_token: tokio_util::sync::CancellationToken,
         ) -> impl std::future::Future<
             Output = Result<
                 impl tonic::codegen::tokio_stream::Stream<
@@ -46,7 +45,6 @@ super::define_trait_methods! {
         fn upload(
             self: Arc<Self>,
             request: impl tonic::codegen::tokio_stream::Stream<Item = Result<results::upload::Request, tonic::Status>> + Send + 'static,
-            cancellation_token: tokio_util::sync::CancellationToken
         ) -> impl std::future::Future<
             Output = Result<results::upload::Response, tonic::Status>
         > + Send;

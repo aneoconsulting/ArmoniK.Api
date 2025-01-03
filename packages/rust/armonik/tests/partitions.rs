@@ -14,46 +14,34 @@ impl armonik::server::PartitionsService for Service {
     async fn list(
         self: Arc<Self>,
         request: partitions::list::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<partitions::list::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(partitions::list::Response {
-                    partitions: vec![partitions::Raw {
-                        partition_id: String::from("rpc-list-output"),
-                        ..Default::default()
-                    }],
-                    page: request.page,
-                    page_size: request.page_size,
-                    total: 1337,
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(partitions::list::Response {
+                partitions: vec![partitions::Raw {
+                    partition_id: String::from("rpc-list-output"),
+                    ..Default::default()
+                }],
+                page: request.page,
+                page_size: request.page_size,
+                total: 1337,
+            })
+        })
         .await
     }
 
     async fn get(
         self: Arc<Self>,
         request: partitions::get::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<partitions::get::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(partitions::get::Response {
-                    partition: partitions::Raw {
-                        partition_id: request.partition_id,
-                        parent_partition_ids: vec![String::from("rpc-get-output")],
-                        ..Default::default()
-                    },
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(partitions::get::Response {
+                partition: partitions::Raw {
+                    partition_id: request.partition_id,
+                    parent_partition_ids: vec![String::from("rpc-get-output")],
+                    ..Default::default()
+                },
+            })
+        })
         .await
     }
 }
@@ -61,7 +49,7 @@ impl armonik::server::PartitionsService for Service {
 #[tokio::test]
 async fn list() {
     let mut client =
-        armonik::Client::with_channel(Service::default().partitions_server()).partitions();
+        armonik::Client::with_channel(Service::default().partitions_server()).into_partitions();
 
     let response = client
         .list(
@@ -82,7 +70,7 @@ async fn list() {
 #[tokio::test]
 async fn get() {
     let mut client =
-        armonik::Client::with_channel(Service::default().partitions_server()).partitions();
+        armonik::Client::with_channel(Service::default().partitions_server()).into_partitions();
 
     let response = client.get("rpc-get-input").await.unwrap();
 

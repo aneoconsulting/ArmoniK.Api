@@ -16,7 +16,6 @@ impl armonik::server::SubmitterService for Service {
     async fn get_service_configuration(
         self: Arc<Self>,
         _request: submitter::get_service_configuration::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::get_service_configuration::Response, tonic::Status> {
         _ = self
             .called
@@ -31,7 +30,6 @@ impl armonik::server::SubmitterService for Service {
     async fn create_session(
         self: Arc<Self>,
         request: submitter::create_session::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::create_session::Response, tonic::Status> {
         _ = self
             .called
@@ -49,7 +47,6 @@ impl armonik::server::SubmitterService for Service {
     async fn cancel_session(
         self: Arc<Self>,
         request: submitter::cancel_session::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::cancel_session::Response, tonic::Status> {
         _ = self
             .called
@@ -65,7 +62,6 @@ impl armonik::server::SubmitterService for Service {
     async fn list_tasks(
         self: Arc<Self>,
         request: submitter::list_tasks::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::list_tasks::Response, tonic::Status> {
         _ = self
             .called
@@ -86,7 +82,6 @@ impl armonik::server::SubmitterService for Service {
     async fn list_sessions(
         self: Arc<Self>,
         request: submitter::list_sessions::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::list_sessions::Response, tonic::Status> {
         _ = self
             .called
@@ -104,7 +99,6 @@ impl armonik::server::SubmitterService for Service {
     async fn count_tasks(
         self: Arc<Self>,
         request: submitter::count_tasks::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::count_tasks::Response, tonic::Status> {
         _ = self
             .called
@@ -127,7 +121,6 @@ impl armonik::server::SubmitterService for Service {
     async fn try_get_task_output(
         self: Arc<Self>,
         request: submitter::try_get_task_output::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::try_get_task_output::Response, tonic::Status> {
         _ = self
             .called
@@ -143,7 +136,6 @@ impl armonik::server::SubmitterService for Service {
     async fn wait_for_availability(
         self: Arc<Self>,
         request: submitter::wait_for_availability::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::wait_for_availability::Response, tonic::Status> {
         _ = self
             .called
@@ -161,7 +153,6 @@ impl armonik::server::SubmitterService for Service {
     async fn wait_for_completion(
         self: Arc<Self>,
         request: submitter::wait_for_completion::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::wait_for_completion::Response, tonic::Status> {
         _ = self
             .called
@@ -184,7 +175,6 @@ impl armonik::server::SubmitterService for Service {
     async fn cancel_tasks(
         self: Arc<Self>,
         request: submitter::cancel_tasks::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::cancel_tasks::Response, tonic::Status> {
         _ = self
             .called
@@ -203,7 +193,6 @@ impl armonik::server::SubmitterService for Service {
     async fn task_status(
         self: Arc<Self>,
         request: submitter::task_status::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::task_status::Response, tonic::Status> {
         _ = self
             .called
@@ -226,7 +215,6 @@ impl armonik::server::SubmitterService for Service {
     async fn result_status(
         self: Arc<Self>,
         request: submitter::result_status::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<submitter::result_status::Response, tonic::Status> {
         _ = self
             .called
@@ -249,7 +237,6 @@ impl armonik::server::SubmitterService for Service {
     async fn try_get_result(
         self: Arc<Self>,
         request: submitter::try_get_result::Request,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> Result<
         impl tonic::codegen::tokio_stream::Stream<
                 Item = Result<submitter::try_get_result::Response, tonic::Status>,
@@ -272,7 +259,6 @@ impl armonik::server::SubmitterService for Service {
     async fn create_small_tasks(
         self: Arc<Self>,
         request: submitter::create_tasks::SmallRequest,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> Result<submitter::create_tasks::Response, tonic::Status> {
         _ = self
             .called
@@ -299,7 +285,6 @@ impl armonik::server::SubmitterService for Service {
                 Item = Result<submitter::create_tasks::LargeRequest, tonic::Status>,
             > + Send
             + 'static,
-        _cancellation_token: tokio_util::sync::CancellationToken,
     ) -> Result<submitter::create_tasks::Response, tonic::Status> {
         _ = self
             .called
@@ -341,7 +326,7 @@ async fn get_service_configuration() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client.get_service_configuration().await.unwrap();
 
@@ -363,7 +348,7 @@ async fn create_session() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .create_session(["create-session-input"], Default::default())
@@ -388,7 +373,7 @@ async fn cancel_session() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     _ = client.cancel_session("cancel-session-input").await.unwrap();
 
@@ -408,7 +393,7 @@ async fn list_tasks() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .list_tasks(submitter::TaskFilter {
@@ -436,7 +421,7 @@ async fn list_sessions() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .list_sessions(submitter::SessionFilter {
@@ -464,7 +449,7 @@ async fn count_tasks() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .count_tasks(submitter::TaskFilter {
@@ -492,7 +477,7 @@ async fn try_get_task_output() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     _ = client
         .try_get_task_output("try-get-task-output-input", "task-id")
@@ -515,7 +500,7 @@ async fn wait_for_availability() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .wait_for_availability("wait-for-availability-input", "result-id")
@@ -545,7 +530,7 @@ async fn wait_for_completion() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .wait_for_completion(
@@ -579,7 +564,7 @@ async fn cancel_tasks() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     _ = client
         .cancel_tasks(submitter::TaskFilter {
@@ -605,7 +590,7 @@ async fn task_status() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client.task_status(["task-status-input"]).await.unwrap();
 
@@ -627,7 +612,7 @@ async fn result_status() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .result_status("result-status-input", ["result-id"])
@@ -652,7 +637,7 @@ async fn try_get_result() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     _ = client
         .try_get_result("try-get-result-input", "result-id")
@@ -675,7 +660,7 @@ async fn create_small_tasks() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .create_small_tasks(
@@ -709,7 +694,7 @@ async fn create_large_tasks() {
         }
         .submitter_server(),
     )
-    .submitter();
+    .into_submitter();
 
     let response = client
         .create_large_tasks(futures::stream::iter([
