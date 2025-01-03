@@ -14,172 +14,130 @@ impl armonik::server::TasksService for Service {
     async fn list(
         self: Arc<Self>,
         request: tasks::list::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<tasks::list::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(tasks::list::Response {
-                    tasks: vec![tasks::Summary {
-                        task_id: String::from("rpc-list-output"),
-                        ..Default::default()
-                    }],
-                    page: request.page,
-                    page_size: request.page_size,
-                    total: 1337,
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(tasks::list::Response {
+                tasks: vec![tasks::Summary {
+                    task_id: String::from("rpc-list-output"),
+                    ..Default::default()
+                }],
+                page: request.page,
+                page_size: request.page_size,
+                total: 1337,
+            })
+        })
         .await
     }
 
     async fn list_detailed(
         self: Arc<Self>,
         request: tasks::list_detailed::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<tasks::list_detailed::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(tasks::list_detailed::Response {
-                    tasks: vec![tasks::Raw {
-                        task_id: String::from("rpc-list-detailed-output"),
-                        ..Default::default()
-                    }],
-                    page: request.page,
-                    page_size: request.page_size,
-                    total: 1338,
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(tasks::list_detailed::Response {
+                tasks: vec![tasks::Raw {
+                    task_id: String::from("rpc-list-detailed-output"),
+                    ..Default::default()
+                }],
+                page: request.page,
+                page_size: request.page_size,
+                total: 1338,
+            })
+        })
         .await
     }
 
     async fn get(
         self: Arc<Self>,
         request: tasks::get::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<tasks::get::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(tasks::get::Response {
-                    task: tasks::Raw {
-                        session_id: String::from("rpc-get-output"),
-                        task_id: request.task_id,
-                        ..Default::default()
-                    },
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(tasks::get::Response {
+                task: tasks::Raw {
+                    session_id: String::from("rpc-get-output"),
+                    task_id: request.task_id,
+                    ..Default::default()
+                },
+            })
+        })
         .await
     }
 
     async fn cancel(
         self: Arc<Self>,
         request: tasks::cancel::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<tasks::cancel::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(tasks::cancel::Response {
-                    tasks: request
-                        .task_ids
-                        .into_iter()
-                        .map(|task_id| tasks::Summary {
-                            session_id: String::from("rpc-cancel-output"),
-                            task_id,
-                            ..Default::default()
-                        })
-                        .collect(),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(tasks::cancel::Response {
+                tasks: request
+                    .task_ids
+                    .into_iter()
+                    .map(|task_id| tasks::Summary {
+                        session_id: String::from("rpc-cancel-output"),
+                        task_id,
+                        ..Default::default()
+                    })
+                    .collect(),
+            })
+        })
         .await
     }
 
     async fn get_result_ids(
         self: Arc<Self>,
         request: tasks::get_result_ids::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<tasks::get_result_ids::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(tasks::get_result_ids::Response {
-                    task_results: request
-                        .task_ids
-                        .into_iter()
-                        .map(|task_id| (task_id, vec![String::from("rpc-get-result-ids-output")]))
-                        .collect(),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(tasks::get_result_ids::Response {
+                task_results: request
+                    .task_ids
+                    .into_iter()
+                    .map(|task_id| (task_id, vec![String::from("rpc-get-result-ids-output")]))
+                    .collect(),
+            })
+        })
         .await
     }
 
     async fn count_status(
         self: Arc<Self>,
         _request: tasks::count_status::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<tasks::count_status::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(tasks::count_status::Response {
-                    status: vec![armonik::StatusCount {
-                        status: armonik::TaskStatus::Creating,
-                        count: 1337,
-                    }],
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(tasks::count_status::Response {
+                status: vec![armonik::StatusCount {
+                    status: armonik::TaskStatus::Creating,
+                    count: 1337,
+                }],
+            })
+        })
         .await
     }
 
     async fn submit(
         self: Arc<Self>,
         request: tasks::submit::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<tasks::submit::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(tasks::submit::Response {
-                    items: request
-                        .items
-                        .into_iter()
-                        .map(|item| tasks::submit::ResponseItem {
-                            task_id: String::from("rpc-submit-output"),
-                            payload_id: item.payload_id,
-                            ..Default::default()
-                        })
-                        .collect(),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(tasks::submit::Response {
+                items: request
+                    .items
+                    .into_iter()
+                    .map(|item| tasks::submit::ResponseItem {
+                        task_id: String::from("rpc-submit-output"),
+                        payload_id: item.payload_id,
+                        ..Default::default()
+                    })
+                    .collect(),
+            })
+        })
         .await
     }
 }
 
 #[tokio::test]
 async fn list() {
-    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).tasks();
+    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).into_tasks();
 
     let response = client
         .list(
@@ -200,7 +158,7 @@ async fn list() {
 
 #[tokio::test]
 async fn list_detailed() {
-    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).tasks();
+    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).into_tasks();
 
     let response = client
         .list_detailed(
@@ -221,7 +179,7 @@ async fn list_detailed() {
 
 #[tokio::test]
 async fn get() {
-    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).tasks();
+    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).into_tasks();
 
     let response = client.get("rpc-get-input").await.unwrap();
 
@@ -231,7 +189,7 @@ async fn get() {
 
 #[tokio::test]
 async fn cancel() {
-    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).tasks();
+    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).into_tasks();
 
     let response = client.cancel(["rpc-cancel-input"]).await.unwrap();
 
@@ -241,7 +199,7 @@ async fn cancel() {
 
 #[tokio::test]
 async fn get_result_ids() {
-    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).tasks();
+    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).into_tasks();
 
     let response = client
         .get_result_ids(["rpc-get-result-ids-input"])
@@ -256,7 +214,7 @@ async fn get_result_ids() {
 
 #[tokio::test]
 async fn count_status() {
-    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).tasks();
+    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).into_tasks();
 
     let response = client
         .count_status(tasks::filter::Or::default())
@@ -268,7 +226,7 @@ async fn count_status() {
 
 #[tokio::test]
 async fn submit() {
-    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).tasks();
+    let mut client = armonik::Client::with_channel(Service::default().tasks_server()).into_tasks();
 
     let response = client
         .submit(

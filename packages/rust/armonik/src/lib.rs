@@ -24,8 +24,6 @@ pub mod reexports {
     pub use rustls;
     #[cfg(feature = "_gen-server")]
     pub use tokio;
-    #[cfg(feature = "_gen-server")]
-    pub use tokio_util;
     pub use tonic;
     pub use tonic::async_trait;
     pub use tonic::codegen::http;

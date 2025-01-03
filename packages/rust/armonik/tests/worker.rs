@@ -14,41 +14,32 @@ impl armonik::server::WorkerService for Service {
     async fn health_check(
         self: Arc<Self>,
         _request: worker::health_check::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<worker::health_check::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || Ok(worker::health_check::Response::Serving),
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(worker::health_check::Response::Serving)
+        })
         .await
     }
 
     async fn process(
         self: Arc<Self>,
         _request: worker::process::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<worker::process::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(worker::process::Response {
-                    output: armonik::Output::Error {
-                        details: String::from("rpc-process-output"),
-                    },
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(worker::process::Response {
+                output: armonik::Output::Error {
+                    details: String::from("rpc-process-output"),
+                },
+            })
+        })
         .await
     }
 }
 
 #[tokio::test]
 async fn health_check() {
-    let mut client = armonik::Client::with_channel(Service::default().worker_server()).worker();
+    let mut client =
+        armonik::Client::with_channel(Service::default().worker_server()).into_worker();
 
     let response = client.health_check().await.unwrap();
 
@@ -57,7 +48,8 @@ async fn health_check() {
 
 #[tokio::test]
 async fn process() {
-    let mut client = armonik::Client::with_channel(Service::default().worker_server()).worker();
+    let mut client =
+        armonik::Client::with_channel(Service::default().worker_server()).into_worker();
 
     let response = client
         .process(worker::process::Request {

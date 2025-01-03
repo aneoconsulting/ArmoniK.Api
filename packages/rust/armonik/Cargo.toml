@@ -19,7 +19,7 @@ server = ["_gen-server"]
 agent = ["_gen-client", "_gen-server"]
 worker = ["_gen-client", "_gen-server"]
 _gen-client = ["tonic/channel", "dep:rustls", "dep:hyper-rustls", "dep:hyper"]
-_gen-server = ["tonic/server", "dep:tokio-util", "dep:tokio"]
+_gen-server = ["tonic/server", "dep:tokio"]
 
 [dependencies]
 tonic = { version = "0.12", features = [
@@ -41,7 +41,6 @@ hyper-rustls = { version = "0.27", features = [
   "http2",
 ], optional = true }
 rustls = { version = "0.23", features = ["ring"], optional = true }
-tokio-util = { version = "0.7", optional = true }
 tokio = { version = "1.41", default-features = false, optional = true }
 serde = { version = "1.0", features = [
   "derive",
@@ -61,6 +60,7 @@ tokio = { version = "1.42", features = [
   "sync",
   "time",
 ] }
+tokio-util = "0.7"
 
 [build-dependencies]
 tonic-build = "0.12"

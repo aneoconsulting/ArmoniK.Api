@@ -14,7 +14,6 @@ impl armonik::server::EventsService for Service {
     async fn subscribe(
         self: Arc<Self>,
         request: events::subscribe::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> Result<
         impl tonic::codegen::tokio_stream::Stream<
                 Item = Result<events::subscribe::Response, tonic::Status>,
@@ -26,12 +25,7 @@ impl armonik::server::EventsService for Service {
             let _drop_guard = end_ct.drop_guard();
             loop {
                 if let Some(duration) = self.wait.clone() {
-                    cancellation_token
-                        .run_until_cancelled(tokio::time::sleep(duration))
-                        .await
-                        .ok_or(tonic::Status::cancelled("Request has been cancelled"))?;
-                } else if cancellation_token.is_cancelled() {
-                    Err(tonic::Status::cancelled("Request has been cancelled"))?;
+                    tokio::time::sleep(duration).await;
                 }
 
                 if let Some(failure) = self.failure.clone() {
@@ -61,7 +55,7 @@ async fn subscribe() {
         }
         .events_server(),
     )
-    .events();
+    .into_events();
 
     let mut response = client
         .subscribe(
@@ -94,7 +88,7 @@ async fn subscribe() {
     std::mem::drop(response);
 
     if cancellation_token
-        .run_until_cancelled(tokio::time::sleep(tokio::time::Duration::from_millis(10)))
+        .run_until_cancelled(tokio::time::sleep(tokio::time::Duration::from_millis(100)))
         .await
         .is_some()
     {

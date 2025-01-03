@@ -7,7 +7,6 @@ pub trait EventsService {
     fn subscribe(
         self: Arc<Self>,
         request: events::subscribe::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> impl std::future::Future<
         Output = Result<
             impl tonic::codegen::tokio_stream::Stream<

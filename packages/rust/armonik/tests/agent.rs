@@ -14,162 +14,120 @@ impl armonik::server::AgentService for Service {
     async fn create_results_metadata(
         self: Arc<Self>,
         request: agent::create_results_metadata::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<agent::create_results_metadata::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::create_results_metadata::Response {
-                    communication_token: request.communication_token,
-                    results: request
-                        .names
-                        .into_iter()
-                        .map(|name| {
-                            (
-                                name.clone(),
-                                agent::ResultMetaData {
-                                    session_id: String::from("rpc-create-results-metadata-output"),
-                                    name,
-                                    ..Default::default()
-                                },
-                            )
-                        })
-                        .collect(),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::create_results_metadata::Response {
+                communication_token: request.communication_token,
+                results: request
+                    .names
+                    .into_iter()
+                    .map(|name| {
+                        (
+                            name.clone(),
+                            agent::ResultMetaData {
+                                session_id: String::from("rpc-create-results-metadata-output"),
+                                name,
+                                ..Default::default()
+                            },
+                        )
+                    })
+                    .collect(),
+            })
+        })
         .await
     }
 
     async fn create_results(
         self: Arc<Self>,
         request: agent::create_results::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<agent::create_results::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::create_results::Response {
-                    communication_token: request.communication_token,
-                    results: request
-                        .results
-                        .into_iter()
-                        .map(|(name, _)| {
-                            eprintln!("NAME: {name}");
-                            (
-                                name.clone(),
-                                agent::ResultMetaData {
-                                    name,
-                                    session_id: String::from("rpc-create-results-output"),
-                                    ..Default::default()
-                                },
-                            )
-                        })
-                        .collect(),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::create_results::Response {
+                communication_token: request.communication_token,
+                results: request
+                    .results
+                    .into_iter()
+                    .map(|(name, _)| {
+                        eprintln!("NAME: {name}");
+                        (
+                            name.clone(),
+                            agent::ResultMetaData {
+                                name,
+                                session_id: String::from("rpc-create-results-output"),
+                                ..Default::default()
+                            },
+                        )
+                    })
+                    .collect(),
+            })
+        })
         .await
     }
 
     async fn notify_result_data(
         self: Arc<Self>,
         request: agent::notify_result_data::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<agent::notify_result_data::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::notify_result_data::Response {
-                    result_ids: vec![
-                        request.communication_token,
-                        String::from("rpc-notify-result-data-output"),
-                    ],
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::notify_result_data::Response {
+                result_ids: vec![
+                    request.communication_token,
+                    String::from("rpc-notify-result-data-output"),
+                ],
+            })
+        })
         .await
     }
 
     async fn submit_tasks(
         self: Arc<Self>,
         request: agent::submit_tasks::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<agent::submit_tasks::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::submit_tasks::Response {
-                    communication_token: request.communication_token,
-                    items: vec![agent::submit_tasks::ResponseItem {
-                        task_id: String::from("rpc-submit-tasks-output"),
-                        ..Default::default()
-                    }],
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::submit_tasks::Response {
+                communication_token: request.communication_token,
+                items: vec![agent::submit_tasks::ResponseItem {
+                    task_id: String::from("rpc-submit-tasks-output"),
+                    ..Default::default()
+                }],
+            })
+        })
         .await
     }
 
     async fn get_resource_data(
         self: Arc<Self>,
         _request: agent::get_resource_data::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<agent::get_resource_data::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::get_resource_data::Response {
-                    result_id: String::from("rpc-get-resource-data-output"),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::get_resource_data::Response {
+                result_id: String::from("rpc-get-resource-data-output"),
+            })
+        })
         .await
     }
 
     async fn get_common_data(
         self: Arc<Self>,
         _request: agent::get_common_data::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<agent::get_common_data::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::get_common_data::Response {
-                    result_id: String::from("rpc-get-common-data-output"),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::get_common_data::Response {
+                result_id: String::from("rpc-get-common-data-output"),
+            })
+        })
         .await
     }
 
     async fn get_direct_data(
         self: Arc<Self>,
         _request: agent::get_direct_data::Request,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> std::result::Result<agent::get_direct_data::Response, tonic::Status> {
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::get_direct_data::Response {
-                    result_id: String::from("rpc-get-direct-data-output"),
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::get_direct_data::Response {
+                result_id: String::from("rpc-get-direct-data-output"),
+            })
+        })
         .await
     }
 
@@ -179,7 +137,6 @@ impl armonik::server::AgentService for Service {
                 Item = Result<agent::create_tasks::Request, tonic::Status>,
             > + Send
             + 'static,
-        cancellation_token: tokio_util::sync::CancellationToken,
     ) -> Result<agent::create_tasks::Response, tonic::Status> {
         let mut request = std::pin::pin!(request);
         let mut token = None;
@@ -196,29 +153,24 @@ impl armonik::server::AgentService for Service {
                 None => break,
             }
         }
-        common::unary_rpc_impl(
-            self.wait.clone(),
-            self.failure.clone(),
-            cancellation_token,
-            || {
-                Ok(agent::create_tasks::Response::Status {
-                    communication_token: token.unwrap_or_default(),
-                    statuses: vec![agent::create_tasks::Status::TaskInfo {
-                        task_id: String::from("rpc-create-tasks-output"),
-                        expected_output_keys: vec![],
-                        data_dependencies: vec![],
-                        payload_id: String::new(),
-                    }],
-                })
-            },
-        )
+        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+            Ok(agent::create_tasks::Response::Status {
+                communication_token: token.unwrap_or_default(),
+                statuses: vec![agent::create_tasks::Status::TaskInfo {
+                    task_id: String::from("rpc-create-tasks-output"),
+                    expected_output_keys: vec![],
+                    data_dependencies: vec![],
+                    payload_id: String::new(),
+                }],
+            })
+        })
         .await
     }
 }
 
 #[tokio::test]
 async fn create_results_metadata() {
-    let mut client = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .create_results_metadata("rpc-create-results-metadata-input", "", ["result-id"])
@@ -233,7 +185,7 @@ async fn create_results_metadata() {
 
 #[tokio::test]
 async fn create_results() {
-    let mut client = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .create_results("rpc-create-results-input", "", [("result-id", b"")])
@@ -248,7 +200,7 @@ async fn create_results() {
 
 #[tokio::test]
 async fn notify_result_data() {
-    let mut client = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .notify_result_data("rpc-notify-result-data-input", "", [""])
@@ -261,9 +213,7 @@ async fn notify_result_data() {
 
 #[tokio::test]
 async fn submit_tasks() {
-    let mut client: armonik::client::AgentClient<
-        armonik::api::v3::agent::agent_server::AgentServer<Service>,
-    > = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .submit_tasks("rpc-submit-tasks-input", "", None, [])
@@ -275,9 +225,7 @@ async fn submit_tasks() {
 
 #[tokio::test]
 async fn get_resource_data() {
-    let mut client: armonik::client::AgentClient<
-        armonik::api::v3::agent::agent_server::AgentServer<Service>,
-    > = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .call(agent::get_resource_data::Request {
@@ -292,9 +240,7 @@ async fn get_resource_data() {
 
 #[tokio::test]
 async fn get_common_data() {
-    let mut client: armonik::client::AgentClient<
-        armonik::api::v3::agent::agent_server::AgentServer<Service>,
-    > = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .call(agent::get_common_data::Request {
@@ -309,9 +255,7 @@ async fn get_common_data() {
 
 #[tokio::test]
 async fn get_direct_data() {
-    let mut client: armonik::client::AgentClient<
-        armonik::api::v3::agent::agent_server::AgentServer<Service>,
-    > = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .call(agent::get_direct_data::Request {
@@ -326,9 +270,7 @@ async fn get_direct_data() {
 
 #[tokio::test]
 async fn create_tasks() {
-    let mut client: armonik::client::AgentClient<
-        armonik::api::v3::agent::agent_server::AgentServer<Service>,
-    > = armonik::Client::with_channel(Service::default().agent_server()).agent();
+    let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
         .create_tasks(futures::stream::iter([
