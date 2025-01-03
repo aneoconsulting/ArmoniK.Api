@@ -24,6 +24,7 @@ pub use string_operator::FilterStringOperator;
 macro_rules! impl_filter {
     (Filter[$field:ty, $condition:ty]: $api_or:ty [$api_and:ty[$api_field:ty, $api_condition:ty]]) => {
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct Or {
             pub or: Vec<And>,
         }
@@ -35,6 +36,7 @@ macro_rules! impl_filter {
         );
 
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct And {
             pub and: Vec<Field>,
         }
@@ -46,6 +48,7 @@ macro_rules! impl_filter {
         );
 
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct Field {
             pub field: $field,
             pub condition: $condition,

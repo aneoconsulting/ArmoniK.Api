@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Request for getting a result.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The session of the result.
     pub session_id: String,
@@ -18,6 +19,7 @@ super::super::impl_convert!(
 
 /// Response for getting a result.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// A chunk of data.
     pub data_chunk: Vec<u8>,

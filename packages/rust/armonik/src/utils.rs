@@ -118,10 +118,81 @@ impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
     }
 }
 
-struct Foo {}
-struct Bar(Vec<Foo>);
+#[cfg(feature = "serde")]
+pub(crate) mod serde_timestamp {
+    pub(crate) fn serialize<S: serde::Serializer>(
+        value: &prost_types::Timestamp,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&(value.seconds, value.nanos), serializer)
+    }
 
-impl_vec_wrapper!(Bar(Foo));
+    pub(crate) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<prost_types::Timestamp, D::Error> {
+        let (seconds, nanos): (i64, i32) = serde::Deserialize::deserialize(deserializer)?;
+        Ok(prost_types::Timestamp { seconds, nanos })
+    }
+}
+#[cfg(feature = "serde")]
+pub(crate) mod serde_option_timestamp {
+    pub(crate) fn serialize<S: serde::Serializer>(
+        value: &Option<prost_types::Timestamp>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(
+            &value.as_ref().map(|value| (value.seconds, value.nanos)),
+            serializer,
+        )
+    }
+
+    pub(crate) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<prost_types::Timestamp>, D::Error> {
+        Ok(
+            <Option<(i64, i32)> as serde::Deserialize>::deserialize(deserializer)?
+                .map(|(seconds, nanos)| prost_types::Timestamp { seconds, nanos }),
+        )
+    }
+}
+
+#[cfg(feature = "serde")]
+pub(crate) mod serde_duration {
+    pub(crate) fn serialize<S: serde::Serializer>(
+        value: &prost_types::Duration,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&(value.seconds, value.nanos), serializer)
+    }
+
+    pub(crate) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<prost_types::Duration, D::Error> {
+        let (seconds, nanos): (i64, i32) = serde::Deserialize::deserialize(deserializer)?;
+        Ok(prost_types::Duration { seconds, nanos })
+    }
+}
+#[cfg(feature = "serde")]
+pub(crate) mod serde_option_duration {
+    pub(crate) fn serialize<S: serde::Serializer>(
+        value: &Option<prost_types::Duration>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(
+            &value.as_ref().map(|value| (value.seconds, value.nanos)),
+            serializer,
+        )
+    }
+
+    pub(crate) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<prost_types::Duration>, D::Error> {
+        Ok(
+            <Option<(i64, i32)> as serde::Deserialize>::deserialize(deserializer)?
+                .map(|(seconds, nanos)| prost_types::Duration { seconds, nanos }),
+        )
+    }
+}
 
 /// Implement all traits and functions to define a wrapper around a [`Vec`]
 ///

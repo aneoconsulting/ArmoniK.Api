@@ -6,6 +6,7 @@ use crate::api::v3;
 ///
 /// Used when a list or a single partition is returned.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Raw {
     /// The partition ID.
     pub partition_id: String,

@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Task creation requests.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RequestItem {
     /// Unique ID of the results that will be produced by the task. Results should be created using ResultsService.
     pub expected_output_keys: Vec<String>,
@@ -26,6 +27,7 @@ super::super::impl_convert!(
 
 /// Request to create tasks.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The session ID.
     pub session_id: String,
@@ -45,6 +47,7 @@ super::super::impl_convert!(
 
 /// task infos if submission successful, else throw gRPC exception.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResponseItem {
     /// The task ID.
     pub task_id: String,
@@ -67,6 +70,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub items: Vec<ResponseItem>,
 }

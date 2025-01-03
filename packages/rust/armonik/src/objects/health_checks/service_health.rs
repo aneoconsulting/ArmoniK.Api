@@ -3,6 +3,7 @@ use crate::api::v3;
 use super::Status;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ServiceHealth {
     /// Name of the service (e.g. "control_plane", "database", "redis").
     pub name: String,

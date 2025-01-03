@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Represents every available field in a result.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum Field {
     /// Unspecified.

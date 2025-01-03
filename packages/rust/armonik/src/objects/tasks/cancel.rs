@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Request to cancel one or many tasks.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Ids of the tasks to cancel.
     pub task_ids: Vec<String>,
@@ -17,6 +18,7 @@ super::super::impl_convert!(
 
 /// Response from canceling one or many tasks.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Tasks that have been asked to cancel.
     pub tasks: Vec<Summary>,

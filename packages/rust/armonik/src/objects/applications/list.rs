@@ -3,6 +3,7 @@ use crate::api::v3;
 use super::{filter, Raw, Sort};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub page: i32,
     pub page_size: i32,
@@ -24,6 +25,7 @@ impl Default for Request {
 super::super::impl_convert!(struct Request = v3::applications::ListApplicationsRequest { page, page_size, filters = option filters, sort = option sort });
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub applications: Vec<Raw>,
     pub page: i32,

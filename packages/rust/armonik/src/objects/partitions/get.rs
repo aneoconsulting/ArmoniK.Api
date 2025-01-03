@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Request to get a partition.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The partition ID.
     pub partition_id: String,
@@ -19,6 +20,7 @@ super::super::impl_convert!(
 ///
 /// Return a raw partition.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The raw partition.
     pub partition: Raw,

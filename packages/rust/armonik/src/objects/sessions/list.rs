@@ -6,6 +6,7 @@ use super::{filter, Raw, Sort};
 ///
 /// Use pagination, filtering and sorting.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
@@ -44,6 +45,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub sessions: Vec<Raw>,
     pub page: i32,

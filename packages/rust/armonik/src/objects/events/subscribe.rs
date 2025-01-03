@@ -4,6 +4,7 @@ use crate::{api::v3, utils::IntoCollection};
 
 /// Request to subscribe to the event stream.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Id of the session that will be used to subscribe events for.
     pub session_id: String,
@@ -47,6 +48,7 @@ super::super::impl_convert!(
 
 /// Response containing the update event.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     ///  Id of the session that will be used to subscribe events for.
     pub session_id: String,

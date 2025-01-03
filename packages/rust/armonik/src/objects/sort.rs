@@ -1,6 +1,7 @@
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum SortDirection {
     /// Unspecified. Do not use.
@@ -52,12 +53,14 @@ impl From<v3::sort_direction::SortDirection> for SortDirection {
 super::impl_convert!(req SortDirection : v3::sort_direction::SortDirection);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sort<T> {
     pub field: T,
     pub direction: SortDirection,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SortMany<T> {
     pub fields: Vec<T>,
     pub direction: SortDirection,
