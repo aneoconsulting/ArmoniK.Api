@@ -56,7 +56,6 @@ macro_rules! define_trait_methods {
                 fn $method(
                     self: Arc<Self>,
                     request: $service::$method::Request,
-                    cancellation_token: tokio_util::sync::CancellationToken,
                 ) -> impl std::future::Future<Output = std::result::Result<$service::$method::Response, tonic::Status>> + Send;
             )*
             $($($body)*)?
@@ -81,68 +80,51 @@ macro_rules! impl_trait_methods {
     };
     (unary ($self:ident, $request:ident) { $inner:path }) => {
         {
-            let ct = tokio_util::sync::CancellationToken::new();
-            let _drop_guard = ct.clone().drop_guard();
-            let fut = tokio::spawn(async move { $inner($self, $request.into_inner().into(), ct).await});
+            let fut = $inner($self, $request.into_inner().into());
             match fut.await {
-                Ok(Ok(res)) => Ok(tonic::Response::new(res.into())),
-                Ok(Err(err)) => Err(err),
-                Err(err) => Err(tonic::Status::internal(err.to_string())),
+                Ok(res) => Ok(tonic::Response::new(res.into())),
+                Err(err) => Err(err),
             }
         }
     };
     (stream client ($self:ident, $request:ident) { $inner:path }) => {
         {
-            let ct = tokio_util::sync::CancellationToken::new();
-            let _drop_guard = ct.clone().drop_guard();
-            let fut = tokio::spawn(async move {
-                $inner(
-                    $self,
-                    tonic::codegen::tokio_stream::StreamExt::map($request.into_inner(), |r| r.map(Into::into)),
-                    ct)
-                .await
-            });
+            let fut = $inner(
+                $self,
+                tonic::codegen::tokio_stream::StreamExt::map($request.into_inner(), |r| r.map(Into::into)));
             match fut.await {
-                Ok(Ok(res)) => Ok(tonic::Response::new(res.into())),
-                Ok(Err(err)) => Err(err),
-                Err(err) => Err(tonic::Status::internal(err.to_string())),
+                Ok(res) => Ok(tonic::Response::new(res.into())),
+                Err(err) => Err(err),
             }
         }
     };
     (stream server ($self:ident, $request:ident) { $inner:path }) => {
         {
-            let ct = tokio_util::sync::CancellationToken::new();
-            let drop_guard = ct.clone().drop_guard();
-            let fut = tokio::spawn(async move { $inner($self, $request.into_inner().into(), ct).await });
+            let fut = $inner($self, $request.into_inner().into());
             match fut.await {
-                Ok(Ok(stream)) => {
-                    let (tx, rx) = tokio::sync::mpsc::channel(1);
-                    tokio::spawn(async move {
-                        let mut stream = std::pin::pin!(stream);
-
-                        while let Some(res) = tonic::codegen::tokio_stream::StreamExt::next(&mut stream).await {
-                            _ = tx.send(res.map(Into::into)).await;
-                        }
-                    });
+                Ok(stream) => {
+                    let stream = tonic::codegen::tokio_stream::StreamExt::map(stream, |res| res.map(Into::into));
 
                     Ok(tonic::Response::new(
                         crate::server::ServerStream{
-                            receiver: rx,
-                            drop_guard,
+                            receiver: Box::pin(stream),
                         },
                     ))
                 }
-                Ok(Err(err)) => Err(err),
-                Err(err) => Err(tonic::Status::internal(err.to_string())),
+                Err(err) => Err(err),
             }
         }
     };
 }
 
 pub struct ServerStream<T> {
-    receiver: tokio::sync::mpsc::Receiver<Result<T, tonic::Status>>,
-    #[allow(unused)]
-    drop_guard: tokio_util::sync::DropGuard,
+    receiver: std::pin::Pin<
+        Box<
+            dyn crate::reexports::tokio_stream::Stream<Item = Result<T, tonic::Status>>
+                + Send
+                + 'static,
+        >,
+    >,
 }
 
 impl<T> crate::reexports::tokio_stream::Stream for ServerStream<T> {
@@ -152,7 +134,7 @@ impl<T> crate::reexports::tokio_stream::Stream for ServerStream<T> {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        self.receiver.poll_recv(cx)
+        self.receiver.as_mut().poll_next(cx)
     }
 }
 
