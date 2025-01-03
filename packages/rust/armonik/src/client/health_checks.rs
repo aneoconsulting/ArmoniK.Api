@@ -61,7 +61,7 @@ super::impl_call! {
 }
 
 #[cfg(test)]
-#[serial_test::serial(auth)]
+#[serial_test::serial(health_checks)]
 mod tests {
     use crate::Client;
 
@@ -69,23 +69,23 @@ mod tests {
 
     #[tokio::test]
     async fn check() {
-        let before = Client::get_nb_request("HealthChecksService", "CheckHealth").await;
+        let before = Client::get_nb_request("HealthChecks", "CheckHealth").await;
         let mut client = Client::new().await.unwrap().into_health_checks();
         client.check().await.unwrap();
-        let after = Client::get_nb_request("HealthChecksService", "CheckHealth").await;
+        let after = Client::get_nb_request("HealthChecks", "CheckHealth").await;
         assert_eq!(after - before, 1);
     }
     // Explicit call request
 
     #[tokio::test]
     async fn check_call() {
-        let before = Client::get_nb_request("HealthChecksService", "CheckHealth").await;
+        let before = Client::get_nb_request("HealthChecks", "CheckHealth").await;
         let mut client = Client::new().await.unwrap().into_health_checks();
         client
             .call(crate::health_checks::check::Request {})
             .await
             .unwrap();
-        let after = Client::get_nb_request("HealthChecksService", "CheckHealth").await;
+        let after = Client::get_nb_request("HealthChecks", "CheckHealth").await;
         assert_eq!(after - before, 1);
     }
 }
