@@ -7,11 +7,11 @@ use super::GrpcCall;
 
 /// Service for authentication management.
 #[derive(Clone)]
-pub struct HealthChecksClient<T> {
+pub struct HealthChecks<T> {
     inner: v3::health_checks::health_checks_service_client::HealthChecksServiceClient<T>,
 }
 
-impl<T> HealthChecksClient<T>
+impl<T> HealthChecks<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -47,7 +47,7 @@ where
 }
 
 super::impl_call! {
-    HealthChecksClient {
+    HealthChecks {
         async fn call(self, request: check::Request) -> Result<check::Response> {
             Ok(self
                 .inner
@@ -70,7 +70,7 @@ mod tests {
     #[tokio::test]
     async fn check() {
         let before = Client::get_nb_request("HealthChecksService", "CheckHealth").await;
-        let mut client = Client::new().await.unwrap().health_checks();
+        let mut client = Client::new().await.unwrap().into_health_checks();
         client.check().await.unwrap();
         let after = Client::get_nb_request("HealthChecksService", "CheckHealth").await;
         assert_eq!(after - before, 1);
@@ -80,7 +80,7 @@ mod tests {
     #[tokio::test]
     async fn check_call() {
         let before = Client::get_nb_request("HealthChecksService", "CheckHealth").await;
-        let mut client = Client::new().await.unwrap().health_checks();
+        let mut client = Client::new().await.unwrap().into_health_checks();
         client
             .call(crate::health_checks::check::Request {})
             .await

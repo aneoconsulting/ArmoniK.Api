@@ -6,13 +6,12 @@ use crate::versions::list;
 use super::GrpcCall;
 
 #[derive(Clone)]
-pub struct VersionsClient<T> {
+pub struct Versions<T> {
     inner: v3::versions::versions_client::VersionsClient<T>,
 }
 
-impl<T> VersionsClient<T>
+impl<T> Versions<T>
 where
-    T: Clone,
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
@@ -42,7 +41,7 @@ where
 }
 
 super::impl_call! {
-    VersionsClient {
+    Versions {
         async fn call(self, request: list::Request) -> Result<list::Response> {
             Ok(self
                 .inner
@@ -65,7 +64,7 @@ mod tests {
     #[tokio::test]
     async fn list() {
         let before = Client::get_nb_request("Versions", "ListVersions").await;
-        let mut client = Client::new().await.unwrap().versions();
+        let mut client = Client::new().await.unwrap().into_versions();
         client.list().await.unwrap();
         let after = Client::get_nb_request("Versions", "ListVersions").await;
         assert_eq!(after - before, 1);
@@ -76,7 +75,7 @@ mod tests {
     #[tokio::test]
     async fn list_call() {
         let before = Client::get_nb_request("Versions", "ListVersions").await;
-        let mut client = Client::new().await.unwrap().versions();
+        let mut client = Client::new().await.unwrap().into_versions();
         client
             .call(crate::versions::list::Request {})
             .await
