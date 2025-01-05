@@ -72,7 +72,7 @@ macro_rules! impl_trait_methods {
                     self: Arc<Self>,
                     request: tonic::Request<$request>,
                 ) -> std::result::Result<tonic::Response<$response>, tonic::Status> {
-                    crate::server::impl_trait_methods!(unary (self, request) {T::$inner})
+                    crate::server::impl_trait_methods!(unary (self, request) {$type::$inner})
                 }
             )*
             $($($body)*)?
@@ -80,7 +80,10 @@ macro_rules! impl_trait_methods {
     };
     (unary ($self:ident, $request:ident) { $inner:path }) => {
         {
-            let fut = $inner($self, $request.into_inner().into());
+            let fut = tracing_futures::Instrument::instrument(
+                $inner($self, $request.into_inner().into()),
+                tracing::debug_span!(stringify!($inner)),
+            );
             match fut.await {
                 Ok(res) => Ok(tonic::Response::new(res.into())),
                 Err(err) => Err(err),
@@ -89,9 +92,18 @@ macro_rules! impl_trait_methods {
     };
     (stream client ($self:ident, $request:ident) { $inner:path }) => {
         {
-            let fut = $inner(
-                $self,
-                tonic::codegen::tokio_stream::StreamExt::map($request.into_inner(), |r| r.map(Into::into)));
+            let span = tracing::debug_span!(stringify!($inner));
+            let stream = tracing_futures::Instrument::instrument(
+                tonic::codegen::tokio_stream::StreamExt::map($request.into_inner(), |r| r.map(Into::into)),
+                tracing::trace_span!(parent: &span, "stream"),
+            );
+            let fut = tracing_futures::Instrument::instrument(
+                $inner(
+                    $self,
+                    stream,
+                ),
+                tracing::trace_span!(parent: &span, "rpc"),
+            );
             match fut.await {
                 Ok(res) => Ok(tonic::Response::new(res.into())),
                 Err(err) => Err(err),
@@ -100,14 +112,22 @@ macro_rules! impl_trait_methods {
     };
     (stream server ($self:ident, $request:ident) { $inner:path }) => {
         {
-            let fut = $inner($self, $request.into_inner().into());
+            let span = tracing::debug_span!(stringify!($inner));
+            let fut = tracing_futures::Instrument::instrument(
+                $inner($self, $request.into_inner().into()),
+                tracing::trace_span!(parent: &span, "rpc")
+            );
             match fut.await {
                 Ok(stream) => {
                     let stream = tonic::codegen::tokio_stream::StreamExt::map(stream, |res| res.map(Into::into));
+                    let stream = tracing_futures::Instrument::instrument(
+                        futures::stream::StreamExt::boxed(stream),
+                        tracing::trace_span!(parent: &span, "stream")
+                    );
 
                     Ok(tonic::Response::new(
                         crate::server::ServerStream{
-                            receiver: Box::pin(stream),
+                            receiver: stream,
                         },
                     ))
                 }
@@ -118,12 +138,8 @@ macro_rules! impl_trait_methods {
 }
 
 pub struct ServerStream<T> {
-    receiver: std::pin::Pin<
-        Box<
-            dyn crate::reexports::tokio_stream::Stream<Item = Result<T, tonic::Status>>
-                + Send
-                + 'static,
-        >,
+    receiver: tracing_futures::Instrumented<
+        futures::stream::BoxStream<'static, Result<T, tonic::Status>>,
     >,
 }
 
@@ -134,7 +150,7 @@ impl<T> crate::reexports::tokio_stream::Stream for ServerStream<T> {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        self.receiver.as_mut().poll_next(cx)
+        self.receiver.inner_mut().as_mut().poll_next(cx)
     }
 }
 

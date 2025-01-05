@@ -43,11 +43,15 @@ where
 super::impl_call! {
     Versions {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_versions(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_versions(request),
+                tracing::debug_span!("Versions::list")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

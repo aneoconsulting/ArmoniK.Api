@@ -45,11 +45,15 @@ where
 super::impl_call! {
     Auth {
         async fn call(self, request: current_user::Request) -> Result<current_user::Response> {
-            Ok(self
-                .inner
-                .get_current_user(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_current_user(request),
+                tracing::debug_span!("Auth::current_user")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

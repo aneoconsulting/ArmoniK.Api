@@ -187,102 +187,142 @@ where
 super::impl_call! {
     Sessions {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_sessions(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_sessions(request),
+                tracing::debug_span!("Sessions::list")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
-            Ok(self
-                .inner
-                .get_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_session(request),
+                tracing::debug_span!("Sessions::get")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: cancel::Request) -> Result<cancel::Response> {
-            Ok(self
-                .inner
-                .cancel_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .cancel_session(request),
+                tracing::debug_span!("Sessions::cancel")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: create::Request) -> Result<create::Response> {
-            Ok(self
-                .inner
-                .create_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .create_session(request),
+                tracing::debug_span!("Sessions::create")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: pause::Request) -> Result<pause::Response> {
-            Ok(self
-                .inner
-                .pause_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .pause_session(request),
+                tracing::debug_span!("Sessions::pause")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
 
         async fn call(self, request: resume::Request) -> Result<resume::Response> {
-            Ok(self
-                .inner
-                .resume_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .resume_session(request),
+                tracing::debug_span!("Sessions::resume")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: close::Request) -> Result<close::Response> {
-            Ok(self
-                .inner
-                .close_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .close_session(request),
+                tracing::debug_span!("Sessions::close")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: purge::Request) -> Result<purge::Response> {
-            Ok(self
-                .inner
-                .purge_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .purge_session(request),
+                tracing::debug_span!("Sessions::purge")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: delete::Request) -> Result<delete::Response> {
-            Ok(self
-                .inner
-                .delete_session(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .delete_session(request),
+                tracing::debug_span!("Sessions::delete")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: stop_submission::Request) -> Result<stop_submission::Response> {
-            Ok(self
-                .inner
-                .stop_submission(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .stop_submission(request),
+                tracing::debug_span!("Sessions::stop_submission")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

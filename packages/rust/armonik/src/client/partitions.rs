@@ -71,21 +71,29 @@ where
 super::impl_call! {
     Partitions {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_partitions(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_partitions(request),
+                tracing::debug_span!("Partitions::list")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
-            Ok(self
-                .inner
-                .get_partition(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_partition(request),
+                tracing::debug_span!("Partitions::get")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
