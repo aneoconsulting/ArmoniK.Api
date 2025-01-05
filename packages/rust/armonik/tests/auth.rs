@@ -15,7 +15,7 @@ impl armonik::server::AuthService for Service {
         self: Arc<Self>,
         _request: auth::current_user::Request,
     ) -> std::result::Result<auth::current_user::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(auth::current_user::Response {
                 user: auth::User {
                     username: String::from("rpc-current-user-output"),

@@ -15,7 +15,7 @@ impl armonik::server::VersionsService for Service {
         self: Arc<Self>,
         _request: versions::list::Request,
     ) -> std::result::Result<versions::list::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(versions::list::Response {
                 core: String::from("rpc-list-output"),
                 ..Default::default()

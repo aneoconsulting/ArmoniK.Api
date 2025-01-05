@@ -375,7 +375,7 @@ async fn cancel_session() {
     )
     .into_submitter();
 
-    _ = client.cancel_session("cancel-session-input").await.unwrap();
+    client.cancel_session("cancel-session-input").await.unwrap();
 
     assert_eq!(
         called.lock().as_ref().unwrap().as_ref().unwrap(),
@@ -479,7 +479,7 @@ async fn try_get_task_output() {
     )
     .into_submitter();
 
-    _ = client
+    client
         .try_get_task_output("try-get-task-output-input", "task-id")
         .await
         .unwrap();
@@ -566,7 +566,7 @@ async fn cancel_tasks() {
     )
     .into_submitter();
 
-    _ = client
+    client
         .cancel_tasks(submitter::TaskFilter {
             ids: submitter::TaskFilterIds::Sessions(vec![String::from("cancel-tasks-input")]),
             statuses: Default::default(),
