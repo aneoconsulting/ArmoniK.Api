@@ -17,7 +17,7 @@ impl armonik::server::ResultsService for Service {
         self: Arc<Self>,
         request: results::list::Request,
     ) -> std::result::Result<results::list::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::list::Response {
                 results: vec![results::Raw {
                     name: String::from("rpc-list-output"),
@@ -36,7 +36,7 @@ impl armonik::server::ResultsService for Service {
         request: results::get::Request,
     ) -> std::result::Result<results::get::Response, tonic::Status> {
         let drop_guard = self.dropped.clone().drop_guard();
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             std::mem::drop(drop_guard);
             Ok(results::get::Response {
                 result: results::Raw {
@@ -53,7 +53,7 @@ impl armonik::server::ResultsService for Service {
         self: Arc<Self>,
         request: results::get_owner_task_id::Request,
     ) -> std::result::Result<results::get_owner_task_id::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::get_owner_task_id::Response {
                 session_id: request.session_id,
                 result_task: request
@@ -70,7 +70,7 @@ impl armonik::server::ResultsService for Service {
         self: Arc<Self>,
         request: results::create_metadata::Request,
     ) -> std::result::Result<results::create_metadata::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::create_metadata::Response {
                 results: request
                     .names
@@ -96,12 +96,12 @@ impl armonik::server::ResultsService for Service {
         self: Arc<Self>,
         request: results::create::Request,
     ) -> std::result::Result<results::create::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::create::Response {
                 results: request
                     .results
-                    .into_iter()
-                    .map(|(name, _)| {
+                    .into_keys()
+                    .map(|name| {
                         (
                             name.clone(),
                             results::Raw {
@@ -122,7 +122,7 @@ impl armonik::server::ResultsService for Service {
         self: Arc<Self>,
         mut request: results::delete_data::Request,
     ) -> std::result::Result<results::delete_data::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::delete_data::Response {
                 session_id: request.session_id,
                 result_ids: vec![
@@ -138,7 +138,7 @@ impl armonik::server::ResultsService for Service {
         self: Arc<Self>,
         _request: results::get_service_configuration::Request,
     ) -> std::result::Result<results::get_service_configuration::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::get_service_configuration::Response {
                 data_chunk_max_size: 1337,
             })
@@ -158,7 +158,7 @@ impl armonik::server::ResultsService for Service {
         let drop_guard = self.dropped.clone().drop_guard();
 
         if self.early {
-            if let Some(duration) = self.wait.clone() {
+            if let Some(duration) = self.wait {
                 tokio::time::sleep(duration).await;
             }
 
@@ -171,7 +171,7 @@ impl armonik::server::ResultsService for Service {
             let _drop_guard = drop_guard;
 
             for chunk in [request.result_id.as_bytes(),  b"rpc-download-output-0", b"rpc-download-output-1"] {
-                if let Some(duration) = self.wait.clone() {
+                if let Some(duration) = self.wait {
                     tokio::time::sleep(duration)
                         .await;
                 }
@@ -201,7 +201,7 @@ impl armonik::server::ResultsService for Service {
 
         loop {
             if self.early || session.is_some() {
-                if let Some(duration) = self.wait.clone() {
+                if let Some(duration) = self.wait {
                     tokio::time::sleep(duration).await;
                 }
                 if let Some(failure) = self.failure.clone() {
@@ -446,11 +446,12 @@ async fn download_wait_early() {
     )
     .into_results();
 
-    if let Ok(_) = tokio::time::timeout(
+    if tokio::time::timeout(
         tokio::time::Duration::from_micros(10),
         client.download("session_id", "result_id"),
     )
     .await
+        .is_ok()
     {
         panic!("Expected a timeout, but got a response stream");
     }

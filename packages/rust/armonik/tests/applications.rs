@@ -15,7 +15,7 @@ impl armonik::server::ApplicationsService for Service {
         self: Arc<Self>,
         request: applications::list::Request,
     ) -> std::result::Result<applications::list::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(applications::list::Response {
                 applications: vec![applications::Raw {
                     name: String::from("rpc-list-output"),

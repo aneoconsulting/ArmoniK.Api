@@ -15,7 +15,7 @@ impl armonik::server::AgentService for Service {
         self: Arc<Self>,
         request: agent::create_results_metadata::Request,
     ) -> std::result::Result<agent::create_results_metadata::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::create_results_metadata::Response {
                 communication_token: request.communication_token,
                 results: request
@@ -41,13 +41,13 @@ impl armonik::server::AgentService for Service {
         self: Arc<Self>,
         request: agent::create_results::Request,
     ) -> std::result::Result<agent::create_results::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::create_results::Response {
                 communication_token: request.communication_token,
                 results: request
                     .results
-                    .into_iter()
-                    .map(|(name, _)| {
+                    .into_keys()
+                    .map(|name| {
                         eprintln!("NAME: {name}");
                         (
                             name.clone(),
@@ -68,7 +68,7 @@ impl armonik::server::AgentService for Service {
         self: Arc<Self>,
         request: agent::notify_result_data::Request,
     ) -> std::result::Result<agent::notify_result_data::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::notify_result_data::Response {
                 result_ids: vec![
                     request.communication_token,
@@ -83,7 +83,7 @@ impl armonik::server::AgentService for Service {
         self: Arc<Self>,
         request: agent::submit_tasks::Request,
     ) -> std::result::Result<agent::submit_tasks::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::submit_tasks::Response {
                 communication_token: request.communication_token,
                 items: vec![agent::submit_tasks::ResponseItem {
@@ -99,7 +99,7 @@ impl armonik::server::AgentService for Service {
         self: Arc<Self>,
         _request: agent::get_resource_data::Request,
     ) -> std::result::Result<agent::get_resource_data::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::get_resource_data::Response {
                 result_id: String::from("rpc-get-resource-data-output"),
             })
@@ -111,7 +111,7 @@ impl armonik::server::AgentService for Service {
         self: Arc<Self>,
         _request: agent::get_common_data::Request,
     ) -> std::result::Result<agent::get_common_data::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::get_common_data::Response {
                 result_id: String::from("rpc-get-common-data-output"),
             })
@@ -123,7 +123,7 @@ impl armonik::server::AgentService for Service {
         self: Arc<Self>,
         _request: agent::get_direct_data::Request,
     ) -> std::result::Result<agent::get_direct_data::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::get_direct_data::Response {
                 result_id: String::from("rpc-get-direct-data-output"),
             })
@@ -153,7 +153,7 @@ impl armonik::server::AgentService for Service {
                 None => break,
             }
         }
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::create_tasks::Response::Status {
                 communication_token: token.unwrap_or_default(),
                 statuses: vec![agent::create_tasks::Status::TaskInfo {
