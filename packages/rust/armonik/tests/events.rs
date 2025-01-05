@@ -24,7 +24,7 @@ impl armonik::server::EventsService for Service {
         Ok(async_stream::try_stream! {
             let _drop_guard = end_ct.drop_guard();
             loop {
-                if let Some(duration) = self.wait.clone() {
+                if let Some(duration) = self.wait {
                     tokio::time::sleep(duration).await;
                 }
 

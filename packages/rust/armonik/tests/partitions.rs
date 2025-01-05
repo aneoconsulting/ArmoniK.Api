@@ -15,7 +15,7 @@ impl armonik::server::PartitionsService for Service {
         self: Arc<Self>,
         request: partitions::list::Request,
     ) -> std::result::Result<partitions::list::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(partitions::list::Response {
                 partitions: vec![partitions::Raw {
                     partition_id: String::from("rpc-list-output"),
@@ -33,7 +33,7 @@ impl armonik::server::PartitionsService for Service {
         self: Arc<Self>,
         request: partitions::get::Request,
     ) -> std::result::Result<partitions::get::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(partitions::get::Response {
                 partition: partitions::Raw {
                     partition_id: request.partition_id,

@@ -15,7 +15,7 @@ impl armonik::server::WorkerService for Service {
         self: Arc<Self>,
         _request: worker::health_check::Request,
     ) -> std::result::Result<worker::health_check::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(worker::health_check::Response::Serving)
         })
         .await
@@ -25,7 +25,7 @@ impl armonik::server::WorkerService for Service {
         self: Arc<Self>,
         _request: worker::process::Request,
     ) -> std::result::Result<worker::process::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait.clone(), self.failure.clone(), || {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(worker::process::Response {
                 output: armonik::Output::Error {
                     details: String::from("rpc-process-output"),
