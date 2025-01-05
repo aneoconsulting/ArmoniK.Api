@@ -22,10 +22,14 @@ pub mod reexports {
     pub use prost_types;
     #[cfg(feature = "_gen-client")]
     pub use rustls;
+    #[cfg(feature = "serde")]
+    pub use serde;
     #[cfg(feature = "_gen-server")]
     pub use tokio;
     pub use tonic;
     pub use tonic::async_trait;
     pub use tonic::codegen::http;
     pub use tonic::codegen::tokio_stream;
+    pub use tracing;
+    pub use tracing_futures;
 }
