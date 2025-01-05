@@ -18,6 +18,12 @@
     "./packages/rust/armonik/Cargo.toml"
   ],
   "rust-analyzer.cargo.features": [
+    "_gen-client",
+    "_gen-server",
+    "client",
+    "server",
     "serde",
+    "agent",
+    "worker"
   ]
 }
