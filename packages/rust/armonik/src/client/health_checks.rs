@@ -49,11 +49,15 @@ where
 super::impl_call! {
     HealthChecks {
         async fn call(self, request: check::Request) -> Result<check::Response> {
-            Ok(self
-                .inner
-                .check_health(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .check_health(request),
+                tracing::debug_span!("HealthChecks::check")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

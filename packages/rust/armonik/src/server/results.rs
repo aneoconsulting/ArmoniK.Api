@@ -104,7 +104,9 @@ super::impl_trait_methods! {
             tonic::Response<Self::WatchResultsStream>,
             tonic::Status,
         > {
-            todo!("Results::WatchResults is not implemented")
+            let span = tracing::debug_span!("ResultsService::watch_results");
+            let _entered = span.enter();
+            Err(tonic::Status::unimplemented("Results::WatchResults is not implemented"))
         }
     }
 }

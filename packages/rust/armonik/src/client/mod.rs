@@ -75,23 +75,30 @@ impl Client<tonic::transport::Channel> {
 
     /// Create a new client with the specified client configuration
     pub async fn with_config(config: ClientConfig) -> Result<Self, ConnectionError> {
-        let endpoint = config.endpoint.clone();
-        let override_target = config.override_target.clone();
+        let endpoint = config.endpoint.to_string();
+        tracing_futures::Instrument::instrument(
+            async move {
+                let endpoint = config.endpoint.clone();
+                let override_target = config.override_target.clone();
 
-        let https = Self::https_connector_builder(config).await?.build();
+                let https = Self::https_connector_builder(config).await?.build();
 
-        let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
-        if let Some(target) = override_target {
-            transport_endpoint = transport_endpoint.origin(target);
-        }
+                let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
+                if let Some(target) = override_target {
+                    transport_endpoint = transport_endpoint.origin(target);
+                }
 
-        // Build the actual channel from the configuration
-        let channel = transport_endpoint
-            .connect_with_connector(https)
-            .await
-            .context(TransportSnafu { endpoint })?;
+                // Build the actual channel from the configuration
+                let channel = transport_endpoint
+                    .connect_with_connector(https)
+                    .await
+                    .context(TransportSnafu { endpoint })?;
 
-        Ok(Self::with_channel(channel))
+                Ok(Self::with_channel(channel))
+            },
+            tracing::debug_span!("Client", endpoint),
+        )
+        .await
     }
 
     async fn https_connector_builder(

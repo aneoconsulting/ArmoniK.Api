@@ -152,71 +152,99 @@ where
 super::impl_call! {
     Tasks {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_tasks(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_tasks(request),
+                tracing::debug_span!("Tasks::list")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: list_detailed::Request) -> Result<list_detailed::Response> {
-            Ok(self
-                .inner
-                .list_tasks_detailed(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_tasks_detailed(request),
+                tracing::debug_span!("Tasks::list_detailed")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
-            Ok(self
-                .inner
-                .get_task(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_task(request),
+                tracing::debug_span!("Tasks::get")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: cancel::Request) -> Result<cancel::Response> {
-            Ok(self
-                .inner
-                .cancel_tasks(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .cancel_tasks(request),
+                tracing::debug_span!("Tasks::cancel")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get_result_ids::Request) -> Result<get_result_ids::Response> {
-            Ok(self
-                .inner
-                .get_result_ids(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_result_ids(request),
+                tracing::debug_span!("Tasks::get_result_ids")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: count_status::Request) -> Result<count_status::Response> {
-            Ok(self
-                .inner
-                .count_tasks_by_status(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .count_tasks_by_status(request),
+                tracing::debug_span!("Tasks::count_status")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: submit::Request) -> Result<submit::Response> {
-            Ok(self
-                .inner
-                .submit_tasks(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .submit_tasks(request),
+                tracing::debug_span!("Tasks::submit")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

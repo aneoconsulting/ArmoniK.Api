@@ -51,21 +51,29 @@ where
 super::impl_call! {
     Worker {
         async fn call(self, request: health_check::Request) -> Result<health_check::Response> {
-            Ok(self
-                .inner
-                .health_check(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .health_check(request),
+                tracing::debug_span!("Worker::health_check")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: process::Request) -> Result<process::Response> {
-            Ok(self
-                .inner
-                .process(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .process(request),
+                tracing::debug_span!("Worker::process")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

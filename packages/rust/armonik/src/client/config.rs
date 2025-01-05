@@ -73,7 +73,15 @@ impl ClientConfig {
         Self::from_config_args(ClientConfigArgs::from_env()?)
     }
     pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
-        tracing::debug!("GrpcClientConfig: {args:?}");
+        let _span = tracing::debug_span!(
+            "ClientConfig",
+            args.endpoint,
+            args.cert_pem,
+            args.key_pem,
+            args.ca_cert,
+            args.allow_unsafe_connection,
+            args.override_target_name
+        );
 
         let ClientConfigArgs {
             endpoint,
