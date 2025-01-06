@@ -66,7 +66,7 @@ mod tests {
     #[tokio::test]
     async fn current_user() {
         let before = Client::get_nb_request("Authentication", "GetCurrentUser").await;
-        let mut client = Client::new().await.unwrap().auth();
+        let mut client = Client::singleton().await.auth();
         client.current_user().await.unwrap();
         let after = Client::get_nb_request("Authentication", "GetCurrentUser").await;
         assert_eq!(after - before, 1);
@@ -77,7 +77,7 @@ mod tests {
     #[tokio::test]
     async fn current_user_call() {
         let before = Client::get_nb_request("Authentication", "GetCurrentUser").await;
-        let mut client = Client::new().await.unwrap().auth();
+        let mut client = Client::singleton().await.auth();
         client
             .call(crate::auth::current_user::Request {})
             .await

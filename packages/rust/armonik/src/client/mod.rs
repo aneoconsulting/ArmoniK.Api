@@ -137,34 +137,23 @@ impl Client<tonic::transport::Channel> {
     }
 
     #[cfg(test)]
+    async fn singleton() -> Self {
+        tests::client().await
+    }
+
+    #[cfg(test)]
     async fn get_nb_request(service: &str, rpc: &str) -> usize {
         use std::collections::HashMap;
 
         use http_body_util::BodyExt;
-        use hyper_util::rt::TokioExecutor;
 
-        let mut config = ClientConfig::from_env().unwrap();
-
-        match std::env::var("Http__Endpoint") {
-            Ok(value) if !value.is_empty() => {
-                config.endpoint = hyper::Uri::try_from(value).expect("HTTP endpoint");
-            }
-            Ok(_) | Err(std::env::VarError::NotPresent) => {}
-            Err(std::env::VarError::NotUnicode(value)) => {
-                panic!("{value:?} is not a valid unicode string")
-            }
-        }
+        let config = ClientConfig::from_env().unwrap();
 
         let request = hyper::Request::get(format!("{}calls.json", config.endpoint))
             .body(http_body_util::Empty::<&[u8]>::new())
             .expect("Request");
 
-        let https = Self::https_connector_builder(config)
-            .await
-            .expect("Build connection information")
-            .build();
-
-        let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(https);
+        let client = tests::http().await;
 
         let response = client.request(request).await.expect("/calls.json");
 
@@ -370,3 +359,61 @@ macro_rules! impl_call {
 }
 
 pub(crate) use impl_call;
+
+#[cfg(test)]
+mod tests {
+    use http_body_util::Empty;
+    use hyper_rustls::HttpsConnector;
+    use hyper_util::client::legacy::{connect::HttpConnector, Client};
+
+    static CLIENT: std::sync::OnceLock<super::Client> = std::sync::OnceLock::new();
+    static HTTP: std::sync::OnceLock<Client<HttpsConnector<HttpConnector>, Empty<&[u8]>>> =
+        std::sync::OnceLock::new();
+
+    pub(super) async fn client() -> super::Client {
+        tokio::task::spawn_blocking(|| {
+            CLIENT.get_or_init(|| {
+                futures::executor::block_on(super::Client::new())
+                    .unwrap()
+                    .clone()
+            })
+        })
+        .await
+        .unwrap()
+        .clone()
+    }
+    pub(super) async fn http(
+    ) -> &'static Client<HttpsConnector<HttpConnector>, Empty<&'static [u8]>> {
+        tokio::task::spawn_blocking(|| {
+            HTTP.get_or_init(|| {
+                futures::executor::block_on(async {
+                    use hyper_util::rt::TokioExecutor;
+
+                    let mut config = super::ClientConfig::from_env().unwrap();
+
+                    match std::env::var("Http__Endpoint") {
+                        Ok(value) if !value.is_empty() => {
+                            config.endpoint = hyper::Uri::try_from(value).expect("HTTP endpoint");
+                        }
+                        Ok(_) | Err(std::env::VarError::NotPresent) => {}
+                        Err(std::env::VarError::NotUnicode(value)) => {
+                            panic!("{value:?} is not a valid unicode string")
+                        }
+                    }
+
+                    let https = super::Client::https_connector_builder(config)
+                        .await
+                        .expect("Build connection information")
+                        .build();
+
+                    let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new())
+                        .build(https);
+
+                    client
+                })
+            })
+        })
+        .await
+        .unwrap()
+    }
+}

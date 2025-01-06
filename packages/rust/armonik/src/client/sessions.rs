@@ -299,7 +299,7 @@ mod tests {
     #[tokio::test]
     async fn list() {
         let before = Client::get_nb_request("Sessions", "ListSessions").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .list(
                 crate::sessions::filter::Or {
@@ -319,7 +319,7 @@ mod tests {
     #[tokio::test]
     async fn get() {
         let before = Client::get_nb_request("Sessions", "GetSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client.get("session-id").await.unwrap();
         let after = Client::get_nb_request("Sessions", "GetSession").await;
         assert_eq!(after - before, 1);
@@ -328,7 +328,7 @@ mod tests {
     #[tokio::test]
     async fn cancel() {
         let before = Client::get_nb_request("Sessions", "CancelSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client.cancel("session-id").await.unwrap();
         let after = Client::get_nb_request("Sessions", "CancelSession").await;
         assert_eq!(after - before, 1);
@@ -337,7 +337,7 @@ mod tests {
     #[tokio::test]
     async fn create() {
         let before = Client::get_nb_request("Sessions", "CreateSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .create(
                 ["part1", "part2"],
@@ -355,7 +355,7 @@ mod tests {
     #[tokio::test]
     async fn pause() {
         let before = Client::get_nb_request("Sessions", "PauseSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client.pause("session-id").await.unwrap();
         let after = Client::get_nb_request("Sessions", "PauseSession").await;
         assert_eq!(after - before, 1);
@@ -364,7 +364,7 @@ mod tests {
     #[tokio::test]
     async fn resume() {
         let before = Client::get_nb_request("Sessions", "ResumeSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client.resume("session-id").await.unwrap();
         let after = Client::get_nb_request("Sessions", "ResumeSession").await;
         assert_eq!(after - before, 1);
@@ -373,7 +373,7 @@ mod tests {
     #[tokio::test]
     async fn close() {
         let before = Client::get_nb_request("Sessions", "CloseSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client.close("session-id").await.unwrap();
         let after = Client::get_nb_request("Sessions", "CloseSession").await;
         assert_eq!(after - before, 1);
@@ -382,7 +382,7 @@ mod tests {
     #[tokio::test]
     async fn purge() {
         let before = Client::get_nb_request("Sessions", "PurgeSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client.purge("session-id").await.unwrap();
         let after = Client::get_nb_request("Sessions", "PurgeSession").await;
         assert_eq!(after - before, 1);
@@ -391,7 +391,7 @@ mod tests {
     #[tokio::test]
     async fn delete() {
         let before = Client::get_nb_request("Sessions", "DeleteSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client.delete("session-id").await.unwrap();
         let after = Client::get_nb_request("Sessions", "DeleteSession").await;
         assert_eq!(after - before, 1);
@@ -400,7 +400,7 @@ mod tests {
     #[tokio::test]
     async fn stop_submission() {
         let before = Client::get_nb_request("Sessions", "StopSubmission").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .stop_submission("session-id", true, true)
             .await
@@ -414,7 +414,7 @@ mod tests {
     #[tokio::test]
     async fn list_call() {
         let before = Client::get_nb_request("Sessions", "ListSessions").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::list::Request {
                 page_size: 10,
@@ -429,7 +429,7 @@ mod tests {
     #[tokio::test]
     async fn get_call() {
         let before = Client::get_nb_request("Sessions", "GetSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::get::Request {
                 session_id: String::from("session-id"),
@@ -443,7 +443,7 @@ mod tests {
     #[tokio::test]
     async fn cancel_call() {
         let before = Client::get_nb_request("Sessions", "CancelSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::cancel::Request {
                 session_id: String::from("session-id"),
@@ -457,7 +457,7 @@ mod tests {
     #[tokio::test]
     async fn create_call() {
         let before = Client::get_nb_request("Sessions", "CreateSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::create::Request {
                 default_task_options: TaskOptions {
@@ -475,7 +475,7 @@ mod tests {
     #[tokio::test]
     async fn pause_call() {
         let before = Client::get_nb_request("Sessions", "PauseSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::pause::Request {
                 session_id: String::from("session-id"),
@@ -489,7 +489,7 @@ mod tests {
     #[tokio::test]
     async fn resume_call() {
         let before = Client::get_nb_request("Sessions", "ResumeSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::resume::Request {
                 session_id: String::from("session-id"),
@@ -503,7 +503,7 @@ mod tests {
     #[tokio::test]
     async fn close_call() {
         let before = Client::get_nb_request("Sessions", "CloseSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::close::Request {
                 session_id: String::from("session-id"),
@@ -517,7 +517,7 @@ mod tests {
     #[tokio::test]
     async fn purge_call() {
         let before = Client::get_nb_request("Sessions", "PurgeSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::purge::Request {
                 session_id: String::from("session-id"),
@@ -531,7 +531,7 @@ mod tests {
     #[tokio::test]
     async fn delete_call() {
         let before = Client::get_nb_request("Sessions", "DeleteSession").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::delete::Request {
                 session_id: String::from("session-id"),
@@ -545,7 +545,7 @@ mod tests {
     #[tokio::test]
     async fn stop_submission_call() {
         let before = Client::get_nb_request("Sessions", "StopSubmission").await;
-        let mut client = Client::new().await.unwrap().sessions();
+        let mut client = Client::singleton().await.sessions();
         client
             .call(crate::sessions::stop_submission::Request {
                 session_id: String::from("session-id"),
