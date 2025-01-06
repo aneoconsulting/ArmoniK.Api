@@ -30,14 +30,10 @@ armonik::api::common::utils::getServiceConfigJson(const armonik::api::common::op
   if (!status.ok()) {
     throw std::invalid_argument("Timeout is invalid" + status.ToString());
   }
-  ss << R"({ "methodConfig": [{ "name": [{}], )"
-     << R"("timeout" : )" << timeout << ',' << R"("retryPolicy" : {)"
+  ss << R"({ "methodConfig": [{ "name": [{}], )" << R"("timeout" : )" << timeout << ',' << R"("retryPolicy" : {)"
      << R"("backoffMultiplier": )" << config.getBackoffMultiplier() << ',' << R"("initialBackoff":)" << initialBackoff
-     << ","
-     << R"("maxBackoff":)" << maxBackoff << ","
-     << R"("maxAttempts":)" << config.getMaxAttempts() << ','
-     << R"("retryableStatusCodes": [ "UNAVAILABLE", "ABORTED", "UNKNOWN" ])"
-     << "}}]}";
+     << "," << R"("maxBackoff":)" << maxBackoff << "," << R"("maxAttempts":)" << config.getMaxAttempts() << ','
+     << R"("retryableStatusCodes": [ "UNAVAILABLE", "ABORTED", "UNKNOWN" ])" << "}}]}";
   return ss.str();
 }
 
