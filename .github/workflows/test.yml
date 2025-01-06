@@ -92,6 +92,12 @@ jobs:
               lang: Rust
             plateform:
               os: windows-2019
+          # FIXME: Rust should be working on Windows,
+          # but we most likely encounter a port exhaustion issue
+          - language:
+              lang: Rust
+            plateform:
+              os: windows-latest
           - language:
               lang: C#
               dotnet: ''
