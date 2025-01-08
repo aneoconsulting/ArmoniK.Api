@@ -386,7 +386,7 @@ class Filter:
         """
         if self.__class__.value_type_ is None or isinstance(value, self.__class__.value_type_):
             return value
-        msg = f"Expected value type {str(self.__class__.value_type_)} for field {str(self.field)}, got {str(type(value))} instead"
+        msg = f"Expected value type '{self.__class__.value_type_.__name__}' for field '{self.field_name}', got '{value.__class__.__name__}' instead"
         raise FilterError(None, msg)
 
     def _change_operation(
@@ -416,7 +416,7 @@ class Filter:
                     raise FilterError(self, "Cannot apply operator to a filter combination")
                 raise FilterError(self, "Cannot apply operator to an already defined filter")
         if operator is None or self._is_disjunction():
-            msg = f"Operator {operator_str} is not available for {self.__class__.__name__}"
+            msg = f"Operator {operator_str} is not available for {self.__class__.__name__}."
             raise FilterError(self, msg)
         return self.__class__(
             self.field,
@@ -456,6 +456,10 @@ class Filter:
             if not self._is_empty()
             else {}
         )
+
+    @property
+    def field_name(self) -> str:
+        return str(self.field).replace(" ", "").split("\n")[1].split("ENUM_FIELD_")[1].lower()
 
     def __str__(self) -> str:
         return json.dumps(self.to_dict())
@@ -640,8 +644,8 @@ class DateFilter(Filter):
         if isinstance(value, Timestamp):
             return value
         msg = (
-            f"Expected value type {datetime.__class__.__name__} or {Timestamp.__class__.__name__}"
-            f"for field {str(self.field)}, got {str(type(value))} instead"
+            f"Expected value type '{datetime.__name__}' or '{Timestamp.__name__}' "
+            f"for field '{self.field_name}', got '{type(value).__name__}' instead"
         )
         raise FilterError(self, msg)
 
@@ -788,8 +792,8 @@ class DurationFilter(Filter):
         if isinstance(value, Duration):
             return value
         msg = (
-            f"Expected value type {timedelta.__class__.__name__} or {Duration.__class__.__name__}"
-            f"for field {str(self.field)}, got {str(type(value))} instead"
+            f"Expected value type '{timedelta.__name__}' or '{Duration.__name__}' "
+            f"for field '{self.field_name}', got '{type(value).__name__}' instead."
         )
         raise FilterError(self, msg)
 
