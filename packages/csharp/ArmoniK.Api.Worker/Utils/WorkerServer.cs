@@ -118,16 +118,30 @@ public static class WorkerServer
         throw new Exception($"{nameof(computePlaneOptions.WorkerChannel)} options should not be null");
       }
 
-      builder.WebHost.ConfigureKestrel(options => options.ListenUnixSocket(computePlaneOptions.WorkerChannel.Address,
-                                                                           listenOptions =>
-                                                                           {
-                                                                             if (File.Exists(computePlaneOptions.WorkerChannel.Address))
-                                                                             {
-                                                                               File.Delete(computePlaneOptions.WorkerChannel.Address);
-                                                                             }
+      builder.WebHost.ConfigureKestrel(options =>
+                                       {
+                                         switch (computePlaneOptions.AgentChannel.SocketType)
+                                         {
+                                           case GrpcSocketType.UnixDomainSocket:
+                                             options.ListenUnixSocket(computePlaneOptions.WorkerChannel.Address,
+                                                                      listenOptions =>
+                                                                      {
+                                                                        if (File.Exists(computePlaneOptions.WorkerChannel.Address))
+                                                                        {
+                                                                          File.Delete(computePlaneOptions.WorkerChannel.Address);
+                                                                        }
 
-                                                                             listenOptions.Protocols = HttpProtocols.Http2;
-                                                                           }));
+                                                                        listenOptions.Protocols = HttpProtocols.Http2;
+                                                                      });
+                                             break;
+                                           case GrpcSocketType.Tcp:
+                                             options.ListenAnyIP(computePlaneOptions.AgentChannel.TcpEndPoint,
+                                                                 listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+                                             break;
+                                           default:
+                                             throw new InvalidOperationException("Socket type unknown");
+                                         }
+                                       });
 
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
