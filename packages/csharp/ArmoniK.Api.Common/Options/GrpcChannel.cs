@@ -40,9 +40,4 @@ public class GrpcChannel
   ///   Type of gRPC Socket used
   /// </summary>
   public GrpcSocketType SocketType { get; set; } = GrpcSocketType.UnixDomainSocket;
-
-  /// <summary>
-  ///   Port for communicate with this gRPC Channel in case a tcp socket is used
-  /// </summary>
-  public int TcpEndPoint { get; set; }
 }
