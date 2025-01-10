@@ -73,11 +73,11 @@ def fix_protobuf_imports(root_dir, dry):
                 .replace("\\", ".")
             )
             if referenced_alias:
-                line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name} as {referenced_alias}\n'.replace(
+                line = f"from .{'.' * uppath_levels}{downpath if downpath != '.' else ''} import {referenced_name} as {referenced_alias}\n".replace(
                     "from ...", "from .."
                 )
             else:
-                line = f'from .{"." * uppath_levels}{downpath if downpath != "." else ""} import {referenced_name}\n'.replace(
+                line = f"from .{'.' * uppath_levels}{downpath if downpath != '.' else ''} import {referenced_name}\n".replace(
                     "from ...", "from .."
                 )
 
@@ -100,7 +100,7 @@ def fix_protobuf_imports(root_dir, dry):
                     original_line = line.replace("\n", "")
 
                     line = (
-                        f'from .{"." * uppath_levels}{m.group(1)} import {m.group(2)}\n'
+                        f"from .{'.' * uppath_levels}{m.group(1)} import {m.group(2)}\n"
                     ).replace("from ...", "from ..")
 
                     new_line = line.replace("\n", "")
