@@ -27,6 +27,8 @@ using System.IO;
 using ArmoniK.Api.Common.Channel.Utils;
 using ArmoniK.Api.Common.Options;
 
+using Grpc.Net.Client;
+
 using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Builder;
@@ -118,31 +120,6 @@ public static class WorkerServer
         throw new Exception($"{nameof(computePlaneOptions.WorkerChannel)} options should not be null");
       }
 
-      builder.WebHost.ConfigureKestrel(options =>
-                                       {
-                                         switch (computePlaneOptions.AgentChannel.SocketType)
-                                         {
-                                           case GrpcSocketType.UnixDomainSocket:
-                                             options.ListenUnixSocket(computePlaneOptions.WorkerChannel.Address,
-                                                                      listenOptions =>
-                                                                      {
-                                                                        if (File.Exists(computePlaneOptions.WorkerChannel.Address))
-                                                                        {
-                                                                          File.Delete(computePlaneOptions.WorkerChannel.Address);
-                                                                        }
-
-                                                                        listenOptions.Protocols = HttpProtocols.Http2;
-                                                                      });
-                                             break;
-                                           case GrpcSocketType.Tcp:
-                                             options.ListenAnyIP(computePlaneOptions.AgentChannel.TcpEndPoint,
-                                                                 listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
-                                             break;
-                                           default:
-                                             throw new InvalidOperationException("Socket type unknown");
-                                         }
-                                       });
-
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
              .AddSingleton<GrpcChannelProvider>()
@@ -152,6 +129,11 @@ public static class WorkerServer
              .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
 
+      builder.WebHost.ConfigureKestrel((context,options) =>
+                                       {
+                                         var kestrelOptionsProvider = builder.Services.BuildServiceProvider().GetRequiredService<GrpcChannelProvider>().KestrelOptionsProvider;
+                                         kestrelOptionsProvider(options);
+                                       });
 
       var app = builder.Build();
 

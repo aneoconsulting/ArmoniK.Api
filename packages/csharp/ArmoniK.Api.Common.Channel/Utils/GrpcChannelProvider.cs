@@ -32,6 +32,7 @@ using Grpc.Net.Client;
 using JetBrains.Annotations;
 
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 using GrpcChannel = ArmoniK.Api.Common.Options.GrpcChannel;
 
@@ -145,6 +146,36 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
                                           logger_);
       default:
         throw new InvalidOperationException();
+    }
+  }
+
+  /// <summary>
+  ///   Sets listen socket in kestrel according to gRPC Channel
+  /// </summary>
+  /// <returns>A KestrelServerOptions object set with the appropriate socket </returns>
+  /// <exception cref="InvalidOperationException">when socket type is unknown</exception>
+  public void KestrelOptionsProvider(KestrelServerOptions serverOptions)
+  {
+    switch (options_?.SocketType)
+    {
+      case GrpcSocketType.UnixDomainSocket:
+        serverOptions.ListenUnixSocket(address_);
+        break;
+      case GrpcSocketType.Tcp:
+        var success = int.TryParse(address_, out var port);
+        if (success)
+        {
+          serverOptions.ListenAnyIP(port,
+                              listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+        }
+        else
+        {
+          throw new Exception($"Could not parse {nameof(address_)} to a valid port number");
+        }
+
+        break;
+      default:
+        throw new InvalidOperationException("Socket type unknown");
     }
   }
 }
