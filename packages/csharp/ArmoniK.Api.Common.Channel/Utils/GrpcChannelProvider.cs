@@ -31,8 +31,8 @@ using Grpc.Net.Client;
 
 using JetBrains.Annotations;
 
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Logging;
 
 using GrpcChannel = ArmoniK.Api.Common.Options.GrpcChannel;
 
@@ -159,14 +159,20 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
     switch (options_?.SocketType)
     {
       case GrpcSocketType.UnixDomainSocket:
-        serverOptions.ListenUnixSocket(address_);
+        if (File.Exists(address_))
+        {
+          File.Delete(address_);
+        }
+        serverOptions.ListenUnixSocket(address_,
+                                       listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
         break;
       case GrpcSocketType.Tcp:
-        var success = int.TryParse(address_, out var port);
+        var success = int.TryParse(address_,
+                                   out var port);
         if (success)
         {
-          serverOptions.ListenAnyIP(port,
-                              listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+          serverOptions.ListenAnyIP(port, listenOptions =>
+                                            listenOptions.Protocols = HttpProtocols.Http2);
         }
         else
         {
