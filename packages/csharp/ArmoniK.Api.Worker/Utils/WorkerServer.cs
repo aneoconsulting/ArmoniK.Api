@@ -129,9 +129,12 @@ public static class WorkerServer
              .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
 
-      builder.WebHost.ConfigureKestrel((context,options) =>
+      builder.WebHost.ConfigureKestrel((context,
+                                        options) =>
                                        {
-                                         var kestrelOptionsProvider = builder.Services.BuildServiceProvider().GetRequiredService<GrpcChannelProvider>().KestrelOptionsProvider;
+                                         var kestrelOptionsProvider= builder.Services.BuildServiceProvider()
+                                                                            .GetRequiredService<GrpcChannelProvider>()
+                                                                            .KestrelOptionsProvider;
                                          kestrelOptionsProvider(options);
                                        });
 
