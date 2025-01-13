@@ -23,7 +23,6 @@
 
 using System;
 using System.IO;
-using System.Runtime.InteropServices.ComTypes;
 
 using ArmoniK.Api.Common.Channel.Utils;
 using ArmoniK.Api.Common.Options;
