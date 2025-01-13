@@ -27,13 +27,10 @@ using System.IO;
 using ArmoniK.Api.Common.Channel.Utils;
 using ArmoniK.Api.Common.Options;
 
-using Grpc.Net.Client;
-
 using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -132,9 +129,9 @@ public static class WorkerServer
       builder.WebHost.ConfigureKestrel((context,
                                         options) =>
                                        {
-                                         var kestrelOptionsProvider= builder.Services.BuildServiceProvider()
-                                                                            .GetRequiredService<GrpcChannelProvider>()
-                                                                            .KestrelOptionsProvider;
+                                         var kestrelOptionsProvider = builder.Services.BuildServiceProvider()
+                                                                             .GetRequiredService<GrpcChannelProvider>()
+                                                                             .KestrelOptionsProvider;
                                          kestrelOptionsProvider(options);
                                        });
 

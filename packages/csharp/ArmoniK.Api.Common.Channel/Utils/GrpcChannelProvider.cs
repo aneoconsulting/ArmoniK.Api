@@ -163,6 +163,7 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
         {
           File.Delete(address_);
         }
+
         serverOptions.ListenUnixSocket(address_,
                                        listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
         break;
@@ -171,8 +172,8 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
                                    out var port);
         if (success)
         {
-          serverOptions.ListenAnyIP(port, listenOptions =>
-                                            listenOptions.Protocols = HttpProtocols.Http2);
+          serverOptions.ListenAnyIP(port,
+                                    listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
         }
         else
         {
