@@ -23,6 +23,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices.ComTypes;
 
 using ArmoniK.Api.Common.Channel.Utils;
 using ArmoniK.Api.Common.Options;
@@ -31,6 +32,7 @@ using JetBrains.Annotations;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -117,6 +119,39 @@ public static class WorkerServer
         throw new Exception($"{nameof(computePlaneOptions.WorkerChannel)} options should not be null");
       }
 
+      builder.WebHost.ConfigureKestrel(options =>
+                                       {
+                                         var address = computePlaneOptions.WorkerChannel.Address;
+                                         switch (computePlaneOptions.WorkerChannel.SocketType)
+                                         {
+                                           case GrpcSocketType.UnixDomainSocket:
+                                             if (File.Exists(address))
+                                             {
+                                               File.Delete(address);
+                                             }
+
+                                             options.ListenUnixSocket(address,
+                                                                      listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+                                             break;
+                                           case GrpcSocketType.Tcp:
+                                             var success = int.TryParse(address,
+                                                                        out var port);
+                                             if (success)
+                                             {
+                                               options.ListenAnyIP(port,
+                                                                   listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+                                             }
+                                             else
+                                             {
+                                               throw new Exception($"Could not parse {nameof(address)} to a valid port number");
+                                             }
+
+                                             break;
+                                           default:
+                                             throw new InvalidOperationException("Socket type unknown");
+                                         }
+                                       });
+
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
              .AddSingleton<GrpcChannelProvider>()
@@ -125,15 +160,6 @@ public static class WorkerServer
              .AddLogging()
              .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
-
-      builder.WebHost.ConfigureKestrel((context,
-                                        options) =>
-                                       {
-                                         var kestrelOptionsProvider = builder.Services.BuildServiceProvider()
-                                                                             .GetRequiredService<GrpcChannelProvider>()
-                                                                             .KestrelOptionsProvider;
-                                         kestrelOptionsProvider(options);
-                                       });
 
       var app = builder.Build();
 
