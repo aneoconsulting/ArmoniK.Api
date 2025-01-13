@@ -133,18 +133,9 @@ public static class WorkerServer
                                                                       listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
                                              break;
                                            case GrpcSocketType.Tcp:
-                                             var success = int.TryParse(address,
-                                                                        out var port);
-                                             if (success)
-                                             {
-                                               options.ListenAnyIP(port,
+                                             var uri = new Uri(address);
+                                             options.ListenAnyIP(uri.Port,
                                                                    listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
-                                             }
-                                             else
-                                             {
-                                               throw new Exception($"Could not parse {nameof(address)} to a valid port number");
-                                             }
-
                                              break;
                                            default:
                                              throw new InvalidOperationException("Socket type unknown");
