@@ -165,9 +165,7 @@ class Filter:
             None
         """
         if not isinstance(other, Filter):
-            msg = (
-                f"{str(self)} is not compatible with " f"{str(other)} as the latter is not a Filter"
-            )
+            msg = f"{str(self)} is not compatible with {str(other)} as the latter is not a Filter"
             raise ValueError(msg)
         if not (
             self.disjunction_message_type == other.disjunction_message_type
