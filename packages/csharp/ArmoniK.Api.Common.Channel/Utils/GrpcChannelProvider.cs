@@ -31,7 +31,6 @@ using Grpc.Net.Client;
 
 using JetBrains.Annotations;
 
-using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Logging;
 
 using GrpcChannel = ArmoniK.Api.Common.Options.GrpcChannel;
