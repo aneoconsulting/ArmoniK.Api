@@ -135,7 +135,7 @@ public static class WorkerServer
                                            case GrpcSocketType.Tcp:
                                              var uri = new Uri(address);
                                              options.ListenAnyIP(uri.Port,
-                                                                   listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
+                                                                 listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
                                              break;
                                            default:
                                              throw new InvalidOperationException("Socket type unknown");
