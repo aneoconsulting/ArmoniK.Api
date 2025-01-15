@@ -574,7 +574,7 @@ class Partition:
     def from_message(cls, partition_raw: PartitionRaw) -> "Partition":
         return cls(
             id=partition_raw.id,
-            parent_partition_ids=partition_raw.parent_partition_ids,
+            parent_partition_ids=list(partition_raw.parent_partition_ids),
             pod_reserved=partition_raw.pod_reserved,
             pod_max=partition_raw.pod_max,
             pod_configuration=partition_raw.pod_configuration,
