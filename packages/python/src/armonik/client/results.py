@@ -165,15 +165,15 @@ class ArmoniKResults:
     def create_results(
         self, results_data: Dict[str, bytes], session_id: str, batch_size: int = 1
     ) -> Dict[str, Result]:
-        """Create one result with data included in the request.
+        """Create multiple results from a mapping of result names and its corresponding data.
 
         Args:
             results_data: A dictionnary mapping the result names to their actual data.
-            session_id: The ID of the session to which the results belongs.
+            session_id: The ID of the session to create the results in.
             batch_size: Batch size for querying.
 
         Return:
-            A dictionnary mappin each result name to its corresponding result summary.
+            A dictionnary mapping each result name to its corresponding result summary.
         """
         results = {}
         for results_names_batch in batched(results_data.keys(), batch_size):
