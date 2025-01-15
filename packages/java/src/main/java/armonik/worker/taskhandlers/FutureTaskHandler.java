@@ -1,7 +1,5 @@
 package armonik.worker.taskhandlers;
 
-import static armonik.api.grpc.v1.Objects.TaskOptions.getDefaultInstance;
-
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -128,7 +126,7 @@ public class FutureTaskHandler {
                 AgentCommon.SubmitTasksRequest.newBuilder()
                         .setSessionId(sessionId)
                         .addAllTaskCreations(taskCreations)
-                        .setTaskOptions(taskOptions == null ? getDefaultInstance() : taskOptions)
+                        .setTaskOptions(taskOptions == null ? this.getTaskOptions() : taskOptions) // getDefaultInstance()
                         .setCommunicationToken(token)
                         .build());
     }
@@ -175,14 +173,14 @@ public class FutureTaskHandler {
         try (FileOutputStream fs = new FileOutputStream(Paths.get(dataFolder, key).toString(), true)) {
             fs.write(data);
         }
-        return client.notifyResultData(NotifyResultDataRequest.newBuilder()
+        NotifyResultDataRequest request = NotifyResultDataRequest.newBuilder()
                 .setCommunicationToken(token)
                 .addIds(NotifyResultDataRequest.ResultIdentifier.newBuilder()
                         .setSessionId(sessionId)
                         .setResultId(key)
                         .buildPartial())
-
-                .build());
+                .build();
+        return client.notifyResultData(request);
     }
 
     public byte[] getPayload() {
