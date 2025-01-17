@@ -102,7 +102,7 @@ mod tests {
     #[tokio::test]
     async fn list() {
         let before = Client::get_nb_request("Partitions", "ListPartitions").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::singleton().await.partitions();
         client
             .list(
                 crate::partitions::filter::Or {
@@ -121,7 +121,7 @@ mod tests {
     #[tokio::test]
     async fn get() {
         let before = Client::get_nb_request("Partitions", "GetPartition").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::singleton().await.partitions();
         client.get("part1").await.unwrap();
         let after = Client::get_nb_request("Partitions", "GetPartition").await;
         assert_eq!(after - before, 1);
@@ -132,7 +132,7 @@ mod tests {
     #[tokio::test]
     async fn list_call() {
         let before = Client::get_nb_request("Partitions", "ListPartitions").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::singleton().await.partitions();
         client
             .call(crate::partitions::list::Request {
                 page_size: 10,
@@ -147,7 +147,7 @@ mod tests {
     #[tokio::test]
     async fn get_call() {
         let before = Client::get_nb_request("Partitions", "GetPartition").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::singleton().await.partitions();
         client
             .call(crate::partitions::get::Request {
                 partition_id: String::from("part1"),

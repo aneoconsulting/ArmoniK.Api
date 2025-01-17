@@ -243,7 +243,7 @@ mod tests {
     #[tokio::test]
     async fn create_results_metadata() {
         let before = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .create_results_metadata("token", "session-id", ["result1", "result2"])
             .await
@@ -255,7 +255,7 @@ mod tests {
     #[tokio::test]
     async fn create_results() {
         let before = Client::get_nb_request("Agent", "CreateResults").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .create_results("token", "session-id", [("result1", "payload")])
             .await
@@ -267,7 +267,7 @@ mod tests {
     #[tokio::test]
     async fn notify_result_data() {
         let before = Client::get_nb_request("Agent", "NotifyResultData").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .notify_result_data("token", "session-id", ["result1", "result2"])
             .await
@@ -279,7 +279,7 @@ mod tests {
     #[tokio::test]
     async fn submit() {
         let before = Client::get_nb_request("Agent", "SubmitTasks").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .submit_tasks("token", "session-id", None, [])
             .await
@@ -291,7 +291,7 @@ mod tests {
     #[tokio::test]
     async fn create_tasks() {
         let before = Client::get_nb_request("Agent", "CreateTask").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
 
         client
             .create_tasks(futures::stream::iter([
@@ -308,7 +308,7 @@ mod tests {
     #[tokio::test]
     async fn create_results_metadata_call() {
         let before = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .call(crate::agent::create_results_metadata::Request {
                 communication_token: String::from("token"),
@@ -324,7 +324,7 @@ mod tests {
     #[tokio::test]
     async fn create_results_call() {
         let before = Client::get_nb_request("Agent", "CreateResults").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .call(crate::agent::create_results::Request {
                 communication_token: String::from("token"),
@@ -340,7 +340,7 @@ mod tests {
     #[tokio::test]
     async fn notify_result_data_call() {
         let before = Client::get_nb_request("Agent", "NotifyResultData").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .call(crate::agent::notify_result_data::Request {
                 communication_token: String::from("token"),
@@ -356,7 +356,7 @@ mod tests {
     #[tokio::test]
     async fn submit_tasks_call() {
         let before = Client::get_nb_request("Agent", "SubmitTasks").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .call(crate::agent::submit_tasks::Request {
                 communication_token: String::from("token"),
@@ -373,7 +373,7 @@ mod tests {
     #[tokio::test]
     async fn get_resource_data_call() {
         let before = Client::get_nb_request("Agent", "GetResourceData").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .call(crate::agent::get_resource_data::Request {
                 communication_token: String::from("token"),
@@ -388,7 +388,7 @@ mod tests {
     #[tokio::test]
     async fn get_common_data_call() {
         let before = Client::get_nb_request("Agent", "GetCommonData").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .call(crate::agent::get_common_data::Request {
                 communication_token: String::from("token"),
@@ -403,7 +403,7 @@ mod tests {
     #[tokio::test]
     async fn get_direct_data_call() {
         let before = Client::get_nb_request("Agent", "GetDirectData").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
         client
             .call(crate::agent::get_direct_data::Request {
                 communication_token: String::from("token"),
@@ -418,7 +418,7 @@ mod tests {
     #[tokio::test]
     async fn create_tasks_call() {
         let before = Client::get_nb_request("Agent", "CreateTask").await;
-        let mut client = Client::new().await.unwrap().agent();
+        let mut client = Client::singleton().await.agent();
 
         client
             .call(futures::stream::iter([

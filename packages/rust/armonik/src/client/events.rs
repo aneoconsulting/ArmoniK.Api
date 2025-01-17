@@ -108,7 +108,7 @@ mod tests {
     #[tokio::test]
     async fn subscribe() {
         let before = Client::get_nb_request("Events", "GetEvents").await;
-        let mut client = Client::new().await.unwrap().events();
+        let mut client = Client::singleton().await.events();
         client
             .subscribe(
                 "session-id",
@@ -129,7 +129,7 @@ mod tests {
     #[tokio::test]
     async fn subscribe_call() {
         let before = Client::get_nb_request("Events", "GetEvents").await;
-        let mut client = Client::new().await.unwrap().events();
+        let mut client = Client::singleton().await.events();
         client
             .call(crate::events::subscribe::Request {
                 session_id: String::from("session-id"),

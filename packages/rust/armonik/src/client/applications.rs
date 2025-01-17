@@ -80,7 +80,7 @@ mod tests {
     #[tokio::test]
     async fn list() {
         let before = Client::get_nb_request("Applications", "ListApplications").await;
-        let mut client = Client::new().await.unwrap().applications();
+        let mut client = Client::singleton().await.applications();
         client
             .list(
                 crate::applications::filter::Or {
@@ -101,7 +101,7 @@ mod tests {
     #[tokio::test]
     async fn list_call() {
         let before = Client::get_nb_request("Applications", "ListApplications").await;
-        let mut client = Client::new().await.unwrap().applications();
+        let mut client = Client::singleton().await.applications();
         client
             .call(crate::applications::list::Request {
                 page_size: 10,
