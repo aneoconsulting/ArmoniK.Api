@@ -7,7 +7,7 @@
   <groupId>fr.aneo</groupId>
   <artifactId>armonik-java</artifactId>
   <description>GRPC java binding for the Armonik orchestrator API</description>
-  <version>3.22.0</version>
+  <version>3.23.0</version>
 
 	<name>armonik-java</name>
 	<url>https://github.com/aneoconsulting/ArmoniK.Api</url>
