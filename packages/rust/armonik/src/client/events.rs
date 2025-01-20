@@ -9,11 +9,11 @@ use super::GrpcCall;
 
 /// Service for authentication management.
 #[derive(Clone)]
-pub struct EventsClient<T> {
+pub struct Events<T> {
     inner: v3::events::events_client::EventsClient<T>,
 }
 
-impl<T> EventsClient<T>
+impl<T> Events<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -73,7 +73,7 @@ where
 }
 
 #[async_trait::async_trait(?Send)]
-impl<T> GrpcCall<subscribe::Request> for &'_ mut EventsClient<T>
+impl<T> GrpcCall<subscribe::Request> for &'_ mut Events<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -108,7 +108,7 @@ mod tests {
     #[tokio::test]
     async fn subscribe() {
         let before = Client::get_nb_request("Events", "GetEvents").await;
-        let mut client = Client::new().await.unwrap().events();
+        let mut client = Client::new().await.unwrap().into_events();
         client
             .subscribe(
                 "session-id",
@@ -129,7 +129,7 @@ mod tests {
     #[tokio::test]
     async fn subscribe_call() {
         let before = Client::get_nb_request("Events", "GetEvents").await;
-        let mut client = Client::new().await.unwrap().events();
+        let mut client = Client::new().await.unwrap().into_events();
         client
             .call(crate::events::subscribe::Request {
                 session_id: String::from("session-id"),
