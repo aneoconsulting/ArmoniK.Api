@@ -81,6 +81,11 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
                                                  ILogger logger)
   {
     using var _ = logger.LogFunction();
+
+    // Workaround for connectivity issue: https://github.com/grpc/grpc-dotnet/issues/2361#issuecomment-1895791020
+    AppContext.SetSwitch("System.Net.SocketsHttpHandler.Http2FlowControl.DisableDynamicWindowSizing",
+                         true);
+
     return Grpc.Net.Client.GrpcChannel.ForAddress(address);
   }
 
