@@ -21,6 +21,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Common.Options;
@@ -40,4 +42,15 @@ public class GrpcChannel
   ///   Type of gRPC Socket used
   /// </summary>
   public GrpcSocketType SocketType { get; set; } = GrpcSocketType.UnixDomainSocket;
+
+  /// <summary>
+  ///   Keep-alive ping timeout for http2 connections
+  /// </summary>
+  public TimeSpan KeepAlivePingTimeOut { get; set; } = TimeSpan.MaxValue;
+
+  /// <summary>
+  ///   Keep-alive timeout
+  /// </summary>
+  public TimeSpan KeepAliveTimeOut { get; set; } = TimeSpan.MaxValue;
+
 }
