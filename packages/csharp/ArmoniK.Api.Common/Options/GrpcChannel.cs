@@ -52,5 +52,4 @@ public class GrpcChannel
   ///   Keep-alive timeout
   /// </summary>
   public TimeSpan KeepAliveTimeOut { get; set; } = TimeSpan.MaxValue;
-
 }
