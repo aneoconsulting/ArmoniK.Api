@@ -133,6 +133,8 @@ public static class WorkerServer
                                                                       listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
                                              break;
                                            case GrpcSocketType.Tcp:
+                                             options.Limits.Http2.KeepAlivePingTimeout = computePlaneOptions.WorkerChannel.KeepAlivePingTimeOut;
+                                             options.Limits.KeepAliveTimeout           = computePlaneOptions.WorkerChannel.KeepAliveTimeOut;
                                              var uri = new Uri(address);
                                              options.ListenAnyIP(uri.Port,
                                                                  listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
