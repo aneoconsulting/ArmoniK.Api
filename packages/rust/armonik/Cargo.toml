@@ -12,25 +12,25 @@ version = "3.21.0-beta-0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tonic = "0.12"
-prost = "0.13"
-prost-types = "0.13"
-futures = "0.3"
-async-trait = "0.1"
-snafu = "0.8"
-tracing = "0.1"
-hyper = { version = "1.5", features = ["client", "http1", "http2"] }
-hyper-rustls = { version = "0.27", features = ["http1", "http2"] }
-rustls = { version = "0.23", features = ["ring"] }
+tonic = "0.12.3"
+prost = "0.13.4"
+prost-types = "0.13.4"
+futures = "0.3.31"
+async-trait = "0.1.86"
+snafu = "0.8.5"
+tracing = "0.1.41"
+hyper = { version = "1.6.0", features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.27.5", features = ["http1", "http2"] }
+rustls = { version = "0.23.22", features = ["ring"] }
 
 [dev-dependencies]
-eyre = "0.6"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-hyper-util = { version = "0.1", features = ["client", "http1"] }
-http-body-util = "0.1"
-serde_json = "1.0"
-serial_test = "3.1"
-tokio = { version = "1.41", features = [
+eyre = "0.6.12"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+hyper-util = { version = "0.1.10", features = ["client", "http1"] }
+http-body-util = "0.1.2"
+serde_json = "1.0.138"
+serial_test = "3.2.0"
+tokio = { version = "1.43.0", features = [
   "rt-multi-thread",
   "macros",
   "sync",
@@ -38,4 +38,4 @@ tokio = { version = "1.41", features = [
 ] }
 
 [build-dependencies]
-tonic-build = "0.12"
+tonic-build = "0.12.3"
