@@ -46,10 +46,10 @@ public class GrpcChannel
   /// <summary>
   ///   Keep-alive ping timeout for http2 connections
   /// </summary>
-  public TimeSpan KeepAlivePingTimeOut { get; set; } = TimeSpan.MaxValue;
+  public TimeSpan KeepAlivePingTimeOut { get; set; } = TimeSpan.FromSeconds(20);
 
   /// <summary>
   ///   Keep-alive timeout
   /// </summary>
-  public TimeSpan KeepAliveTimeOut { get; set; } = TimeSpan.MaxValue;
+  public TimeSpan KeepAliveTimeOut { get; set; } = TimeSpan.FromSeconds(130);
 }
