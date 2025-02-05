@@ -135,7 +135,7 @@ public static class WorkerServer
                                            case GrpcSocketType.Tcp:
 
                                              var channelOptions = context.Configuration.GetRequiredSection(ComputePlane.SettingSection).
-                                                                          GetSection(ComputePlane.AgentChannelSection);
+                                                                          GetSection(ComputePlane.WorkerChannelSection);
                                              options.Limits.Http2.KeepAlivePingTimeout = ParseTimeSpan(channelOptions["KeepAlivePingTimeout"],
                                                                                                        TimeSpan.FromSeconds(20));
                                              options.Limits.KeepAliveTimeout           = ParseTimeSpan(channelOptions["KeepAliveTimeOut"],
@@ -146,10 +146,9 @@ public static class WorkerServer
                                              break;
 
                                              /* Local function to parse the KeepAlive options from the configuration section.
-                                                If the section to parse does not exist returns the given defaultValue
-                                                If a valid Time.Span string has been provided it parses and returns it
-                                                Provide support to handle the case where the option has been set to "MaxValue".
-                                              */
+                                              If the section to parse does not exist returns the given defaultValue
+                                              If a valid Time.Span string has been provided it parses and returns it
+                                              Provide support to handle the case where the option has been set to "MaxValue". */
                                              TimeSpan ParseTimeSpan(string?  toParse,
                                                                     TimeSpan defaultValue)
                                              {
@@ -157,15 +156,18 @@ public static class WorkerServer
                                                {
                                                  return defaultValue;
                                                }
+
                                                if (toParse.Equals("MaxValue"))
                                                {
                                                  return TimeSpan.MaxValue;
                                                }
+
                                                if (TimeSpan.TryParse(toParse,
                                                                      out var result))
                                                {
                                                  return result;
                                                }
+
                                                throw new FormatException($"Provide a valid TimeSpan format: {toParse} or 'MaxValue'");
                                              }
                                            default:
