@@ -118,9 +118,9 @@ public static class WorkerServer
         throw new Exception($"{nameof(computePlaneOptions.WorkerChannel)} options should not be null");
       }
 
-      builder.WebHost.ConfigureKestrel(options =>
+      builder.WebHost.ConfigureKestrel((context, options) =>
                                        {
-                                         var address = computePlaneOptions.WorkerChannel.Address;
+                                         var address       = computePlaneOptions.WorkerChannel.Address;
                                          switch (computePlaneOptions.WorkerChannel.SocketType)
                                          {
                                            case GrpcSocketType.UnixDomainSocket:
@@ -133,12 +133,41 @@ public static class WorkerServer
                                                                       listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
                                              break;
                                            case GrpcSocketType.Tcp:
-                                             options.Limits.Http2.KeepAlivePingTimeout = computePlaneOptions.WorkerChannel.KeepAlivePingTimeOut;
-                                             options.Limits.KeepAliveTimeout           = computePlaneOptions.WorkerChannel.KeepAliveTimeOut;
+
+                                             var channelOptions = context.Configuration.GetRequiredSection(ComputePlane.SettingSection).
+                                                                          GetSection(ComputePlane.AgentChannelSection);
+                                             options.Limits.Http2.KeepAlivePingTimeout = ParseTimeSpan(channelOptions["KeepAlivePingTimeout"],
+                                                                                                       TimeSpan.FromSeconds(20));
+                                             options.Limits.KeepAliveTimeout           = ParseTimeSpan(channelOptions["KeepAliveTimeOut"],
+                                                                                                       TimeSpan.FromSeconds(130));
                                              var uri = new Uri(address);
                                              options.ListenAnyIP(uri.Port,
                                                                  listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
                                              break;
+
+                                             /* Local function to parse the KeepAlive options from the configuration section.
+                                                If the section to parse does not exist returns the given defaultValue
+                                                If a valid Time.Span string has been provided it parses and returns it
+                                                Provide support to handle the case where the option has been set to "MaxValue".
+                                              */
+                                             TimeSpan ParseTimeSpan(string?  toParse,
+                                                                    TimeSpan defaultValue)
+                                             {
+                                               if (string.IsNullOrEmpty(toParse))
+                                               {
+                                                 return defaultValue;
+                                               }
+                                               if (toParse.Equals("MaxValue"))
+                                               {
+                                                 return TimeSpan.MaxValue;
+                                               }
+                                               if (TimeSpan.TryParse(toParse,
+                                                                     out var result))
+                                               {
+                                                 return result;
+                                               }
+                                               throw new FormatException($"Provide a valid TimeSpan format: {toParse} or 'MaxValue'");
+                                             }
                                            default:
                                              throw new InvalidOperationException("Socket type unknown");
                                          }
