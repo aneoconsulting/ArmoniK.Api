@@ -41,12 +41,12 @@ public class ComputePlane
   /// <summary>
   ///   Path to the section containing the worker channel values in configuration object
   /// </summary>
-  public const string WorkerChannelSection = "WorkerChannel";
+  public const string WorkerChannelSection = nameof(WorkerChannel);
 
   /// <summary>
   ///  Path to the section containing the agent channel values in configuration object
   /// </summary>
-  public const string AgentChannelSection = "AgentChannel";
+  public const string AgentChannelSection = nameof(AgentChannel);
 
   /// <summary>
   ///   Channel used by the Agent to send tasks to the Worker
