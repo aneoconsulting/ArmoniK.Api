@@ -78,6 +78,17 @@ jobs:
             exit 1
           fi
 
+      - name: Generate patch
+        if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
+        run: |
+          git diff > patch-csharp.diff
+
+      - uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        if: ${{ failure() && steps.check-diff.conclusion == 'failure' }}
+        with:
+          name: patch-csharp
+          path: ./patch-csharp.diff
+
   format-python:
     name: Check linting, formatting and typing
     runs-on: ubuntu-latest
