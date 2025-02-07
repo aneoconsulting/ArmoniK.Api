@@ -111,15 +111,15 @@ public static class WorkerServer
       builder.Host.UseSerilog(Log.Logger);
 
       var rawComputePlaneOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection);
-      var workerChannelOptions = rawComputePlaneOptions.
-                                         GetRequiredSection(ComputePlane.WorkerChannelSection);
-      var agentChannelOptions = rawComputePlaneOptions.GetRequiredSection(ComputePlane.AgentChannelSection);
+      var workerChannelOptions   = rawComputePlaneOptions.GetRequiredSection(ComputePlane.WorkerChannelSection);
+      var agentChannelOptions    = rawComputePlaneOptions.GetRequiredSection(ComputePlane.AgentChannelSection);
       var parsedComputePlaneOptions = new ComputePlane
                                       {
                                         WorkerChannel = new GrpcChannel
                                                         {
                                                           Address = workerChannelOptions.GetRequiredValue<string>("Address"),
-                                                          SocketType = workerChannelOptions.GetValue("SocketType", GrpcSocketType.UnixDomainSocket),
+                                                          SocketType = workerChannelOptions.GetValue("SocketType",
+                                                                                                     GrpcSocketType.UnixDomainSocket),
                                                           KeepAlivePingTimeOut = workerChannelOptions.GetTimeSpanOrDefault("KeepAlivePingTimeOut",
                                                                                                                            TimeSpan.FromSeconds(20)),
                                                           KeepAliveTimeOut = workerChannelOptions.GetTimeSpanOrDefault("KeepAliveTimeOut",
@@ -127,20 +127,23 @@ public static class WorkerServer
                                                         },
                                         AgentChannel = new GrpcChannel
                                                        {
-                                                          Address    = agentChannelOptions.GetRequiredValue<string>("Address"),
-                                                          SocketType = agentChannelOptions.GetValue("SocketType", GrpcSocketType.UnixDomainSocket),
-                                                          KeepAlivePingTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAlivePingTimeOut",
-                                                                                                                           TimeSpan.FromSeconds(20)),
-                                                          KeepAliveTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAliveTimeOut",
-                                                                                                                      TimeSpan.FromSeconds(130)),
+                                                         Address = agentChannelOptions.GetRequiredValue<string>("Address"),
+                                                         SocketType = agentChannelOptions.GetValue("SocketType",
+                                                                                                   GrpcSocketType.UnixDomainSocket),
+                                                         KeepAlivePingTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAlivePingTimeOut",
+                                                                                                                         TimeSpan.FromSeconds(20)),
+                                                         KeepAliveTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAliveTimeOut",
+                                                                                                                     TimeSpan.FromSeconds(130)),
                                                        },
-                                        MessageBatchSize = rawComputePlaneOptions.GetValue("MessageBatchSize", 1),
-                                        AbortAfter = rawComputePlaneOptions.GetValue("AbortAfter", TimeSpan.Zero),
+                                        MessageBatchSize = rawComputePlaneOptions.GetValue("MessageBatchSize",
+                                                                                           1),
+                                        AbortAfter = rawComputePlaneOptions.GetValue("AbortAfter",
+                                                                                     TimeSpan.Zero),
                                       };
 
       builder.WebHost.ConfigureKestrel(options =>
                                        {
-                                         var address       = parsedComputePlaneOptions.WorkerChannel.Address;
+                                         var address = parsedComputePlaneOptions.WorkerChannel.Address;
                                          switch (parsedComputePlaneOptions.WorkerChannel.SocketType)
                                          {
                                            case GrpcSocketType.UnixDomainSocket:
