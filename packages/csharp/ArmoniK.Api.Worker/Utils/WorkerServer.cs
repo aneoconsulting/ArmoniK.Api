@@ -113,7 +113,7 @@ public static class WorkerServer
       var rawComputePlaneOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection);
       var workerChannelOptions = rawComputePlaneOptions.
                                          GetRequiredSection(ComputePlane.WorkerChannelSection);
-      var agentChannelOptions = rawComputePlaneOptions.GetRequiredSection(ComputePlane.WorkerChannelSection);
+      var agentChannelOptions = rawComputePlaneOptions.GetRequiredSection(ComputePlane.AgentChannelSection);
       var parsedComputePlaneOptions = new ComputePlane
                                       {
                                         WorkerChannel = new GrpcChannel
@@ -132,13 +132,13 @@ public static class WorkerServer
                                                           KeepAlivePingTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAlivePingTimeOut",
                                                                                                                            TimeSpan.FromSeconds(20)),
                                                           KeepAliveTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAliveTimeOut",
-                                                                                                                                      TimeSpan.FromSeconds(130)),
+                                                                                                                      TimeSpan.FromSeconds(130)),
                                                        },
                                         MessageBatchSize = rawComputePlaneOptions.GetValue("MessageBatchSize", 1),
                                         AbortAfter = rawComputePlaneOptions.GetValue("AbortAfter", TimeSpan.Zero),
                                       };
 
-      builder.WebHost.ConfigureKestrel((context, options) =>
+      builder.WebHost.ConfigureKestrel(options =>
                                        {
                                          var address       = parsedComputePlaneOptions.WorkerChannel.Address;
                                          switch (parsedComputePlaneOptions.WorkerChannel.SocketType)
