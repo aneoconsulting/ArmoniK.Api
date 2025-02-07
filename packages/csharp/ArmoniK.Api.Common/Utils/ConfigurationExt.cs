@@ -40,23 +40,7 @@ public static class ConfigurationExt
                                       string              key)
     => configuration.GetRequiredSection(key)
                     .Get<T>() ?? throw new InvalidOperationException($"{key} not found");
-
-  /// <summary>
-  ///   Configure an object with the given configuration.
-  ///   If the object is not found in the configuration, a new object in returned.
-  /// </summary>
-  /// <typeparam name="T">Type of the options class</typeparam>
-  /// <param name="configuration">Configurations used to populate the class</param>
-  /// <param name="key">Path to the Object in the configuration</param>
-  /// <returns>
-  ///   The initialized object
-  /// </returns>
-  public static T GetInitializedValue<T>(this IConfiguration configuration,
-                                         string              key)
-    where T : new()
-    => configuration.GetSection(key)
-                    .Get<T>() ?? new T();
-
+  
   /// <summary>
   /// Retrieves a <see cref="TimeSpan"/> from the configuration, or returns the provided default value if not found or invalid.
   /// If the configuration contains "MaxValue", it will return <see cref="TimeSpan.MaxValue"/>.
