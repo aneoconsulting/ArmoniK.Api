@@ -26,6 +26,7 @@ using System.IO;
 
 using ArmoniK.Api.Common.Channel.Utils;
 using ArmoniK.Api.Common.Options;
+using ArmoniK.Api.Common.Utils;
 
 using JetBrains.Annotations;
 
@@ -109,19 +110,41 @@ public static class WorkerServer
 
       builder.Host.UseSerilog(Log.Logger);
 
-
-      var computePlaneOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection)
-                                       .Get<ComputePlane>();
-
-      if (computePlaneOptions?.WorkerChannel is null)
-      {
-        throw new Exception($"{nameof(computePlaneOptions.WorkerChannel)} options should not be null");
-      }
+      var rawComputePlaneOptions = builder.Configuration.GetRequiredSection(ComputePlane.SettingSection);
+      var workerChannelOptions   = rawComputePlaneOptions.GetRequiredSection(ComputePlane.WorkerChannelSection);
+      var agentChannelOptions    = rawComputePlaneOptions.GetRequiredSection(ComputePlane.AgentChannelSection);
+      var parsedComputePlaneOptions = new ComputePlane
+                                      {
+                                        WorkerChannel = new GrpcChannel
+                                                        {
+                                                          Address = workerChannelOptions.GetRequiredValue<string>("Address"),
+                                                          SocketType = workerChannelOptions.GetValue("SocketType",
+                                                                                                     GrpcSocketType.UnixDomainSocket),
+                                                          KeepAlivePingTimeOut = workerChannelOptions.GetTimeSpanOrDefault("KeepAlivePingTimeOut",
+                                                                                                                           TimeSpan.FromSeconds(20)),
+                                                          KeepAliveTimeOut = workerChannelOptions.GetTimeSpanOrDefault("KeepAliveTimeOut",
+                                                                                                                       TimeSpan.FromSeconds(130)),
+                                                        },
+                                        AgentChannel = new GrpcChannel
+                                                       {
+                                                         Address = agentChannelOptions.GetRequiredValue<string>("Address"),
+                                                         SocketType = agentChannelOptions.GetValue("SocketType",
+                                                                                                   GrpcSocketType.UnixDomainSocket),
+                                                         KeepAlivePingTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAlivePingTimeOut",
+                                                                                                                         TimeSpan.FromSeconds(20)),
+                                                         KeepAliveTimeOut = agentChannelOptions.GetTimeSpanOrDefault("KeepAliveTimeOut",
+                                                                                                                     TimeSpan.FromSeconds(130)),
+                                                       },
+                                        MessageBatchSize = rawComputePlaneOptions.GetValue("MessageBatchSize",
+                                                                                           1),
+                                        AbortAfter = rawComputePlaneOptions.GetValue("AbortAfter",
+                                                                                     TimeSpan.Zero),
+                                      };
 
       builder.WebHost.ConfigureKestrel(options =>
                                        {
-                                         var address = computePlaneOptions.WorkerChannel.Address;
-                                         switch (computePlaneOptions.WorkerChannel.SocketType)
+                                         var address = parsedComputePlaneOptions.WorkerChannel.Address;
+                                         switch (parsedComputePlaneOptions.WorkerChannel.SocketType)
                                          {
                                            case GrpcSocketType.UnixDomainSocket:
                                              if (File.Exists(address))
@@ -133,6 +156,8 @@ public static class WorkerServer
                                                                       listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
                                              break;
                                            case GrpcSocketType.Tcp:
+                                             options.Limits.KeepAliveTimeout           = parsedComputePlaneOptions.WorkerChannel.KeepAliveTimeOut;
+                                             options.Limits.Http2.KeepAlivePingTimeout = parsedComputePlaneOptions.WorkerChannel.KeepAlivePingTimeOut;
                                              var uri = new Uri(address);
                                              options.ListenAnyIP(uri.Port,
                                                                  listenOptions => listenOptions.Protocols = HttpProtocols.Http2);
@@ -145,8 +170,8 @@ public static class WorkerServer
       builder.Services.AddSingleton<ApplicationLifeTimeManager>()
              .AddSingleton(_ => loggerFactory)
              .AddSingleton<GrpcChannelProvider>()
-             .AddSingleton(computePlaneOptions)
-             .AddSingleton(computePlaneOptions.AgentChannel)
+             .AddSingleton(parsedComputePlaneOptions)
+             .AddSingleton(parsedComputePlaneOptions.AgentChannel)
              .AddLogging()
              .AddGrpcReflection()
              .AddGrpc(options => options.MaxReceiveMessageSize = null);
