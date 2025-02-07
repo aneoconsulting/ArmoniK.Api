@@ -56,7 +56,7 @@
   <dependencies>
     <dependency>
       <groupId>io.grpc</groupId>
-      <artifactId>grpc-netty</artifactId>
+      <artifactId>grpc-netty-shaded</artifactId>
       <version>1.62.2</version>
     </dependency>
 
@@ -127,8 +127,6 @@
       <version>5.11.0</version>
       <scope>test</scope>
     </dependency>
-
-
   </dependencies>
 
 
