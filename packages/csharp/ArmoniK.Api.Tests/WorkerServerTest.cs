@@ -27,7 +27,6 @@ using System.Threading.Tasks;
 
 using ArmoniK.Api.Common.Channel.Utils;
 using ArmoniK.Api.Common.Options;
-using ArmoniK.Api.Common.Utils;
 using ArmoniK.Api.Worker.Utils;
 using ArmoniK.Api.Worker.Worker;
 
@@ -117,15 +116,17 @@ public class WorkerServerTest
                        new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
                            GrpcSocketType.Tcp.ToString()),
                        new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.KeepAliveTimeOut)}",
-                          "MaxValue"),
+                           "MaxValue"),
                        new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.KeepAlivePingTimeOut)}",
                            "MaxValue"),
                        new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
                            "http://localhost:10666"),
                        new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.KeepAliveTimeOut)}",
-                           TimeSpan.FromSeconds(100).ToString()),
+                           TimeSpan.FromSeconds(100)
+                                   .ToString()),
                        new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.KeepAlivePingTimeOut)}",
-                           TimeSpan.FromSeconds(5).ToString()),
+                           TimeSpan.FromSeconds(5)
+                                   .ToString()),
                        new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
                            GrpcSocketType.Tcp.ToString()),
                      };

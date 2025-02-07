@@ -40,16 +40,20 @@ public static class ConfigurationExt
                                       string              key)
     => configuration.GetRequiredSection(key)
                     .Get<T>() ?? throw new InvalidOperationException($"{key} not found");
-  
+
   /// <summary>
-  /// Retrieves a <see cref="TimeSpan"/> from the configuration, or returns the provided default value if not found or invalid.
-  /// If the configuration contains "MaxValue", it will return <see cref="TimeSpan.MaxValue"/>.
+  ///   Retrieves a <see cref="TimeSpan" /> from the configuration, or returns the provided default value if not found or
+  ///   invalid.
+  ///   If the configuration contains "MaxValue", it will return <see cref="TimeSpan.MaxValue" />.
   /// </summary>
-  /// <param name="configuration">The <see cref="IConfiguration"/> instance from which to retrieve the value.</param>
+  /// <param name="configuration">The <see cref="IConfiguration" /> instance from which to retrieve the value.</param>
   /// <param name="key">The key of the configuration value to retrieve.</param>
   /// <param name="defaultValue">The default value to return if the key is not found or the value is invalid.</param>
-  /// <returns>A <see cref="TimeSpan"/> representing the configuration value, or <paramref name="defaultValue"/> if invalid or missing.</returns>
-  /// <exception cref="FormatException">Thrown if the value is not a valid <see cref="TimeSpan"/> or "MaxValue".</exception>
+  /// <returns>
+  ///   A <see cref="TimeSpan" /> representing the configuration value, or <paramref name="defaultValue" /> if invalid
+  ///   or missing.
+  /// </returns>
+  /// <exception cref="FormatException">Thrown if the value is not a valid <see cref="TimeSpan" /> or "MaxValue".</exception>
   public static TimeSpan GetTimeSpanOrDefault(this IConfiguration configuration,
                                               string              key,
                                               TimeSpan            defaultValue)

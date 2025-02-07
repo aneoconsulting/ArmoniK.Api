@@ -44,7 +44,7 @@ public class ComputePlane
   public const string WorkerChannelSection = nameof(WorkerChannel);
 
   /// <summary>
-  ///  Path to the section containing the agent channel values in configuration object
+  ///   Path to the section containing the agent channel values in configuration object
   /// </summary>
   public const string AgentChannelSection = nameof(AgentChannel);
 
