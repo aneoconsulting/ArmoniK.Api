@@ -1,25 +1,24 @@
 package armonik.worker;
 
-import java.io.File;
-import java.net.InetAddress;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import armonik.api.grpc.v1.Objects.Empty;
+import armonik.api.grpc.v1.Objects.Output;
 import armonik.api.grpc.v1.agent.AgentGrpc;
 import armonik.api.grpc.v1.worker.WorkerCommon.HealthCheckReply;
 import armonik.api.grpc.v1.worker.WorkerCommon.HealthCheckReply.ServingStatus;
 import armonik.api.grpc.v1.worker.WorkerCommon.ProcessReply;
 import armonik.api.grpc.v1.worker.WorkerCommon.ProcessRequest;
 import armonik.api.grpc.v1.worker.WorkerGrpc;
+import armonik.worker.taskhandlers.FutureTaskHandler;
 import io.grpc.ManagedChannel;
-import io.grpc.Server;
-import io.grpc.netty.NegotiationType;
-import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import io.netty.channel.epoll.EpollDomainSocketChannel;
-import io.netty.channel.epoll.EpollEventLoopGroup;
-import io.netty.channel.unix.DomainSocketAddress;
 
 /**
  * FutureWorker is a gRPC worker implementation that processes requests
@@ -28,7 +27,7 @@ import io.netty.channel.unix.DomainSocketAddress;
  * tasks and provides a health check
  * functionality to determine its serving status.
  */
-public class FutureWorker extends WorkerGrpc.WorkerImplBase {
+public abstract class FutureWorker extends WorkerGrpc.WorkerImplBase {
     /** The gRPC client used to communicate with the Agent server asynchronously. */
     private final AgentGrpc.AgentFutureStub client;
 
@@ -54,28 +53,28 @@ public class FutureWorker extends WorkerGrpc.WorkerImplBase {
         return client;
     }
 
-    private Server server;
-
-    private String workerAddress = System.getenv("ComputePlane__WorkerChannel__Address");
-    //
-    private String agentAddress = System.getenv("ComputePlane__AgentChannel__Address");
-
     /**
      * Constructs a new FutureWorker with the specified managed channel
      *
      * @param channel the managed channel for communication with the
      *                Agent server
      * @throws UnknownHostException
+     * @throws URISyntaxException
+     * @throws MalformedURLException
      */
-    public FutureWorker() throws UnknownHostException {
-        System.out.println(InetAddress.getLocalHost().getHostAddress());
+    public FutureWorker() throws UnknownHostException, URISyntaxException, MalformedURLException {
+
+        String agentAddress = System.getenv("ComputePlane__AgentChannel__Address");
+        URI agent = new URI(agentAddress);
+
         logger.info("Creating the channel to communicate with the agent");
-        ManagedChannel channel = NettyChannelBuilder.forAddress(new DomainSocketAddress(new File(agentAddress)))
-                .channelType(EpollDomainSocketChannel.class)
-                .overrideAuthority(InetAddress.getLocalHost().getHostAddress())
-                .eventLoopGroup(new EpollEventLoopGroup()).usePlaintext()
-                .negotiationType(NegotiationType.PLAINTEXT)
+        ManagedChannel channel = NettyChannelBuilder.forAddress(agent.toURL().getHost(), agent.toURL().getPort())
                 .keepAliveWithoutCalls(true)
+                .keepAliveTime(30, TimeUnit.SECONDS)
+                .keepAliveTimeout(10, TimeUnit.SECONDS)
+                .maxInboundMessageSize(10 * 1024)
+                .usePlaintext()
+                .enableRetry()
                 .build();
         client = AgentGrpc.newFutureStub(channel);
     }
@@ -91,11 +90,19 @@ public class FutureWorker extends WorkerGrpc.WorkerImplBase {
     @Override
     public void process(ProcessRequest request, StreamObserver<ProcessReply> responseObserver) {
         try {
+            setStatus(ServingStatus.NOT_SERVING);
+            FutureTaskHandler futureTaskHandler = new FutureTaskHandler(request, client);
+            Output output = processInternal(futureTaskHandler);
 
+            responseObserver.onNext(
+                    ProcessReply.newBuilder()
+                            .setOutput(output)
+                            .build());
+            setStatus(ServingStatus.SERVING);
             responseObserver.onCompleted();
 
         } catch (Exception e) {
-            status = ServingStatus.NOT_SERVING;
+            status = ServingStatus.SERVING;
             responseObserver.onError(e);
         }
     }
@@ -115,4 +122,6 @@ public class FutureWorker extends WorkerGrpc.WorkerImplBase {
                 .build());
         responseObserver.onCompleted();
     }
+
+    public abstract Output processInternal(FutureTaskHandler futureTaskHandler);
 }
