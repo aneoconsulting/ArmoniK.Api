@@ -107,10 +107,61 @@ public class WorkerServerTest
   }
 
   [Test]
+  public Task BuildServerConfiguratorTcp()
+  {
+    var collection = new List<KeyValuePair<string, string>>
+                     {
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.Address)}",
+                           "http://localhost:10667"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
+                           GrpcSocketType.Tcp.ToString()),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.KeepAliveTimeOut)}",
+                           "MaxValue"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.KeepAlivePingTimeOut)}",
+                           "MaxValue"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
+                           "http://localhost:10666"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.KeepAliveTimeOut)}",
+                           TimeSpan.FromSeconds(100)
+                                   .ToString()),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.KeepAlivePingTimeOut)}",
+                           TimeSpan.FromSeconds(5)
+                                   .ToString()),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
+                           GrpcSocketType.Tcp.ToString()),
+                     };
+
+    var app = WorkerServer.Create<TestService>((_,
+                                                configuration) =>
+                                               {
+                                                 foreach (var pair in collection)
+                                                 {
+                                                   configuration[pair.Key] = pair.Value;
+                                                 }
+                                               });
+
+    var computePlane = app.Services.GetRequiredService<ComputePlane>();
+
+    Assert.AreEqual(computePlane.WorkerChannel.KeepAliveTimeOut,
+                    TimeSpan.MaxValue);
+    Assert.AreEqual(computePlane.WorkerChannel.KeepAliveTimeOut,
+                    TimeSpan.MaxValue);
+
+    Assert.AreEqual(computePlane.AgentChannel.KeepAliveTimeOut,
+                    TimeSpan.FromSeconds(100));
+    Assert.AreEqual(computePlane.AgentChannel.KeepAlivePingTimeOut,
+                    TimeSpan.FromSeconds(5));
+
+    return Task.CompletedTask;
+  }
+
+  [Test]
   public Task BuildServerNoArgs()
   {
     Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
                                        "/tmp/worker.sock");
+    Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.AgentChannel)}__{nameof(ComputePlane.AgentChannel.Address)}",
+                                       "/tmp/agent.sock");
     var app = WorkerServer.Create<TestService>();
     return Task.CompletedTask;
   }
@@ -120,6 +171,8 @@ public class WorkerServerTest
   {
     Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.WorkerChannel)}__{nameof(ComputePlane.WorkerChannel.Address)}",
                                        "/tmp/worker.sock");
+    Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.AgentChannel)}__{nameof(ComputePlane.AgentChannel.Address)}",
+                                       "/tmp/agent.sock");
     var app = WorkerServer.Create<TestService>(serviceConfigurator: collection => collection.AddSingleton("test"));
     return Task.CompletedTask;
   }
