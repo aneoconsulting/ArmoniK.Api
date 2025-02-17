@@ -2,6 +2,8 @@ use super::super::{Configuration, Output, TaskOptions};
 
 use crate::api::v3;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub communication_token: String,
     pub session_id: String,
@@ -28,6 +30,8 @@ super::super::impl_convert!(
     }
 );
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub output: Output,
 }

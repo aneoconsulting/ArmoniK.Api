@@ -5,6 +5,7 @@ use crate::api::v3;
 use super::super::TaskStatus;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub task_ids: Vec<String>,
 }
@@ -16,6 +17,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub statuses: HashMap<String, TaskStatus>,
 }

@@ -9,6 +9,7 @@ use crate::api::v3;
 ///
 /// Data chunk cannot exceed the size returned by the GetServiceConfiguration rpc method
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Request {
     /// The identifier of the result to which add data.
     Identifier {
@@ -71,6 +72,7 @@ impl From<v3::results::UploadResultDataRequest> for Request {
 super::super::impl_convert!(req Request : v3::results::UploadResultDataRequest);
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub result: Raw,
 }

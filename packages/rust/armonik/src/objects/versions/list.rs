@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Request to list versions.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {}
 
 super::super::impl_convert!(
@@ -10,6 +11,7 @@ super::super::impl_convert!(
 
 /// Response to list versions.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// Version of ArmoniK.Core
     pub core: String,

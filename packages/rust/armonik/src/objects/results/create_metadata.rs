@@ -6,6 +6,7 @@ use crate::api::v3;
 
 /// Request for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The list of names for the results to create.
     pub names: Vec<String>,
@@ -47,6 +48,7 @@ super::super::impl_convert!(req Request : v3::results::CreateResultsMetaDataRequ
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The list of raw results that were created.
     pub results: HashMap<String, Raw>,

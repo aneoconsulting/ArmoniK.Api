@@ -35,6 +35,8 @@ impl Clone for ClientConfig {
 
 /// Options for creating a gRPC Client (as given in the environment)
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
     pub endpoint: String,

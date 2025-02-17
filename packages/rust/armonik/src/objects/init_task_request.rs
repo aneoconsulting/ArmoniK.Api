@@ -3,6 +3,7 @@ use super::TaskRequestHeader;
 use crate::api::v3;
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum InitTaskRequest {
     Header(TaskRequestHeader),
     LastTask,

@@ -1,6 +1,7 @@
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub filter: super::SessionFilter,
 }
@@ -22,6 +23,7 @@ impl From<v3::submitter::SessionFilter> for Request {
 super::super::impl_convert!(req Request : v3::submitter::SessionFilter);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub session_ids: Vec<String>,
 }
