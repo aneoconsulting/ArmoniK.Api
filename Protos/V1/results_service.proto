@@ -53,6 +53,11 @@ service Results {
   rpc DeleteResultsData(DeleteResultsDataRequest) returns (DeleteResultsDataResponse) {}
 
   /**
+   * Import existing data from the object storage into existing results
+   */
+  rpc ImportResultsData(ImportResultsDataRequest) returns (ImportResultsDataResponse) {}
+
+  /**
   * Get the configuration of the service
   */
   rpc GetServiceConfiguration(Empty) returns (ResultsServiceConfigurationResponse);
