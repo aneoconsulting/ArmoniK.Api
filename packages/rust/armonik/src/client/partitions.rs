@@ -7,11 +7,11 @@ use crate::utils::IntoCollection;
 use super::GrpcCall;
 
 #[derive(Clone)]
-pub struct PartitionsClient<T> {
+pub struct Partitions<T> {
     inner: v3::partitions::partitions_client::PartitionsClient<T>,
 }
 
-impl<T> PartitionsClient<T>
+impl<T> Partitions<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -69,7 +69,7 @@ where
 }
 
 super::impl_call! {
-    PartitionsClient {
+    Partitions {
         async fn call(self, request: list::Request) -> Result<list::Response> {
             Ok(self
                 .inner
@@ -102,7 +102,7 @@ mod tests {
     #[tokio::test]
     async fn list() {
         let before = Client::get_nb_request("Partitions", "ListPartitions").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::new().await.unwrap().into_partitions();
         client
             .list(
                 crate::partitions::filter::Or {
@@ -121,7 +121,7 @@ mod tests {
     #[tokio::test]
     async fn get() {
         let before = Client::get_nb_request("Partitions", "GetPartition").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::new().await.unwrap().into_partitions();
         client.get("part1").await.unwrap();
         let after = Client::get_nb_request("Partitions", "GetPartition").await;
         assert_eq!(after - before, 1);
@@ -132,7 +132,7 @@ mod tests {
     #[tokio::test]
     async fn list_call() {
         let before = Client::get_nb_request("Partitions", "ListPartitions").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::new().await.unwrap().into_partitions();
         client
             .call(crate::partitions::list::Request {
                 page_size: 10,
@@ -147,7 +147,7 @@ mod tests {
     #[tokio::test]
     async fn get_call() {
         let before = Client::get_nb_request("Partitions", "GetPartition").await;
-        let mut client = Client::new().await.unwrap().partitions();
+        let mut client = Client::new().await.unwrap().into_partitions();
         client
             .call(crate::partitions::get::Request {
                 partition_id: String::from("part1"),

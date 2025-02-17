@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 name = "armonik"
 repository = "https://github.com/aneoconsulting/ArmoniK.Api"
-version = "3.21.0-beta-0"
+version = "3.24.0-beta-0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -29,8 +29,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 hyper-util = { version = "0.1", features = ["client", "http1"] }
 http-body-util = "0.1"
 serde_json = "1.0"
-serial_test = "3.1"
-tokio = { version = "1.41", features = [
+serial_test = "3.2"
+tokio = { version = "1.42", features = [
   "rt-multi-thread",
   "macros",
   "sync",
