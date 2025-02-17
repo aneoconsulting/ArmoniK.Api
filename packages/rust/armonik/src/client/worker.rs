@@ -7,11 +7,11 @@ use crate::Output;
 use super::GrpcCall;
 
 #[derive(Clone)]
-pub struct WorkerClient<T> {
+pub struct Worker<T> {
     inner: v3::worker::worker_client::WorkerClient<T>,
 }
 
-impl<T> WorkerClient<T>
+impl<T> Worker<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -49,7 +49,7 @@ where
 }
 
 super::impl_call! {
-    WorkerClient {
+    Worker {
         async fn call(self, request: health_check::Request) -> Result<health_check::Response> {
             Ok(self
                 .inner

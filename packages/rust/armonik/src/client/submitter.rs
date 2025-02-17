@@ -20,12 +20,12 @@ use super::{GrpcCall, GrpcCallStream};
 
 #[derive(Clone)]
 #[deprecated]
-pub struct SubmitterClient<T> {
+pub struct Submitter<T> {
     inner: v3::submitter::submitter_client::SubmitterClient<T>,
 }
 
 #[allow(deprecated)]
-impl<T> SubmitterClient<T>
+impl<T> Submitter<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -242,7 +242,7 @@ where
 }
 
 super::impl_call! {
-    SubmitterClient {
+    Submitter {
         async fn call(self, request: get_service_configuration::Request) -> Result<get_service_configuration::Response> {
             Ok(self
                 .inner
@@ -386,7 +386,7 @@ super::impl_call! {
 }
 
 #[async_trait::async_trait(?Send)]
-impl<T, S> GrpcCallStream<create_tasks::LargeRequest, S> for &'_ mut SubmitterClient<T>
+impl<T, S> GrpcCallStream<create_tasks::LargeRequest, S> for &'_ mut Submitter<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -420,7 +420,7 @@ mod tests {
     #[tokio::test]
     async fn get_service_configuration() {
         let before = Client::get_nb_request("Submitter", "GetServiceConfiguration").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client.get_service_configuration().await.unwrap();
         let after = Client::get_nb_request("Submitter", "GetServiceConfiguration").await;
         assert_eq!(after - before, 1);
@@ -429,7 +429,7 @@ mod tests {
     #[tokio::test]
     async fn create_session() {
         let before = Client::get_nb_request("Submitter", "CreateSession").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .create_session(
                 ["part1", "part2"],
@@ -447,7 +447,7 @@ mod tests {
     #[tokio::test]
     async fn cancel_session() {
         let before = Client::get_nb_request("Submitter", "CancelSession").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client.cancel_session("session-id").await.unwrap();
         let after = Client::get_nb_request("Submitter", "CancelSession").await;
         assert_eq!(after - before, 1);
@@ -456,7 +456,7 @@ mod tests {
     #[tokio::test]
     async fn create_small_tasks() {
         let before = Client::get_nb_request("Submitter", "CreateSmallTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         match client.create_small_tasks("session-id", None, []).await {
             Ok(_) => (),
             Err(crate::client::RequestError::Grpc { source, .. }) => {
@@ -472,7 +472,7 @@ mod tests {
     #[tokio::test]
     async fn create_large_tasks() {
         let before = Client::get_nb_request("Submitter", "CreateLargeTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         match client
             .create_large_tasks(futures::stream::iter([
                 crate::submitter::create_tasks::LargeRequest::Invalid,
@@ -493,7 +493,7 @@ mod tests {
     #[tokio::test]
     async fn list_tasks() {
         let before = Client::get_nb_request("Submitter", "ListTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .list_tasks(crate::submitter::TaskFilter {
                 ids: crate::submitter::TaskFilterIds::Sessions(vec![String::from("session-id")]),
@@ -508,7 +508,7 @@ mod tests {
     #[tokio::test]
     async fn list_sessions() {
         let before = Client::get_nb_request("Submitter", "ListSessions").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .list_sessions(crate::submitter::SessionFilter {
                 ids: vec![String::from("session-id")],
@@ -523,7 +523,7 @@ mod tests {
     #[tokio::test]
     async fn count_tasks() {
         let before = Client::get_nb_request("Submitter", "CountTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .count_tasks(crate::submitter::TaskFilter {
                 ids: crate::submitter::TaskFilterIds::Sessions(vec![String::from("session-id")]),
@@ -538,7 +538,7 @@ mod tests {
     #[tokio::test]
     async fn try_get_result() {
         let before = Client::get_nb_request("Submitter", "TryGetResultStream").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .try_get_result("session-id", "result-id")
             .await
@@ -553,7 +553,7 @@ mod tests {
     #[tokio::test]
     async fn try_get_task_output() {
         let before = Client::get_nb_request("Submitter", "TryGetTaskOutput").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .try_get_task_output("session-id", "task_id")
             .await
@@ -565,7 +565,7 @@ mod tests {
     #[tokio::test]
     async fn wait_for_availability() {
         let before = Client::get_nb_request("Submitter", "WaitForAvailability").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .wait_for_availability("session-id", "result-id")
             .await
@@ -577,7 +577,7 @@ mod tests {
     #[tokio::test]
     async fn wait_for_completion() {
         let before = Client::get_nb_request("Submitter", "WaitForCompletion").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .wait_for_completion(
                 crate::submitter::TaskFilter {
@@ -598,7 +598,7 @@ mod tests {
     #[tokio::test]
     async fn cancel_tasks() {
         let before = Client::get_nb_request("Submitter", "CancelTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .cancel_tasks(crate::submitter::TaskFilter {
                 ids: crate::submitter::TaskFilterIds::Sessions(vec![String::from("session-id")]),
@@ -613,7 +613,7 @@ mod tests {
     #[tokio::test]
     async fn task_status() {
         let before = Client::get_nb_request("Submitter", "GetTaskStatus").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client.task_status(["task1", "task2"]).await.unwrap();
         let after = Client::get_nb_request("Submitter", "GetTaskStatus").await;
         assert_eq!(after - before, 1);
@@ -622,7 +622,7 @@ mod tests {
     #[tokio::test]
     async fn result_status() {
         let before = Client::get_nb_request("Submitter", "GetResultStatus").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .result_status("session-id", ["result1", "result2"])
             .await
@@ -636,7 +636,7 @@ mod tests {
     #[tokio::test]
     async fn get_service_configuration_call() {
         let before = Client::get_nb_request("Submitter", "GetServiceConfiguration").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::get_service_configuration::Request {})
             .await
@@ -648,7 +648,7 @@ mod tests {
     #[tokio::test]
     async fn create_session_call() {
         let before = Client::get_nb_request("Submitter", "CreateSession").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::create_session::Request {
                 partition_ids: vec![String::from("part1"), String::from("part2")],
@@ -666,7 +666,7 @@ mod tests {
     #[tokio::test]
     async fn cancel_session_call() {
         let before = Client::get_nb_request("Submitter", "CancelSession").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::cancel_session::Request {
                 session_id: String::from("session-id"),
@@ -680,7 +680,7 @@ mod tests {
     #[tokio::test]
     async fn create_small_tasks_call() {
         let before = Client::get_nb_request("Submitter", "CreateSmallTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         match client
             .call(crate::submitter::create_tasks::SmallRequest {
                 session_id: String::from("session-id"),
@@ -703,7 +703,7 @@ mod tests {
     #[tokio::test]
     async fn create_large_tasks_call() {
         let before = Client::get_nb_request("Submitter", "CreateLargeTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         match client
             .call(futures::stream::iter([
                 crate::submitter::create_tasks::LargeRequest::Invalid,
@@ -724,7 +724,7 @@ mod tests {
     #[tokio::test]
     async fn list_tasks_call() {
         let before = Client::get_nb_request("Submitter", "ListTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::list_tasks::Request {
                 filter: crate::submitter::TaskFilter {
@@ -743,7 +743,7 @@ mod tests {
     #[tokio::test]
     async fn list_sessions_call() {
         let before = Client::get_nb_request("Submitter", "ListSessions").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::list_sessions::Request {
                 filter: crate::submitter::SessionFilter {
@@ -760,7 +760,7 @@ mod tests {
     #[tokio::test]
     async fn count_tasks_call() {
         let before = Client::get_nb_request("Submitter", "CountTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::count_tasks::Request {
                 filter: crate::submitter::TaskFilter {
@@ -779,7 +779,7 @@ mod tests {
     #[tokio::test]
     async fn try_get_result_call() {
         let before = Client::get_nb_request("Submitter", "TryGetResultStream").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::try_get_result::Request {
                 session_id: String::from("session-id"),
@@ -797,7 +797,7 @@ mod tests {
     #[tokio::test]
     async fn try_get_task_output_call() {
         let before = Client::get_nb_request("Submitter", "TryGetTaskOutput").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::try_get_task_output::Request {
                 session_id: String::from("session-id"),
@@ -812,7 +812,7 @@ mod tests {
     #[tokio::test]
     async fn wait_for_availability_call() {
         let before = Client::get_nb_request("Submitter", "WaitForAvailability").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::wait_for_availability::Request {
                 session_id: String::from("session-id"),
@@ -827,7 +827,7 @@ mod tests {
     #[tokio::test]
     async fn wait_for_completion_call() {
         let before = Client::get_nb_request("Submitter", "WaitForCompletion").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::wait_for_completion::Request {
                 filter: crate::submitter::TaskFilter {
@@ -848,7 +848,7 @@ mod tests {
     #[tokio::test]
     async fn cancel_tasks_call() {
         let before = Client::get_nb_request("Submitter", "CancelTasks").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::cancel_tasks::Request {
                 filter: crate::submitter::TaskFilter {
@@ -867,7 +867,7 @@ mod tests {
     #[tokio::test]
     async fn task_status_call() {
         let before = Client::get_nb_request("Submitter", "GetTaskStatus").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::task_status::Request {
                 task_ids: Vec::new(),
@@ -881,7 +881,7 @@ mod tests {
     #[tokio::test]
     async fn result_status_call() {
         let before = Client::get_nb_request("Submitter", "GetResultStatus").await;
-        let mut client = Client::new().await.unwrap().submitter();
+        let mut client = Client::new().await.unwrap().into_submitter();
         client
             .call(crate::submitter::result_status::Request {
                 session_id: String::from("session-id"),

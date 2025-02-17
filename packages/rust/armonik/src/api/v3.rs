@@ -14,6 +14,9 @@ pub mod auth {
 pub mod events {
     tonic::include_proto!("armonik.api.grpc.v1.events");
 }
+pub mod health_checks {
+    tonic::include_proto!("armonik.api.grpc.v1.health_checks");
+}
 pub mod partitions {
     tonic::include_proto!("armonik.api.grpc.v1.partitions");
 }

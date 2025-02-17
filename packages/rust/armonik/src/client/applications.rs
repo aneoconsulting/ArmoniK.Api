@@ -7,11 +7,11 @@ use crate::utils::IntoCollection;
 use super::GrpcCall;
 
 #[derive(Clone)]
-pub struct ApplicationsClient<T> {
+pub struct Applications<T> {
     inner: v3::applications::applications_client::ApplicationsClient<T>,
 }
 
-impl<T> ApplicationsClient<T>
+impl<T> Applications<T>
 where
     T: tonic::client::GrpcService<tonic::body::BoxBody>,
     T::Error: Into<tonic::codegen::StdError>,
@@ -57,7 +57,7 @@ where
 }
 
 super::impl_call! {
-    ApplicationsClient {
+    Applications {
         async fn call(self, request: list::Request) -> Result<list::Response> {
             Ok(self
                 .inner
@@ -80,7 +80,7 @@ mod tests {
     #[tokio::test]
     async fn list() {
         let before = Client::get_nb_request("Applications", "ListApplications").await;
-        let mut client = Client::new().await.unwrap().applications();
+        let mut client = Client::new().await.unwrap().into_applications();
         client
             .list(
                 crate::applications::filter::Or {
@@ -101,7 +101,7 @@ mod tests {
     #[tokio::test]
     async fn list_call() {
         let before = Client::get_nb_request("Applications", "ListApplications").await;
-        let mut client = Client::new().await.unwrap().applications();
+        let mut client = Client::new().await.unwrap().into_applications();
         client
             .call(crate::applications::list::Request {
                 page_size: 10,
