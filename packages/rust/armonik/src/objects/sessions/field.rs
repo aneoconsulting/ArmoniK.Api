@@ -4,6 +4,7 @@ use crate::api::v3;
 
 /// Represents every available field in a session raw.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(i32)]
 pub enum RawField {
     /// Unspecified.
@@ -73,6 +74,7 @@ impl From<v3::sessions::SessionRawField> for RawField {
 super::super::impl_convert!(req RawField : v3::sessions::SessionRawField);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Field {
     Raw(RawField),
     /// The task option field.

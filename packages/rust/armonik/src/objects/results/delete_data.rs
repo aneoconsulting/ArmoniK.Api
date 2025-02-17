@@ -2,6 +2,7 @@ use crate::api::v3;
 
 /// Request deleting data from results results but keeping metadata.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The session of the results.
     pub session_id: String,
@@ -18,6 +19,7 @@ super::super::impl_convert!(
 
 /// Response deleting data from results results but keeping metadata.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The session of the results.
     pub session_id: String,

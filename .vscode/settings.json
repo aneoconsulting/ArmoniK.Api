@@ -16,5 +16,8 @@
   "rust-analyzer.cachePriming.enable": true,
   "rust-analyzer.linkedProjects": [
     "./packages/rust/armonik/Cargo.toml"
+  ],
+  "rust-analyzer.cargo.features": [
+    "serde"
   ]
 }

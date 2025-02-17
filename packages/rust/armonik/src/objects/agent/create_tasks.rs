@@ -4,6 +4,7 @@ use crate::utils::IntoCollection;
 use crate::api::v3;
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InitRequest {
     pub task_options: Option<TaskOptions>,
 }
@@ -15,6 +16,7 @@ super::super::impl_convert!(
 );
 
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Request {
     #[default]
     Invalid,
@@ -95,6 +97,7 @@ impl From<v3::agent::CreateTaskRequest> for Request {
 super::super::impl_convert!(req Request : v3::agent::CreateTaskRequest);
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Status {
     TaskInfo {
         /// Unique ID of the created task.
@@ -162,6 +165,7 @@ impl From<v3::agent::create_task_reply::CreationStatus> for Status {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Response {
     Status {
         communication_token: String,
