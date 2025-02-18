@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           scope: CI
 
@@ -247,7 +247,7 @@ jobs:
 
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           scope: CI
 
@@ -272,7 +272,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           scope: CI
 
@@ -299,12 +299,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: npm i -g pnpm@10.4.1 @antfu/ni
+      - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           scope: CI
 
