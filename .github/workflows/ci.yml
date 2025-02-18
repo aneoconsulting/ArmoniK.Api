@@ -264,6 +264,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set alternate npm integrity keys # pnpm integrity key is not accepted by npmJS
+        run: |
+          echo COREPACK_INTEGRITY_KEYS="$(curl https://registry.npmjs.org/-/npm/v1/keys | jq -c '{npm: .keys}')" >> $GITHUB_ENV
+
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
