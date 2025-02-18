@@ -243,11 +243,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set alternate npm integrity keys # pnpm integrity key is not accepted by npmJS
-        run: |
-          echo COREPACK_INTEGRITY_KEYS="$(curl https://registry.npmjs.org/-/npm/v1/keys | jq -c '{npm: .keys}')" >> $GITHUB_ENV
-
-      - run: npm install -g pnpm@10.4.1
+      - run: npm install -g pnpm @antfu/ni
       - run: corepack enable
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
@@ -255,9 +251,10 @@ jobs:
           cache: pnpm
           scope: CI
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install Dependencies
+        run: nci
 
-      - run: pnpm run lint
+      - run: nr lint
 
   build-web:
     name: Build Web
@@ -269,10 +266,6 @@ jobs:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
-
-      - name: Set alternate npm integrity keys # pnpm integrity key is not accepted by npmJS
-        run: |
-          echo COREPACK_INTEGRITY_KEYS="$(curl https://registry.npmjs.org/-/npm/v1/keys | jq -c '{npm: .keys}')" >> $GITHUB_ENV
 
       - run: npm i -g pnpm @antfu/ni
 
@@ -306,7 +299,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: npm i -g pnpm@10.4.1 @antfu/ni
+      - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
