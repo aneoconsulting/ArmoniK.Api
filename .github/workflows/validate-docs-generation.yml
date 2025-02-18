@@ -17,24 +17,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
 
-      - run: npm i -g pnpm @antfu/ni
+      - run: npm i -g pnpm
 
       - name: Setup Node
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
-          cache-dependency-path: ${{ github.workspace }}/.docs/pnpm-lock.yaml
+          cache-dependency-path: .docs/pnpm-lock.yaml
           scope: docs
 
       - name: Install dependencies
-        run: cd .docs && nci
+        run: cd .docs && pnpm i
 
       - name: Use NODE_ENV=production
         run: echo "NODE_ENV=production" >> $GITHUB_ENV
 
       - name: Static HTML export with Nuxt
-        run: cd .docs && nr generate
+        run: cd .docs && pnpm run generate
 
   lint-markdown:
     name: Lint Markdown
@@ -42,18 +42,18 @@ jobs:
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
 
-      - run: npm i -g pnpm @antfu/ni
+      - run: npm i -g pnpm
 
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: ${{ github.workspace }}/.docs/pnpm-lock.yaml
+          cache-dependency-path: .docs/pnpm-lock.yaml
           scope: docs
 
-      - run: cd .docs && nci
+      - run: cd .docs && pnpm i
 
-      - run: cd .docs && nr lint:md
+      - run: cd .docs && pnpm run lint:md
 
   lint:
     name: Lint
@@ -61,15 +61,15 @@ jobs:
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
 
-      - run: npm i -g pnpm @antfu/ni
+      - run: npm i -g pnpm
 
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: ${{ github.workspace }}/.docs/pnpm-lock.yaml
+          cache-dependency-path: .docs/pnpm-lock.yaml
           scope: docs
 
-      - run: cd .docs && nci
+      - run: cd .docs && pnpm i
 
-      - run: cd .docs && nr lint
+      - run: cd .docs && pnpm run lint
