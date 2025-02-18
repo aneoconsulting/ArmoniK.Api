@@ -22,9 +22,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 18
+          node-version: 20
           cache: pnpm
           cache-dependency-path: .docs/pnpm-lock.yaml
+          scope: docs
 
       - name: Install dependencies
         run: cd .docs && nci
@@ -45,9 +46,10 @@ jobs:
 
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 18
+          node-version: 20
           cache: pnpm
           cache-dependency-path: .docs/pnpm-lock.yaml
+          scope: docs
 
       - run: cd .docs && nci
 
@@ -63,9 +65,10 @@ jobs:
 
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 18
+          node-version: 20
           cache: pnpm
           cache-dependency-path: .docs/pnpm-lock.yaml
+          scope: docs
 
       - run: cd .docs && nci
 
