@@ -470,9 +470,9 @@ mod tests {
     #[tokio::test]
     async fn import() {
         let before = Client::get_nb_request("Results", "ImportResultsData").await;
-        let mut client = Client::new().await.unwrap().results();
+        let mut client = Client::new().await.unwrap().into_results();
         client
-            .import("session-id", vec![("result", "opaque-id".as_bytes())])
+            .import("session-id", [("result", b"opaque-id")])
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "ImportResultsData").await;
