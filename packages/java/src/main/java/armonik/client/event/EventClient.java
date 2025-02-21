@@ -5,21 +5,21 @@ import static armonik.api.grpc.v1.events.EventsCommon.EventsEnum.EVENTS_ENUM_RES
 import static armonik.api.grpc.v1.results.ResultsFields.ResultRawEnumField.RESULT_RAW_ENUM_FIELD_RESULT_ID;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import armonik.api.grpc.v1.FiltersCommon;
 import armonik.api.grpc.v1.events.EventsCommon.EventSubscriptionRequest;
 import armonik.api.grpc.v1.events.EventsCommon.EventSubscriptionResponse;
 import armonik.api.grpc.v1.events.EventsGrpc;
-import armonik.api.grpc.v1.events.EventsGrpc.EventsBlockingStub;
+import armonik.api.grpc.v1.result_status.ResultStatusOuterClass.ResultStatus;
 import armonik.api.grpc.v1.results.ResultsFields;
 import armonik.api.grpc.v1.results.ResultsFilters;
-import armonik.client.event.util.records.EventSubscriptionResponseRecord;
 import io.grpc.ManagedChannel;
 import io.grpc.stub.StreamObserver;
 
@@ -29,7 +29,6 @@ import io.grpc.stub.StreamObserver;
  */
 public class EventClient {
   /** The blocking and nonblocking stub for communicating with the gRPC server. */
-  private final EventsBlockingStub eventsBlockingStub;
   private final EventsGrpc.EventsStub eventsStub;
 
   /**
@@ -39,113 +38,7 @@ public class EventClient {
    *                       server
    */
   public EventClient(ManagedChannel managedChannel) {
-    eventsBlockingStub = EventsGrpc.newBlockingStub(managedChannel);
     eventsStub = EventsGrpc.newStub(managedChannel);
-  }
-
-  /**
-   * Retrieves a list of event subscription response records for the given session
-   * ID and result IDs.
-   *
-   * @param sessionId the session ID for which events are requested
-   * @param resultIds the list of result IDs for which events are requested
-   * @return a list of EventSubscriptionResponseRecord objects representing the
-   *         events
-   */
-  public List<EventSubscriptionResponseRecord> getEvents(String sessionId, List<String> resultIds) {
-    EventSubscriptionRequest request = CreateEventSubscriptionRequest(sessionId, resultIds);
-    return mapToRecord(sessionId, request, resultIds);
-  }
-
-  /**
-   * Maps the received event subscription response to
-   * EventSubscriptionResponseRecord objects.
-   *
-   * @param sessionId the session ID for which events are being mapped
-   * @param request   the event subscription request
-   * @return a list of EventSubscriptionResponseRecord objects representing the
-   *         events
-   */
-  private List<EventSubscriptionResponseRecord> mapToRecord(String sessionId, EventSubscriptionRequest request,
-      List<String> resultIds) {
-    List<EventSubscriptionResponseRecord> responseRecords = new ArrayList<>();
-    Iterator<EventSubscriptionResponse> events = eventsBlockingStub.getEvents(request);
-    Set<String> resultsExpected = new HashSet<>(resultIds);
-
-    while (events.hasNext()) {
-      var esr = events.next();
-      resultsExpected.remove(esr.getNewResult().getResultId());
-      responseRecords
-          .add(new EventSubscriptionResponseRecord(sessionId,
-              esr.getTaskStatusUpdate(),
-              esr.getResultStatusUpdate(),
-              esr.getResultOwnerUpdate(),
-              esr.getNewTask(),
-              esr.getNewResult()));
-      if (resultsExpected.isEmpty()) {
-        try {
-          Thread.sleep(10000);
-        } catch (InterruptedException e) {
-          System.out.println("Thread was interrupted while sleeping");
-        }
-        break;
-      }
-    }
-    return responseRecords;
-  }
-
-  /**
-   * Retrieves a list of event subscription response records for the given session
-   * asynchrone
-   * ID and result IDs.
-   *
-   * @param sessionId the session ID for which events are requested
-   * @param resultIds the list of result IDs for which events are requested
-   * @return a list of EventSubscriptionResponseRecord objects representing the
-   *         events
-   * @throws InterruptedException
-   */
-  public List<EventSubscriptionResponseRecord> getEventResponseRecords(String sessionId, List<String> resultIds)
-      throws InterruptedException {
-
-    EventSubscriptionRequest request = CreateEventSubscriptionRequest(sessionId, resultIds);
-    List<EventSubscriptionResponseRecord> responseRecords = new ArrayList<>();
-    CountDownLatch finishLatch = new CountDownLatch(1);
-
-    StreamObserver<EventSubscriptionResponse> responseObserver = new StreamObserver<EventSubscriptionResponse>() {
-
-      @Override
-      public void onNext(EventSubscriptionResponse esr) {
-        responseRecords.add(new EventSubscriptionResponseRecord(
-            sessionId,
-            esr.getTaskStatusUpdate(),
-            esr.getResultStatusUpdate(),
-            esr.getResultOwnerUpdate(),
-            esr.getNewTask(),
-            esr.getNewResult()));
-      }
-
-      @Override
-      public void onError(Throwable t) {
-        t.printStackTrace();
-        finishLatch.countDown();
-      }
-
-      @Override
-      public void onCompleted() {
-        System.out.println("Stream completed");
-        finishLatch.countDown();
-      }
-    };
-
-    eventsStub.getEvents(request, responseObserver);
-
-    // Wait for the response observer to finish
-    if (!finishLatch.await(1, TimeUnit.MINUTES)) {
-      System.out.println("Request not completed within the timeout.");
-    }
-
-    return responseRecords;
   }
 
   /**
@@ -181,5 +74,101 @@ public class EventClient {
         .addReturnedEvents(EVENTS_ENUM_NEW_RESULT)
         .setSessionId(sessionId)
         .build();
+  }
+
+  /**
+   * Waits asynchronously until the given results are completed.
+   * <p>
+   * This method subscribes to result status update events from the gRPC event
+   * stream and waits for the specified results to reach a completed state. It
+   * processes results in parallel using a thread pool with configurable bucket
+   * sizes for efficiency.
+   * </p>
+   *
+   * @param sessionId   The session ID where the results are located.
+   * @param resultIds   A collection of result IDs to wait for.
+   * @param bucketSize  The number of result IDs per request to the event API.
+   * @param parallelism The number of parallel threads to use, where each thread
+   *                    processes one bucket of results.
+   * @return A {@link CompletableFuture} that completes when all specified results
+   *         have been successfully processed.
+   * @throws RuntimeException if any result is aborted.
+   */
+  public CompletableFuture<Void> waitForResultsAsync(String sessionId,
+      Collection<String> resultIds,
+      int bucketSize,
+      int parallelism) {
+    List<List<String>> chunks = chunkList(new ArrayList<>(resultIds), bucketSize);
+    ExecutorService executor = Executors.newFixedThreadPool(parallelism);
+    List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+    for (List<String> chunk : chunks) {
+      futures.add(CompletableFuture.runAsync(() -> {
+        Set<String> resultsNotFound = new HashSet<>(chunk);
+        while (!resultsNotFound.isEmpty()) {
+          EventSubscriptionRequest request = CreateEventSubscriptionRequest(sessionId, chunk);
+
+          CountDownLatch latch = new CountDownLatch(1);
+
+          eventsStub.getEvents(request, new StreamObserver<EventSubscriptionResponse>() {
+            @Override
+            public void onNext(EventSubscriptionResponse response) {
+              if (response.getUpdateCase() == EventSubscriptionResponse.UpdateCase.RESULT_STATUS_UPDATE &&
+                  resultsNotFound.contains(response.getResultStatusUpdate().getResultId())) {
+                if (response.getResultStatusUpdate()
+                    .getStatus() == ResultStatus.RESULT_STATUS_COMPLETED) {
+                  resultsNotFound.remove(response.getResultStatusUpdate().getResultId());
+                  if (resultsNotFound.isEmpty()) {
+                    latch.countDown();
+                  }
+                } else if (response.getResultStatusUpdate()
+                    .getStatus() == ResultStatus.RESULT_STATUS_ABORTED) {
+                  throw new RuntimeException("Result "
+                      + response.getResultStatusUpdate().getResultId() + " has been aborted");
+                }
+              }
+
+              if (response.getUpdateCase() == EventSubscriptionResponse.UpdateCase.NEW_RESULT &&
+                  resultsNotFound.contains(response.getNewResult().getResultId())) {
+                if (response.getNewResult().getStatus() == ResultStatus.RESULT_STATUS_COMPLETED) {
+                  resultsNotFound.remove(response.getNewResult().getResultId());
+                  if (resultsNotFound.isEmpty()) {
+                    latch.countDown();
+                  }
+                } else if (response.getNewResult().getStatus() == ResultStatus.RESULT_STATUS_ABORTED) {
+                  throw new RuntimeException(
+                      "Result " + response.getNewResult().getResultId() + " has been aborted");
+                }
+              }
+            }
+
+            @Override
+            public void onError(Throwable t) {
+              latch.countDown();
+            }
+
+            @Override
+            public void onCompleted() {
+              latch.countDown();
+            }
+          });
+
+          try {
+            latch.await();
+          } catch (InterruptedException ignored) {
+          }
+        }
+      }, executor));
+    }
+
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenRun(executor::shutdown);
+  }
+
+  private static List<List<String>> chunkList(List<String> list, int chunkSize) {
+    List<List<String>> chunks = new ArrayList<>();
+    for (int i = 0; i < list.size(); i += chunkSize) {
+      chunks.add(list.subList(i, Math.min(list.size(), i + chunkSize)));
+    }
+    return chunks;
   }
 }
