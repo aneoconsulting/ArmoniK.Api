@@ -338,6 +338,7 @@ class ResultFilter(FilterWrapper):
         "size": (FType.NUM, RESULT_RAW_ENUM_FIELD_SIZE),
         "created_by": (FType.STR, RESULT_RAW_ENUM_FIELD_CREATED_BY),
         "owner_task_id": (FType.STR, RESULT_RAW_ENUM_FIELD_OWNER_TASK_ID),
+        "opaque_id": (FType.NA, "opaque_id"),
     }
 
     def __init__(self):
