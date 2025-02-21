@@ -481,6 +481,7 @@ class Result:
     completed_at = FilterDescriptor(_resultFilter)
     result_id = FilterDescriptor(_resultFilter)
     size = FilterDescriptor(_resultFilter)
+    opaque_id = FilterDescriptor(_resultFilter)
 
     def __init__(
         self,
@@ -493,6 +494,7 @@ class Result:
         completed_at: Optional[datetime] = None,
         result_id: Optional[str] = None,
         size: Optional[int] = None,
+        opaque_id: Optional[bytes] = None,
     ):
         self.session_id = session_id
         self.name = name
@@ -503,6 +505,7 @@ class Result:
         self.completed_at = completed_at
         self.result_id = result_id
         self.size = size
+        self.opaque_id = opaque_id
 
     @classmethod
     def from_message(cls, result_raw: ResultRaw) -> "Result":
@@ -516,6 +519,7 @@ class Result:
             completed_at=timestamp_to_datetime(result_raw.completed_at),
             result_id=result_raw.result_id,
             size=result_raw.size,
+            opaque_id=result_raw.opaque_id,
         )
 
     @classmethod
@@ -537,6 +541,7 @@ class Result:
             and self.completed_at == other.completed_at
             and self.result_id == other.result_id
             and self.size == other.size
+            and self.opaque_id == other.opaque_id
         )
 
 
