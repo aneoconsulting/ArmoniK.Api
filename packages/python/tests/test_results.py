@@ -21,6 +21,7 @@ class TestArmoniKResults:
         assert result.completed_at is None
         assert result.result_id == "result-id"
         assert result.size == 0
+        assert result.opaque_id == b"opaque-id"
 
     def test_get_owner_task_id(self):
         results_client: ArmoniKResults = get_client("Results")
@@ -111,6 +112,24 @@ class TestArmoniKResults:
             assert issubclass(w[-1].category, DeprecationWarning)
             assert rpc_called("Results", "CreateResultsMetaData", 2)
             assert results == {}
+
+    def test_import_result_data(self):
+        results_client: ArmoniKResults = get_client("Results")
+        result = results_client.import_data("session-id", [("result-id", b"opaque-id")])[
+            "result-id"
+        ]
+
+        assert rpc_called("Results", "ImportResultsData")
+        assert isinstance(result, Result)
+        assert result.session_id == "session-id"
+        assert result.name == "result-name"
+        assert result.owner_task_id == "owner-task-id"
+        assert result.status == 2
+        assert result.created_at is None
+        assert result.completed_at is None
+        assert result.result_id == "result-id"
+        assert result.size == 0
+        assert result.opaque_id == b"opaque-id"
 
     def test_service_fully_implemented(self):
         assert all_rpc_called("Results", missings=["WatchResults"])
