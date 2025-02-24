@@ -59,9 +59,13 @@ where
 super::impl_call! {
     Applications {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_applications(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_applications(request),
+                tracing::debug_span!("Applications::list")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
                 .into_inner()
