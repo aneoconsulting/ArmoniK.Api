@@ -126,9 +126,7 @@ public class EventClient {
                   throw new RuntimeException("Result "
                       + response.getResultStatusUpdate().getResultId() + " has been aborted");
                 }
-              }
-
-              if (response.getUpdateCase() == EventSubscriptionResponse.UpdateCase.NEW_RESULT &&
+              } else if (response.getUpdateCase() == EventSubscriptionResponse.UpdateCase.NEW_RESULT &&
                   resultsNotFound.contains(response.getNewResult().getResultId())) {
                 if (response.getNewResult().getStatus() == ResultStatus.RESULT_STATUS_COMPLETED) {
                   resultsNotFound.remove(response.getNewResult().getResultId());
@@ -144,6 +142,7 @@ public class EventClient {
 
             @Override
             public void onError(Throwable t) {
+              t.printStackTrace();
               latch.countDown();
             }
 
