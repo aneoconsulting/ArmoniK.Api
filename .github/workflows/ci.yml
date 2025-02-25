@@ -22,8 +22,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 18.x
+          node-version: 22
           cache: pnpm
+          scope: CI
 
       - name: Install Dependencies
         run: nci
@@ -241,16 +242,19 @@ jobs:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
         with:
           fetch-depth: 0
-      - run: npm install -g pnpm@9.1.4
-      - run: corepack enable
+
+      - run: npm install -g pnpm @antfu/ni
+
       - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
+          scope: CI
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install Dependencies
+        run: nci
 
-      - run: pnpm run lint
+      - run: nr lint
 
   build-web:
     name: Build Web
@@ -268,8 +272,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 18.x
+          node-version: 22
           cache: pnpm
+          scope: CI
 
       - name: Install Dependencies
         run: nci
@@ -299,8 +304,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
         with:
-          node-version: 18.x
+          node-version: 22
           cache: pnpm
+          scope: CI
 
       - name: Install Dependencies
         run: nci
