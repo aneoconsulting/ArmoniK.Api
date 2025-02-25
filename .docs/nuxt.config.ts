@@ -23,5 +23,13 @@ export default defineNuxtConfig({
       siteName: 'ArmoniK.Api',
       siteDescription: 'API for ArmoniK'
     }
+  },
+
+  robots: {
+    robotsTxt: false,
+  },
+
+  ogImage: {
+    enabled: false,
   }
 })
