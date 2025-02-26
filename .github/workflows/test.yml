@@ -337,3 +337,40 @@ jobs:
         with:
           name: code-coverage-report-xml
           path: packages/python/coverage.xml
+
+  csharp-api:
+    name: C# API Tests
+    strategy:
+      fail-fast: false
+      matrix:
+        projects:
+          - packages/csharp/ArmoniK.Api.Tests
+        os:
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      # Install the .NET Core workload
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
+        with:
+          dotnet-version: 6.x
+
+      - name: Run tests
+        run: |
+          cd ${{ matrix.projects }}
+          dotnet test --logger "trx;LogFileName=test-results.trx"
+
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Test - ${{ matrix.os }} ${{ matrix.projects }}
+          path: ${{ matrix.projects }}/TestResults/test-results.trx
+          reporter: dotnet-trx
