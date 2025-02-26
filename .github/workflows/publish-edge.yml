@@ -10,7 +10,6 @@ on:
 
 jobs:
   genversion:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     runs-on: ubuntu-latest
     name: Version
     outputs:
@@ -40,43 +39,8 @@ jobs:
         id: outver
         run: echo "VERSION=${{ needs.genversion.outputs.version }}" >> "$GITHUB_OUTPUT"
 
-  tests:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
-    name: Tests
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        projects:
-          - packages/csharp/ArmoniK.Api.Tests
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-
-      # Install the .NET Core workload
-      - name: Install .NET Core
-        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4
-        with:
-          dotnet-version: 6.x
-
-      - name: Run tests
-        run: |
-          cd ${{ matrix.projects }}
-          dotnet test --logger "trx;LogFileName=test-results.trx"
-
-      - name: Test Report
-        uses: dorny/test-reporter@v1
-        if: success() || failure()
-        with:
-          name: Test - ${{ matrix.os }} ${{ matrix.projects }}
-          path: ${{ matrix.projects }}/TestResults/test-results.trx
-          reporter: dotnet-trx
-
   release-csharp-packages:
-    needs: [tests, version]
+    needs: [version]
     name: Release C# Packages
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -227,6 +191,7 @@ jobs:
 
   release-cpp-package:
     needs: [version]
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     strategy:
       fail-fast: false
       matrix:
@@ -253,6 +218,7 @@ jobs:
 
   release-java-package:
     needs: [version]
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Release Java Package
     runs-on: ubuntu-latest
     defaults:
