@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, cast, Optional, Union
+from typing import Dict, List, Tuple, cast, Optional, Union, Iterable
 
 from deprecation import deprecated
 from grpc import Channel
@@ -26,10 +26,10 @@ from ..protogen.common.results_common_pb2 import (
     ListResultsResponse,
     ResultsServiceConfigurationResponse,
     UploadResultDataRequest,
+    ImportResultsDataRequest,
+    ImportResultsDataResponse,
 )
-from ..protogen.common.results_fields_pb2 import (
-    ResultField,
-)
+from ..protogen.common.results_fields_pb2 import ResultField
 from ..protogen.common.sort_direction_pb2 import SortDirection
 
 
@@ -262,3 +262,28 @@ class ArmoniKResults:
 
     def watch_results(self):
         raise NotImplementedError()
+
+    def import_data(
+        self, session_id: str, results: Iterable[Tuple[str, bytes]]
+    ) -> Dict[str, Result]:
+        """
+        Import existing data from the object storage into existing results.
+
+        Args:
+            session_id: The ID of the session.
+            results: An iterable of tuples, where each tuple contains a result ID and an opaque ID.
+
+        Returns:
+            A dictionary mapping result IDs to Result objects.
+        """
+        result_opaque_ids = [
+            ImportResultsDataRequest.ResultOpaqueId(result_id=result_id, opaque_id=opaque_id)
+            for result_id, opaque_id in results
+        ]
+        response: ImportResultsDataResponse = self._client.ImportResultsData(
+            ImportResultsDataRequest(
+                session_id=session_id,
+                results=result_opaque_ids,
+            )
+        )
+        return {result.result_id: Result.from_message(result) for result in response.results}

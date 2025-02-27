@@ -6,7 +6,7 @@ use snafu::ResultExt;
 use crate::api::v3;
 use crate::results::{
     create, create_metadata, delete_data, download, filter, get, get_owner_task_id,
-    get_service_configuration, list, upload, Raw, Sort,
+    get_service_configuration, import, list, upload, Raw, Sort,
 };
 use crate::utils::IntoCollection;
 
@@ -104,6 +104,24 @@ where
                 results: results
                     .into_iter()
                     .map(|(name, data)| (name.into(), data.into()))
+                    .collect(),
+                session_id: session_id.into(),
+            })
+            .await?
+            .results)
+    }
+
+    /// Import existing data from the object storage into existing results
+    pub async fn import(
+        &mut self,
+        session_id: impl Into<String>,
+        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
+    ) -> Result<HashMap<String, Raw>, super::RequestError> {
+        Ok(self
+            .call(import::Request {
+                results: results
+                    .into_iter()
+                    .map(|(result_id, opaque_id)| (result_id.into(), opaque_id.into()))
                     .collect(),
                 session_id: session_id.into(),
             })
@@ -275,6 +293,16 @@ super::impl_call! {
                 .into_inner()
                 .into())
         }
+
+        async fn call(self, request: import::Request) -> Result<import::Response> {
+          Ok(self
+              .inner
+              .import_results_data(request)
+              .await
+              .context(super::GrpcSnafu {})?
+              .into_inner()
+              .into())
+      }
     }
 }
 
@@ -436,6 +464,18 @@ mod tests {
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "DeleteResultsData").await;
+        assert_eq!(after - before, 1);
+    }
+
+    #[tokio::test]
+    async fn import() {
+        let before = Client::get_nb_request("Results", "ImportResultsData").await;
+        let mut client = Client::new().await.unwrap().into_results();
+        client
+            .import("session-id", [("result", b"opaque-id")])
+            .await
+            .unwrap();
+        let after = Client::get_nb_request("Results", "ImportResultsData").await;
         assert_eq!(after - before, 1);
     }
 

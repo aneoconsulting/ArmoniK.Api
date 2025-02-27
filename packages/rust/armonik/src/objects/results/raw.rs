@@ -32,6 +32,8 @@ pub struct Raw {
     pub size: i64,
     /// The ID of the Task that as submitted this result.
     pub created_by: String,
+    /// ID of the data in the underlying object storage.
+    pub opaque_id: Vec<u8>,
 }
 
 super::super::impl_convert!(
@@ -45,5 +47,6 @@ super::super::impl_convert!(
         result_id,
         size,
         created_by,
+        opaque_id,
     }
 );

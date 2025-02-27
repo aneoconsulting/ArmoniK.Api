@@ -19,5 +19,6 @@
   ],
   "rust-analyzer.cargo.features": [
     "serde"
-  ]
+  ],
+  "cmake.ignoreCMakeListsMissing": true
 }

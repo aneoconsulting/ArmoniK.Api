@@ -21,12 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
           node-version: '18'
           cache: pnpm
@@ -37,7 +37,7 @@ jobs:
         # This will be used to avoid the use of the docker image to generate the documentation if the proto files have not changed
       - name: Cache Generated Docs from Protos
         id: proto-cache
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4
+        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4
         with:
           path: .docs/content/api/*.md
           key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
@@ -65,12 +65,12 @@ jobs:
     needs: [generate-proto-docs]
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       # Restore API proto documentation
       - name: Cache Generated Docs from Protos
         id: proto-cache
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4
+        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4
         with:
           path: .docs/content/api/*.md
           key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
@@ -78,7 +78,7 @@ jobs:
       - run: npm i -g pnpm @antfu/ni
 
       - name: Setup Node
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
           node-version: '18'
           cache: pnpm
