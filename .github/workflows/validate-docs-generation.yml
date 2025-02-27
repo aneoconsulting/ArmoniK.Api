@@ -19,15 +19,6 @@ jobs:
 
       - run: npm i -g pnpm
 
-      - name: Verify PNPM Cache Directory
-        run: |
-          if [ ! -d ""$PNPM_CACHE_FOLDER/store/v3"" ]; then
-            echo ""PNPM cache directory does not exist, creating it.""
-            mkdir -p ""$PNPM_CACHE_FOLDER/store/v3""
-          else
-            echo ""PNPM cache directory exists.""
-          fi
-
       - name: Setup Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
@@ -52,15 +43,6 @@ jobs:
 
       - run: npm i -g pnpm
 
-      - name: Verify PNPM Cache Directory
-        run: |
-          if [ ! -d ""$PNPM_CACHE_FOLDER/store/v3"" ]; then
-            echo ""PNPM cache directory does not exist, creating it.""
-            mkdir -p ""$PNPM_CACHE_FOLDER/store/v3""
-          else
-            echo ""PNPM cache directory exists.""
-          fi
-
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
           node-version: 22
@@ -78,15 +60,6 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - run: npm i -g pnpm
-
-      - name: Verify PNPM Cache Directory
-        run: |
-          if [ ! -d ""$PNPM_CACHE_FOLDER/store/v3"" ]; then
-            echo ""PNPM cache directory does not exist, creating it.""
-            mkdir -p ""$PNPM_CACHE_FOLDER/store/v3""
-          else
-            echo ""PNPM cache directory exists.""
-          fi
 
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
