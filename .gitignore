@@ -406,3 +406,7 @@ target/
 *.iml
 *.ipr
 *.iws
+
+# Documentation artifacts
+build/
+.venv-doc
