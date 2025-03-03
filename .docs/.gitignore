@@ -11,3 +11,5 @@ sw.*
 .env
 .output
 .eslintcache
+content/api/generated/*.md
+content/api/generated/*.yml
