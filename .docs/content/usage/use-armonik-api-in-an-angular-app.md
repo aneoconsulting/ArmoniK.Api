@@ -26,7 +26,7 @@ This guide **is not** a tutorial on how to use Angular or RxJS. If you are not f
 Before you start, make sure you have the following:
 
 - [Node.js](https://nodejs.org/en/) installed on your machine.
-- [ArmoniK] up and running on your machine. Follow the [installation guide](https://aneoconsulting.github.io/ArmoniK/installation) to install ArmoniK if you haven't done it yet.
+- [ArmoniK] up and running on your machine. Follow the [installation guide](https://armonik.readthedocs.io/en/latest/content/getting-started/introduction.html) to install ArmoniK if you haven't done it yet.
 
 ```{note}
 
@@ -146,7 +146,7 @@ In this section, you will get partitions ArmoniK.
 
 ```{note}
 
-We chose ListPartitionsservice as it is a simple service and the data feedback is sure to happen. You may use another service if you so choose. If you do, we recommend to [run some samples](https://aneoconsulting.github.io/ArmoniK/installation/linux/verify-installation#samples) in ArmoniK to make sure that the service will return some data.
+We chose ListPartitionsservice as it is a simple service and the data feedback is sure to happen. You may use another service if you so choose. If you do, we recommend to [run some samples](https://armonik.readthedocs.io/en/latest/content/user-guide/how-to-use-htc-mock.html) in ArmoniK to make sure that the service will return some data.
 
 ```
 
