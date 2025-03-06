@@ -10,23 +10,17 @@ The ArmoniK Team provides a set of packages generated on top the ArmoniK Api to 
 
 ## C# packages
 
-::list{type="primary"}
 - [ArmoniK.Api.Client](https://www.nuget.org/packages/ArmoniK.Api.Client/)
 - [ArmoniK.Api.Common](https://www.nuget.org/packages/ArmoniK.Api.Common/)
 - [ArmoniK.Api.Common.Channel](https://www.nuget.org/packages/ArmoniK.Api.Common.Channel/)
 - [ArmoniK.Api.Core](https://www.nuget.org/packages/ArmoniK.Api.Core/)
 - [ArmoniK.Api.Worker](https://www.nuget.org/packages/ArmoniK.Api.Worker/)
-::
 
 ## Python package
 
-::list{type="primary"}
 - [armonik](https://pypi.org/project/armonik/)
-::
 
 ## JavaScript packages
 
-::list{type="primary"}
 - [@aneoconsultingfr/armonik.api](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api)
 - [@aneoconsultingfr/armonik.api.angular](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api.angular)
-::

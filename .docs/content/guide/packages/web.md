@@ -12,6 +12,7 @@ This package does not include any gRPC client or server implementation. You can 
 
 Nothing to do here. The TypeScript package is automatically updated by the CI/CD pipeline when a new release is published.
 
-::alert{type="info"}
+```{note}
+
 There is an edge release on every commit on the `main` branch. You can use it to test the latest features using the `next` tag of the package.
-::
+```

@@ -10,9 +10,10 @@ The Angular package is build on top of [protoc-gen-ng package](https://www.npmjs
 
 Nothing to do here. The Angular package is automatically updated by the CI/CD pipeline when a new release is published.
 
-::alert{type="info"}
+```{note}
+
 There is an edge release on every commit on the `main` branch. You can use it to test the latest features using the `next` tag of the package.
-::
+```
 
 ## Manual update
 
@@ -24,8 +25,8 @@ Before that, you need to generate the proto files using the `protoc` command fro
 npm run proto:generate:linux
 ```
 
-::alert{type="warning"}
+```{warning}
 The `protoc` command is only available on Linux.
-::
+```
 
 Then, you can update the `index.ts` file.

@@ -10,7 +10,7 @@ A release is created when there is enough new features or bug fixes to justify a
 
 ## Create a release
 
-In order to be sure that every [packages](/guide/packages) use the same version, we create script to automate the process. This script is written using [NodeJS](https://nodejs.org/en/) and can be found in the `scripts` folder.
+In order to be sure that every [packages](./packages) use the same version, we create script to automate the process. This script is written using [NodeJS](https://nodejs.org/en/) and can be found in the `scripts` folder.
 
 ### Prerequisites
 
@@ -24,10 +24,11 @@ In order to be sure that every [packages](/guide/packages) use the same version,
 pnpm install
 ```
 
-::alert{type="info"}
-You can install pnpm using `npm i -g pnpm`
-::
+```{note}
 
+You can install pnpm using `npm i -g pnpm`
+
+```
 - Run the script
 
 ```bash
@@ -52,52 +53,51 @@ The build and publishing method and quality of edge releases are the same as sta
 
 C# packages are available on [NuGet](https://www.nuget.org).
 
-::list{type="primary"}
 - [ArmoniK.Api.Client](https://www.nuget.org/packages/ArmoniK.Api.Client/)
 - [ArmoniK.Api.Common](https://www.nuget.org/packages/ArmoniK.Api.Common/)
 - [ArmoniK.Api.Common.Channel](https://www.nuget.org/packages/ArmoniK.Api.Common.Channel/)
 - [ArmoniK.Api.Core](https://www.nuget.org/packages/ArmoniK.Api.Core/)
 - [ArmoniK.Api.Worker](https://www.nuget.org/packages/ArmoniK.Api.Worker/)
-::
+
 
 C# generate also packages on each PR commit. This is useful to test or implement features in parallel to validate that proto are correct. You can find the latest version on [NuGet](https://www.nuget.org/profiles/ANEO).
 
-::alert{type="info"}
-C# packages are available on Edge channel.
-::
+```{note}
 
+C# packages are available on Edge channel.
+
+
+```
 ### Python
 
 Python package is available on [PyPi](https://pypi.org/).
 
-::list{type="primary"}
 - [armonik](https://pypi.org/project/armonik/)
-::
 
-::alert{type="warning"}
+```{warning}
 Python package is not yet available on Edge channel.
-::
+
+```
 
 ### Angular
 
 Angular package is available on [NPM](https://www.npmjs.com).
 
-::list{type="primary"}
 - [@aneoconsultingfr/armonik.api](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api.angular)
-::
 
-::alert{type="info"}
+```{note}
+
 Angular package is available on Edge channel.
-::
 
+
+```
 ### Web
 
 Web package is available on [NPM](https://www.npmjs.com).
 
-::list{type="primary"}
 - [@aneoconsultingfr/armonik.api](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api)
-::
 
-::alert{type="info"}
+```{note}
+
 Web package is available on Edge channel.
-::
+```
