@@ -213,7 +213,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
-      - uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
+      - uses: taiki-e/install-action@1426bdb9e21b806f1cae604ab3dfc05e174bf885 # v2
         with:
           tool: protoc,sccache
       - name: Install toolchain

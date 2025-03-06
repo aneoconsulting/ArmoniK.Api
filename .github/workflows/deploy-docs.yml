@@ -37,7 +37,7 @@ jobs:
         # This will be used to avoid the use of the docker image to generate the documentation if the proto files have not changed
       - name: Cache Generated Docs from Protos
         id: proto-cache
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
         with:
           path: .docs/content/api/*.md
           key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
@@ -70,7 +70,7 @@ jobs:
       # Restore API proto documentation
       - name: Cache Generated Docs from Protos
         id: proto-cache
-        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4
+        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
         with:
           path: .docs/content/api/*.md
           key: proto-v1-${{ hashFiles('Protos/V1/**.proto') }}
