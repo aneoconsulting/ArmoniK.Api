@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 18.x
+          node-version: 22
           cache: pnpm
 
       - name: Install Dependencies
@@ -241,16 +241,18 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
-      - run: npm install -g pnpm@9.1.4
-      - run: corepack enable
+
+      - run: npm install -g pnpm @antfu/ni
+
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install Dependencies
+        run: nci
 
-      - run: pnpm run lint
+      - run: nr lint
 
   build-web:
     name: Build Web
@@ -268,7 +270,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 18.x
+          node-version: 22
           cache: pnpm
 
       - name: Install Dependencies
@@ -299,7 +301,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 18.x
+          node-version: 22
           cache: pnpm
 
       - name: Install Dependencies
