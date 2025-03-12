@@ -14,7 +14,7 @@ release = "main"
 
 import sys
 import os
-sys.path.insert(0, os.path.abspath('../packages/python/src/armonik'))
+sys.path.insert(0, os.path.abspath('../packages/python/src'))
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -43,6 +43,17 @@ source_suffix = {
     ".txt": "markdown",
     ".md": "markdown",
 }
+
+autodoc_mock_imports = [
+    'armonik._version', 
+    "grpc", 
+    "cryptography",
+    "armonik.protogen",
+    # More specific google module imports instead of the entire module
+    "google.protobuf.timestamp_pb2",
+    "google.protobuf.duration_pb2",
+    "google.protobuf.message",
+]
 
 # -- Options MyST Parser ------------------------------------------------
 myst_fence_as_directive = ["mermaid"]
