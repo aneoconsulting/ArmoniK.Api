@@ -24,10 +24,10 @@ build:
       - sed -E '
           s/# Protocol Documentation/# V1/;
           /## Table of Contents/,/^[^#]*## /{
-            /## agent_common.proto/!d  # Exclude ## agent_common.proto from being deleted
+            /## agent_common.proto/!d
           };
           s/name="([^"]*)"/id="\1"/g
-        ' .docs/content/api/tmp.md > .docs/content/api/v1.md
+        ' .docs/content/api/tmp.md > .docs/content/api/v1.md ;
       # Set up .NET environment
       - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$DOTNET_ROOT":"$DOTNET_ROOT/scripts" env
       - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$DOTNET_ROOT":"$DOTNET_ROOT/scripts" scripts/generate-csharp-doc.sh

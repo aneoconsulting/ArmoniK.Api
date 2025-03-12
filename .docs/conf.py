@@ -1,3 +1,4 @@
+
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -11,10 +12,19 @@ copyright = "2021-%Y, ANEO"
 author = "ANEO"
 release = "main"
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath('../packages/python/src/armonik'))
+
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ["myst_parser", 'sphinxcontrib.mermaid']
+extensions = ["myst_parser",
+    'sphinxcontrib.mermaid',
+    "sphinx.ext.autosummary",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autodoc",
+]
 
 templates_path = ["_templates"]
 exclude_patterns = ["requirements.txt", "README.md"]
@@ -46,3 +56,4 @@ html_context = {
     "github_version": "main", # Version
     "conf_py_path": "/.docs/", # Path in the checkout to the docs root
 }
+

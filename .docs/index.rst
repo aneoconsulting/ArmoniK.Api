@@ -6,13 +6,6 @@
 ArmoniK.Api documentation
 ==========================
 
-.. toctree::
-   :maxdepth: 3
-   :caption: Api
-   :glob:
-
-   content/api/index.md
-   content/api/v1.md
 
 .. toctree::
    :maxdepth: 3
@@ -30,6 +23,7 @@ ArmoniK.Api documentation
       
    content/guide/packages/index.md
    content/guide/packages/c-sharp.md
+   content/api/generated/index.rst
    content/guide/packages/python.md
    content/guide/packages/web.md
    content/guide/packages/angular.md
@@ -45,7 +39,15 @@ ArmoniK.Api documentation
 
 .. toctree::
    :maxdepth: 3
-   :caption: Generated
+   :caption: API C#
    :glob:
 
-   content/api/generated/index.rst
+   content/api/csharp/index.rst
+
+
+.. toctree::
+   :maxdepth: 3
+   :caption: API Python
+   :glob:
+
+   content/api/python/PythonAPI.rst
