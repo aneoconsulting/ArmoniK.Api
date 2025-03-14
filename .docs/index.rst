@@ -23,7 +23,6 @@ ArmoniK.Api documentation
       
    content/guide/packages/index.md
    content/guide/packages/c-sharp.md
-   content/api/generated/index.rst
    content/guide/packages/python.md
    content/guide/packages/web.md
    content/guide/packages/angular.md
