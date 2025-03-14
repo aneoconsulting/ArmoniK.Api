@@ -1,8 +1,9 @@
-API Python
-=============
+API Reference
+============
 
-.. autosummary::
-   :toctree: generated
-   :recursive:
+.. toctree::
+   :maxdepth: 2
+   :caption: ArmoniK CLI API Reference
 
-   armonik.client
+   modules
+ 
