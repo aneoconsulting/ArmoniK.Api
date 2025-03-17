@@ -94,7 +94,7 @@ class TestTaskHandler:
         for _ in handler.data_dependencies.keys():
             pass
         assert handler.data_dependencies._data["dd-id"] is None
-        for _ in handler.data_dependencies:
+        for _ in handler.data_dependencies.items():
             pass
         assert handler.data_dependencies._data["dd-id"] == b"dd"
 

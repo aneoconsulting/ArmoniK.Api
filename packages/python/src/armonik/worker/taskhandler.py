@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from typing import Optional, Dict, List, Union, Iterator
+from typing import Optional, Dict, List, Union, KeysView
 
 from ..common import TaskOptions, TaskDefinition, Result, Task
 from ..common.helpers import batched
@@ -26,14 +26,17 @@ class LazyLoadDict(Mapping):
         self.__data_folder = data_folder
         self._data: Dict[str, Optional[bytes]] = {k: None for k in ids}
 
-    def __iter__(self) -> Iterator[str, bytes]:
-        for k in self._data.keys():
-            yield k, self[k]
+    def __iter__(self) -> KeysView[Union[str, bytes]]:
+        return self.keys()
 
     def keys(self):
         # Overridden to prevent loading
         for k in self._data.keys():
             yield k
+
+    def items(self):
+        for k in self._data.keys():
+            yield k, self[k]
 
     def __getitem__(self, __key) -> bytes:
         if __key not in self._data:
@@ -103,7 +106,7 @@ class TaskHandler:
             )
 
             if default_task_options:
-                request.task_options = (default_task_options.to_message(),)
+                request.task_options = default_task_options.to_message()
 
             submitted_tasks.extend(
                 Task(
