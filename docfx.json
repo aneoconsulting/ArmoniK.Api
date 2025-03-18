@@ -10,7 +10,7 @@
           ],
           "exclude":[
             "**/*Test/*.csproj",
-            "**/Tests/*.csproj"
+            "**/*Tests/*.csproj"
           ]
         }
       ],
