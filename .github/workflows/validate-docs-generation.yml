@@ -17,23 +17,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - run: npm i -g pnpm @antfu/ni
+      - run: npm i -g pnpm
 
       - name: Setup Node
         uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 18
+          node-version: 22
           cache: pnpm
-          cache-dependency-path: .docs/pnpm-lock.yaml
+          cache-dependency-path: ".docs/pnpm-lock.yaml"
 
       - name: Install dependencies
-        run: cd .docs && nci
+        run: cd .docs && pnpm i
 
       - name: Use NODE_ENV=production
         run: echo "NODE_ENV=production" >> $GITHUB_ENV
 
       - name: Static HTML export with Nuxt
-        run: cd .docs && nr generate
+        run: cd .docs && pnpm generate
 
   lint-markdown:
     name: Lint Markdown
@@ -41,17 +41,17 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - run: npm i -g pnpm @antfu/ni
+      - run: npm i -g pnpm
 
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 18
+          node-version: 22
           cache: pnpm
-          cache-dependency-path: .docs/pnpm-lock.yaml
+          cache-dependency-path: ".docs/pnpm-lock.yaml"
 
-      - run: cd .docs && nci
+      - run: cd .docs && pnpm i
 
-      - run: cd .docs && nr lint:md
+      - run: cd .docs && pnpm run lint:md
 
   lint:
     name: Lint
@@ -59,14 +59,13 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
-      - run: npm i -g pnpm @antfu/ni
+      - run: npm i -g pnpm
 
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
-          node-version: 18
+          node-version: 22
           cache: pnpm
-          cache-dependency-path: .docs/pnpm-lock.yaml
+          cache-dependency-path: ".docs/pnpm-lock.yaml"
 
-      - run: cd .docs && nci
-
-      - run: cd .docs && nr lint
+      - run: cd .docs && pnpm i
+      - run: cd .docs && pnpm run lint

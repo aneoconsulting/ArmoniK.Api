@@ -24,6 +24,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          scope: CI
 
       - name: Install Dependencies
         run: nci
@@ -248,6 +249,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          scope: CI
 
       - name: Install Dependencies
         run: nci
@@ -272,6 +274,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          scope: CI
 
       - name: Install Dependencies
         run: nci
@@ -303,6 +306,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          scope: CI
 
       - name: Install Dependencies
         run: nci
