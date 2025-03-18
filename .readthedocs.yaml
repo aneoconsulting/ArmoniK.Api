@@ -11,11 +11,11 @@ build:
     python: "3.12"
   jobs:
     post_install:
+      - pip install --only-binary grpcio,grpcio-tools --no-cache-dir grpcio grpcio-tools
       - curl -OfsSL https://dot.net/v1/dotnet-install.sh
       - chmod +x dotnet-install.sh
       - ./dotnet-install.sh
-    pre_build:
-      # Install protobuf compiler manually
+            # Install protobuf compiler manually
       - curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v21.0/protoc-21.0-linux-x86_64.zip
       - unzip protoc-21.0-linux-x86_64.zip -d $HOME/protoc
       
@@ -23,7 +23,12 @@ build:
       - curl -LO https://github.com/pseudomuto/protoc-gen-doc/releases/download/v1.5.1/protoc-gen-doc_1.5.1_linux_amd64.tar.gz
       - mkdir -p $HOME/protoc-gen-doc
       - tar -xvzf protoc-gen-doc_1.5.1_linux_amd64.tar.gz -C $HOME/protoc-gen-doc 
-      - export PATH="$HOME/protoc/bin:$PATH" && export PATH="$HOME/protoc-gen-doc:$PATH" && protoc --version && protoc -I Protos/V1 --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto  # Generate docs
+      - $HOME/protoc/bin/protoc --version  # Verify protoc version
+
+    pre_build:
+
+      - $HOME/protoc/bin/protoc -I Protos/V1 --plugin=$HOME/protoc-gen-doc/protoc-gen-doc --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto  # Generate docs
+  
       # Process the generated markdown with sed to apply custom formatting
       - sed -E '
           s/# Protocol Documentation/# V1/;
@@ -32,6 +37,7 @@ build:
           };
           s/name="([^"]*)"/id="\1"/g
         ' .docs/content/api/tmp.md > .docs/content/api/v1.md ;
+      - sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
       # Set up .NET environment
       - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$DOTNET_ROOT":"$DOTNET_ROOT/scripts" env
       - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$DOTNET_ROOT":"$DOTNET_ROOT/scripts" scripts/generate-csharp-doc.sh

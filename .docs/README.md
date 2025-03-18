@@ -27,7 +27,9 @@ pip install -r .docs/requirements.txt
 To build the docs locally, run the following command:
 
 ```bash
+scripts/generate-proto-doc.sh
 scripts/generate-csharp-doc.sh
+sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
 sphinx-build -M html .docs build
 ```
 
