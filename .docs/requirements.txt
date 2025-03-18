@@ -3,5 +3,3 @@ myst_parser==4.0.0
 sphinxcontrib-mermaid==1.0.0
 sphinx-rtd-theme==3.0.2
 deprecation
-grpcio==1.62.3
-grpcio-tools==1.62.3

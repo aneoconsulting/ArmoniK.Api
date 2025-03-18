@@ -8,7 +8,7 @@ The purpose of this guide is to explain how to use ArmoniK API in an Angular App
 
 At the end of the guide, you will have a working Angular App that uses ArmoniK API and you will be able to use it as a starting point for your own project or to contribute to the ArmoniK Admin GUI!
 
-During this guide, we will follow the [community guidelines from ArmoniK](https://aneoconsulting.github.io/ArmoniK.Community/contribution-guides/angular)
+During this guide, we will follow the [community guidelines from ArmoniK](https://armonikcommunity.readthedocs.io/en/latest/content/contribution-guides/angular.html)
 
 - Use Angular project structure without [Nx](https://nx.dev/)
 - Use [standalone component](https://angular.io/guide/standalone-components)
