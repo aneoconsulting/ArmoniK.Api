@@ -18,7 +18,7 @@ dependencies = [
     "grpcio==1.62.3",
     "grpcio-tools==1.62.3",
     "deprecation",
-    "cryptography>=36"
+    "cryptography>=44.0.2"
 ]
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
