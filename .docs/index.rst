@@ -6,7 +6,6 @@
 ArmoniK.Api documentation
 ==========================
 
-
 .. toctree::
    :maxdepth: 3
    :caption: Getting Started
@@ -35,6 +34,13 @@ ArmoniK.Api documentation
 
    content/usage/use-armonik-api-in-an-angular-app.md
    content/usage/use-armonik-grpc-securely-python.md
+
+.. toctree::
+   :maxdepth: 3
+   :caption: API Proto
+   :glob:
+
+   content/api/v1.md
 
 .. toctree::
    :maxdepth: 3

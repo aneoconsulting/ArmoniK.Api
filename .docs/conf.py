@@ -48,11 +48,7 @@ autodoc_mock_imports = [
     'armonik._version', 
     "grpc", 
     "cryptography",
-    "armonik.protogen",
-    # More specific google module imports instead of the entire module
-    "google.protobuf.timestamp_pb2",
-    "google.protobuf.duration_pb2",
-    "google.protobuf.message",
+    "armonik.protogen"
 ]
 
 # -- Options MyST Parser ------------------------------------------------
