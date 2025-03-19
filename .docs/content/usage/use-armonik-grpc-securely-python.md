@@ -8,7 +8,7 @@ This guide provides steps to connect to ArmoniK securely using gRPC in Python. A
 
 Before proceeding, make sure that ArmoniK is deployed with the necessary certificates. Follow the steps below:
 
-1. Ensure that ArmoniK is deployed with authentication. Refer to the [How to configure authentication in ArmoniK](https://aneoconsulting.github.io/ArmoniK/guide/how-to/how-to-configure-authentication#how-to-configure-authentication) guide for detailed instructions.
+1. Ensure that ArmoniK is deployed with authentication. Refer to the [How to configure authentication in ArmoniK](https://armonik.readthedocs.io/en/latest/content/user-guide/how-to-configure-authentication.html#) guide for detailed instructions.
 
 2. Deploy ArmoniK.
 

@@ -18,7 +18,7 @@ provide the core data model and functionalities for ArmoniK and are used to gene
 
 ## Documentation
 
-[See this link](https://aneoconsulting.github.io/ArmoniK.Api/api/index.html) to explore documentation.
+[See this link](https://armonikapi.readthedocs.io/en/latest/) to explore documentation.
 
 Documentation for `.proto` files is generated with the plugin [protoc-gen-doc](https://github.com/pseudomuto/protoc-gen-doc) during the build process in the CI/CD pipeline.
 

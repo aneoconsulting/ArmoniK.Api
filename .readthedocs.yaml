@@ -1,0 +1,47 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Set the OS and Python version
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.12"
+  jobs:
+    post_install:
+      - pip install --only-binary sphinx,sphinxcontrib-mermaid,sphinx-rtd-theme,myst_parser,grpcio,grpcio-tools --no-cache-dir sphinx sphinxcontrib-mermaid sphinx-rtd-theme myst_parser grpcio grpcio-tools
+      - curl -OfsSL https://dot.net/v1/dotnet-install.sh
+      - chmod +x dotnet-install.sh
+      - ./dotnet-install.sh
+      # Install protobuf compiler manually
+      - curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v21.0/protoc-21.0-linux-x86_64.zip
+      - unzip protoc-21.0-linux-x86_64.zip -d $HOME/protoc
+      
+      # If the above fails, try downloading again from a correct source
+      - curl -LO https://github.com/pseudomuto/protoc-gen-doc/releases/download/v1.5.1/protoc-gen-doc_1.5.1_linux_amd64.tar.gz
+      - mkdir -p $HOME/protoc-gen-doc
+      - tar -xvzf protoc-gen-doc_1.5.1_linux_amd64.tar.gz -C $HOME/protoc-gen-doc 
+      - $HOME/protoc/bin/protoc --version  # Verify protoc version
+
+    pre_build:
+
+      - $HOME/protoc/bin/protoc -I Protos/V1 --plugin=$HOME/protoc-gen-doc/protoc-gen-doc --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto  # Generate docs
+      - sh scripts/generate-proto-doc.sh
+      # Process the generated markdown with sed to apply custom formatting
+
+      - sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
+      # Set up .NET environment
+      - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$DOTNET_ROOT":"$DOTNET_ROOT/tools" env
+      - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$DOTNET_ROOT":"$DOTNET_ROOT/tools" scripts/generate-csharp-doc.sh
+
+# Move anchors out of the titles
+# Build documentation in the ".docs/" directory with Sphinx
+sphinx:
+  configuration: .docs/conf.py
+
+  
+python:
+  install:
+    - requirements: .docs/requirements.txt
