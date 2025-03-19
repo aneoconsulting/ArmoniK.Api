@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 import concurrent.futures
+import logging
+import time
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Callable, cast, Iterable, List, Optional, Union, Collection
+from typing import Callable, Collection, Dict, Iterable, List, Optional, Union, cast
 
 from grpc import Channel, RpcError
 
+from ..client.results import ArmoniKResults
 from ..common import (
+    Event,
     EventTypes,
-    NewTaskEvent,
     NewResultEvent,
+    NewTaskEvent,
+    Result,
     ResultOwnerUpdateEvent,
+    ResultStatus,
     ResultStatusUpdateEvent,
     TaskStatusUpdateEvent,
-    ResultStatus,
-    Event,
-    Result,
     batched,
 )
 from ..common.filter import Filter
 from ..protogen.client.events_service_pb2_grpc import EventsStub
-from ..protogen.common.events_common_pb2 import EventSubscriptionRequest, EventsEnum
+from ..protogen.common.events_common_pb2 import EventsEnum, EventSubscriptionRequest
 from ..protogen.common.results_filters_pb2 import Filters as rawResultFilters
 from ..protogen.common.tasks_filters_pb2 import Filters as rawTaskFilters
 
@@ -41,6 +44,11 @@ class ArmoniKEvents:
             grpc_channel: gRPC channel to use
         """
         self._client = EventsStub(grpc_channel)
+        self._channel = grpc_channel
+        # Initialize results client for later use in downloads
+        self._results_client = ArmoniKResults(grpc_channel)
+        # Cache for storing metrics about downloads
+        self._download_metrics: Dict[str, Dict[str, float]] = {}
 
     def get_events(
         self,
@@ -69,12 +77,16 @@ class ArmoniKEvents:
         request = EventSubscriptionRequest(
             session_id=session_id,
             returned_events=event_types,
-            tasks_filters=cast(rawTaskFilters, task_filter.to_disjunction().to_message())
-            if task_filter is not None
-            else rawTaskFilters(),
-            results_filters=cast(rawResultFilters, result_filter.to_disjunction().to_message())
-            if result_filter is not None
-            else rawResultFilters(),
+            tasks_filters=(
+                cast(rawTaskFilters, task_filter.to_disjunction().to_message())
+                if task_filter is not None
+                else rawTaskFilters()
+            ),
+            results_filters=(
+                cast(rawResultFilters, result_filter.to_disjunction().to_message())
+                if result_filter is not None
+                else rawResultFilters()
+            ),
         )
 
         streaming_call = self._client.GetEvents(request)
@@ -134,10 +146,124 @@ class ArmoniKEvents:
             for batch in batched(result_ids, bucket_size):
                 _wait_all(self, session_id, batch)
 
+    def wait_for_availability_and_download(
+        self,
+        result_ids: Union[str, List[str]],
+        session_id: str,
+        bucket_size: int = 100,
+        parallelism: int = 1,
+    ) -> Dict[str, bytes]:
+        """
+        Waits for results to become COMPLETED and then downloads the result.
+        For each completed result, a thread from ThreadPoolExecutor is used to download
+        as soon as the notification is received. Metrics about download time are stored.
 
-def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[str]):
-    if len(results) == 0:
-        return
+        Args:
+            result_ids: The IDs of the results.
+            session_id: The session ID.
+            bucket_size: Batch size.
+            parallelism: Number of threads to concurrently handle batches.
+
+        Returns:
+            Dictionary mapping result IDs to their downloaded data.
+        """
+        if isinstance(result_ids, str):
+            result_ids = [result_ids]
+        result_ids = set(result_ids)
+        if not result_ids:
+            return {}
+
+        downloaded_results: Dict[str, bytes] = {}
+
+        for result_id in result_ids:
+            self._download_metrics[result_id] = {}
+
+        # Create a single ThreadPoolExecutor for all download operations
+        # Using max(parallelism*2, 10) workers to handle both batch processing and downloads
+        max_workers = max(parallelism * 2, 10)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            try:
+                if parallelism > 1:
+                    # Create futures for each batch
+                    futures = [
+                        executor.submit(
+                            _wait_and_download,
+                            self,
+                            session_id,
+                            batch,
+                            downloaded_results,
+                        )
+                        for batch in batched(result_ids, bucket_size)
+                    ]
+
+                    # Wait for all futures to complete
+                    for future in concurrent.futures.as_completed(futures):
+                        exp = future.exception()
+                        if exp is not None:
+                            for f in futures:
+                                f.cancel()
+                            raise exp
+                else:
+                    # Process batches sequentially
+                    for batch in batched(result_ids, bucket_size):
+                        _wait_and_download(self, session_id, batch, downloaded_results)
+            except Exception as e:
+                logging.error("Error in wait_for_availability_and_download: %s", e)
+                raise
+
+        return downloaded_results
+
+    def download_result(
+        self, result_id: str, session_id: str, results_dict: Dict[str, bytes]
+    ) -> None:
+        """
+        Downloads the result for the given result_id and stores it in results_dict.
+        Measures the time between download start and completion.
+        Records metrics in self._download_metrics.
+
+        Args:
+            result_id: The ID of the result to download.
+            session_id: The session ID.
+            results_dict: Dictionary to store the downloaded result.
+        """
+        download_start = time.monotonic()
+
+        try:
+            result_data = self._results_client.download_result_data(result_id, session_id)
+
+            results_dict[result_id] = result_data
+
+            download_end = time.monotonic()
+            elapsed = download_end - download_start
+
+            self._download_metrics[result_id] = {
+                "start_time": download_start,
+                "end_time": download_end,
+                "elapsed": elapsed,
+            }
+
+            logging.info("Result %s downloaded in %.2f seconds", result_id, elapsed)
+        except Exception as e:
+            logging.error("Error downloading result %s: %s", result_id, e)
+            self._download_metrics[result_id]["status"] = "failed"
+            self._download_metrics[result_id]["error"] = str(e)
+            raise
+
+    def get_download_metrics(self) -> Dict[str, Dict[str, float]]:
+        """
+        Returns metrics about the downloads performed.
+
+        Returns:
+            Dictionary mapping result IDs to metrics dictionaries.
+        """
+        return self._download_metrics
+
+
+def _create_results_filter(results: Collection[str]):
+    """Helper function to create a filter for a collection of result IDs."""
+    if not results:
+        return None
+
     results_filter = None
     for result_id in results:
         results_filter = (
@@ -145,7 +271,96 @@ def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[
             if results_filter is None
             else (results_filter | (Result.result_id == result_id))
         )
+    return results_filter
 
+
+def _wait_and_download(
+    event_client: ArmoniKEvents,
+    session_id: str,
+    results: Collection[str],
+    results_dict: Dict[str, bytes],
+):
+    """
+    Waits for results to become available and downloads them as soon as they are ready.
+
+    Args:
+        event_client: The ArmoniKEvents client.
+        session_id: The session ID.
+        results: Collection of result IDs to wait for.
+        results_dict: Dictionary to store downloaded results.
+    """
+    if not results:
+        return
+
+    results_filter = _create_results_filter(results)
+    not_found = set(results)
+
+    # Use a ThreadPoolExecutor to handle downloads asynchronously
+    with ThreadPoolExecutor(max_workers=min(len(results), 20)) as download_executor:
+
+        def handler(_, _2, event: Event) -> bool:
+            event = cast(Union[NewResultEvent, ResultStatusUpdateEvent], event)
+            if event.result_id in not_found:
+                if event.status == ResultStatus.COMPLETED:
+                    not_found.remove(event.result_id)
+                    # Schedule the download using ThreadPoolExecutor
+                    download_executor.submit(
+                        event_client.download_result,
+                        event.result_id,
+                        session_id,
+                        results_dict,
+                    )
+                    if not not_found:
+                        return True
+                elif event.status == ResultStatus.ABORTED:
+                    raise RuntimeError(f"Result {event.result_id} has been aborted.")
+            return False
+
+        # Continue waiting until all results are found or an error occurs
+        retry_count = 0
+        max_retries = 5
+        while not_found:
+            try:
+                event_client.get_events(
+                    session_id,
+                    [EventTypes.RESULT_STATUS_UPDATE, EventTypes.NEW_RESULT],
+                    [handler],
+                    None,
+                    results_filter,
+                )
+            except RpcError as e:
+                retry_count += 1
+                if retry_count > max_retries:
+                    logging.error(
+                        "Maximum retries (%d) reached when waiting for results: %s",
+                        max_retries,
+                        e,
+                    )
+                    raise
+                logging.warning(
+                    "RPC error while waiting for results (retry %d/%d): %s",
+                    retry_count,
+                    max_retries,
+                    e,
+                )
+                time.sleep(1)  # Add delay before retry
+            else:
+                break
+
+
+def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[str]):
+    """
+    Waits for all results to become available.
+
+    Args:
+        event_client: The ArmoniKEvents client.
+        session_id: The session ID.
+        results: Collection of result IDs to wait for.
+    """
+    if len(results) == 0:
+        return
+
+    results_filter = _create_results_filter(results)
     not_found = set(results)
 
     def handler(_, _2, event: Event) -> bool:
@@ -159,6 +374,9 @@ def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[
                 raise RuntimeError(f"Result {event.result_id} has been aborted.")
         return False
 
+    # Continue waiting until all results are found or an error occurs
+    retry_count = 0
+    max_retries = 5
     while not_found:
         try:
             event_client.get_events(
@@ -168,7 +386,21 @@ def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[
                 None,
                 results_filter,
             )
-        except RpcError:
-            pass
+        except RpcError as e:
+            retry_count += 1
+            if retry_count > max_retries:
+                logging.error(
+                    "Maximum retries (%d) reached when waiting for results: %s",
+                    max_retries,
+                    e,
+                )
+                raise
+            logging.warning(
+                "RPC error while waiting for results (retry %d/%d): %s",
+                retry_count,
+                max_retries,
+                e,
+            )
+            time.sleep(1)  # Add delay before retry
         else:
             break
