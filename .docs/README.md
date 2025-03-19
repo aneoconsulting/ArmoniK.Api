@@ -27,6 +27,10 @@ pip install -r .docs/requirements.txt
 To build the docs locally, run the following command:
 
 ```bash
+
+apt update
+apt install -y protobuf-compiler
+protoc -I Protos/V1 --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto
 scripts/generate-proto-doc.sh
 scripts/generate-csharp-doc.sh
 sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
