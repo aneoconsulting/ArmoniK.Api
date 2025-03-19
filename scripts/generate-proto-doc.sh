@@ -1,8 +1,5 @@
 #!/bin/sh
 
-apt update
-apt install -y protobuf-compiler
-protoc -I Protos/V1 --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto
 sed -E '
           s/# Protocol Documentation/# V1/;
           /## Table of Contents/,/^[^#]*## /{
