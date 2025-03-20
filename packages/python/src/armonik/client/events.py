@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import logging
+import threading
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Callable, Collection, Dict, Iterable, List, Optional, Union, cast
@@ -45,10 +46,10 @@ class ArmoniKEvents:
         """
         self._client = EventsStub(grpc_channel)
         self._channel = grpc_channel
-        # Initialize results client for later use in downloads
         self._results_client = ArmoniKResults(grpc_channel)
-        # Cache for storing metrics about downloads
         self._download_metrics: Dict[str, Dict[str, float]] = {}
+        self._metrics_lock = threading.Lock()
+        self._results_lock = threading.Lock()
 
     def get_events(
         self,
@@ -175,11 +176,10 @@ class ArmoniKEvents:
 
         downloaded_results: Dict[str, bytes] = {}
 
-        for result_id in result_ids:
-            self._download_metrics[result_id] = {}
+        with self._metrics_lock:
+            for result_id in result_ids:
+                self._download_metrics[result_id] = {"status": "pending"}
 
-        # Create a single ThreadPoolExecutor for all download operations
-        # Using max(parallelism*2, 10) workers to handle both batch processing and downloads
         max_workers = max(parallelism * 2, 10)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             try:
@@ -231,22 +231,28 @@ class ArmoniKEvents:
         try:
             result_data = self._results_client.download_result_data(result_id, session_id)
 
-            results_dict[result_id] = result_data
+            with self._results_lock:
+                results_dict[result_id] = result_data
 
             download_end = time.monotonic()
             elapsed = download_end - download_start
 
-            self._download_metrics[result_id] = {
-                "start_time": download_start,
-                "end_time": download_end,
-                "elapsed": elapsed,
-            }
+            with self._metrics_lock:
+                self._download_metrics[result_id] = {
+                    "start_time": download_start,
+                    "end_time": download_end,
+                    "elapsed": elapsed,
+                    "status": "completed",
+                }
 
             logging.info("Result %s downloaded in %.2f seconds", result_id, elapsed)
         except Exception as e:
             logging.error("Error downloading result %s: %s", result_id, e)
-            self._download_metrics[result_id]["status"] = "failed"
-            self._download_metrics[result_id]["error"] = str(e)
+            with self._metrics_lock:
+                if result_id not in self._download_metrics:
+                    self._download_metrics[result_id] = {}
+                self._download_metrics[result_id]["status"] = "failed"
+                self._download_metrics[result_id]["error"] = str(e)
             raise
 
     def get_download_metrics(self) -> Dict[str, Dict[str, float]]:
@@ -256,7 +262,8 @@ class ArmoniKEvents:
         Returns:
             Dictionary mapping result IDs to metrics dictionaries.
         """
-        return self._download_metrics
+        with self._metrics_lock:
+            return self._download_metrics.copy()
 
 
 def _create_results_filter(results: Collection[str]):
@@ -295,7 +302,6 @@ def _wait_and_download(
     results_filter = _create_results_filter(results)
     not_found = set(results)
 
-    # Use a ThreadPoolExecutor to handle downloads asynchronously
     with ThreadPoolExecutor(max_workers=min(len(results), 20)) as download_executor:
 
         def handler(_, _2, event: Event) -> bool:
@@ -303,7 +309,6 @@ def _wait_and_download(
             if event.result_id in not_found:
                 if event.status == ResultStatus.COMPLETED:
                     not_found.remove(event.result_id)
-                    # Schedule the download using ThreadPoolExecutor
                     download_executor.submit(
                         event_client.download_result,
                         event.result_id,
@@ -316,7 +321,6 @@ def _wait_and_download(
                     raise RuntimeError(f"Result {event.result_id} has been aborted.")
             return False
 
-        # Continue waiting until all results are found or an error occurs
         retry_count = 0
         max_retries = 5
         while not_found:
@@ -343,7 +347,6 @@ def _wait_and_download(
                     max_retries,
                     e,
                 )
-                time.sleep(1)  # Add delay before retry
             else:
                 break
 
@@ -374,7 +377,6 @@ def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[
                 raise RuntimeError(f"Result {event.result_id} has been aborted.")
         return False
 
-    # Continue waiting until all results are found or an error occurs
     retry_count = 0
     max_retries = 5
     while not_found:
@@ -401,6 +403,5 @@ def _wait_all(event_client: ArmoniKEvents, session_id: str, results: Collection[
                 max_retries,
                 e,
             )
-            time.sleep(1)  # Add delay before retry
         else:
             break
