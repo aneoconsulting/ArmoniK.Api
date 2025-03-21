@@ -4,7 +4,18 @@ import json
 from abc import abstractmethod, ABC
 from datetime import datetime, timedelta
 from enum import Enum, auto
-from typing import Optional, Union, Any, List, Dict, Generic, TypeVar, overload, Type, Tuple
+from typing import (
+    Optional,
+    Union,
+    Any,
+    List,
+    Dict,
+    Generic,
+    TypeVar,
+    overload,
+    Type,
+    Tuple,
+)
 
 # noinspection PyUnresolvedReferences
 from google.protobuf.duration_pb2 import Duration
