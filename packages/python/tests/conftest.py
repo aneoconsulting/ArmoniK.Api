@@ -1,4 +1,7 @@
+import base64
+import json
 import os
+
 import pytest
 import requests
 
@@ -12,8 +15,9 @@ from armonik.client import (
     ArmoniKVersions,
 )
 from armonik.common.channel import create_channel, _find_bundle_path, _load_certificates
+from armonik.protogen.common.worker_common_pb2 import ProcessRequest
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
-from typing import List, Union
+from typing import List, Union, Dict, Any
 
 ca_cert = os.getenv("Grpc__CaCert")
 client_cert = os.getenv("Grpc__ClientCert")
@@ -24,6 +28,8 @@ grpc_endpoint = os.getenv("Grpc__Endpoint", scheme + "://localhost:5001")
 http_endpoint = os.getenv("Http__Endpoint", scheme + "://localhost:5000")
 calls_endpoint = http_endpoint + "/calls.json"
 reset_endpoint = http_endpoint + "/reset"
+healthcheck_endpoint = http_endpoint + "/worker/healthcheck"
+process_endpoint = http_endpoint + "/worker/process"
 data_folder = os.getcwd()
 
 request_ca = ca_cert if ca_cert is not None else _find_bundle_path()
@@ -211,3 +217,32 @@ def all_rpc_called(
         print(f"RPCs not implemented in {service_name} service: {missing_rpcs}.")
         return False
     return True
+
+
+def call_me_with_healthcheck(
+    endpoint: str = healthcheck_endpoint,
+) -> Union[str, Dict[str, Any]]:
+    response = requests.post(endpoint, verify=request_ca, cert=request_certs)
+    response.raise_for_status()
+    if "json" in response.encoding:
+        return response.json()
+    return response.text
+
+
+def call_me_with_process(
+    request: ProcessRequest, results: Dict[str, bytes], endpoint: str = process_endpoint
+) -> Union[str, Dict[str, Any]]:
+    response = requests.post(
+        endpoint,
+        verify=request_ca,
+        cert=request_certs,
+        json={
+            "Request": json.dumps(request),
+            "Results": {k: base64.b64encode(v) for k, v in results.items()},
+            "ResultsEncoding": "Base64",
+        },
+    )
+    response.raise_for_status()
+    if "json" in response.encoding:
+        return response.json()
+    return response.text

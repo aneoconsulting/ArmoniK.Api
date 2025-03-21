@@ -3,7 +3,14 @@ from typing import Any, cast
 
 from google.protobuf.message import Message
 
-from .filter import FilterWrapper, StringFilter, DurationFilter, NumberFilter, FType, _na
+from .filter import (
+    FilterWrapper,
+    StringFilter,
+    DurationFilter,
+    NumberFilter,
+    FType,
+    _na,
+)
 
 from ...protogen.common.tasks_fields_pb2 import (
     TaskField as rawTaskField,
@@ -257,7 +264,10 @@ class TaskOptionFilter(GenericTaskOptionsFilter):
         "priority": (FType.NUM, TASK_OPTION_ENUM_FIELD_PRIORITY),
         "partition_id": (FType.STR, TASK_OPTION_ENUM_FIELD_PARTITION_ID),
         "application_name": (FType.STR, TASK_OPTION_ENUM_FIELD_APPLICATION_NAME),
-        "application_namespace": (FType.STR, TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE),
+        "application_namespace": (
+            FType.STR,
+            TASK_OPTION_ENUM_FIELD_APPLICATION_NAMESPACE,
+        ),
         "application_version": (FType.STR, TASK_OPTION_ENUM_FIELD_APPLICATION_VERSION),
         "application_service": (FType.STR, TASK_OPTION_ENUM_FIELD_APPLICATION_SERVICE),
         "engine_type": (FType.STR, TASK_OPTION_ENUM_FIELD_ENGINE_TYPE),
@@ -293,7 +303,10 @@ class SessionFilter(FilterWrapper):
 
     def __init__(self):
         super().__init__(
-            rawSessionFilters, rawSessionFilterAnd, rawSessionFilterField, rawSessionFilterStatus
+            rawSessionFilters,
+            rawSessionFilterAnd,
+            rawSessionFilterField,
+            rawSessionFilterStatus,
         )
 
     def _build_field(self, field: Any) -> Message:
@@ -315,7 +328,10 @@ class SessionTaskOptionFilter(GenericTaskOptionsFilter):
 
     def __init__(self):
         super().__init__(
-            rawSessionFilters, rawSessionFilterAnd, rawSessionFilterField, rawSessionFilterStatus
+            rawSessionFilters,
+            rawSessionFilterAnd,
+            rawSessionFilterField,
+            rawSessionFilterStatus,
         )
 
     def __getitem__(self, item: str) -> StringFilter:
@@ -343,7 +359,10 @@ class ResultFilter(FilterWrapper):
 
     def __init__(self):
         super().__init__(
-            rawResultFilters, rawResultFilterAnd, rawResultFilterField, rawResultFilterStatus
+            rawResultFilters,
+            rawResultFilterAnd,
+            rawResultFilterField,
+            rawResultFilterStatus,
         )
 
     def _build_field(self, field: Any) -> Message:
@@ -354,10 +373,16 @@ class PartitionFilter(FilterWrapper):
     _fields = {
         "id": (FType.STR, PARTITION_RAW_ENUM_FIELD_ID),
         "priority": (FType.NUM, PARTITION_RAW_ENUM_FIELD_PRIORITY),
-        "preemption_percentage": (FType.NUM, PARTITION_RAW_ENUM_FIELD_PREEMPTION_PERCENTAGE),
+        "preemption_percentage": (
+            FType.NUM,
+            PARTITION_RAW_ENUM_FIELD_PREEMPTION_PERCENTAGE,
+        ),
         "pod_reserved": (FType.NUM, PARTITION_RAW_ENUM_FIELD_POD_RESERVED),
         "pod_max": (FType.NUM, PARTITION_RAW_ENUM_FIELD_POD_MAX),
-        "parent_partition_ids": (FType.ARRAY, PARTITION_RAW_ENUM_FIELD_PARENT_PARTITION_IDS),
+        "parent_partition_ids": (
+            FType.ARRAY,
+            PARTITION_RAW_ENUM_FIELD_PARENT_PARTITION_IDS,
+        ),
         "pod_configuration": (FType.NA, "pod_configuration"),
     }
 
