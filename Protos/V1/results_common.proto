@@ -26,6 +26,7 @@ message ResultRaw {
   int64 size = 9; /** The size of the Result Data. */
   string created_by = 10; /** The ID of the Task that as submitted this result.*/
   bytes opaque_id = 11; /** ID of the data in the underlying object storage. */
+  bool manual_deletion = 12; /** If the user has to delete the data in the underlying object storage. */
 }
 
 /**
@@ -111,6 +112,7 @@ message CreateResultsMetaDataRequest {
   */
   message ResultCreate {
     string name = 1; /** The result name. Given by the client. */
+    bool manual_deletion = 2; /** If the user has to delete the data in the underlying object storage. */
   }
   repeated ResultCreate results = 1; /** The list of results to create. */
   string session_id = 2; /** The session in which create results. */
@@ -133,6 +135,7 @@ message CreateResultsRequest {
   message ResultCreate {
     string name = 1; /** The result name. Given by the client. */
     bytes data = 2; /** The actual data of the result. */
+    bool manual_deletion = 3; /** If the user has to delete the data in the underlying object storage. */
   }
   repeated ResultCreate results = 1; /** Results to create. */
   string session_id = 2; /** The session in which create results. */
