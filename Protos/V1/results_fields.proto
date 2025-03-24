@@ -18,6 +18,8 @@ enum ResultRawEnumField {
   RESULT_RAW_ENUM_FIELD_RESULT_ID = 7; /** The result ID. */
   RESULT_RAW_ENUM_FIELD_SIZE = 8; /** The size of the result. */
   RESULT_RAW_ENUM_FIELD_CREATED_BY = 9; /** The size of the result. */
+  RESULT_RAW_ENUM_FIELD_OPAQUE_ID = 10; /** The ID of the data in the underlying object storage. */
+  RESULT_RAW_ENUM_FIELD_MANUAL_DELETION = 11; /** If the user is responsible for the deletion of the data in the underlying object storage. */
 }
 
 /**

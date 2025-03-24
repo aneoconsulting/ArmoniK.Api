@@ -82,11 +82,11 @@ where
     pub async fn create_metadata(
         &mut self,
         session_id: impl Into<String>,
-        names: impl IntoIterator<Item = impl Into<String>>,
+        results: impl IntoIterator<Item = create_metadata::RequestItem>,
     ) -> Result<HashMap<String, Raw>, super::RequestError> {
         Ok(self
             .call(create_metadata::Request {
-                names: names.into_collect(),
+                results: results.into_collect(),
                 session_id: session_id.into(),
             })
             .await?
@@ -97,14 +97,11 @@ where
     pub async fn create(
         &mut self,
         session_id: impl Into<String>,
-        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
+        results: impl IntoIterator<Item = create::RequestItem>,
     ) -> Result<HashMap<String, Raw>, super::RequestError> {
         Ok(self
             .call(create::Request {
-                results: results
-                    .into_iter()
-                    .map(|(name, data)| (name.into(), data.into()))
-                    .collect(),
+                results: results.into_collect(),
                 session_id: session_id.into(),
             })
             .await?
@@ -354,8 +351,6 @@ where
 #[cfg(test)]
 #[serial_test::serial(results)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::Client;
     use futures::TryStreamExt;
 
@@ -406,7 +401,13 @@ mod tests {
         let before = Client::get_nb_request("Results", "CreateResultsMetaData").await;
         let mut client = Client::new().await.unwrap().into_results();
         client
-            .create_metadata("session-id", ["result1", "result2"])
+            .create_metadata(
+                "session-id",
+                [crate::results::create_metadata::RequestItem {
+                    name: "result".into(),
+                    manual_deletion: false,
+                }],
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "CreateResultsMetaData").await;
@@ -420,7 +421,18 @@ mod tests {
         client
             .create(
                 "session-id",
-                [("result1", "payload1"), ("result2", "payload2")],
+                [
+                    crate::results::create::RequestItem {
+                        name: "result1".into(),
+                        data: b"data1".to_vec(),
+                        manual_deletion: false,
+                    },
+                    crate::results::create::RequestItem {
+                        name: "result2".into(),
+                        data: b"data2".to_vec(),
+                        manual_deletion: false,
+                    },
+                ],
             )
             .await
             .unwrap();
@@ -541,7 +553,7 @@ mod tests {
         client
             .call(crate::results::create_metadata::Request {
                 session_id: String::from("session-id"),
-                names: Vec::new(),
+                results: Vec::new(),
             })
             .await
             .unwrap();
@@ -556,7 +568,7 @@ mod tests {
         client
             .call(crate::results::create::Request {
                 session_id: String::from("session-id"),
-                results: HashMap::new(),
+                results: Vec::new(),
             })
             .await
             .unwrap();
