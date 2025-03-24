@@ -34,7 +34,7 @@ pub struct Raw {
     pub created_by: String,
     /// ID of the data in the underlying object storage.
     pub opaque_id: Vec<u8>,
-    /// If the user has to delete the data in the underlying object storage
+    /// If the user is responsible for the deletion of the data in the underlying object storage
     pub manual_deletion: bool,
 }
 
