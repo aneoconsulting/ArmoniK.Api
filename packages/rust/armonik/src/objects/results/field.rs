@@ -26,6 +26,10 @@ pub enum Field {
     Size = 8,
     /// The ID of the Task that as submitted this result.
     CreatedBy = 9,
+    /// The ID of the data in the underlying object storage.
+    OpaqueId = 10,
+    /// If the user is responsible for the deletion of the data in the underlying object storage.
+    ManualDeletion = 11,
 }
 
 impl From<i32> for Field {
@@ -41,6 +45,8 @@ impl From<i32> for Field {
             7 => Self::ResultId,
             8 => Self::Size,
             9 => Self::CreatedBy,
+            10 => Self::OpaqueId,
+            11 => Self::ManualDeletion,
             _ => Self::Unspecified,
         }
     }
