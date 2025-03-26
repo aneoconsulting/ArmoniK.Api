@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from os import PathLike
 import traceback
 from concurrent import futures
 from contextlib import nullcontext
@@ -10,8 +11,9 @@ from typing import Callable, Union, Optional, Tuple, Iterable
 
 import grpc
 from grpc import Channel
+from grpc._server import _Server
 
-from ..common.channel import create_channel
+from ..common.channel import create_channel, get_scheme_and_endpoint_from_uri
 from .seqlogger import ClefLogger
 from ..common import Output, HealthCheckStatus
 from ..protogen.common.objects_pb2 import Empty
@@ -54,18 +56,30 @@ class ArmoniKWorker(WorkerServicer):
         self.processing_function = processing_function
         self._client = AgentStub(agent_channel)
         self._logger = logger
+        self._server: Optional[_Server] = None
 
-    def start(self, endpoint: str):
+    def start(self, endpoint: str, wait=True):
         """Starts the worker
 
         Args:
             endpoint: endpoint from which to listen to requests
+            wait: Wait until the server stops
         """
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-        add_WorkerServicer_to_server(self, server)
-        server.add_insecure_port(endpoint)
-        server.start()
-        server.wait_for_termination()
+        self._server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+        add_WorkerServicer_to_server(self, self._server)
+        self._server.add_insecure_port(endpoint)
+        self._server.start()
+        if wait:
+            self._server.wait_for_termination()
+
+    def stop(self):
+        """
+        Stop the server
+        """
+        if self._server is not None:
+            self._server.stop(grace=None)
+            self._server.wait_for_termination()
+        self._server = None
 
     def Process(self, request: ProcessRequest, context) -> Union[ProcessReply, None]:
         try:
@@ -91,37 +105,38 @@ class ArmoniKWorkerWrapper:
         worker_endpoint: Optional[str] = None,
         agent_endpoint: Optional[str] = None,
         channel_options: Optional[Iterable[Tuple[str, str]]] = None,
+        agent_certificate_authority: Union[str, PathLike, bytes, None] = None,
+        agent_client_certificate: Union[str, PathLike, bytes, None] = None,
+        agent_client_key: Union[str, PathLike, bytes, None] = None,
     ):
         if logger is None:
             ClefLogger.setup_logging(logging.INFO)
             logger = ClefLogger.getLogger("ArmoniKWorker")
         if worker_endpoint is None:
-            worker_scheme = (
-                "unix://"
-                if os.getenv("ComputePlane__WorkerChannel__SocketType", "unixdomainsocket")
-                == "unixdomainsocket"
-                else "http://"
-            )
-            worker_endpoint = worker_scheme + os.getenv(
-                "ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock"
+            _, worker_endpoint = get_scheme_and_endpoint_from_uri(
+                os.getenv("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock"),
+                os.getenv("ComputePlane__WorkerChannel__SocketType", "unixdomainsocket"),
             )
         if agent_endpoint is None:
-            agent_scheme = (
-                "unix://"
-                if os.getenv("ComputePlane__AgentChannel__SocketType", "unixdomainsocket")
-                == "unixdomainsocket"
-                else "http://"
+            agent_scheme, agent_endpoint = get_scheme_and_endpoint_from_uri(
+                os.getenv("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock"),
+                os.getenv("ComputePlane__AgentChannel__SocketType", "unixdomainsocket"),
+                keep_scheme=True,
             )
-            agent_endpoint = agent_scheme + os.getenv(
-                "ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock"
-            )
-        if channel_options is None:
+        else:
+            agent_scheme, _ = get_scheme_and_endpoint_from_uri(agent_endpoint)
+        if channel_options is None and "unix" in agent_scheme:
             channel_options = (("grpc.default_authority", "localhost"),)
         self.logger = logger
         self.worker_endpoint = worker_endpoint
         self.agent_endpoint = agent_endpoint
         self.channel_options = channel_options
         self.processor = processor
+        self._worker: Optional[ArmoniKWorker] = None
+        self._agent_channel: Optional[grpc.Channel] = None
+        self._agent_certificate_authority = agent_certificate_authority
+        self._agent_client_certificate = agent_client_certificate
+        self._agent_client_key = agent_client_key
 
     def __call__(self, *args, **kwargs):
         return self.processor(*args, **kwargs)
@@ -131,6 +146,7 @@ class ArmoniKWorkerWrapper:
         agent_channel: Optional[Channel] = None,
         logger: Optional[Logger] = None,
         worker_endpoint: Optional[str] = None,
+        wait=True,
     ):
         """
         Run the server
@@ -138,7 +154,7 @@ class ArmoniKWorkerWrapper:
             agent_channel: Agent channel
             logger: Logger
             worker_endpoint: Worker endpoint
-
+            wait: Wait until the server stops
         Returns:
             None
         """
@@ -146,16 +162,32 @@ class ArmoniKWorkerWrapper:
         worker_endpoint = self.worker_endpoint if worker_endpoint is None else worker_endpoint
         # Start worker
         logger.info("Worker Started")
-        agent_channel = (
-            create_channel(self.agent_endpoint, options=self.channel_options)
-            if agent_channel is None
-            else nullcontext(agent_channel)
-        )
-
-        with agent_channel as channel:
-            worker = ArmoniKWorker(channel, self.processor, logger=logger)
+        if agent_channel is None:
+            self._agent_channel = create_channel(
+                self.agent_endpoint,
+                options=self.channel_options,
+                certificate_authority=self._agent_certificate_authority,
+                client_certificate=self._agent_client_certificate,
+                client_key=self._agent_client_key,
+            )
+            agent_channel = self._agent_channel
+        else:
+            agent_channel = nullcontext(agent_channel)
+        if wait:
+            with agent_channel as channel:
+                self._worker = ArmoniKWorker(channel, self.processor, logger=logger)
+                logger.info("Worker Connected")
+                self._worker.start(worker_endpoint, wait=wait)
+        else:
+            self._worker = ArmoniKWorker(agent_channel.__enter__(), self.processor, logger=logger)
             logger.info("Worker Connected")
-            worker.start(worker_endpoint)
+            self._worker.start(worker_endpoint, wait=wait)
+
+    def stop(self):
+        """Stop the server"""
+        self._worker.stop()
+        if self._agent_channel is not None:
+            self._agent_channel.__exit__(None, None, None)
 
 
 def armonik_worker(
@@ -165,6 +197,9 @@ def armonik_worker(
     worker_endpoint: Optional[str] = None,
     agent_endpoint: Optional[str] = None,
     channel_options: Optional[Iterable[Tuple[str, str]]] = None,
+    agent_certificate_authority: Union[str, PathLike, bytes, None] = None,
+    agent_client_certificate: Union[str, PathLike, bytes, None] = None,
+    agent_client_key: Union[str, PathLike, bytes, None] = None,
 ):
     """
     Transforms the function into an ArmoniK Worker
@@ -174,6 +209,9 @@ def armonik_worker(
         worker_endpoint: Worker endpoint, if None will use the default from ComputePlane__WorkerChannel__SocketType and ComputePlane__WorkerChannel__Address
         agent_endpoint: Agent endpoint, if None will use the default from ComputePlane__AgentChannel__SocketType and ComputePlane__AgentChannel__Address
         channel_options: Options for the gRPC channel
+        agent_certificate_authority: Certificate Authority for agent
+        agent_client_certificate: Client Certificate for agent
+        agent_client_key: Client Key for agent
 
     Returns:
         Worker function
@@ -194,6 +232,9 @@ def armonik_worker(
             worker_endpoint=worker_endpoint,
             agent_endpoint=agent_endpoint,
             channel_options=channel_options,
+            agent_certificate_authority=agent_certificate_authority,
+            agent_client_certificate=agent_client_certificate,
+            agent_client_key=agent_client_key,
         )
         if autorun:
             worker.run()
