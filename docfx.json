@@ -8,7 +8,7 @@
           "files": [
             "**/*.csproj"
           ],
-          "exclude":[
+          "exclude": [
             "**/*Test/*.csproj",
             "**/*Tests/*.csproj"
           ]
