@@ -76,6 +76,33 @@ def _load_certificates(
     return certificate_authority, client_certificate, client_key
 
 
+def get_scheme_and_endpoint_from_uri(
+    uri: str, forced_scheme: Optional[str] = None, keep_scheme: bool = False
+) -> Tuple[str, str]:
+    parsed = urlparse(uri)
+    if forced_scheme is not None:
+        scheme = "unix" if "unix" in forced_scheme.lower() else "http"
+    else:
+        scheme = parsed.scheme if parsed.scheme != "" else "http"
+
+    if scheme == "http" and parsed.scheme == "https":
+        scheme = "https"
+
+    endpoint = (
+        parsed.netloc + parsed.path
+    )  # To support with or without scheme, and for paths for unix
+
+    if "unix" in scheme:
+        # gRPC supports unix:path and the path is then relative, if the scheme is unix://, then the path is absolute
+        if endpoint.startswith("/"):
+            endpoint = "unix://" + endpoint
+        else:
+            endpoint = "unix:" + endpoint
+    elif keep_scheme:
+        endpoint = parsed.scheme + "://" + endpoint
+    return scheme, endpoint
+
+
 def create_channel(
     uri: str,
     *,
@@ -95,18 +122,7 @@ def create_channel(
     Returns:
         Channel: gRPC channel for communication
     """
-    parsed = urlparse(uri)
-    scheme = parsed.scheme if parsed.scheme != "" else "http"
-    endpoint = (
-        parsed.netloc + parsed.path
-    )  # To support with or without scheme, and for paths for unix
-
-    if "unix" in scheme:
-        # gRPC supports unix:path and the path is then relative, if the scheme is unix://, then the path is absolute
-        if endpoint.startswith("/"):
-            endpoint = "unix://" + endpoint
-        else:
-            endpoint = "unix:" + endpoint
+    scheme, endpoint = get_scheme_and_endpoint_from_uri(uri)
 
     if "https" in scheme:
         certificate_authority, client_certificate, client_key = _load_certificates(
