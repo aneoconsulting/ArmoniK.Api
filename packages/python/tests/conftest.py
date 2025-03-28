@@ -15,9 +15,9 @@ from armonik.common.channel import create_channel, _find_bundle_path, _load_cert
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List, Union
 
-ca_cert = os.getenv("Grpc__CaCert")
-client_cert = os.getenv("Grpc__ClientCert")
-client_key = os.getenv("Grpc__ClientKey")
+ca_cert = os.getenv("Grpc__CaCert") or None
+client_cert = os.getenv("Grpc__ClientCert") or os.getenv("GrpcClient__CertPem") or None
+client_key = os.getenv("Grpc__ClientKey") or os.getenv("GrpcClient__KeyPem") or None
 scheme = os.getenv("AK_SCHEME", "http")
 # Mock server endpoints used for the tests.
 grpc_endpoint = os.getenv("Grpc__Endpoint", scheme + "://localhost:5001")
@@ -43,7 +43,7 @@ else:
     request_certs = None
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="class", autouse=True)
 def clean_up(request):
     """
     This fixture runs at the session scope and is automatically used before and after
