@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.14" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.3" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.70.0" />
     <PackageReference Include="Grpc.AspNetCore.Web" Version="2.70.0" />
     <PackageReference Include="MethodDecorator.Fody" Version="1.1.1" />
