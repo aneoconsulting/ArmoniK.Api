@@ -15,7 +15,7 @@ from armonik.common.channel import create_channel, _find_bundle_path, _load_cert
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
 from typing import List, Union
 
-ca_cert = os.getenv("Grpc__CaCert") or None
+ca_cert = os.getenv("Grpc__CaCert") or os.getenv("GrpcClient__CaCert") or None
 client_cert = os.getenv("Grpc__ClientCert") or os.getenv("GrpcClient__CertPem") or None
 client_key = os.getenv("Grpc__ClientKey") or os.getenv("GrpcClient__KeyPem") or None
 scheme = os.getenv("AK_SCHEME", "http")

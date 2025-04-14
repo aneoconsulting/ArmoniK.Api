@@ -13,7 +13,11 @@ import grpc
 from grpc import Channel
 from grpc._server import _Server
 
-from ..common.channel import create_channel, get_scheme_and_endpoint_from_uri
+from ..common.channel import (
+    create_channel,
+    get_endpoint_for_worker,
+    get_endpoint_for_agent,
+)
 from .seqlogger import ClefLogger
 from ..common import Output, HealthCheckStatus
 from ..protogen.common.objects_pb2 import Empty
@@ -113,19 +117,16 @@ class ArmoniKWorkerWrapper:
             ClefLogger.setup_logging(logging.INFO)
             logger = ClefLogger.getLogger("ArmoniKWorker")
         if worker_endpoint is None:
-            _, worker_endpoint = get_scheme_and_endpoint_from_uri(
+            worker_endpoint = get_endpoint_for_worker(
                 os.getenv("ComputePlane__WorkerChannel__Address", "/cache/armonik_worker.sock"),
                 os.getenv("ComputePlane__WorkerChannel__SocketType", "unixdomainsocket"),
             )
         if agent_endpoint is None:
-            agent_scheme, agent_endpoint = get_scheme_and_endpoint_from_uri(
+            agent_endpoint = get_endpoint_for_agent(
                 os.getenv("ComputePlane__AgentChannel__Address", "/cache/armonik_agent.sock"),
                 os.getenv("ComputePlane__AgentChannel__SocketType", "unixdomainsocket"),
-                keep_scheme=True,
             )
-        else:
-            agent_scheme, _ = get_scheme_and_endpoint_from_uri(agent_endpoint)
-        if channel_options is None and "unix" in agent_scheme:
+        if channel_options is None and "unix" in agent_endpoint:
             channel_options = (("grpc.default_authority", "localhost"),)
         self.logger = logger
         self.worker_endpoint = worker_endpoint
