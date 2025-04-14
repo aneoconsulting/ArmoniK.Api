@@ -53,3 +53,6 @@ dev = [
 addopts = [
     "--import-mode=importlib",
 ]
+markers = [
+    "worker: worker tests (deselect with '-m \"not worker\"')"
+]

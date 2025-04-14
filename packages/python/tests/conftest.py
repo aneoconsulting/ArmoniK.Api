@@ -1,4 +1,6 @@
+import base64
 import os
+
 import pytest
 import requests
 
@@ -12,8 +14,11 @@ from armonik.client import (
     ArmoniKVersions,
 )
 from armonik.common.channel import create_channel, _find_bundle_path, _load_certificates
+from armonik.protogen.common.worker_common_pb2 import ProcessRequest
 from armonik.protogen.worker.agent_service_pb2_grpc import AgentStub
-from typing import List, Union
+from typing import List, Union, Dict, Any
+
+from google.protobuf.json_format import MessageToJson
 
 ca_cert = os.getenv("Grpc__CaCert") or os.getenv("GrpcClient__CaCert") or None
 client_cert = os.getenv("Grpc__ClientCert") or os.getenv("GrpcClient__CertPem") or None
@@ -24,6 +29,8 @@ grpc_endpoint = os.getenv("Grpc__Endpoint", scheme + "://localhost:5001")
 http_endpoint = os.getenv("Http__Endpoint", scheme + "://localhost:5000")
 calls_endpoint = http_endpoint + "/calls.json"
 reset_endpoint = http_endpoint + "/reset"
+healthcheck_endpoint = http_endpoint + "/worker/healthcheck"
+process_endpoint = http_endpoint + "/worker/process"
 data_folder = os.getcwd()
 
 request_ca = ca_cert if ca_cert is not None else _find_bundle_path()
@@ -211,3 +218,50 @@ def all_rpc_called(
         print(f"RPCs not implemented in {service_name} service: {missing_rpcs}.")
         return False
     return True
+
+
+def call_me_with_healthcheck(
+    endpoint: str = healthcheck_endpoint,
+) -> Union[str, Dict[str, Any]]:
+    """
+    Call the worker for a health check.
+    Args:
+        endpoint: endpoint to call.
+
+    Returns:
+        The result of the call.
+    """
+    response = requests.post(endpoint, verify=request_ca, cert=request_certs)
+    response.raise_for_status()
+    if "json" in response.headers["content-type"]:
+        return response.json()
+    return response.text
+
+
+def call_me_with_process(
+    request: ProcessRequest, results: Dict[str, bytes], endpoint: str = process_endpoint
+) -> Union[str, Dict[str, Any]]:
+    """
+    Call the worker for Process call.
+    Args:
+        request: Process request to send to the worker.
+        results: Task results used as data dependencies and payload
+        endpoint: endpoint to call.
+
+    Returns:
+        The result of the call.
+    """
+    response = requests.post(
+        endpoint,
+        verify=request_ca,
+        cert=request_certs,
+        json={
+            "Request": MessageToJson(request),
+            "Results": {k: base64.b64encode(v).decode("ascii") for k, v in results.items()},
+            "ResultsEncoding": "Base64",
+        },
+    )
+    response.raise_for_status()
+    if "json" in response.headers["content-type"]:
+        return response.json()
+    return response.text

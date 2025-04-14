@@ -29,7 +29,7 @@ sleep 5
 
 cd "$working_dir/$TEST_DIR"
 
-$TEST_COMMAND || ret=$?
+eval $TEST_COMMAND || ret=$?
 
 echo $server_pid
 kill $server_pid

@@ -14,14 +14,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 
+using ArmoniK.Api.Common.Channel.Utils;
+using ArmoniK.Api.Common.Options;
+using ArmoniK.Api.gRPC.V1.Worker;
 using ArmoniK.Api.Mock;
 using ArmoniK.Api.Mock.Services;
+
+using Google.Protobuf;
 
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Authorization;
@@ -52,8 +58,7 @@ var grpcPort = int.Parse(builder.Configuration.GetSection("Grpc")
                                 .GetSection("Port")
                                 .Value ?? "5001");
 
-X509Certificate2? serverCert     = null;
-string?           clientCertPath = null;
+X509Certificate2? serverCert = null;
 
 var serverCertPath = builder.Configuration.GetSection("Http")
                             .GetSection("Cert")
@@ -62,9 +67,9 @@ var serverCertPath = builder.Configuration.GetSection("Http")
 var serverKeyPath = builder.Configuration.GetSection("Http")
                            .GetSection("Key")
                            .Value ?? "";
-clientCertPath = builder.Configuration.GetSection("Http")
-                        .GetSection("ClientCert")
-                        .Value;
+var clientCertPath = builder.Configuration.GetSection("Http")
+                            .GetSection("ClientCert")
+                            .Value;
 if (string.IsNullOrEmpty(clientCertPath))
 {
   clientCertPath = null;
@@ -90,6 +95,17 @@ foreach (var service in CountingService.GetServices())
 {
   builder.Services.AddSingleton(service);
 }
+
+var rawComputePlaneOptions = builder.Configuration.GetSection(ComputePlane.SettingSection);
+var workerChannelOptions   = rawComputePlaneOptions?.GetSection(ComputePlane.WorkerChannelSection);
+
+builder.Services.AddSingleton(_ => new GrpcChannel
+                                   {
+                                     Address    = workerChannelOptions?.GetValue<string>("Address")            ?? "/cache/armonik_worker.sock",
+                                     SocketType = workerChannelOptions?.GetValue<GrpcSocketType>("SocketType") ?? GrpcSocketType.UnixDomainSocket,
+                                   });
+builder.Services.AddSingleton<GrpcChannelProvider>();
+builder.Services.AddSingleton<WorkerCallService>();
 
 if (clientCertPath is not null)
 {
@@ -192,6 +208,10 @@ app.MapPost("/reset",
               CountingService.ResetCounters();
               return Task.CompletedTask;
             });
+app.MapPost("/worker/process",
+            SendProcessRequest);
+app.MapPost("/worker/healthcheck",
+            SendHealthCheck);
 
 app.Run();
 
@@ -211,4 +231,37 @@ async Task Calls(HttpContext context)
   var body = JsonConvert.SerializeObject(CountingService.GetCounters(exclude));
   context.Response.ContentType = "application/json";
   await context.Response.Body.WriteAsync(Encoding.ASCII.GetBytes(body));
+}
+
+async Task SendProcessRequest(HttpContext context)
+{
+  var requestBody  = Encoding.ASCII.GetString(await ReadAll(context.Request.Body));
+  var requestInput = JsonConvert.DeserializeObject<WorkerCallServiceInputModel>(requestBody);
+  var request      = new JsonParser(JsonParser.Settings.Default).Parse<ProcessRequest>(requestInput.Request);
+  foreach (var result in requestInput.Results)
+  {
+    await using var file = File.OpenWrite(Path.Join(request.DataFolder,
+                                                    result.Key));
+    if (requestInput.ResultsEncoding is ResultsEncoding.Base64)
+    {
+      await file.WriteAsync(Convert.FromBase64String(result.Value));
+    }
+    else
+    {
+      await file.WriteAsync(Convert.FromHexString(result.Value));
+    }
+  }
+
+  var reply = await app.Services.GetRequiredService<WorkerCallService>()
+                       .ProcessRequest(request);
+  context.Response.ContentType = "application/json";
+  await context.Response.Body.WriteAsync(Encoding.ASCII.GetBytes(new JsonFormatter(JsonFormatter.Settings.Default).Format(reply)));
+}
+
+async Task SendHealthCheck(HttpContext context)
+{
+  var reply = await app.Services.GetRequiredService<WorkerCallService>()
+                       .HealthCheckRequest();
+  context.Response.ContentType = "application/json";
+  await context.Response.Body.WriteAsync(Encoding.ASCII.GetBytes(new JsonFormatter(JsonFormatter.Settings.Default).Format(reply)));
 }

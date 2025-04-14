@@ -54,7 +54,9 @@ jobs:
             dir: cpp
             env: {}
           - lang: Python
-            cmd: pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+            cmd: pytest tests -m "not worker" --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+            worker-cmd: pytest tests -m "worker" --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+            secure-worker: true
             dir: python
             env: {}
           - lang: Rust
@@ -198,7 +200,12 @@ jobs:
           export Http__Endpoint=http://localhost:4999
           export GrpcClient__Endpoint=http://localhost:5000
           export GrpcClient__AllowUnsafeConnection=true
+          export ComputePlane__AgentChannel__Address=http://localhost:5000
+          export ComputePlane__AgentChannel__SocketType=tcp
+          export ComputePlane__WorkerChannel__Address=http://localhost:5010
+          export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] || ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: TLS Insecure
         if: ${{ contains(fromJson('["C#", "Rust"]'), matrix.language.lang) }}
@@ -214,7 +221,12 @@ jobs:
           export Grpc__AllowUnsafeConnection=true
           export GrpcClient__Endpoint=https://localhost:5001
           export GrpcClient__AllowUnsafeConnection=true
+          export ComputePlane__AgentChannel__Address=https://localhost:5001
+          export ComputePlane__AgentChannel__SocketType=tcp
+          export ComputePlane__WorkerChannel__Address=http://localhost:5010
+          export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] || [ '${{ matrix.language.secure-worker }}' = false ] || ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: TLS secure
         working-directory: packages/csharp/
@@ -231,7 +243,12 @@ jobs:
           export GrpcClient__Endpoint=https://localhost:5001
           export GrpcClient__AllowUnsafeConnection=false
           export GrpcClient__CaCert=$CertFolder/server1-ca.pem
+          export ComputePlane__AgentChannel__Address=https://localhost:5001
+          export ComputePlane__AgentChannel__SocketType=tcp
+          export ComputePlane__WorkerChannel__Address=http://localhost:5010
+          export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] || [ '${{ matrix.language.secure-worker }}' = false ] || ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: TLS store
         working-directory: packages/csharp/
@@ -245,7 +262,12 @@ jobs:
           export Http__Endpoint=https://localhost:5002
           export GrpcClient__Endpoint=https://localhost:5002
           export GrpcClient__AllowUnsafeConnection=false
+          export ComputePlane__AgentChannel__Address=https://localhost:5002
+          export ComputePlane__AgentChannel__SocketType=tcp
+          export ComputePlane__WorkerChannel__Address=http://localhost:5010
+          export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] || [ '${{ matrix.language.secure-worker }}' = false ] || ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: mTLS Insecure
         if: ${{ contains(fromJson('["C#", "Rust"]'), matrix.language.lang) }}
@@ -265,7 +287,12 @@ jobs:
           export GrpcClient__AllowUnsafeConnection=true
           export GrpcClient__CertPem=$CertFolder/client.pem
           export GrpcClient__KeyPem=$CertFolder/client.key
+          export ComputePlane__AgentChannel__Address=https://localhost:5003
+          export ComputePlane__AgentChannel__SocketType=tcp
+          export ComputePlane__WorkerChannel__Address=http://localhost:5010
+          export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] || [ '${{ matrix.language.secure-worker }}' = false ] || ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: mTLS secure
         working-directory: packages/csharp/
@@ -287,7 +314,12 @@ jobs:
           export GrpcClient__CaCert=$CertFolder/server1-ca.pem
           export GrpcClient__CertPem=$CertFolder/client.pem
           export GrpcClient__KeyPem=$CertFolder/client.key
+          export ComputePlane__AgentChannel__Address=https://localhost:5003
+          export ComputePlane__AgentChannel__SocketType=tcp
+          export ComputePlane__WorkerChannel__Address=http://localhost:5010
+          export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] || [ '${{ matrix.language.secure-worker }}' = false ] || ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: mTLS store
         working-directory: packages/csharp/
@@ -307,7 +339,12 @@ jobs:
           export GrpcClient__AllowUnsafeConnection=false
           export GrpcClient__CertPem=$CertFolder/client.pem
           export GrpcClient__KeyPem=$CertFolder/client.key
+          export ComputePlane__AgentChannel__Address=https://localhost:5004
+          export ComputePlane__AgentChannel__SocketType=tcp
+          export ComputePlane__WorkerChannel__Address=http://localhost:5010
+          export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] || [ '${{ matrix.language.secure-worker }}' = false ] || ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: Test Report
         uses: dorny/test-reporter@v1
