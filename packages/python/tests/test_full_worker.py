@@ -110,6 +110,7 @@ def clean_up_data_folder():
             os.remove(p)
 
 
+@pytest.mark.worker
 class TestFullWorker:
     def test_worker_healthcheck(self, worker_server):
         _ = worker_server

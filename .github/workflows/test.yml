@@ -54,7 +54,9 @@ jobs:
             dir: cpp
             env: {}
           - lang: Python
-            cmd: pytest tests --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+            cmd: pytest tests -m "not worker" --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+            worker-cmd: pytest tests -m "worker" --cov=armonik --cov-config=.coveragerc --cov-report=term-missing --cov-append --cov-report xml:coverage.xml --cov-report html:coverage_report
+            secure-worker: true
             dir: python
             env: {}
           - lang: Rust
@@ -203,6 +205,7 @@ jobs:
           export ComputePlane__WorkerChannel__Address=http://localhost:5010
           export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] && ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: TLS Insecure
         if: ${{ contains(fromJson('["C#", "Rust"]'), matrix.language.lang) }}
@@ -223,6 +226,7 @@ jobs:
           export ComputePlane__WorkerChannel__Address=http://localhost:5010
           export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] && [ '${{ matrix.language.secure-worker }}' = true ] ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: TLS secure
         working-directory: packages/csharp/
@@ -244,6 +248,7 @@ jobs:
           export ComputePlane__WorkerChannel__Address=http://localhost:5010
           export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] && [ '${{ matrix.language.secure-worker }}' = true ] ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: TLS store
         working-directory: packages/csharp/
@@ -262,6 +267,7 @@ jobs:
           export ComputePlane__WorkerChannel__Address=http://localhost:5010
           export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] && [ '${{ matrix.language.secure-worker }}' = true ] ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: mTLS Insecure
         if: ${{ contains(fromJson('["C#", "Rust"]'), matrix.language.lang) }}
@@ -286,6 +292,7 @@ jobs:
           export ComputePlane__WorkerChannel__Address=http://localhost:5010
           export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] && [ '${{ matrix.language.secure-worker }}' = true ] ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: mTLS secure
         working-directory: packages/csharp/
@@ -312,6 +319,7 @@ jobs:
           export ComputePlane__WorkerChannel__Address=http://localhost:5010
           export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] && [ '${{ matrix.language.secure-worker }}' = true ] ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: mTLS store
         working-directory: packages/csharp/
@@ -336,6 +344,7 @@ jobs:
           export ComputePlane__WorkerChannel__Address=http://localhost:5010
           export ComputePlane__WorkerChannel__SocketType=tcp
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
+          [ -z '${{ matrix.language.worker-cmd }}' ] && [ '${{ matrix.language.secure-worker }}' = true ] ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.worker-cmd }}'
 
       - name: Test Report
         uses: dorny/test-reporter@v1
