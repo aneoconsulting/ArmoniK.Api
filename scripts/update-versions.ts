@@ -11,6 +11,8 @@ import {
   javaPattern,
   jsFiles,
   jsPattern,
+  rustFiles,
+  rustPattern,
 } from './versions/_contants'
 
 const [, , ...args] = process.argv
@@ -41,3 +43,6 @@ cppFiles.forEach(_readAndReplace(cppPattern, `set(version ${version})`))
 
 consola.info('Updating java projects to ', version)
 javaFiles.forEach(_readAndReplace(javaPattern, `<version>${version}</version>`))
+
+consola.info('Updating rust projects to ', version)
+rustFiles.forEach(_readAndReplace(rustPattern, `version = "${version}-beta-0"`))
