@@ -10,6 +10,8 @@ import {
   javaPattern,
   jsFiles,
   jsPattern,
+  rustFiles,
+  rustPattern,
 } from './versions/_contants'
 import { _readAndFind } from './versions/_readAndFind'
 
@@ -26,6 +28,8 @@ consola.info('Finding Cpp projects versions')
 cppFiles.forEach(_readAndFind(cppPattern, versions))
 consola.info('Finding java projects versions')
 javaFiles.forEach(_readAndFind(javaPattern, versions))
+consola.info('Finding rust projects versions')
+rustFiles.forEach(_readAndFind(rustPattern, versions))
 
 const versionsArray = [...versions.values()]
 const uniqueVersions = [...new Set(versionsArray)]
