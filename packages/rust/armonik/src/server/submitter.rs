@@ -23,6 +23,7 @@ super::define_trait_methods! {
         fn try_get_result(
             self: Arc<Self>,
             request: submitter::try_get_result::Request,
+            context: crate::server::RequestContext,
         ) -> impl std::future::Future<
             Output = Result<
                 impl tonic::codegen::tokio_stream::Stream<
@@ -35,6 +36,7 @@ super::define_trait_methods! {
         fn create_small_tasks(
             self: Arc<Self>,
             request: submitter::create_tasks::SmallRequest,
+            context: crate::server::RequestContext,
         ) -> impl std::future::Future<
             Output = Result<submitter::create_tasks::Response, tonic::Status>
         > + Send;
@@ -42,6 +44,7 @@ super::define_trait_methods! {
         fn create_large_tasks(
             self: Arc<Self>,
             request: impl tonic::codegen::tokio_stream::Stream<Item = Result<submitter::create_tasks::LargeRequest, tonic::Status>> + Send + 'static,
+            context: crate::server::RequestContext,
         ) -> impl std::future::Future<
             Output = Result<submitter::create_tasks::Response, tonic::Status>
         > + Send;

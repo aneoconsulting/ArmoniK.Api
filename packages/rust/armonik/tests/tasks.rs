@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use armonik::{server::TasksServiceExt, tasks};
+use armonik::{
+    server::{RequestContext, TasksServiceExt},
+    tasks,
+};
 
 mod common;
 
@@ -14,6 +17,7 @@ impl armonik::server::TasksService for Service {
     async fn list(
         self: Arc<Self>,
         request: tasks::list::Request,
+        _context: RequestContext,
     ) -> std::result::Result<tasks::list::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(tasks::list::Response {
@@ -32,6 +36,7 @@ impl armonik::server::TasksService for Service {
     async fn list_detailed(
         self: Arc<Self>,
         request: tasks::list_detailed::Request,
+        _context: RequestContext,
     ) -> std::result::Result<tasks::list_detailed::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(tasks::list_detailed::Response {
@@ -50,6 +55,7 @@ impl armonik::server::TasksService for Service {
     async fn get(
         self: Arc<Self>,
         request: tasks::get::Request,
+        _context: RequestContext,
     ) -> std::result::Result<tasks::get::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(tasks::get::Response {
@@ -66,6 +72,7 @@ impl armonik::server::TasksService for Service {
     async fn cancel(
         self: Arc<Self>,
         request: tasks::cancel::Request,
+        _context: RequestContext,
     ) -> std::result::Result<tasks::cancel::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(tasks::cancel::Response {
@@ -86,6 +93,7 @@ impl armonik::server::TasksService for Service {
     async fn get_result_ids(
         self: Arc<Self>,
         request: tasks::get_result_ids::Request,
+        _context: RequestContext,
     ) -> std::result::Result<tasks::get_result_ids::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(tasks::get_result_ids::Response {
@@ -102,6 +110,7 @@ impl armonik::server::TasksService for Service {
     async fn count_status(
         self: Arc<Self>,
         _request: tasks::count_status::Request,
+        _context: RequestContext,
     ) -> std::result::Result<tasks::count_status::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(tasks::count_status::Response {
@@ -117,6 +126,7 @@ impl armonik::server::TasksService for Service {
     async fn submit(
         self: Arc<Self>,
         request: tasks::submit::Request,
+        _context: RequestContext,
     ) -> std::result::Result<tasks::submit::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(tasks::submit::Response {

@@ -10,6 +10,7 @@ mod events;
 mod health_checks;
 #[cfg(feature = "server")]
 mod partitions;
+mod request_context;
 #[cfg(feature = "server")]
 mod results;
 #[cfg(feature = "server")]
@@ -35,6 +36,7 @@ pub use events::{EventsService, EventsServiceExt};
 pub use health_checks::{HealthChecksService, HealthChecksServiceExt};
 #[cfg(feature = "server")]
 pub use partitions::{PartitionsService, PartitionsServiceExt};
+pub use request_context::RequestContext;
 #[cfg(feature = "server")]
 pub use results::{ResultsService, ResultsServiceExt};
 #[cfg(feature = "server")]
@@ -56,6 +58,7 @@ macro_rules! define_trait_methods {
                 fn $method(
                     self: Arc<Self>,
                     request: $service::$method::Request,
+                    context: crate::server::RequestContext,
                 ) -> impl std::future::Future<Output = std::result::Result<$service::$method::Response, tonic::Status>> + Send;
             )*
             $($($body)*)?
@@ -80,8 +83,10 @@ macro_rules! impl_trait_methods {
     };
     (unary ($self:ident, $request:ident) { $inner:path }) => {
         {
+            let (metadata_map, extensions, request) = $request.into_parts();
+            let context = crate::server::RequestContext::new(metadata_map.into_headers(), extensions);
             let fut = tracing_futures::Instrument::instrument(
-                $inner($self, $request.into_inner().into()),
+                $inner($self, request.into(), context),
                 tracing::debug_span!(stringify!($inner)),
             );
             match fut.await {
@@ -92,15 +97,18 @@ macro_rules! impl_trait_methods {
     };
     (stream client ($self:ident, $request:ident) { $inner:path }) => {
         {
+            let (metadata_map, extensions, request) = $request.into_parts();
+            let context = crate::server::RequestContext::new(metadata_map.into_headers(), extensions);
             let span = tracing::debug_span!(stringify!($inner));
             let stream = tracing_futures::Instrument::instrument(
-                tonic::codegen::tokio_stream::StreamExt::map($request.into_inner(), |r| r.map(Into::into)),
+                tonic::codegen::tokio_stream::StreamExt::map(request, |r| r.map(Into::into)),
                 tracing::trace_span!(parent: &span, "stream"),
             );
             let fut = tracing_futures::Instrument::instrument(
                 $inner(
                     $self,
                     stream,
+                    context,
                 ),
                 tracing::trace_span!(parent: &span, "rpc"),
             );
@@ -112,9 +120,11 @@ macro_rules! impl_trait_methods {
     };
     (stream server ($self:ident, $request:ident) { $inner:path }) => {
         {
+            let (metadata_map, extensions, request) = $request.into_parts();
+            let context = crate::server::RequestContext::new(metadata_map.into_headers(), extensions);
             let span = tracing::debug_span!(stringify!($inner));
             let fut = tracing_futures::Instrument::instrument(
-                $inner($self, $request.into_inner().into()),
+                $inner($self, request.into(), context),
                 tracing::trace_span!(parent: &span, "rpc")
             );
             match fut.await {

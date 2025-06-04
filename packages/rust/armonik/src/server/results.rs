@@ -35,6 +35,7 @@ super::define_trait_methods! {
         fn download(
             self: Arc<Self>,
             request: results::download::Request,
+            context: crate::server::RequestContext,
         ) -> impl std::future::Future<
             Output = Result<
                 impl tonic::codegen::tokio_stream::Stream<
@@ -48,6 +49,7 @@ super::define_trait_methods! {
         fn upload(
             self: Arc<Self>,
             request: impl tonic::codegen::tokio_stream::Stream<Item = Result<results::upload::Request, tonic::Status>> + Send + 'static,
+            context: crate::server::RequestContext,
         ) -> impl std::future::Future<
             Output = Result<results::upload::Response, tonic::Status>
         > + Send;

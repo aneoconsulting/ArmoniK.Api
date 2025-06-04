@@ -38,6 +38,7 @@ super::define_trait_methods! {
         fn create_tasks(
             self: Arc<Self>,
             request: impl tonic::codegen::tokio_stream::Stream<Item = Result<agent::create_tasks::Request, tonic::Status>> + Send + 'static,
+            context: crate::server::RequestContext,
         ) -> impl std::future::Future<
             Output = Result<agent::create_tasks::Response, tonic::Status>
         > + Send;

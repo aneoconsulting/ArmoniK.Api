@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use armonik::{agent, reexports::tokio_stream::StreamExt, server::AgentServiceExt};
+use armonik::{
+    agent,
+    reexports::tokio_stream::StreamExt,
+    server::{AgentServiceExt, RequestContext},
+};
 
 mod common;
 
@@ -14,6 +18,7 @@ impl armonik::server::AgentService for Service {
     async fn create_results_metadata(
         self: Arc<Self>,
         request: agent::create_results_metadata::Request,
+        _context: RequestContext,
     ) -> std::result::Result<agent::create_results_metadata::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::create_results_metadata::Response {
@@ -40,6 +45,7 @@ impl armonik::server::AgentService for Service {
     async fn create_results(
         self: Arc<Self>,
         request: agent::create_results::Request,
+        _context: RequestContext,
     ) -> std::result::Result<agent::create_results::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::create_results::Response {
@@ -67,6 +73,7 @@ impl armonik::server::AgentService for Service {
     async fn notify_result_data(
         self: Arc<Self>,
         request: agent::notify_result_data::Request,
+        _context: RequestContext,
     ) -> std::result::Result<agent::notify_result_data::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::notify_result_data::Response {
@@ -82,6 +89,7 @@ impl armonik::server::AgentService for Service {
     async fn submit_tasks(
         self: Arc<Self>,
         request: agent::submit_tasks::Request,
+        _context: RequestContext,
     ) -> std::result::Result<agent::submit_tasks::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::submit_tasks::Response {
@@ -98,6 +106,7 @@ impl armonik::server::AgentService for Service {
     async fn get_resource_data(
         self: Arc<Self>,
         _request: agent::get_resource_data::Request,
+        _context: RequestContext,
     ) -> std::result::Result<agent::get_resource_data::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::get_resource_data::Response {
@@ -110,6 +119,7 @@ impl armonik::server::AgentService for Service {
     async fn get_common_data(
         self: Arc<Self>,
         _request: agent::get_common_data::Request,
+        _context: RequestContext,
     ) -> std::result::Result<agent::get_common_data::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::get_common_data::Response {
@@ -122,6 +132,7 @@ impl armonik::server::AgentService for Service {
     async fn get_direct_data(
         self: Arc<Self>,
         _request: agent::get_direct_data::Request,
+        _context: RequestContext,
     ) -> std::result::Result<agent::get_direct_data::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(agent::get_direct_data::Response {
@@ -137,6 +148,7 @@ impl armonik::server::AgentService for Service {
                 Item = Result<agent::create_tasks::Request, tonic::Status>,
             > + Send
             + 'static,
+        _context: RequestContext,
     ) -> Result<agent::create_tasks::Response, tonic::Status> {
         let mut request = std::pin::pin!(request);
         let mut token = None;

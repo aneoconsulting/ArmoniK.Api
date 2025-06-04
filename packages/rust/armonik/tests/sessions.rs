@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use armonik::{server::SessionsServiceExt, sessions};
+use armonik::{
+    server::{RequestContext, SessionsServiceExt},
+    sessions,
+};
 
 mod common;
 
@@ -14,6 +17,7 @@ impl armonik::server::SessionsService for Service {
     async fn list(
         self: Arc<Self>,
         request: sessions::list::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::list::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::list::Response {
@@ -32,6 +36,7 @@ impl armonik::server::SessionsService for Service {
     async fn get(
         self: Arc<Self>,
         request: sessions::get::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::get::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::get::Response {
@@ -48,6 +53,7 @@ impl armonik::server::SessionsService for Service {
     async fn cancel(
         self: Arc<Self>,
         request: sessions::cancel::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::cancel::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::cancel::Response {
@@ -64,6 +70,7 @@ impl armonik::server::SessionsService for Service {
     async fn create(
         self: Arc<Self>,
         _request: sessions::create::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::create::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::create::Response {
@@ -76,6 +83,7 @@ impl armonik::server::SessionsService for Service {
     async fn pause(
         self: Arc<Self>,
         request: sessions::pause::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::pause::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::pause::Response {
@@ -92,6 +100,7 @@ impl armonik::server::SessionsService for Service {
     async fn resume(
         self: Arc<Self>,
         request: sessions::resume::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::resume::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::resume::Response {
@@ -108,6 +117,7 @@ impl armonik::server::SessionsService for Service {
     async fn close(
         self: Arc<Self>,
         request: sessions::close::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::close::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::close::Response {
@@ -124,6 +134,7 @@ impl armonik::server::SessionsService for Service {
     async fn purge(
         self: Arc<Self>,
         request: sessions::purge::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::purge::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::purge::Response {
@@ -140,6 +151,7 @@ impl armonik::server::SessionsService for Service {
     async fn delete(
         self: Arc<Self>,
         request: sessions::delete::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::delete::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::delete::Response {
@@ -156,6 +168,7 @@ impl armonik::server::SessionsService for Service {
     async fn stop_submission(
         self: Arc<Self>,
         request: sessions::stop_submission::Request,
+        _context: RequestContext,
     ) -> std::result::Result<sessions::stop_submission::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(sessions::stop_submission::Response {
