@@ -31,8 +31,8 @@ prost-types = "0.13"
 futures = "0.3"
 snafu = "0.8"
 tracing = "0.1"
-tracing-futures = { version = "0.2", features = ["futures-03"]}
-hyper = { version = "1.5", features = [
+tracing-futures = { version = "0.2", features = ["futures-03"] }
+hyper = { version = "1.6", features = [
   "client",
   "http1",
   "http2",
@@ -42,7 +42,7 @@ hyper-rustls = { version = "0.27", features = [
   "http2",
 ], optional = true }
 rustls = { version = "0.23", features = ["ring"], optional = true }
-tokio = { version = "1.41", default-features = false, optional = true }
+tokio = { version = "1.45", default-features = false, optional = true }
 serde = { version = "1.0", features = [
   "derive",
 ], default-features = false, optional = true }
