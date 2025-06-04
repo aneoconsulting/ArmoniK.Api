@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use armonik::{reexports::tokio_stream::StreamExt, results, server::ResultsServiceExt};
+use armonik::{
+    reexports::tokio_stream::StreamExt,
+    results::{self, create, create_metadata},
+    server::ResultsServiceExt,
+};
 
 mod common;
 
@@ -73,15 +77,15 @@ impl armonik::server::ResultsService for Service {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::create_metadata::Response {
                 results: request
-                    .names
+                    .results
                     .into_iter()
-                    .map(|name| {
+                    .map(|item| {
                         (
-                            name.clone(),
+                            item.name.clone(),
                             results::Raw {
                                 session_id: request.session_id.clone(),
                                 result_id: String::from("rpc-create-metadata-output"),
-                                name,
+                                name: item.name,
                                 ..Default::default()
                             },
                         )
@@ -100,14 +104,41 @@ impl armonik::server::ResultsService for Service {
             Ok(results::create::Response {
                 results: request
                     .results
-                    .into_keys()
-                    .map(|name| {
+                    .into_iter()
+                    .map(|item| {
+                        (
+                            item.name.clone(),
+                            results::Raw {
+                                session_id: request.session_id.clone(),
+                                result_id: String::from("rpc-create-output"),
+                                name: item.name,
+                                ..Default::default()
+                            },
+                        )
+                    })
+                    .collect(),
+            })
+        })
+        .await
+    }
+
+    async fn import(
+        self: Arc<Self>,
+        request: results::import::Request,
+    ) -> std::result::Result<results::import::Response, tonic::Status> {
+        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
+            Ok(results::import::Response {
+                results: request
+                    .results
+                    .into_iter()
+                    .map(|(name, opaque_id)| {
                         (
                             name.clone(),
                             results::Raw {
                                 session_id: request.session_id.clone(),
                                 result_id: String::from("rpc-create-output"),
                                 name,
+                                opaque_id,
                                 ..Default::default()
                             },
                         )
@@ -294,7 +325,13 @@ async fn create_metadata() {
         armonik::Client::with_channel(Service::default().results_server()).into_results();
 
     let response = client
-        .create_metadata("session-id", ["rpc-create-metadata-input"])
+        .create_metadata(
+            "session-id",
+            [create_metadata::RequestItem {
+                name: String::from("rpc-create-metadata-input"),
+                ..Default::default()
+            }],
+        )
         .await
         .unwrap();
 
@@ -310,11 +347,35 @@ async fn create() {
         armonik::Client::with_channel(Service::default().results_server()).into_results();
 
     let response = client
-        .create("session-id", [("rpc-create-input", "payload")])
+        .create(
+            "session-id",
+            [create::RequestItem {
+                name: String::from("rpc-create-input"),
+                data: Vec::from("payload".as_bytes()),
+                ..Default::default()
+            }],
+        )
         .await
         .unwrap();
 
     assert_eq!(response["rpc-create-input"].result_id, "rpc-create-output");
+}
+
+#[tokio::test]
+async fn import() {
+    let mut client =
+        armonik::Client::with_channel(Service::default().results_server()).into_results();
+
+    let response = client
+        .import("session-id", [("rpc-import-input", "opaque-id")])
+        .await
+        .unwrap();
+
+    assert_eq!(response["rpc-import-input"].result_id, "rpc-import-input");
+    assert_eq!(
+        response["rpc-import-input"].opaque_id,
+        "opaque-id".as_bytes()
+    );
 }
 
 #[tokio::test]
@@ -451,7 +512,7 @@ async fn download_wait_early() {
         client.download("session_id", "result_id"),
     )
     .await
-        .is_ok()
+    .is_ok()
     {
         panic!("Expected a timeout, but got a response stream");
     }

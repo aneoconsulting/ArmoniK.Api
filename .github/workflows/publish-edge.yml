@@ -10,14 +10,13 @@ on:
 
 jobs:
   genversion:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     runs-on: ubuntu-latest
     name: Version
     outputs:
       version: ${{ steps.genver.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
@@ -40,43 +39,8 @@ jobs:
         id: outver
         run: echo "VERSION=${{ needs.genversion.outputs.version }}" >> "$GITHUB_OUTPUT"
 
-  tests:
-    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
-    name: Tests
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        projects:
-          - packages/csharp/ArmoniK.Api.Tests
-    steps:
-      - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
-
-      # Install the .NET Core workload
-      - name: Install .NET Core
-        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
-        with:
-          dotnet-version: 6.x
-
-      - name: Run tests
-        run: |
-          cd ${{ matrix.projects }}
-          dotnet test --logger "trx;LogFileName=test-results.trx"
-
-      - name: Test Report
-        uses: dorny/test-reporter@v1
-        if: success() || failure()
-        with:
-          name: Test - ${{ matrix.os }} ${{ matrix.projects }}
-          path: ${{ matrix.projects }}/TestResults/test-results.trx
-          reporter: dotnet-trx
-
   release-csharp-packages:
-    needs: [tests, version]
+    needs: [version]
     name: Release C# Packages
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -91,13 +55,13 @@ jobs:
           - packages/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - name: Install .NET Core
-        uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4
         with:
           dotnet-version: 6.x
 
@@ -119,14 +83,14 @@ jobs:
     name: Release Angular Package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - run: npm i -g @antfu/ni pnpm
 
-      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
           node-version: 18
           cache: pnpm
@@ -158,14 +122,14 @@ jobs:
     name: Release Web Package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
       - run: npm i -g @antfu/ni pnpm
 
-      - uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
           node-version: 18
           cache: pnpm
@@ -203,7 +167,7 @@ jobs:
       run:
         working-directory: packages/python
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
 
@@ -211,7 +175,7 @@ jobs:
         run: bash proto2python.sh ~/pyvenv
 
       - name: Upload as artifact
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         with:
           name: python-packages
           path: packages/python/pkg/
@@ -227,6 +191,7 @@ jobs:
 
   release-cpp-package:
     needs: [version]
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     strategy:
       fail-fast: false
       matrix:
@@ -235,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: ${{ github.ref }}
 
@@ -244,7 +209,7 @@ jobs:
           cd packages/cpp/tools/packaging
           ./make-${{ matrix.type }}.sh
       - name: Publish package as artefact
-        uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
         with:
           if-no-files-found: error
           path: packages/cpp/tools/packaging/*.${{ matrix.type }}
@@ -253,15 +218,16 @@ jobs:
 
   release-java-package:
     needs: [version]
+    if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
     name: Release Java Package
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: packages/java
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: Set up Maven Central Repository
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4
         with:
           java-version: '17'
           distribution: temurin

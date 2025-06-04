@@ -14,10 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Text;
 using System.Threading.Tasks;
 
 using ArmoniK.Api.gRPC.V1;
 using ArmoniK.Api.gRPC.V1.Results;
+
+using Google.Protobuf;
 
 using Grpc.Core;
 
@@ -34,6 +37,7 @@ public class Results : gRPC.V1.Results.Results.ResultsBase
                                                    Status      = ResultStatus.Completed,
                                                    OwnerTaskId = "owner-task-id",
                                                    Size        = 0,
+                                                   OpaqueId    = ByteString.CopyFrom(Encoding.UTF8.GetBytes("opaque-id")),
                                                  };
 
   /// <inheritdocs />
@@ -133,4 +137,15 @@ public class Results : gRPC.V1.Results.Results.ResultsBase
                           .ConfigureAwait(false);
     }
   }
+
+  [Count]
+  public override Task<ImportResultsDataResponse> ImportResultsData(ImportResultsDataRequest request,
+                                                                    ServerCallContext        context)
+    => Task.FromResult(new ImportResultsDataResponse
+                       {
+                         Results =
+                         {
+                           MockResult,
+                         },
+                       });
 }
