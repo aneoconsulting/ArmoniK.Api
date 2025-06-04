@@ -8,29 +8,31 @@ The purpose of this guide is to explain how to use ArmoniK API in an Angular App
 
 At the end of the guide, you will have a working Angular App that uses ArmoniK API and you will be able to use it as a starting point for your own project or to contribute to the ArmoniK Admin GUI!
 
-During this guide, we will follow the [community guidelines from ArmoniK](https://aneoconsulting.github.io/ArmoniK.Community/contribution-guides/angular)
+During this guide, we will follow the [community guidelines from ArmoniK](https://armonikcommunity.readthedocs.io/en/latest/content/contribution-guides/angular.html)
 
-::list
 - Use Angular project structure without [Nx](https://nx.dev/)
 - Use [standalone component](https://angular.io/guide/standalone-components)
 - Use [inline template](https://angular.io/api/core/Component#template) and [inline style](https://angular.io/api/core/Component#styles)
 - Use CSS
-::
 
-::alert{type="danger"}
+```{danger}
+
 This guide **is not** a tutorial on how to use Angular or RxJS. If you are not familiar with Angular or RxJS, we recommend you to follow the [official tutorial](https://angular.io/tutorial) first and [learn RxJS](https://www.learnrxjs.io/).
-::
+
+```
 
 ## Prerequisites
 
 Before you start, make sure you have the following:
 
 - [Node.js](https://nodejs.org/en/) installed on your machine.
-- [ArmoniK] up and running on your machine. Follow the [installation guide](https://aneoconsulting.github.io/ArmoniK/installation) to install ArmoniK if you haven't done it yet.
+- [ArmoniK] up and running on your machine. Follow the [installation guide](https://armonik.readthedocs.io/en/latest/content/getting-started/introduction.html) to install ArmoniK if you haven't done it yet.
 
-::alert{type="info"}
+```{note}
+
 Please make sure you have the latest LTS version of Node.js installed.
-::
+
+```
 
 ## Create a new Angular App
 
@@ -58,9 +60,11 @@ And install the dependencies:
 pnpm install
 ```
 
-::alert{type="info"}
+```{note}
+
 We recommend the use of [pnpm](https://pnpm.io/) to install the dependencies. It is faster and more efficient than `npm` or `yarn`.
-::
+
+```
 
 ## Clean the project
 
@@ -93,21 +97,27 @@ pnpm install @ngx-grpc/common @ngx-grpc/core @ngx-grpc/grpc-web-client google-pr
 
 `google-protobuf` is a dependency that will be used to serialize and deserialize the messages.
 
-::alert{type="info"}
+```{note}
+
 You can read more about `google-protobuf` in the [official documentation](https://www.npmjs.com/package/google-protobuf).
-::
+
+```
 
 `@ngx-grpc/common` `@ngx-grpc/core` `@ngx-grpc/grpc-web-client` are dependencies that will allow us to use gRPC in our Angular App.
 
-::alert{type="info"}
+```{note}
+
 You can read more about `@ngx-grpc` in the [official documentation](https://github.com/ngx-grpc/ngx-grpc).
-::
+
+```
 
 `@aneoconsultingfr/armonik.api.angular` is the package that contains the ArmoniK API (definition of the gRPC services and the generated code).
 
-::alert{type="info"}
+```{note}
+
 You can read more about `@aneoconsultingfr/armonik.api.angular` in the [package documentation](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api.angular).
-::
+
+```
 
 ## Configure the Angular App
 
@@ -134,9 +144,11 @@ That's it! Now, you are ready to do some gRPC calls!
 
 In this section, you will get partitions ArmoniK.
 
-::alert{type="info"}
-We chose ListPartitionsservice as it is a simple service and the data feedback is sure to happen. You may use another service if you so choose. If you do, we recommend to [run some samples](https://aneoconsulting.github.io/ArmoniK/installation/linux/verify-installation#samples) in ArmoniK to make sure that the service will return some data.
-::
+```{note}
+
+We chose ListPartitionsservice as it is a simple service and the data feedback is sure to happen. You may use another service if you so choose. If you do, we recommend to [run some samples](https://armonik.readthedocs.io/en/latest/content/user-guide/how-to-use-htc-mock.html) in ArmoniK to make sure that the service will return some data.
+
+```
 
 ### Create the service
 
@@ -156,9 +168,11 @@ export class PartitionsGrpcService {
 }
 ```
 
-::alert{type="info"}
+```{note}
+
 In Angular, it is a convention to add the `.service` suffix in the filename and to name the service with the suffix `Service`.
-::
+
+```
 
 Then, you will inject the `ResultClient` in the service:
 
@@ -172,9 +186,11 @@ export class PartitionsGrpcService {
 }
 ```
 
-::alert{type="info"}
+```{note}
+
 You use the [`inject`](https://angular.io/api/core/inject) function to inject the `ResultsClient` in the service. You can also use the constructor to inject the client but it is not recommended because it will make the service harder to test. Using the `inject` method allow us to harmonize the way you inject the dependencies in services, components, etc.
-::
+
+```
 
 Then, you can create a method to call the `listPartitions` service:
 
@@ -199,9 +215,11 @@ _Voilà!_ You've created our first gRPC service! Now, we can use it in our compo
 
 ### Create the component
 
-::alert{type="info"}
+```{note}
+
 In order to simplify this guide, will use the `AppComponent` to call the service. In a real application, you should create a dedicated component using the router.
-::
+
+```
 
 For this guide, you will display the result in a list, having a loading indicator, a button to refresh the list and an error message if the call failed (printed in the console).
 
@@ -217,9 +235,11 @@ First, let's create the list using HTML:
 </ul>
 ```
 
-::alert{type="info"}
+```{note}
+
 You must add this code in the `template` property of the `@Component` decorator.
-::
+
+```
 
 Then, you must update the component with some properties and methods:
 
@@ -264,9 +284,11 @@ You will use the `*ngIf` directive to display the loading indicator:
 </div>
 ```
 
-::alert{type="info"}
+```{note}
+
 You must add this code in the `template` property of the `@Component` decorator.
-::
+
+```
 
 Then, you must update the component with some properties and methods:
 
@@ -280,9 +302,11 @@ export class AppComponent {
 }
 ```
 
-::alert{type="info"}
+```{note}
+
 By default, the loading indicator will be displayed because data will be fetched on page initialization. You will hide it when the call is done.
-::
+
+```
 
 Finally, you must import `ngIf` in the `imports` property of the `@Component` decorator:
 
@@ -306,9 +330,11 @@ You will use the `button` element to display the refresh button:
 <button (click)="refresh()">Refresh</button>
 ```
 
-::alert{type="info"}
+```{note}
+
 You must add this code in the `template` property of the `@Component` decorator.
-::
+
+```
 
 Then, you must update our component with some properties and methods:
 
@@ -345,9 +371,10 @@ export class AppComponent {
 }
 ```
 
-::alert{type="warning"}
+```{warning}
 We must add the service in the `providers` property of the `@Component` decorator.
-::
+
+```
 
 Then, we will first call data after view init:
 
@@ -405,9 +432,11 @@ First, you need to create a `proxy.conf.json` file in `src` folder of our projec
 }
 ```
 
-::alert{type="info"}
+```{note}
+
 We recommend to add this file to your `.gitignore` file. In fact, this file is specific to your local environment. In order to provide a template for your team, you can create a `proxy.conf.json.example` file and add it to your repository.
-::
+
+```
 
 Then, you must update our config file `angular.json` in order to use the proxy:
 

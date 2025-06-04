@@ -4,45 +4,42 @@ use super::Raw;
 
 use crate::api::v3;
 
+/// Result to create with data.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RequestItem {
+    /// The name of the result to create.
+    pub name: String,
+    /// The data associated to the result to create.
+    pub data: Vec<u8>,
+    /// The session in which create results.
+    pub manual_deletion: bool,
+}
+
+super::super::impl_convert!(
+  struct RequestItem = v3::results::create_results_request::ResultCreate {
+      name,
+      data,
+      manual_deletion,
+  }
+);
+
 /// Request for creating results with data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// Results to create.
-    pub results: HashMap<String, Vec<u8>>,
+    pub results: Vec<RequestItem>,
     /// The session in which create results.
     pub session_id: String,
 }
 
-impl From<Request> for v3::results::CreateResultsRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(
-                    |(name, data)| v3::results::create_results_request::ResultCreate { name, data },
-                )
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-impl From<v3::results::CreateResultsRequest> for Request {
-    fn from(value: v3::results::CreateResultsRequest) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|result| (result.name, result.data))
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-super::super::impl_convert!(req Request : v3::results::CreateResultsRequest);
+super::super::impl_convert!(
+  struct Request = v3::results::CreateResultsRequest {
+      list results = list results,
+      session_id,
+  }
+);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]

@@ -8,6 +8,7 @@ pub mod filter;
 pub mod get;
 pub mod get_owner_task_id;
 pub mod get_service_configuration;
+pub mod import;
 pub mod list;
 pub mod upload;
 

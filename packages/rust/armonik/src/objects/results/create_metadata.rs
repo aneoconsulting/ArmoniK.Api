@@ -4,47 +4,39 @@ use super::Raw;
 
 use crate::api::v3;
 
+/// Result to create without data.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RequestItem {
+    /// The name of the result to create.
+    pub name: String,
+    /// The session in which create results.
+    pub manual_deletion: bool,
+}
+
+super::super::impl_convert!(
+  struct RequestItem = v3::results::create_results_meta_data_request::ResultCreate {
+      name,
+      manual_deletion,
+  }
+);
+
 /// Request for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
-    /// The list of names for the results to create.
-    pub names: Vec<String>,
+    /// Results to create.
+    pub results: Vec<RequestItem>,
     /// The session in which create results.
     pub session_id: String,
 }
 
-impl From<Request> for v3::results::CreateResultsMetaDataRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            results: value
-                .names
-                .into_iter()
-                .map(
-                    |result| v3::results::create_results_meta_data_request::ResultCreate {
-                        name: result,
-                    },
-                )
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-impl From<v3::results::CreateResultsMetaDataRequest> for Request {
-    fn from(value: v3::results::CreateResultsMetaDataRequest) -> Self {
-        Self {
-            names: value
-                .results
-                .into_iter()
-                .map(|result| result.name)
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-super::super::impl_convert!(req Request : v3::results::CreateResultsMetaDataRequest);
+super::super::impl_convert!(
+  struct Request = v3::results::CreateResultsMetaDataRequest {
+      list results = list results,
+      session_id,
+  }
+);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]

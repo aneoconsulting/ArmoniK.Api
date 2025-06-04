@@ -21,6 +21,9 @@ super::define_trait_methods! {
         /// Create one result with data included in the request.
         fn results::create;
 
+        /// Import existing data from the object storage into existing results.
+        fn results::import;
+
         /// Delete data from multiple results.
         fn results::delete_data;
 
@@ -70,6 +73,7 @@ super::impl_trait_methods! {
         fn get_owner_task_id(v3::results::GetOwnerTaskIdRequest) -> v3::results::GetOwnerTaskIdResponse { get_owner_task_id }
         fn create_results_meta_data(v3::results::CreateResultsMetaDataRequest) -> v3::results::CreateResultsMetaDataResponse { create_metadata }
         fn create_results(v3::results::CreateResultsRequest) -> v3::results::CreateResultsResponse { create }
+        fn import_results_data(v3::results::ImportResultsDataRequest) -> v3::results::ImportResultsDataResponse { import }
         fn delete_results_data(v3::results::DeleteResultsDataRequest) -> v3::results::DeleteResultsDataResponse { delete_data }
         fn get_service_configuration(v3::Empty) -> v3::results::ResultsServiceConfigurationResponse { get_service_configuration }
 
