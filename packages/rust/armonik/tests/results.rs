@@ -3,7 +3,7 @@ use std::sync::Arc;
 use armonik::{
     reexports::tokio_stream::StreamExt,
     results::{self, create, create_metadata},
-    server::ResultsServiceExt,
+    server::{RequestContext, ResultsServiceExt},
 };
 
 mod common;
@@ -20,6 +20,7 @@ impl armonik::server::ResultsService for Service {
     async fn list(
         self: Arc<Self>,
         request: results::list::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::list::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::list::Response {
@@ -38,6 +39,7 @@ impl armonik::server::ResultsService for Service {
     async fn get(
         self: Arc<Self>,
         request: results::get::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::get::Response, tonic::Status> {
         let drop_guard = self.dropped.clone().drop_guard();
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
@@ -56,6 +58,7 @@ impl armonik::server::ResultsService for Service {
     async fn get_owner_task_id(
         self: Arc<Self>,
         request: results::get_owner_task_id::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::get_owner_task_id::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::get_owner_task_id::Response {
@@ -73,6 +76,7 @@ impl armonik::server::ResultsService for Service {
     async fn create_metadata(
         self: Arc<Self>,
         request: results::create_metadata::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::create_metadata::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::create_metadata::Response {
@@ -99,6 +103,7 @@ impl armonik::server::ResultsService for Service {
     async fn create(
         self: Arc<Self>,
         request: results::create::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::create::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::create::Response {
@@ -125,6 +130,7 @@ impl armonik::server::ResultsService for Service {
     async fn import(
         self: Arc<Self>,
         request: results::import::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::import::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::import::Response {
@@ -152,6 +158,7 @@ impl armonik::server::ResultsService for Service {
     async fn delete_data(
         self: Arc<Self>,
         mut request: results::delete_data::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::delete_data::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::delete_data::Response {
@@ -168,6 +175,7 @@ impl armonik::server::ResultsService for Service {
     async fn get_service_configuration(
         self: Arc<Self>,
         _request: results::get_service_configuration::Request,
+        _context: RequestContext,
     ) -> std::result::Result<results::get_service_configuration::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(results::get_service_configuration::Response {
@@ -180,6 +188,7 @@ impl armonik::server::ResultsService for Service {
     async fn download(
         self: Arc<Self>,
         request: results::download::Request,
+        _context: RequestContext,
     ) -> Result<
         impl tonic::codegen::tokio_stream::Stream<
                 Item = Result<results::download::Response, tonic::Status>,
@@ -224,6 +233,7 @@ impl armonik::server::ResultsService for Service {
                 Item = Result<results::upload::Request, tonic::Status>,
             > + Send
             + 'static,
+        _context: RequestContext,
     ) -> Result<results::upload::Response, tonic::Status> {
         let _drop_guard = self.dropped.clone().drop_guard();
         let mut request = std::pin::pin!(request);

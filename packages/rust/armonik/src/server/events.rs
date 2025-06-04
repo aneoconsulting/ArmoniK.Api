@@ -7,6 +7,7 @@ pub trait EventsService {
     fn subscribe(
         self: Arc<Self>,
         request: events::subscribe::Request,
+        context: crate::server::RequestContext,
     ) -> impl std::future::Future<
         Output = Result<
             impl tonic::codegen::tokio_stream::Stream<

@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use armonik::{applications, server::ApplicationsServiceExt};
+use armonik::{
+    applications,
+    server::{ApplicationsServiceExt, RequestContext},
+};
 
 mod common;
 
@@ -14,6 +17,7 @@ impl armonik::server::ApplicationsService for Service {
     async fn list(
         self: Arc<Self>,
         request: applications::list::Request,
+        _context: RequestContext,
     ) -> std::result::Result<applications::list::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(applications::list::Response {

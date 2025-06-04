@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use armonik::{auth, server::AuthServiceExt};
+use armonik::{
+    auth,
+    server::{AuthServiceExt, RequestContext},
+};
 
 mod common;
 
@@ -14,6 +17,7 @@ impl armonik::server::AuthService for Service {
     async fn current_user(
         self: Arc<Self>,
         _request: auth::current_user::Request,
+        _context: RequestContext,
     ) -> std::result::Result<auth::current_user::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(auth::current_user::Response {

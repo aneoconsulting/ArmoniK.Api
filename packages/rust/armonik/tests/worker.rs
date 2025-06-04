@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use armonik::{server::WorkerServiceExt, worker};
+use armonik::{
+    server::{RequestContext, WorkerServiceExt},
+    worker,
+};
 
 mod common;
 
@@ -14,6 +17,7 @@ impl armonik::server::WorkerService for Service {
     async fn health_check(
         self: Arc<Self>,
         _request: worker::health_check::Request,
+        _context: RequestContext,
     ) -> std::result::Result<worker::health_check::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(worker::health_check::Response::Serving)
@@ -24,6 +28,7 @@ impl armonik::server::WorkerService for Service {
     async fn process(
         self: Arc<Self>,
         _request: worker::process::Request,
+        _context: RequestContext,
     ) -> std::result::Result<worker::process::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(worker::process::Response {

@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use armonik::{partitions, server::PartitionsServiceExt};
+use armonik::{
+    partitions,
+    server::{PartitionsServiceExt, RequestContext},
+};
 
 mod common;
 
@@ -14,6 +17,7 @@ impl armonik::server::PartitionsService for Service {
     async fn list(
         self: Arc<Self>,
         request: partitions::list::Request,
+        _context: RequestContext,
     ) -> std::result::Result<partitions::list::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(partitions::list::Response {
@@ -32,6 +36,7 @@ impl armonik::server::PartitionsService for Service {
     async fn get(
         self: Arc<Self>,
         request: partitions::get::Request,
+        _context: RequestContext,
     ) -> std::result::Result<partitions::get::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(partitions::get::Response {

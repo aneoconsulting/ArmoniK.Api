@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use armonik::{events, reexports::tokio_stream::StreamExt, server::EventsServiceExt};
+use armonik::{
+    events,
+    reexports::tokio_stream::StreamExt,
+    server::{EventsServiceExt, RequestContext},
+};
 
 mod common;
 
@@ -14,6 +18,7 @@ impl armonik::server::EventsService for Service {
     async fn subscribe(
         self: Arc<Self>,
         request: events::subscribe::Request,
+        _context: RequestContext,
     ) -> Result<
         impl tonic::codegen::tokio_stream::Stream<
                 Item = Result<events::subscribe::Response, tonic::Status>,

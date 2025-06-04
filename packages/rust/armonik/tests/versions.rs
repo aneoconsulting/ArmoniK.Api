@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use armonik::{server::VersionsServiceExt, versions};
+use armonik::{
+    server::{RequestContext, VersionsServiceExt},
+    versions,
+};
 
 mod common;
 
@@ -14,6 +17,7 @@ impl armonik::server::VersionsService for Service {
     async fn list(
         self: Arc<Self>,
         _request: versions::list::Request,
+        _context: RequestContext,
     ) -> std::result::Result<versions::list::Response, tonic::Status> {
         common::unary_rpc_impl(self.wait, self.failure.clone(), || {
             Ok(versions::list::Response {
