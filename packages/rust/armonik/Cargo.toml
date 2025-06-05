@@ -40,8 +40,16 @@ hyper = { version = "1.6", features = [
 hyper-rustls = { version = "0.27", features = [
   "http1",
   "http2",
-], optional = true }
-rustls = { version = "0.23", features = ["ring"], optional = true }
+  "native-tokio",
+  "tls12",
+  "logging",
+], default-features = false, optional = true }
+rustls = { version = "0.23", features = [
+  "ring",
+  "logging",
+  "std",
+  "tls12",
+], default-features = false, optional = true }
 tokio = { version = "1.45", default-features = false, optional = true }
 serde = { version = "1.0", features = [
   "derive",
