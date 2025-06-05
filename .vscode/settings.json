@@ -18,7 +18,12 @@
     "./packages/rust/armonik/Cargo.toml"
   ],
   "rust-analyzer.cargo.features": [
-    "serde"
-  ],
-  "cmake.ignoreCMakeListsMissing": true
+    "_gen-client",
+    "_gen-server",
+    "client",
+    "server",
+    "serde",
+    "agent",
+    "worker"
+  ]
 }
