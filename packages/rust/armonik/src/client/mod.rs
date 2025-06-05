@@ -214,7 +214,7 @@ impl Client<tonic::transport::Channel> {
 impl<T> Client<T>
 where
     T: Clone,
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -361,9 +361,9 @@ where
     }
 }
 
-impl<T> tonic::client::GrpcService<tonic::body::BoxBody> for Client<T>
+impl<T> tonic::client::GrpcService<tonic::body::Body> for Client<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -379,14 +379,14 @@ where
         self.channel.poll_ready(cx)
     }
 
-    fn call(&mut self, request: hyper::http::Request<tonic::body::BoxBody>) -> Self::Future {
+    fn call(&mut self, request: hyper::http::Request<tonic::body::Body>) -> Self::Future {
         self.channel.call(request)
     }
 }
 
-impl<T> tonic::client::GrpcService<tonic::body::BoxBody> for &'_ mut Client<T>
+impl<T> tonic::client::GrpcService<tonic::body::Body> for &'_ mut Client<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -402,7 +402,7 @@ where
         self.channel.poll_ready(cx)
     }
 
-    fn call(&mut self, request: hyper::http::Request<tonic::body::BoxBody>) -> Self::Future {
+    fn call(&mut self, request: hyper::http::Request<tonic::body::Body>) -> Self::Future {
         self.channel.call(request)
     }
 }
@@ -505,7 +505,7 @@ macro_rules! impl_call {
     (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty, $Error:ty> $block:block) => {
         impl<T> $crate::client::GrpcCall<$Request> for &'_ mut $Client<T>
         where
-            T: tonic::client::GrpcService<tonic::body::BoxBody>,
+            T: tonic::client::GrpcService<tonic::body::Body>,
             T::Error: Into<tonic::codegen::StdError>,
             T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
             <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,

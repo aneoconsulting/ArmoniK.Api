@@ -22,7 +22,7 @@ _gen-client = ["tonic/channel", "dep:rustls", "dep:hyper-rustls", "dep:hyper"]
 _gen-server = ["tonic/server", "dep:tokio"]
 
 [dependencies]
-tonic = { version = "0.12", features = [
+tonic = { version = "0.13", features = [
   "codegen",
   "prost",
 ], default-features = false }
@@ -72,7 +72,7 @@ tokio = { version = "1.42", features = [
 tokio-util = "0.7"
 
 [build-dependencies]
-tonic-build = "0.12"
+tonic-build = "0.13"
 
 [[test]]
 name = "agent"
