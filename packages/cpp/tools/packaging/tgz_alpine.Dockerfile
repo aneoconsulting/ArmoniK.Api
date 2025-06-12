@@ -1,5 +1,5 @@
 # Start with the latest Alpine base image for the build stage
-FROM alpine:3.21 AS builder
+FROM alpine AS builder
 ARG GRPC_VERSION=v1.54.0
 
 # Install all the necessary dependencies required for the build process
@@ -45,7 +45,7 @@ COPY packages/cpp/Dependencies.cmake .
 # Build the application using the copied source files and protobuf definitions
 WORKDIR /app/libarmonik/build
 RUN cmake -DCMAKE_INSTALL_PREFIX="/app/install" -DPROTO_FILES_DIR="/app/proto" -DBUILD_TEST=OFF \
-    -DBUILD_CLIENT=ON -DBUILD_WORKER=OFF -DPROTO_FILES_DIR=/app/libarmonik/Protos \ 
-    -DCPACK_GENERATOR=TGZ /app/libarmonik && \
+          -DBUILD_CLIENT=ON -DBUILD_WORKER=OFF -DPROTO_FILES_DIR=/app/libarmonik/Protos \ 
+          -DCPACK_GENERATOR=TGZ /app/libarmonik && \
     make -j $(nproc) && \
     make package -j
