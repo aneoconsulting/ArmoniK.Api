@@ -582,7 +582,7 @@ class Partition:
             parent_partition_ids=list(partition_raw.parent_partition_ids),
             pod_reserved=partition_raw.pod_reserved,
             pod_max=partition_raw.pod_max,
-            pod_configuration=partition_raw.pod_configuration,
+            pod_configuration=dict(partition_raw.pod_configuration),
             preemption_percentage=partition_raw.preemption_percentage,
             priority=partition_raw.priority,
         )
