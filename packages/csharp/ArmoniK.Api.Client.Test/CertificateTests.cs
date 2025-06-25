@@ -63,8 +63,10 @@ public class CertificateTests
                   };
     var certificate = GrpcChannelFactory.GetCertificate(options);
 
-    Assert.NotNull(certificate);
-    Assert.NotNull(certificate.GetRSAPublicKey());
+    Assert.That(certificate,
+                Is.Not.Null);
+    Assert.That(certificate.GetRSAPublicKey(),
+                Is.Not.Null);
   }
 
   [Test]
@@ -94,7 +96,9 @@ public class CertificateTests
 
     var certificate = GrpcChannelFactory.GetCertificate(options);
 
-    Assert.NotNull(certificate);
-    Assert.NotNull(certificate.GetECDsaPublicKey());
+    Assert.That(certificate,
+                Is.Not.Null);
+    Assert.That(certificate.GetECDsaPublicKey(),
+                Is.Not.Null);
   }
 }
