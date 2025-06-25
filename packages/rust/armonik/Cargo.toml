@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 name = "armonik"
 repository = "https://github.com/aneoconsulting/ArmoniK.Api"
-version = "3.26.0-beta-0"
+version = "3.26.0-beta-1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -19,7 +19,7 @@ server = ["_gen-server"]
 agent = ["_gen-client", "_gen-server"]
 worker = ["_gen-client", "_gen-server"]
 _gen-client = ["tonic/channel", "dep:rustls", "dep:hyper-rustls", "dep:hyper"]
-_gen-server = ["tonic/server", "dep:tokio"]
+_gen-server = ["tonic/server", "tonic/router", "dep:tokio"]
 
 [dependencies]
 tonic = { version = "0.13", features = [
