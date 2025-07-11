@@ -532,7 +532,7 @@ mod tests {
             Ok(_) => (),
             Err(crate::client::RequestError::Grpc { source, .. }) => {
                 if source.code() != tonic::Code::Internal || !source.message().is_empty() {
-                    panic!("{:?}", source)
+                    panic!("{source:?}")
                 }
             }
         }
@@ -553,7 +553,7 @@ mod tests {
             Ok(_) => (),
             Err(crate::client::RequestError::Grpc { source, .. }) => {
                 if source.code() != tonic::Code::Internal || !source.message().is_empty() {
-                    panic!("{:?}", source)
+                    panic!("{source:?}")
                 }
             }
         }
@@ -763,7 +763,7 @@ mod tests {
             Ok(_) => (),
             Err(crate::client::RequestError::Grpc { source, .. }) => {
                 if source.code() != tonic::Code::Internal || !source.message().is_empty() {
-                    panic!("{:?}", source)
+                    panic!("{source:?}")
                 }
             }
         }
@@ -784,7 +784,7 @@ mod tests {
             Ok(_) => (),
             Err(crate::client::RequestError::Grpc { source, .. }) => {
                 if source.code() != tonic::Code::Internal || !source.message().is_empty() {
-                    panic!("{:?}", source)
+                    panic!("{source:?}")
                 }
             }
         }
