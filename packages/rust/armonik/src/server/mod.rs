@@ -84,14 +84,22 @@ macro_rules! impl_trait_methods {
     (unary ($self:ident, $request:ident) { $inner:path }) => {
         {
             let (metadata_map, extensions, request) = $request.into_parts();
+            let request = request.into();
+            tracing::trace!("Request: {request:?}");
             let context = crate::server::RequestContext::new(metadata_map.into_headers(), extensions);
             let fut = tracing_futures::Instrument::instrument(
-                $inner($self, request.into(), context),
+                $inner($self, request, context),
                 tracing::debug_span!(stringify!($inner)),
             );
             match fut.await {
-                Ok(res) => Ok(tonic::Response::new(res.into())),
-                Err(err) => Err(err),
+                Ok(res) => {
+                    tracing::trace!("Response: {res:?}");
+                    Ok(tonic::Response::new(res.into()))
+                }
+                Err(err) => {
+                    tracing::trace!("Response: {err:?}");
+                    Err(err)
+                }
             }
         }
     };
@@ -101,7 +109,16 @@ macro_rules! impl_trait_methods {
             let context = crate::server::RequestContext::new(metadata_map.into_headers(), extensions);
             let span = tracing::debug_span!(stringify!($inner));
             let stream = tracing_futures::Instrument::instrument(
-                tonic::codegen::tokio_stream::StreamExt::map(request, |r| r.map(Into::into)),
+                tonic::codegen::tokio_stream::StreamExt::map(request, |r| match r {
+                    Ok(r) => {
+                        tracing::trace!("Request item: {r:?}");
+                        Ok(r.into())
+                    }
+                    Err(err) => {
+                        tracing::trace!("Request item: {err:?}");
+                        Err(err)
+                    }
+                }),
                 tracing::trace_span!(parent: &span, "stream"),
             );
             let fut = tracing_futures::Instrument::instrument(
@@ -113,23 +130,40 @@ macro_rules! impl_trait_methods {
                 tracing::trace_span!(parent: &span, "rpc"),
             );
             match fut.await {
-                Ok(res) => Ok(tonic::Response::new(res.into())),
-                Err(err) => Err(err),
+                Ok(res) => {
+                    tracing::trace!("Response: {res:?}");
+                    Ok(tonic::Response::new(res.into()))
+                }
+                Err(err) => {
+                    tracing::trace!("Response: {err:?}");
+                    Err(err)
+                }
             }
         }
     };
     (stream server ($self:ident, $request:ident) { $inner:path }) => {
         {
             let (metadata_map, extensions, request) = $request.into_parts();
+            let request = request.into();
+            tracing::trace!("Request: {request:?}");
             let context = crate::server::RequestContext::new(metadata_map.into_headers(), extensions);
             let span = tracing::debug_span!(stringify!($inner));
             let fut = tracing_futures::Instrument::instrument(
-                $inner($self, request.into(), context),
+                $inner($self, request, context),
                 tracing::trace_span!(parent: &span, "rpc")
             );
             match fut.await {
                 Ok(stream) => {
-                    let stream = tonic::codegen::tokio_stream::StreamExt::map(stream, |res| res.map(Into::into));
+                    let stream = tonic::codegen::tokio_stream::StreamExt::map(stream, |r| match r {
+                        Ok(r) => {
+                            tracing::trace!("Response item: {r:?}");
+                            Ok(r.into())
+                        }
+                        Err(err) => {
+                            tracing::trace!("Response item: {err:?}");
+                            Err(err)
+                        }
+                    });
                     let stream = tracing_futures::Instrument::instrument(
                         futures::stream::StreamExt::boxed(stream),
                         tracing::trace_span!(parent: &span, "stream")
