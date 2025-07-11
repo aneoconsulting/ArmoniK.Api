@@ -70,7 +70,6 @@ jobs:
         plateform:
           - os: ubuntu-latest
           - os: windows-latest
-          - os: windows-2019
         exclude:
           - language:
               lang: Python
@@ -80,18 +79,6 @@ jobs:
               lang: C++
             plateform:
               os: windows-latest
-          - language:
-              lang: C++
-            plateform:
-              os: windows-2019
-          - language:
-              lang: Python
-            plateform:
-              os: windows-2019
-          - language:
-              lang: Rust
-            plateform:
-              os: windows-2019
           # FIXME: Rust should be working on Windows,
           # but we most likely encounter a port exhaustion issue
           - language:
