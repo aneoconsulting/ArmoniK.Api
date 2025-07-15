@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use super::Raw;
 
 use crate::api::v3;
@@ -14,6 +12,16 @@ pub struct RequestItem {
     pub data: Vec<u8>,
     /// The session in which create results.
     pub manual_deletion: bool,
+}
+
+impl<K: Into<String>, V: Into<Vec<u8>>> From<(K, V)> for RequestItem {
+    fn from((name, data): (K, V)) -> Self {
+        Self {
+            name: name.into(),
+            data: data.into(),
+            manual_deletion: false,
+        }
+    }
 }
 
 super::super::impl_convert!(
@@ -46,34 +54,11 @@ super::super::impl_convert!(
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     /// The list of raw results that were created.
-    pub results: HashMap<String, Raw>,
+    pub results: Vec<Raw>,
 }
 
-impl From<Response> for v3::results::CreateResultsResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|(name, result)| {
-                    debug_assert_eq!(name, result.name);
-                    result.into()
-                })
-                .collect(),
-        }
+super::super::impl_convert!(
+    struct Response = v3::results::CreateResultsResponse {
+        list results,
     }
-}
-
-impl From<v3::results::CreateResultsResponse> for Response {
-    fn from(value: v3::results::CreateResultsResponse) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|result| (result.name.clone(), result.into()))
-                .collect(),
-        }
-    }
-}
-
-super::super::impl_convert!(req Response : v3::results::CreateResultsResponse);
+);

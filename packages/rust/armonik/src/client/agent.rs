@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use futures::{Stream, StreamExt};
 use snafu::ResultExt;
 
@@ -40,11 +38,11 @@ where
         token: impl Into<String>,
         session_id: impl Into<String>,
         names: impl std::iter::IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, ResultMetaData>, super::RequestError> {
+    ) -> Result<Vec<ResultMetaData>, super::RequestError> {
         Ok(self
             .call(create_results_metadata::Request {
                 communication_token: token.into(),
-                names: names.into_collect(),
+                results: names.into_iter().map(|name| name.into().into()).collect(),
                 session_id: session_id.into(),
             })
             .await?
@@ -57,13 +55,13 @@ where
         token: impl Into<String>,
         session_id: impl Into<String>,
         results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
-    ) -> Result<HashMap<String, ResultMetaData>, super::RequestError> {
+    ) -> Result<Vec<ResultMetaData>, super::RequestError> {
         Ok(self
             .call(create_results::Request {
                 communication_token: token.into(),
                 results: results
                     .into_iter()
-                    .map(|(name, data)| (name.into(), data.into()))
+                    .map(|(name, data)| (name.into(), data.into()).into())
                     .collect(),
                 session_id: session_id.into(),
             })
@@ -267,8 +265,6 @@ where
 #[cfg(test)]
 #[serial_test::serial(agent)]
 mod tests {
-    use std::collections::HashMap;
-
     use crate::Client;
 
     // Named methods
@@ -346,7 +342,7 @@ mod tests {
             .call(crate::agent::create_results_metadata::Request {
                 communication_token: String::from("token"),
                 session_id: String::from("session-id"),
-                names: Vec::new(),
+                results: Vec::new(),
             })
             .await
             .unwrap();
@@ -362,7 +358,7 @@ mod tests {
             .call(crate::agent::create_results::Request {
                 communication_token: String::from("token"),
                 session_id: String::from("session-id"),
-                results: HashMap::new(),
+                results: Vec::new(),
             })
             .await
             .unwrap();
