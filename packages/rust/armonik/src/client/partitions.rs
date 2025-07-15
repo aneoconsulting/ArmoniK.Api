@@ -13,7 +13,7 @@ pub struct Partitions<T> {
 
 impl<T> Partitions<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -71,21 +71,29 @@ where
 super::impl_call! {
     Partitions {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_partitions(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_partitions(request),
+                tracing::debug_span!("Partitions::list")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
-            Ok(self
-                .inner
-                .get_partition(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_partition(request),
+                tracing::debug_span!("Partitions::get")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

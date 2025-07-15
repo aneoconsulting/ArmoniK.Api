@@ -13,7 +13,7 @@ pub struct Applications<T> {
 
 impl<T> Applications<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -59,9 +59,13 @@ where
 super::impl_call! {
     Applications {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_applications(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_applications(request),
+                tracing::debug_span!("Applications::list")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
                 .into_inner()

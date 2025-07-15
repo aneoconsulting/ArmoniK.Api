@@ -21,7 +21,7 @@ pub struct Agent<T> {
 
 impl<T> Agent<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -140,9 +140,13 @@ where
 super::impl_call! {
     Agent {
         async fn call(self, request: create_results_metadata::Request) -> Result<create_results_metadata::Response> {
-            Ok(self
-                .inner
-                .create_results_meta_data(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .create_results_meta_data(request),
+                tracing::debug_span!("Agent::create_results_metadata")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
                 .into_inner()
@@ -150,9 +154,13 @@ super::impl_call! {
         }
 
         async fn call(self, request: create_results::Request) -> Result<create_results::Response> {
-            Ok(self
-                .inner
-                .create_results(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .create_results(request),
+                tracing::debug_span!("Agent::create_results")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
                 .into_inner()
@@ -160,9 +168,13 @@ super::impl_call! {
         }
 
         async fn call(self, request: notify_result_data::Request) -> Result<notify_result_data::Response> {
-            Ok(self
-                .inner
-                .notify_result_data(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .notify_result_data(request),
+                tracing::debug_span!("Agent::notify_result_data")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
                 .into_inner()
@@ -170,9 +182,13 @@ super::impl_call! {
         }
 
         async fn call(self, request: submit_tasks::Request) -> Result<submit_tasks::Response> {
-            Ok(self
-                .inner
-                .submit_tasks(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .submit_tasks(request),
+                tracing::debug_span!("Agent::submit_tasks")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
                 .into_inner()
@@ -180,37 +196,52 @@ super::impl_call! {
         }
 
         async fn call(self, request: get_resource_data::Request) -> Result<get_resource_data::Response> {
-            Ok(self
-                .inner
-                .get_resource_data(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_resource_data(request),
+                tracing::debug_span!("Agent::get_resource_data")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner().into())
+                .into_inner()
+                .into())
         }
 
         async fn call(self, request: get_common_data::Request) -> Result<get_common_data::Response> {
-            Ok(self
-                .inner
-                .get_common_data(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_common_data(request),
+                tracing::debug_span!("Agent::get_common_data")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner().into())
+                .into_inner()
+                .into())
         }
 
         async fn call(self, request: get_direct_data::Request) -> Result<get_direct_data::Response> {
-            Ok(self
-                .inner
-                .get_direct_data(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_direct_data(request),
+                tracing::debug_span!("Agent::get_direct_data")
+            );
+            Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner().into())
+                .into_inner()
+                .into())
         }
     }
 }
 
 impl<T, S> GrpcCallStream<create_tasks::Request, S> for &'_ mut Agent<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -220,13 +251,16 @@ where
     type Error = super::RequestError;
 
     async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        Ok(self
-            .inner
-            .create_task(request.map(Into::into))
-            .await
-            .context(super::GrpcSnafu {})?
-            .into_inner()
-            .into())
+        let span = tracing::debug_span!("Agent::create_tasks");
+        let stream = tracing_futures::Instrument::instrument(
+            request.map(Into::into),
+            tracing::trace_span!(parent: &span, "stream"),
+        );
+        let call = tracing_futures::Instrument::instrument(
+            self.inner.create_task(stream),
+            tracing::trace_span!("rpc"),
+        );
+        Ok(call.await.context(super::GrpcSnafu {})?.into_inner().into())
     }
 }
 

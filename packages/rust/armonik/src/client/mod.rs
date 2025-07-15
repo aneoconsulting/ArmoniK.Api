@@ -7,34 +7,58 @@ use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver};
 use rustls::pki_types::ServerName;
 use snafu::{ResultExt, Snafu};
 
+#[cfg(feature = "worker")]
 mod agent;
+#[cfg(feature = "client")]
 mod applications;
+#[cfg(feature = "client")]
 mod auth;
 mod config;
+#[cfg(feature = "client")]
 mod events;
+#[cfg(feature = "client")]
 mod health_checks;
+#[cfg(feature = "client")]
 mod partitions;
+#[cfg(feature = "client")]
 mod results;
+#[cfg(feature = "client")]
 mod sessions;
+#[cfg(feature = "client")]
 mod submitter;
+#[cfg(feature = "client")]
 mod tasks;
+#[cfg(feature = "client")]
 mod versions;
+#[cfg(feature = "agent")]
 mod worker;
 
 pub use crate::utils::ReadEnvError;
+#[cfg(feature = "worker")]
 pub use agent::Agent;
+#[cfg(feature = "client")]
 pub use applications::Applications;
+#[cfg(feature = "client")]
 pub use auth::Auth;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
+#[cfg(feature = "client")]
 pub use events::Events;
+#[cfg(feature = "client")]
 pub use health_checks::HealthChecks;
+#[cfg(feature = "client")]
 pub use partitions::Partitions;
+#[cfg(feature = "client")]
 pub use results::Results;
+#[cfg(feature = "client")]
 pub use sessions::Sessions;
+#[cfg(feature = "client")]
 #[allow(deprecated)]
 pub use submitter::Submitter;
+#[cfg(feature = "client")]
 pub use tasks::Tasks;
+#[cfg(feature = "client")]
 pub use versions::Versions;
+#[cfg(feature = "agent")]
 pub use worker::Worker;
 
 /// ArmoniK Client
@@ -51,23 +75,30 @@ impl Client<tonic::transport::Channel> {
 
     /// Create a new client with the specified client configuration
     pub async fn with_config(config: ClientConfig) -> Result<Self, ConnectionError> {
-        let endpoint = config.endpoint.clone();
-        let override_target = config.override_target.clone();
+        let endpoint = config.endpoint.to_string();
+        tracing_futures::Instrument::instrument(
+            async move {
+                let endpoint = config.endpoint.clone();
+                let override_target = config.override_target.clone();
 
-        let https = Self::https_connector_builder(config).await?.build();
+                let https = Self::https_connector_builder(config).await?.build();
 
-        let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
-        if let Some(target) = override_target {
-            transport_endpoint = transport_endpoint.origin(target);
-        }
+                let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
+                if let Some(target) = override_target {
+                    transport_endpoint = transport_endpoint.origin(target);
+                }
 
-        // Build the actual channel from the configuration
-        let channel = transport_endpoint
-            .connect_with_connector(https)
-            .await
-            .context(TransportSnafu { endpoint })?;
+                // Build the actual channel from the configuration
+                let channel = transport_endpoint
+                    .connect_with_connector(https)
+                    .await
+                    .context(TransportSnafu { endpoint })?;
 
-        Ok(Self::with_channel(channel))
+                Ok(Self::with_channel(channel))
+            },
+            tracing::debug_span!("Client", endpoint),
+        )
+        .await
     }
 
     async fn https_connector_builder(
@@ -183,7 +214,7 @@ impl Client<tonic::transport::Channel> {
 impl<T> Client<T>
 where
     T: Clone,
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -193,84 +224,102 @@ where
         Self { channel }
     }
 
+    #[cfg(feature = "worker")]
     /// Create a borrowed [`Agent`]
     pub fn agent(&mut self) -> Agent<&mut Self> {
         Agent::with_channel(self)
     }
+    #[cfg(feature = "worker")]
     /// Create an owned [`Agent`]
     pub fn into_agent(self) -> Agent<Self> {
         Agent::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Applications`]
     pub fn applications(&mut self) -> Applications<&mut Self> {
         Applications::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Applications`]
     pub fn into_applications(self) -> Applications<Self> {
         Applications::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Auth`]
     pub fn auth(&mut self) -> Auth<&mut Self> {
         Auth::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Auth`]
     pub fn into_auth(self) -> Auth<Self> {
         Auth::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Events`]
     pub fn events(&mut self) -> Events<&mut Self> {
         Events::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Events`]
     pub fn into_events(self) -> Events<Self> {
         Events::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`HealthChecks`]
     pub fn health_checks(&mut self) -> HealthChecks<&mut Self> {
         HealthChecks::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`HealthChecks`]
     pub fn into_health_checks(self) -> HealthChecks<Self> {
         HealthChecks::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Partitions`]
     pub fn partitions(&mut self) -> Partitions<&mut Self> {
         Partitions::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Partitions`]
     pub fn into_partitions(self) -> Partitions<Self> {
         Partitions::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Results`]
     pub fn results(&mut self) -> Results<&mut Self> {
         Results::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Results`]
     pub fn into_results(self) -> Results<Self> {
         Results::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Sessions`]
     pub fn sessions(&mut self) -> Sessions<&mut Self> {
         Sessions::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Sessions`]
     pub fn into_sessions(self) -> Sessions<Self> {
         Sessions::with_channel(self)
     }
 
     /// Create a borrowed [`Submitter`]
+    #[cfg(feature = "client")]
     #[deprecated]
     #[allow(deprecated)]
     pub fn submitter(&mut self) -> Submitter<&mut Self> {
         Submitter::with_channel(self)
     }
+    #[cfg(feature = "client")]
     #[deprecated]
     #[allow(deprecated)]
     /// Create an owned [`Submitter`]
@@ -278,37 +327,43 @@ where
         Submitter::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Tasks`]
     pub fn tasks(&mut self) -> Tasks<&mut Self> {
         Tasks::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Tasks`]
     pub fn into_tasks(self) -> Tasks<Self> {
         Tasks::with_channel(self)
     }
 
+    #[cfg(feature = "client")]
     /// Create a borrowed [`Versions`]
     pub fn versions(&mut self) -> Versions<&mut Self> {
         Versions::with_channel(self)
     }
+    #[cfg(feature = "client")]
     /// Create an owned [`Versions`]
     pub fn into_versions(self) -> Versions<Self> {
         Versions::with_channel(self)
     }
 
+    #[cfg(feature = "agent")]
     /// Create a borrowed [`Worker`]
     pub fn worker(&mut self) -> Worker<&mut Self> {
         Worker::with_channel(self)
     }
+    #[cfg(feature = "agent")]
     /// Create an owned [`Worker`]
     pub fn into_worker(self) -> Worker<Self> {
         Worker::with_channel(self)
     }
 }
 
-impl<T> tonic::client::GrpcService<tonic::body::BoxBody> for Client<T>
+impl<T> tonic::client::GrpcService<tonic::body::Body> for Client<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -324,14 +379,14 @@ where
         self.channel.poll_ready(cx)
     }
 
-    fn call(&mut self, request: hyper::http::Request<tonic::body::BoxBody>) -> Self::Future {
+    fn call(&mut self, request: hyper::http::Request<tonic::body::Body>) -> Self::Future {
         self.channel.call(request)
     }
 }
 
-impl<T> tonic::client::GrpcService<tonic::body::BoxBody> for &'_ mut Client<T>
+impl<T> tonic::client::GrpcService<tonic::body::Body> for &'_ mut Client<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -347,7 +402,7 @@ where
         self.channel.poll_ready(cx)
     }
 
-    fn call(&mut self, request: hyper::http::Request<tonic::body::BoxBody>) -> Self::Future {
+    fn call(&mut self, request: hyper::http::Request<tonic::body::Body>) -> Self::Future {
         self.channel.call(request)
     }
 }
@@ -450,7 +505,7 @@ macro_rules! impl_call {
     (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty, $Error:ty> $block:block) => {
         impl<T> $crate::client::GrpcCall<$Request> for &'_ mut $Client<T>
         where
-            T: tonic::client::GrpcService<tonic::body::BoxBody>,
+            T: tonic::client::GrpcService<tonic::body::Body>,
             T::Error: Into<tonic::codegen::StdError>,
             T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
             <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,

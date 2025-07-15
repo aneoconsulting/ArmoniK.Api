@@ -13,7 +13,7 @@ pub struct Worker<T> {
 
 impl<T> Worker<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -51,21 +51,29 @@ where
 super::impl_call! {
     Worker {
         async fn call(self, request: health_check::Request) -> Result<health_check::Response> {
-            Ok(self
-                .inner
-                .health_check(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .health_check(request),
+                tracing::debug_span!("Worker::health_check")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: process::Request) -> Result<process::Response> {
-            Ok(self
-                .inner
-                .process(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .process(request),
+                tracing::debug_span!("Worker::process")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

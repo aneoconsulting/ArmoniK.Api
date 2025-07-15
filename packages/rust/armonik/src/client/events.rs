@@ -15,7 +15,7 @@ pub struct Events<T> {
 
 impl<T> Events<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -37,12 +37,12 @@ where
         >,
         returned_events: impl IntoIterator<Item = impl Into<crate::events::EventsEnum>>,
     ) -> Result<
-        impl Stream<Item = Result<subscribe::Response, super::RequestError>>,
+        impl Stream<Item = Result<subscribe::Response, super::RequestError>> + 'static,
         super::RequestError,
     > {
-        Ok(self
-            .inner
-            .get_events(subscribe::Request {
+        let span = tracing::debug_span!("Events::subscribe");
+        let call = tracing_futures::Instrument::instrument(
+            self.inner.get_events(subscribe::Request {
                 session_id: session_id.into(),
                 task_filters: task_filters
                     .into_iter()
@@ -53,11 +53,18 @@ where
                     .map(IntoCollection::into_collect)
                     .collect(),
                 returned_events: returned_events.into_collect(),
-            })
+            }),
+            tracing::trace_span!(parent: &span, "init"),
+        );
+        let stream = call
             .await
             .context(super::GrpcSnafu {})?
             .into_inner()
-            .map(|response| response.map(Into::into).context(super::GrpcSnafu {})))
+            .map(|response| response.map(Into::into).context(super::GrpcSnafu {}));
+        Ok(tracing_futures::Instrument::instrument(
+            stream,
+            tracing::trace_span!(parent: &span, "stream"),
+        ))
     }
 
     /// Perform a gRPC call from a raw request.
@@ -74,24 +81,27 @@ where
 
 impl<T> GrpcCall<subscribe::Request> for &'_ mut Events<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
     type Response =
-        std::pin::Pin<Box<dyn Stream<Item = Result<subscribe::Response, super::RequestError>>>>;
+        futures::stream::BoxStream<'static, Result<subscribe::Response, super::RequestError>>;
     type Error = super::RequestError;
 
-    async fn call(self, request: subscribe::Request) -> Result<Self::Response, Self::Error> {
-        Ok(Box::pin(
-            self.inner
-                .get_events(request)
-                .await
-                .context(super::GrpcSnafu {})?
-                .into_inner()
-                .map(|response| response.map(Into::into).context(super::GrpcSnafu {})),
-        ))
+    async fn call(
+        self,
+        subscribe::Request {
+            session_id,
+            task_filters,
+            result_filters,
+            returned_events,
+        }: subscribe::Request,
+    ) -> Result<Self::Response, Self::Error> {
+        self.subscribe(session_id, task_filters, result_filters, returned_events)
+            .await
+            .map(futures::stream::StreamExt::boxed)
     }
 }
 
