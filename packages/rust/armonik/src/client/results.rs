@@ -83,7 +83,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         results: impl IntoIterator<Item = create_metadata::RequestItem>,
-    ) -> Result<HashMap<String, Raw>, super::RequestError> {
+    ) -> Result<Vec<Raw>, super::RequestError> {
         Ok(self
             .call(create_metadata::Request {
                 results: results.into_collect(),
@@ -98,7 +98,7 @@ where
         &mut self,
         session_id: impl Into<String>,
         results: impl IntoIterator<Item = create::RequestItem>,
-    ) -> Result<HashMap<String, Raw>, super::RequestError> {
+    ) -> Result<Vec<Raw>, super::RequestError> {
         Ok(self
             .call(create::Request {
                 results: results.into_collect(),

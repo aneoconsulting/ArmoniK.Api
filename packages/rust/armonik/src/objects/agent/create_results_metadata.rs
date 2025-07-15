@@ -1,8 +1,26 @@
-use std::collections::HashMap;
-
 use super::ResultMetaData;
 
 use crate::api::v3;
+
+/// Result to create without data.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RequestItem {
+    /// The name of the result to create.
+    pub name: String,
+}
+
+impl<T: Into<String>> From<T> for RequestItem {
+    fn from(value: T) -> Self {
+        Self { name: value.into() }
+    }
+}
+
+super::super::impl_convert!(
+  struct RequestItem = v3::agent::create_results_meta_data_request::ResultCreate {
+      name,
+  }
+);
 
 /// Request for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -11,44 +29,18 @@ pub struct Request {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
     /// The list of names for the results to create.
-    pub names: Vec<String>,
+    pub results: Vec<RequestItem>,
     /// The session in which create results.
     pub session_id: String,
 }
 
-impl From<Request> for v3::agent::CreateResultsMetaDataRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            communication_token: value.communication_token,
-            results: value
-                .names
-                .into_iter()
-                .map(
-                    |result| v3::agent::create_results_meta_data_request::ResultCreate {
-                        name: result,
-                    },
-                )
-                .collect(),
-            session_id: value.session_id,
-        }
+super::super::impl_convert!(
+    struct Request = v3::agent::CreateResultsMetaDataRequest {
+        communication_token,
+        list results,
+        session_id,
     }
-}
-
-impl From<v3::agent::CreateResultsMetaDataRequest> for Request {
-    fn from(value: v3::agent::CreateResultsMetaDataRequest) -> Self {
-        Self {
-            communication_token: value.communication_token,
-            names: value
-                .results
-                .into_iter()
-                .map(|result| result.name)
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-super::super::impl_convert!(req Request : v3::agent::CreateResultsMetaDataRequest);
+);
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default)]
@@ -57,36 +49,12 @@ pub struct Response {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
     /// The list of ResultMetaData results that were created.
-    pub results: HashMap<String, ResultMetaData>,
+    pub results: Vec<ResultMetaData>,
 }
 
-impl From<Response> for v3::agent::CreateResultsMetaDataResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            communication_token: value.communication_token,
-            results: value
-                .results
-                .into_iter()
-                .map(|(k, v)| {
-                    debug_assert_eq!(k, v.name);
-                    v.into()
-                })
-                .collect(),
-        }
+super::super::impl_convert!(
+    struct Response = v3::agent::CreateResultsMetaDataResponse {
+        communication_token,
+        list results,
     }
-}
-
-impl From<v3::agent::CreateResultsMetaDataResponse> for Response {
-    fn from(value: v3::agent::CreateResultsMetaDataResponse) -> Self {
-        Self {
-            communication_token: value.communication_token,
-            results: value
-                .results
-                .into_iter()
-                .map(|result| (result.name.clone(), result.into()))
-                .collect(),
-        }
-    }
-}
-
-super::super::impl_convert!(req Response : v3::agent::CreateResultsMetaDataResponse);
+);
