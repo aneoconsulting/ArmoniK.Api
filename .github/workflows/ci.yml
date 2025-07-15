@@ -277,7 +277,9 @@ jobs:
         run: nci
 
       - name: Install Protoc
-        run: sudo apt install -y protobuf-compiler
+        uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
+        with:
+          tool: protoc
 
       - name: Build protos
         run: nr proto:generate:linux
@@ -308,7 +310,9 @@ jobs:
         run: nci
 
       - name: Install Protoc
-        run: sudo apt install -y protobuf-compiler
+        uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
+        with:
+          tool: protoc
 
       - name: Build protos
         run: nr proto:generate:linux
