@@ -13,7 +13,7 @@ pub struct Auth<T> {
 
 impl<T> Auth<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -45,11 +45,15 @@ where
 super::impl_call! {
     Auth {
         async fn call(self, request: current_user::Request) -> Result<current_user::Response> {
-            Ok(self
-                .inner
-                .get_current_user(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_current_user(request),
+                tracing::debug_span!("Auth::current_user")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }

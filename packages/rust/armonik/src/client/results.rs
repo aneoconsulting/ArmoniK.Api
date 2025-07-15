@@ -20,7 +20,7 @@ pub struct Results<T> {
 
 impl<T> Results<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -137,6 +137,7 @@ where
         S: futures::Stream + Send + 'static,
         <S as futures::Stream>::Item: Into<Vec<u8>>,
     {
+        let span = tracing::debug_span!("Results::upload");
         let session_id: String = session_id.into();
         let result_id: String = result_id.into();
 
@@ -149,10 +150,17 @@ where
         let request = request.chain(data.map(|chunk| {
             v3::results::UploadResultDataRequest::from(upload::Request::DataChunk(chunk.into()))
         }));
+        let stream = tracing_futures::Instrument::instrument(
+            request,
+            tracing::trace_span!(parent: &span, "stream"),
+        );
 
-        Ok(self
-            .inner
-            .upload_result_data(request)
+        let call = tracing_futures::Instrument::instrument(
+            self.inner.upload_result_data(stream),
+            tracing::trace_span!(parent: &span, "rpc"),
+        );
+
+        Ok(call
             .await
             .context(super::GrpcSnafu {})?
             .into_inner()
@@ -166,15 +174,18 @@ where
         session_id: impl Into<String>,
         result_id: impl Into<String>,
     ) -> Result<
-        impl futures::Stream<Item = Result<Vec<u8>, super::RequestError>>,
+        impl futures::Stream<Item = Result<Vec<u8>, super::RequestError>> + 'static,
         super::RequestError,
     > {
-        Ok(self
-            .inner
-            .download_result_data(download::Request {
+        let span = tracing::debug_span!("Results::download");
+        let call = tracing_futures::Instrument::instrument(
+            self.inner.download_result_data(download::Request {
                 session_id: session_id.into(),
                 result_id: result_id.into(),
-            })
+            }),
+            tracing::trace_span!(parent: &span, "rpc"),
+        );
+        let stream = call
             .await
             .context(super::GrpcSnafu {})?
             .into_inner()
@@ -182,7 +193,11 @@ where
                 response
                     .map(|response| response.data_chunk)
                     .context(super::GrpcSnafu {})
-            }))
+            });
+        Ok(tracing_futures::Instrument::instrument(
+            stream,
+            tracing::trace_span!(parent: &span, "stream"),
+        ))
     }
 
     /// Delete data from multiple results.
@@ -222,71 +237,99 @@ where
 super::impl_call! {
     Results {
         async fn call(self, request: list::Request) -> Result<list::Response> {
-            Ok(self
-                .inner
-                .list_results(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .list_results(request),
+                tracing::debug_span!("Results::list")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
-            Ok(self
-                .inner
-                .get_result(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_result(request),
+                tracing::debug_span!("Results::get")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get_owner_task_id::Request) -> Result<get_owner_task_id::Response> {
-            Ok(self
-                .inner
-                .get_owner_task_id(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_owner_task_id(request),
+                tracing::debug_span!("Results::get_owner_task_id")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: create_metadata::Request) -> Result<create_metadata::Response> {
-            Ok(self
-                .inner
-                .create_results_meta_data(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .create_results_meta_data(request),
+                tracing::debug_span!("Results::create_metadata")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: create::Request) -> Result<create::Response> {
-            Ok(self
-                .inner
-                .create_results(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .create_results(request),
+                tracing::debug_span!("Results::create")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: delete_data::Request) -> Result<delete_data::Response> {
-            Ok(self
-                .inner
-                .delete_results_data(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .delete_results_data(request),
+                tracing::debug_span!("Results::delete_data")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
 
         async fn call(self, request: get_service_configuration::Request) -> Result<get_service_configuration::Response> {
-            Ok(self
-                .inner
-                .get_service_configuration(request)
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .get_service_configuration(request),
+                tracing::debug_span!("Results::get_service_configuration")
+            );
+            Ok(call
                 .await
-                .context(super::GrpcSnafu {})?
+                .context(super::GrpcSnafu{})?
                 .into_inner()
                 .into())
         }
@@ -305,30 +348,38 @@ super::impl_call! {
 
 impl<T> GrpcCall<download::Request> for &'_ mut Results<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
 {
     type Response =
-        std::pin::Pin<Box<dyn Stream<Item = Result<download::Response, super::RequestError>>>>;
+        futures::stream::BoxStream<'static, Result<download::Response, super::RequestError>>;
     type Error = super::RequestError;
 
     async fn call(self, request: download::Request) -> Result<Self::Response, Self::Error> {
-        Ok(Box::pin(
-            self.inner
-                .download_result_data(request)
-                .await
-                .context(super::GrpcSnafu {})?
-                .into_inner()
-                .map(|response| response.map(Into::into).context(super::GrpcSnafu {})),
+        let span = tracing::debug_span!("Results::download");
+        let call = tracing_futures::Instrument::instrument(
+            self.inner.download_result_data(request),
+            tracing::trace_span!(parent: &span, "rpc"),
+        );
+        let stream = call
+            .await
+            .context(super::GrpcSnafu {})?
+            .into_inner()
+            .map(|response| response.map(Into::into).context(super::GrpcSnafu {}));
+        Ok(futures::stream::StreamExt::boxed(
+            tracing_futures::Instrument::instrument(
+                stream,
+                tracing::trace_span!(parent: &span, "stream"),
+            ),
         ))
     }
 }
 
 impl<T, S> GrpcCallStream<upload::Request, S> for &'_ mut Results<T>
 where
-    T: tonic::client::GrpcService<tonic::body::BoxBody>,
+    T: tonic::client::GrpcService<tonic::body::Body>,
     T::Error: Into<tonic::codegen::StdError>,
     T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
     <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
@@ -338,13 +389,16 @@ where
     type Error = super::RequestError;
 
     async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        Ok(self
-            .inner
-            .upload_result_data(request.map(Into::into))
-            .await
-            .context(super::GrpcSnafu {})?
-            .into_inner()
-            .into())
+        let span = tracing::debug_span!("Results::upload");
+        let stream = tracing_futures::Instrument::instrument(
+            request.map(Into::into),
+            tracing::trace_span!(parent: &span, "stream"),
+        );
+        let call = tracing_futures::Instrument::instrument(
+            self.inner.upload_result_data(stream),
+            tracing::trace_span!(parent: &span, "rpc"),
+        );
+        Ok(call.await.context(super::GrpcSnafu {})?.into_inner().into())
     }
 }
 
