@@ -1,5 +1,5 @@
 // This file is part of the ArmoniK project
-// 
+//
 // Copyright (C) ANEO, 2021-2025. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
@@ -22,28 +22,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace ArmoniK.Api.Common.Utils;
-
 using System;
 
+namespace ArmoniK.Api.Common.Utils;
+
 /// <summary>
-/// Indicates that a class should have its property documentation collected.
+///   Indicates that a class should have its property documentation collected.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class,
                 Inherited = false)]
 public class ExtractDocumentationAttribute : Attribute
 {
   /// <summary>
-  /// Initializes a new instance of the <see cref="ExtractDocumentationAttribute"/> class.
+  ///   Initializes a new instance of the <see cref="ExtractDocumentationAttribute" /> class.
   /// </summary>
   /// <param name="description">An optional description for the attribute, providing context about the class.</param>
   public ExtractDocumentationAttribute(string description = "")
-  {
-    Description = description;
-  }
+    => Description = description;
 
   /// <summary>
-  /// Gets the description of the attribute.
+  ///   Gets the description of the attribute.
   /// </summary>
   public string Description { get; }
 }
