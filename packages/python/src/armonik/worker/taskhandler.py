@@ -103,10 +103,8 @@ class TaskHandler:
                 session_id=self.session_id,
                 communication_token=self.token,
                 task_creations=task_creations,
+                task_options=(default_task_options.to_message() if default_task_options else None),
             )
-
-            if default_task_options:
-                request.task_options = default_task_options.to_message()
 
             submitted_tasks.extend(
                 Task(
