@@ -25,6 +25,7 @@ using System;
 using System.Threading;
 
 using ArmoniK.Api.Client.Submitter;
+using ArmoniK.Api.Common.Utils;
 
 using JetBrains.Annotations;
 
@@ -33,6 +34,7 @@ namespace ArmoniK.Api.Client.Options
   /// <summary>
   ///   Options for creating a gRPC Client with <see cref="GrpcChannelFactory" />
   /// </summary>
+  [ExtractDocumentation("Grpc Client Options")]
   [PublicAPI]
   public class GrpcClient
   {
