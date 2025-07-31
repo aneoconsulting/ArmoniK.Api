@@ -142,15 +142,12 @@ public class WorkerServerTest
 
     var computePlane = app.Services.GetRequiredService<ComputePlane>();
 
-    Assert.AreEqual(computePlane.WorkerChannel.KeepAliveTimeOut,
-                    TimeSpan.MaxValue);
-    Assert.AreEqual(computePlane.WorkerChannel.KeepAliveTimeOut,
-                    TimeSpan.MaxValue);
-
-    Assert.AreEqual(computePlane.AgentChannel.KeepAliveTimeOut,
-                    TimeSpan.FromSeconds(100));
-    Assert.AreEqual(computePlane.AgentChannel.KeepAlivePingTimeOut,
-                    TimeSpan.FromSeconds(5));
+    Assert.That(computePlane.WorkerChannel.KeepAliveTimeOut,
+                Is.EqualTo(TimeSpan.MaxValue));
+    Assert.That(computePlane.AgentChannel.KeepAliveTimeOut,
+                Is.EqualTo(TimeSpan.FromSeconds(100)));
+    Assert.That(computePlane.AgentChannel.KeepAlivePingTimeOut,
+                Is.EqualTo(TimeSpan.FromSeconds(5)));
 
     return Task.CompletedTask;
   }

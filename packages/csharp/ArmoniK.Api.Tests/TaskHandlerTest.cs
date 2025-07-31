@@ -104,10 +104,11 @@ public class TaskHandlerTest
   {
     var agent = new MyAgent();
 
-    Assert.Throws<InvalidOperationException>(() => new TaskHandler(request,
-                                                                   agent,
-                                                                   new LoggerFactory(),
-                                                                   CancellationToken.None));
+    Assert.That(() => new TaskHandler(request,
+                                      agent,
+                                      new LoggerFactory(),
+                                      CancellationToken.None),
+                Throws.InstanceOf<InvalidOperationException>());
   }
 
   public static IEnumerable InvalidRequests
@@ -173,22 +174,23 @@ public class TaskHandlerTest
                                   new LoggerFactory(),
                                   CancellationToken.None);
 
-    Assert.ThrowsAsync<NotImplementedException>(() => handler.SendResult(eok1,
-                                                                         eok1Bytes));
+    Assert.That(() => handler.SendResult(eok1,
+                                         eok1Bytes),
+                Throws.InstanceOf<NotImplementedException>());
 
     Assert.Multiple(() =>
                     {
-                      Assert.AreEqual(payloadBytes,
-                                      handler.Payload);
-                      Assert.AreEqual(sessionId,
-                                      handler.SessionId);
-                      Assert.AreEqual(taskId,
-                                      handler.TaskId);
-                      Assert.AreEqual(dd1Bytes,
-                                      handler.DataDependencies[dd1]);
-                      Assert.AreEqual(eok1Bytes,
-                                      File.ReadAllBytes(Path.Combine(folder,
-                                                                     eok1)));
+                      Assert.That(handler.Payload,
+                                  Is.EqualTo(payloadBytes));
+                      Assert.That(handler.SessionId,
+                                  Is.EqualTo(sessionId));
+                      Assert.That(handler.TaskId,
+                                  Is.EqualTo(taskId));
+                      Assert.That(handler.DataDependencies[dd1],
+                                  Is.EqualTo(dd1Bytes));
+                      Assert.That(File.ReadAllBytes(Path.Combine(folder,
+                                                                 eok1)),
+                                  Is.EqualTo(eok1Bytes));
                     });
   }
 }
