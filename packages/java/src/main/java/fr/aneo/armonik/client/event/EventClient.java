@@ -1,27 +1,24 @@
-package armonik.client.event;
+package fr.aneo.armonik.client.event;
 
-import static armonik.api.grpc.v1.events.EventsCommon.EventsEnum.EVENTS_ENUM_NEW_RESULT;
-import static armonik.api.grpc.v1.events.EventsCommon.EventsEnum.EVENTS_ENUM_RESULT_STATUS_UPDATE;
-import static armonik.api.grpc.v1.results.ResultsFields.ResultRawEnumField.RESULT_RAW_ENUM_FIELD_RESULT_ID;
+import fr.aneo.armonik.api.grpc.v1.FiltersCommon;
+import fr.aneo.armonik.api.grpc.v1.events.EventsCommon.EventSubscriptionRequest;
+import fr.aneo.armonik.api.grpc.v1.events.EventsCommon.EventSubscriptionResponse;
+import fr.aneo.armonik.api.grpc.v1.events.EventsGrpc;
+import fr.aneo.armonik.api.grpc.v1.results.ResultStatusOuterClass.ResultStatus;
+import fr.aneo.armonik.api.grpc.v1.results.ResultsFields;
+import fr.aneo.armonik.api.grpc.v1.results.ResultsFilters;
+import io.grpc.ManagedChannel;
+import io.grpc.stub.StreamObserver;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import armonik.api.grpc.v1.FiltersCommon;
-import armonik.api.grpc.v1.events.EventsCommon.EventSubscriptionRequest;
-import armonik.api.grpc.v1.events.EventsCommon.EventSubscriptionResponse;
-import armonik.api.grpc.v1.events.EventsGrpc;
-import armonik.api.grpc.v1.result_status.ResultStatusOuterClass.ResultStatus;
-import armonik.api.grpc.v1.results.ResultsFields;
-import armonik.api.grpc.v1.results.ResultsFilters;
-import io.grpc.ManagedChannel;
-import io.grpc.stub.StreamObserver;
+
+import static fr.aneo.armonik.api.grpc.v1.events.EventsCommon.EventsEnum.EVENTS_ENUM_NEW_RESULT;
+import static fr.aneo.armonik.api.grpc.v1.events.EventsCommon.EventsEnum.EVENTS_ENUM_RESULT_STATUS_UPDATE;
+import static fr.aneo.armonik.api.grpc.v1.results.ResultsFields.ResultRawEnumField.RESULT_RAW_ENUM_FIELD_RESULT_ID;
 
 /**
  * EventClient is a client for interacting with event-related functionalities.

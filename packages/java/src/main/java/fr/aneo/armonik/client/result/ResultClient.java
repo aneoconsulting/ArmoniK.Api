@@ -1,27 +1,19 @@
-package armonik.client.result;
+package fr.aneo.armonik.client.result;
+
+import com.google.protobuf.ByteString;
+import fr.aneo.armonik.api.grpc.v1.Objects;
+import fr.aneo.armonik.api.grpc.v1.results.ResultsCommon.*;
+import fr.aneo.armonik.api.grpc.v1.results.ResultsCommon.GetOwnerTaskIdResponse.MapResultTask;
+import fr.aneo.armonik.api.grpc.v1.results.ResultsCommon.ListResultsRequest.Sort;
+import fr.aneo.armonik.api.grpc.v1.results.ResultsFilters.Filters;
+import fr.aneo.armonik.api.grpc.v1.results.ResultsGrpc;
+import io.grpc.ManagedChannel;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import com.google.protobuf.ByteString;
-
-import armonik.api.grpc.v1.Objects;
-import armonik.api.grpc.v1.results.ResultsCommon.CreateResultsMetaDataRequest;
-import armonik.api.grpc.v1.results.ResultsCommon.CreateResultsRequest;
-import armonik.api.grpc.v1.results.ResultsCommon.DownloadResultDataRequest;
-import armonik.api.grpc.v1.results.ResultsCommon.DownloadResultDataResponse;
-import armonik.api.grpc.v1.results.ResultsCommon.GetOwnerTaskIdRequest;
-import armonik.api.grpc.v1.results.ResultsCommon.GetOwnerTaskIdResponse.MapResultTask;
-import armonik.api.grpc.v1.results.ResultsCommon.GetResultRequest;
-import armonik.api.grpc.v1.results.ResultsCommon.ListResultsRequest;
-import armonik.api.grpc.v1.results.ResultsCommon.ListResultsRequest.Sort;
-import armonik.api.grpc.v1.results.ResultsCommon.ResultRaw;
-import armonik.api.grpc.v1.results.ResultsFilters.Filters;
-import armonik.api.grpc.v1.results.ResultsGrpc;
-import io.grpc.ManagedChannel;
 
 /**
  * ResultClient provides methods for interacting with result-related

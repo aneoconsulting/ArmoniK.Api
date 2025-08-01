@@ -9,6 +9,7 @@ import "results_filters.proto";
 import "sort_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
+option java_package = "fr.aneo.armonik.api.grpc.v1.results";
 
 /**
  * A raw result object.

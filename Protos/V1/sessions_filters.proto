@@ -7,6 +7,7 @@ import "session_status.proto";
 import "sessions_fields.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
+option java_package = "fr.aneo.armonik.api.grpc.v1.sessions";
 
 message FilterStatus {
   session_status.SessionStatus value = 1;

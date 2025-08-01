@@ -1,4 +1,17 @@
-package armonik.worker;
+package fr.aneo.armonik.worker;
+
+import fr.aneo.armonik.api.grpc.v1.Objects.Empty;
+import fr.aneo.armonik.api.grpc.v1.Objects.Output;
+import fr.aneo.armonik.api.grpc.v1.agent.AgentGrpc;
+import fr.aneo.armonik.api.grpc.v1.worker.WorkerCommon.HealthCheckReply;
+import fr.aneo.armonik.api.grpc.v1.worker.WorkerCommon.HealthCheckReply.ServingStatus;
+import fr.aneo.armonik.api.grpc.v1.worker.WorkerCommon.ProcessReply;
+import fr.aneo.armonik.api.grpc.v1.worker.WorkerCommon.ProcessRequest;
+import fr.aneo.armonik.api.grpc.v1.worker.WorkerGrpc;
+import fr.aneo.armonik.worker.taskhandlers.FutureTaskHandler;
+import io.grpc.ManagedChannel;
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.grpc.stub.StreamObserver;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -6,19 +19,6 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
-import armonik.api.grpc.v1.Objects.Empty;
-import armonik.api.grpc.v1.Objects.Output;
-import armonik.api.grpc.v1.agent.AgentGrpc;
-import armonik.api.grpc.v1.worker.WorkerCommon.HealthCheckReply;
-import armonik.api.grpc.v1.worker.WorkerCommon.HealthCheckReply.ServingStatus;
-import armonik.api.grpc.v1.worker.WorkerCommon.ProcessReply;
-import armonik.api.grpc.v1.worker.WorkerCommon.ProcessRequest;
-import armonik.api.grpc.v1.worker.WorkerGrpc;
-import armonik.worker.taskhandlers.FutureTaskHandler;
-import io.grpc.ManagedChannel;
-import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
-import io.grpc.stub.StreamObserver;
 
 /**
  * FutureWorker is a gRPC worker implementation that processes requests
