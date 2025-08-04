@@ -238,8 +238,8 @@ jobs:
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
       - name: Publish package
         run: |
-          mvn versions:set -DnewVersion=${{ needs.version.outputs.version }}
-          mvn --batch-mode -Pci-release deploy -DskipTests
+          ./mvnw versions:set -DnewVersion=${{ needs.version.outputs.version }}
+          ./mvnw --batch-mode -Pci-release deploy -DskipTests
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}

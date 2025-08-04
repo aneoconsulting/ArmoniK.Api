@@ -224,7 +224,7 @@ jobs:
       - name: Publish package
         run: |
           cd packages/java
-          mvn --batch-mode -Pci-release deploy -DskipTests
+          ./mvnw --batch-mode -Pci-release deploy -DskipTests
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
