@@ -1,0 +1,7 @@
+{
+  "user": {
+    "username": "admin",
+    "roles": ["admin"],
+    "permissions": ["all"]
+  }
+}

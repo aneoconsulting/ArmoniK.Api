@@ -1,0 +1,11 @@
+loglevel: debug
+monitoring:
+  port: 5555
+protocols:
+  grpc:
+    enable: true
+    port: 4312
+    host: 0.0.0.0
+    grpc_tls: false
+    mocks_dir: /app/grpc/mocks
+    protos_dir: /app/grpc/protos
