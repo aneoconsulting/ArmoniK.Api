@@ -8,6 +8,7 @@ import "task_status.proto";
 import "tasks_filters.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
+option java_package = "fr.aneo.armonik.api.grpc.v1.events";
 
 /**
  * Represents the events that can be returned in the EventSubscriptionResponse

@@ -14,6 +14,7 @@ import "sessions_filters.proto";
 import "sort_direction.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
+option java_package = "fr.aneo.armonik.api.grpc.v1.sessions";
 
 /**
  * A raw session object.

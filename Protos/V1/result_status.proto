@@ -3,6 +3,7 @@ syntax = "proto3";
 package armonik.api.grpc.v1.result_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+option java_package = "fr.aneo.armonik.api.grpc.v1.results";
 
 enum ResultStatus {
   RESULT_STATUS_UNSPECIFIED = 0; /** Result is in an unspecified state. */

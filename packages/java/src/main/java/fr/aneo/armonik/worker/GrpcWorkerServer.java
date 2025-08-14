@@ -1,14 +1,14 @@
-package armonik.worker;
+package fr.aneo.armonik.worker;
+
+import io.grpc.BindableService;
+import io.grpc.Server;
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-
-import io.grpc.BindableService;
-import io.grpc.Server;
-import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 
 public class GrpcWorkerServer {
     private static final Logger logger = Logger.getLogger(GrpcWorkerServer.class.getName());

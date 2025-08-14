@@ -17,6 +17,7 @@ package armonik.api.grpc.v1.events;
 import "events_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
+option java_package = "fr.aneo.armonik.api.grpc.v1.events";
 
 /**
  * Service for subscribing to events representing modifications to ArmoniK result and task data

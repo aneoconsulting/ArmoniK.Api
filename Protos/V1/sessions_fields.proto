@@ -3,6 +3,7 @@ syntax = "proto3";
 package armonik.api.grpc.v1.sessions;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Sessions";
+option java_package = "fr.aneo.armonik.api.grpc.v1.sessions";
 
 /**
  * Represents every available field in a session raw.
