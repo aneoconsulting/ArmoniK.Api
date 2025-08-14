@@ -4,7 +4,7 @@ monitoring:
 ssl:
   cert: /app/certs/server.cert
   key: /app/certs/server.key
-  root_cert: /app/certs/server.cert
+  root_cert: /app/certs/ca.cert
   client_cert_required: true
 
 protocols:
