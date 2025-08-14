@@ -6,6 +6,7 @@ import "applications_fields.proto";
 import "filters_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
+option java_package = "fr.aneo.armonik.api.grpc.v1.applications";
 
 message FilterField {
   ApplicationField field = 1;

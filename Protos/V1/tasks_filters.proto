@@ -7,6 +7,7 @@ import "task_status.proto";
 import "tasks_fields.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
+option java_package = "fr.aneo.armonik.api.grpc.v1.tasks";
 
 message FilterStatus {
   task_status.TaskStatus value = 1;

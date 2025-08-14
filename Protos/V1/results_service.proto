@@ -6,6 +6,7 @@ import "objects.proto";
 import "results_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Results";
+option java_package = "fr.aneo.armonik.api.grpc.v1.results";
 
 /**
  * The ResultsService provides methods for interacting with results

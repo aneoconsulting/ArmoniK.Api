@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>fr.aneo</groupId>
+    <artifactId>armonik-api-parent</artifactId>
+    <version>3.26.1</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>armonik-worker-api</artifactId>
+  <packaging>jar</packaging>
+
+  <name>Armonik Worker API</name>
+  <description>GRPC java binding for the Armonik orchestrator API</description>
+  <url>https://github.com/aneoconsulting/ArmoniK.Api</url>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <configuration>
+          <includes>
+            <include>agent_service.proto</include>
+            <exclude>agent_common.proto</exclude>
+            <exclude>filters_common.proto</exclude>
+            <exclude>objects.proto</exclude>
+            <exclude>result_status.proto</exclude>
+            <exclude>results_common.proto</exclude>
+            <exclude>results_fields.proto</exclude>
+            <exclude>results_filters.proto</exclude>
+            <exclude>results_services.proto</exclude>
+            <exclude>sort_direction.proto</exclude>
+            <exclude>task_status.proto</exclude>
+            <include>worker_service.proto</include>
+            <exclude>worker_common.proto</exclude>
+          </includes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

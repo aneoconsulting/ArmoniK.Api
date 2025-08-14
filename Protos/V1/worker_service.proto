@@ -6,6 +6,7 @@ import "objects.proto";
 import "worker_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Worker";
+option java_package = "fr.aneo.armonik.api.grpc.v1.worker";
 
 service Worker {
   rpc Process(ProcessRequest) returns (ProcessReply);

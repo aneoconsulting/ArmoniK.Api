@@ -6,6 +6,7 @@ syntax = "proto3";
 package armonik.api.grpc.v1.session_status;
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+option java_package = "fr.aneo.armonik.api.grpc.v1.sessions";
 
 /**
  * Session status.

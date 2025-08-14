@@ -1,31 +1,21 @@
-package armonik.worker.taskhandlers;
+package fr.aneo.armonik.worker.taskhandlers;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.ProtocolStringList;
+import fr.aneo.armonik.api.grpc.v1.Objects;
+import fr.aneo.armonik.api.grpc.v1.Objects.TaskOptions;
+import fr.aneo.armonik.api.grpc.v1.agent.AgentCommon;
+import fr.aneo.armonik.api.grpc.v1.agent.AgentCommon.*;
+import fr.aneo.armonik.api.grpc.v1.agent.AgentCommon.CreateResultsRequest.ResultCreate;
+import fr.aneo.armonik.api.grpc.v1.agent.AgentCommon.SubmitTasksRequest.TaskCreation;
+import fr.aneo.armonik.api.grpc.v1.agent.AgentGrpc;
+import fr.aneo.armonik.api.grpc.v1.worker.WorkerCommon.ProcessRequest;
+
+import java.io.*;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ProtocolStringList;
-
-import armonik.api.grpc.v1.Objects;
-import armonik.api.grpc.v1.Objects.TaskOptions;
-import armonik.api.grpc.v1.agent.AgentCommon;
-import armonik.api.grpc.v1.agent.AgentCommon.CreateResultsMetaDataRequest;
-import armonik.api.grpc.v1.agent.AgentCommon.CreateResultsMetaDataResponse;
-import armonik.api.grpc.v1.agent.AgentCommon.CreateResultsRequest.ResultCreate;
-import armonik.api.grpc.v1.agent.AgentCommon.CreateResultsResponse;
-import armonik.api.grpc.v1.agent.AgentCommon.NotifyResultDataRequest;
-import armonik.api.grpc.v1.agent.AgentCommon.NotifyResultDataResponse;
-import armonik.api.grpc.v1.agent.AgentCommon.SubmitTasksRequest.TaskCreation;
-import armonik.api.grpc.v1.agent.AgentCommon.SubmitTasksResponse;
-import armonik.api.grpc.v1.agent.AgentGrpc;
-import armonik.api.grpc.v1.worker.WorkerCommon.ProcessRequest;
 
 /**
  * FutureTaskHandler is responsible for handling tasks asynchronously in a gRPC

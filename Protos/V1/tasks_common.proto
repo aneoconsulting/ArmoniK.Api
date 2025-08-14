@@ -14,6 +14,7 @@ import "tasks_fields.proto";
 import "tasks_filters.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Tasks";
+option java_package = "fr.aneo.armonik.api.grpc.v1.tasks";
 
 /**
  * A raw task object.

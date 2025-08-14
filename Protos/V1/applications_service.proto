@@ -8,6 +8,7 @@ package armonik.api.grpc.v1.applications;
 import "applications_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Applications";
+option java_package = "fr.aneo.armonik.api.grpc.v1.applications";
 
 /**
  * Service for handling applications.

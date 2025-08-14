@@ -6,6 +6,7 @@ import "filters_common.proto";
 import "partitions_fields.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Partitions";
+option java_package = "fr.aneo.armonik.api.grpc.v1.partitions";
 
 message FilterField {
   PartitionField field = 1;

@@ -5,6 +5,7 @@ package armonik.api.grpc.v1.agent;
 import "agent_common.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Agent";
+option java_package = "fr.aneo.armonik.api.grpc.v1.agent";
 
 service Agent {
   rpc CreateTask(stream CreateTaskRequest) returns (CreateTaskReply);

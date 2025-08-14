@@ -6,6 +6,7 @@ import "google/protobuf/duration.proto";
 import "task_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1";
+option java_package = "fr.aneo.armonik.api.grpc.v1";
 
 message Empty {}
 
