@@ -14,7 +14,7 @@ export const cppPattern = /set\(version (?<version>.*)\)/
 export const cppFiles = ['packages/cpp/CMakeLists.txt']
 
 export const javaPattern = /<version>(?<version>.*)<\/version>/
-export const javaFiles = ['packages/java/pom.xml']
+export const javaFiles = ['packages/java/pom.xml', 'packages/java/armonik-client-api/pom.xml', 'packages/java/armonik-worker-api/pom.xml']
 
 export const rustPattern = /^version\s*=\s*"(?<version>.*?)(?:-beta-\d+)?"$/m
 export const rustFiles = ['packages/rust/armonik/Cargo.toml']
