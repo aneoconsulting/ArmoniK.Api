@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Optional, Dict, List, Union, KeysView
 
 from ..common import TaskOptions, TaskDefinition, Result, Task
@@ -9,6 +10,8 @@ from ..common.helpers import batched
 from ..protogen.common.agent_common_pb2 import (
     CreateResultsMetaDataRequest,
     CreateResultsMetaDataResponse,
+    DataRequest,
+    DataResponse,
     NotifyResultDataRequest,
     CreateResultsRequest,
     CreateResultsResponse,
@@ -194,3 +197,24 @@ class TaskHandler:
             for message in response.results:
                 results[message.name] = Result.from_result_metadata(message)
         return results
+
+    def get_resource_data(self, result_id: str) -> Path:
+        """
+        Retrieves an object from ArmoniK's object storage to the local worker
+        .
+        Args:
+            result_id (str): The ID of the result to retrieve
+
+        Returns:
+            Path: The local path where the object is/would be stored (it's on the user to check if it exists after this operation.)
+        """
+        data_request = DataRequest(communication_token=self.task_handler.token, result_id=result_id)
+
+        # GetResourceData downloads the file directly to object_path
+        data_response: DataResponse = self.task_handler._client.GetResourceData(data_request)
+
+        result_path = (
+            Path("/cache/shared/") / Path(self.task_handler.token) / Path(data_response.result_id)
+        )
+
+        return result_path
