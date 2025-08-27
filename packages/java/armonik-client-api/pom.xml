@@ -60,7 +60,9 @@
         <configuration>
           <excludes>
             <exclude>worker_service.proto</exclude>
+            <exclude>agent_common.proto</exclude>
             <exclude>agent_service.proto</exclude>
+            <exclude>worker_common.proto</exclude>
           </excludes>
         </configuration>
       </plugin>
