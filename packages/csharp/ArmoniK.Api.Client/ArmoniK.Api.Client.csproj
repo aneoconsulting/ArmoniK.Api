@@ -28,7 +28,7 @@
   <ItemGroup>
     <PackageReference Include="Grpc.Net.Client.Web" Version="2.71.0" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
-    <PackageReference Include="JetBrains.Annotations" Version="2025.2.0" />
+    <PackageReference Include="JetBrains.Annotations" Version="2025.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="System.Linq.Async" Version="6.0.3" />
