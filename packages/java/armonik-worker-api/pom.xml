@@ -26,18 +26,14 @@
         <configuration>
           <includes>
             <include>agent_service.proto</include>
-            <exclude>agent_common.proto</exclude>
-            <exclude>filters_common.proto</exclude>
-            <exclude>objects.proto</exclude>
-            <exclude>result_status.proto</exclude>
-            <exclude>results_common.proto</exclude>
-            <exclude>results_fields.proto</exclude>
-            <exclude>results_filters.proto</exclude>
-            <exclude>results_services.proto</exclude>
-            <exclude>sort_direction.proto</exclude>
-            <exclude>task_status.proto</exclude>
+            <include>agent_common.proto</include>
             <include>worker_service.proto</include>
-            <exclude>worker_common.proto</exclude>
+            <include>worker_common.proto</include>
+            <include>health_checks_service.proto</include>
+            <include>health_checks_common.proto</include>
+            <include>objects.proto</include>
+            <include>result_status.proto</include>
+            <include>task_status.proto</include>
           </includes>
         </configuration>
       </plugin>

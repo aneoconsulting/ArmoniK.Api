@@ -18,6 +18,40 @@
   <description>gRPC java binding for the Armonik orchestrator API</description>
   <url>https://github.com/aneoconsulting/ArmoniK.Api</url>
 
+  <properties>
+    <testcontainers.version>1.21.3</testcontainers.version>
+    <assertj-core.version>3.25.3</assertj-core.version>
+  </properties>
+
+  <dependencies>
+    <!-- Test dependencies -->
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj-core.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>${testcontainers.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcpkix-jdk18on</artifactId>
+      <version>1.78.1</version>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
   <build>
     <plugins>
       <plugin>
@@ -26,7 +60,9 @@
         <configuration>
           <excludes>
             <exclude>worker_service.proto</exclude>
+            <exclude>agent_common.proto</exclude>
             <exclude>agent_service.proto</exclude>
+            <exclude>worker_common.proto</exclude>
           </excludes>
         </configuration>
       </plugin>
