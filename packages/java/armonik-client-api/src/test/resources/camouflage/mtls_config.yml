@@ -1,0 +1,17 @@
+loglevel: debug
+monitoring:
+  port: 5555
+ssl:
+  cert: /app/certs/server.cert
+  key: /app/certs/server.key
+  root_cert: /app/certs/ca.cert
+  client_cert_required: true
+
+protocols:
+  grpc:
+    enable: true
+    port: 4312
+    host: 0.0.0.0
+    grpc_tls: true
+    mocks_dir: /app/grpc/mocks
+    protos_dir: /app/grpc/protos
