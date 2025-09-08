@@ -25,11 +25,14 @@ using System;
 
 using JetBrains.Annotations;
 
+using ArmoniK.Utils.DocAttribute;
+
 namespace ArmoniK.Api.Common.Options;
 
 /// <summary>
 ///   Options to configure a channel from gRPC
 /// </summary>
+[ExtractDocumentation("Options for GrpcChannel")]
 [PublicAPI]
 public class GrpcChannel
 {

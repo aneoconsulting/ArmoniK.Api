@@ -23,13 +23,17 @@
 
 using System;
 
+using ArmoniK.Utils.DocAttribute;
+
 using JetBrains.Annotations;
+
 
 namespace ArmoniK.Api.Common.Options;
 
 /// <summary>
 ///   Options to configure the connections between Worker and Agent
 /// </summary>
+[ExtractDocumentation("Options for ComputePlane")]
 [PublicAPI]
 public class ComputePlane
 {
