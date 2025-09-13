@@ -20,7 +20,7 @@
 
   <properties>
     <testcontainers.version>1.21.3</testcontainers.version>
-    <assertj-core.version>3.25.3</assertj-core.version>
+    <assertj-core.version>3.27.4</assertj-core.version>
   </properties>
 
   <dependencies>
@@ -46,7 +46,7 @@
     <dependency>
       <groupId>org.bouncycastle</groupId>
       <artifactId>bcpkix-jdk18on</artifactId>
-      <version>1.78.1</version>
+      <version>1.81</version>
       <scope>test</scope>
     </dependency>
 
