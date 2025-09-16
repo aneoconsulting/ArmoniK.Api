@@ -42,7 +42,8 @@ armonik::api::worker::TaskHandler::TaskHandler(Agent::Stub &client, const Proces
   string_stream
       << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, payload_id), std::fstream::binary).rdbuf();
   payload_ = string_stream.str();
-  string_stream.clear();
+  // string_stream.clear();
+  string_stream.str("");
   config_ = request_.configuration();
   expected_result_.assign(request_.expected_output_keys().begin(), request_.expected_output_keys().end());
 
@@ -51,7 +52,8 @@ armonik::api::worker::TaskHandler::TaskHandler(Agent::Stub &client, const Proces
     string_stream
         << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, dd), std::fstream::binary).rdbuf();
     data_dependencies_[dd] = string_stream.str();
-    string_stream.clear();
+    // string_stream.clear();
+    string_stream.str("");
   }
 }
 
