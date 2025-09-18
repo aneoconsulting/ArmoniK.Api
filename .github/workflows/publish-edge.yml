@@ -217,30 +217,48 @@ jobs:
       # TODO Upload to a more permanent storage
 
   release-java-package:
-    needs: [version]
+    needs: [genversion]
     if: github.actor != 'renovate[bot]' && github.repository_owner == 'aneoconsulting'
-    name: Release Java Package
+    name: Publish Java SNAPSHOT to GitHub Packages
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     defaults:
       run:
         working-directory: packages/java
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - name: Set up Maven Central Repository
-        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4
+      - uses: actions/checkout@v4
         with:
-          java-version: '17'
+          fetch-depth: 0
+
+      - name: Set up Java + GitHub Packages server
+        uses: actions/setup-java@v4
+        with:
           distribution: temurin
-          server-id: central
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD
-          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
-          gpg-passphrase: MAVEN_GPG_PASSPHRASE
-      - name: Publish package
+          java-version: '17'
+          cache: maven
+          server-id: github # must match <distributionManagement>/<snapshotRepository>/<id>
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Compute SNAPSHOT version
+        id: setsnapshot
         run: |
-          ./mvnw versions:set -DnewVersion=${{ needs.version.outputs.version }}
-          ./mvnw --batch-mode -Pci-release deploy -DskipTests
+          VER='${{ needs.genversion.outputs.version }}'
+          case "$VER" in
+            *-SNAPSHOT) SNAPSHOT_VERSION="$VER" ;;
+            *) SNAPSHOT_VERSION="${VER}-SNAPSHOT" ;;
+          esac
+          echo "version=$SNAPSHOT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy SNAPSHOT to GitHub Packages
+        run: |
+          ./mvnw -B -ntp versions:set -DnewVersion="${{ steps.setsnapshot.outputs.version }}" -DgenerateBackupPoms=false
+          ./mvnw -B -ntp -DskipTests deploy
         env:
-          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_SIGNING_KEY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "Published version: ${{ steps.setsnapshot.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
