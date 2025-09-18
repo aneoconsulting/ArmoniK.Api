@@ -75,6 +75,13 @@
       "matchDatasources": [
         "github-tags"
       ]
+    },
+    {
+      "groupName": "java maven packages",
+      "groupSlug": "java-maven",
+      "matchManagers": ["maven"],
+      "matchPaths": ["packages/java/**"],
+      "separateMajorMinor": true
     }
   ]
 }
