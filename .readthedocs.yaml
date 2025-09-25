@@ -32,6 +32,7 @@ build:
       - sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
       # Set up .NET environment
       - PATH="$PATH":"$HOME/.dotnet/tools" scripts/generate-csharp-doc.sh
+      - PATH="$PATH":"$HOME/.dotnet/tools" scripts/generate-envvars-doc.sh
 
 # Move anchors out of the titles
 # Build documentation in the ".docs/" directory with Sphinx
