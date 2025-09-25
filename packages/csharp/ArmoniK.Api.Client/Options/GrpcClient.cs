@@ -25,7 +25,6 @@ using System;
 using System.Threading;
 
 using ArmoniK.Api.Client.Submitter;
-
 using ArmoniK.Utils.DocAttribute;
 
 using JetBrains.Annotations;

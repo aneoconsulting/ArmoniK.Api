@@ -23,9 +23,9 @@
 
 using System;
 
-using JetBrains.Annotations;
-
 using ArmoniK.Utils.DocAttribute;
+
+using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Common.Options;
 
