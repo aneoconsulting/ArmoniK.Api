@@ -19,14 +19,14 @@ ArmoniK.Api documentation
    :maxdepth: 3
    :caption: Packages
    :glob:
-      
+
    content/guide/packages/index.md
    content/guide/packages/c-sharp.md
    content/guide/packages/python.md
    content/guide/packages/web.md
    content/guide/packages/angular.md
 
-   
+
 .. toctree::
    :maxdepth: 3
    :caption: Usage
@@ -34,6 +34,7 @@ ArmoniK.Api documentation
 
    content/usage/use-armonik-api-in-an-angular-app.md
    content/usage/use-armonik-grpc-securely-python.md
+   content/usage/envars/index.rst
 
 .. toctree::
    :maxdepth: 3

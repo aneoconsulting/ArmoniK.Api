@@ -21,11 +21,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using ArmoniK.Utils.DocAttribute;
+
 namespace ArmoniK.Api.Common.Options;
 
 /// <summary>
 ///   Type of connection used between Worker and Agent
 /// </summary>
+[ExtractDocumentation("Grpc Socket type")]
 public enum GrpcSocketType
 {
   /// <summary>
