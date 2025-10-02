@@ -19,12 +19,12 @@
   ],
   "sideEffects": false,
   "peerDependencies": {
-    "@angular/common": "^18.2.1",
-    "@angular/core": "^18.2.1",
+    "@angular/common": "^20.3.3",
+    "@angular/core": "^20.3.3",
     "@ngx-grpc/common": "^3.1.2",
     "@ngx-grpc/core": "^3.1.2",
     "@ngx-grpc/well-known-types": "^3.1.2",
-    "google-protobuf": "^3.21.2",
+    "google-protobuf": "^4.0.0",
     "rxjs": "~7.8.1"
   },
   "dependencies": {
