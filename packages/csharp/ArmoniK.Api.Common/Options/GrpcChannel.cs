@@ -23,6 +23,8 @@
 
 using System;
 
+using ArmoniK.Utils.DocAttribute;
+
 using JetBrains.Annotations;
 
 namespace ArmoniK.Api.Common.Options;
@@ -30,6 +32,7 @@ namespace ArmoniK.Api.Common.Options;
 /// <summary>
 ///   Options to configure a channel from gRPC
 /// </summary>
+[ExtractDocumentation("Options for GrpcChannel")]
 [PublicAPI]
 public class GrpcChannel
 {
