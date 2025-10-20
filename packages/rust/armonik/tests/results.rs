@@ -84,15 +84,12 @@ impl armonik::server::ResultsService for Service {
                     .results
                     .into_iter()
                     .map(|item| {
-                        (
-                            item.name.clone(),
                             results::Raw {
                                 session_id: request.session_id.clone(),
                                 result_id: String::from("rpc-create-metadata-output"),
                                 name: item.name,
                                 ..Default::default()
-                            },
-                        )
+                            }
                     })
                     .collect(),
             })
@@ -111,15 +108,12 @@ impl armonik::server::ResultsService for Service {
                     .results
                     .into_iter()
                     .map(|item| {
-                        (
-                            item.name.clone(),
                             results::Raw {
                                 session_id: request.session_id.clone(),
                                 result_id: String::from("rpc-create-output"),
                                 name: item.name,
                                 ..Default::default()
-                            },
-                        )
+                            }
                     })
                     .collect(),
             })
@@ -346,7 +340,7 @@ async fn create_metadata() {
         .unwrap();
 
     assert_eq!(
-        response["rpc-create-metadata-input"].result_id,
+        response[0].result_id,
         "rpc-create-metadata-output"
     );
 }
@@ -368,7 +362,7 @@ async fn create() {
         .await
         .unwrap();
 
-    assert_eq!(response["rpc-create-input"].result_id, "rpc-create-output");
+    assert_eq!(response[0].result_id, "rpc-create-output");
 }
 
 #[tokio::test]
@@ -381,7 +375,7 @@ async fn import() {
         .await
         .unwrap();
 
-    assert_eq!(response["rpc-import-input"].result_id, "rpc-import-input");
+    assert_eq!(response["rpc-import-input"].result_id, "rpc-create-output");
     assert_eq!(
         response["rpc-import-input"].opaque_id,
         "opaque-id".as_bytes()
