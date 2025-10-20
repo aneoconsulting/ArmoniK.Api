@@ -83,13 +83,11 @@ impl armonik::server::ResultsService for Service {
                 results: request
                     .results
                     .into_iter()
-                    .map(|item| {
-                            results::Raw {
-                                session_id: request.session_id.clone(),
-                                result_id: String::from("rpc-create-metadata-output"),
-                                name: item.name,
-                                ..Default::default()
-                            }
+                    .map(|item| results::Raw {
+                        session_id: request.session_id.clone(),
+                        result_id: String::from("rpc-create-metadata-output"),
+                        name: item.name,
+                        ..Default::default()
                     })
                     .collect(),
             })
@@ -107,13 +105,11 @@ impl armonik::server::ResultsService for Service {
                 results: request
                     .results
                     .into_iter()
-                    .map(|item| {
-                            results::Raw {
-                                session_id: request.session_id.clone(),
-                                result_id: String::from("rpc-create-output"),
-                                name: item.name,
-                                ..Default::default()
-                            }
+                    .map(|item| results::Raw {
+                        session_id: request.session_id.clone(),
+                        result_id: String::from("rpc-create-output"),
+                        name: item.name,
+                        ..Default::default()
                     })
                     .collect(),
             })
@@ -339,10 +335,7 @@ async fn create_metadata() {
         .await
         .unwrap();
 
-    assert_eq!(
-        response[0].result_id,
-        "rpc-create-metadata-output"
-    );
+    assert_eq!(response[0].result_id, "rpc-create-metadata-output");
 }
 
 #[tokio::test]

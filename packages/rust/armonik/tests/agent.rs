@@ -24,14 +24,12 @@ impl armonik::server::AgentService for Service {
             Ok(agent::create_results_metadata::Response {
                 communication_token: request.communication_token,
                 results: request
-                .results
+                    .results
                     .into_iter()
-                    .map(|request| {
-                            agent::ResultMetaData {
-                                session_id: String::from("rpc-create-results-metadata-output"),
-                                name: request.name,
-                                ..Default::default()
-                            }
+                    .map(|request| agent::ResultMetaData {
+                        session_id: String::from("rpc-create-results-metadata-output"),
+                        name: request.name,
+                        ..Default::default()
                     })
                     .collect(),
             })
