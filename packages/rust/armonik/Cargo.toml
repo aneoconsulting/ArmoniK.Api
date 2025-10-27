@@ -22,17 +22,17 @@ _gen-client = ["tonic/channel", "dep:rustls", "dep:hyper-rustls", "dep:hyper"]
 _gen-server = ["tonic/server", "tonic/router", "dep:tokio"]
 
 [dependencies]
-tonic = { version = "0.13", features = [
+tonic = { version = "0.14", features = [
   "codegen",
-  "prost",
 ], default-features = false }
-prost = "0.13"
-prost-types = "0.13"
+tonic-prost = "0.14"
+prost = "0.14"
+prost-types = "0.14"
 futures = "0.3"
 snafu = "0.8"
 tracing = "0.1"
 tracing-futures = { version = "0.2", features = ["futures-03"] }
-hyper = { version = "1.6", features = [
+hyper = { version = "1.7", features = [
   "client",
   "http1",
   "http2",
@@ -50,7 +50,7 @@ rustls = { version = "0.23", features = [
   "std",
   "tls12",
 ], default-features = false, optional = true }
-tokio = { version = "1.45", default-features = false, optional = true }
+tokio = { version = "1.48", default-features = false, optional = true }
 serde = { version = "1.0", features = [
   "derive",
 ], default-features = false, optional = true }
@@ -63,7 +63,7 @@ http-body-util = "0.1"
 serde_json = "1.0"
 serial_test = "3.2"
 async-stream = "0.3"
-tokio = { version = "1.42", features = [
+tokio = { version = "1.48", features = [
   "rt-multi-thread",
   "macros",
   "sync",
@@ -72,7 +72,7 @@ tokio = { version = "1.42", features = [
 tokio-util = "0.7"
 
 [build-dependencies]
-tonic-build = "0.13"
+tonic-prost-build = "0.14"
 
 [[test]]
 name = "agent"
