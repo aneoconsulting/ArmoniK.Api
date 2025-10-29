@@ -18,6 +18,7 @@ constexpr char armonik::api::common::options::ControlPlane::BackoffMultiplierKey
 constexpr char armonik::api::common::options::ControlPlane::InitialBackOffKey[];
 constexpr char armonik::api::common::options::ControlPlane::MaxBackOffKey[];
 constexpr char armonik::api::common::options::ControlPlane::RequestTimeoutKey[];
+constexpr char armonik::api::common::options::ControlPlane::PartitionIdKey[];
 
 namespace armonik {
 namespace api {

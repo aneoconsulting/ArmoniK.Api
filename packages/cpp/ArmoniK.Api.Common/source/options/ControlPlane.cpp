@@ -29,4 +29,6 @@ armonik::api::common::options::ControlPlane::ControlPlane(const utils::Configura
   request_timeout_ = config.get(RequestTimeoutKey).empty()
                          ? utils::duration_from_values(366)
                          : utils::duration_from_timespan(config.get(RequestTimeoutKey));
+
+  partition_id_ = config.get(PartitionIdKey);
 }

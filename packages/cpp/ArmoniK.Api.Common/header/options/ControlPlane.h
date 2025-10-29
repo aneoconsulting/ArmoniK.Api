@@ -18,6 +18,7 @@ public:
   absl::string_view getUserKeyPemPath() const { return user_key_pem_path_; }
   absl::string_view getUserP12Path() const { return user_p12_path_; }
   absl::string_view getCaCertPemPath() const { return ca_cert_pem_path_; }
+  absl::string_view getPartitionId() const { return partition_id_; }
   bool isSslValidation() const { return sslValidation_; }
   const google::protobuf::Duration &getKeepAliveTime() const { return keep_alive_time_; }
   const google::protobuf::Duration &getKeepAliveTimeInterval() const { return keep_alive_time_interval_; }
@@ -45,6 +46,7 @@ public:
   static constexpr char InitialBackOffKey[] = "GrpcClient__InitialBackOff";
   static constexpr char MaxBackOffKey[] = "GrpcClient__MaxBackOff";
   static constexpr char RequestTimeoutKey[] = "GrpcClient__RequestTimeout";
+  static constexpr char PartitionIdKey[] = "PartitionId";
 
 private:
   std::string endpoint_;
@@ -52,6 +54,7 @@ private:
   std::string user_key_pem_path_;
   std::string user_p12_path_;
   std::string ca_cert_pem_path_;
+  std::string partition_id_;
   ::google::protobuf::Duration keep_alive_time_;
   ::google::protobuf::Duration keep_alive_time_interval_;
   ::google::protobuf::Duration max_idle_time_;
