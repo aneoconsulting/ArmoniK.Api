@@ -41,14 +41,19 @@ pub struct ClientConfigArgs {
     /// Endpoint for sending requests
     pub endpoint: String,
     /// Path to the certificate file in pem format
+    #[cfg_attr(feature = "serde", serde(default))]
     pub cert_pem: String,
     /// Path to the key file in pem format
+    #[cfg_attr(feature = "serde", serde(default))]
     pub key_pem: String,
     /// Path to the Certificate Authority file in pem format
+    #[cfg_attr(feature = "serde", serde(default))]
     pub ca_cert: String,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
+    #[cfg_attr(feature = "serde", serde(default))]
     pub allow_unsafe_connection: bool,
     /// Override the endpoint name during SSL verification
+    #[cfg_attr(feature = "serde", serde(default))]
     pub override_target_name: String,
 }
 
