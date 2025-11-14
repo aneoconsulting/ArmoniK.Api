@@ -136,6 +136,13 @@ public:
   std::string download_result_data(std::string session_id, std::string result_id);
 
   /**
+   * Import existing data from the object storage into existing results
+   * @param session_id Session id
+   * @param results_id_to_opaque_id map associating a result id with an id from the object storage
+   */
+  void import_results_data(std::string session_id, std::map<std::string, absl::string_view> results_id_to_opaque_id) const;
+
+  /**
    * Deletes the results data
    * @param session_id Session id
    * @param result_ids Result ids
