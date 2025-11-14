@@ -7,7 +7,7 @@
   <parent>
     <groupId>fr.aneo</groupId>
     <artifactId>armonik-api-parent</artifactId>
-    <version>3.27.0</version>
+    <version>3.28.0</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 

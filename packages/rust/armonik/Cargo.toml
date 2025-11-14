@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 name = "armonik"
 repository = "https://github.com/aneoconsulting/ArmoniK.Api"
-version = "3.27.0-beta-0"
+version = "3.28.0-beta-0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -14,8 +14,8 @@
     <Nullable>enable</Nullable>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
     <Optimize>true</Optimize>
-    <PackageVersion>3.27.0</PackageVersion>
-    <Version>3.27.0</Version>
+    <PackageVersion>3.28.0</PackageVersion>
+    <Version>3.28.0</Version>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
