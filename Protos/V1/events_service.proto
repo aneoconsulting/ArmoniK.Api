@@ -27,4 +27,9 @@ service Events {
    * Get events that represents updates of result and tasks data.
    */
   rpc GetEvents(EventSubscriptionRequest) returns (stream EventSubscriptionResponse);
+
+  /**
+   * Get an event stream that represents updates of sessions and session states.
+   */
+  rpc GetSessionEvent(SessionEventSubscriptionRequest) returns (SessionEventSubscriptionResponse);
 }

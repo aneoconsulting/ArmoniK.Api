@@ -6,6 +6,7 @@ import "result_status.proto";
 import "results_filters.proto";
 import "task_status.proto";
 import "tasks_filters.proto";
+import "session_status.proto";
 
 option csharp_namespace = "ArmoniK.Api.gRPC.V1.Events";
 option java_package = "fr.aneo.armonik.api.grpc.v1.events";
@@ -96,4 +97,15 @@ message EventSubscriptionResponse {
     NewTask new_task = 5; /** A new task in ArmoniK. **/
     NewResult new_result = 6; /** A new result in ArmoniK. **/
   }
+}
+
+message SessionEventSubscriptionRequest {
+  repeated session_status.SessionStatus returned_events = 1; // a list of events which will be reported by the stream
+}
+
+message SessionEventSubscriptionResponse {
+  string session_id = 1; // the session-id whose
+  session_status.SessionStatus new_status = 2; // the new status of the session
+  session_status.SessionStatus old_status = 3; // the old status of the session
+  bool created = 4; // true if the session was newly create
 }
