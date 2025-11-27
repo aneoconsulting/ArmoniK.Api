@@ -31,5 +31,5 @@ service Events {
   /**
    * Get an event stream that represents updates of sessions and session states.
    */
-  rpc GetSessionEvent(SessionEventSubscriptionRequest) returns (SessionEventSubscriptionResponse);
+  rpc GetSessionEvent(SessionEventSubscriptionRequest) returns (stream SessionEventSubscriptionResponse);
 }
