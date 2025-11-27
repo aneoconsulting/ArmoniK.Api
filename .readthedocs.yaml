@@ -9,8 +9,6 @@ build:
   os: ubuntu-24.04
   tools:
     python: '3.12'
-  apt_packages:
-    - dotnet-sdk-8.0
   jobs:
     post_install:
       - pip install --only-binary sphinx,sphinxcontrib-mermaid,sphinx-rtd-theme,myst_parser,grpcio,grpcio-tools --no-cache-dir sphinx sphinxcontrib-mermaid sphinx-rtd-theme myst_parser grpcio grpcio-tools
@@ -31,8 +29,12 @@ build:
 
       - sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
       # Set up .NET environment
-      - PATH="$PATH":"$HOME/.dotnet/tools" scripts/generate-csharp-doc.sh
-      - PATH="$PATH":"$HOME/.dotnet/tools" scripts/generate-envvars-doc.sh
+      - curl -L https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+      - chmod +x dotnet-install.sh
+      - ./dotnet-install.sh --channel 10.0 --install-dir "$HOME/.dotnet"
+      - ./dotnet-install.sh --channel 8.0 --install-dir "$HOME/.dotnet"
+      - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$HOME/.dotnet":"$HOME/.dotnet/tools" scripts/generate-csharp-doc.sh
+      - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$HOME/.dotnet":"$HOME/.dotnet/tools" scripts/generate-envvars-doc.sh
 
 # Move anchors out of the titles
 # Build documentation in the ".docs/" directory with Sphinx
