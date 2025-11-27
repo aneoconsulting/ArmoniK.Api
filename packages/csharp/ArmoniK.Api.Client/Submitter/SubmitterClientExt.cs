@@ -123,14 +123,14 @@ namespace ArmoniK.Api.Client.Submitter
 
       await using var taskRequestEnumerator = taskRequests.GetAsyncEnumerator(cancellationToken);
 
-      if (!await taskRequestEnumerator.MoveNextAsync(cancellationToken))
+      if (!await taskRequestEnumerator.MoveNextAsync())
       {
         yield break;
       }
 
       var currentRequest = taskRequestEnumerator.Current;
 
-      while (await taskRequestEnumerator.MoveNextAsync(cancellationToken))
+      while (await taskRequestEnumerator.MoveNextAsync())
       {
         await foreach (var createLargeTaskRequest in currentRequest.ToRequestStream(false,
                                                                                     chunkMaxSize,
