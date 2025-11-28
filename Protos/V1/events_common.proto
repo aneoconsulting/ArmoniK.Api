@@ -99,13 +99,16 @@ message EventSubscriptionResponse {
   }
 }
 
-message SessionEventSubscriptionRequest {
-  repeated session_status.SessionStatus returned_events = 1; // a list of events which will be reported by the stream
+message SessionEventSubscriptionRequest { }
+
+enum SessionUpdateType {
+  CREATED = 0;
+  UPDATED = 1;
+  DELETED = 2;
 }
 
 message SessionEventSubscriptionResponse {
   string session_id = 1; // the session-id whose
-  session_status.SessionStatus new_status = 2; // the new status of the session
-  session_status.SessionStatus old_status = 3; // the old status of the session
-  bool created = 4; // true if the session was newly create
+  session_status.SessionStatus status = 2; // the new status of the session
+  SessionUpdateType updateType = 3;
 }
