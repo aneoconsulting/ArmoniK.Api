@@ -26,10 +26,10 @@
     "noImplicitReturns": true,
     "noPropertyAccessFromIndexSignature": true,
     "declaration": false,
-    "downlevelIteration": true,
     "importHelpers": true,
     "outDir": "./dist/out-tsc",
     "sourceMap": true,
+    "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
   },
   "angularCompilerOptions": {
