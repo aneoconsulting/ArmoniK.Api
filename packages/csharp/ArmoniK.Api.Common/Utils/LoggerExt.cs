@@ -1,5 +1,5 @@
 // This file is part of the ArmoniK project
-// 
+//
 // Copyright (C) ANEO, 2021-2023. All rights reserved.
 //   W. Kirschenmann   <wkirschenmann@aneo.fr>
 //   J. Gurhem         <jgurhem@aneo.fr>
@@ -58,7 +58,7 @@ public static class LoggerExt
     var dictionary = properties.ToDictionary(p => p.Item1,
                                              p => p.Item2);
     dictionary[name + ".Scope"] = Guid.NewGuid();
-    return logger.BeginScope(dictionary);
+    return logger.BeginScope(dictionary) ?? Disposables.NullDisposable;
   }
 
   /// <summary>
@@ -75,7 +75,7 @@ public static class LoggerExt
   {
     var dictionary = properties.ToDictionary(p => p.Item1,
                                              p => p.Item2);
-    return logger.BeginScope(dictionary);
+    return logger.BeginScope(dictionary) ?? Disposables.NullDisposable;
   }
 
 
