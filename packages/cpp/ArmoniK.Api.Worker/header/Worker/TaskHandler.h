@@ -8,6 +8,14 @@
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
+
+// add 1 start
+#include <map>
+#include <vector>
+#include "absl/strings/string_view.h"
+// add 1 end
+
+
 namespace armonik {
 namespace api {
 namespace worker {
@@ -27,11 +35,20 @@ private:
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
   std::vector<std::string> expected_result_;
-  std::string payload_;
-  std::map<std::string, std::string> data_dependencies_;
   std::string token_;
   armonik::api::grpc::v1::Configuration config_;
   std::string data_folder_;
+
+  // add 2 start : update with lazy loading
+  std::string payload_id_;                                        // ID du fichier payload
+  mutable std::string payload_;                                   // Buffer exposé à l’extérieur
+  mutable bool payload_loaded_ = false;                           // Chargé ou non
+  
+  std::vector<std::string> data_dependencies_ids_;                // liste des IDs (noms de fichiers)
+  mutable std::map<std::string, std::string> data_dependencies_;  // contenu
+  mutable bool data_dependencies_loaded_ = false;                 // Chargé ou non
+  // add 2 end 
+
 
 public:
   /**
