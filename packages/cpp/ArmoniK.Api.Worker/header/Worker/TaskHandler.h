@@ -29,8 +29,17 @@ namespace worker {
 class TaskHandler {
 
 private:
+  // add : Small helper type to track a single mmap'd file region
+  struct FileMapping {
+    void *addr   = nullptr;  ///< start address of the mapping (nullptr if none)
+    size_t length = 0;       ///< length in bytes of the mapping
+    int fd       = -1;       ///< file descriptor (-1 if none)
+  };
+  // End add 
+
   armonik::api::grpc::v1::agent::Agent::Stub &stub_;
   const armonik::api::grpc::v1::worker::ProcessRequest &request_;
+
   std::string session_id_;
   std::string task_id_;
   armonik::api::grpc::v1::TaskOptions task_options_;
@@ -40,14 +49,35 @@ private:
   std::string data_folder_;
 
   // add 2 start : update with lazy loading
-  std::string payload_id_;                                        // ID du fichier payload
-  mutable std::string payload_;                                   // Buffer exposé à l’extérieur
-  mutable bool payload_loaded_ = false;                           // Chargé ou non
-  
-  std::vector<std::string> data_dependencies_ids_;                // liste des IDs (noms de fichiers)
-  mutable std::map<std::string, std::string> data_dependencies_;  // contenu
-  mutable bool data_dependencies_loaded_ = false;                 // Chargé ou non
-  // add 2 end 
+  // Payload metadata + mmap + caches
+  std::string payload_id_;                     ///< ID (file name) of the payload
+  mutable FileMapping payload_mapping_;        ///< mmap for payload (lifetime of TaskHandler)
+  mutable bool payload_mapped_ = false;        ///< true once mapping is established
+
+  mutable absl::string_view payload_view_;     ///< view into payload_mapping_
+  mutable bool payload_view_built_ = false;
+
+  mutable std::string payload_cache_;          ///< optional owning copy for std::string API
+  mutable bool payload_cache_built_ = false;
+
+  // Data dependencies metadata + mmap + caches
+  std::vector<std::string> data_dependencies_ids_; ///< list of file IDs
+
+  mutable std::map<std::string, FileMapping> dependency_mappings_; ///< mmap per dep
+  mutable bool dependency_mappings_built_ = false;
+
+  mutable std::map<std::string, absl::string_view>
+      dependency_views_; ///< view per dep (zero-copy)
+  mutable bool dependency_views_built_ = false;
+
+  mutable std::map<std::string, std::string>
+      dependency_cache_; ///< owning copy per dep for std::string API
+  mutable bool dependency_cache_built_ = false;
+
+  // mmap used for writing results (kept alive until destructor)
+  std::vector<FileMapping> write_mappings_;
+  mutable std::mutex write_mappings_mutex_;
+  // add end 
 
 
 public:
@@ -59,6 +89,11 @@ public:
    */
   TaskHandler(armonik::api::grpc::v1::agent::Agent::Stub &client,
               const armonik::api::grpc::v1::worker::ProcessRequest &request);
+
+  /**
+   * @brief Destructor: releases all mmap'ed regions and closes their file descriptors.
+   */
+  ~TaskHandler();
 
   /**
    * @brief Create a task_chunk_stream.
@@ -99,7 +134,9 @@ public:
    *
    * @param key the key of result
    * @param data The result data
-   * @return A future containing a vector of ResultReply
+   * @return A future<void> whose completion means the gRPC notification is done.
+   *
+   * Note: the mmap used to write the file is kept alive and released in the destructor.
    */
   std::future<void> send_result(std::string key, absl::string_view data);
 
@@ -131,6 +168,15 @@ public:
    * @return std::vector<std::byte>
    */
   const std::string &getPayload() const;
+  
+   /**
+   * @brief Zero-copy view of the payload.
+   *
+   * Returns a string_view into the mmap'ed payload region.
+   * Lifetime is tied to this TaskHandler instance.
+   */
+  absl::string_view getPayloadView() const;
+
   /**
    * @brief Get the Data Dependencies object
    *
@@ -143,6 +189,16 @@ public:
    *
    * @return armonik::api::grpc::v1::TaskOptions
    */
+
+  /**
+   * @brief Zero-copy views of data dependencies.
+   *
+   * Returns a map from dependency id to string_view into the corresponding
+   * mmap'ed region. Lifetime is tied to this TaskHandler instance.
+   */
+  const std::map<std::string, absl::string_view> &getDataDependenciesView() const;
+
+
   const armonik::api::grpc::v1::TaskOptions &getTaskOptions() const;
 
   /**

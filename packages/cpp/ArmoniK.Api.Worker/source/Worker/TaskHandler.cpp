@@ -36,17 +36,136 @@ using ::grpc::Status;
 
 // add 2 start : helpers to read/write file with mmap
 namespace {
+  
+// Shorthand alias for the nested type
+using FileMapping = armonik::api::worker::TaskHandler::FileMapping;
+
 
 /**
- * @brief Read a whole file into a std::string using mmap.
+ * @brief mmap a file for reading and return a FileMapping.
  *
- * Behavior:
- * - If the file does not exist: returns an empty string.
+ * - If the file does not exist: returns an empty mapping (addr=nullptr, len=0, fd=-1).
  * - On other system errors: throws ArmoniKApiException.
- *
- * @param path Path to the file to read.
- * @return std::string File content.
+ * - The returned mapping keeps the file descriptor open; it must be cleaned
+ *   later with cleanup_mapping().
  */
+FileMapping mmap_file_read(const std::string &path) {
+  FileMapping mapping{};
+
+  int fd = ::open(path.c_str(), O_RDONLY);
+  if (fd == -1) {
+    if (errno == ENOENT) {
+      // File does not exist: behave like "empty content"
+      return mapping;
+    }
+
+    std::ostringstream oss;
+    oss << "Failed to open file '" << path << "' for reading: " << std::strerror(errno);
+    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
+  }
+
+  struct stat sb {};
+  if (::fstat(fd, &sb) == -1) {
+    int err = errno;
+    ::close(fd);
+
+    std::ostringstream oss;
+    oss << "fstat failed on '" << path << "': " << std::strerror(err);
+    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
+  }
+
+  mapping.fd     = fd;
+  mapping.length = static_cast<size_t>(sb.st_size);
+
+  if (mapping.length == 0) {
+    // Empty file: no mapping, but keep fd so destructor can close it.
+    mapping.addr = nullptr;
+    return mapping;
+  }
+
+  void *addr = ::mmap(nullptr, mapping.length, PROT_READ, MAP_PRIVATE, fd, 0);
+  int mmap_err = errno;
+
+  if (addr == MAP_FAILED) {
+    ::close(fd);
+    std::ostringstream oss;
+    oss << "mmap failed on '" << path << "': " << std::strerror(mmap_err);
+    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
+  }
+
+  mapping.addr = addr;
+  return mapping;
+}
+
+/**
+ * @brief mmap a file for writing and return a FileMapping.
+ *
+ * - Creates or truncates the file.
+ * - Resizes it to @p len bytes.
+ * - Maps it shared writable.
+ * - The mapping and fd are kept valid until cleaned with cleanup_mapping().
+ */
+FileMapping mmap_file_write(const std::string &path, size_t len) {
+  FileMapping mapping{};
+
+  int fd = ::open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
+  if (fd == -1) {
+    std::ostringstream oss;
+    oss << "Failed to open file '" << path << "' for writing: " << std::strerror(errno);
+    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
+  }
+
+  if (::ftruncate(fd, static_cast<off_t>(len)) == -1) {
+    int err = errno;
+    ::close(fd);
+    std::ostringstream oss;
+    oss << "ftruncate failed on '" << path << "': " << std::strerror(err);
+    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
+  }
+
+  mapping.fd     = fd;
+  mapping.length = len;
+
+  if (len == 0) {
+    // Zero-length file: nothing to map; destructor will just close fd.
+    mapping.addr = nullptr;
+    return mapping;
+  }
+
+  void *addr = ::mmap(nullptr, len, PROT_WRITE, MAP_SHARED, fd, 0);
+  int mmap_err = errno;
+
+  if (addr == MAP_FAILED) {
+    ::close(fd);
+    std::ostringstream oss;
+    oss << "mmap (write) failed on '" << path << "': " << std::strerror(mmap_err);
+    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
+  }
+
+  mapping.addr = addr;
+  return mapping;
+}
+
+/**
+ * @brief Release a FileMapping: munmap (if any) and close fd (if any).
+ *
+ * Safe to call multiple times; after the first call, mapping becomes empty.
+ */
+void cleanup_mapping(FileMapping &mapping) {
+  if (mapping.addr != nullptr && mapping.length > 0) {
+    ::munmap(mapping.addr, mapping.length);
+  }
+  if (mapping.fd != -1) {
+    ::close(mapping.fd);
+  }
+  mapping.addr   = nullptr;
+  mapping.length = 0;
+  mapping.fd     = -1;
+}
+
+
+
+/*
 std::string mmap_read_file(const std::string &path) {
   // Open the file in read-only mode (POSIX open).
   // fd >= 0 on success, -1 on error.
@@ -115,17 +234,7 @@ std::string mmap_read_file(const std::string &path) {
   return result;
 }
 
-/**
- * @brief Write a buffer to a file using mmap.
- *
- * Behavior:
- * - Creates or truncates the file at @p path.
- * - Maps the file into memory and copies @p data into the mapped region.
- * - On any system error, throws ArmoniKApiException.
- *
- * @param path Path to the file to write.
- * @param data Buffer to write to disk.
- */
+
 void mmap_write_file(const std::string &path, absl::string_view data) {
   // Open the file for read/write, create it if it does not exist,
   // and truncate it to zero length if it already exists.
@@ -181,10 +290,11 @@ void mmap_write_file(const std::string &path, absl::string_view data) {
   // Unmap the memory region and close the file descriptor.
   ::munmap(addr, len);
   ::close(fd);
-}
+  }*/
 
 } // namespace
 // add 2 end 
+
 
 
 
@@ -235,11 +345,21 @@ armonik::api::worker::TaskHandler::TaskHandler(Agent::Stub &client,
       config_(request_.configuration()),
       data_folder_(request_.data_folder()),
       payload_id_(request_.payload_id()),
-      payload_(),
-      payload_loaded_(false),
+      payload_mapping_(),
+      payload_mapped_(false),
+      payload_view_(),
+      payload_view_built_(false),
+      payload_cache_(),
+      payload_cache_built_(false),
       data_dependencies_ids_(),
-      data_dependencies_(),
-      data_dependencies_loaded_(false) {
+      dependency_mappings_(),
+      dependency_mappings_built_(false),
+      dependency_views_(),
+      dependency_views_built_(false),
+      dependency_cache_(),
+      dependency_cache_built_(false),
+      write_mappings_(),
+      write_mappings_mutex_(){
 
   // On garde simplement la liste des IDs de dépendances, sans les lire.
   for (const auto &dd : request_.data_dependencies()) {
@@ -247,6 +367,25 @@ armonik::api::worker::TaskHandler::TaskHandler(Agent::Stub &client,
   }
 }
 
+
+armonik::api::worker::TaskHandler::~TaskHandler() {
+  // Release payload mapping
+  cleanup_mapping(payload_mapping_);
+
+  // Release all dependency mappings
+  for (auto &kv : dependency_mappings_) {
+    cleanup_mapping(kv.second);
+  }
+
+  // Release mappings created by send_result
+  {
+    std::lock_guard<std::mutex> lock(write_mappings_mutex_);
+    for (auto &m : write_mappings_) {
+      cleanup_mapping(m);
+    }
+    write_mappings_.clear();
+  }
+}
 
 
 /**
@@ -430,8 +569,21 @@ std::future<void> armonik::api::worker::TaskHandler::send_result(std::string key
                     const std::string path =
                           armonik::api::common::utils::pathJoin(data_folder_, key);
 
-                    // Écriture via mmap
-                    mmap_write_file(path, data);
+                      // Create write mapping and copy data into it.
+                      FileMapping mapping = mmap_file_write(path, data.size());
+                      if (mapping.length > 0 && mapping.addr != nullptr &&
+                          !data.empty()) {
+                        std::memcpy(mapping.addr, data.data(), mapping.length);
+                        // Ensure data is flushed to the file; mapping will be
+                        // released later in the destructor.
+                        ::msync(mapping.addr, mapping.length, MS_SYNC);
+                      }
+
+                      // Keep the mapping alive until ~TaskHandler()
+                      {
+                        std::lock_guard<std::mutex> lock(write_mappings_mutex_);
+                        write_mappings_.push_back(mapping);
+                      }
 
                     armonik::api::grpc::v1::agent::NotifyResultDataResponse reply;
                     armonik::api::grpc::v1::agent::NotifyResultDataRequest request;
@@ -521,43 +673,95 @@ const std::string &armonik::api::worker::TaskHandler::getTaskId() const { return
 const std::string &armonik::api::worker::TaskHandler::getPayload() const { return payload_; }
 */
 
-const std::string &armonik::api::worker::TaskHandler::getPayload() const {
-  if (!payload_loaded_) {
-    // Chargement lazy depuis le fichier correspondant
+absl::string_view
+armonik::api::worker::TaskHandler::getPayloadView() const {
+  if (!payload_view_built_) {
     const std::string path =
         armonik::api::common::utils::pathJoin(data_folder_, payload_id_);
 
-    payload_ = mmap_read_file(path);
-    payload_loaded_ = true;
-  }
-  return payload_;
-}
-
-
-
-
-/**
- * @brief Get the Data Dependencies object
- *
- * @return std::vector<std::byte>
- */
-
- /*
-const std::map<std::string, std::string> &armonik::api::worker::TaskHandler::getDataDependencies() const {
-  return data_dependencies_;
-}
-*/
-
-const std::map<std::string, std::string> &armonik::api::worker::TaskHandler::getDataDependencies() const {
-  if (!data_dependencies_loaded_) {
-    for (const auto &dd : data_dependencies_ids_) {
-      const std::string path =
-          armonik::api::common::utils::pathJoin(data_folder_, dd);
-      data_dependencies_[dd] = mmap_read_file(path);
+    if (!payload_mapped_) {
+      payload_mapping_ = mmap_file_read(path);
+      payload_mapped_  = true;
     }
-    data_dependencies_loaded_ = true;
+
+    if (payload_mapping_.addr != nullptr && payload_mapping_.length > 0) {
+      payload_view_ = absl::string_view(
+          static_cast<const char *>(payload_mapping_.addr),
+          payload_mapping_.length);
+    } else {
+      payload_view_ = absl::string_view();
+    }
+
+    payload_view_built_ = true;
   }
-  return data_dependencies_;
+
+  return payload_view_;
+}
+
+
+
+
+const std::string &
+armonik::api::worker::TaskHandler::getPayload() const {
+  if (!payload_cache_built_) {
+    absl::string_view v = getPayloadView();
+    payload_cache_.assign(v.data(), v.size());
+    payload_cache_built_ = true;
+  }
+  return payload_cache_;
+}
+
+
+// ---------- Data dependencies (views + cache) ----------
+
+const std::map<std::string, absl::string_view> &
+armonik::api::worker::TaskHandler::getDataDependenciesView() const {
+  if (!dependency_views_built_) {
+    if (!dependency_mappings_built_) {
+      for (const auto &dd : data_dependencies_ids_) {
+        const std::string path =
+            armonik::api::common::utils::pathJoin(data_folder_, dd);
+
+        FileMapping mapping = mmap_file_read(path);
+        dependency_mappings_.emplace(dd, mapping);
+      }
+      dependency_mappings_built_ = true;
+    }
+
+    dependency_views_.clear();
+    for (const auto &kv : dependency_mappings_) {
+      const auto &id = kv.first;
+      const auto &m  = kv.second;
+
+      if (m.addr != nullptr && m.length > 0) {
+        dependency_views_.emplace(
+            id,
+            absl::string_view(static_cast<const char *>(m.addr), m.length));
+      } else {
+        dependency_views_.emplace(id, absl::string_view());
+      }
+    }
+
+    dependency_views_built_ = true;
+  }
+
+  return dependency_views_;
+}
+
+const std::map<std::string, std::string> &
+armonik::api::worker::TaskHandler::getDataDependencies() const {
+  if (!dependency_cache_built_) {
+    const auto &views = getDataDependenciesView();
+    dependency_cache_.clear();
+    for (const auto &kv : views) {
+      const auto &id = kv.first;
+      const auto &v  = kv.second;
+      dependency_cache_[id].assign(v.data(), v.size());
+    }
+    dependency_cache_built_ = true;
+  }
+
+  return dependency_cache_;
 }
 
 
