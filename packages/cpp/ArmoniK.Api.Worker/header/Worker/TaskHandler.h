@@ -28,14 +28,14 @@ namespace worker {
  */
 class TaskHandler {
 
-private:
-  // add : Small helper type to track a single mmap'd file region
+public:
   struct FileMapping {
     void *addr   = nullptr;  ///< start address of the mapping (nullptr if none)
     size_t length = 0;       ///< length in bytes of the mapping
     int fd       = -1;       ///< file descriptor (-1 if none)
   };
-  // End add 
+
+private:
 
   armonik::api::grpc::v1::agent::Agent::Stub &stub_;
   const armonik::api::grpc::v1::worker::ProcessRequest &request_;
