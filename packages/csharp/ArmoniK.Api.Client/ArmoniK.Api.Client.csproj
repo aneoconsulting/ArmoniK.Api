@@ -36,7 +36,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="System.Net.Http.WinHttpHandler" Version="8.0.3" />
+    <PackageReference Include="System.Net.Http.WinHttpHandler" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup>
