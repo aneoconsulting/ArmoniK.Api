@@ -76,6 +76,51 @@ def _load_certificates(
     return certificate_authority, client_certificate, client_key
 
 
+def get_full_endpoint_and_grpc_endpoint_from_uri(
+    uri: str, socket_type: Optional[str] = None
+) -> Tuple[str, str]:
+    """
+    Gets the full url and expected endpoints from a URI and configuration
+    Args:
+        uri: URI of the endpoint
+        socket_type: Socket type of the endpoint
+
+    Returns:
+        Tuple of the full url and gRPC compatible endpoint
+    """
+    parsed = urlparse(uri)
+    endpoint = (
+        parsed.netloc + parsed.path
+    )  # To support with or without scheme, and for paths for unix
+
+    if parsed.scheme != "":
+        scheme = parsed.scheme
+    elif socket_type is not None:
+        scheme = "unix" if "unix" in socket_type.lower() else "http"
+    else:
+        scheme = "http"
+
+    if "unix" in scheme:
+        # gRPC supports unix:path and the path is then relative, if the scheme is unix://, then the path is absolute
+        if endpoint.startswith("/"):
+            endpoint = "unix://" + endpoint
+        else:
+            endpoint = "unix:" + endpoint
+        full_endpoint = endpoint
+    else:
+        full_endpoint = scheme + "://" + endpoint
+
+    return full_endpoint, endpoint
+
+
+def get_endpoint_for_worker(uri: str, configured_scheme: Optional[str] = None):
+    return get_full_endpoint_and_grpc_endpoint_from_uri(uri, configured_scheme)[1]
+
+
+def get_endpoint_for_agent(uri: str, configured_scheme: Optional[str] = None):
+    return get_full_endpoint_and_grpc_endpoint_from_uri(uri, configured_scheme)[0]
+
+
 def create_channel(
     uri: str,
     *,
@@ -95,20 +140,9 @@ def create_channel(
     Returns:
         Channel: gRPC channel for communication
     """
-    parsed = urlparse(uri)
-    scheme = parsed.scheme if parsed.scheme != "" else "http"
-    endpoint = (
-        parsed.netloc + parsed.path
-    )  # To support with or without scheme, and for paths for unix
+    full_endpoint, endpoint = get_full_endpoint_and_grpc_endpoint_from_uri(uri)
 
-    if "unix" in scheme:
-        # gRPC supports unix:path and the path is then relative, if the scheme is unix://, then the path is absolute
-        if endpoint.startswith("/"):
-            endpoint = "unix://" + endpoint
-        else:
-            endpoint = "unix:" + endpoint
-
-    if "https" in scheme:
+    if "https" in full_endpoint:
         certificate_authority, client_certificate, client_key = _load_certificates(
             certificate_authority, client_certificate, client_key
         )
