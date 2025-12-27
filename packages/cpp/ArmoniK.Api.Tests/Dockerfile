@@ -1,5 +1,5 @@
 # Start with the latest Alpine base image for the build stage
-FROM alpine:3.18.6 AS builder
+FROM alpine:3.23.2 AS builder
 
 # Install all the necessary dependencies required for the build process
 # These include tools and libraries for building and compiling the source code
