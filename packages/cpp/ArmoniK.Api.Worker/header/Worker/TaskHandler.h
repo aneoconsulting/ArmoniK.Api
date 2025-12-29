@@ -1,38 +1,38 @@
 #pragma once
+
 #include <future>
 #include <string>
+#include <mutex>
+#include <map>
+#include <cstddef>
+#include <vector>
+
+#include "absl/strings/string_view.h"
 
 #include "agent_common.pb.h"
 #include "agent_service.grpc.pb.h"
-
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
 
-// add 1 start
-#include <map>
-#include <vector>
-#include "absl/strings/string_view.h"
-// add 1 end
 
 
 namespace armonik {
 namespace api {
 namespace worker {
 
-// #include "SessionContext.h"
 
 /**
- * @brief The TaskHandler class provides methods to create and handle tasks
- *
+ * @brief Provides helper methods to create tasks, access input payload/dependencies,
+ * and send results back to the ArmoniK agent.
  */
 class TaskHandler {
 
 public:
   struct FileMapping {
-    void *addr   = nullptr;  ///< start address of the mapping (nullptr if none)
-    size_t length = 0;       ///< length in bytes of the mapping
-    int fd       = -1;       ///< file descriptor (-1 if none)
+    void *addr   = nullptr;  ///< Start address of the mapping (nullptr if none)
+    size_t length = 0;       ///< Length in bytes of the mapping
+    int fd       = -1;       ///< File descriptor (-1 if none)
   };
 
 private:
@@ -48,106 +48,114 @@ private:
   armonik::api::grpc::v1::Configuration config_;
   std::string data_folder_;
 
-  // add 2 start : update with lazy loading
-  // Payload metadata + mmap + caches
-  std::string payload_id_;                     ///< ID (file name) of the payload
-  mutable FileMapping payload_mapping_;        ///< mmap for payload (lifetime of TaskHandler)
-  mutable bool payload_mapped_ = false;        ///< true once mapping is established
+  // Payload metadata and lazy-loaded mapping/views/caches.
+  std::string payload_id_;                     ///< Payload file identifier.
+  mutable FileMapping payload_mapping_;        ///< Payload mapping (lifetime: TaskHandler).
+  mutable bool payload_mapped_ = false;        ///< True once mapping is established.
 
-  mutable absl::string_view payload_view_;     ///< view into payload_mapping_
+  mutable absl::string_view payload_view_;     ///< Zero-copy view into payload_mapping_.
   mutable bool payload_view_built_ = false;
 
-  mutable std::string payload_cache_;          ///< optional owning copy for std::string API
+  mutable std::string payload_cache_;          ///< Owning copy for std::string API.
   mutable bool payload_cache_built_ = false;
 
   // Data dependencies metadata + mmap + caches
-  std::vector<std::string> data_dependencies_ids_; ///< list of file IDs
+  std::vector<std::string> data_dependencies_ids_;   ///< Dependency file identifiers.
 
-  mutable std::map<std::string, FileMapping> dependency_mappings_; ///< mmap per dep
+  mutable std::map<std::string, FileMapping> dependency_mappings_;  ///< Mapping per dependency.
   mutable bool dependency_mappings_built_ = false;
 
-  mutable std::map<std::string, absl::string_view>
-      dependency_views_; ///< view per dep (zero-copy)
+  mutable std::map<std::string, absl::string_view> dependency_views_;   ///< Zero-copy view per dependency.
   mutable bool dependency_views_built_ = false;
 
-  mutable std::map<std::string, std::string>
-      dependency_cache_; ///< owning copy per dep for std::string API
+  mutable std::map<std::string, std::string> dependency_cache_;   ///< Owning copy per dependency.
   mutable bool dependency_cache_built_ = false;
 
-  // mmap used for writing results (kept alive until destructor)
+  // Mappings used to write results (kept alive until destruction).
   std::vector<FileMapping> write_mappings_;
   mutable std::mutex write_mappings_mutex_;
-  // add end 
 
 
 public:
   /**
-   * @brief Construct a new Task Handler object
+   * @brief Creates a TaskHandler bound to the given agent stub and process request.
    *
-   * @param client the agent client
-   * @param request The process request
+   * @param client Agent gRPC stub.
+   * @param request Worker process request.
    */
   TaskHandler(armonik::api::grpc::v1::agent::Agent::Stub &client,
               const armonik::api::grpc::v1::worker::ProcessRequest &request);
+
 
   /**
    * @brief Destructor: releases all mmap'ed regions and closes their file descriptors.
    */
   ~TaskHandler();
 
+
   /**
-   * @brief Create a task_chunk_stream.
+   * @brief Splits a TaskRequest into a stream of CreateTaskRequest chunks.
    *
-   * @param task_request a task request
-   * @param is_last A boolean indicating if this is the last request.
-   * @param chunk_max_size Maximum chunk size.
-   * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
+   * @param task_request Task request to chunk.
+   * @param is_last Whether this is the last chunk in the stream.
+   * @param token Authentication token.
+   * @param chunk_max_size Maximum chunk size in bytes.
+   * @return Future resolving to the list of CreateTaskRequest chunks.
    */
   static std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
   task_chunk_stream(armonik::api::grpc::v1::TaskRequest task_request, bool is_last, const std::string &token,
                     size_t chunk_max_size);
 
+
   /**
-   * @brief Convert task_requests to request_stream.
+   * @brief Converts a list of TaskRequest into a stream of CreateTaskRequest chunks.
    *
-   * @param task_requests List of task requests
-   * @param task_options The Task Options used for this batch of tasks
-   * @param chunk_max_size Maximum chunk size.
-   * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
+   * @param task_requests Task requests to chunk.
+   * @param task_options Task options for this batch.
+   * @param token Authentication token.
+   * @param chunk_max_size Maximum chunk size in bytes.
+   * @return A list of futures, one per task, each resolving to its chunk list.
    */
   static std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
   to_request_stream(const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests,
                     armonik::api::grpc::v1::TaskOptions task_options, const std::string &token, size_t chunk_max_size);
 
+
   /**
-   * @brief Create a tasks async object
-   * @param task_options The Task Options used for this batch of tasks
-   * @param task_requests List of task requests
-   * @return Successfully sent task
+   * @brief Converts a list of TaskRequest into a stream of CreateTaskRequest chunks.
+   *
+   * @param task_requests Task requests to chunk.
+   * @param task_options Task options for this batch.
+   * @param token Authentication token.
+   * @param chunk_max_size Maximum chunk size in bytes.
+   * @return A list of futures, one per task, each resolving to its chunk list.
    */
   std::future<armonik::api::grpc::v1::agent::CreateTaskReply>
   create_tasks_async(armonik::api::grpc::v1::TaskOptions task_options,
                      const std::vector<armonik::api::grpc::v1::TaskRequest> &task_requests);
 
+
   /**
-   * @brief Send task result
+   * @brief Sends a result for the current task.
    *
-   * @param key the key of result
-   * @param data The result data
-   * @return A future<void> whose completion means the gRPC notification is done.
+   * The mapping used to write the result is kept alive until the destructor runs.
    *
-   * Note: the mmap used to write the file is kept alive and released in the destructor.
+   * @param key Result key.
+   * @param data Result payload.
+   * @return Future that completes once the gRPC notification is done.
    */
   std::future<void> send_result(std::string key, absl::string_view data);
 
+
   /**
-   * @brief Get the result ids object
+   * @brief Extracts result identifiers from a CreateResultsMetaData response payload.
    *
-   * @param results The results data
-   * @return std::vector<std::string> list of result ids
+   * @param results Result metadata entries.
+   * @return List of result ids.
    */
   std::vector<std::string>
   get_result_ids(std::vector<armonik::api::grpc::v1::agent::CreateResultsMetaDataRequest_ResultCreate> results);
+
 
   /**
    * @brief Get the Session Id object
@@ -156,12 +164,15 @@ public:
    */
   const std::string &getSessionId() const;
 
+
   /**
    * @brief Get the Task Id object
    *
    * @return std::string
    */
   const std::string &getTaskId() const;
+
+
   /**
    * @brief Get the Payload object
    *
@@ -169,13 +180,14 @@ public:
    */
   const std::string &getPayload() const;
   
-   /**
-   * @brief Zero-copy view of the payload.
+
+  /**
+   * @brief Returns data dependencies as owning strings.
    *
-   * Returns a string_view into the mmap'ed payload region.
-   * Lifetime is tied to this TaskHandler instance.
+   * @return Map from dependency id to content.
    */
   absl::string_view getPayloadView() const;
+
 
   /**
    * @brief Get the Data Dependencies object
@@ -184,22 +196,24 @@ public:
    */
   const std::map<std::string, std::string> &getDataDependencies() const;
 
-  /**
-   * @brief Get the Task Options object
-   *
-   * @return armonik::api::grpc::v1::TaskOptions
-   */
 
   /**
-   * @brief Zero-copy views of data dependencies.
+   * @brief Returns zero-copy views of data dependencies.
    *
-   * Returns a map from dependency id to string_view into the corresponding
-   * mmap'ed region. Lifetime is tied to this TaskHandler instance.
+   * The returned views point into memory-mapped regions. Their lifetime is tied
+   * to this TaskHandler instance.
+   *
+   * @return Map from dependency id to string_view.
    */
   const std::map<std::string, absl::string_view> &getDataDependenciesView() const;
 
 
+  
+  /**
+   * @return Task options for the current task.
+   */
   const armonik::api::grpc::v1::TaskOptions &getTaskOptions() const;
+
 
   /**
    * @brief Get the Expected Results object
@@ -208,6 +222,7 @@ public:
    */
   const std::vector<std::string> &getExpectedResults() const;
 
+  
   /**
    * @brief Get the Configuration object
    *

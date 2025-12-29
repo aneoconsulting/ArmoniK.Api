@@ -1,25 +1,24 @@
 #include "Worker/TaskHandler.h"
+
 #include "exceptions/ArmoniKApiException.h"
 #include "utils/string_utils.h"
+
 #include <fstream>
 #include <future>
 #include <sstream>
 #include <string>
+#include <cerrno>
+#include <cstring>
 
 #include "agent_common.pb.h"
 #include "agent_service.grpc.pb.h"
-
 #include "worker_common.pb.h"
 #include "worker_service.grpc.pb.h"
 
-// add 1 start
-#include <cerrno>
-#include <cstring>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
-// add 1 end
 
 using armonik::api::grpc::v1::ResultRequest;
 using armonik::api::grpc::v1::TaskOptions;
@@ -34,7 +33,6 @@ using ::grpc::ClientContext;
 using ::grpc::Status;
 
 
-// add 2 start : helpers to read/write file with mmap
 namespace {
   
 // Shorthand alias for the nested type
@@ -42,12 +40,13 @@ using FileMapping = armonik::api::worker::TaskHandler::FileMapping;
 
 
 /**
- * @brief mmap a file for reading and return a FileMapping.
+ * @brief Maps a file into memory for reading.
  *
- * - If the file does not exist: returns an empty mapping (addr=nullptr, len=0, fd=-1).
- * - On other system errors: throws ArmoniKApiException.
- * - The returned mapping keeps the file descriptor open; it must be cleaned
- *   later with cleanup_mapping().
+ * If the file does not exist, returns an empty mapping (addr=nullptr, length=0, fd=-1).
+ * On other errors, throws ArmoniKApiException.
+ *
+ * @param path Path to the file to map.
+ * @return A FileMapping describing the mapping and its file descriptor.
  */
 FileMapping mmap_file_read(const std::string &path) {
   FileMapping mapping{};
@@ -55,7 +54,6 @@ FileMapping mmap_file_read(const std::string &path) {
   int fd = ::open(path.c_str(), O_RDONLY);
   if (fd == -1) {
     if (errno == ENOENT) {
-      // File does not exist: behave like "empty content"
       return mapping;
     }
 
@@ -78,7 +76,6 @@ FileMapping mmap_file_read(const std::string &path) {
   mapping.length = static_cast<size_t>(sb.st_size);
 
   if (mapping.length == 0) {
-    // Empty file: no mapping, but keep fd so destructor can close it.
     mapping.addr = nullptr;
     return mapping;
   }
@@ -97,13 +94,16 @@ FileMapping mmap_file_read(const std::string &path) {
   return mapping;
 }
 
+
 /**
- * @brief mmap a file for writing and return a FileMapping.
+ * @brief Maps a file into memory for writing.
  *
- * - Creates or truncates the file.
- * - Resizes it to @p len bytes.
- * - Maps it shared writable.
- * - The mapping and fd are kept valid until cleaned with cleanup_mapping().
+ * Creates or truncates the file, resizes it to @p length bytes and maps it
+ * with a shared writable mapping.
+ *
+ * @param path Path to the file to create/map.
+ * @param length Size of the file and mapping in bytes.
+ * @return A FileMapping describing the mapping and its file descriptor.
  */
 FileMapping mmap_file_write(const std::string &path, size_t len) {
   FileMapping mapping{};
@@ -127,7 +127,6 @@ FileMapping mmap_file_write(const std::string &path, size_t len) {
   mapping.length = len;
 
   if (len == 0) {
-    // Zero-length file: nothing to map; destructor will just close fd.
     mapping.addr = nullptr;
     return mapping;
   }
@@ -146,10 +145,14 @@ FileMapping mmap_file_write(const std::string &path, size_t len) {
   return mapping;
 }
 
+
 /**
- * @brief Release a FileMapping: munmap (if any) and close fd (if any).
+ * @brief Releases a FileMapping by unmapping memory and closing its file descriptor.
  *
- * Safe to call multiple times; after the first call, mapping becomes empty.
+ * This function is idempotent: calling it multiple times is safe.
+ *
+ * @param mapping Mapping to release.
+ * @return void
  */
 void cleanup_mapping(FileMapping &mapping) {
   if (mapping.addr != nullptr && mapping.length > 0) {
@@ -163,177 +166,16 @@ void cleanup_mapping(FileMapping &mapping) {
   mapping.fd     = -1;
 }
 
-
-
-/*
-std::string mmap_read_file(const std::string &path) {
-  // Open the file in read-only mode (POSIX open).
-  // fd >= 0 on success, -1 on error.
-  int fd = ::open(path.c_str(), O_RDONLY);
-
-  // If the file cannot be opened
-  if (fd == -1) {
-    // If the file does not exist, return an empty string instead of throwing.
-    if (errno == ENOENT) {
-      return {};
-    }
-
-    // For any other error, build a descriptive message and throw.
-    std::ostringstream oss;
-    oss << "Failed to open file '" << path << "' for reading: " << std::strerror(errno);
-    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
-  }
-
-  // Retrieve file metadata (size, etc.).
-  struct stat sb {};
-  if (::fstat(fd, &sb) == -1) {
-    // Preserve errno before closing fd.
-    int err = errno;
-    ::close(fd);
-
-    std::ostringstream oss;
-    oss << "fstat failed on '" << path << "': " << std::strerror(err);
-    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
-  }
-
-  // If the file is empty, there is nothing to map; return an empty string.
-  if (sb.st_size == 0) {
-    ::close(fd);
-    return {};
-  }
-
-  // Convert file size to a size_t for convenience.
-  size_t len = static_cast<size_t>(sb.st_size);
-
-  // Map the file into memory:
-  //  - nullptr: let the kernel choose the mapping address
-  //  - len: size of the mapping
-  //  - PROT_READ: read-only mapping
-  //  - MAP_PRIVATE: changes are not written back to the file
-  //  - fd: file descriptor
-  //  - 0: start at offset 0
-  void *addr = ::mmap(nullptr, len, PROT_READ, MAP_PRIVATE, fd, 0);
-  int mmap_err = errno;
-
-  // We no longer need the file descriptor once the file is mapped.
-  ::close(fd);
-
-  // Check for mmap failure.
-  if (addr == MAP_FAILED) {
-    std::ostringstream oss;
-    oss << "mmap failed on '" << path << "': " << std::strerror(mmap_err);
-    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
-  }
-
-  // Create a std::string by copying the mapped bytes.
-  std::string result(static_cast<const char *>(addr), len);
-
-  // Unmap the memory region now that we have our copy.
-  ::munmap(addr, len);
-
-  return result;
-}
-
-
-void mmap_write_file(const std::string &path, absl::string_view data) {
-  // Open the file for read/write, create it if it does not exist,
-  // and truncate it to zero length if it already exists.
-  // Mode 0644: rw-r--r-- (owner can read/write, others read-only).
-  int fd = ::open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
-  if (fd == -1) {
-    std::ostringstream oss;
-    oss << "Failed to open file '" << path << "' for writing: " << std::strerror(errno);
-    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
-  }
-
-  const size_t len = data.size();
-
-  // Resize the file to exactly 'len' bytes so that the mapping
-  // will have enough space to hold the buffer.
-  if (::ftruncate(fd, static_cast<off_t>(len)) == -1) {
-    int err = errno;
-    ::close(fd);
-
-    std::ostringstream oss;
-    oss << "ftruncate failed on '" << path << "': " << std::strerror(err);
-    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
-  }
-
-  // If there is nothing to write, just close and return.
-  if (len == 0) {
-    ::close(fd);
-    return;
-  }
-
-  // Map the file into memory for writing:
-  //  - nullptr: let the kernel choose the mapping address
-  //  - len: mapping size
-  //  - PROT_WRITE: writable mapping
-  //  - MAP_SHARED: changes are propagated to the underlying file
-  //  - fd: file descriptor
-  //  - 0: start at offset 0 in the file
-  void *addr = ::mmap(nullptr, len, PROT_WRITE, MAP_SHARED, fd, 0);
-  int mmap_err = errno;
-  if (addr == MAP_FAILED) {
-    ::close(fd);
-    std::ostringstream oss;
-    oss << "mmap failed on '" << path << "': " << std::strerror(mmap_err);
-    throw armonik::api::common::exceptions::ArmoniKApiException(oss.str());
-  }
-
-  // Copy the buffer into the mapped region.
-  std::memcpy(addr, data.data(), len);
-
-  // Optionally force the changes to be flushed to disk.
-  ::msync(addr, len, MS_SYNC);
-
-  // Unmap the memory region and close the file descriptor.
-  ::munmap(addr, len);
-  ::close(fd);
-  }*/
-
-} // namespace
-// add 2 end 
-
-
-
+} 
 
 /**
- * @brief Construct a new Task Handler object
+ * @brief Creates a TaskHandler bound to the given agent stub and process request.
  *
- * @param client the agent client
- * @param request_iterator The request iterator
+ * @param client Agent gRPC stub.
+ * @param request Worker process request.
  */
 armonik::api::worker::TaskHandler::TaskHandler(Agent::Stub &client, 
                                                const ProcessRequest &request)
-  
-/*
-    : stub_(client), request_(request) {
-      token_ = request_.communication_token();
-      session_id_ = request_.session_id();
-      task_id_ = request_.task_id();
-      task_options_ = request_.task_options();
-      const std::string payload_id = request_.payload_id();
-      data_folder_ = request_.data_folder();
-      std::ostringstream string_stream(std::ios::binary);
-      string_stream << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, payload_id), std::fstream::binary).rdbuf();
-      payload_ = string_stream.str();
-      string_stream.clear();
-      config_ = request_.configuration();
-      expected_result_.assign(request_.expected_output_keys().begin(), request_.expected_output_keys().end());
-
-  for (auto &&dd : request_.data_dependencies()) {
-    // TODO Replace with lazy loading via a custom std::map (to not break compatibility)
-    string_stream
-        << std::ifstream(armonik::api::common::utils::pathJoin(data_folder_, dd), std::fstream::binary).rdbuf();
-    data_dependencies_[dd] = string_stream.str();
-    string_stream.clear();
-  }
-}
-*/
-
-// add 3 start add payload_id_, payload_loaded_, data_dependencies_ids_, data_dependencies_loaded_
-// Also add liste d’initialisation for all variable
     : stub_(client),
       request_(request),
       session_id_(request_.session_id()),
@@ -368,16 +210,16 @@ armonik::api::worker::TaskHandler::TaskHandler(Agent::Stub &client,
 }
 
 
+/**
+ * @brief Releases all memory-mapped regions and closes their file descriptors.
+ */
 armonik::api::worker::TaskHandler::~TaskHandler() {
-  // Release payload mapping
   cleanup_mapping(payload_mapping_);
 
-  // Release all dependency mappings
   for (auto &kv : dependency_mappings_) {
     cleanup_mapping(kv.second);
   }
 
-  // Release mappings created by send_result
   {
     std::lock_guard<std::mutex> lock(write_mappings_mutex_);
     for (auto &m : write_mappings_) {
@@ -389,12 +231,13 @@ armonik::api::worker::TaskHandler::~TaskHandler() {
 
 
 /**
- * @brief Create a task_chunk_stream.
+ * @brief Splits a TaskRequest into a stream of CreateTaskRequest chunks.
  *
- * @param task_request a task request
- * @param is_last A boolean indicating if this is the last request.
- * @param chunk_max_size Maximum chunk size.
- * @return std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>
+ * @param task_request Task request to chunk.
+ * @param is_last Whether this is the last chunk in the stream.
+ * @param token Authentication token.
+ * @param chunk_max_size Maximum chunk size in bytes.
+ * @return Future resolving to the list of CreateTaskRequest chunks.
  */
 std::future<std::vector<CreateTaskRequest>>
 armonik::api::worker::TaskHandler::task_chunk_stream(TaskRequest task_request, bool is_last, const std::string &token,
@@ -468,13 +311,15 @@ armonik::api::worker::TaskHandler::task_chunk_stream(TaskRequest task_request, b
   });
 }
 
+
 /**
- * @brief Convert task_requests to request_stream.
+ * @brief Converts a list of TaskRequest into a stream of CreateTaskRequest chunks.
  *
- * @param task_requests List of task requests
- * @param task_options The Task Options used for this batch of tasks
- * @param chunk_max_size Maximum chunk size.
- * @return std::vector<std::future<std::vector<armonik::api::grpc::v1::agent::CreateTaskRequest>>>
+ * @param task_requests Task requests to chunk.
+ * @param task_options Task options for this batch.
+ * @param token Authentication token.
+ * @param chunk_max_size Maximum chunk size in bytes.
+ * @return A list of futures, one per task, each resolving to its chunk list.
  */
 std::vector<std::future<std::vector<CreateTaskRequest>>>
 armonik::api::worker::TaskHandler::to_request_stream(const std::vector<TaskRequest> &task_requests,
@@ -503,10 +348,11 @@ armonik::api::worker::TaskHandler::to_request_stream(const std::vector<TaskReque
 }
 
 /**
- * @brief Create a tasks async object
- * @param task_options The Task Options used for this batch of tasks
- * @param task_requests List of task requests
- * @return Successfully sent task
+ * @brief Sends a batch of tasks asynchronously.
+ *
+ * @param task_options Task options for this batch.
+ * @param task_requests Task requests to create.
+ * @return Future resolving to the CreateTaskReply.
  */
 std::future<CreateTaskReply>
 armonik::api::worker::TaskHandler::create_tasks_async(TaskOptions task_options,
@@ -542,44 +388,32 @@ armonik::api::worker::TaskHandler::create_tasks_async(TaskOptions task_options,
 }
 
 
-
-
-
-
 /**
- * @brief Send task result
+ * @brief Sends a result for the current task.
  *
- * @param key the key of result
- * @param data The result data
- * @return A future containing a vector of ResultReply
+ * The memory-mapped region used to write the file is kept alive until the TaskHandler
+ * instance is destroyed.
+ *
+ * @param key Result key.
+ * @param data Result payload.
+ * @return Future that completes once the gRPC notification is done.
  */
-
-
 std::future<void> armonik::api::worker::TaskHandler::send_result(std::string key, 
                                                                  absl::string_view data) {
   return std::async(std::launch::async,
                    [this, key = std::move(key), data]() mutable {
                      ::grpc::ClientContext context;
-/*
-    std::ofstream output(armonik::api::common::utils::pathJoin(data_folder_, key),
-                         std::fstream::binary | std::fstream::trunc);
-    output << data;
-    output.close();
-*/
+
                     const std::string path =
                           armonik::api::common::utils::pathJoin(data_folder_, key);
 
-                      // Create write mapping and copy data into it.
                       FileMapping mapping = mmap_file_write(path, data.size());
                       if (mapping.length > 0 && mapping.addr != nullptr &&
                           !data.empty()) {
                         std::memcpy(mapping.addr, data.data(), mapping.length);
-                        // Ensure data is flushed to the file; mapping will be
-                        // released later in the destructor.
                         ::msync(mapping.addr, mapping.length, MS_SYNC);
                       }
 
-                      // Keep the mapping alive until ~TaskHandler()
                       {
                         std::lock_guard<std::mutex> lock(write_mappings_mutex_);
                         write_mappings_.push_back(mapping);
@@ -611,18 +445,11 @@ std::future<void> armonik::api::worker::TaskHandler::send_result(std::string key
                   });
 }
 
-
-
-
-
-
-
-
 /**
- * @brief Get the result ids object
+ * @brief Extracts result identifiers from a CreateResultsMetaData response payload.
  *
- * @param results The results data
- * @return std::vector<std::string> list of result ids
+ * @param results Result metadata entries.
+ * @return List of result ids.
  */
 std::vector<std::string> armonik::api::worker::TaskHandler::get_result_ids(
     std::vector<armonik::api::grpc::v1::agent::CreateResultsMetaDataRequest_ResultCreate> results) {
@@ -649,12 +476,14 @@ std::vector<std::string> armonik::api::worker::TaskHandler::get_result_ids(
   return result_ids;
 }
 
+
 /**
  * @brief Get the Session Id object
  *
  * @return std::string
  */
 const std::string &armonik::api::worker::TaskHandler::getSessionId() const { return session_id_; }
+
 
 /**
  * @brief Get the Task Id object
@@ -663,16 +492,15 @@ const std::string &armonik::api::worker::TaskHandler::getSessionId() const { ret
  */
 const std::string &armonik::api::worker::TaskHandler::getTaskId() const { return task_id_; }
 
+
 /**
- * @brief Get the Payload object
+ * @brief Returns a zero-copy view of the payload.
  *
- * @return std::vector<std::byte>
+ * The returned view points into a memory-mapped region. Its lifetime is tied to this
+ * TaskHandler instance.
+ *
+ * @return Payload view.
  */
-
- /*
-const std::string &armonik::api::worker::TaskHandler::getPayload() const { return payload_; }
-*/
-
 absl::string_view
 armonik::api::worker::TaskHandler::getPayloadView() const {
   if (!payload_view_built_) {
@@ -699,8 +527,11 @@ armonik::api::worker::TaskHandler::getPayloadView() const {
 }
 
 
-
-
+/**
+ * @brief Returns the payload as an owning string.
+ *
+ * @return Payload content (may contain binary data).
+ */
 const std::string &
 armonik::api::worker::TaskHandler::getPayload() const {
   if (!payload_cache_built_) {
@@ -712,8 +543,14 @@ armonik::api::worker::TaskHandler::getPayload() const {
 }
 
 
-// ---------- Data dependencies (views + cache) ----------
-
+/**
+ * @brief Returns zero-copy views of data dependencies.
+ *
+ * The returned views point into memory-mapped regions. Their lifetime is tied to this
+ * TaskHandler instance.
+ *
+ * @return Map from dependency id to string_view.
+ */
 const std::map<std::string, absl::string_view> &
 armonik::api::worker::TaskHandler::getDataDependenciesView() const {
   if (!dependency_views_built_) {
@@ -748,6 +585,12 @@ armonik::api::worker::TaskHandler::getDataDependenciesView() const {
   return dependency_views_;
 }
 
+
+/**
+ * @brief Returns data dependencies as owning strings.
+ *
+ * @return Map from dependency id to content (may contain binary data).
+ */
 const std::map<std::string, std::string> &
 armonik::api::worker::TaskHandler::getDataDependencies() const {
   if (!dependency_cache_built_) {
@@ -770,14 +613,16 @@ armonik::api::worker::TaskHandler::getDataDependencies() const {
 
 
 
+
 /**
- * @brief Get the Task Options object
+ * @brief Gets the task options.
  *
- * @return armonik::api::grpc::v1::TaskOptions
+ * @return Task options for the current task.
  */
 const armonik::api::grpc::v1::TaskOptions &armonik::api::worker::TaskHandler::getTaskOptions() const {
   return task_options_;
 }
+
 
 /**
  * @brief Get the Expected Results object
@@ -787,6 +632,7 @@ const armonik::api::grpc::v1::TaskOptions &armonik::api::worker::TaskHandler::ge
 const std::vector<std::string> &armonik::api::worker::TaskHandler::getExpectedResults() const {
   return expected_result_;
 }
+
 
 /**
  * @brief Get the Configuration object
