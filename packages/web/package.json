@@ -1,7 +1,7 @@
 {
   "name": "@aneoconsultingfr/armonik.api",
   "version": "3.28.1",
-  "packageManager": "pnpm@9.1.4",
+  "packageManager": "pnpm@10.27.0",
   "description": "gRPC API to interact with ArmoniK built for the web",
   "license": "Apache-2.0",
   "homepage": "https://github.com/aneoconsulting/ArmoniK.Api#readme",
@@ -42,12 +42,12 @@
     "prepublish": "cp ../../LICENSE ./LICENSE"
   },
   "dependencies": {
-    "protobufjs": "^7.2.5",
+    "protobufjs": "^8.0.0",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "ts-proto": "^1.156.7",
-    "tsup": "^7.2.0",
+    "ts-proto": "^2.10.1",
+    "tsup": "^8.5.1",
     "typescript": "^5.2.2"
   }
 }
