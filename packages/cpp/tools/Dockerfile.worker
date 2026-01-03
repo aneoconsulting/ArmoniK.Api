@@ -1,5 +1,5 @@
 # Start with the latest Alpine base image for the build stage
-FROM alpine:3.21 AS builder
+FROM alpine:3.23 AS builder
 ARG GRPC_VERSION=v1.54.0
 
 # Install all the necessary dependencies required for the build process
@@ -51,7 +51,7 @@ RUN cmake -DCMAKE_INSTALL_PREFIX="/app/install" -DPROTO_FILES_DIR="/app/proto" -
 RUN make -j $(nproc) install
 
 # Start with the latest Alpine base image for the final stage
-FROM alpine:3.21
+FROM alpine:3.23
 # Install all the necessary dependencies required for the build process
 # These include tools and libraries for building and compiling the source code
 RUN apk update && apk add --no-cache \
