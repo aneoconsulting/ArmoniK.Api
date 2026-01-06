@@ -27,6 +27,10 @@ impl From<i32> for SessionStatus {
             0 => Self::Unspecified,
             1 => Self::Running,
             2 => Self::Cancelled,
+            3 => Self::Paused,
+            4 => Self::Closed,
+            5 => Self::Purged,
+            6 => Self::Deleted,
             _ => Default::default(),
         }
     }
