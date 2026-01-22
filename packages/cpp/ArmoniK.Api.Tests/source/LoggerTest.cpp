@@ -15,7 +15,7 @@ struct LogLevelParams {
 
 class LoggerTest : public testing::TestWithParam<std::tuple<Level, Level>> {};
 
-TEST_P(LoggerTest, FormatterAndWriter) {
+TEST_P(LoggerTest, LogMessageIsFormattedAndWritten) {
   auto formatter_ptr = std::make_unique<MockFormatter>();
   auto writer_ptr = std::make_unique<MockWriter>();
 
