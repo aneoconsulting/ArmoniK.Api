@@ -51,8 +51,8 @@ void LocalLogger::log(Level level, absl::string_view message, const Context &mes
     return;
   }
 
-  auto formatted = formatter_->format(level_, message, *global_context_, local_context_, message_context);
-  writer_->write(level_, formatted);
+  auto formatted = formatter_->format(level, message, *global_context_, local_context_, message_context);
+  writer_->write(level, formatted);
 }
 } // namespace logger
 } // namespace common
