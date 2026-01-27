@@ -18,7 +18,7 @@ namespace logger {
  * @class LocalLogger
  * @brief Logger with a local context.
  */
-class LocalLogger : ILogger {
+class LocalLogger : public ILogger {
 private:
   IWriter *writer_;
   IFormatter *formatter_;
