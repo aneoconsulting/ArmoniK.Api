@@ -83,7 +83,7 @@ jobs:
 
   release-angular-package:
     needs: [version]
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     name: Release Angular Package
     runs-on: ubuntu-latest
     steps:
