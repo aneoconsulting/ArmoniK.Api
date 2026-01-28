@@ -24,6 +24,7 @@ extensions = ["myst_parser",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
+    'breathe'
 ]
 
 templates_path = ["_templates"]
@@ -35,6 +36,7 @@ suppress_warnings = ["myst.header"]
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
+html_css_files = ['custom.css']
 html_search = True
 
 # -- Options for source files ------------------------------------------------
@@ -55,6 +57,11 @@ autodoc_mock_imports = [
 # -- Options MyST Parser ------------------------------------------------
 myst_fence_as_directive = ["mermaid"]
 myst_heading_anchors = 3
+
+breathe_projects = {
+    "ArmoniK.Api.Cpp": "content/api/cpp/doxygen/xml"
+}
+breathe_default_project = "ArmoniK.Api.Cpp"
 
 # -- Options to show "Edit on GitHub" button ---------------------------------
 html_context = {
