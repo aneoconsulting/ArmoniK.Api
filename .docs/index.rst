@@ -57,3 +57,10 @@ ArmoniK.Api documentation
    :glob:
 
    content/api/python/PythonAPI.rst
+
+.. toctree::
+   :maxdepth: 3
+   :caption: API C++
+   :glob:
+
+   content/api/cpp/index.rst
