@@ -33,9 +33,9 @@ class ArmoniKWorker(WorkerServicer):
         self,
         agent_channel: Channel,
         processing_function: Callable[[TaskHandler], Output],
-        health_check: Callable[
-            [], HealthCheckReply.ServingStatus
-        ] = lambda: HealthCheckStatus.SERVING,
+        health_check: Callable[[], HealthCheckReply.ServingStatus] = lambda: (
+            HealthCheckStatus.SERVING
+        ),
         logger=ClefLogger.getLogger("ArmoniKWorker"),
     ):
         """Creates a worker for ArmoniK
