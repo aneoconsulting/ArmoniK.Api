@@ -9,6 +9,8 @@ from ..common.helpers import batched
 from ..protogen.common.agent_common_pb2 import (
     CreateResultsMetaDataRequest,
     CreateResultsMetaDataResponse,
+    DataRequest,
+    DataResponse,
     NotifyResultDataRequest,
     CreateResultsRequest,
     CreateResultsResponse,
@@ -194,3 +196,25 @@ class TaskHandler:
             for message in response.results:
                 results[message.name] = Result.from_result_metadata(message)
         return results
+
+    def get_resource_data(self, result_id: str) -> bytes:
+        """
+        Retrieves an object from ArmoniK's object storage to the worker. Blocks until data are available in the shared folder (TaskHandler.data_folder).
+
+        Args:
+            result_id (str): The ID for the result to retrieve
+
+        Returns:
+            bytes: The retrieved object data read from the disk (TaskHandler.data_folder / result_id).
+        """
+
+        data_request = DataRequest(communication_token=self.token, result_id=result_id)
+
+        data_response: DataResponse = self._client.GetResourceData(data_request)
+
+        result_path = os.path.join(self.data_folder, data_response.result_id)
+
+        with open(result_path, "rb") as resource_handle:
+            resource_bytes = resource_handle.read()
+
+        return resource_bytes
