@@ -36,6 +36,8 @@ build:
       - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$HOME/.dotnet":"$HOME/.dotnet/tools" scripts/generate-csharp-doc.sh
       - DOTNET_ROOT="$HOME/.dotnet" PATH="$PATH":"$HOME/.dotnet":"$HOME/.dotnet/tools" scripts/generate-envvars-doc.sh
 
+      - doxygen Doxyfile
+
 # Move anchors out of the titles
 # Build documentation in the ".docs/" directory with Sphinx
 sphinx:
