@@ -254,6 +254,29 @@ armonik::api::grpc::v1::results::ListResultsRequest::Sort ResultsClient::default
   return sort;
 }
 
+void ResultsClient::import_results_data(std::string session_id, std::map<std::string, absl::string_view> results_id_to_opaque_id) const {
+  ::grpc::ClientContext context;
+  grpc::v1::results::ImportResultsDataRequest request;
+  grpc::v1::results::ImportResultsDataResponse response;
+
+  request.set_session_id(std::move(session_id));
+  request.mutable_results()->Reserve(static_cast<int>(results_id_to_opaque_id.size()));
+  for (auto&& id_to_opaque_id : results_id_to_opaque_id) {
+    const auto result_opaque_id = request.mutable_results()->Add();
+    result_opaque_id->set_result_id(id_to_opaque_id.first);
+    result_opaque_id->set_opaque_id(id_to_opaque_id.second);
+  }
+  auto status =  stub->ImportResultsData(&context, request, &response);
+  if (!status.ok()) {
+    std::stringstream message;
+    message << "Error Importing results data: " << status.error_code() << ": " << status.error_message()
+            << ". details : " << status.error_details() << std::endl;
+    auto str = message.str();
+    throw common::exceptions::ArmoniKApiException(str);
+  }
+}
+
+
 } // namespace client
 } // namespace api
 } // namespace armonik
