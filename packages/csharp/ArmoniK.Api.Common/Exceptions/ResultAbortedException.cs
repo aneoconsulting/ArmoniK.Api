@@ -40,12 +40,12 @@ public class ResultAbortedException : Exception
   }
 
   /// <summary>
-  ///    The aborted Result's id
+  ///   The aborted Result's id
   /// </summary>
   public string AbortedResultId { get; }
 
   /// <summary>
-  ///    The already completed Results's Ids when the exception is raised
+  ///   The already completed Results's Ids when the exception is raised
   /// </summary>
   public IEnumerable<string> CompletedResultIds { get; }
 }
