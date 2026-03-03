@@ -30,20 +30,22 @@ public class ResultAbortedException : Exception
   /// <param name="message">The error message</param>
   /// <param name="abortedResultId">The aborted Result's id</param>
   /// <param name="completedResultIds">The completed Results's Ids</param>
-  public ResultAbortedException(string message, string abortedResultId, List<string> completedResultIds)
+  public ResultAbortedException(string       message,
+                                string       abortedResultId,
+                                List<string> completedResultIds)
     : base(message)
   {
-    AbortedResultId = abortedResultId;
+    AbortedResultId    = abortedResultId;
     CompletedResultIds = completedResultIds;
   }
 
   /// <summary>
   ///    The aborted Result's id
   /// </summary>
-  string AbortedResultId { get; }
+  public string AbortedResultId { get; }
 
   /// <summary>
   ///    The already completed Results's Ids when the exception is raised
   /// </summary>
-  IEnumerable<string> CompletedResultIds { get; }
+  public IEnumerable<string> CompletedResultIds { get; }
 }
