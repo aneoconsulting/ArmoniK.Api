@@ -149,7 +149,8 @@ namespace ArmoniK.Api.Client
                                                    {
                                                      throw new ResultAbortedException($"Result {resp.ResultStatusUpdate.ResultId} has been aborted",
                                                                                       resp.ResultStatusUpdate.ResultId,
-                                                                                      resultsCompleted);
+                                                                                      resultsCompleted,
+                                                                                      resultsNotFound);
                                                    }
                                                  }
 
@@ -169,7 +170,8 @@ namespace ArmoniK.Api.Client
                                                    {
                                                      throw new ResultAbortedException($"Result {resp.NewResult.ResultId} has been aborted",
                                                                                       resp.NewResult.ResultId,
-                                                                                      resultsCompleted);
+                                                                                      resultsCompleted,
+                                                                                      resultsNotFound);
                                                    }
                                                  }
                                                }

@@ -30,13 +30,16 @@ public class ResultAbortedException : Exception
   /// <param name="message">The error message</param>
   /// <param name="abortedResultId">The aborted Result's id</param>
   /// <param name="completedResultIds">The completed Results's Ids</param>
-  public ResultAbortedException(string       message,
-                                string       abortedResultId,
-                                List<string> completedResultIds)
+  /// <param name="remainingResultIds">The Results's Ids still not processed</param>
+  public ResultAbortedException(string          message,
+                                string          abortedResultId,
+                                List<string>    completedResultIds,
+                                HashSet<string> remainingResultIds)
     : base(message)
   {
     AbortedResultId    = abortedResultId;
     CompletedResultIds = completedResultIds;
+    RemainingResultIds = remainingResultIds;
   }
 
   /// <summary>
@@ -47,5 +50,10 @@ public class ResultAbortedException : Exception
   /// <summary>
   ///   The already completed Results's Ids when the exception is raised
   /// </summary>
-  public IEnumerable<string> CompletedResultIds { get; }
+  public IReadOnlyCollection<string> CompletedResultIds { get; }
+
+  /// <summary>
+  ///   The collection of Results's Ids that have not yet been processed or retrieved.
+  /// </summary>
+  public IReadOnlyCollection<string> RemainingResultIds { get; }
 }
