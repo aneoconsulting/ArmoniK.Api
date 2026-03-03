@@ -15,6 +15,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 
 namespace ArmoniK.Api.Common.Exceptions;
 
@@ -27,8 +28,22 @@ public class ResultAbortedException : Exception
   ///   Initializes a new instance of the <see cref="ResultAbortedException" /> with the specified error message
   /// </summary>
   /// <param name="message">The error message</param>
-  public ResultAbortedException(string message)
+  /// <param name="abortedResultId">The aborted Result's id</param>
+  /// <param name="completedResultIds">The completed Results's Ids</param>
+  public ResultAbortedException(string message, string abortedResultId, List<string> completedResultIds)
     : base(message)
   {
+    AbortedResultId = abortedResultId;
+    CompletedResultIds = completedResultIds;
   }
+
+  /// <summary>
+  ///    The aborted Result's id
+  /// </summary>
+  string AbortedResultId { get; }
+
+  /// <summary>
+  ///    The already completed Results's Ids when the exception is raised
+  /// </summary>
+  IEnumerable<string> CompletedResultIds { get; }
 }

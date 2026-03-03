@@ -107,6 +107,7 @@ namespace ArmoniK.Api.Client
                                          },
                                          async results =>
                                          {
+                                           var resultsCompleted = new List<string>();
                                            var resultsNotFound = new HashSet<string>(results);
                                            while (resultsNotFound.Any())
                                            {
@@ -137,16 +138,16 @@ namespace ArmoniK.Api.Client
                                                  {
                                                    if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
                                                    {
+                                                     resultsCompleted.Add(resp.ResultStatusUpdate.ResultId);
                                                      resultsNotFound.Remove(resp.ResultStatusUpdate.ResultId);
                                                      if (!resultsNotFound.Any())
                                                      {
                                                        break;
                                                      }
                                                    }
-
-                                                   if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
+                                                   else if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
                                                    {
-                                                     throw new ResultAbortedException($"Result {resp.ResultStatusUpdate.ResultId} has been aborted");
+                                                     throw new ResultAbortedException($"Result {resp.ResultStatusUpdate.ResultId} has been aborted", resp.ResultStatusUpdate.ResultId, resultsCompleted);
                                                    }
                                                  }
 
@@ -155,16 +156,16 @@ namespace ArmoniK.Api.Client
                                                  {
                                                    if (resp.NewResult.Status == ResultStatus.Completed)
                                                    {
+                                                     resultsCompleted.Add(resp.NewResult.ResultId);
                                                      resultsNotFound.Remove(resp.NewResult.ResultId);
                                                      if (!resultsNotFound.Any())
                                                      {
                                                        break;
                                                      }
                                                    }
-
-                                                   if (resp.NewResult.Status == ResultStatus.Aborted)
+                                                   else if (resp.NewResult.Status == ResultStatus.Aborted)
                                                    {
-                                                     throw new ResultAbortedException($"Result {resp.NewResult.ResultId} has been aborted");
+                                                     throw new ResultAbortedException($"Result {resp.NewResult.ResultId} has been aborted", resp.NewResult.ResultId, resultsCompleted);
                                                    }
                                                  }
                                                }
