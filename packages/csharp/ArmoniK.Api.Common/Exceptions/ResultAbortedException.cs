@@ -15,6 +15,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 
 namespace ArmoniK.Api.Common.Exceptions;
 
@@ -27,8 +28,32 @@ public class ResultAbortedException : Exception
   ///   Initializes a new instance of the <see cref="ResultAbortedException" /> with the specified error message
   /// </summary>
   /// <param name="message">The error message</param>
-  public ResultAbortedException(string message)
+  /// <param name="abortedResultId">The aborted Result's id</param>
+  /// <param name="completedResultIds">The completed Results's Ids</param>
+  /// <param name="remainingResultIds">The Results's Ids still not processed</param>
+  public ResultAbortedException(string          message,
+                                string          abortedResultId,
+                                List<string>    completedResultIds,
+                                HashSet<string> remainingResultIds)
     : base(message)
   {
+    AbortedResultId    = abortedResultId;
+    CompletedResultIds = completedResultIds;
+    RemainingResultIds = remainingResultIds;
   }
+
+  /// <summary>
+  ///   The aborted Result's id
+  /// </summary>
+  public string AbortedResultId { get; }
+
+  /// <summary>
+  ///   The already completed Results's Ids when the exception is raised
+  /// </summary>
+  public IReadOnlyCollection<string> CompletedResultIds { get; }
+
+  /// <summary>
+  ///   The collection of Results's Ids that have not yet been processed or retrieved.
+  /// </summary>
+  public IReadOnlyCollection<string> RemainingResultIds { get; }
 }
