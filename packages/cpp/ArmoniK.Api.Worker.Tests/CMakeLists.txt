@@ -4,19 +4,60 @@ set(PROJECT_NAME ArmoniK.Api.Worker.Tests)
 find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
+find_package(absl REQUIRED)
+find_package(utf8_range REQUIRED)
+
+find_library(UTF8_VALIDITY_LIB
+    NAMES utf8_validity
+    PATHS /usr/lib
+    NO_DEFAULT_PATH
+)
+
+if(NOT UTF8_VALIDITY_LIB)
+    message(FATAL_ERROR "utf8_validity library not found!")
+else()
+    message(STATUS "WORKER_TESTS: Found utf8_validity library: ${UTF8_VALIDITY_LIB}")
+endif()
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
 
+FILE(GLOB_RECURSE SRC_WORKER_FILES ${SOURCES_FILES_DIR}/*.cpp)
+FILE(GLOB_RECURSE HEADER_WORKER_FILES ${HEADER_FILES_DIR}/*.h)
 
-FILE(GLOB_RECURSE SRC_CLIENT_FILES ${SOURCES_FILES_DIR}/*.cpp)
-FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
-
-add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
+add_executable(${PROJECT_NAME} ${SRC_WORKER_FILES} ${HEADER_WORKER_FILES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Worker ArmoniK.Api.Common)
+target_link_options(${PROJECT_NAME} PRIVATE
+    -Wl,--start-group
+)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    gRPC::grpc++
+    protobuf::libprotobuf
+
+    ArmoniK.Api.Worker
+    ArmoniK.Api.Common
+
+    utf8_range::utf8_range
+    ${UTF8_VALIDITY_LIB}
+
+    absl::log
+    absl::check
+    absl::log_internal_check_op
+    absl::log_internal_message
+    absl::log_internal_format
+    absl::log_internal_proto
+    absl::log_internal_globals
+    absl::log_internal_conditions
+    absl::strings
+    absl::string_view
+    absl::base
+    absl::throw_delegate
+    absl::raw_logging_internal
+)
+
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
