@@ -5,6 +5,20 @@ find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 find_package(CURL REQUIRED)
+find_package(absl REQUIRED)
+find_package(utf8_range REQUIRED)
+
+find_library(UTF8_VALIDITY_LIB
+    NAMES utf8_validity
+    PATHS /usr/lib
+    NO_DEFAULT_PATH
+)
+
+if(NOT UTF8_VALIDITY_LIB)
+    message(FATAL_ERROR "utf8_validity library not found!")
+else()
+    message(STATUS "Found utf8_validity library: ${UTF8_VALIDITY_LIB}")
+endif()
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
@@ -18,8 +32,39 @@ add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++ ArmoniK.Api.Client ArmoniK.Api.Common GTest::gtest_main GTest::gmock_main CURL::libcurl)
-target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--copy-dt-needed-entries")
+target_link_options(${PROJECT_NAME} PRIVATE
+    -Wl,--copy-dt-needed-entries,--start-group
+)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    ArmoniK.Api.Client
+    ArmoniK.Api.Common
+
+    GTest::gtest_main
+    GTest::gmock_main
+
+    CURL::libcurl
+
+    gRPC::grpc++
+    protobuf::libprotobuf
+
+    ${UTF8_VALIDITY_LIB}
+
+    absl::log
+    absl::check
+    absl::log_internal_check_op
+    absl::log_internal_message
+    absl::log_internal_format
+    absl::log_internal_proto
+    absl::log_internal_globals
+    absl::log_internal_conditions
+    absl::raw_logging_internal
+
+    absl::strings
+    absl::string_view
+    absl::throw_delegate
+    absl::base
+)
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
