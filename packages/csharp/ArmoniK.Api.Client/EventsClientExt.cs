@@ -100,89 +100,113 @@ namespace ArmoniK.Api.Client
                                                  int                      bucket_size       = 100,
                                                  int                      parallelism       = 1,
                                                  CancellationToken        cancellationToken = default)
-      => await resultIds.ToChunks(bucket_size)
-                        .ParallelForEach(new ParallelTaskOptions
-                                         {
-                                           ParallelismLimit = parallelism,
-                                         },
-                                         async results =>
-                                         {
-                                           var resultsCompleted = new List<string>();
-                                           var resultsNotFound  = new HashSet<string>(results);
-                                           while (resultsNotFound.Any())
-                                           {
-                                             using var streamingCall = client.GetEvents(new EventSubscriptionRequest
-                                                                                        {
-                                                                                          SessionId = sessionId,
-                                                                                          ReturnedEvents =
-                                                                                          {
-                                                                                            EventsEnum.ResultStatusUpdate,
-                                                                                            EventsEnum.NewResult,
-                                                                                          },
-                                                                                          ResultsFilters = new Filters
-                                                                                                           {
-                                                                                                             Or =
-                                                                                                             {
-                                                                                                               resultsNotFound.Select(ResultsFilter),
-                                                                                                             },
-                                                                                                           },
-                                                                                        },
-                                                                                        cancellationToken: cancellationToken);
-                                             try
-                                             {
-                                               while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
-                                               {
-                                                 var resp = streamingCall.ResponseStream.Current;
-                                                 if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate &&
-                                                     resultsNotFound.Contains(resp.ResultStatusUpdate.ResultId))
-                                                 {
-                                                   if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
-                                                   {
-                                                     resultsCompleted.Add(resp.ResultStatusUpdate.ResultId);
-                                                     resultsNotFound.Remove(resp.ResultStatusUpdate.ResultId);
-                                                     if (!resultsNotFound.Any())
-                                                     {
-                                                       break;
-                                                     }
-                                                   }
-                                                   else if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
-                                                   {
-                                                     throw new ResultAbortedException($"Result {resp.ResultStatusUpdate.ResultId} has been aborted",
-                                                                                      resp.ResultStatusUpdate.ResultId,
-                                                                                      resultsCompleted,
-                                                                                      resultsNotFound);
-                                                   }
-                                                 }
+    {
+      var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-                                                 if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult &&
-                                                     resultsNotFound.Contains(resp.NewResult.ResultId))
-                                                 {
-                                                   if (resp.NewResult.Status == ResultStatus.Completed)
-                                                   {
-                                                     resultsCompleted.Add(resp.NewResult.ResultId);
-                                                     resultsNotFound.Remove(resp.NewResult.ResultId);
-                                                     if (!resultsNotFound.Any())
-                                                     {
-                                                       break;
-                                                     }
-                                                   }
-                                                   else if (resp.NewResult.Status == ResultStatus.Aborted)
-                                                   {
-                                                     throw new ResultAbortedException($"Result {resp.NewResult.ResultId} has been aborted",
-                                                                                      resp.NewResult.ResultId,
-                                                                                      resultsCompleted,
-                                                                                      resultsNotFound);
-                                                   }
-                                                 }
-                                               }
-                                             }
-                                             catch (OperationCanceledException)
-                                             {
-                                             }
-                                             catch (RpcException)
-                                             {
-                                             }
-                                           }
-                                         });
+      try
+      {
+        await resultIds.ToChunks(bucket_size)
+                       .ParallelForEach(new ParallelTaskOptions
+                                        {
+                                          ParallelismLimit  = parallelism,
+                                          CancellationToken = cts.Token,
+                                        },
+                                        async results =>
+                                        {
+                                          var resultsCompleted = new List<string>();
+                                          var resultsNotFound  = new HashSet<string>(results);
+                                          var retryCount       = 0;
+                                          while (resultsNotFound.Any() && !cts.IsCancellationRequested)
+                                          {
+                                            try
+                                            {
+                                              using var streamingCall = client.GetEvents(new EventSubscriptionRequest
+                                                                                         {
+                                                                                           SessionId = sessionId,
+                                                                                           ReturnedEvents =
+                                                                                           {
+                                                                                             EventsEnum.ResultStatusUpdate,
+                                                                                             EventsEnum.NewResult,
+                                                                                           },
+                                                                                           ResultsFilters = new Filters
+                                                                                                            {
+                                                                                                              Or =
+                                                                                                              {
+                                                                                                                resultsNotFound.Select(ResultsFilter),
+                                                                                                              },
+                                                                                                            },
+                                                                                         },
+                                                                                         cancellationToken: cancellationToken);
+                                              await streamingCall.ResponseHeadersAsync.ConfigureAwait(false);
+                                              retryCount = 0;
+
+                                              while (await streamingCall.ResponseStream.MoveNext(cancellationToken))
+                                              {
+                                                var resp = streamingCall.ResponseStream.Current;
+                                                if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.ResultStatusUpdate &&
+                                                    resultsNotFound.Contains(resp.ResultStatusUpdate.ResultId))
+                                                {
+                                                  if (resp.ResultStatusUpdate.Status == ResultStatus.Completed)
+                                                  {
+                                                    resultsCompleted.Add(resp.ResultStatusUpdate.ResultId);
+                                                    resultsNotFound.Remove(resp.ResultStatusUpdate.ResultId);
+                                                    if (!resultsNotFound.Any())
+                                                    {
+                                                      break;
+                                                    }
+                                                  }
+                                                  else if (resp.ResultStatusUpdate.Status == ResultStatus.Aborted)
+                                                  {
+                                                    throw new ResultAbortedException($"Result {resp.ResultStatusUpdate.ResultId} has been aborted",
+                                                                                     resp.ResultStatusUpdate.ResultId,
+                                                                                     resultsCompleted,
+                                                                                     resultsNotFound);
+                                                  }
+                                                }
+
+                                                if (resp.UpdateCase == EventSubscriptionResponse.UpdateOneofCase.NewResult &&
+                                                    resultsNotFound.Contains(resp.NewResult.ResultId))
+                                                {
+                                                  if (resp.NewResult.Status == ResultStatus.Completed)
+                                                  {
+                                                    resultsCompleted.Add(resp.NewResult.ResultId);
+                                                    resultsNotFound.Remove(resp.NewResult.ResultId);
+                                                    if (!resultsNotFound.Any())
+                                                    {
+                                                      break;
+                                                    }
+                                                  }
+                                                  else if (resp.NewResult.Status == ResultStatus.Aborted)
+                                                  {
+                                                    throw new ResultAbortedException($"Result {resp.NewResult.ResultId} has been aborted",
+                                                                                     resp.NewResult.ResultId,
+                                                                                     resultsCompleted,
+                                                                                     resultsNotFound);
+                                                  }
+                                                }
+                                              }
+                                            }
+                                            catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
+                                            {
+                                              break;
+                                            }
+                                            catch (RpcException)
+                                            {
+                                              retryCount += 1;
+                                              if (retryCount > 5)
+                                              {
+                                                throw;
+                                              }
+                                            }
+                                          }
+                                        });
+        cts.Dispose();
+      }
+      catch
+      {
+        cts.Cancel();
+        throw;
+      }
+    }
   }
 }
