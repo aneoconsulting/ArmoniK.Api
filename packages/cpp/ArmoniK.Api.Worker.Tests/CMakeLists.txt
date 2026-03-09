@@ -5,18 +5,24 @@ find_package(Protobuf REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 find_package(absl REQUIRED)
-find_package(utf8_range REQUIRED)
 
-find_library(UTF8_VALIDITY_LIB
-    NAMES utf8_validity
-    PATHS /usr/lib
-    NO_DEFAULT_PATH
-)
+option(STATIC_LINK "Link statically" ON)
 
-if(NOT UTF8_VALIDITY_LIB)
-    message(FATAL_ERROR "utf8_validity library not found!")
-else()
-    message(STATUS "WORKER_TESTS: Found utf8_validity library: ${UTF8_VALIDITY_LIB}")
+# Check for Red Hat-based systems and static linking
+file(READ /etc/os-release OS_RELEASE_CONTENT)
+if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora" AND STATIC_LINK)
+    # On Red Hat systems with static linking, we need to find the utf8_range and utf8_validity libraries.
+    find_package(utf8_range REQUIRED)
+    find_library(UTF8_VALIDITY_LIB
+        NAMES utf8_validity
+        PATHS /usr/lib
+        NO_DEFAULT_PATH
+    )
+    if(NOT UTF8_VALIDITY_LIB)
+        message(FATAL_ERROR "utf8_validity library not found!")
+    else()
+        message(STATUS "Found utf8_validity library: ${UTF8_VALIDITY_LIB}")
+    endif()
 endif()
 
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
@@ -39,24 +45,40 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 
     ArmoniK.Api.Worker
     ArmoniK.Api.Common
-
-    utf8_range::utf8_range
-    ${UTF8_VALIDITY_LIB}
-
-    absl::log
-    absl::check
-    absl::log_internal_check_op
-    absl::log_internal_message
-    absl::log_internal_format
-    absl::log_internal_proto
-    absl::log_internal_globals
-    absl::log_internal_conditions
-    absl::strings
-    absl::string_view
-    absl::base
-    absl::throw_delegate
-    absl::raw_logging_internal
 )
+
+# Check if the system is Red Hat for linking Abseil
+if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
+    message(STATUS "Detected Red Hat system.")
+    if(STATIC_LINK)
+        message(STATUS "Static linking is enabled. Linking Abseil libraries.")
+
+        target_link_libraries(${PROJECT_NAME} PUBLIC
+
+            utf8_range::utf8_range
+            ${UTF8_VALIDITY_LIB}
+
+            absl::log
+            absl::check
+            absl::log_internal_check_op
+            absl::log_internal_message
+            absl::log_internal_format
+            absl::log_internal_proto
+            absl::log_internal_globals
+            absl::log_internal_conditions
+            absl::raw_logging_internal
+
+            absl::strings
+            absl::string_view
+            absl::throw_delegate
+            absl::base
+        )
+    else()
+        message(STATUS "Static linking is not enabled. Skipping Abseil libraries.")
+    endif()
+else()
+    message(STATUS "Not a Red Hat system. Skipping Abseil libraries.")
+endif()
 
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
