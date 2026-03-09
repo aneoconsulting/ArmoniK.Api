@@ -1,12 +1,13 @@
 name: Release Packages
 
 permissions:
+  id-token: write # Required for OIDC
   contents: write
 
 on:
   push:
     tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
+      - "[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
   # We need to verify the version in some packages with the tag in order to have the same version in all packages (python, csharp, angular, web).
@@ -137,8 +138,6 @@ jobs:
 
       - name: Release package
         run: nr ci:publish angular dist/aneoconsultingfr/armonik.api.angular
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-web-packages:
     needs: [verify-versions]
@@ -173,8 +172,6 @@ jobs:
 
       - name: Release package
         run: nr ci:publish web
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-cpp-package:
     needs: [verify-versions]
@@ -214,7 +211,7 @@ jobs:
       - name: Set up Maven Central Repository
         uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4
         with:
-          java-version: '17'
+          java-version: "17"
           distribution: temurin
           server-id: central
           server-username: MAVEN_USERNAME
