@@ -35,6 +35,12 @@ You can install pnpm using `npm i -g pnpm`
 pnpm run update-versions <version>
 ```
 
+- Update Cargo.lock
+
+```
+cargo check
+```
+
 - Create a PR with the changes (an action will be triggered to check that each package has the same version)
 - Merge the PR
 - Create a new release on GitHub

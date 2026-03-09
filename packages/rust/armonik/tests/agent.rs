@@ -24,17 +24,12 @@ impl armonik::server::AgentService for Service {
             Ok(agent::create_results_metadata::Response {
                 communication_token: request.communication_token,
                 results: request
-                    .names
+                    .results
                     .into_iter()
-                    .map(|name| {
-                        (
-                            name.clone(),
-                            agent::ResultMetaData {
-                                session_id: String::from("rpc-create-results-metadata-output"),
-                                name,
-                                ..Default::default()
-                            },
-                        )
+                    .map(|request| agent::ResultMetaData {
+                        session_id: String::from("rpc-create-results-metadata-output"),
+                        name: request.name,
+                        ..Default::default()
                     })
                     .collect(),
             })
@@ -52,17 +47,14 @@ impl armonik::server::AgentService for Service {
                 communication_token: request.communication_token,
                 results: request
                     .results
-                    .into_keys()
-                    .map(|name| {
-                        eprintln!("NAME: {name}");
-                        (
-                            name.clone(),
-                            agent::ResultMetaData {
-                                name,
-                                session_id: String::from("rpc-create-results-output"),
-                                ..Default::default()
-                            },
-                        )
+                    .into_iter()
+                    .map(|request| {
+                        eprintln!("NAME: {}", &request.name);
+                        agent::ResultMetaData {
+                            name: request.name,
+                            session_id: String::from("rpc-create-results-output"),
+                            ..Default::default()
+                        }
                     })
                     .collect(),
             })
@@ -189,10 +181,7 @@ async fn create_results_metadata() {
         .await
         .unwrap();
 
-    assert_eq!(
-        response["result-id"].session_id,
-        "rpc-create-results-metadata-output"
-    );
+    assert_eq!(response[0].session_id, "rpc-create-results-metadata-output");
 }
 
 #[tokio::test]
@@ -204,10 +193,7 @@ async fn create_results() {
         .await
         .unwrap();
 
-    assert_eq!(
-        response["result-id"].session_id,
-        "rpc-create-results-output"
-    );
+    assert_eq!(response[0].session_id, "rpc-create-results-output");
 }
 
 #[tokio::test]

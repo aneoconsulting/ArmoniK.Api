@@ -16,8 +16,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <AssemblyOriginatorKeyFile>../kp.snk</AssemblyOriginatorKeyFile>
-    <PackageVersion>3.27.0</PackageVersion>
-    <Version>3.27.0</Version>
+    <PackageVersion>3.28.3</PackageVersion>
+    <Version>3.28.3</Version>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
@@ -47,7 +47,7 @@
     <Protobuf Include="..\..\..\Protos\V1\agent_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\agent_service.proto</Link>
     </Protobuf>
-     <Protobuf Include="..\..\..\Protos\V1\applications_service.proto" GrpcServices="Both">
+    <Protobuf Include="..\..\..\Protos\V1\applications_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\applications_service.proto</Link>
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\sessions_service.proto" GrpcServices="Both">
@@ -59,7 +59,7 @@
     <Protobuf Include="..\..\..\Protos\V1\results_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\results_service.proto</Link>
     </Protobuf>
-     <Protobuf Include="..\..\..\Protos\V1\partitions_service.proto" GrpcServices="Both">
+    <Protobuf Include="..\..\..\Protos\V1\partitions_service.proto" GrpcServices="Both">
       <Link>gRPC\Protos\partitions_service.proto</Link>
     </Protobuf>
     <Protobuf Include="..\..\..\Protos\V1\events_service.proto" GrpcServices="Both">

@@ -44,6 +44,7 @@ armonik::api::common::utils::getServiceConfigJson(const armonik::api::common::op
   ::grpc::ChannelArguments args;
   args.SetInt(GRPC_ARG_KEEPALIVE_TIME_MS, getMilliseconds(config.getKeepAliveTime()));
   args.SetInt(GRPC_ARG_MAX_CONNECTION_IDLE_MS, getMilliseconds(config.getMaxIdleTime()));
+  args.SetInt(GRPC_ARG_USE_LOCAL_SUBCHANNEL_POOL, 1);
   args.SetServiceConfigJSON(getServiceConfigJson(config));
   return args;
 }

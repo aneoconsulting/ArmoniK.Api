@@ -52,7 +52,7 @@ jobs:
 
       - name: Install ReSharper
         run: |
-          dotnet tool install -g JetBrains.ReSharper.GlobalTools --version 2022.2.2
+          dotnet tool install -g JetBrains.ReSharper.GlobalTools --version 2024.3.9
 
       - name: Restore
         run: |
@@ -62,7 +62,7 @@ jobs:
       - name: Reformat
         run: |
           cd packages/csharp
-          jb cleanupcode ArmoniK.Api.sln
+          jb cleanupcode --profile="Full Cleanup With Headers" ArmoniK.Api.sln
 
       - name: Check Diff
         run: |

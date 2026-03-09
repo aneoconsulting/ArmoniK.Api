@@ -7,7 +7,7 @@ ArmoniK.Api documentation
 ==========================
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
    :caption: Getting Started
    :glob:
 
@@ -16,43 +16,65 @@ ArmoniK.Api documentation
    content/guide/cpp.md
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
+   :caption: Installation
+   :glob:
+
+   content/guide/releases.md
+   content/guide/cppCompilation.md
+
+.. toctree::
+   :maxdepth: 2
    :caption: Packages
    :glob:
-      
+
    content/guide/packages/index.md
    content/guide/packages/c-sharp.md
    content/guide/packages/python.md
    content/guide/packages/web.md
    content/guide/packages/angular.md
 
-   
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 2
    :caption: Usage
    :glob:
 
    content/usage/use-armonik-api-in-an-angular-app.md
    content/usage/use-armonik-grpc-securely-python.md
+   content/usage/envars/index.rst
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
+   :caption: Troubleshooting
+   :glob:
+
+   content/troubleshooting/troubleshooting.md
+
+.. toctree::
+   :maxdepth: 2
    :caption: API Proto
    :glob:
 
    content/api/v1.md
 
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :caption: API C#
    :glob:
 
    content/api/csharp/index.rst
 
-
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 1
    :caption: API Python
    :glob:
 
    content/api/python/PythonAPI.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API C++
+   :glob:
+
+   content/api/cpp/index.rst
+

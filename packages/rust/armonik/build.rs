@@ -1,5 +1,5 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tonic_build::configure()
+    tonic_prost_build::configure()
         .use_arc_self(true)
         .build_client(cfg!(feature = "_gen-client"))
         .build_server(cfg!(feature = "_gen-server"))

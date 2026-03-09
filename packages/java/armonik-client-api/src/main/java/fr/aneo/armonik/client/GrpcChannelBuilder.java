@@ -8,6 +8,11 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.URI;
+import java.time.Duration;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /*
  * This file is part of the ArmoniK project
@@ -29,7 +34,8 @@ import java.net.URI;
  */
 
 /**
- * Fluent builder for creating gRPC ManagedChannel instances with customizable SSL/TLS configuration.
+ * Fluent builder for creating gRPC ManagedChannel instances with customizable SSL/TLS configuration,
+ * retry policies, and connection management.
  *
  * <h3>Certificate Format Support</h3>
  * <ul>
@@ -43,64 +49,28 @@ import java.net.URI;
  *   <li><strong>Insecure Connection Conflict</strong>: Throws {@link IllegalStateException} if {@code withUnsecureConnection()}
  *       is used together with any certificate configuration ({@code withCaPem()} or {@code withClientCertificate()})</li>
  * </ul>
- *
- * <h3>Usage Examples</h3>
- *
- * <h4>Development/Testing (Insecure)</h4>
- * <pre>{@code
- * ManagedChannel channel = GrpcChannelBuilder
- *     .forEndpoint("http://localhost:4312")
- *     .withUnsecureConnection()
- *     .build();
- * }</pre>
- *
- * <h4> TLS with System Trust Store</h4>
- * <pre>{@code
- * ManagedChannel channel = GrpcChannelBuilder
- *     .forEndpoint("https://api.example.com:443")
- *     .build();
- * }</pre>
- *
- * <h4>TLS with Custom CA Certificate</h4>
- * <pre>{@code
- * ManagedChannel channel = GrpcChannelBuilder
- *     .forEndpoint("https://api.example.com:443")
- *     .withCaPem("/path/to/ca.pem")
- *     .build();
- * }</pre>
- *
- * <h4>Mutual TLS with PEM Certificate</h4>
- * <pre>{@code
- * ManagedChannel channel = GrpcChannelBuilder
- *     .forEndpoint("https://api.example.com:443")
- *     .withCaPem("/path/to/ca.pem") // Optional
- *     .withClientCertificate(PemGrpcClientCertificate.of(
- *         "/path/to/client.pem",
- *         "/path/to/client.key"
- *     ))
- *     .build();
- * }</pre>
- *
- * <h4>Mutual TLS with PKCS#12 Certificate</h4>
- * <pre>{@code
- * ManagedChannel channel = GrpcChannelBuilder
- *     .forEndpoint("https://api.example.com:443")
- *     .withCaPem("/path/to/ca.pem") // Optional
- *     .withClientCertificate(Pkcs12GrpcClientCertificate.of(
- *         "/path/to/client.p12",
- *         "password"
- *     ))
- *     .build();
- * }</pre>
  */
 public class GrpcChannelBuilder {
 
   private static final Logger logger = LoggerFactory.getLogger(GrpcChannelBuilder.class);
 
+  private static final int MAX_INBOUND_METADATA_SIZE = 1024 * 1024;  // 1 MB
+  private static final int MAX_INBOUND_MESSAGE_SIZE = 8 * 1024 * 1024;  // 8 MB
+  private static final List<String> RETRYABLE_STATUS_CODES = List.of(
+    "UNAVAILABLE",
+    "DEADLINE_EXCEEDED",
+    "RESOURCE_EXHAUSTED",
+    "ABORTED"
+  );
+
   private final URI endpointUri;
   private String caPem = null;
   private GrpcClientCertificate clientCertificate = null;
   private boolean useUnsecureConnection = false;
+  private RetryPolicy retryPolicy = null;
+  private Duration keepAliveTime = null;
+  private Duration keepAliveTimeout = null;
+  private Duration idleTimeout = null;
 
   /**
    * @param endpointUri The parsed gRPC server endpoint URI
@@ -112,7 +82,7 @@ public class GrpcChannelBuilder {
   /**
    * Creates a new builder for the specified endpoint.
    *
-   * @param endpoint The gRPC server endpoint (e.g., "<a href="https://localhost:4312">https://localhost:4312</a>" or "<a href="http://localhost:4312">http://localhost:4312</a>")
+   * @param endpoint The gRPC server endpoint (e.g., "https://localhost:4312" or "http://localhost:4312")
    * @return A new {@link GrpcChannelBuilder} instance
    * @throws IllegalArgumentException if endpoint is null, blank, or has invalid format
    */
@@ -180,6 +150,86 @@ public class GrpcChannelBuilder {
     return this;
   }
 
+  /**
+   * Configures automatic retry behavior for transient failures.
+   *
+   * <p>When configured, the channel will automatically retry failed requests that match
+   * retryable status codes (UNAVAILABLE, DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, ABORTED)
+   * using exponential backoff.
+   *
+   * <p>By default, retry is disabled. You must explicitly call this method to enable retry.
+   *
+   * @param retryPolicy Retry configuration (use {@link RetryPolicy#DEFAULT} for recommended settings)
+   * @return this builder instance
+   * @see RetryPolicy
+   */
+  public GrpcChannelBuilder withRetry(RetryPolicy retryPolicy) {
+    this.retryPolicy = retryPolicy;
+    return this;
+  }
+
+  /**
+   * Configures HTTP/2 keep-alive with default timeout (20 seconds).
+   *
+   * <p>Keep-alive sends periodic PING frames to detect broken connections early
+   * and prevent idle connection closure by intermediate proxies or firewalls.
+   *
+   * <p>The default timeout of 20 seconds matches gRPC's internal default.
+   *
+   * <p>Recommended for long-lived connections or environments with aggressive connection timeouts.
+   *
+   * @param keepAliveTime Time between keep-alive PING frames when connection is idle
+   * @return this builder instance
+   * @throws IllegalArgumentException if keepAliveTime is null, zero, or negative
+   * @see #withKeepAlive(Duration, Duration) for custom timeout configuration
+   */
+  public GrpcChannelBuilder withKeepAlive(Duration keepAliveTime) {
+    return withKeepAlive(keepAliveTime, Duration.ofSeconds(20));
+  }
+
+  /**
+   * Configures HTTP/2 keep-alive with custom timeout.
+   *
+   * <p>Keep-alive sends periodic PING frames to detect broken connections early
+   * and prevent idle connection closure by intermediate proxies or firewalls.
+   *
+   * <p>Use this overload when you need fine-grained control over the timeout value.
+   * For most cases, {@link #withKeepAlive(Duration)} with the default 20-second timeout is sufficient.
+   *
+   * @param keepAliveTime    Time between keep-alive PING frames when connection is idle
+   * @param keepAliveTimeout Maximum time to wait for PING acknowledgement before considering connection dead
+   * @return this builder instance
+   * @throws IllegalArgumentException if either parameter is null, zero, or negative
+   */
+  public GrpcChannelBuilder withKeepAlive(Duration keepAliveTime, Duration keepAliveTimeout) {
+    if (keepAliveTime == null || keepAliveTime.isZero() || keepAliveTime.isNegative()) {
+      throw new IllegalArgumentException("keepAliveTime must be positive, got: " + keepAliveTime);
+    }
+    if (keepAliveTimeout == null || keepAliveTimeout.isZero() || keepAliveTimeout.isNegative()) {
+      throw new IllegalArgumentException("keepAliveTimeout must be positive, got: " + keepAliveTimeout);
+    }
+    this.keepAliveTime = keepAliveTime;
+    this.keepAliveTimeout = keepAliveTimeout;
+    return this;
+  }
+
+  /**
+   * Configures maximum idle time before closing inactive connections.
+   *
+   * <p>When a connection has no active streams for this duration, it will be automatically closed
+   * to free resources. This is useful for applications with bursty traffic patterns.
+   *
+   * @param idleTimeout Maximum idle time before connection closure
+   * @return this builder instance
+   * @throws IllegalArgumentException if idleTimeout is null, zero, or negative
+   */
+  public GrpcChannelBuilder withIdleTimeout(Duration idleTimeout) {
+    if (idleTimeout == null || idleTimeout.isZero() || idleTimeout.isNegative()) {
+      throw new IllegalArgumentException("idleTimeout must be positive, got: " + idleTimeout);
+    }
+    this.idleTimeout = idleTimeout;
+    return this;
+  }
 
   /**
    * Builds the ManagedChannel with the configured settings.
@@ -189,32 +239,119 @@ public class GrpcChannelBuilder {
    * @throws IllegalStateException if the configuration is invalid (conflicting insecure/certificate settings)
    */
   public ManagedChannel build() {
-    NettyChannelBuilder builder = NettyChannelBuilder.forAddress(endpointUri.getHost(), endpointUri.getPort());
+    var builder = NettyChannelBuilder.forAddress(endpointUri.getHost(), endpointUri.getPort())
+                                     .maxInboundMetadataSize(MAX_INBOUND_METADATA_SIZE)
+                                     .maxInboundMessageSize(MAX_INBOUND_MESSAGE_SIZE);
 
     if (useUnsecureConnection) {
       validateUnsecureConnectionConfiguration();
-      logger.warn(
-        "SECURITY WARNING: Insecure plaintext connection enabled for endpoint {}. " +
-          "This disables all encryption and should only be used for development or internal networks.", endpointUri
-      );
+      logger.warn( "SECURITY WARNING: Insecure plaintext connection enabled for endpoint {}. " +
+          "This disables all encryption and should only be used for development or internal networks.", endpointUri);
 
       builder.usePlaintext();
     } else {
-      try {
-        var sslContextBuilder = GrpcSslContexts.forClient();
-        if (caPem != null) {
-          sslContextBuilder.trustManager(new File(caPem));
-        }
-        if (clientCertificate != null) {
-          clientCertificate.configureKeyManager(sslContextBuilder);
-          logger.info("Creating secure gRPC channel with mutual TLS to {} using {}", endpointUri, clientCertificate.getDescription());
-        }
-        builder.sslContext(sslContextBuilder.build());
-      } catch (Exception e) {
-        throw new RuntimeException("Failed to set up SSL context", e);
-      }
+      configureSslContext(builder);
     }
+
+    configureRetryPolicy(builder);
+    configureKeepAlive(builder);
+    configureIdleTimeout(builder);
+
     return builder.build();
+  }
+
+  /**
+   * Configures SSL/TLS context for secure connections.
+   */
+  private void configureSslContext(NettyChannelBuilder builder) {
+    try {
+      var sslContextBuilder = GrpcSslContexts.forClient();
+      if (caPem != null) {
+        sslContextBuilder.trustManager(new File(caPem));
+      }
+      if (clientCertificate != null) {
+        clientCertificate.configureKeyManager(sslContextBuilder);
+        logger.info("Creating secure gRPC channel with mutual TLS to {} using {}", endpointUri, clientCertificate.getDescription());
+      }
+      builder.sslContext(sslContextBuilder.build());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to set up SSL context", e);
+    }
+  }
+
+  /**
+   * Configures retry policy using gRPC service config.
+   */
+  private void configureRetryPolicy(NettyChannelBuilder builder) {
+    if (retryPolicy != null) {
+      var serviceConfig = Map.of(
+        "methodConfig", List.of(Map.of(
+          "name", List.of(Map.of()),
+          "retryPolicy", Map.of(
+            "maxAttempts", (double) retryPolicy.maxAttempts(),
+            "initialBackoff", formatDuration(retryPolicy.initialBackoff()),
+            "maxBackoff", formatDuration(retryPolicy.maxBackoff()),
+            "backoffMultiplier", retryPolicy.backoffMultiplier(),
+            "retryableStatusCodes", RETRYABLE_STATUS_CODES
+          )
+        ))
+      );
+
+      builder.defaultServiceConfig(serviceConfig);
+      builder.enableRetry();
+
+      logger.debug("Retry policy configured: maxAttempts={}, initialBackoff={}, maxBackoff={}, multiplier={}",
+        retryPolicy.maxAttempts(),
+        retryPolicy.initialBackoff(),
+        retryPolicy.maxBackoff(),
+        retryPolicy.backoffMultiplier()
+      );
+    }
+  }
+
+  /**
+   * Configures HTTP/2 keep-alive settings.
+   */
+  private void configureKeepAlive(NettyChannelBuilder builder) {
+    if (keepAliveTime != null && keepAliveTimeout != null) {
+      builder.keepAliveTime(keepAliveTime.toMillis(), TimeUnit.MILLISECONDS);
+      builder.keepAliveTimeout(keepAliveTimeout.toMillis(), TimeUnit.MILLISECONDS);
+      builder.keepAliveWithoutCalls(true);
+
+      logger.debug("Keep-alive configured: time={}, timeout={}", keepAliveTime, keepAliveTimeout);
+    }
+  }
+
+  /**
+   * Configures idle connection timeout.
+   */
+  private void configureIdleTimeout(NettyChannelBuilder builder) {
+    if (idleTimeout != null) {
+      builder.idleTimeout(idleTimeout.toMillis(), TimeUnit.MILLISECONDS);
+      logger.debug("Idle timeout configured: {}", idleTimeout);
+    }
+  }
+
+  /**
+   * Formats a Duration into gRPC service config format (e.g., "1.5s", "100ms").
+   */
+  private String formatDuration(Duration duration) {
+    long nanos = duration.toNanos();
+    if (nanos == 0) {
+      return "0s";
+    }
+    double seconds = nanos / 1_000_000_000.0;
+    if (seconds >= 1.0) {
+      return String.format(Locale.ROOT, "%.9f", seconds)
+                   .replaceAll("0+$", "")
+                   .replaceAll("\\.$", "") + "s";
+    } else {
+      long millis = duration.toMillis();
+      if (millis > 0) {
+        return millis + "ms";
+      }
+      return nanos + "ns";
+    }
   }
 
   /**
