@@ -34,6 +34,24 @@ else()
 endif()
 find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
+find_package(absl REQUIRED)
+
+# Check for Red Hat-based systems and static linking
+file(READ /etc/os-release OS_RELEASE_CONTENT)
+if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora" AND STATIC_LINK)
+    # On Red Hat systems with static linking, we need to find the utf8_range and utf8_validity libraries.
+    find_package(utf8_range REQUIRED)
+    find_library(UTF8_VALIDITY_LIB
+        NAMES utf8_validity
+        PATHS /usr/lib
+        NO_DEFAULT_PATH
+    )
+    if(NOT UTF8_VALIDITY_LIB)
+        message(FATAL_ERROR "utf8_validity library not found!")
+    else()
+        message(STATUS "Found utf8_validity library: ${UTF8_VALIDITY_LIB}")
+    endif()
+endif()
 
 include(FetchContent)
 
@@ -96,6 +114,38 @@ target_include_directories(${PROJECT_NAME}
                            "$<BUILD_INTERFACE:${HEADER_FILES_DIR}>"
                            "$<BUILD_INTERFACE:${fmt_SOURCE_DIR}/include>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+# Check if the system is Red Hat for linking Abseil
+if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
+    message(STATUS "Detected Red Hat system.")
+    if(STATIC_LINK)
+        message(STATUS "Static linking is enabled. Linking Abseil libraries.")
+
+        target_link_libraries(${PROJECT_NAME} PUBLIC
+            utf8_range::utf8_range
+            ${UTF8_VALIDITY_LIB}
+
+            absl::log
+            absl::check
+            absl::log_internal_check_op
+            absl::log_internal_message
+            absl::log_internal_format
+            absl::log_internal_proto
+            absl::log_internal_globals
+            absl::log_internal_conditions
+            absl::raw_logging_internal
+
+            absl::strings
+            absl::string_view
+            absl::throw_delegate
+            absl::base
+        )
+    else()
+        message(STATUS "Static linking is not enabled. Skipping Abseil libraries.")
+    endif()
+else()
+    message(STATUS "Not a Red Hat system. Skipping Abseil libraries.")
+endif()
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY VERSION ${version})
 set_property(TARGET ${PROJECT_NAME} PROPERTY SOVERSION ${version_major})
