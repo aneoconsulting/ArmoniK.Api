@@ -5,7 +5,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build && cp ../../LICENSE ./LICENSE",
+    "build": "ng build && sh fix_task_option_enum.sh && cp ../../LICENSE ./LICENSE",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "proto:generate:linux": "protoc --plugin=protoc-gen-ng=$(which protoc-gen-ng) --ng_out=./projects/aneoconsultingfr/armonik.api.angular/src/lib/generated -I ../../Protos/V1 ../../Protos/V1/*.proto"
