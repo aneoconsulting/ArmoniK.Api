@@ -22,17 +22,19 @@ target_link_options(${PROJECT_NAME} PRIVATE
     -Wl,--copy-dt-needed-entries,--start-group
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC
-    ArmoniK.Api.Client
-    ArmoniK.Api.Common
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+        ArmoniK.Api.Client
 
-    GTest::gtest_main
-    GTest::gmock_main
+        GTest::gtest_main
+        GTest::gmock_main
 
-    CURL::libcurl
+        CURL::libcurl
 
-    gRPC::grpc++
-    protobuf::libprotobuf
+        gRPC::grpc++
+        protobuf::libprotobuf
+    PRIVATE
+        ArmoniK.Api.Common
 )
 
 if(MSVC)

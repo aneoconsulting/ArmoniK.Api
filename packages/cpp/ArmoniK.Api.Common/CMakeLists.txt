@@ -38,7 +38,7 @@ find_package(absl REQUIRED)
 
 # Check for Red Hat-based systems and static linking
 file(READ /etc/os-release OS_RELEASE_CONTENT)
-if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora" AND STATIC_LINK)
+if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora" AND NOT BUILD_SHARED_LIBS)
     # On Red Hat systems with static linking, we need to find the utf8_range and utf8_validity libraries.
     find_package(utf8_range REQUIRED)
     find_library(UTF8_VALIDITY_LIB
@@ -118,7 +118,7 @@ target_include_directories(${PROJECT_NAME}
 # Check if the system is Red Hat for linking Abseil
 if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
     message(STATUS "Detected Red Hat system.")
-    if(STATIC_LINK)
+    if(NOT BUILD_SHARED_LIBS)
         message(STATUS "Static linking is enabled. Linking Abseil libraries.")
 
         target_link_libraries(${PROJECT_NAME} PUBLIC

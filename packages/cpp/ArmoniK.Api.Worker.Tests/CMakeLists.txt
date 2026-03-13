@@ -19,12 +19,14 @@ target_link_options(${PROJECT_NAME} PRIVATE
     -Wl,--start-group
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC
-    gRPC::grpc++
-    protobuf::libprotobuf
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+        gRPC::grpc++
+        protobuf::libprotobuf
 
-    ArmoniK.Api.Worker
-    ArmoniK.Api.Common
+        ArmoniK.Api.Worker
+    PRIVATE
+        ArmoniK.Api.Common
 )
 
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
