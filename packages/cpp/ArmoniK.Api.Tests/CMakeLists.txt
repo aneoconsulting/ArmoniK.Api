@@ -18,8 +18,22 @@ add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++ ArmoniK.Api.Client ArmoniK.Api.Common GTest::gtest_main GTest::gmock_main CURL::libcurl)
-target_link_options(${PROJECT_NAME} PUBLIC "-Wl,--copy-dt-needed-entries")
+target_link_options(${PROJECT_NAME} PRIVATE
+    -Wl,--copy-dt-needed-entries,--start-group
+)
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    ArmoniK.Api.Client
+    ArmoniK.Api.Common
+
+    GTest::gtest_main
+    GTest::gmock_main
+
+    CURL::libcurl
+
+    gRPC::grpc++
+    protobuf::libprotobuf
+)
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
