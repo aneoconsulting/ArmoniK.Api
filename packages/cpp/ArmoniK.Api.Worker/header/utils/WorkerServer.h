@@ -39,6 +39,7 @@ public:
 
 private:
   ::grpc::ServerBuilder builder_;
+  ::grpc::ChannelArguments channel_arguments_;
   std::unique_ptr<::grpc::Server> instance_server; ///< Unique pointer to the gRPC server instance
   std::shared_ptr<::grpc::Channel> channel;        ///< Shared pointer to the gRPC channel
 
@@ -47,8 +48,8 @@ public:
    * @brief Constructor for the WorkerServer class.
    * @param configuration A shared pointer to the Configuration object.
    */
-  explicit WorkerServer(const common::utils::Configuration &configuration)
-      : logger(common::logger::writer_console(), common::logger::formatter_clef()) {
+explicit WorkerServer(const common::utils::Configuration &configuration)
+    : logger(common::logger::writer_console(), common::logger::formatter_clef()) {
     logger.local_context_generator_add("threadId", []() {
       std::stringstream ss;
       ss << std::this_thread::get_id();
@@ -56,19 +57,35 @@ public:
     });
     logger.global_context_add("container", "ArmoniK.Worker");
     logger.info("Creating worker");
-    common::options::ComputePlane compute_plane(configuration);
 
-    logger.info("Worker address : " + compute_plane.get_server_address());
-    logger.info("Agent address : " + compute_plane.get_agent_address());
+    try {
+        common::options::ComputePlane compute_plane(configuration);
 
-    builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
-    builder_.SetMaxReceiveMessageSize(-1);
+        logger.info("Worker address : " + compute_plane.get_server_address());
+        logger.info("Agent address : " + compute_plane.get_agent_address());
 
-    logger.info("Initialize and register worker");
+        // Error handling for server address
+        if (compute_plane.get_server_address().empty()) {
+            throw std::runtime_error("Server address is empty.");
+        }
 
-    // Create a gRPC channel to communicate with the server
-    channel = CreateChannel(compute_plane.get_agent_address(), ::grpc::InsecureChannelCredentials());
-  }
+        builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
+        builder_.SetMaxReceiveMessageSize(-1);
+
+        logger.info("Initialize and register worker");
+
+        // Create a gRPC channel to communicate with the server
+        const std::string agent_address = compute_plane.get_agent_address();
+        if (agent_address.empty()) {
+            throw std::runtime_error("Agent address is empty.");
+        }
+        channel_arguments_.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
+        channel = CreateCustomChannel(agent_address, ::grpc::InsecureChannelCredentials(), channel_arguments_);
+    } catch (const std::exception &e) {
+        logger.error("Error initializing WorkerServer: " + std::string(e.what()));
+        throw;
+    }
+}
 
   /**
    * @brief Create a WorkerServer instance with the given configuration.
