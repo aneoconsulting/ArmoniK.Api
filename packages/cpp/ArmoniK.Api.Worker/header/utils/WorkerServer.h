@@ -82,8 +82,9 @@ public:
       channel_arguments_.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
       channel = CreateCustomChannel(agent_address, ::grpc::InsecureChannelCredentials(), channel_arguments_);
     } catch (const std::exception &e) {
-      logger.error("Error initializing WorkerServer: " + std::string(e.what()));
-      throw;
+      std::stringstream ss;
+      ss << "Error initializing WorkerServer: " + std::string(e.what());
+      throw armonik::api::common::exceptions::ArmoniKApiException(ss.str());
     }
   }
 
