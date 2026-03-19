@@ -38,7 +38,7 @@ public:
    * @param address The address to normalize.
    * @return The normalized address.
    */
-  static std::string normalize_address(std::string address) {
+  static std::string normalize_address(const std::string &address) {
     absl::string_view av(address);
     if (starts_with(av, "https://")) {
       return std::string(av.substr(8).begin(), av.substr(8).end());
@@ -54,13 +54,13 @@ public:
    * @brief Sets the worker address with the given socket address.
    * @param socket_address The socket address to set for the worker.
    */
-  void set_worker_address(std::string socket_address) { worker_address_ = normalize_address(socket_address); }
+  void set_worker_address(const std::string socket_address) { worker_address_ = normalize_address(socket_address); }
 
   /**
    * @brief Sets the agent address with the given agent address.
    * @param agent_address The agent address to set for the agent.
    */
-  void set_agent_address(std::string agent_address) { agent_address_ = normalize_address(agent_address); }
+  void set_agent_address(const std::string agent_address) { agent_address_ = normalize_address(agent_address); }
   /**
    * @brief Returns the agent address.
    * @return A reference to the agent address string.
