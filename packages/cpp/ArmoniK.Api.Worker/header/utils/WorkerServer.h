@@ -22,6 +22,7 @@
 #include "logger/logger.h"
 #include "logger/writer.h"
 #include "options/ComputePlane.h"
+#include "options/GrpcSocketType.h"
 #include "utils/Configuration.h"
 
 using namespace armonik::api::grpc::v1::agent;
@@ -79,11 +80,16 @@ public:
       if (agent_address.empty()) {
         throw std::runtime_error("Agent address is empty.");
       }
-      channel_arguments_.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
-      channel = CreateCustomChannel(agent_address, ::grpc::InsecureChannelCredentials(), channel_arguments_);
+      auto socket_type = compute_plane.get_agent_socket_type();
+      if (socket_type == common::options::grpc_socket_type::UnixDomainSocket){
+        channel_arguments_.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
+        channel = CreateCustomChannel(agent_address, ::grpc::InsecureChannelCredentials(), channel_arguments_);
+      }else{
+        channel = CreateChannel(agent_address, ::grpc::InsecureChannelCredentials());
+      }
     } catch (const std::exception &e) {
       std::stringstream ss;
-      ss << "Error initializing WorkerServer: " + std::string(e.what());
+      ss << "Error initializing WorkerServer: " << e.what();
       throw armonik::api::common::exceptions::ArmoniKApiException(ss.str());
     }
   }
