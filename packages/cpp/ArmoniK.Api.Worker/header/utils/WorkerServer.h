@@ -81,10 +81,10 @@ public:
         throw std::runtime_error("Agent address is empty.");
       }
       auto socket_type = compute_plane.get_agent_socket_type();
-      if (socket_type == common::options::grpc_socket_type::UnixDomainSocket){
+      if (socket_type == common::options::grpc_socket_type::UnixDomainSocket) {
         channel_arguments_.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
         channel = CreateCustomChannel(agent_address, ::grpc::InsecureChannelCredentials(), channel_arguments_);
-      }else{
+      } else {
         channel = CreateChannel(agent_address, ::grpc::InsecureChannelCredentials());
       }
     } catch (const std::exception &e) {
