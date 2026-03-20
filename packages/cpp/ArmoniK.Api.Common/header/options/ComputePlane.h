@@ -1,7 +1,7 @@
 #pragma once
+#include "GrpcSocketType.h"
 #include <sstream>
 #include <utils/Configuration.h>
-#include "GrpcSocketType.h"
 
 /**
  * @brief The armonik namespace contains classes and functions related to the ArmoniK API.
@@ -69,9 +69,9 @@ public:
    * @param socket_type The socket type string from configuration.
    */
   void set_worker_socket_type(absl::string_view socket_type) {
-    if (starts_with(socket_type, "tcp")){
+    if (starts_with(socket_type, "tcp")) {
       worker_socket_type_ = grpc_socket_type::tcp;
-    }else{
+    } else {
       worker_socket_type_ = grpc_socket_type::UnixDomainSocket;
     }
   }
@@ -82,14 +82,14 @@ public:
    */
   void set_agent_address(absl::string_view agent_address) { agent_address_ = normalize_address(agent_address); }
 
-    /**
+  /**
    * @brief Sets the worker socket type
    * @param socket_address The socket type string from configuration.
    */
   void set_agent_socket_type(absl::string_view socket_type) {
-    if (starts_with(socket_type, "tcp")){
+    if (starts_with(socket_type, "tcp")) {
       agent_socket_type_ = grpc_socket_type::tcp;
-    }else{
+    } else {
       agent_socket_type_ = grpc_socket_type::UnixDomainSocket;
     }
   }
