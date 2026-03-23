@@ -22,6 +22,7 @@
 #include "logger/logger.h"
 #include "logger/writer.h"
 #include "options/ComputePlane.h"
+#include "options/GrpcSocketType.h"
 #include "utils/Configuration.h"
 
 using namespace armonik::api::grpc::v1::agent;
@@ -39,6 +40,7 @@ public:
 
 private:
   ::grpc::ServerBuilder builder_;
+  ::grpc::ChannelArguments channel_arguments_;
   std::unique_ptr<::grpc::Server> instance_server; ///< Unique pointer to the gRPC server instance
   std::shared_ptr<::grpc::Channel> channel;        ///< Shared pointer to the gRPC channel
 
@@ -56,18 +58,40 @@ public:
     });
     logger.global_context_add("container", "ArmoniK.Worker");
     logger.info("Creating worker");
-    common::options::ComputePlane compute_plane(configuration);
 
-    logger.info("Worker address : " + compute_plane.get_server_address());
-    logger.info("Agent address : " + compute_plane.get_agent_address());
+    try {
+      common::options::ComputePlane compute_plane(configuration);
 
-    builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
-    builder_.SetMaxReceiveMessageSize(-1);
+      logger.info("Worker address : " + compute_plane.get_server_address());
+      logger.info("Agent address : " + compute_plane.get_agent_address());
 
-    logger.info("Initialize and register worker");
+      // Error handling for server address
+      if (compute_plane.get_server_address().empty()) {
+        throw std::runtime_error("Server address is empty.");
+      }
 
-    // Create a gRPC channel to communicate with the server
-    channel = CreateChannel(compute_plane.get_agent_address(), ::grpc::InsecureChannelCredentials());
+      builder_.AddListeningPort(compute_plane.get_server_address(), ::grpc::InsecureServerCredentials());
+      builder_.SetMaxReceiveMessageSize(-1);
+
+      logger.info("Initialize and register worker");
+
+      // Create a gRPC channel to communicate with the server
+      const std::string agent_address = compute_plane.get_agent_address();
+      if (agent_address.empty()) {
+        throw std::runtime_error("Agent address is empty.");
+      }
+      auto socket_type = compute_plane.get_agent_socket_type();
+      if (socket_type == common::options::grpc_socket_type::UnixDomainSocket) {
+        channel_arguments_.SetString(GRPC_ARG_DEFAULT_AUTHORITY, "localhost");
+        channel = CreateCustomChannel(agent_address, ::grpc::InsecureChannelCredentials(), channel_arguments_);
+      } else {
+        channel = CreateChannel(agent_address, ::grpc::InsecureChannelCredentials());
+      }
+    } catch (const std::exception &e) {
+      std::stringstream ss;
+      ss << "Error initializing WorkerServer: " << e.what();
+      throw armonik::api::common::exceptions::ArmoniKApiException(ss.str());
+    }
   }
 
   /**
