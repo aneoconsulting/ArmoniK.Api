@@ -48,9 +48,6 @@ public:
    * @return The normalized address.
    */
   static std::string normalize_address(absl::string_view address) {
-    if (starts_with(address, "https://")) {
-      return std::string(address.substr(8).begin(), address.substr(8).end());
-    }
     if (starts_with(address, "http://")) {
       return std::string(address.substr(7).begin(), address.substr(7).end());
     }
