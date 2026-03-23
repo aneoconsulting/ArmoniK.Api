@@ -25,16 +25,9 @@ target_link_options(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
         ArmoniK.Api.Client
-
         GTest::gtest_main
         GTest::gmock_main
-
         CURL::libcurl
-
-        gRPC::grpc++
-        protobuf::libprotobuf
-    PRIVATE
-        ArmoniK.Api.Common
 )
 
 if(MSVC)
