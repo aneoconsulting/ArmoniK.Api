@@ -12,6 +12,21 @@ endif()
 find_dependency(gRPC CONFIG REQUIRED)
 find_dependency(Threads)
 
+# Check for Red Hat-based systems and static linking
+file(READ /etc/os-release OS_RELEASE_CONTENT)
+if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
+    find_dependency(absl REQUIRED)
+    find_dependency(utf8_range REQUIRED)
+    find_library(UTF8_VALIDITY_LIB
+        NAMES utf8_validity
+        PATHS /usr/lib
+        NO_DEFAULT_PATH
+    )
+    if(NOT UTF8_VALIDITY_LIB)
+        message(WARNING "utf8_validity library not found on Red Hat system!")
+    endif()
+endif()
+
 include("${ARMONIK_API_COMMON_LIBPATH}/cmake/ArmoniK.Api.Common/ArmoniK.Api.CommonTargets.cmake")
 
 check_required_components(ArmoniK.Api.Common)
