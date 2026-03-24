@@ -8,15 +8,22 @@ find_package(Threads)
 SET(SOURCES_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/source")
 SET(HEADER_FILES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/header")
 
+FILE(GLOB_RECURSE SRC_WORKER_FILES ${SOURCES_FILES_DIR}/*.cpp)
+FILE(GLOB_RECURSE HEADER_WORKER_FILES ${HEADER_FILES_DIR}/*.h)
 
-FILE(GLOB_RECURSE SRC_CLIENT_FILES ${SOURCES_FILES_DIR}/*.cpp)
-FILE(GLOB_RECURSE HEADER_CLIENT_FILES ${HEADER_FILES_DIR}/*.h)
-
-add_executable(${PROJECT_NAME} ${SRC_CLIENT_FILES} ${HEADER_CLIENT_FILES})
+add_executable(${PROJECT_NAME} ${SRC_WORKER_FILES} ${HEADER_WORKER_FILES})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC protobuf::libprotobuf gRPC::grpc++_unsecure ArmoniK.Api.Worker ArmoniK.Api.Common)
+target_link_options(${PROJECT_NAME} PRIVATE
+    -Wl,--start-group
+)
+
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+        ArmoniK.Api.Worker
+)
+
 set(PROTO_BINARY_DIR "${BUILD_DIR}/${PROJECT_NAME}/")
 set(PROTO_IMPORT_DIRS "${PROTO_FILES_DIR}")
 
