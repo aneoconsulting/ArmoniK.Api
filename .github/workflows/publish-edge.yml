@@ -8,6 +8,10 @@ on:
     branches:
       - main
 
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
 jobs:
   genversion:
     runs-on: ubuntu-latest
@@ -79,7 +83,7 @@ jobs:
 
   release-angular-package:
     needs: [version]
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     name: Release Angular Package
     runs-on: ubuntu-latest
     steps:
@@ -113,8 +117,6 @@ jobs:
 
       - name: Release package
         run: nr ci:publish-edge angular dist/aneoconsultingfr/armonik.api.angular
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-web-package:
     needs: [version]
@@ -155,8 +157,6 @@ jobs:
 
       - name: Release package
         run: nr ci:publish-edge web
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
   release-python-package:
     needs: [version]
@@ -236,7 +236,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
           cache: maven
           server-id: github # must match <distributionManagement>/<snapshotRepository>/<id>
           server-username: GITHUB_ACTOR
