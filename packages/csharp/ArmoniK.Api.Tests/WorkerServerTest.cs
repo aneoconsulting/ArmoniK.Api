@@ -1,13 +1,13 @@
 // This file is part of the ArmoniK project
-// 
+//
 // Copyright (C) ANEO, 2021-2026. All rights reserved.
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License")
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -156,6 +156,118 @@ public class WorkerServerTest
     Environment.SetEnvironmentVariable($"{nameof(ComputePlane)}__{nameof(ComputePlane.AgentChannel)}__{nameof(ComputePlane.AgentChannel.Address)}",
                                        "/tmp/agent.sock");
     var app = WorkerServer.Create<TestService>();
+    return Task.CompletedTask;
+  }
+
+  [Test]
+  public Task BuildServerRetryDefaultsShouldApplyWhenNotConfigured()
+  {
+    var collection = new List<KeyValuePair<string, string>>
+                     {
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.Address)}",
+                           "/tmp/worker.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
+                           "/tmp/agent.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                     };
+
+    var app = WorkerServer.Create<TestService>((_,
+                                                configuration) =>
+                                               {
+                                                 foreach (var pair in collection)
+                                                 {
+                                                   configuration[pair.Key] = pair.Value;
+                                                 }
+                                               });
+
+    var computePlane = app.Services.GetRequiredService<ComputePlane>();
+
+    // Verify default retry options are applied when not explicitly configured
+    Assert.AreEqual(5,
+                    computePlane.WorkerChannel.RetryPolicy.MaxAttempts);
+    Assert.AreEqual(TimeSpan.FromSeconds(1),
+                    computePlane.WorkerChannel.RetryPolicy.InitialBackoff);
+    Assert.AreEqual(TimeSpan.FromSeconds(10),
+                    computePlane.WorkerChannel.RetryPolicy.MaxBackoff);
+    Assert.AreEqual(2.0,
+                    computePlane.WorkerChannel.RetryPolicy.BackoffMultiplier);
+
+    Assert.AreEqual(5,
+                    computePlane.AgentChannel.RetryPolicy.MaxAttempts);
+    Assert.AreEqual(TimeSpan.FromSeconds(1),
+                    computePlane.AgentChannel.RetryPolicy.InitialBackoff);
+    Assert.AreEqual(TimeSpan.FromSeconds(10),
+                    computePlane.AgentChannel.RetryPolicy.MaxBackoff);
+    Assert.AreEqual(2.0,
+                    computePlane.AgentChannel.RetryPolicy.BackoffMultiplier);
+
+    return Task.CompletedTask;
+  }
+
+  [Test]
+  public Task BuildServerRetryPolicyBuilderOverridesChannelOptions()
+  {
+    var collection = new List<KeyValuePair<string, string>>
+                     {
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.Address)}",
+                           "/tmp/worker.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(ComputePlane.WorkerChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.Address)}",
+                           "/tmp/agent.sock"),
+                       new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(ComputePlane.AgentChannel.SocketType)}",
+                           GrpcSocketType.UnixDomainSocket.ToString()),
+                     };
+
+    var workerRetryPolicy = new GrpcChannelRetryPolicy().WithMaxAttempts(7)
+                                                        .WithInitialBackoff(TimeSpan.FromMilliseconds(500))
+                                                        .WithMaxBackoff(TimeSpan.FromSeconds(20))
+                                                        .WithBackoffMultiplier(3.0);
+
+    var agentRetryPolicy = new GrpcChannelRetryPolicy().WithMaxAttempts(2)
+                                                       .WithInitialBackoff(TimeSpan.FromMilliseconds(200));
+
+    collection.Add(new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(GrpcChannel.RetryPolicy)}:{nameof(GrpcChannelRetryPolicy.MaxAttempts)}",
+                       workerRetryPolicy.MaxAttempts.ToString()));
+    collection.Add(new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(GrpcChannel.RetryPolicy)}:{nameof(GrpcChannelRetryPolicy.InitialBackoff)}",
+                       workerRetryPolicy.InitialBackoff.ToString()));
+    collection.Add(new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(GrpcChannel.RetryPolicy)}:{nameof(GrpcChannelRetryPolicy.MaxBackoff)}",
+                       workerRetryPolicy.MaxBackoff.ToString()));
+    collection.Add(new($"{nameof(ComputePlane)}:{nameof(ComputePlane.WorkerChannel)}:{nameof(GrpcChannel.RetryPolicy)}:{nameof(GrpcChannelRetryPolicy.BackoffMultiplier)}",
+                       workerRetryPolicy.BackoffMultiplier.ToString()));
+    collection.Add(new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(GrpcChannel.RetryPolicy)}:{nameof(GrpcChannelRetryPolicy.MaxAttempts)}",
+                       agentRetryPolicy.MaxAttempts.ToString()));
+    collection.Add(new($"{nameof(ComputePlane)}:{nameof(ComputePlane.AgentChannel)}:{nameof(GrpcChannel.RetryPolicy)}:{nameof(GrpcChannelRetryPolicy.InitialBackoff)}",
+                       agentRetryPolicy.InitialBackoff.ToString()));
+
+    var app = WorkerServer.Create<TestService>((_,
+                                                configuration) =>
+                                               {
+                                                 foreach (var pair in collection)
+                                                 {
+                                                   configuration[pair.Key] = pair.Value;
+                                                 }
+                                               });
+
+    var computePlane = app.Services.GetRequiredService<ComputePlane>();
+
+    Assert.AreEqual(7,
+                    computePlane.WorkerChannel.RetryPolicy.MaxAttempts);
+    Assert.AreEqual(TimeSpan.FromMilliseconds(500),
+                    computePlane.WorkerChannel.RetryPolicy.InitialBackoff);
+    Assert.AreEqual(TimeSpan.FromSeconds(20),
+                    computePlane.WorkerChannel.RetryPolicy.MaxBackoff);
+    Assert.AreEqual(3.0,
+                    computePlane.WorkerChannel.RetryPolicy.BackoffMultiplier);
+
+    Assert.AreEqual(2,
+                    computePlane.AgentChannel.RetryPolicy.MaxAttempts);
+    Assert.AreEqual(TimeSpan.FromMilliseconds(200),
+                    computePlane.AgentChannel.RetryPolicy.InitialBackoff);
+
     return Task.CompletedTask;
   }
 

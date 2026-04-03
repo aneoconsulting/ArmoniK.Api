@@ -1,13 +1,13 @@
 // This file is part of the ArmoniK project
-// 
+//
 // Copyright (C) ANEO, 2021-2026. All rights reserved.
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License")
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -48,4 +48,20 @@ public class GrpcChannel
   ///   Keep-alive timeout
   /// </summary>
   public TimeSpan KeepAliveTimeOut { get; set; }
+
+  /// <summary>
+  ///   Retry policy options for this gRPC channel.
+  /// </summary>
+  public GrpcChannelRetryPolicy RetryPolicy { get; set; } = new();
+
+  /// <summary>
+  ///   Returns a new <see cref="GrpcChannel" /> with the given <see cref="GrpcChannelRetryPolicy" /> applied.
+  /// </summary>
+  /// <param name="retryPolicy">The retry policy to apply.</param>
+  /// <returns>A new <see cref="GrpcChannel" /> instance with the updated retry policy.</returns>
+  public GrpcChannel WithRetryPolicy(GrpcChannelRetryPolicy retryPolicy)
+  {
+    RetryPolicy = retryPolicy;
+    return this;
+  }
 }

@@ -1,13 +1,13 @@
 // This file is part of the ArmoniK project
-// 
+//
 // Copyright (C) ANEO, 2021-2026. All rights reserved.
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License")
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-// 
+//
 //     http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,6 +21,7 @@ using ArmoniK.Api.Common.Utils;
 
 using Grpc.Core;
 using Grpc.Net.Client;
+using Grpc.Net.Client.Configuration;
 
 using JetBrains.Annotations;
 
@@ -70,11 +71,63 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
     }
   }
 
-  private static ChannelBase BuildWebGrpcChannel(string  address,
-                                                 ILogger logger)
+  /// <summary>
+  ///   Creates the gRPC <see cref="ServiceConfig" /> with a retry policy for transient failures,
+  ///   using values from the <see cref="GrpcChannel" /> options.
+  ///   Retries on transient/recoverable status codes with exponential backoff.
+  ///   See: https://learn.microsoft.com/en-us/aspnet/core/grpc/retries
+  ///   See: https://grpc.github.io/grpc/core/md_doc_statuscodes.html
+  /// </summary>
+  private ServiceConfig BuildServiceConfig()
+  {
+    if (options_.RetryPolicy.MaxAttempts <= 1)
+    {
+      logger_.LogDebug("gRPC native retry policy is disabled (RetryMaxAttempts={maxAttempts})",
+                       options_.RetryPolicy.MaxAttempts);
+      return new ServiceConfig();
+    }
+
+    logger_.LogInformation("gRPC native retry policy enabled: MaxAttempts={maxAttempts}, InitialBackoff={initialBackoff}, MaxBackoff={maxBackoff}, Multiplier={multiplier}",
+                           options_.RetryPolicy.MaxAttempts,
+                           options_.RetryPolicy.InitialBackoff,
+                           options_.RetryPolicy.MaxBackoff,
+                           options_.RetryPolicy.BackoffMultiplier);
+
+    return new ServiceConfig
+           {
+             MethodConfigs =
+             {
+               new MethodConfig
+               {
+                 Names       = { MethodName.Default },
+                 RetryPolicy = new RetryPolicy
+                               {
+                                 MaxAttempts       = options_.RetryPolicy.MaxAttempts,
+                                 InitialBackoff    = options_.RetryPolicy.InitialBackoff,
+                                 MaxBackoff        = options_.RetryPolicy.MaxBackoff,
+                                 BackoffMultiplier = options_.RetryPolicy.BackoffMultiplier,
+                                 RetryableStatusCodes =
+                                 {
+                                   StatusCode.Unavailable,
+                                   StatusCode.Internal,
+                                   StatusCode.Aborted,
+                                   StatusCode.ResourceExhausted,
+                                 },
+                               },
+               },
+             },
+           };
+  }
+
+  private ChannelBase BuildWebGrpcChannel(string  address,
+                                                ILogger logger)
   {
     using var _ = logger.LogFunction();
-    return Grpc.Net.Client.GrpcChannel.ForAddress(address);
+    return Grpc.Net.Client.GrpcChannel.ForAddress(address,
+                                                  new GrpcChannelOptions
+                                                  {
+                                                    ServiceConfig = BuildServiceConfig(),
+                                                  });
   }
 
   private ChannelBase BuildUnixSocketGrpcChannel(string  address,
@@ -117,7 +170,8 @@ public sealed class GrpcChannelProvider : IAsyncDisposable
     return Grpc.Net.Client.GrpcChannel.ForAddress("http://localhost",
                                                   new GrpcChannelOptions
                                                   {
-                                                    HttpHandler = socketsHttpHandler,
+                                                    HttpHandler   = socketsHttpHandler,
+                                                    ServiceConfig = BuildServiceConfig(),
                                                   });
   }
 
