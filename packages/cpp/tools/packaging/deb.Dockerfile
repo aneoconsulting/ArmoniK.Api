@@ -1,4 +1,4 @@
-FROM debian:12
+FROM debian:bookworm-20260406
 
 # Install debian package making tools
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive" TZ="Europe/London" apt-get install --no-install-recommends -y \
