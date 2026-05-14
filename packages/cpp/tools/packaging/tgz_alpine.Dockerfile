@@ -1,5 +1,5 @@
 # Start with the latest Alpine base image for the build stage
-FROM alpine:3.21 AS builder
+FROM alpine:3.23 AS builder
 ARG GRPC_VERSION=v1.54.0
 
 # Install all the necessary dependencies required for the build process
