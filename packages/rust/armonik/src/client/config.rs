@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use hyper::Uri;
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
@@ -16,6 +18,8 @@ pub struct ClientConfig {
     pub cacert: Option<CertificateDer<'static>>,
     /// Override the endpoint name during SSL verification
     pub override_target: Option<Uri>,
+    /// Timeout for establishing a connection to the server, defaults to no timeout
+    pub connect_timeout: Option<Duration>,
 }
 
 impl Clone for ClientConfig {
@@ -29,6 +33,7 @@ impl Clone for ClientConfig {
                 .map(|(cert, key)| (cert.clone(), key.clone_key())),
             cacert: self.cacert.clone(),
             override_target: self.override_target.clone(),
+            connect_timeout: self.connect_timeout.clone(),
         }
     }
 }
@@ -55,6 +60,9 @@ pub struct ClientConfigArgs {
     /// Override the endpoint name during SSL verification
     #[cfg_attr(feature = "serde", serde(default))]
     pub override_target_name: String,
+    /// Timeout for establishing a connection to the server, defaults to no timeout
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub connect_timeout: String,
 }
 
 impl ClientConfigArgs {
@@ -69,6 +77,7 @@ impl ClientConfigArgs {
             allow_unsafe_connection: read_env_bool("GrpcClient__AllowUnsafeConnection")
                 .context(ctx)?,
             override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
+            connect_timeout: read_env("GrpcClient__ConnectTimeout").context(ctx)?,
         })
     }
 }
@@ -85,7 +94,7 @@ impl ClientConfig {
             args.key_pem,
             args.ca_cert,
             args.allow_unsafe_connection,
-            args.override_target_name
+            args.override_target_name,
         );
 
         let ClientConfigArgs {
@@ -95,6 +104,7 @@ impl ClientConfig {
             ca_cert: cacert_path,
             allow_unsafe_connection,
             override_target_name,
+            connect_timeout,
         } = args;
 
         // Read CAcert file
@@ -161,12 +171,23 @@ impl ClientConfig {
             })?)
         };
 
+        let connect_timeout = if connect_timeout.is_empty() {
+            None
+        } else {
+            Some(connect_timeout
+                .parse::<humantime::Duration>()
+                .context(InvalidDurationSnafu {
+                    value: connect_timeout,
+                })?.into())
+        };
+
         Ok(Self {
             endpoint,
             allow_unsafe_connection,
             identity,
             cacert,
             override_target,
+            connect_timeout,
         })
     }
 }
@@ -230,6 +251,14 @@ pub enum ConfigError {
     IncompatibleOptions {
         msg: String,
         backtrace: snafu::Backtrace,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("`GrpcClient__ConnectTimeout={value}` is not a valid duration (e.g. `30s` or `1m`) [{location}]"))]
+    #[non_exhaustive]
+    InvalidDuration {
+        source: humantime::DurationError,
+        value: String,
         #[snafu(implicit)]
         location: snafu::Location,
     },

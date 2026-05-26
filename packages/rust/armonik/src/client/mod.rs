@@ -80,12 +80,17 @@ impl Client<tonic::transport::Channel> {
             async move {
                 let endpoint = config.endpoint.clone();
                 let override_target = config.override_target.clone();
+                let connect_timeout = config.connect_timeout.clone();
 
                 let https = Self::https_connector_builder(config).await?.build();
 
                 let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
                 if let Some(target) = override_target {
                     transport_endpoint = transport_endpoint.origin(target);
+                }
+
+                if let Some(timeout) = connect_timeout {
+                    transport_endpoint = transport_endpoint.connect_timeout(timeout);
                 }
 
                 // Build the actual channel from the configuration
