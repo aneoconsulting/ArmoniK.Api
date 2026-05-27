@@ -54,6 +54,7 @@ tokio = { version = "1.48", default-features = false, optional = true }
 serde = { version = "1.0", features = [
   "derive",
 ], default-features = false, optional = true }
+humantime = "2.3.0"
 
 [dev-dependencies]
 eyre = "0.6"

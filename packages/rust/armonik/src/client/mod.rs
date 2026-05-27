@@ -80,12 +80,49 @@ impl Client<tonic::transport::Channel> {
             async move {
                 let endpoint = config.endpoint.clone();
                 let override_target = config.override_target.clone();
+                let connect_timeout = config.connect_timeout;
+                let tcp_keepalive = config.tcp_keepalive;
+                let tcp_keepalive_interval = config.tcp_keepalive_interval;
+                let tcp_keepalive_retries = config.tcp_keepalive_retries;
+                let tcp_nodelay = config.tcp_nodelay;
+                let http2_keep_alive_interval = config.http2_keep_alive_interval;
+                let http2_keep_alive_timeout = config.http2_keep_alive_timeout;
+                let http2_keep_alive_while_idle = config.http2_keep_alive_while_idle;
+                let http2_max_header_list_size = config.http2_max_header_list_size;
+                let user_agent = config.user_agent.clone();
 
                 let https = Self::https_connector_builder(config).await?.build();
 
                 let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
                 if let Some(target) = override_target {
                     transport_endpoint = transport_endpoint.origin(target);
+                }
+
+                if let Some(timeout) = connect_timeout {
+                    transport_endpoint = transport_endpoint.connect_timeout(timeout);
+                }
+
+                transport_endpoint = transport_endpoint.tcp_keepalive(tcp_keepalive);
+                transport_endpoint =
+                    transport_endpoint.tcp_keepalive_interval(tcp_keepalive_interval);
+                transport_endpoint =
+                    transport_endpoint.tcp_keepalive_retries(tcp_keepalive_retries);
+                transport_endpoint = transport_endpoint.tcp_nodelay(tcp_nodelay);
+                if let Some(interval) = http2_keep_alive_interval {
+                    transport_endpoint = transport_endpoint.http2_keep_alive_interval(interval);
+                }
+                if let Some(timeout) = http2_keep_alive_timeout {
+                    transport_endpoint = transport_endpoint.keep_alive_timeout(timeout);
+                }
+                transport_endpoint =
+                    transport_endpoint.keep_alive_while_idle(http2_keep_alive_while_idle);
+                if let Some(max) = http2_max_header_list_size {
+                    transport_endpoint = transport_endpoint.http2_max_header_list_size(max);
+                }
+                if let Some(ua) = user_agent {
+                    transport_endpoint = transport_endpoint
+                        .user_agent(ua)
+                        .expect("HeaderValue is already validated, conversion is infallible");
                 }
 
                 // Build the actual channel from the configuration
