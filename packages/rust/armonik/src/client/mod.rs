@@ -122,7 +122,7 @@ impl Client<tonic::transport::Channel> {
                 if let Some(ua) = user_agent {
                     transport_endpoint = transport_endpoint
                         .user_agent(ua)
-                        .expect("HeaderValue is already validated");
+                        .expect("HeaderValue is already validated, conversion is infallible");
                 }
 
                 // Build the actual channel from the configuration
