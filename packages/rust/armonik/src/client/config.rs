@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use hyper::Uri;
+use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
@@ -20,6 +20,28 @@ pub struct ClientConfig {
     pub override_target: Option<Uri>,
     /// Timeout for establishing a connection to the server, defaults to no timeout
     pub connect_timeout: Option<Duration>,
+    /// Timeout for each request, defaults to no timeout
+    pub timeout: Option<Duration>,
+    /// Rate limit for requests, defaults to no rate limit
+    pub rate_limit: Option<(u64, Duration)>,
+    /// TCP keepalive duration, defaults to no keepalive
+    pub tcp_keepalive: Option<Duration>,
+    /// Interval between TCP keepalive probes, defaults to OS default
+    pub tcp_keepalive_interval: Option<Duration>,
+    /// Number of TCP keepalive retries, defaults to OS default
+    pub tcp_keepalive_retries: Option<u32>,
+    /// Disable Nagle's algorithm (TCP_NODELAY), defaults to false
+    pub tcp_nodelay: bool,
+    /// HTTP/2 PING frame interval, defaults to no keepalive
+    pub http2_keep_alive_interval: Option<Duration>,
+    /// HTTP/2 PING timeout, defaults to no timeout
+    pub http2_keep_alive_timeout: Option<Duration>,
+    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false
+    pub http2_keep_alive_while_idle: bool,
+    /// HTTP/2 max header list size in bytes, defaults to no limit
+    pub http2_max_header_list_size: Option<u32>,
+    /// User-Agent header value sent with each request
+    pub user_agent: Option<HeaderValue>,
 }
 
 impl Clone for ClientConfig {
@@ -33,7 +55,18 @@ impl Clone for ClientConfig {
                 .map(|(cert, key)| (cert.clone(), key.clone_key())),
             cacert: self.cacert.clone(),
             override_target: self.override_target.clone(),
-            connect_timeout: self.connect_timeout.clone(),
+            connect_timeout: self.connect_timeout,
+            timeout: self.timeout,
+            rate_limit: self.rate_limit,
+            tcp_keepalive: self.tcp_keepalive,
+            tcp_keepalive_interval: self.tcp_keepalive_interval,
+            tcp_keepalive_retries: self.tcp_keepalive_retries,
+            tcp_nodelay: self.tcp_nodelay,
+            http2_keep_alive_interval: self.http2_keep_alive_interval,
+            http2_keep_alive_timeout: self.http2_keep_alive_timeout,
+            http2_keep_alive_while_idle: self.http2_keep_alive_while_idle,
+            http2_max_header_list_size: self.http2_max_header_list_size,
+            user_agent: self.user_agent.clone(),
         }
     }
 }
@@ -63,6 +96,39 @@ pub struct ClientConfigArgs {
     /// Timeout for establishing a connection to the server, defaults to no timeout
     #[cfg_attr(feature = "serde", serde(default))]
     pub connect_timeout: String,
+    /// Timeout for each request, defaults to no timeout
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub timeout: String,
+    /// Rate limit for requests, defaults to no rate limit
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub rate_limit: String,
+    /// TCP keepalive duration (e.g. `30s`), defaults to no keepalive
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub tcp_keepalive: String,
+    /// Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub tcp_keepalive_interval: String,
+    /// Number of TCP keepalive retries, defaults to OS default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub tcp_keepalive_retries: String,
+    /// Disable Nagle's algorithm (TCP_NODELAY), defaults to false
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub tcp_nodelay: bool,
+    /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub http2_keep_alive_interval: String,
+    /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub http2_keep_alive_timeout: String,
+    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub http2_keep_alive_while_idle: bool,
+    /// HTTP/2 max header list size in bytes, defaults to no limit
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub http2_max_header_list_size: String,
+    /// User-Agent header value sent with each request
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub user_agent: String,
 }
 
 impl ClientConfigArgs {
@@ -78,6 +144,20 @@ impl ClientConfigArgs {
                 .context(ctx)?,
             override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
             connect_timeout: read_env("GrpcClient__ConnectTimeout").context(ctx)?,
+            timeout: read_env("GrpcClient__Timeout").context(ctx)?,
+            rate_limit: read_env("GrpcClient__RateLimit").context(ctx)?,
+            tcp_keepalive: read_env("GrpcClient__TcpKeepalive").context(ctx)?,
+            tcp_keepalive_interval: read_env("GrpcClient__TcpKeepaliveInterval").context(ctx)?,
+            tcp_keepalive_retries: read_env("GrpcClient__TcpKeepaliveRetries").context(ctx)?,
+            tcp_nodelay: read_env_bool("GrpcClient__TcpNodelay").context(ctx)?,
+            http2_keep_alive_interval: read_env("GrpcClient__Http2KeepAliveInterval")
+                .context(ctx)?,
+            http2_keep_alive_timeout: read_env("GrpcClient__Http2KeepAliveTimeout").context(ctx)?,
+            http2_keep_alive_while_idle: read_env_bool("GrpcClient__Http2KeepAliveWhileIdle")
+                .context(ctx)?,
+            http2_max_header_list_size: read_env("GrpcClient__Http2MaxHeaderListSize")
+                .context(ctx)?,
+            user_agent: read_env("GrpcClient__UserAgent").context(ctx)?,
         })
     }
 }
@@ -95,6 +175,18 @@ impl ClientConfig {
             args.ca_cert,
             args.allow_unsafe_connection,
             args.override_target_name,
+            args.connect_timeout,
+            args.timeout,
+            args.rate_limit,
+            args.tcp_keepalive,
+            args.tcp_keepalive_interval,
+            args.tcp_keepalive_retries,
+            args.tcp_nodelay,
+            args.http2_keep_alive_interval,
+            args.http2_keep_alive_timeout,
+            args.http2_keep_alive_while_idle,
+            args.http2_max_header_list_size,
+            args.user_agent,
         );
 
         let ClientConfigArgs {
@@ -105,6 +197,17 @@ impl ClientConfig {
             allow_unsafe_connection,
             override_target_name,
             connect_timeout,
+            timeout,
+            rate_limit,
+            tcp_keepalive,
+            tcp_keepalive_interval,
+            tcp_keepalive_retries,
+            tcp_nodelay,
+            http2_keep_alive_interval,
+            http2_keep_alive_timeout,
+            http2_keep_alive_while_idle,
+            http2_max_header_list_size,
+            user_agent,
         } = args;
 
         // Read CAcert file
@@ -172,13 +275,132 @@ impl ClientConfig {
         };
 
         let connect_timeout = if connect_timeout.is_empty() {
+            Some(Duration::from_mins(1))
+        } else {
+            Some(
+                connect_timeout
+                    .parse::<humantime::Duration>()
+                    .context(InvalidDurationSnafu {
+                        value: connect_timeout,
+                    })?
+                    .into(),
+            )
+        };
+
+        let timeout = if timeout.is_empty() {
+            Some(Duration::from_mins(1))
+        } else {
+            Some(
+                timeout
+                    .parse::<humantime::Duration>()
+                    .context(InvalidDurationSnafu { value: timeout })?
+                    .into(),
+            )
+        };
+
+        let rate_limit = if rate_limit.is_empty() {
             None
         } else {
-            Some(connect_timeout
+            let parts: Vec<&str> = rate_limit.split('/').collect();
+            if parts.len() != 2 {
+                return IncompatibleOptionsSnafu {
+                    msg: format!("Rate limit should be in the format `number/duration`, e.g. `100/1s`, but got `{rate_limit}`"),
+                }.fail();
+            }
+            let limit = parts[0]
+                .parse::<u64>()
+                .context(InvalidRateLimitCountSnafu {
+                    value: parts[0].to_string(),
+                })?;
+            let duration = parts[1]
                 .parse::<humantime::Duration>()
-                .context(InvalidDurationSnafu {
-                    value: connect_timeout,
-                })?.into())
+                .context(InvalidDurationSnafu { value: rate_limit })?
+                .into();
+            Some((limit, duration))
+        };
+
+        let tcp_keepalive = if tcp_keepalive.is_empty() {
+            None
+        } else {
+            Some(
+                tcp_keepalive
+                    .parse::<humantime::Duration>()
+                    .context(InvalidDurationSnafu {
+                        value: tcp_keepalive,
+                    })?
+                    .into(),
+            )
+        };
+
+        let tcp_keepalive_interval = if tcp_keepalive_interval.is_empty() {
+            None
+        } else {
+            Some(
+                tcp_keepalive_interval
+                    .parse::<humantime::Duration>()
+                    .context(InvalidDurationSnafu {
+                        value: tcp_keepalive_interval,
+                    })?
+                    .into(),
+            )
+        };
+
+        let tcp_keepalive_retries = if tcp_keepalive_retries.is_empty() {
+            None
+        } else {
+            Some(
+                tcp_keepalive_retries
+                    .parse::<u32>()
+                    .context(InvalidIntegerSnafu {
+                        value: tcp_keepalive_retries,
+                    })?,
+            )
+        };
+
+        let http2_keep_alive_interval = if http2_keep_alive_interval.is_empty() {
+            None
+        } else {
+            Some(
+                http2_keep_alive_interval
+                    .parse::<humantime::Duration>()
+                    .context(InvalidDurationSnafu {
+                        value: http2_keep_alive_interval,
+                    })?
+                    .into(),
+            )
+        };
+
+        let http2_keep_alive_timeout = if http2_keep_alive_timeout.is_empty() {
+            None
+        } else {
+            Some(
+                http2_keep_alive_timeout
+                    .parse::<humantime::Duration>()
+                    .context(InvalidDurationSnafu {
+                        value: http2_keep_alive_timeout,
+                    })?
+                    .into(),
+            )
+        };
+
+        let http2_max_header_list_size = if http2_max_header_list_size.is_empty() {
+            None
+        } else {
+            Some(
+                http2_max_header_list_size
+                    .parse::<u32>()
+                    .context(InvalidIntegerSnafu {
+                        value: http2_max_header_list_size,
+                    })?,
+            )
+        };
+
+        let user_agent = if user_agent.is_empty() {
+            None
+        } else {
+            let header = HeaderValue::from_str(&user_agent)
+                .context(InvalidUserAgentSnafu { value: user_agent })?;
+            Some(header)
         };
 
         Ok(Self {
@@ -188,6 +410,17 @@ impl ClientConfig {
             cacert,
             override_target,
             connect_timeout,
+            timeout,
+            rate_limit,
+            tcp_keepalive,
+            tcp_keepalive_interval,
+            tcp_keepalive_retries,
+            tcp_nodelay,
+            http2_keep_alive_interval,
+            http2_keep_alive_timeout,
+            http2_keep_alive_while_idle,
+            http2_max_header_list_size,
+            user_agent,
         })
     }
 }
@@ -258,6 +491,30 @@ pub enum ConfigError {
     #[non_exhaustive]
     InvalidDuration {
         source: humantime::DurationError,
+        value: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("Rate limit count `{value}` is not a valid integer [{location}]"))]
+    #[non_exhaustive]
+    InvalidRateLimitCount {
+        source: std::num::ParseIntError,
+        value: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("`{value}` is not a valid integer [{location}]"))]
+    #[non_exhaustive]
+    InvalidInteger {
+        source: std::num::ParseIntError,
+        value: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("Invalid user agent `{value}` [{location}]"))]
+    #[non_exhaustive]
+    InvalidUserAgent {
+        source: hyper::http::header::InvalidHeaderValue,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,
