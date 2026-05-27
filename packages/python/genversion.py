@@ -2,33 +2,13 @@ import sys
 from argparse import ArgumentParser
 
 from setuptools_scm.version import ScmVersion, guess_next_version
-from setuptools_scm import Configuration, _get_version
+from setuptools_scm import get_version
 from packaging.version import Version as PkgVersion
-
-
-class Versionner:
-    def __init__(self, consider_dirty=True, dev_version=None):
-        self.consider_dirty = consider_dirty
-        self.dev_version = dev_version
-
-    def get_version(self, version: ScmVersion):
-        dev = (
-            self.dev_version
-            if self.dev_version is not None
-            else (version.distance if version.distance else 0)
-            + int(version.dirty and self.consider_dirty)
-        )
-        if dev:
-            return version.format_next_version(guess_next_version, "{guessed}" + f".dev{dev}")
-        return version.format_with("{tag}")
 
 
 def version_as_tuple(version_str: str) -> tuple:
     v = PkgVersion(version_str)
-    parts = list(v.release)
-    if v.dev is not None:
-        parts.append(f"dev{v.dev}")
-    return tuple(parts)
+    return v.release + ((f"dev{v.dev}",) if v.dev is not None else ())
 
 
 def main():
@@ -37,10 +17,26 @@ def main():
     parser.add_argument("-w", "--write-to", required=False, type=str)
     parser.add_argument("-d", "--dev", type=int)
     args = parser.parse_args()
-    config = Configuration(root="../..", local_scheme="no-local-version")
-    versionner = Versionner(not args.no_dirty, dev_version=args.dev)
-    config.version_scheme = versionner.get_version
-    version = _get_version(config)
+
+    consider_dirty = not args.no_dirty
+    dev_version = args.dev
+
+    def version_scheme(version: ScmVersion) -> str:
+        dev = (
+            dev_version
+            if dev_version is not None
+            else (version.distance if version.distance else 0)
+            + int(version.dirty and consider_dirty)
+        )
+        if dev:
+            return version.format_next_version(guess_next_version, "{guessed}" + f".dev{dev}")
+        return version.format_with("{tag}")
+
+    version = get_version(
+        root="../..",
+        version_scheme=version_scheme,
+        local_scheme="no-local-version",
+    )
     print(version)
     if args.write_to:
         try:
