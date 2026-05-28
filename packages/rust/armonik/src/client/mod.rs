@@ -3,7 +3,8 @@
 use std::sync::Arc;
 
 use hyper::Uri;
-use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver};
+use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver, HttpsConnector};
+use hyper_util::client::legacy::connect::HttpConnector;
 use rustls::pki_types::ServerName;
 use snafu::{ResultExt, Snafu};
 
@@ -80,34 +81,19 @@ impl Client<tonic::transport::Channel> {
             async move {
                 let endpoint = config.endpoint.clone();
                 let override_target = config.override_target.clone();
-                let connect_timeout = config.connect_timeout;
-                let tcp_keepalive = config.tcp_keepalive;
-                let tcp_keepalive_interval = config.tcp_keepalive_interval;
-                let tcp_keepalive_retries = config.tcp_keepalive_retries;
-                let tcp_nodelay = config.tcp_nodelay;
                 let http2_keep_alive_interval = config.http2_keep_alive_interval;
                 let http2_keep_alive_timeout = config.http2_keep_alive_timeout;
                 let http2_keep_alive_while_idle = config.http2_keep_alive_while_idle;
                 let http2_max_header_list_size = config.http2_max_header_list_size;
                 let user_agent = config.user_agent.clone();
 
-                let https = Self::https_connector_builder(config).await?.build();
+                let https = Self::https_connector(config).await?;
 
                 let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
                 if let Some(target) = override_target {
                     transport_endpoint = transport_endpoint.origin(target);
                 }
 
-                if let Some(timeout) = connect_timeout {
-                    transport_endpoint = transport_endpoint.connect_timeout(timeout);
-                }
-
-                transport_endpoint = transport_endpoint.tcp_keepalive(tcp_keepalive);
-                transport_endpoint =
-                    transport_endpoint.tcp_keepalive_interval(tcp_keepalive_interval);
-                transport_endpoint =
-                    transport_endpoint.tcp_keepalive_retries(tcp_keepalive_retries);
-                transport_endpoint = transport_endpoint.tcp_nodelay(tcp_nodelay);
                 if let Some(interval) = http2_keep_alive_interval {
                     transport_endpoint = transport_endpoint.http2_keep_alive_interval(interval);
                 }
@@ -138,12 +124,9 @@ impl Client<tonic::transport::Channel> {
         .await
     }
 
-    async fn https_connector_builder(
+    async fn https_connector(
         config: ClientConfig,
-    ) -> Result<
-        hyper_rustls::HttpsConnectorBuilder<hyper_rustls::builderstates::WantsProtocols3>,
-        ConnectionError,
-    > {
+    ) -> Result<HttpsConnector<HttpConnector>, ConnectionError> {
         let endpoint = config.endpoint;
 
         // Get the default crypto provider or fallback to the ring crypto provider
@@ -203,7 +186,17 @@ impl Client<tonic::transport::Channel> {
             https = https.with_server_name_resolver(FixedServerNameResolver::new(server_name));
         };
 
-        Ok(https.enable_http1().enable_http2())
+        let mut http = HttpConnector::new();
+        http.enforce_http(false); // required for hyper-rustls to switch schemes
+        http.set_nodelay(config.tcp_nodelay);
+        http.set_keepalive(config.tcp_keepalive);
+        http.set_keepalive_interval(config.tcp_keepalive_interval);
+        http.set_keepalive_retries(config.tcp_keepalive_retries);
+        if let Some(timeout) = config.connect_timeout {
+            http.set_connect_timeout(Some(timeout));
+        }
+
+        Ok(https.enable_http1().enable_http2().wrap_connector(http))
     }
 
     #[cfg(test)]
@@ -229,10 +222,9 @@ impl Client<tonic::transport::Channel> {
             .body(http_body_util::Empty::<&[u8]>::new())
             .expect("Request");
 
-        let https = Self::https_connector_builder(config)
+        let https = Self::https_connector(config)
             .await
-            .expect("Build connection information")
-            .build();
+            .expect("Build connection information");
 
         let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(https);
 
