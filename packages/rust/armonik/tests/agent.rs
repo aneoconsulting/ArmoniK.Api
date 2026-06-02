@@ -49,7 +49,7 @@ impl armonik::server::AgentService for Service {
                     .results
                     .into_iter()
                     .map(|request| {
-                        eprintln!("NAME: {}", &request.name);
+                        eprintln!("NAME: {}", request.name);
                         agent::ResultMetaData {
                             name: request.name,
                             session_id: String::from("rpc-create-results-output"),
