@@ -188,7 +188,7 @@ impl Client<tonic::transport::Channel> {
 
         let mut http = HttpConnector::new();
         http.enforce_http(false); // required for hyper-rustls to switch schemes
-        http.set_nodelay(config.tcp_nodelay);
+        http.set_nodelay(!config.tcp_nagle_algorithm);
         http.set_keepalive(config.tcp_keepalive);
         http.set_keepalive_interval(config.tcp_keepalive_interval);
         http.set_keepalive_retries(config.tcp_keepalive_retries);

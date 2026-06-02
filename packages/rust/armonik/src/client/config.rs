@@ -30,8 +30,8 @@ pub struct ClientConfig {
     pub tcp_keepalive_interval: Option<Duration>,
     /// Number of TCP keepalive retries, defaults to OS default
     pub tcp_keepalive_retries: Option<u32>,
-    /// Disable Nagle's algorithm (TCP_NODELAY), defaults to false
-    pub tcp_nodelay: bool,
+    /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false
+    pub tcp_nagle_algorithm: bool,
     /// HTTP/2 PING frame interval, defaults to no keepalive
     pub http2_keep_alive_interval: Option<Duration>,
     /// HTTP/2 PING timeout, defaults to no timeout
@@ -61,7 +61,7 @@ impl Clone for ClientConfig {
             tcp_keepalive: self.tcp_keepalive,
             tcp_keepalive_interval: self.tcp_keepalive_interval,
             tcp_keepalive_retries: self.tcp_keepalive_retries,
-            tcp_nodelay: self.tcp_nodelay,
+            tcp_nagle_algorithm: self.tcp_nagle_algorithm,
             http2_keep_alive_interval: self.http2_keep_alive_interval,
             http2_keep_alive_timeout: self.http2_keep_alive_timeout,
             http2_keep_alive_while_idle: self.http2_keep_alive_while_idle,
@@ -111,9 +111,9 @@ pub struct ClientConfigArgs {
     /// Number of TCP keepalive retries, defaults to OS default
     #[cfg_attr(feature = "serde", serde(default))]
     pub tcp_keepalive_retries: String,
-    /// Disable Nagle's algorithm (TCP_NODELAY), defaults to false
+    /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false
     #[cfg_attr(feature = "serde", serde(default))]
-    pub tcp_nodelay: bool,
+    pub tcp_nagle_algorithm: bool,
     /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
     #[cfg_attr(feature = "serde", serde(default))]
     pub http2_keep_alive_interval: String,
@@ -149,7 +149,7 @@ impl ClientConfigArgs {
             tcp_keepalive: read_env("GrpcClient__TcpKeepalive").context(ctx)?,
             tcp_keepalive_interval: read_env("GrpcClient__TcpKeepaliveInterval").context(ctx)?,
             tcp_keepalive_retries: read_env("GrpcClient__TcpKeepaliveRetries").context(ctx)?,
-            tcp_nodelay: read_env_bool("GrpcClient__TcpNodelay").context(ctx)?,
+            tcp_nagle_algorithm: read_env_bool("GrpcClient__TcpNagleAlgorithm").context(ctx)?,
             http2_keep_alive_interval: read_env("GrpcClient__Http2KeepAliveInterval")
                 .context(ctx)?,
             http2_keep_alive_timeout: read_env("GrpcClient__Http2KeepAliveTimeout").context(ctx)?,
@@ -181,7 +181,7 @@ impl ClientConfig {
             args.tcp_keepalive,
             args.tcp_keepalive_interval,
             args.tcp_keepalive_retries,
-            args.tcp_nodelay,
+            args.tcp_nagle_algorithm,
             args.http2_keep_alive_interval,
             args.http2_keep_alive_timeout,
             args.http2_keep_alive_while_idle,
@@ -202,7 +202,7 @@ impl ClientConfig {
             tcp_keepalive,
             tcp_keepalive_interval,
             tcp_keepalive_retries,
-            tcp_nodelay,
+            tcp_nagle_algorithm,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
             http2_keep_alive_while_idle,
@@ -415,7 +415,7 @@ impl ClientConfig {
             tcp_keepalive,
             tcp_keepalive_interval,
             tcp_keepalive_retries,
-            tcp_nodelay,
+            tcp_nagle_algorithm,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
             http2_keep_alive_while_idle,
