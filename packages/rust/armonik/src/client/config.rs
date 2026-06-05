@@ -275,7 +275,7 @@ impl ClientConfig {
         };
 
         let connect_timeout = if connect_timeout.is_empty() {
-            Some(Duration::from_mins(1))
+            Some(Duration::from_secs(60))
         } else {
             Some(
                 connect_timeout
@@ -288,7 +288,7 @@ impl ClientConfig {
         };
 
         let timeout = if timeout.is_empty() {
-            Some(Duration::from_mins(1))
+            Some(Duration::from_secs(60))
         } else {
             Some(
                 timeout
