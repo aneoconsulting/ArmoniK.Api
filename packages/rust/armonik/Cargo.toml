@@ -8,6 +8,7 @@ readme = "README.md"
 name = "armonik"
 repository = "https://github.com/aneoconsulting/ArmoniK.Api"
 version = "3.29.0-beta-0"
+rust-version = "1.88.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,22 +23,20 @@ _gen-client = ["tonic/channel", "dep:rustls", "dep:hyper-rustls", "dep:hyper"]
 _gen-server = ["tonic/server", "tonic/router", "dep:tokio"]
 
 [dependencies]
-tonic = { version = "0.14", features = [
-  "codegen",
-], default-features = false }
+tonic = { version = "0.14", features = ["codegen"], default-features = false }
 tonic-prost = "0.14"
 prost = "0.14"
 prost-types = "0.14"
 futures = "0.3"
-snafu = "0.8"
+snafu = "0.9"
 tracing = "0.1"
 tracing-futures = { version = "0.2", features = ["futures-03"] }
-hyper = { version = "1.7", features = [
+hyper = { version = "1.10", features = [
   "client",
   "http1",
   "http2",
 ], optional = true }
-hyper-util = { version = "*", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["client", "http1"] }
 hyper-rustls = { version = "0.27", features = [
   "http1",
   "http2",
@@ -51,7 +50,7 @@ rustls = { version = "0.23", features = [
   "std",
   "tls12",
 ], default-features = false, optional = true }
-tokio = { version = "1.48", default-features = false, optional = true }
+tokio = { version = "1.52", default-features = false, optional = true }
 serde = { version = "1.0", features = [
   "derive",
 ], default-features = false, optional = true }
@@ -62,7 +61,7 @@ eyre = "0.6"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 http-body-util = "0.1"
 serde_json = "1.0"
-serial_test = "3.2"
+serial_test = "3.5"
 async-stream = "0.3"
 tokio = { version = "1.48", features = [
   "rt-multi-thread",
