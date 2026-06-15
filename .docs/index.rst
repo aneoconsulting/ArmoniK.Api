@@ -15,13 +15,6 @@ ArmoniK.Api documentation
    content/guide/releases.md
    content/guide/cpp.md
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Installation
-   :glob:
-
-   content/guide/releases.md
-   content/guide/cppCompilation.md
 
 .. toctree::
    :maxdepth: 2
