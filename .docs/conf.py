@@ -8,12 +8,23 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "ArmoniK.Api"
-copyright = "2021-%Y, ANEO"
 author = "ANEO"
-release = "main"
 
 import sys
 import os
+import datetime
+import subprocess
+
+copyright = f"2021-{datetime.date.today().year}, ANEO"
+
+try:
+    release = subprocess.check_output(
+        ["git", "describe", "--tags", "--abbrev=0"],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        stderr=subprocess.DEVNULL,
+    ).decode().strip()
+except Exception:
+    release = "unknown"
 sys.path.insert(0, os.path.abspath('../packages/python/src'))
 
 # -- General configuration ---------------------------------------------------
