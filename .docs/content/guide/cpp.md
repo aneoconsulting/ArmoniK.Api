@@ -59,7 +59,9 @@ From a PowerShell, go to the folder package/cpp/tools
 cd packages\cpp\tools
 ```
 
-This will install the required dependencies and compile the ArmoniK API client and server.
+```{warning}
+A Windows compilation script is not yet available. This section is a placeholder — contributions are welcome.
+```
 
 Wait for the script to complete. This may take some time, depending on the speed of your machine and the size of the project.
 
