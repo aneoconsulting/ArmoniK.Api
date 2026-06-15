@@ -70,7 +70,7 @@ myst_fence_as_directive = ["mermaid"]
 myst_heading_anchors = 3
 
 breathe_projects = {
-    "ArmoniK.Api.Cpp": "content/api/cpp/doxygen/xml"
+    "ArmoniK.Api.Cpp": "content/api-reference/cpp/doxygen/xml"
 }
 breathe_default_project = "ArmoniK.Api.Cpp"
 

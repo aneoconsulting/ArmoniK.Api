@@ -8,66 +8,82 @@ ArmoniK.Api documentation
 
 .. toctree::
    :maxdepth: 2
+   :caption: Home
+
+   content/home/what-is-armonik-api.md
+
+.. toctree::
+   :maxdepth: 2
    :caption: Getting Started
-   :glob:
 
-   content/guide/index.md
-   content/guide/releases.md
-   content/guide/cpp.md
-
+   content/getting-started/index.md
+   content/getting-started/1.overview.md
+   content/getting-started/2.installation.md
 
 .. toctree::
    :maxdepth: 2
    :caption: Packages
-   :glob:
 
-   content/guide/packages/index.md
-   content/guide/packages/c-sharp.md
-   content/guide/packages/python.md
-   content/guide/packages/web.md
-   content/guide/packages/angular.md
+   content/packages/index.md
+   content/packages/csharp.md
+   content/packages/python.md
+   content/packages/cpp.md
+   content/packages/web.md
+   content/packages/angular.md
 
 .. toctree::
    :maxdepth: 2
-   :caption: Usage
-   :glob:
+   :caption: How-to
 
-   content/usage/use-armonik-api-in-an-angular-app.md
-   content/usage/use-armonik-grpc-securely-python.md
-   content/usage/envars/index.rst
+   content/how-to/index.md
+   content/how-to/grpc-secure-python.md
+   content/how-to/angular-integration.md
+   content/how-to/envars/index.rst
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Releases
+
+   content/releases/index.md
 
 .. toctree::
    :maxdepth: 1
    :caption: Troubleshooting
-   :glob:
 
-   content/troubleshooting/troubleshooting.md
+   content/troubleshooting/index.md
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Contributing
+
+   content/contributing/index.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference
+
+   content/api-reference/index.md
 
 .. toctree::
    :maxdepth: 2
    :caption: API Proto
-   :glob:
 
-   content/api/v1.md
+   content/api-reference/proto.md
 
 .. toctree::
    :maxdepth: 1
    :caption: API C#
-   :glob:
 
-   content/api/csharp/index.rst
+   content/api-reference/csharp/index.rst
 
 .. toctree::
    :maxdepth: 1
    :caption: API Python
-   :glob:
 
-   content/api/python/PythonAPI.rst
+   content/api-reference/python/PythonAPI.rst
 
 .. toctree::
    :maxdepth: 1
    :caption: API C++
-   :glob:
 
-   content/api/cpp/index.rst
-
+   content/api-reference/cpp/index.rst
