@@ -45,12 +45,12 @@ COPY packages/cpp/Dependencies.cmake .
 
 WORKDIR /rpm/build
 RUN cmake \
-    "-DBUILD_SHARED_LIBS=OFF" \
+    "-DBUILD_SHARED_LIBS=ON" \
     "-DBUILD_CLIENT:BOOL=ON" \
     "-DCMAKE_BUILD_TYPE=Release" \
     "-DBUILD_WORKER:BOOL=ON" \
     "-DPROTO_FILES_DIR=/rpm/Protos" \
     "-DCPACK_GENERATOR=RPM" \
-    "-DCMAKE_PREFIX_PATH=/usr/local/grpc" .. && make package -j $(PARALLEL_JOBS)
+    "-DCMAKE_PREFIX_PATH=/usr/local/grpc" .. && make package -j $PARALLEL_JOBS
 ENTRYPOINT ["bash"]
 
