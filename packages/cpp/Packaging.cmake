@@ -28,6 +28,7 @@ set(CPACK_RPM_CHANGELOG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/tools/packaging/common
 set(CPACK_RPM_RUNTIME_PACKAGE_NAME "libarmonik")
 set(CPACK_RPM_RUNTIME_FILE_NAME "${CPACK_PACKAGE_NAME}-${version}-${CMAKE_SYSTEM_NAME}.rpm")
 set(CPACK_RPM_DEVEL_PACKAGE_NAME "libarmonik-devel")
+set(CPACK_RPM_DEVEL_FILE_NAME "${CPACK_PACKAGE_NAME}-devel-${version}-${CMAKE_SYSTEM_NAME}.rpm")
 set(CPACK_RPM_DEVEL_PACKAGE_REQUIRES "libarmonik = ${version}")
 
 # Deb options
@@ -38,6 +39,7 @@ if("DEB" IN_LIST CPACK_GENERATOR)
     set(CPACK_DEBIAN_RUNTIME_PACKAGE_NAME "libarmonik")
     set(CPACK_DEBIAN_RUNTIME_FILE_NAME "${CPACK_PACKAGE_NAME}-${version}-${CMAKE_SYSTEM_NAME}.deb")
     set(CPACK_DEBIAN_DEVEL_PACKAGE_NAME "libarmonik-dev")
+    set(CPACK_DEBIAN_DEVEL_FILE_NAME "${CPACK_PACKAGE_NAME}-dev-${version}-${CMAKE_SYSTEM_NAME}.deb")
     set(CPACK_DEBIAN_DEVEL_PACKAGE_DEPENDS "libarmonik (= ${version})")
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/tools/packaging/debian/control" DEBIAN_CONTROL_FILE)
     if(${DEBIAN_CONTROL_FILE} MATCHES "Build-Depends: ([^\r\n]*)")
