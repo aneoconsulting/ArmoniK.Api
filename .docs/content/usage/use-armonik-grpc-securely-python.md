@@ -28,9 +28,47 @@ Before proceeding, make sure that ArmoniK is deployed with the necessary certifi
 
 ### Use the provided certificates to establish secure channel credentials
 
-When interacting with ArmoniK using Python, use the Common name as the endpoint. Ensure that the certificate's Common Name (CN) matches the endpoint name.
+When interacting with ArmoniK using Python, use the Common Name (CN) of the certificate as the endpoint hostname. Ensure that the certificate's CN matches the endpoint name you pass to the channel.
 
-### If the given certificate common name doesn't match the endpoint name (Armonik default certificates for example)
+#### TLS
+
+```python
+import grpc
+from armonik.client import TasksClient  # replace with the client you need
+
+with open("ca.crt", "rb") as f:
+    ca_cert = f.read()
+
+credentials = grpc.ssl_channel_credentials(root_certificates=ca_cert)
+channel = grpc.secure_channel("armonik.local:5001", credentials)
+
+client = TasksClient(channel)
+```
+
+#### mTLS
+
+```python
+import grpc
+from armonik.client import TasksClient  # replace with the client you need
+
+with open("ca.crt", "rb") as f:
+    ca_cert = f.read()
+with open("client.submitter.crt", "rb") as f:
+    client_cert = f.read()
+with open("client.submitter.key", "rb") as f:
+    client_key = f.read()
+
+credentials = grpc.ssl_channel_credentials(
+    root_certificates=ca_cert,
+    private_key=client_key,
+    certificate_chain=client_cert,
+)
+channel = grpc.secure_channel("armonik.local:5001", credentials)
+
+client = TasksClient(channel)
+```
+
+### If the given certificate common name doesn't match the endpoint name (ArmoniK default certificates for example)
 
 Update your system's hosts file to associate the ArmoniK control plane address with the domain name "armonik.local". Use the following command to edit the hosts file:
 
