@@ -522,7 +522,7 @@ import { merge, startWith, switchMap, Subject } from 'rxjs';
 })
 export class AppComponent implements AfterViewInit {
   // ...
-  #refresh: Subject<void> = new Subject<void>();
+  #refresh$: Subject<void> = new Subject<void>();
 
   ngAfterViewInit(): void {
     merge(
