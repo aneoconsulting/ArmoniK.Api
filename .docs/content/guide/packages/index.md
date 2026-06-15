@@ -1,9 +1,3 @@
----
-navigation.icon: heroicons:magnifying-glass
----
-
-<!-- @case-police-ignore Api -->
-
 # Find your package
 
 The ArmoniK Team provides a set of packages generated on top the ArmoniK Api to help you to build your application.

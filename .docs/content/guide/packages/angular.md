@@ -1,7 +1,3 @@
----
-navigation.icon: vscode-icons:file-type-angular
----
-
 # Angular package
 
 The Angular package is build on top of [protoc-gen-ng package](https://www.npmjs.com/package/@ngx-grpc/protoc-gen-ng). This tool is used to generate Angular services and messages from `.proto` files.

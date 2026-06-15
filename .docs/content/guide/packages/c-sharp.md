@@ -1,9 +1,3 @@
----
-navigation.icon: vscode-icons:file-type-csharp2
----
-
-<!-- @case-police-ignore Api -->
-
 # C# packages
 
 This page lists the namespaces in the C# projects of this repository.

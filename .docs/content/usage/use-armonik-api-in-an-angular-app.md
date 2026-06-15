@@ -1,7 +1,3 @@
----
-description: This page will guide you through the process of using ArmoniK API in an Angular App.
----
-
 # Use ArmoniK API in an Angular App
 
 The purpose of this guide is to explain how to use ArmoniK API in an Angular App. You will be guided you through the process of creating a new Angular App and install ArmoniK API in it and use it.

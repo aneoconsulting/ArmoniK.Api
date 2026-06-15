@@ -1,9 +1,3 @@
----
-navigation.icon: heroicons:newspaper
----
-
-<!-- @case-police-ignore Api -->
-
 # Releases
 
 A release is created when there is enough new features or bug fixes to justify a new version. A release is created from the `main` branch and is tagged with the version number following [Semantic Versioning](https://semver.org/).

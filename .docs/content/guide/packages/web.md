@@ -1,7 +1,3 @@
----
-navigation.icon: vscode-icons:file-type-typescript
----
-
 # Web package
 
 The TypeScript package is build on top of [ts-proto](https://www.npmjs.com/package/ts-proto). This tool is used to generate TypeScript services and messages from `.proto` files.
