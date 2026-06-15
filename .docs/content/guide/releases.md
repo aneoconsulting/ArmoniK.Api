@@ -89,7 +89,7 @@ Python package is not yet available on Edge channel.
 
 Angular package is available on [NPM](https://www.npmjs.com).
 
-- [@aneoconsultingfr/armonik.api](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api.angular)
+- [@aneoconsultingfr/armonik.api.angular](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api.angular)
 
 ```{note}
 
