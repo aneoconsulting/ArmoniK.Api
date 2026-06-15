@@ -14,6 +14,14 @@ Section: libs
 Architecture: any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
-Depends: libgrpc-dev (>= 1.50), libgrpc++-dev (>= 1.50), libprotobuf-dev (>= 3.20), libc-ares-dev, protobuf-compiler-grpc (>= 1.50)
+Depends: libgrpc++1.51, libprotobuf32, libc-ares2
 Description: ArmoniK Api libraries
-    This includes the Common, Client and Worker APIs
+    Runtime shared libraries for the ArmoniK Common, Client and Worker APIs.
+
+Package: libarmonik-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libarmonik, libgrpc++-dev (>= 1.50), libprotobuf-dev (>= 3.20), libc-ares-dev, protobuf-compiler-grpc (>= 1.50)
+Description: ArmoniK Api development files
+    Headers and CMake config files for building against the ArmoniK API.
