@@ -27,17 +27,17 @@ pip install -r .docs/requirements.txt
 
 Each section of the docs requires a generation step before Sphinx can build it. Run all steps that apply to your local setup.
 
-### Proto API (`content/api/v1.md`)
+### Proto API (`content/api-reference/proto.md`)
 
 Requires `protoc` and the [`protoc-gen-doc`](https://github.com/pseudomuto/protoc-gen-doc) plugin.
 
 ```bash
 apt install -y protobuf-compiler   # or equivalent for your distro
-protoc -I Protos/V1 --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto
-scripts/generate-proto-doc.sh      # post-processes tmp.md into v1.md
+protoc -I Protos/V1 --doc_out=.docs/content/api-reference --doc_opt=markdown,tmp.md Protos/V1/*.proto
+scripts/generate-proto-doc.sh      # post-processes tmp.md into proto.md
 ```
 
-### C# API (`content/api/csharp/`)
+### C# API (`content/api-reference/csharp/`)
 
 Requires the [.NET SDK](https://dotnet.microsoft.com/) and installs `docfx` globally.
 
@@ -45,7 +45,7 @@ Requires the [.NET SDK](https://dotnet.microsoft.com/) and installs `docfx` glob
 scripts/generate-csharp-doc.sh
 ```
 
-### Environment variables (`content/usage/envars/`)
+### Environment variables (`content/how-to/envars/`)
 
 Requires the .NET SDK and installs `ArmoniK.Utils.DocExtractor` globally.
 
@@ -53,15 +53,15 @@ Requires the .NET SDK and installs `ArmoniK.Utils.DocExtractor` globally.
 scripts/generate-envvars-doc.sh
 ```
 
-### Python API (`content/api/python/`)
+### Python API (`content/api-reference/python/`)
 
 Requires the Python virtual environment to be active (see above).
 
 ```bash
-sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
+sphinx-apidoc -o .docs/content/api-reference/python packages/python/src/armonik
 ```
 
-### C++ API (`content/api/cpp/doxygen/xml/`)
+### C++ API (`content/api-reference/cpp/doxygen/xml/`)
 
 Requires [Doxygen](https://www.doxygen.nl/).
 

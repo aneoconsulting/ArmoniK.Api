@@ -23,11 +23,11 @@ build:
       - $HOME/protoc/bin/protoc --version # Verify protoc version
 
     pre_build:
-      - $HOME/protoc/bin/protoc -I Protos/V1 --plugin=$HOME/protoc-gen-doc/protoc-gen-doc --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto # Generate docs
+      - $HOME/protoc/bin/protoc -I Protos/V1 --plugin=$HOME/protoc-gen-doc/protoc-gen-doc --doc_out=.docs/content/api-reference --doc_opt=markdown,tmp.md Protos/V1/*.proto # Generate docs
       - sh scripts/generate-proto-doc.sh
       # Process the generated markdown with sed to apply custom formatting
 
-      - sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
+      - sphinx-apidoc -o .docs/content/api-reference/python packages/python/src/armonik
       # Set up .NET environment
       - curl -L https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
       - chmod +x dotnet-install.sh

@@ -3,7 +3,7 @@
 set -e
 
 SOLUTION_FILE=$(realpath ./packages/csharp/ArmoniK.Api.sln)
-OUTPUT_DIR=.docs/content/usage/envars
+OUTPUT_DIR=.docs/content/how-to/envars
 
 dotnet tool install -g ArmoniK.Utils.DocExtractor
 
