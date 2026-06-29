@@ -72,17 +72,13 @@ public:
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void debug(string_view message, const Context &message_context = {}) {
-    log(Level::Debug, message, message_context);
-  }
+  void debug(string_view message, const Context &message_context = {}) { log(Level::Debug, message, message_context); }
   /**
    * @brief Write a new message to the log with info log level.
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void info(string_view message, const Context &message_context = {}) {
-    log(Level::Info, message, message_context);
-  }
+  void info(string_view message, const Context &message_context = {}) { log(Level::Info, message, message_context); }
   /**
    * @brief Write a new message to the log with warning log level.
    * @param message Message to log.
@@ -96,17 +92,13 @@ public:
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void error(string_view message, const Context &message_context = {}) {
-    log(Level::Error, message, message_context);
-  }
+  void error(string_view message, const Context &message_context = {}) { log(Level::Error, message, message_context); }
   /**
    * @brief Write a new message to the log with fatal log level.
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void fatal(string_view message, const Context &message_context = {}) {
-    log(Level::Fatal, message, message_context);
-  }
+  void fatal(string_view message, const Context &message_context = {}) { log(Level::Fatal, message, message_context); }
 };
 } // namespace logger
 } // namespace common

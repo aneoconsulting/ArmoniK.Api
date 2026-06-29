@@ -25,7 +25,7 @@ public:
   using const_iterator = const char *;
   using size_type = std::size_t;
 
-  // Casting -1 to an unsigned type yields its maximum representable value. See: 
+  // Casting -1 to an unsigned type yields its maximum representable value. See:
   // https://en.cppreference.com/w/cpp/string/basic_string_view/npos
   static constexpr size_type npos = static_cast<size_type>(-1);
 

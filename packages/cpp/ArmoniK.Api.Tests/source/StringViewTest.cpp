@@ -305,9 +305,7 @@ TEST(StringView, StreamOutputSubstr) {
 // npos
 // ---------------------------------------------------------------------------
 
-TEST(StringView, NposValue) {
-  EXPECT_TRUE(string_view::npos == static_cast<string_view::size_type>(-1));
-}
+TEST(StringView, NposValue) { EXPECT_TRUE(string_view::npos == static_cast<string_view::size_type>(-1)); }
 
 // ---------------------------------------------------------------------------
 // Integration: typical API usage patterns

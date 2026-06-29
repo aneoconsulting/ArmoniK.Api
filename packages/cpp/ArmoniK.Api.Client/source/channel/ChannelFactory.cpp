@@ -2,8 +2,8 @@
 
 #include "exceptions/ArmoniKApiException.h"
 #include "options/ControlPlane.h"
-#include "utils/string_view.h"
 #include "utils/ChannelArguments.h"
+#include "utils/string_view.h"
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
 #include <grpcpp/security/tls_credentials_options.h>
