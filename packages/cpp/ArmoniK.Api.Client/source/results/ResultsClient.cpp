@@ -6,9 +6,9 @@ namespace armonik {
 namespace api {
 namespace client {
 
-std::map<std::string, std::string> ResultsClient::create_results(absl::string_view session_id,
+std::map<std::string, std::string> ResultsClient::create_results(common::string_view session_id,
                                                                  const std::vector<std::string> &names) {
-  return create_results_metadata(std::string(session_id), names);
+  return create_results_metadata(std::string(session_id.data(), session_id.size()), names);
 }
 
 std::map<std::string, std::string> ResultsClient::create_results_metadata(std::string session_id,
@@ -41,7 +41,7 @@ std::map<std::string, std::string> ResultsClient::create_results_metadata(std::s
   return mapping;
 }
 
-void ResultsClient::upload_result_data(std::string session_id, std::string result_id, absl::string_view payload) {
+void ResultsClient::upload_result_data(std::string session_id, std::string result_id, common::string_view payload) {
 
   size_t maxChunkSize = get_service_configuration().data_chunk_max_size;
 

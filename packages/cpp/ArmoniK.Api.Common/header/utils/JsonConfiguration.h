@@ -10,14 +10,14 @@ namespace api {
 namespace common {
 namespace utils {
 namespace JsonConfiguration {
-void fromPath(Configuration &config, absl::string_view filepath);
-void fromString(Configuration &config, absl::string_view json_string);
-inline Configuration fromPath(absl::string_view filepath) {
+void fromPath(Configuration &config, string_view filepath);
+void fromString(Configuration &config, string_view json_string);
+inline Configuration fromPath(string_view filepath) {
   Configuration config;
   fromPath(config, filepath);
   return config;
 }
-inline Configuration fromString(absl::string_view json_string) {
+inline Configuration fromString(string_view json_string) {
   Configuration config;
   fromString(config, json_string);
   return config;

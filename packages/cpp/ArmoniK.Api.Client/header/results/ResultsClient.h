@@ -2,13 +2,14 @@
 
 #include "results_service.grpc.pb.h"
 #include <type_traits>
+#include <utils/string_view.h>
 
 namespace armonik {
 namespace api {
 namespace client {
 
-template <class T, class = decltype(absl::string_view(std::declval<T>()))> std::string materialize_string(T &&x) {
-  absl::string_view view(x);
+template <class T, class = decltype(common::string_view(std::declval<T>()))> std::string materialize_string(T &&x) {
+  common::string_view view(x);
   return {view.data(), view.size()};
 }
 
@@ -68,7 +69,7 @@ public:
   std::map<std::string, std::string> create_results_metadata(std::string session_id,
                                                              const std::vector<std::string> &names);
   [[deprecated("Use the create_results_metadata method instead")]] std::map<std::string, std::string>
-  create_results(absl::string_view session_id, const std::vector<std::string> &names);
+  create_results(common::string_view session_id, const std::vector<std::string> &names);
 
   /**
    * Create results with data included in the request
@@ -125,7 +126,7 @@ public:
    * @param result_id Result Id
    * @param payload
    */
-  void upload_result_data(std::string session_id, std::string result_id, absl::string_view payload);
+  void upload_result_data(std::string session_id, std::string result_id, common::string_view payload);
 
   /**
    * Retrieve data from a result

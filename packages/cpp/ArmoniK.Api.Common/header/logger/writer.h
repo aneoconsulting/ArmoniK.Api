@@ -29,7 +29,7 @@ public:
    * @param level Log level to use for this message.
    * @param formatted formatted message to write.
    */
-  virtual void write(Level level, absl::string_view formatted) = 0;
+  virtual void write(Level level, string_view formatted) = 0;
 };
 
 /**

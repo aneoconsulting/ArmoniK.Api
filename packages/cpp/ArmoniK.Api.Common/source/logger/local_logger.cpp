@@ -46,7 +46,7 @@ const std::string &LocalLogger::context_get(const std::string &key) const {
 void LocalLogger::context_remove(const std::string &key) { local_context_.erase(key); }
 
 // Write a new message to the log
-void LocalLogger::log(Level level, absl::string_view message, const Context &message_context) {
+void LocalLogger::log(Level level, string_view message, const Context &message_context) {
   if (level < level_) {
     return;
   }

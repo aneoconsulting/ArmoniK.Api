@@ -215,7 +215,7 @@ armonik::api::worker::TaskHandler::create_tasks_async(TaskOptions task_options,
  * @param data The result data
  * @return A future containing a vector of ResultReply
  */
-std::future<void> armonik::api::worker::TaskHandler::send_result(std::string key, absl::string_view data) {
+std::future<void> armonik::api::worker::TaskHandler::send_result(std::string key, armonik::api::string_view data) {
   return std::async(std::launch::async, [this, key = std::move(key), data]() mutable {
     ::grpc::ClientContext context;
 

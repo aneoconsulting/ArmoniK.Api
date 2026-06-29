@@ -5,7 +5,7 @@
 
 #include <utils/string_view.h>
 
-using armonik::api::common::string_view;
+using armonik::api::string_view;
 
 // Compile-time checks for constexpr correctness (C++11/14 compatible).
 static_assert(string_view().empty(), "default-constructed must be empty");

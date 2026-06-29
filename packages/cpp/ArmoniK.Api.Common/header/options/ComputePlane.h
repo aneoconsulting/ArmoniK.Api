@@ -38,34 +38,35 @@ public:
    */
   [[nodiscard]] grpc_socket_type get_server_socket_type() const { return worker_socket_type_; }
 
-  static bool starts_with(absl::string_view s, absl::string_view prefix) {
+  static bool starts_with(string_view s, string_view prefix) {
     return s.size() >= prefix.size() && s.substr(0, prefix.size()) == prefix;
   }
 
   /**
    * @brief Strips http/https schemes and ensures a valid gRPC address format.
-   * @param address The address to normalize, provided as an absl::string_view.
+   * @param address The address to normalize, provided as an string_view.
    * @return The normalized address.
    */
-  static std::string normalize_address(absl::string_view address) {
+  static std::string normalize_address(string_view address) {
     if (starts_with(address, "http://")) {
-      return std::string(address.substr(7).begin(), address.substr(7).end());
+      const auto tail = address.substr(7);
+      return std::string(tail.data(), tail.size());
     }
-    // No recognized leading scheme: assume unix socket"
-    return std::string("unix://") + std::string(address);
+    // No recognized leading scheme: assume unix socket
+    return std::string("unix://") + std::string(address.data(), address.size());
   }
 
   /**
    * @brief Sets the worker address with the given socket address.
    * @param worker_address The socket address to set for the worker.
    */
-  void set_worker_address(absl::string_view worker_address) { worker_address_ = normalize_address(worker_address); }
+  void set_worker_address(string_view worker_address) { worker_address_ = normalize_address(worker_address); }
 
   /**
    * @brief Sets the worker socket type
    * @param socket_type The socket type string from configuration.
    */
-  void set_worker_socket_type(absl::string_view socket_type) {
+  void set_worker_socket_type(string_view socket_type) {
     if (starts_with(socket_type, "tcp")) {
       worker_socket_type_ = grpc_socket_type::tcp;
     } else {
@@ -77,13 +78,13 @@ public:
    * @brief Sets the agent address with the given agent address.
    * @param agent_address The agent address to set for the agent.
    */
-  void set_agent_address(absl::string_view agent_address) { agent_address_ = normalize_address(agent_address); }
+  void set_agent_address(string_view agent_address) { agent_address_ = normalize_address(agent_address); }
 
   /**
    * @brief Sets the worker socket type
    * @param socket_address The socket type string from configuration.
    */
-  void set_agent_socket_type(absl::string_view socket_type) {
+  void set_agent_socket_type(string_view socket_type) {
     if (starts_with(socket_type, "tcp")) {
       agent_socket_type_ = grpc_socket_type::tcp;
     } else {
