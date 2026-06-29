@@ -23,7 +23,7 @@ public:
   /**
    * @copydoc IFormatter::format()
    */
-  std::string format(Level level, absl::string_view message, const Context &global_context,
+  std::string format(Level level, string_view message, const Context &global_context,
                      const Context &local_context, const Context &message_context) override {
     // Buffer to store the formatted string
     std::string buf;
@@ -69,7 +69,7 @@ public:
   /**
    * @copydoc IFormatter::format()
    */
-  std::string format(Level level, absl::string_view message, const Context &global_context,
+  std::string format(Level level, string_view message, const Context &global_context,
                      const Context &local_context, const Context &message_context) override {
     // Buffer to store the formatted string
     std::string buf;

@@ -2,6 +2,7 @@
 
 #include "logger/logger.h"
 #include "objects.pb.h"
+#include "utils/string_view.h"
 #include <grpcpp/channel.h>
 #include <gtest/gtest.h>
 #include <memory>
@@ -23,7 +24,7 @@ void init(std::shared_ptr<grpc::Channel> &channel, armonik::api::grpc::v1::TaskO
  * @param num_calls the number of call of rpc
  * @return
  */
-bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int num_calls = 1);
+bool rpcCalled(armonik::api::string_view service_name, armonik::api::string_view rpc_name, int num_calls = 1);
 
 /**
  *
@@ -31,7 +32,7 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
  * @param endpoint the call endpoint
  * @return
  */
-bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings = {});
+bool all_rpc_called(armonik::api::string_view service_name, const std::vector<std::string> &missings = {});
 
 /**
  *

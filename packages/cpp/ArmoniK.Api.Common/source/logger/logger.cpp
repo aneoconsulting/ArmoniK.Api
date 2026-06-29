@@ -72,7 +72,7 @@ LocalLogger Logger::local(Context local_context) const {
 }
 
 // ILogger::log()
-void Logger::log(Level level, absl::string_view message, const Context &message_context) {
+void Logger::log(Level level, string_view message, const Context &message_context) {
   if (level < level_) {
     return;
   }

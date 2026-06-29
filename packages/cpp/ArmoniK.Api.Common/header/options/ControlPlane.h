@@ -13,11 +13,11 @@ class ControlPlane {
 public:
   ControlPlane(const utils::Configuration &config);
 
-  absl::string_view getEndpoint() const { return endpoint_; }
-  absl::string_view getUserCertPemPath() const { return user_cert_pem_path_; }
-  absl::string_view getUserKeyPemPath() const { return user_key_pem_path_; }
-  absl::string_view getUserP12Path() const { return user_p12_path_; }
-  absl::string_view getCaCertPemPath() const { return ca_cert_pem_path_; }
+  string_view getEndpoint() const { return endpoint_; }
+  string_view getUserCertPemPath() const { return user_cert_pem_path_; }
+  string_view getUserKeyPemPath() const { return user_key_pem_path_; }
+  string_view getUserP12Path() const { return user_p12_path_; }
+  string_view getCaCertPemPath() const { return ca_cert_pem_path_; }
   bool isSslValidation() const { return sslValidation_; }
   const google::protobuf::Duration &getKeepAliveTime() const { return keep_alive_time_; }
   const google::protobuf::Duration &getKeepAliveTimeInterval() const { return keep_alive_time_interval_; }

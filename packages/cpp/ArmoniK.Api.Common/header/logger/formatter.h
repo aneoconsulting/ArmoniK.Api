@@ -33,7 +33,7 @@ public:
    * @param message_context Context specific to this very message.
    * @return The formatted message.
    */
-  virtual std::string format(Level level, absl::string_view message, const Context &global_context,
+  virtual std::string format(Level level, string_view message, const Context &global_context,
                              const Context &local_context, const Context &message_context) = 0;
 };
 

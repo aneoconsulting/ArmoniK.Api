@@ -24,7 +24,7 @@ namespace api {
 namespace common {
 namespace utils {
 
-Configuration &Configuration::add_json_configuration(absl::string_view file_path) {
+Configuration &Configuration::add_json_configuration(string_view file_path) {
   JsonConfiguration::fromPath(*this, file_path);
   return *this;
 }
