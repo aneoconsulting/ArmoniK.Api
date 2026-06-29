@@ -2,6 +2,7 @@
 #include <cmath>
 #include <iomanip>
 
+/// @cond DOXYGEN_IGNORE
 namespace {
 static std::vector<std::string> str_split(const std::string &s, char delim) {
   std::vector<std::string> result;
@@ -15,6 +16,7 @@ static std::vector<std::string> str_split(const std::string &s, char delim) {
 }
 static bool str_contains(const std::string &s, char c) { return s.find(c) != std::string::npos; }
 } // namespace
+/// @endcond
 
 namespace armonik {
 namespace api {

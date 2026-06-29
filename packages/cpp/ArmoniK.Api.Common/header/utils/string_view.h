@@ -146,7 +146,9 @@ inline std::ostream &operator<<(std::ostream &os, const string_view &sv) {
 
 } // namespace common
 
+/// @cond DOXYGEN_IGNORE
 using string_view = common::string_view;
+/// @endcond
 
 } // namespace api
 } // namespace armonik
