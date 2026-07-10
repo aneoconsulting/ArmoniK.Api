@@ -2,6 +2,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include <utils/string_view.h>
 
@@ -14,6 +15,7 @@ static_assert(string_view("armonik").size() == 7, "literal size");
 static_assert(!string_view("armonik").empty(), "non-empty literal");
 static_assert(string_view("armonik")[0] == 'a', "operator[] constexpr");
 static_assert(string_view("armonik").substr(1).size() == 6, "substr constexpr size");
+static_assert(string_view("armonik").substr(100).empty(), "substr with pos beyond size clamps to empty");
 static_assert(string_view("armonik", 3).size() == 3, "(ptr,len) constructor size");
 
 // Alias is the exact same type, not just convertible.
@@ -48,6 +50,15 @@ TEST(StringView, FromStdString) {
   string_view sv(s);
   EXPECT_EQ(sv.size(), s.size());
   EXPECT_EQ(sv.data(), s.data());
+}
+
+TEST(StringView, FromRuntimeCharPointer) {
+  // raw decays to const char*, so this exercises the clen()-based constructor
+  // rather than the array-reference constructor literals bind to.
+  const char *raw = "armonik api";
+  string_view sv(raw);
+  EXPECT_EQ(sv.size(), 11u);
+  EXPECT_EQ(sv.data(), raw);
 }
 
 TEST(StringView, CopyConstruct) {
@@ -148,6 +159,12 @@ TEST(StringView, SubstrAtEnd) {
   EXPECT_TRUE(empty_tail.empty());
 }
 
+TEST(StringView, SubstrPosBeyondSizeClampsToEmpty) {
+  string_view sv("armonik");
+  string_view empty_tail = sv.substr(100);
+  EXPECT_TRUE(empty_tail.empty());
+}
+
 // ---------------------------------------------------------------------------
 // find(char)
 // ---------------------------------------------------------------------------
@@ -187,7 +204,7 @@ TEST(StringView, FindSubstringNotFound) {
 }
 
 TEST(StringView, FindCStringFound) {
-  string_view sv("http://example.com");
+  string_view sv("http://example.com"); // NOSONAR: test fixture, not a live connection
   EXPECT_EQ(sv.find("://"), 4u);
 }
 
@@ -209,6 +226,47 @@ TEST(StringView, FindSubstringFromPos) {
 TEST(StringView, FindNeedleLongerThanHaystack) {
   string_view sv("hi");
   EXPECT_TRUE(sv.find(string_view("armonik")) == string_view::npos);
+}
+
+// ---------------------------------------------------------------------------
+// contains
+// ---------------------------------------------------------------------------
+
+TEST(StringView, ContainsCharFound) {
+  string_view sv("armonik");
+  EXPECT_TRUE(sv.contains('m'));
+}
+
+TEST(StringView, ContainsCharNotFound) {
+  string_view sv("armonik");
+  EXPECT_FALSE(sv.contains('z'));
+}
+
+// ---------------------------------------------------------------------------
+// split
+// ---------------------------------------------------------------------------
+
+TEST(StringView, SplitBasic) {
+  string_view sv("a:bb:ccc");
+  std::vector<string_view> parts = sv.split(':');
+  ASSERT_EQ(parts.size(), 3u);
+  EXPECT_EQ(std::string(parts[0].begin(), parts[0].end()), "a");
+  EXPECT_EQ(std::string(parts[1].begin(), parts[1].end()), "bb");
+  EXPECT_EQ(std::string(parts[2].begin(), parts[2].end()), "ccc");
+}
+
+TEST(StringView, SplitNoDelimiterYieldsWholeView) {
+  string_view sv("armonik");
+  std::vector<string_view> parts = sv.split(':');
+  ASSERT_EQ(parts.size(), 1u);
+  EXPECT_EQ(std::string(parts[0].begin(), parts[0].end()), "armonik");
+}
+
+TEST(StringView, SplitTrailingDelimiterYieldsEmptyLastPiece) {
+  string_view sv("a:b:");
+  std::vector<string_view> parts = sv.split(':');
+  ASSERT_EQ(parts.size(), 3u);
+  EXPECT_TRUE(parts[2].empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -313,8 +371,8 @@ TEST(StringView, NposValue) { EXPECT_TRUE(string_view::npos == static_cast<strin
 
 TEST(StringView, PatternSubstrFind) {
   // Mirrors the http:// stripping done in ChannelFactory / ComputePlane.
-  string_view endpoint("http://localhost:5001");
-  const string_view http_prefix("http://");
+  string_view endpoint("http://localhost:5001"); // NOSONAR: test fixture, not a live connection
+  const string_view http_prefix("http://");      // NOSONAR: test fixture, not a live connection
   EXPECT_EQ(endpoint.find(http_prefix), 0u);
   string_view without_scheme = endpoint.substr(http_prefix.size());
   EXPECT_EQ(std::string(without_scheme.begin(), without_scheme.end()), "localhost:5001");
