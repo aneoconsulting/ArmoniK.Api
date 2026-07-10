@@ -8,7 +8,7 @@ namespace client {
 
 std::map<std::string, std::string> ResultsClient::create_results(common::string_view session_id,
                                                                  const std::vector<std::string> &names) {
-  return create_results_metadata(std::string(session_id.data(), session_id.size()), names);
+  return create_results_metadata(static_cast<std::string>(session_id), names);
 }
 
 std::map<std::string, std::string> ResultsClient::create_results_metadata(std::string session_id,

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <ostream>
 #include <string>
+#include <vector>
 
 namespace armonik {
 namespace api {
@@ -25,14 +26,17 @@ public:
   using const_iterator = const char *;
   using size_type = std::size_t;
 
-  // Casting -1 to an unsigned type yields its maximum representable value. See:
-  // https://en.cppreference.com/w/cpp/string/basic_string_view/npos
-  static constexpr size_type npos = static_cast<size_type>(-1);
+  static constexpr size_type npos = std::string::npos;
 
 private:
   const char *data_;
   size_type size_;
 
+  // Used by the runtime const char* constructor below, and by the const char* overloads of
+  // find()/operator==(), for pointers whose length isn't known at compile time (e.g. returned
+  // by a C API). String literals instead bind to the array-reference overloads/constructor,
+  // which get their length from the array bound and never call this.
+  //
   // C++11 constexpr functions are restricted to a single return statement, so a
   // loop-based strlen is not valid: https://en.cppreference.com/w/cpp/language/constexpr (see "C++11" notes section)
   static constexpr size_type clen(const char *s) noexcept { return *s ? 1 + clen(s + 1) : 0; }
@@ -41,6 +45,9 @@ public:
   constexpr string_view() noexcept : data_(nullptr), size_(0) {}
 
   constexpr string_view(const char *s) noexcept : data_(s), size_(clen(s)) {}
+
+  template <std::size_t N>
+  constexpr string_view(const char (&s)[N]) noexcept : data_(s), size_(N - 1) {}
 
   constexpr string_view(const char *s, size_type len) noexcept : data_(s), size_(len) {}
 
@@ -62,9 +69,13 @@ public:
   constexpr const_iterator cend() const noexcept { return data_ + size_; }
 
   // --- Substr ---
-  // Single return for C++11 constexpr compatibility
+  // pos beyond size_ is clamped (rather than throwing, unlike std::string_view::substr) since
+  // this function is noexcept. Single return, and pos re-evaluated rather than bound to a local,
+  // for C++11 constexpr compatibility.
   constexpr string_view substr(size_type pos, size_type len = npos) const noexcept {
-    return string_view(data_ + pos, (len == npos || pos + len > size_) ? size_ - pos : len);
+    return string_view(data_ + (pos < size_ ? pos : size_),
+                        (len == npos || (pos < size_ ? pos : size_) + len > size_) ? size_ - (pos < size_ ? pos : size_)
+                                                                                    : len);
   }
 
   // --- Find ---
@@ -104,6 +115,26 @@ public:
 
   size_type find(const char *s, size_type pos = 0) const noexcept { return find(string_view(s), pos); }
 
+  template <std::size_t N>
+  size_type find(const char (&s)[N], size_type pos = 0) const noexcept {
+    return find(string_view(s, N - 1), pos);
+  }
+
+  bool contains(char c) const noexcept { return find(c) != npos; }
+
+  // Mirrors str_split: every occurrence of delim splits the view, and the trailing piece
+  // (possibly empty) is always included, even when delim is the last character.
+  std::vector<string_view> split(char delim) const {
+    std::vector<string_view> result;
+    size_type start = 0, pos;
+    while ((pos = find(delim, start)) != npos) {
+      result.emplace_back(data_ + start, pos - start);
+      start = pos + 1;
+    }
+    result.emplace_back(data_ + start, size_ - start);
+    return result;
+  }
+
   // --- Comparisons ---
   bool operator==(const string_view &other) const noexcept {
     if (size_ != other.size_) {
@@ -121,6 +152,36 @@ public:
   bool operator==(const char *s) const noexcept { return *this == string_view(s); }
   bool operator!=(const char *s) const noexcept { return !(*this == s); }
 
+  template <std::size_t N>
+  bool operator==(const char (&s)[N]) const noexcept {
+    return *this == string_view(s, N - 1);
+  }
+
+  template <std::size_t N>
+  bool operator!=(const char (&s)[N]) const noexcept {
+    return !(*this == s);
+  }
+
+  friend bool operator==(const char *lhs, const string_view &rhs) noexcept { return rhs == lhs; }
+  friend bool operator!=(const char *lhs, const string_view &rhs) noexcept { return rhs != lhs; }
+
+  template <std::size_t N>
+  friend bool operator==(const char (&lhs)[N], const string_view &rhs) noexcept {
+    return rhs == lhs;
+  }
+
+  template <std::size_t N>
+  friend bool operator!=(const char (&lhs)[N], const string_view &rhs) noexcept {
+    return rhs != lhs;
+  }
+
+  friend std::ostream &operator<<(std::ostream &os, const string_view &sv) {
+    if (!sv.empty()) {
+      os.write(sv.data(), static_cast<std::streamsize>(sv.size()));
+    }
+    return os;
+  }
+
   // --- Conversion ---
   explicit operator std::string() const { return std::string(data_, size_); }
 
@@ -132,17 +193,6 @@ public:
   operator std::string_view() const noexcept { return std::string_view(data_, size_); }
 #endif
 };
-
-// --- Free operators ---
-inline bool operator==(const char *lhs, const string_view &rhs) noexcept { return rhs == lhs; }
-inline bool operator!=(const char *lhs, const string_view &rhs) noexcept { return rhs != lhs; }
-
-inline std::ostream &operator<<(std::ostream &os, const string_view &sv) {
-  if (!sv.empty()) {
-    os.write(sv.data(), static_cast<std::streamsize>(sv.size()));
-  }
-  return os;
-}
 
 } // namespace common
 
