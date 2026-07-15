@@ -46,8 +46,7 @@ public:
 
   constexpr string_view(const char *s) noexcept : data_(s), size_(clen(s)) {}
 
-  template <std::size_t N>
-  constexpr string_view(const char (&s)[N]) noexcept : data_(s), size_(N - 1) {}
+  template <std::size_t N> constexpr string_view(const char (&s)[N]) noexcept : data_(s), size_(N - 1) {}
 
   constexpr string_view(const char *s, size_type len) noexcept : data_(s), size_(len) {}
 
@@ -73,9 +72,9 @@ public:
   // this function is noexcept. Single return, and pos re-evaluated rather than bound to a local,
   // for C++11 constexpr compatibility.
   constexpr string_view substr(size_type pos, size_type len = npos) const noexcept {
-    return string_view(data_ + (pos < size_ ? pos : size_),
-                        (len == npos || (pos < size_ ? pos : size_) + len > size_) ? size_ - (pos < size_ ? pos : size_)
-                                                                                    : len);
+    return string_view(data_ + (pos < size_ ? pos : size_), (len == npos || (pos < size_ ? pos : size_) + len > size_)
+                                                                ? size_ - (pos < size_ ? pos : size_)
+                                                                : len);
   }
 
   // --- Find ---
@@ -115,8 +114,7 @@ public:
 
   size_type find(const char *s, size_type pos = 0) const noexcept { return find(string_view(s), pos); }
 
-  template <std::size_t N>
-  size_type find(const char (&s)[N], size_type pos = 0) const noexcept {
+  template <std::size_t N> size_type find(const char (&s)[N], size_type pos = 0) const noexcept {
     return find(string_view(s, N - 1), pos);
   }
 
@@ -152,26 +150,18 @@ public:
   bool operator==(const char *s) const noexcept { return *this == string_view(s); }
   bool operator!=(const char *s) const noexcept { return !(*this == s); }
 
-  template <std::size_t N>
-  bool operator==(const char (&s)[N]) const noexcept {
-    return *this == string_view(s, N - 1);
-  }
+  template <std::size_t N> bool operator==(const char (&s)[N]) const noexcept { return *this == string_view(s, N - 1); }
 
-  template <std::size_t N>
-  bool operator!=(const char (&s)[N]) const noexcept {
-    return !(*this == s);
-  }
+  template <std::size_t N> bool operator!=(const char (&s)[N]) const noexcept { return !(*this == s); }
 
   friend bool operator==(const char *lhs, const string_view &rhs) noexcept { return rhs == lhs; }
   friend bool operator!=(const char *lhs, const string_view &rhs) noexcept { return rhs != lhs; }
 
-  template <std::size_t N>
-  friend bool operator==(const char (&lhs)[N], const string_view &rhs) noexcept {
+  template <std::size_t N> friend bool operator==(const char (&lhs)[N], const string_view &rhs) noexcept {
     return rhs == lhs;
   }
 
-  template <std::size_t N>
-  friend bool operator!=(const char (&lhs)[N], const string_view &rhs) noexcept {
+  template <std::size_t N> friend bool operator!=(const char (&lhs)[N], const string_view &rhs) noexcept {
     return rhs != lhs;
   }
 

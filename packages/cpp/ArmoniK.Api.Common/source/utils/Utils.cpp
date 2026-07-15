@@ -52,9 +52,10 @@ namespace utils {
     if (subsplit_sec[1].size() >= 9) {
       nanos = sign * (int)std::strtol(static_cast<std::string>(subsplit_sec[1].substr(0, 9)).c_str(), nullptr, 10);
     } else {
-      nanos = sign * (int)std::strtol(
-                         (static_cast<std::string>(subsplit_sec[1]) + std::string(9 - subsplit_sec[1].size(), '0')).c_str(),
-                         nullptr, 10);
+      nanos =
+          sign * (int)std::strtol(
+                     (static_cast<std::string>(subsplit_sec[1]) + std::string(9 - subsplit_sec[1].size(), '0')).c_str(),
+                     nullptr, 10);
     }
   }
 
