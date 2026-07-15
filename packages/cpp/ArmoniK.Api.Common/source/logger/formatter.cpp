@@ -9,7 +9,7 @@
 #include "logger/level.h"
 
 #include "logger/formatter.h"
-#include "logger/util.h"
+#include "util.h"
 
 namespace armonik {
 namespace api {
