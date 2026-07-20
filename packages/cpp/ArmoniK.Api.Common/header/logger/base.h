@@ -42,7 +42,7 @@ public:
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  virtual void log(Level level, absl::string_view message, const Context &message_context = {}) = 0;
+  virtual void log(Level level, string_view message, const Context &message_context = {}) = 0;
 
 public:
   /**
@@ -64,7 +64,7 @@ public:
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void verbose(absl::string_view message, const Context &message_context = {}) {
+  void verbose(string_view message, const Context &message_context = {}) {
     log(Level::Verbose, message, message_context);
   }
   /**
@@ -72,23 +72,19 @@ public:
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void debug(absl::string_view message, const Context &message_context = {}) {
-    log(Level::Debug, message, message_context);
-  }
+  void debug(string_view message, const Context &message_context = {}) { log(Level::Debug, message, message_context); }
   /**
    * @brief Write a new message to the log with info log level.
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void info(absl::string_view message, const Context &message_context = {}) {
-    log(Level::Info, message, message_context);
-  }
+  void info(string_view message, const Context &message_context = {}) { log(Level::Info, message, message_context); }
   /**
    * @brief Write a new message to the log with warning log level.
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void warning(absl::string_view message, const Context &message_context = {}) {
+  void warning(string_view message, const Context &message_context = {}) {
     log(Level::Warning, message, message_context);
   }
   /**
@@ -96,17 +92,13 @@ public:
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void error(absl::string_view message, const Context &message_context = {}) {
-    log(Level::Error, message, message_context);
-  }
+  void error(string_view message, const Context &message_context = {}) { log(Level::Error, message, message_context); }
   /**
    * @brief Write a new message to the log with fatal log level.
    * @param message Message to log.
    * @param message_context Context specific for this message.
    */
-  void fatal(absl::string_view message, const Context &message_context = {}) {
-    log(Level::Fatal, message, message_context);
-  }
+  void fatal(string_view message, const Context &message_context = {}) { log(Level::Fatal, message, message_context); }
 };
 } // namespace logger
 } // namespace common

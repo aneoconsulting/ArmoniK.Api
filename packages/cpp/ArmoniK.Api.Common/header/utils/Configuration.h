@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include <absl/strings/string_view.h>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
+#include <utils/string_view.h>
 #include <vector>
 
 namespace armonik {
@@ -65,7 +65,7 @@ public:
    * @param file_path Path to the JSON file.
    * @return Reference to the current Configuration object.
    */
-  Configuration &add_json_configuration(absl::string_view file_path);
+  Configuration &add_json_configuration(string_view file_path);
 
   /**
    * @brief Add environment variable configuration.

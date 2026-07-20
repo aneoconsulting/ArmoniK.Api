@@ -2,6 +2,7 @@
 #include <grpcpp/create_channel.h>
 #include <gtest/gtest.h>
 #include <simdjson.h>
+#include <utils/string_view.h>
 
 #include "common.h"
 #include "exceptions/ArmoniKApiException.h"
@@ -21,7 +22,7 @@ size_t WriteCallback(void *ptr, size_t size, size_t num_elt, std::string *data) 
   return size * num_elt;
 }
 
-bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int num_calls) {
+bool rpcCalled(armonik::api::string_view service_name, armonik::api::string_view rpc_name, int num_calls) {
 
   armonik::api::common::utils::Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
@@ -67,7 +68,7 @@ bool rpcCalled(absl::string_view service_name, absl::string_view rpc_name, int n
   return false;
 }
 
-bool all_rpc_called(absl::string_view service_name, const std::vector<std::string> &missings) {
+bool all_rpc_called(armonik::api::string_view service_name, const std::vector<std::string> &missings) {
   armonik::api::common::utils::Configuration config;
   config.add_json_configuration("appsettings.json").add_env_configuration();
   std::string call_endpoint = config.get("Http__Endpoint") + "/calls.json";
