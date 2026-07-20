@@ -32,10 +32,13 @@ private:
   const char *data_;
   size_type size_;
 
-  // Used by the runtime const char* constructor below, and by the const char* overloads of
-  // find()/operator==(), for pointers whose length isn't known at compile time (e.g. returned
-  // by a C API). String literals instead bind to the array-reference overloads/constructor,
-  // which get their length from the array bound and never call this.
+  // Used by the const char* constructor below for pointers whose length isn't known at
+  // compile time (e.g. returned by a C API), and also runs for string literals: a
+  // reference-to-array overload could bind literals without this, but it doesn't reliably
+  // win overload resolution over this constructor, so there's
+  // no such overload here — matching std::string_view, which has no array constructor either
+  // and always computes strlen. Evaluated at compile time via constant folding/constexpr
+  // propagation when the argument is known at compile time.
   //
   // C++11 constexpr functions are restricted to a single return statement, so a
   // loop-based strlen is not valid: https://en.cppreference.com/w/cpp/language/constexpr (see "C++11" notes section)
@@ -45,8 +48,6 @@ public:
   constexpr string_view() noexcept : data_(nullptr), size_(0) {}
 
   constexpr string_view(const char *s) noexcept : data_(s), size_(clen(s)) {}
-
-  template <std::size_t N> constexpr string_view(const char (&s)[N]) noexcept : data_(s), size_(N - 1) {}
 
   constexpr string_view(const char *s, size_type len) noexcept : data_(s), size_(len) {}
 
@@ -87,7 +88,7 @@ public:
     return npos;
   }
 
-  size_type find(const string_view &needle, size_type pos = 0) const noexcept {
+  size_type find(string_view needle, size_type pos = 0) const noexcept {
     if (pos > size_) {
       return npos;
     }
@@ -112,12 +113,6 @@ public:
     return npos;
   }
 
-  size_type find(const char *s, size_type pos = 0) const noexcept { return find(string_view(s), pos); }
-
-  template <std::size_t N> size_type find(const char (&s)[N], size_type pos = 0) const noexcept {
-    return find(string_view(s, N - 1), pos);
-  }
-
   bool contains(char c) const noexcept { return find(c) != npos; }
 
   // Mirrors str_split: every occurrence of delim splits the view, and the trailing piece
@@ -134,36 +129,21 @@ public:
   }
 
   // --- Comparisons ---
-  bool operator==(const string_view &other) const noexcept {
-    if (size_ != other.size_) {
+  // Pass-by-value on both sides so implicit conversions (const char*, std::string, ...)
+  // apply symmetrically to either operand without needing an overload per source type.
+  friend bool operator==(string_view lhs, string_view rhs) noexcept {
+    if (lhs.size_ != rhs.size_) {
       return false;
     }
-    for (size_type i = 0; i < size_; ++i) {
-      if (data_[i] != other.data_[i]) {
+    for (size_type i = 0; i < lhs.size_; ++i) {
+      if (lhs.data_[i] != rhs.data_[i]) {
         return false;
       }
     }
     return true;
   }
 
-  bool operator!=(const string_view &other) const noexcept { return !(*this == other); }
-  bool operator==(const char *s) const noexcept { return *this == string_view(s); }
-  bool operator!=(const char *s) const noexcept { return !(*this == s); }
-
-  template <std::size_t N> bool operator==(const char (&s)[N]) const noexcept { return *this == string_view(s, N - 1); }
-
-  template <std::size_t N> bool operator!=(const char (&s)[N]) const noexcept { return !(*this == s); }
-
-  friend bool operator==(const char *lhs, const string_view &rhs) noexcept { return rhs == lhs; }
-  friend bool operator!=(const char *lhs, const string_view &rhs) noexcept { return rhs != lhs; }
-
-  template <std::size_t N> friend bool operator==(const char (&lhs)[N], const string_view &rhs) noexcept {
-    return rhs == lhs;
-  }
-
-  template <std::size_t N> friend bool operator!=(const char (&lhs)[N], const string_view &rhs) noexcept {
-    return rhs != lhs;
-  }
+  friend bool operator!=(string_view lhs, string_view rhs) noexcept { return !(lhs == rhs); }
 
   friend std::ostream &operator<<(std::ostream &os, const string_view &sv) {
     if (!sv.empty()) {
