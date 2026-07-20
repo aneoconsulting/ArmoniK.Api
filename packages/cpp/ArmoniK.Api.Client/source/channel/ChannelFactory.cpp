@@ -3,6 +3,7 @@
 #include "exceptions/ArmoniKApiException.h"
 #include "options/ControlPlane.h"
 #include "utils/ChannelArguments.h"
+#include "utils/string_view.h"
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
 #include <grpcpp/security/tls_credentials_options.h>
@@ -54,7 +55,7 @@ wc+KqiSg9c9iqA==
  * @param path The path to the file to be read
  * @return content of the file as a std::string
  */
-std::string read_file(const absl::string_view &path) {
+std::string read_file(const common::string_view &path) {
   std::ifstream file(path.data(), std::ios::in | std::ios::binary);
   if (file.is_open()) {
     std::ostringstream sstr;
@@ -72,12 +73,12 @@ std::string read_file(const absl::string_view &path) {
  * @return a boolean on wether http or https connexion
  */
 bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPlane, std::string &endpoint) {
-  absl::string_view endpoint_view = controlPlane.getEndpoint();
+  common::string_view endpoint_view = controlPlane.getEndpoint();
   const auto delim = endpoint_view.find("://");
   const auto http_delim = endpoint_view.find("http://");
   const auto https_delim = endpoint_view.find("https://");
   if ((endpoint_view.find("unix") == 0) ||
-      (endpoint_view[0] == '/' && endpoint_view.find(':') == absl::string_view::npos)) {
+      (endpoint_view[0] == '/' && endpoint_view.find(':') == common::string_view::npos)) {
     endpoint = {endpoint_view.cbegin(), endpoint_view.cend()};
     if (endpoint[0] == '/') {
       endpoint.insert(0, "unix://");
@@ -86,12 +87,12 @@ bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPl
     }
     return false;
   }
-  if (https_delim != absl::string_view::npos) {
+  if (https_delim != common::string_view::npos) {
     const auto tmp = endpoint_view.substr(https_delim + 8);
     endpoint = {tmp.cbegin(), tmp.cend()};
     return true;
   } else {
-    if (http_delim != absl::string_view::npos) {
+    if (http_delim != common::string_view::npos) {
       const auto tmp = endpoint_view.substr(http_delim + 7);
       endpoint = {tmp.cbegin(), tmp.cend()};
     } else {
@@ -108,9 +109,9 @@ bool initialize_protocol_endpoint(const common::options::ControlPlane &controlPl
  * @param userPrivatePem The client key for mTLS
  * @return a pointer to a certificate provider interface
  */
-std::shared_ptr<CertificateProviderInterface> create_certificate_provider(absl::string_view rootCertificate,
-                                                                          absl::string_view userPublicPem,
-                                                                          absl::string_view userPrivatePem) {
+std::shared_ptr<CertificateProviderInterface> create_certificate_provider(common::string_view rootCertificate,
+                                                                          common::string_view userPublicPem,
+                                                                          common::string_view userPrivatePem) {
   if (rootCertificate.empty()) {
     return std::make_shared<StaticDataCertificateProvider>(
         std::vector<IdentityKeyCertPair>{IdentityKeyCertPair{userPrivatePem.data(), userPublicPem.data()}});

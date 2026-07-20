@@ -1,6 +1,6 @@
 #pragma once
 
-#include <absl/strings/string_view.h>
 #include <fmt/std.h>
+#include <utils/string_view.h>
 
-fmt::string_view to_fmt(const absl::string_view sv) { return {sv.data(), sv.size()}; }
+inline fmt::string_view to_fmt(const armonik::api::string_view sv) { return {sv.data(), sv.size()}; }

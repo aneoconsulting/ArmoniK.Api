@@ -1,6 +1,7 @@
 #pragma once
 #include <future>
 #include <string>
+#include <utils/string_view.h>
 
 #include "agent_common.pb.h"
 #include "agent_service.grpc.pb.h"
@@ -84,7 +85,7 @@ public:
    * @param data The result data
    * @return A future containing a vector of ResultReply
    */
-  std::future<void> send_result(std::string key, absl::string_view data);
+  std::future<void> send_result(std::string key, armonik::api::string_view data);
 
   /**
    * @brief Get the result ids object

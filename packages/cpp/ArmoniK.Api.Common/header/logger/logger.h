@@ -108,7 +108,7 @@ public:
    * @copydoc ILogger::log()
    * @details Thread-safe.
    */
-  void log(Level level, absl::string_view message, const Context &message_context = {}) override;
+  void log(Level level, string_view message, const Context &message_context = {}) override;
 };
 } // namespace logger
 } // namespace common

@@ -11,12 +11,14 @@ namespace api {
 namespace common {
 namespace logger {
 
+/// @cond DOXYGEN_IGNORE
 namespace {
 // Empty string to return when key is not found
 const std::string empty_string;
 // Empty string generator when key is not found
 const std::function<std::string()> empty_func = []() { return std::string(); };
 } // namespace
+/// @endcond
 
 // Construct a Logger
 Logger::Logger(std::unique_ptr<IWriter> writer, std::unique_ptr<IFormatter> formatter, Level level)
@@ -72,7 +74,7 @@ LocalLogger Logger::local(Context local_context) const {
 }
 
 // ILogger::log()
-void Logger::log(Level level, absl::string_view message, const Context &message_context) {
+void Logger::log(Level level, string_view message, const Context &message_context) {
   if (level < level_) {
     return;
   }

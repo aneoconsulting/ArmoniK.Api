@@ -28,7 +28,7 @@ public:
    * @copydoc IWriter::write()
    * @details Thread-safe.
    */
-  void write(Level, absl::string_view message) override {
+  void write(Level, string_view message) override {
     // Lock the writer to ensure the message is written all-at-once
     std::lock_guard<std::mutex> lock_guard{mutex_};
     out_ << message << std::endl;
@@ -47,7 +47,7 @@ public:
    * @copydoc IWriter::write()
    * @details Thread-safe.
    */
-  void write(Level level, absl::string_view message) override {
+  void write(Level level, string_view message) override {
     // Lock the writer to ensure the message is written all-at-once
     std::lock_guard<std::mutex> lock_guard{mutex_};
     (level < Level::Warning ? std::cout : std::cerr) << message << std::endl;

@@ -147,10 +147,10 @@ TEST_F(Results, test_results_create_with_data_string_view) {
   auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
   auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
                         .create_session(task_options);
-  std::vector<std::pair<std::string, absl::string_view>> name_payload;
+  std::vector<std::pair<std::string, armonik::api::string_view>> name_payload;
   std::string fill_str = "TestPayloadTestPayload2";
-  name_payload.emplace_back("0", absl::string_view(fill_str.c_str(), 11));
-  name_payload.emplace_back("1", absl::string_view(fill_str.c_str() + 11, 12));
+  name_payload.emplace_back("0", armonik::api::string_view(fill_str.c_str(), 11));
+  name_payload.emplace_back("1", armonik::api::string_view(fill_str.c_str() + 11, 12));
   ASSERT_NO_THROW(client.create_results(session_id, name_payload.begin(), name_payload.end()));
   num_create_result++;
   ASSERT_TRUE(rpcCalled("Results", "CreateResults", num_create_result));

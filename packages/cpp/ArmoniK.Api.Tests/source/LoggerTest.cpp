@@ -26,11 +26,11 @@ TEST_P(LoggerTest, LogMessageIsFormattedAndWritten) {
   armonik::api::common::logger::Logger logger(std::move(writer_ptr), std::move(formatter_ptr), params.filter_level);
 
   if (params.call_level >= params.filter_level) {
-    EXPECT_CALL(formatter,
-                format(params.call_level, absl::string_view("Test message"), testing::_, testing::_, testing::_))
+    EXPECT_CALL(formatter, format(params.call_level, armonik::api::string_view("Test message"), testing::_, testing::_,
+                                  testing::_))
         .WillOnce(testing::Return("Formatted message"));
 
-    EXPECT_CALL(writer, write(params.call_level, absl::string_view("Formatted message"))).Times(1);
+    EXPECT_CALL(writer, write(params.call_level, armonik::api::string_view("Formatted message"))).Times(1);
   } else {
     EXPECT_CALL(formatter, format(testing::_, testing::_, testing::_, testing::_, testing::_)).Times(0);
     EXPECT_CALL(writer, write(testing::_, testing::_)).Times(0);

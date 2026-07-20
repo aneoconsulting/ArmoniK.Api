@@ -34,18 +34,18 @@ void populate(armonik::api::common::utils::Configuration &config, const std::str
 }
 
 void armonik::api::common::utils::JsonConfiguration::fromPath(armonik::api::common::utils::Configuration &config,
-                                                              absl::string_view filepath) {
+                                                              armonik::api::string_view filepath) {
   dom::parser parser;
   dom::element elem;
   try {
-    elem = parser.load(std::string(filepath));
+    elem = parser.load(std::string(filepath.data(), filepath.size()));
     populate(config, "", elem);
   } catch (const std::exception &e) {
     std::cerr << "Unable to load json file " << filepath << " : " << e.what();
   }
 }
 void armonik::api::common::utils::JsonConfiguration::fromString(armonik::api::common::utils::Configuration &config,
-                                                                absl::string_view json_string) {
+                                                                armonik::api::string_view json_string) {
   dom::parser parser;
   populate(config, "", parser.parse(padded_string(json_string.data(), json_string.size())));
 }
