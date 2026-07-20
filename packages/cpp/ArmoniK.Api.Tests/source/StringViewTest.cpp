@@ -53,8 +53,6 @@ TEST(StringView, FromStdString) {
 }
 
 TEST(StringView, FromRuntimeCharPointer) {
-  // raw decays to const char*, so this exercises the clen()-based constructor
-  // rather than the array-reference constructor literals bind to.
   const char *raw = "armonik api";
   string_view sv(raw);
   EXPECT_EQ(sv.size(), 11u);
