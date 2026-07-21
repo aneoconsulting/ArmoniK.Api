@@ -1,6 +1,5 @@
 # CPack options
 set(CPACK_THREADS 0)
-set(CPACK_MONOLITHIC_INSTALL TRUE)
 
 # Common options
 set(CPACK_PACKAGE_NAME "libarmonik")
@@ -14,15 +13,34 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/aneoconsulting/ArmoniK.Api")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/tools/packaging/common/LICENSE")
 set(CPACK_PACKAGE_CONTACT "armonik-support@aneo.fr")
 
+# Component definitions
+set(CPACK_COMPONENT_RUNTIME_DISPLAY_NAME "ArmoniK API Libraries")
+set(CPACK_COMPONENT_RUNTIME_DESCRIPTION "Runtime libraries for the ArmoniK API")
+set(CPACK_COMPONENT_DEVEL_DISPLAY_NAME "ArmoniK API Development Files")
+set(CPACK_COMPONENT_DEVEL_DESCRIPTION "Headers and CMake config files for ArmoniK API development")
+set(CPACK_COMPONENT_DEVEL_DEPENDS runtime)
+
 # Rpm options
+set(CPACK_RPM_COMPONENT_INSTALL ON)
 set(CPACK_RPM_PACKAGE_LICENSE "Apache 2.0")
 set(CPACK_RPM_PACKAGE_GROUP "Development Tools")
 set(CPACK_RPM_CHANGELOG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/tools/packaging/common/CHANGELOG")
+set(CPACK_RPM_RUNTIME_PACKAGE_NAME "libarmonik")
+set(CPACK_RPM_RUNTIME_FILE_NAME "${CPACK_PACKAGE_NAME}-${version}-${CMAKE_SYSTEM_NAME}.rpm")
+set(CPACK_RPM_DEVEL_PACKAGE_NAME "libarmonik-devel")
+set(CPACK_RPM_DEVEL_FILE_NAME "${CPACK_PACKAGE_NAME}-devel-${version}-${CMAKE_SYSTEM_NAME}.rpm")
+set(CPACK_RPM_DEVEL_PACKAGE_REQUIRES "libarmonik = ${version}")
 
 # Deb options
 if("DEB" IN_LIST CPACK_GENERATOR)
+    set(CPACK_DEB_COMPONENT_INSTALL ON)
     set(CPACK_DEBIAN_PACKAGE_GENERATE_SHLIBS ON)
     set(CPACK_DEBIAN_PACKAGE_RELEASE 1)
+    set(CPACK_DEBIAN_RUNTIME_PACKAGE_NAME "libarmonik")
+    set(CPACK_DEBIAN_RUNTIME_FILE_NAME "${CPACK_PACKAGE_NAME}-${version}-${CMAKE_SYSTEM_NAME}.deb")
+    set(CPACK_DEBIAN_DEVEL_PACKAGE_NAME "libarmonik-dev")
+    set(CPACK_DEBIAN_DEVEL_FILE_NAME "${CPACK_PACKAGE_NAME}-dev-${version}-${CMAKE_SYSTEM_NAME}.deb")
+    set(CPACK_DEBIAN_DEVEL_PACKAGE_DEPENDS "libarmonik (= ${version})")
     file(READ "${CMAKE_CURRENT_SOURCE_DIR}/tools/packaging/debian/control" DEBIAN_CONTROL_FILE)
     if(${DEBIAN_CONTROL_FILE} MATCHES "Build-Depends: ([^\r\n]*)")
         set(DEBIAN_PACKAGE_BUILDS_DEPENDS "${CMAKE_MATCH_1}")
@@ -30,7 +48,7 @@ if("DEB" IN_LIST CPACK_GENERATOR)
         message(FATAL_ERROR "Build dependencies not found in control file")
     endif()
     if(${DEBIAN_CONTROL_FILE} MATCHES "[^\-]Depends: ([^\r\n]*)")
-        set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CMAKE_MATCH_1}")
+        set(CPACK_DEBIAN_RUNTIME_PACKAGE_DEPENDS "${CMAKE_MATCH_1}")
     else ()
         message(FATAL_ERROR "Runtime dependencies not found in control file")
     endif()
