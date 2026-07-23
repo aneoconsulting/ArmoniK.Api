@@ -36,10 +36,11 @@ find_package(gRPC CONFIG REQUIRED)
 find_package(Threads)
 find_package(absl REQUIRED)
 
-# Check for Red Hat-based systems and static linking
+# Check for Red Hat-based systems. protobuf/gRPC on RHEL are built statically (grpc-rpm), and
+# their static archives require abseil's log symbols at link time regardless of whether
+# ArmoniK.Api.Common itself is built shared or static, so this must not be gated on BUILD_SHARED_LIBS.
 file(READ /etc/os-release OS_RELEASE_CONTENT)
-if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora" AND NOT BUILD_SHARED_LIBS)
-    # On Red Hat systems with static linking, we need to find the utf8_range and utf8_validity libraries.
+if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
     find_package(utf8_range REQUIRED)
     find_library(UTF8_VALIDITY_LIB
         NAMES utf8_validity
@@ -117,32 +118,27 @@ target_include_directories(${PROJECT_NAME}
 
 # Check if the system is Red Hat for linking Abseil
 if(OS_RELEASE_CONTENT MATCHES "^(ID=|ID_LIKE=).*rhel|fedora")
-    message(STATUS "Detected Red Hat system.")
-    if(NOT BUILD_SHARED_LIBS)
-        message(STATUS "Static linking is enabled. Linking Abseil libraries.")
+    message(STATUS "Detected Red Hat system. Linking Abseil libraries.")
 
-        target_link_libraries(${PROJECT_NAME} PUBLIC
-            utf8_range::utf8_range
-            ${UTF8_VALIDITY_LIB}
+    target_link_libraries(${PROJECT_NAME} PUBLIC
+        utf8_range::utf8_range
+        ${UTF8_VALIDITY_LIB}
 
-            absl::log
-            absl::check
-            absl::log_internal_check_op
-            absl::log_internal_message
-            absl::log_internal_format
-            absl::log_internal_proto
-            absl::log_internal_globals
-            absl::log_internal_conditions
-            absl::raw_logging_internal
+        absl::log
+        absl::check
+        absl::log_internal_check_op
+        absl::log_internal_message
+        absl::log_internal_format
+        absl::log_internal_proto
+        absl::log_internal_globals
+        absl::log_internal_conditions
+        absl::raw_logging_internal
 
-            absl::strings
-            absl::string_view
-            absl::throw_delegate
-            absl::base
-        )
-    else()
-        message(STATUS "Static linking is not enabled. Skipping Abseil libraries.")
-    endif()
+        absl::strings
+        absl::string_view
+        absl::throw_delegate
+        absl::base
+    )
 else()
     message(STATUS "Not a Red Hat system. Skipping Abseil libraries.")
 endif()
