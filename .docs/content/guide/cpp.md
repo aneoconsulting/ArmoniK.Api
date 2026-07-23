@@ -119,3 +119,57 @@ The worker image is a Docker image that is built specifically to be deployed in 
 The worker image should be listed with the specified image tag (e.g., armonik-api-cpp:v0.1).
 
 Now you have successfully compiled the worker image for deployment in the ArmoniK infrastructure.
+
+## Installing Pre-built DEB/RPM Packages
+
+Instead of compiling from source, you can install the ArmoniK C++ API from pre-built DEB (Debian/Ubuntu) or RPM (RHEL/UBI) packages. Each format is split into two components:
+
+- **Runtime package** (`libarmonik` for both DEB and RPM): the shared libraries (`.so`) only. This is all you need to run an application linked against the ArmoniK API.
+- **Devel package** (`libarmonik-dev` on DEB, `libarmonik-devel` on RPM): headers, static archives, and CMake config/target files needed to build against the API. It depends on the runtime package.
+
+If you only deploy applications that consume the ArmoniK API, installing the runtime package is enough. If you are developing against the API (compiling code that includes its headers or links via `find_package`), install the devel package as well.
+
+### Building the packages
+
+```bash [bash]
+cd packages/cpp/tools/packaging
+./make-deb.sh    # produces libarmonik and libarmonik-dev .deb files
+./make-rpm.sh    # produces libarmonik and libarmonik-devel .rpm files
+```
+
+Each script builds a Docker image with the required build dependencies, compiles the project with the corresponding CPack generator (`DEB` or `RPM`), and copies the resulting packages to the current directory.
+
+### Installing on Debian/Ubuntu
+
+```bash [bash]
+# Runtime only
+sudo dpkg -i libarmonik-*.deb
+
+# Runtime and development files
+sudo dpkg -i libarmonik-*.deb libarmonik-dev-*.deb
+```
+
+### Installing on RHEL/UBI
+
+```bash [bash]
+# Runtime only
+sudo rpm -ivh libarmonik-*.rpm
+
+# Runtime and development files
+sudo rpm -ivh libarmonik-*.rpm libarmonik-devel-*.rpm
+```
+
+### Building and installing a tar.gz archive
+
+A `tar.gz` archive is also available for systems where DEB/RPM packages aren't suitable. Unlike the DEB/RPM packages, it is **not** split into runtime/devel components: the archive bundles the shared libraries, headers, and CMake config files together.
+
+```bash [bash]
+cd packages/cpp/tools/packaging
+./make-tar.gz.sh    # produces a libarmonik-*.tar.gz archive
+```
+
+Install it by extracting it to the desired prefix (e.g. `/usr/local`):
+
+```bash [bash]
+sudo tar -xzf libarmonik-*.tar.gz -C /usr/local --strip-components=1
+```
