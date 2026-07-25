@@ -10,9 +10,6 @@ import {
   javaPattern,
   jsFiles,
   jsPattern,
-  rustDependencyFiles,
-  rustDependencyKey,
-  rustDependencyPattern,
   rustFiles,
   rustMacrosPinFiles,
   rustMacrosPinPattern,
@@ -35,9 +32,7 @@ consola.info('Finding java projects versions')
 javaFiles.forEach(_readAndFind(javaPattern, versions))
 consola.info('Finding rust projects versions')
 rustFiles.forEach(_readAndFind(rustPattern, versions))
-consola.info('Finding the rust internal dependency version')
-rustDependencyFiles.forEach(_readAndFind(rustDependencyPattern, versions, rustDependencyKey))
-rustMacrosPinFiles.forEach(_readAndFind(rustMacrosPinPattern, versions))
+rustMacrosPinFiles.forEach(_readAndFind(rustMacrosPinPattern, versions, 'macros pin'))
 
 const versionsArray = [...versions.values()]
 const uniqueVersions = [...new Set(versionsArray)]
