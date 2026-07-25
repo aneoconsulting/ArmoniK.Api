@@ -1,4 +1,4 @@
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use snafu::ResultExt;
 
 use crate::agent::{
@@ -249,16 +249,18 @@ where
     type Error = super::RequestError;
 
     async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
+        // Extern'd types: the stub speaks the armonik types directly, no
+        // conversion left on this path.
         let span = tracing::debug_span!("Agent::create_tasks");
         let stream = tracing_futures::Instrument::instrument(
-            request.map(Into::into),
+            request,
             tracing::trace_span!(parent: &span, "stream"),
         );
         let call = tracing_futures::Instrument::instrument(
             self.inner.create_task(stream),
             tracing::trace_span!("rpc"),
         );
-        Ok(call.await.context(super::GrpcSnafu {})?.into_inner().into())
+        Ok(call.await.context(super::GrpcSnafu {})?.into_inner())
     }
 }
 

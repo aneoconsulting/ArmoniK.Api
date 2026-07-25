@@ -1,7 +1,4 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions};
-use crate::utils::IntoCollection;
-
-use crate::api::v3;
 use crate::codec::{adapters::VecWrapper, message as message_codec, ProtoAdapter, ProtoField};
 
 #[derive(Debug, Clone, Default, armonik_macros::Message)]
@@ -10,12 +7,6 @@ use crate::codec::{adapters::VecWrapper, message as message_codec, ProtoAdapter,
 pub struct InitRequest {
     pub task_options: Option<TaskOptions>,
 }
-
-super::super::impl_convert!(
-    struct InitRequest = v3::agent::create_task_request::InitRequest {
-        option task_options,
-    }
-);
 
 /// The `CreateTaskRequest` message: a oneof (tags 1-3) plus a sibling
 /// `communication_token = 4`, flattened into token-carrying variants.
@@ -236,68 +227,6 @@ impl prost::Message for Request {
     }
 }
 
-impl From<Request> for v3::agent::CreateTaskRequest {
-    fn from(value: Request) -> Self {
-        match value {
-            Request::Invalid => Self {
-                communication_token: Default::default(),
-                r#type: None,
-            },
-            Request::InitRequest {
-                communication_token,
-                request,
-            } => Self {
-                communication_token,
-                r#type: Some(v3::agent::create_task_request::Type::InitRequest(
-                    request.into(),
-                )),
-            },
-            Request::InitTaskRequest {
-                communication_token,
-                request,
-            } => Self {
-                communication_token,
-                r#type: Some(v3::agent::create_task_request::Type::InitTask(
-                    request.into(),
-                )),
-            },
-            Request::DataChunk {
-                communication_token,
-                chunk,
-            } => Self {
-                communication_token,
-                r#type: Some(v3::agent::create_task_request::Type::TaskPayload(
-                    chunk.into(),
-                )),
-            },
-        }
-    }
-}
-
-impl From<v3::agent::CreateTaskRequest> for Request {
-    fn from(value: v3::agent::CreateTaskRequest) -> Self {
-        match value.r#type {
-            Some(v3::agent::create_task_request::Type::InitRequest(request)) => Self::InitRequest {
-                communication_token: value.communication_token,
-                request: request.into(),
-            },
-            Some(v3::agent::create_task_request::Type::InitTask(request)) => {
-                Self::InitTaskRequest {
-                    communication_token: value.communication_token,
-                    request: request.into(),
-                }
-            }
-            Some(v3::agent::create_task_request::Type::TaskPayload(chunk)) => Self::DataChunk {
-                communication_token: value.communication_token,
-                chunk: chunk.into(),
-            },
-            None => Self::Invalid,
-        }
-    }
-}
-
-super::super::impl_convert!(req Request : v3::agent::CreateTaskRequest);
-
 #[derive(Debug, Clone, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(
@@ -321,52 +250,6 @@ pub enum Status {
 impl Default for Status {
     fn default() -> Self {
         Self::Error(Default::default())
-    }
-}
-
-impl From<Status> for v3::agent::create_task_reply::CreationStatus {
-    fn from(value: Status) -> Self {
-        match value {
-            Status::TaskInfo {
-                task_id,
-                expected_output_keys,
-                data_dependencies,
-                payload_id,
-            } => Self {
-                status: Some(
-                    v3::agent::create_task_reply::creation_status::Status::TaskInfo(
-                        v3::agent::create_task_reply::TaskInfo {
-                            task_id,
-                            expected_output_keys,
-                            data_dependencies,
-                            payload_id,
-                        },
-                    ),
-                ),
-            },
-            Status::Error(msg) => Self {
-                status: Some(v3::agent::create_task_reply::creation_status::Status::Error(msg)),
-            },
-        }
-    }
-}
-
-impl From<v3::agent::create_task_reply::CreationStatus> for Status {
-    fn from(value: v3::agent::create_task_reply::CreationStatus) -> Self {
-        match value.status {
-            Some(v3::agent::create_task_reply::creation_status::Status::TaskInfo(status)) => {
-                Self::TaskInfo {
-                    task_id: status.task_id,
-                    expected_output_keys: status.expected_output_keys,
-                    data_dependencies: status.data_dependencies,
-                    payload_id: status.payload_id,
-                }
-            }
-            Some(v3::agent::create_task_reply::creation_status::Status::Error(msg)) => {
-                Self::Error(msg)
-            }
-            None => Default::default(),
-        }
     }
 }
 
@@ -550,110 +433,131 @@ impl prost::Message for Response {
     }
 }
 
-impl From<Response> for v3::agent::CreateTaskReply {
-    fn from(value: Response) -> Self {
-        match value {
-            Response::Status {
-                communication_token,
-                statuses,
-            } => Self {
-                communication_token,
-                response: Some(v3::agent::create_task_reply::Response::CreationStatusList(
-                    v3::agent::create_task_reply::CreationStatusList {
-                        creation_statuses: statuses.into_collect(),
-                    },
-                )),
-            },
-            Response::Error {
-                communication_token,
-                error,
-            } => Self {
-                communication_token,
-                response: Some(v3::agent::create_task_reply::Response::Error(error)),
-            },
-        }
-    }
-}
-
-impl From<v3::agent::CreateTaskReply> for Response {
-    fn from(value: v3::agent::CreateTaskReply) -> Self {
-        match value.response {
-            Some(v3::agent::create_task_reply::Response::CreationStatusList(status)) => {
-                Self::Status {
-                    communication_token: value.communication_token,
-                    statuses: status.creation_statuses.into_collect(),
-                }
-            }
-            Some(v3::agent::create_task_reply::Response::Error(error)) => Self::Error {
-                communication_token: value.communication_token,
-                error,
-            },
-            None => Self::Error {
-                communication_token: value.communication_token,
-                error: Default::default(),
-            },
-        }
-    }
-}
-
-super::super::impl_convert!(req Response : v3::agent::CreateTaskReply);
-
 #[cfg(test)]
 mod tests {
     use prost::Message;
 
     use super::{Request, Response, Status};
-    use crate::api::v3;
     use crate::objects::{DataChunk, InitTaskRequest, TaskRequestHeader};
 
-    fn v3_request_samples() -> Vec<v3::agent::CreateTaskRequest> {
+    // prost-derived ground truth, mirroring the proto definitions (the
+    // generated types no longer exist for these extern'd messages).
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefRequest {
+        #[prost(oneof = "RefRequestType", tags = "1, 2, 3")]
+        r#type: Option<RefRequestType>,
+        #[prost(string, tag = "4")]
+        communication_token: String,
+    }
+
+    #[derive(Clone, PartialEq, prost::Oneof)]
+    enum RefRequestType {
+        #[prost(message, tag = "1")]
+        InitRequest(RefInitRequest),
+        #[prost(message, tag = "2")]
+        InitTask(crate::api::v3::InitTaskRequest),
+        #[prost(message, tag = "3")]
+        TaskPayload(crate::api::v3::DataChunk),
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefInitRequest {
+        #[prost(message, optional, tag = "1")]
+        task_options: Option<crate::api::v3::TaskOptions>,
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefReply {
+        #[prost(oneof = "RefReplyType", tags = "1, 2")]
+        response: Option<RefReplyType>,
+        #[prost(string, tag = "4")]
+        communication_token: String,
+    }
+
+    #[derive(Clone, PartialEq, prost::Oneof)]
+    enum RefReplyType {
+        #[prost(message, tag = "1")]
+        CreationStatusList(RefCreationStatusList),
+        #[prost(string, tag = "2")]
+        Error(String),
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefCreationStatusList {
+        #[prost(message, repeated, tag = "1")]
+        creation_statuses: Vec<RefCreationStatus>,
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefCreationStatus {
+        #[prost(oneof = "RefStatusType", tags = "1, 2")]
+        status: Option<RefStatusType>,
+    }
+
+    #[derive(Clone, PartialEq, prost::Oneof)]
+    enum RefStatusType {
+        #[prost(message, tag = "1")]
+        TaskInfo(RefTaskInfo),
+        #[prost(string, tag = "2")]
+        Error(String),
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefTaskInfo {
+        #[prost(string, tag = "1")]
+        task_id: String,
+        #[prost(string, repeated, tag = "2")]
+        expected_output_keys: Vec<String>,
+        #[prost(string, repeated, tag = "3")]
+        data_dependencies: Vec<String>,
+        #[prost(string, tag = "4")]
+        payload_id: String,
+    }
+
+    fn ref_request_samples() -> Vec<RefRequest> {
         vec![
-            v3::agent::CreateTaskRequest {
+            RefRequest {
                 communication_token: "token-1".into(),
-                r#type: Some(v3::agent::create_task_request::Type::InitRequest(
-                    v3::agent::create_task_request::InitRequest {
-                        task_options: Some(v3::TaskOptions {
-                            // Explicit so the round-trip is the identity: an
-                            // absent duration folds to INFINITE_DURATION.
-                            max_duration: Some(prost_types::Duration {
-                                seconds: 60,
-                                nanos: 0,
-                            }),
-                            max_retries: 3,
-                            partition_id: "part".into(),
-                            ..Default::default()
+                r#type: Some(RefRequestType::InitRequest(RefInitRequest {
+                    task_options: Some(crate::api::v3::TaskOptions {
+                        // Explicit so the round-trip is the identity: an
+                        // absent duration folds to INFINITE_DURATION.
+                        max_duration: Some(prost_types::Duration {
+                            seconds: 60,
+                            nanos: 0,
                         }),
-                    },
-                )),
+                        max_retries: 3,
+                        partition_id: "part".into(),
+                        ..Default::default()
+                    }),
+                })),
             },
-            v3::agent::CreateTaskRequest {
+            RefRequest {
                 communication_token: "token-2".into(),
-                r#type: Some(v3::agent::create_task_request::Type::InitTask(
-                    v3::InitTaskRequest {
-                        r#type: Some(v3::init_task_request::Type::Header(v3::TaskRequestHeader {
+                r#type: Some(RefRequestType::InitTask(crate::api::v3::InitTaskRequest {
+                    r#type: Some(crate::api::v3::init_task_request::Type::Header(
+                        crate::api::v3::TaskRequestHeader {
                             expected_output_keys: vec!["out".into()],
                             data_dependencies: vec!["dep".into()],
-                        })),
-                    },
-                )),
+                        },
+                    )),
+                })),
             },
-            v3::agent::CreateTaskRequest {
+            RefRequest {
                 communication_token: "token-3".into(),
-                r#type: Some(v3::agent::create_task_request::Type::TaskPayload(
-                    v3::DataChunk {
-                        r#type: Some(v3::data_chunk::Type::Data(b"chunk".to_vec())),
-                    },
-                )),
+                r#type: Some(RefRequestType::TaskPayload(crate::api::v3::DataChunk {
+                    r#type: Some(crate::api::v3::data_chunk::Type::Data(b"chunk".to_vec())),
+                })),
             },
         ]
     }
 
     #[test]
-    fn request_roundtrips_through_generated_type() {
-        for theirs in v3_request_samples() {
+    fn request_roundtrips_through_reference_encoding() {
+        for theirs in ref_request_samples() {
             let ours = Request::decode(theirs.encode_to_vec().as_slice()).unwrap();
-            let back =
-                v3::agent::CreateTaskRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
+            let back = RefRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
             assert_eq!(back, theirs);
         }
     }
@@ -687,7 +591,7 @@ mod tests {
     }
 
     #[test]
-    fn response_roundtrips_through_generated_type() {
+    fn response_roundtrips_through_reference_encoding() {
         let ours = Response::Status {
             communication_token: "token".into(),
             statuses: vec![
@@ -700,8 +604,27 @@ mod tests {
                 Status::Error("boom".into()),
             ],
         };
-        let theirs = v3::agent::CreateTaskReply::decode(ours.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(theirs, v3::agent::CreateTaskReply::from(ours.clone()));
+        let theirs = RefReply::decode(ours.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(theirs.communication_token, "token");
+        let Some(RefReplyType::CreationStatusList(list)) = &theirs.response else {
+            panic!("expected CreationStatusList");
+        };
+        assert_eq!(
+            list.creation_statuses,
+            vec![
+                RefCreationStatus {
+                    status: Some(RefStatusType::TaskInfo(RefTaskInfo {
+                        task_id: "task".into(),
+                        expected_output_keys: vec!["out".into()],
+                        data_dependencies: vec![],
+                        payload_id: "payload".into(),
+                    })),
+                },
+                RefCreationStatus {
+                    status: Some(RefStatusType::Error("boom".into())),
+                },
+            ]
+        );
 
         let back = Response::decode(theirs.encode_to_vec().as_slice()).unwrap();
         let Response::Status { statuses, .. } = back else {
@@ -716,14 +639,12 @@ mod tests {
             communication_token: "t".into(),
             chunk: DataChunk::Data(bytes::Bytes::from_static(b"payload")),
         };
-        let theirs = v3::agent::CreateTaskRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
+        let theirs = RefRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
         assert_eq!(
             theirs.r#type,
-            Some(v3::agent::create_task_request::Type::TaskPayload(
-                v3::DataChunk {
-                    r#type: Some(v3::data_chunk::Type::Data(b"payload".to_vec())),
-                }
-            ))
+            Some(RefRequestType::TaskPayload(crate::api::v3::DataChunk {
+                r#type: Some(crate::api::v3::data_chunk::Type::Data(b"payload".to_vec())),
+            }))
         );
     }
 }
