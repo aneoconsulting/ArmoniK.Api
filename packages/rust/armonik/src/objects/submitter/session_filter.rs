@@ -1,12 +1,19 @@
 use super::super::SessionStatus;
-use crate::utils::IntoCollection;
 
-use crate::api::v3;
-
-#[derive(Debug, Clone)]
+/// Status selector of the filter.
+///
+/// The `Include`/`Exclude` variants map to the *opposite* proto members
+/// (`excluded`/`included`), reproducing the historical conversions exactly.
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(
+    message = "armonik.api.grpc.v1.submitter.SessionFilter",
+    oneof = "statuses"
+)]
 pub enum SessionFilterStatuses {
+    #[armonik(rename = "excluded", with = "crate::codec::adapters::VecWrapper<1>")]
     Include(Vec<SessionStatus>),
+    #[armonik(rename = "included", with = "crate::codec::adapters::VecWrapper<1>")]
     Exclude(Vec<SessionStatus>),
 }
 
@@ -16,46 +23,11 @@ impl Default for SessionFilterStatuses {
     }
 }
 
-impl From<SessionFilterStatuses> for v3::submitter::session_filter::Statuses {
-    fn from(value: SessionFilterStatuses) -> Self {
-        match value {
-            SessionFilterStatuses::Include(statuses) => {
-                Self::Excluded(v3::submitter::session_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(i32::from).collect(),
-                })
-            }
-            SessionFilterStatuses::Exclude(statuses) => {
-                Self::Included(v3::submitter::session_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(i32::from).collect(),
-                })
-            }
-        }
-    }
-}
-
-impl From<v3::submitter::session_filter::Statuses> for SessionFilterStatuses {
-    fn from(value: v3::submitter::session_filter::Statuses) -> Self {
-        match value {
-            v3::submitter::session_filter::Statuses::Excluded(statuses) => {
-                Self::Exclude(statuses.statuses.into_collect())
-            }
-            v3::submitter::session_filter::Statuses::Included(statuses) => {
-                Self::Include(statuses.statuses.into_collect())
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.submitter.SessionFilter")]
 pub struct SessionFilter {
+    #[armonik(rename = "sessions")]
     pub ids: Vec<String>,
     pub statuses: SessionFilterStatuses,
 }
-
-super::super::impl_convert!(
-    struct SessionFilter = v3::submitter::SessionFilter {
-        list ids = list sessions,
-        statuses = option statuses,
-    }
-);

@@ -142,40 +142,27 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.results.WatchResultResponse",
     // Pair entries flattened into the shared session ID and result IDs.
     "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier",
+    // Inlined into the `submitter::create_tasks::Status::TaskInfo` variant.
+    "armonik.api.grpc.v1.submitter.CreateTaskReply.TaskInfo",
+    // Flattened into `submitter::create_tasks::Response::Status`.
+    "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatusList",
+    // Flattened into the filter variants through `VecWrapper`.
+    "armonik.api.grpc.v1.submitter.TaskFilter.IdsRequest",
+    "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest",
+    "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest",
+    // Pair entries flattened into the `statuses` maps.
+    "armonik.api.grpc.v1.submitter.GetTaskStatusReply.IdStatus",
+    "armonik.api.grpc.v1.submitter.GetResultStatusReply.IdStatus",
+    // Not exposed by the crate.
+    "armonik.api.grpc.v1.submitter.SessionList",
+    "armonik.api.grpc.v1.submitter.WatchResultRequest",
+    "armonik.api.grpc.v1.submitter.WatchResultStream",
 ];
 
 /// Messages not yet migrated to a direct wire implementation. This list
 /// only shrinks: annotating a type moves it to the registry, and the test
 /// fails on stale entries. It must be empty by the end of the migration.
-const TEMP_UNMAPPED: &[&str] = &[
-    "armonik.api.grpc.v1.submitter.AvailabilityReply",
-    "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest",
-    "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest",
-    "armonik.api.grpc.v1.submitter.CreateSessionReply",
-    "armonik.api.grpc.v1.submitter.CreateSessionRequest",
-    "armonik.api.grpc.v1.submitter.CreateSmallTaskRequest",
-    "armonik.api.grpc.v1.submitter.CreateTaskReply",
-    "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus",
-    "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatusList",
-    "armonik.api.grpc.v1.submitter.CreateTaskReply.TaskInfo",
-    "armonik.api.grpc.v1.submitter.GetResultStatusReply",
-    "armonik.api.grpc.v1.submitter.GetResultStatusReply.IdStatus",
-    "armonik.api.grpc.v1.submitter.GetResultStatusRequest",
-    "armonik.api.grpc.v1.submitter.GetTaskStatusReply",
-    "armonik.api.grpc.v1.submitter.GetTaskStatusReply.IdStatus",
-    "armonik.api.grpc.v1.submitter.GetTaskStatusRequest",
-    "armonik.api.grpc.v1.submitter.ResultReply",
-    "armonik.api.grpc.v1.submitter.SessionFilter",
-    "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest",
-    "armonik.api.grpc.v1.submitter.SessionIdList",
-    "armonik.api.grpc.v1.submitter.SessionList",
-    "armonik.api.grpc.v1.submitter.TaskFilter",
-    "armonik.api.grpc.v1.submitter.TaskFilter.IdsRequest",
-    "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest",
-    "armonik.api.grpc.v1.submitter.WaitRequest",
-    "armonik.api.grpc.v1.submitter.WatchResultRequest",
-    "armonik.api.grpc.v1.submitter.WatchResultStream",
-];
+const TEMP_UNMAPPED: &[&str] = &[];
 
 #[test]
 fn descriptor_coverage_ratchet() {

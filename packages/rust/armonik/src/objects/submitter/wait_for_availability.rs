@@ -1,7 +1,7 @@
 use super::super::TaskError;
 
-use crate::api::v3;
-
+/// Request for waiting for a result, standing for the `ResultRequest`
+/// message the stubs use.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
@@ -9,18 +9,36 @@ pub struct Request {
     pub result_id: String,
 }
 
-super::super::impl_convert!(
-    struct Request = crate::ResultRequest {
-        session_id,
-        result_id,
+impl From<Request> for crate::ResultRequest {
+    fn from(value: Request) -> Self {
+        Self {
+            session_id: value.session_id,
+            result_id: value.result_id,
+        }
     }
-);
+}
 
-#[derive(Debug, Clone)]
+impl From<crate::ResultRequest> for Request {
+    fn from(value: crate::ResultRequest) -> Self {
+        Self {
+            session_id: value.session_id,
+            result_id: value.result_id,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(
+    message = "armonik.api.grpc.v1.submitter.AvailabilityReply",
+    oneof = "type"
+)]
 pub enum Response {
+    #[armonik(present)]
     Ok,
+    #[armonik(rename = "error")]
     TaskError(TaskError),
+    #[armonik(rename = "not_completed_task")]
     NotCompleted(String),
 }
 
@@ -29,36 +47,3 @@ impl Default for Response {
         Self::NotCompleted(Default::default())
     }
 }
-
-impl From<Response> for v3::submitter::AvailabilityReply {
-    fn from(value: Response) -> Self {
-        match value {
-            Response::Ok => Self {
-                r#type: Some(v3::submitter::availability_reply::Type::Ok(v3::Empty {})),
-            },
-            Response::TaskError(error) => Self {
-                r#type: Some(v3::submitter::availability_reply::Type::Error(error)),
-            },
-            Response::NotCompleted(msg) => Self {
-                r#type: Some(v3::submitter::availability_reply::Type::NotCompletedTask(
-                    msg,
-                )),
-            },
-        }
-    }
-}
-
-impl From<v3::submitter::AvailabilityReply> for Response {
-    fn from(value: v3::submitter::AvailabilityReply) -> Self {
-        match value.r#type {
-            Some(v3::submitter::availability_reply::Type::Ok(_)) => Self::Ok,
-            Some(v3::submitter::availability_reply::Type::Error(error)) => Self::TaskError(error),
-            Some(v3::submitter::availability_reply::Type::NotCompletedTask(msg)) => {
-                Self::NotCompleted(msg)
-            }
-            None => Default::default(),
-        }
-    }
-}
-
-super::super::impl_convert!(req Response : v3::submitter::AvailabilityReply);

@@ -1,32 +1,37 @@
 use crate::api::v3;
 
-#[derive(Debug, Clone, Default)]
+/// Request for cancelling tasks, standing for the `TaskFilter` message the
+/// stubs use.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub filter: super::TaskFilter,
 }
 
-impl From<Request> for v3::submitter::TaskFilter {
+impl From<Request> for super::TaskFilter {
     fn from(value: Request) -> Self {
-        value.filter.into()
+        value.filter
     }
 }
 
-impl From<v3::submitter::TaskFilter> for Request {
-    fn from(value: v3::submitter::TaskFilter) -> Self {
-        Self {
-            filter: value.into(),
-        }
+impl From<super::TaskFilter> for Request {
+    fn from(value: super::TaskFilter) -> Self {
+        Self { filter: value }
     }
 }
-
-super::super::impl_convert!(req Request : v3::submitter::TaskFilter);
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {}
 
-super::super::impl_convert!(
-    struct Response = v3::Empty {
+impl From<Response> for v3::Empty {
+    fn from(_: Response) -> Self {
+        Self {}
     }
-);
+}
+
+impl From<v3::Empty> for Response {
+    fn from(_: v3::Empty) -> Self {
+        Self {}
+    }
+}

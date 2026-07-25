@@ -218,6 +218,34 @@ registry! {
         => armonik::health_checks::check::Response,
     "armonik.api.grpc.v1.health_checks.CheckHealthResponse.ServiceHealth"
         => armonik::health_checks::ServiceHealth,
+    "armonik.api.grpc.v1.submitter.CreateSessionRequest"
+        => armonik::submitter::create_session::Request,
+    "armonik.api.grpc.v1.submitter.CreateSessionReply"
+        => armonik::submitter::create_session::Response,
+    "armonik.api.grpc.v1.submitter.CreateSmallTaskRequest"
+        => armonik::submitter::create_tasks::SmallRequest,
+    "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest"
+        => armonik::submitter::create_tasks::LargeRequest,
+    "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest"
+        => armonik::submitter::create_tasks::InitRequest,
+    "armonik.api.grpc.v1.submitter.CreateTaskReply" => armonik::submitter::create_tasks::Response,
+    "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus"
+        => armonik::submitter::create_tasks::Status,
+    "armonik.api.grpc.v1.submitter.TaskFilter" => armonik::submitter::TaskFilter,
+    "armonik.api.grpc.v1.submitter.SessionFilter" => armonik::submitter::SessionFilter,
+    "armonik.api.grpc.v1.submitter.SessionIdList" => armonik::submitter::list_sessions::Response,
+    "armonik.api.grpc.v1.submitter.GetTaskStatusRequest"
+        => armonik::submitter::task_status::Request,
+    "armonik.api.grpc.v1.submitter.GetTaskStatusReply"
+        => armonik::submitter::task_status::Response,
+    "armonik.api.grpc.v1.submitter.GetResultStatusRequest"
+        => armonik::submitter::result_status::Request,
+    "armonik.api.grpc.v1.submitter.GetResultStatusReply"
+        => armonik::submitter::result_status::Response,
+    "armonik.api.grpc.v1.submitter.ResultReply" => armonik::submitter::try_get_result::Response,
+    "armonik.api.grpc.v1.submitter.AvailabilityReply"
+        => armonik::submitter::wait_for_availability::Response,
+    "armonik.api.grpc.v1.submitter.WaitRequest" => armonik::submitter::wait_for_completion::Request,
     "armonik.api.grpc.v1.worker.ProcessRequest" => armonik::worker::process::Request,
     "armonik.api.grpc.v1.worker.ProcessReply" => armonik::worker::process::Response,
     "armonik.api.grpc.v1.worker.HealthCheckReply" => armonik::worker::health_check::Response,
@@ -438,6 +466,38 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         "armonik.api.grpc.v1.agent.NotifyResultDataRequest" => {
             normalize_notify_result_data(message);
         }
+        "armonik.api.grpc.v1.submitter.CreateSessionRequest" => {
+            normalize_task_options_member(message, side, "default_task_option");
+        }
+        // Memberless oneofs re-encode with their Rust default member.
+        "armonik.api.grpc.v1.submitter.CreateTaskReply" => {
+            normalize_default_member(message, "creation_status_list");
+        }
+        "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus" => {
+            normalize_default_member(message, "error");
+        }
+        "armonik.api.grpc.v1.submitter.ResultReply"
+        | "armonik.api.grpc.v1.submitter.AvailabilityReply" => {
+            normalize_default_member(message, "not_completed_task");
+        }
+        // The Rust filters always carry a member per oneof; note that the
+        // Include/Exclude default maps to the *inverted* `included` member.
+        "armonik.api.grpc.v1.submitter.TaskFilter" => {
+            normalize_default_member_in(message, "ids", "session");
+            normalize_default_member_in(message, "statuses", "included");
+        }
+        "armonik.api.grpc.v1.submitter.SessionFilter" => {
+            normalize_default_member_in(message, "statuses", "included");
+        }
+        "armonik.api.grpc.v1.submitter.WaitRequest" => {
+            normalize_task_filter_member(message, side);
+        }
+        "armonik.api.grpc.v1.submitter.GetTaskStatusReply" => {
+            normalize_string_keyed_pairs(message, "id_statuses", "task_id");
+        }
+        "armonik.api.grpc.v1.submitter.GetResultStatusReply" => {
+            normalize_string_keyed_pairs(message, "id_statuses", "result_id");
+        }
         // Members kept plain whose API defaults are not the wire zero.
         "armonik.api.grpc.v1.worker.ProcessRequest" => {
             normalize_task_options_member(message, side, "task_options");
@@ -649,6 +709,42 @@ fn normalize_notify_result_data(message: &mut DynamicMessage) {
         pair.set_field(&session, Value::String(session_id.clone()));
     }
     message.set_field(&ids, Value::List(entries));
+}
+
+/// [`normalize_default_member`] for a message with several oneofs: fold an
+/// absent member of the named oneof to the Rust default member.
+fn normalize_default_member_in(message: &mut DynamicMessage, oneof_name: &str, member: &str) {
+    let descriptor = message.descriptor();
+    let oneof = descriptor
+        .oneofs()
+        .find(|oneof| oneof.name() == oneof_name)
+        .unwrap_or_else(|| panic!("oneof `{oneof_name}` exists"));
+    if oneof.fields().any(|member| message.has_field(&member)) {
+        return;
+    }
+    let member = field(message, member);
+    message.set_field(&member, Value::default_value_for_field(&member));
+}
+
+/// A task-filter member kept as a plain `submitter::TaskFilter`: an absent
+/// member folds to the API default on the original side (the wire form
+/// always carries both oneof members, so it is never absent on the way
+/// back).
+fn normalize_task_filter_member(message: &mut DynamicMessage, side: Side) {
+    if side != Side::Original {
+        return;
+    }
+    let member = field(message, "filter");
+    if message.has_field(&member) {
+        return;
+    }
+    let prost_reflect::Kind::Message(desc) = member.kind() else {
+        panic!("filter member is a message");
+    };
+    let mut filter = DynamicMessage::new(desc);
+    normalize_default_member_in(&mut filter, "ids", "session");
+    normalize_default_member_in(&mut filter, "statuses", "included");
+    message.set_field(&member, Value::Message(filter));
 }
 
 /// A configuration member kept as a plain `Configuration`: an absent member

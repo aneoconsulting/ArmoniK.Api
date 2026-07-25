@@ -593,6 +593,74 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
         ".armonik.api.grpc.v1.worker.HealthCheckReply",
         "crate::worker::health_check::Response",
     ),
+    (
+        ".armonik.api.grpc.v1.submitter.CreateSessionRequest",
+        "crate::submitter::create_session::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CreateSessionReply",
+        "crate::submitter::create_session::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CreateSmallTaskRequest",
+        "crate::submitter::create_tasks::SmallRequest",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CreateLargeTaskRequest",
+        "crate::submitter::create_tasks::LargeRequest",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest",
+        "crate::submitter::create_tasks::InitRequest",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CreateTaskReply",
+        "crate::submitter::create_tasks::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus",
+        "crate::submitter::create_tasks::Status",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.TaskFilter",
+        "crate::submitter::TaskFilter",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.SessionFilter",
+        "crate::submitter::SessionFilter",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.SessionIdList",
+        "crate::submitter::list_sessions::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.GetTaskStatusRequest",
+        "crate::submitter::task_status::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.GetTaskStatusReply",
+        "crate::submitter::task_status::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.GetResultStatusRequest",
+        "crate::submitter::result_status::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.GetResultStatusReply",
+        "crate::submitter::result_status::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.ResultReply",
+        "crate::submitter::try_get_result::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.AvailabilityReply",
+        "crate::submitter::wait_for_availability::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.WaitRequest",
+        "crate::submitter::wait_for_completion::Request",
+    ),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {

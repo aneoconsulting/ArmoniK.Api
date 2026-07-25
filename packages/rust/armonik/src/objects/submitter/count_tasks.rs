@@ -1,25 +1,21 @@
-use crate::api::v3;
-
-#[derive(Debug, Clone, Default)]
+/// Request for counting tasks, standing for the `TaskFilter` message the
+/// stubs use.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub filter: super::TaskFilter,
 }
 
-impl From<Request> for v3::submitter::TaskFilter {
+impl From<Request> for super::TaskFilter {
     fn from(value: Request) -> Self {
-        value.filter.into()
+        value.filter
     }
 }
 
-impl From<v3::submitter::TaskFilter> for Request {
-    fn from(value: v3::submitter::TaskFilter) -> Self {
-        Self {
-            filter: value.into(),
-        }
+impl From<super::TaskFilter> for Request {
+    fn from(value: super::TaskFilter) -> Self {
+        Self { filter: value }
     }
 }
-
-super::super::impl_convert!(req Request : v3::submitter::TaskFilter);
 
 pub type Response = super::super::Count;
