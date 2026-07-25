@@ -36,10 +36,58 @@ macro_rules! registry {
 }
 
 registry! {
+    "armonik.api.grpc.v1.DataChunk" => armonik::DataChunk,
+        normalize = |message| {
+            normalize_bool_marker(message, "data_complete");
+            normalize_default_member(message, "data");
+        },
+    "armonik.api.grpc.v1.InitKeyedDataStream" => armonik::InitKeyedDataStream,
+        normalize = |message| {
+            normalize_bool_marker(message, "last_result");
+            normalize_default_member(message, "key");
+        },
+    "armonik.api.grpc.v1.InitTaskRequest" => armonik::InitTaskRequest,
+        normalize = |message| {
+            normalize_bool_marker(message, "last_task");
+            normalize_default_member(message, "header");
+        },
+    "armonik.api.grpc.v1.Output" => armonik::Output,
+        normalize = |message| normalize_default_member(message, "ok"),
     "armonik.api.grpc.v1.Session" => armonik::Session,
     "armonik.api.grpc.v1.StatusCount" => armonik::StatusCount,
     "armonik.api.grpc.v1.TaskOptions" => armonik::TaskOptions,
         normalize = normalize_task_options,
+    "armonik.api.grpc.v1.TaskRequestHeader" => armonik::TaskRequestHeader,
+}
+
+/// Marker oneof members: the armonik types only remember *which* member was
+/// set, so a pathological explicit `false` re-encodes as `true` — exactly
+/// like the historical conversions. Project the member onto `true`.
+fn normalize_bool_marker(message: &mut DynamicMessage, member: &str) {
+    let field = message
+        .descriptor()
+        .get_field_by_name(member)
+        .expect("marker member exists");
+    if message.has_field(&field) {
+        message.set_field(&field, Value::Bool(true));
+    }
+}
+
+/// Flattened oneofs whose Rust `Default` is a member variant (`DataChunk` =
+/// empty `Data`, `InitTaskRequest` = empty `Header`, ...): an absent oneof
+/// decodes to that variant and re-encodes with the member present, exactly
+/// like the historical `None => Default::default()` conversions. Project the
+/// absent case onto the default member.
+fn normalize_default_member(message: &mut DynamicMessage, member: &str) {
+    let descriptor = message.descriptor();
+    let oneof = descriptor.oneofs().next().expect("flattened oneof exists");
+    let member_set = oneof.fields().any(|field| message.has_field(&field));
+    if !member_set {
+        let field = descriptor
+            .get_field_by_name(member)
+            .expect("default member exists");
+        message.set_field(&field, Value::default_value_for_field(&field));
+    }
 }
 
 /// `TaskOptions::default()` uses `INFINITE_DURATION` for `max_duration`, and
