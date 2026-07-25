@@ -4,6 +4,14 @@
 // are applied to the API types.
 use armonik_macros as _;
 
+// Staleness anchor for the wire-representation derives: `include!` puts the
+// generated file in rustc's dep-info, so any descriptor change invalidates
+// the crate; every derive const-asserts against this fingerprint.
+#[allow(dead_code)]
+mod __schema {
+    include!(concat!(env!("OUT_DIR"), "/schema_meta.rs"));
+}
+
 pub mod api;
 #[cfg(feature = "_gen-client")]
 pub mod client;

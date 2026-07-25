@@ -1,74 +1,117 @@
-/// The proto files to compile, relative to [`PROTO_ROOT`].
-///
-/// A list rather than a glob, so that each file can be named to `cargo:rerun-if-changed` below.
+use std::error::Error;
+use std::path::{Path, PathBuf};
+
+use prost::Message;
+
+/// Proto files compiled into the descriptor set.
 const PROTO_FILES: &[&str] = &[
-    "agent_common.proto",
-    "agent_service.proto",
-    "applications_common.proto",
-    "applications_fields.proto",
-    "applications_filters.proto",
-    "applications_service.proto",
-    "auth_common.proto",
-    "auth_service.proto",
-    "events_common.proto",
-    "events_service.proto",
-    "filters_common.proto",
-    "objects.proto",
-    "health_checks_common.proto",
-    "health_checks_service.proto",
-    "partitions_common.proto",
-    "partitions_fields.proto",
-    "partitions_filters.proto",
-    "partitions_service.proto",
-    "result_status.proto",
-    "results_common.proto",
-    "results_fields.proto",
-    "results_filters.proto",
-    "results_service.proto",
-    "session_status.proto",
-    "sessions_common.proto",
-    "sessions_fields.proto",
-    "sessions_filters.proto",
-    "sessions_service.proto",
-    "sort_direction.proto",
-    "submitter_common.proto",
-    "submitter_service.proto",
-    "task_status.proto",
-    "tasks_common.proto",
-    "tasks_fields.proto",
-    "tasks_filters.proto",
-    "tasks_service.proto",
-    "versions_common.proto",
-    "versions_service.proto",
-    "worker_common.proto",
-    "worker_service.proto",
+    "protos/V1/agent_common.proto",
+    "protos/V1/agent_service.proto",
+    "protos/V1/applications_common.proto",
+    "protos/V1/applications_fields.proto",
+    "protos/V1/applications_filters.proto",
+    "protos/V1/applications_service.proto",
+    "protos/V1/auth_common.proto",
+    "protos/V1/auth_service.proto",
+    "protos/V1/events_common.proto",
+    "protos/V1/events_service.proto",
+    "protos/V1/filters_common.proto",
+    "protos/V1/objects.proto",
+    "protos/V1/health_checks_common.proto",
+    "protos/V1/health_checks_service.proto",
+    "protos/V1/partitions_common.proto",
+    "protos/V1/partitions_fields.proto",
+    "protos/V1/partitions_filters.proto",
+    "protos/V1/partitions_service.proto",
+    "protos/V1/result_status.proto",
+    "protos/V1/results_common.proto",
+    "protos/V1/results_fields.proto",
+    "protos/V1/results_filters.proto",
+    "protos/V1/results_service.proto",
+    "protos/V1/session_status.proto",
+    "protos/V1/sessions_common.proto",
+    "protos/V1/sessions_fields.proto",
+    "protos/V1/sessions_filters.proto",
+    "protos/V1/sessions_service.proto",
+    "protos/V1/sort_direction.proto",
+    "protos/V1/submitter_common.proto",
+    "protos/V1/submitter_service.proto",
+    "protos/V1/task_status.proto",
+    "protos/V1/tasks_common.proto",
+    "protos/V1/tasks_fields.proto",
+    "protos/V1/tasks_filters.proto",
+    "protos/V1/tasks_service.proto",
+    "protos/V1/versions_common.proto",
+    "protos/V1/versions_service.proto",
+    "protos/V1/worker_common.proto",
+    "protos/V1/worker_service.proto",
 ];
 
-/// Where the protos live, as seen from this crate: under a symlink to the repository's `Protos`, which is
-/// what makes `include = ["protos/**"]` vendor them into the published crate.
-const PROTO_ROOT: &str = "protos/V1";
+/// Proto messages implemented directly by armonik types instead of being
+/// generated: each entry suppresses the generation of the message and
+/// rewrites the signatures of the client/server stubs that reference it.
+///
+/// Flipped service by service during the direct-wire migration.
+const EXTERN_TYPES: &[(&str, &str)] = &[];
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let proto_files = PROTO_FILES
-        .iter()
-        .map(|file| format!("{PROTO_ROOT}/{file}"))
-        .collect::<Vec<_>>();
-
-    // With nothing declared, cargo watches the whole crate directory, so editing a test re-runs `protoc`
-    // over all forty protos. Declaring them replaces that fallback rather than adding to it, which is why
-    // this list now decides rebuilds as well as what gets compiled.
-    for file in &proto_files {
-        println!("cargo:rerun-if-changed={file}");
+fn main() -> Result<(), Box<dyn Error>> {
+    for proto in PROTO_FILES {
+        println!("cargo:rerun-if-changed={proto}");
     }
-    // The symlink itself, so that repointing it counts as a change too.
-    println!("cargo:rerun-if-changed=protos");
-    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=protos/V1");
 
-    tonic_prost_build::configure()
+    // Compile the descriptor set with protox (pure Rust, no protoc required).
+    let fds = protox::compile(PROTO_FILES, ["protos/V1"])?;
+    let bytes = fds.encode_to_vec();
+
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+
+    // Input of the armonik-macros derives.
+    write_if_changed(&out_dir.join("descriptor.bin"), &bytes)?;
+
+    // Staleness anchor: included in the crate through `include!` so that any
+    // descriptor change invalidates the crate in rustc's dep-info, and
+    // cross-checked by a const-assert emitted by every derive.
+    let fingerprint = fnv1a_128(&bytes);
+    write_if_changed(
+        &out_dir.join("schema_meta.rs"),
+        format!("pub(crate) const DESCRIPTOR_FINGERPRINT: u128 = {fingerprint:#034x};\n")
+            .as_bytes(),
+    )?;
+
+    // Generate the tonic stubs (and, until the migration flips them, the
+    // message types) from the same descriptor set.
+    let mut builder = tonic_prost_build::configure()
         .use_arc_self(true)
         .build_client(cfg!(feature = "_gen-client"))
-        .build_server(cfg!(feature = "_gen-server"))
-        // Both slices have to hold the same type, and `proto_files` is `Vec<String>`.
-        .compile_protos(&proto_files, &[String::from(PROTO_ROOT)])?;
+        .build_server(cfg!(feature = "_gen-server"));
+    for (proto_path, rust_path) in EXTERN_TYPES {
+        builder = builder.extern_path(*proto_path, *rust_path);
+    }
+    builder.compile_fds(fds)?;
+
     Ok(())
+}
+
+fn write_if_changed(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    if std::fs::read(path).is_ok_and(|existing| existing == contents) {
+        return Ok(());
+    }
+    std::fs::write(path, contents)
+}
+
+/// FNV-1a, 128-bit.
+///
+/// Keep in sync with `armonik-macros/src/descriptor.rs`: a mismatch makes the
+/// fingerprint const-assert emitted by every derive fail, so a divergence
+/// cannot go unnoticed.
+fn fnv1a_128(bytes: &[u8]) -> u128 {
+    const OFFSET_BASIS: u128 = 0x6c62272e07bb014262b821756295c58d;
+    const PRIME: u128 = 0x0000000001000000000000000000013b;
+    let mut hash = OFFSET_BASIS;
+    for &byte in bytes {
+        hash ^= byte as u128;
+        hash = hash.wrapping_mul(PRIME);
+    }
+    hash
 }
