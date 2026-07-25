@@ -64,6 +64,29 @@ registry! {
     "armonik.api.grpc.v1.agent.CreateTaskReply" => armonik::agent::create_tasks::Response,
     "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus"
         => armonik::agent::create_tasks::Status,
+    "armonik.api.grpc.v1.agent.ResultMetaData" => armonik::agent::ResultMetaData,
+    "armonik.api.grpc.v1.agent.DataRequest" => armonik::agent::get_common_data::Request,
+    "armonik.api.grpc.v1.agent.DataResponse" => armonik::agent::get_common_data::Response,
+    "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest"
+        => armonik::agent::create_results_metadata::Request,
+    "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate"
+        => armonik::agent::create_results_metadata::RequestItem,
+    "armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse"
+        => armonik::agent::create_results_metadata::Response,
+    "armonik.api.grpc.v1.agent.CreateResultsRequest" => armonik::agent::create_results::Request,
+    "armonik.api.grpc.v1.agent.CreateResultsRequest.ResultCreate"
+        => armonik::agent::create_results::RequestItem,
+    "armonik.api.grpc.v1.agent.CreateResultsResponse" => armonik::agent::create_results::Response,
+    "armonik.api.grpc.v1.agent.SubmitTasksRequest" => armonik::agent::submit_tasks::Request,
+    "armonik.api.grpc.v1.agent.SubmitTasksRequest.TaskCreation"
+        => armonik::agent::submit_tasks::RequestItem,
+    "armonik.api.grpc.v1.agent.SubmitTasksResponse" => armonik::agent::submit_tasks::Response,
+    "armonik.api.grpc.v1.agent.SubmitTasksResponse.TaskInfo"
+        => armonik::agent::submit_tasks::ResponseItem,
+    "armonik.api.grpc.v1.agent.NotifyResultDataRequest"
+        => armonik::agent::notify_result_data::Request,
+    "armonik.api.grpc.v1.agent.NotifyResultDataResponse"
+        => armonik::agent::notify_result_data::Response,
     "armonik.api.grpc.v1.applications.ApplicationRaw" => armonik::applications::Raw,
     "armonik.api.grpc.v1.applications.Filters" => armonik::applications::filter::Or,
     "armonik.api.grpc.v1.applications.FiltersAnd" => armonik::applications::filter::And,
@@ -407,6 +430,11 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         "armonik.api.grpc.v1.results.UploadResultDataRequest" => {
             normalize_default_member(message, "id");
         }
+        // The `ResultIdentifier` pairs are flattened into one shared session
+        // ID (the first non-empty one) plus the result IDs.
+        "armonik.api.grpc.v1.agent.NotifyResultDataRequest" => {
+            normalize_notify_result_data(message);
+        }
         // Raw-session members kept as a plain `sessions::Raw`.
         "armonik.api.grpc.v1.sessions.GetSessionResponse"
         | "armonik.api.grpc.v1.sessions.CancelSessionResponse"
@@ -577,6 +605,39 @@ fn normalize_session_member(message: &mut DynamicMessage, side: Side) {
     let mut session = DynamicMessage::new(desc);
     normalize_task_options_member(&mut session, side, "options");
     message.set_field(&member, Value::Message(session));
+}
+
+/// Project every `ResultIdentifier` pair onto the flattened representation:
+/// all the pairs share the first non-empty session ID.
+fn normalize_notify_result_data(message: &mut DynamicMessage) {
+    let ids = field(message, "ids");
+    if !message.has_field(&ids) {
+        return;
+    }
+    let Value::List(mut entries) = message.get_field(&ids).into_owned() else {
+        return;
+    };
+    let session_id = entries
+        .iter()
+        .find_map(|entry| {
+            let Value::Message(pair) = entry else {
+                return None;
+            };
+            let session = field(pair, "session_id");
+            match pair.get_field(&session).as_ref() {
+                Value::String(session) if !session.is_empty() => Some(session.clone()),
+                _ => None,
+            }
+        })
+        .unwrap_or_default();
+    for entry in &mut entries {
+        let Value::Message(pair) = entry else {
+            continue;
+        };
+        let session = field(pair, "session_id");
+        pair.set_field(&session, Value::String(session_id.clone()));
+    }
+    message.set_field(&ids, Value::List(entries));
 }
 
 /// An output member kept as a plain `tasks::Output`: an absent output means

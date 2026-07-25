@@ -521,6 +521,66 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
         ".armonik.api.grpc.v1.events.EventSubscriptionResponse.NewResult",
         "crate::events::NewResult",
     ),
+    (
+        ".armonik.api.grpc.v1.agent.ResultMetaData",
+        "crate::agent::ResultMetaData",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.DataRequest",
+        "crate::agent::get_common_data::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.DataResponse",
+        "crate::agent::get_common_data::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest",
+        "crate::agent::create_results_metadata::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate",
+        "crate::agent::create_results_metadata::RequestItem",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse",
+        "crate::agent::create_results_metadata::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.CreateResultsRequest",
+        "crate::agent::create_results::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.CreateResultsRequest.ResultCreate",
+        "crate::agent::create_results::RequestItem",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.CreateResultsResponse",
+        "crate::agent::create_results::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.SubmitTasksRequest",
+        "crate::agent::submit_tasks::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.SubmitTasksRequest.TaskCreation",
+        "crate::agent::submit_tasks::RequestItem",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.SubmitTasksResponse",
+        "crate::agent::submit_tasks::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.SubmitTasksResponse.TaskInfo",
+        "crate::agent::submit_tasks::ResponseItem",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.NotifyResultDataRequest",
+        "crate::agent::notify_result_data::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.NotifyResultDataResponse",
+        "crate::agent::notify_result_data::Response",
+    ),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {
