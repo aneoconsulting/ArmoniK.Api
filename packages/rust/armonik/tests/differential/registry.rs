@@ -218,6 +218,9 @@ registry! {
         => armonik::health_checks::check::Response,
     "armonik.api.grpc.v1.health_checks.CheckHealthResponse.ServiceHealth"
         => armonik::health_checks::ServiceHealth,
+    "armonik.api.grpc.v1.worker.ProcessRequest" => armonik::worker::process::Request,
+    "armonik.api.grpc.v1.worker.ProcessReply" => armonik::worker::process::Response,
+    "armonik.api.grpc.v1.worker.HealthCheckReply" => armonik::worker::health_check::Response,
     "armonik.api.grpc.v1.versions.ListVersionsRequest" => armonik::versions::list::Request,
     "armonik.api.grpc.v1.versions.ListVersionsResponse" => armonik::versions::list::Response,
 }
@@ -435,6 +438,14 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         "armonik.api.grpc.v1.agent.NotifyResultDataRequest" => {
             normalize_notify_result_data(message);
         }
+        // Members kept plain whose API defaults are not the wire zero.
+        "armonik.api.grpc.v1.worker.ProcessRequest" => {
+            normalize_task_options_member(message, side, "task_options");
+            normalize_configuration_member(message, side);
+        }
+        "armonik.api.grpc.v1.worker.ProcessReply" => {
+            normalize_v1_output_member(message, side);
+        }
         // Raw-session members kept as a plain `sessions::Raw`.
         "armonik.api.grpc.v1.sessions.GetSessionResponse"
         | "armonik.api.grpc.v1.sessions.CancelSessionResponse"
@@ -638,6 +649,45 @@ fn normalize_notify_result_data(message: &mut DynamicMessage) {
         pair.set_field(&session, Value::String(session_id.clone()));
     }
     message.set_field(&ids, Value::List(entries));
+}
+
+/// A configuration member kept as a plain `Configuration`: an absent member
+/// folds to the API default (80 KiB chunks) on the original side; a wire-zero
+/// configuration encodes empty, which the semantic compare already treats as
+/// absent.
+fn normalize_configuration_member(message: &mut DynamicMessage, side: Side) {
+    if side != Side::Original {
+        return;
+    }
+    let member = field(message, "configuration");
+    if message.has_field(&member) {
+        return;
+    }
+    let prost_reflect::Kind::Message(desc) = member.kind() else {
+        panic!("configuration member is a message");
+    };
+    let mut configuration = DynamicMessage::new(desc);
+    configuration.set_field_by_name("data_chunk_max_size", Value::I32(80 * 1024));
+    message.set_field(&member, Value::Message(configuration));
+}
+
+/// An output member kept as a plain `v1.Output`: an absent output means Ok,
+/// and the wire form always carries the output (both oneof members are
+/// always emitted), so absence only folds on the original side.
+fn normalize_v1_output_member(message: &mut DynamicMessage, side: Side) {
+    if side != Side::Original {
+        return;
+    }
+    let member = field(message, "output");
+    if message.has_field(&member) {
+        return;
+    }
+    let prost_reflect::Kind::Message(desc) = member.kind() else {
+        panic!("output member is a message");
+    };
+    let mut output = DynamicMessage::new(desc);
+    normalize_default_member(&mut output, "ok");
+    message.set_field(&member, Value::Message(output));
 }
 
 /// An output member kept as a plain `tasks::Output`: an absent output means
