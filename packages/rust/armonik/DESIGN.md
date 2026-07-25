@@ -1,6 +1,6 @@
 # Design: direct wire implementation for the ergonomic API types
 
-Status: **draft — investigation complete, implementation not started**
+Status: **implemented** (branch `rust/direct-message-impls`)
 Target: big-bang branch, released as a breaking beta bump.
 
 ## 1. Motivation
@@ -233,6 +233,23 @@ and are covered by the differential harness instead.
 > `agent.CreateTaskRequest` drops the token when no member is set; pair-map
 > fields lose entry order and collapse duplicate keys. All of these match the
 > historical conversion layer.
+>
+> **Stage B/C additions.** Transparent wrapper enums are *always* emitted
+> (a zero value encodes as an empty wrapper), preserving the
+> absent-vs-explicit-zero distinction that fields with a non-zero API
+> default (`Field::Name`, `Field::Id`, …) rely on — like the historical
+> `Some(wrapper)`. Oneof payload variants carry the same reset-if-seed
+> guard as struct fields, so a member appearing on the wire never inherits
+> a non-zero API-default seed (`SessionField{session_raw_field{}}` decodes
+> to `Other(0)`, not `SessionId`). Plain members whose API default is not
+> the wire zero (`TaskOptions`, `Configuration`, `sessions::Raw`,
+> `tasks::Raw`/`Output`, `submitter::TaskFilter`) re-encode an absent
+> member as that default — the historical `unwrap_or_default`, asserted by
+> side-aware harness projections. Two deliberate divergences:
+> `tasks::Output` folds `success = true` over any error message (the
+> historical conversion did too), and `agent::notify_result_data` keeps
+> the first *non-empty* session ID of the identifier pairs where the
+> conversion kept the first one even when empty.
 
 - Non-`Option` message field ("absent = default"): decode merges in place,
   absence leaves the default; encode **skips the field when the nested
@@ -308,9 +325,10 @@ even though the branch lands as one unit:
 5. **`extern_path` the RPC types**; simplify `client/*` (drop conversion in
    `GrpcCall` paths) and `server/*` (`impl_trait_methods!` loses its
    conversion layer — traits and stubs now speak the same types).
-6. **Delete** `api/v3.rs`, `impl_convert!`, `IntoCollection`, the manual
-   `IntoRequest` impls (tonic's blanket impl covers the native types), and
-   the serde helpers made redundant.
+6. **Delete** `impl_convert!` and the manual `IntoRequest` impls (tonic's
+   blanket impl covers the native types); internalize `api/v3.rs` (stubs +
+   `Empty` remain, `pub(crate)`). `IntoCollection` stays: the client
+   conveniences use it independently of the conversion layer.
 7. **Polish**: serde feature audit (`bytes/serde`; `Other` variants change
    the serde shape of formerly-unit enums), README/docs, CHANGELOG, version
    bump, release pipeline extended to publish both crates version-locked.
@@ -318,7 +336,18 @@ even though the branch lands as one unit:
 
 ## 6. Public API changes (breaking, accepted)
 
-- `armonik::api::v3` removed (goal of the revamp).
+- `armonik::api::v3` removed from the public API (goal of the revamp). The
+  module still exists as `pub(crate)`: it holds the tonic client/server
+  stubs (whose server types remain reachable through the `*ServiceExt`
+  traits), the shared `Empty`, and a few unreferenced leftovers.
+- Rust types sharing one wire message stay distinct and convert at the
+  stub boundary (`tasks::list_detailed`, the agent data RPCs, the
+  submitter request wrappers), so `client.call(...)` dispatch is
+  unchanged.
+- `sessions::RawField` wire fix: the old crate encoded the Rust
+  discriminants for ClientSubmission/WorkerSubmission/ClosedAt/PurgedAt/
+  DeletedAt, which disagreed with `SessionRawEnumField`; values are now
+  matched by name against the descriptor.
 - Enums: dataful `Other(…)` variant replaces `Unspecified` unit variants
   (`UNSPECIFIED` const provided); `as i32` casts replaced by `From` impls;
   `#[repr(i32)]` gone; matches need an `Other`/catch-all arm.

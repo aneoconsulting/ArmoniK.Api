@@ -7,7 +7,7 @@ mod __schema {
     include!(concat!(env!("OUT_DIR"), "/schema_meta.rs"));
 }
 
-pub mod api;
+pub(crate) mod api;
 #[cfg(feature = "_gen-client")]
 pub mod client;
 // TODO(direct-wire revamp): the allow goes away once the derives emit codec
