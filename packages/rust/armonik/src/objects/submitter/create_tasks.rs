@@ -54,12 +54,12 @@ impl From<LargeRequest> for v3::submitter::CreateLargeTaskRequest {
             },
             LargeRequest::InitTaskRequest(request) => Self {
                 r#type: Some(v3::submitter::create_large_task_request::Type::InitTask(
-                    request.into(),
+                    request,
                 )),
             },
             LargeRequest::DataChunk(chunk) => Self {
                 r#type: Some(v3::submitter::create_large_task_request::Type::TaskPayload(
-                    chunk.into(),
+                    chunk,
                 )),
             },
         }
@@ -73,10 +73,10 @@ impl From<v3::submitter::CreateLargeTaskRequest> for LargeRequest {
                 Self::InitRequest(request.into())
             }
             Some(v3::submitter::create_large_task_request::Type::InitTask(request)) => {
-                Self::InitTaskRequest(request.into())
+                Self::InitTaskRequest(request)
             }
             Some(v3::submitter::create_large_task_request::Type::TaskPayload(chunk)) => {
-                Self::DataChunk(chunk.into())
+                Self::DataChunk(chunk)
             }
             None => Self::Invalid,
         }

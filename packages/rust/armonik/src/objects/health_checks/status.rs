@@ -1,52 +1,28 @@
 use crate::api::v3;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(enum = "armonik.api.grpc.v1.health_checks.HealthStatusEnum")]
 pub enum Status {
-    /// Unspecified.
-    #[default]
-    Unspecified = 0,
     /// Service is working without issues.
-    Healthy = 1,
+    Healthy,
     /// Service has issues but still works.
-    Degraded = 2,
+    Degraded,
     /// Service does not work.
-    Unhealthy = 3,
-}
-
-impl From<i32> for Status {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::Healthy,
-            2 => Self::Degraded,
-            3 => Self::Unhealthy,
-            _ => Default::default(),
-        }
-    }
+    Unhealthy,
+    /// Unspecified (zero) or a status unknown to this crate version;
+    /// round-trips losslessly.
+    Other(OtherStatus),
 }
 
 impl From<Status> for v3::health_checks::HealthStatusEnum {
     fn from(value: Status) -> Self {
-        match value {
-            Status::Unspecified => Self::Unspecified,
-            Status::Healthy => Self::Healthy,
-            Status::Degraded => Self::Degraded,
-            Status::Unhealthy => Self::Unhealthy,
-        }
+        Self::try_from(i32::from(value)).unwrap_or(Self::Unspecified)
     }
 }
 
 impl From<v3::health_checks::HealthStatusEnum> for Status {
     fn from(value: v3::health_checks::HealthStatusEnum) -> Self {
-        match value {
-            v3::health_checks::HealthStatusEnum::Unspecified => Self::Unspecified,
-            v3::health_checks::HealthStatusEnum::Healthy => Self::Healthy,
-            v3::health_checks::HealthStatusEnum::Degraded => Self::Degraded,
-            v3::health_checks::HealthStatusEnum::Unhealthy => Self::Unhealthy,
-        }
+        Self::from(value as i32)
     }
 }
-
-super::super::impl_convert!(req Status : v3::health_checks::HealthStatusEnum);

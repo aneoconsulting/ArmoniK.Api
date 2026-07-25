@@ -1,5 +1,3 @@
-use crate::api::v3;
-
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
@@ -8,8 +6,8 @@ pub struct Request {
 }
 
 super::super::impl_convert!(
-    struct Request = v3::TaskOutputRequest {
-        session_id = session,
+    struct Request = crate::TaskOutputRequest {
+        session_id,
         task_id,
     }
 );

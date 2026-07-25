@@ -360,10 +360,36 @@ fn sample_options() -> TestOptions {
     }
 }
 
+/// prost-derived reference for `armonik.api.grpc.v1.TaskOptions` (extern'd,
+/// so no generated type exists anymore).
+#[derive(Clone, PartialEq, Message)]
+struct RefOptions {
+    #[prost(map = "string, string", tag = "1")]
+    options: HashMap<String, String>,
+    #[prost(message, optional, tag = "2")]
+    max_duration: Option<prost_types::Duration>,
+    #[prost(int32, tag = "3")]
+    max_retries: i32,
+    #[prost(int32, tag = "4")]
+    priority: i32,
+    #[prost(string, tag = "5")]
+    partition_id: String,
+    #[prost(string, tag = "6")]
+    application_name: String,
+    #[prost(string, tag = "7")]
+    application_version: String,
+    #[prost(string, tag = "8")]
+    application_namespace: String,
+    #[prost(string, tag = "9")]
+    application_service: String,
+    #[prost(string, tag = "10")]
+    engine_type: String,
+}
+
 #[test]
 fn options_roundtrip_through_generated_type() {
     let ours = sample_options();
-    let theirs = v3::TaskOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
+    let theirs = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
 
     assert_eq!(theirs.options, ours.options);
     assert_eq!(theirs.max_duration, Some(ours.max_duration));
@@ -378,7 +404,7 @@ fn options_roundtrip_through_generated_type() {
 
 #[test]
 fn absent_message_field_decodes_as_default() {
-    let theirs = v3::TaskOptions {
+    let theirs = RefOptions {
         max_duration: None,
         max_retries: 7,
         ..Default::default()
@@ -394,14 +420,14 @@ fn default_message_field_is_omitted_on_encode() {
         max_retries: 7,
         ..Default::default()
     };
-    let theirs = v3::TaskOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
+    let theirs = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
     // Semantically indistinguishable for absent-as-default fields.
     assert_eq!(theirs.max_duration, None);
 }
 
 #[test]
 fn present_default_message_field_decodes_as_default() {
-    let theirs = v3::TaskOptions {
+    let theirs = RefOptions {
         max_duration: Some(prost_types::Duration::default()),
         ..Default::default()
     };
@@ -1040,15 +1066,15 @@ enum RefCreateTaskType {
     #[prost(message, tag = "1")]
     InitRequest(RefInitRequest),
     #[prost(message, tag = "2")]
-    InitTask(v3::InitTaskRequest),
+    InitTask(crate::InitTaskRequest),
     #[prost(message, tag = "3")]
-    TaskPayload(v3::DataChunk),
+    TaskPayload(crate::DataChunk),
 }
 
 #[derive(Clone, PartialEq, Message)]
 struct RefInitRequest {
     #[prost(message, optional, tag = "1")]
-    task_options: Option<v3::TaskOptions>,
+    task_options: Option<crate::TaskOptions>,
 }
 
 fn v3_request_samples() -> Vec<RefCreateTaskRequest> {
@@ -1056,7 +1082,7 @@ fn v3_request_samples() -> Vec<RefCreateTaskRequest> {
         RefCreateTaskRequest {
             communication_token: "token-1".into(),
             r#type: Some(RefCreateTaskType::InitRequest(RefInitRequest {
-                task_options: Some(v3::TaskOptions {
+                task_options: Some(crate::TaskOptions {
                     max_retries: 3,
                     priority: 1,
                     partition_id: "part".into(),
@@ -1066,30 +1092,28 @@ fn v3_request_samples() -> Vec<RefCreateTaskRequest> {
         },
         RefCreateTaskRequest {
             communication_token: "token-2".into(),
-            r#type: Some(RefCreateTaskType::InitTask(v3::InitTaskRequest {
-                r#type: Some(v3::init_task_request::Type::Header(v3::TaskRequestHeader {
+            r#type: Some(RefCreateTaskType::InitTask(crate::InitTaskRequest::Header(
+                crate::TaskRequestHeader {
                     expected_output_keys: vec!["out1".into(), "out2".into()],
                     data_dependencies: vec!["dep".into()],
-                })),
-            })),
+                },
+            ))),
         },
         RefCreateTaskRequest {
             communication_token: String::new(),
-            r#type: Some(RefCreateTaskType::InitTask(v3::InitTaskRequest {
-                r#type: Some(v3::init_task_request::Type::LastTask(true)),
-            })),
+            r#type: Some(RefCreateTaskType::InitTask(
+                crate::InitTaskRequest::LastTask,
+            )),
         },
         RefCreateTaskRequest {
             communication_token: "token-3".into(),
-            r#type: Some(RefCreateTaskType::TaskPayload(v3::DataChunk {
-                r#type: Some(v3::data_chunk::Type::Data(b"chunk-data".to_vec())),
-            })),
+            r#type: Some(RefCreateTaskType::TaskPayload(crate::DataChunk::Data(
+                Bytes::from_static(b"chunk-data"),
+            ))),
         },
         RefCreateTaskRequest {
             communication_token: "token-4".into(),
-            r#type: Some(RefCreateTaskType::TaskPayload(v3::DataChunk {
-                r#type: Some(v3::data_chunk::Type::DataComplete(true)),
-            })),
+            r#type: Some(RefCreateTaskType::TaskPayload(crate::DataChunk::Complete)),
         },
     ]
 }
@@ -1186,20 +1210,12 @@ fn whole_message_oneof_roundtrips() {
                 expected_output_keys: vec!["a".into()],
                 data_dependencies: vec![],
             }),
-            v3::InitTaskRequest {
-                r#type: Some(v3::init_task_request::Type::Header(v3::TaskRequestHeader {
-                    expected_output_keys: vec!["a".into()],
-                    data_dependencies: vec![],
-                })),
-            },
+            crate::InitTaskRequest::Header(crate::TaskRequestHeader {
+                expected_output_keys: vec!["a".into()],
+                data_dependencies: vec![],
+            }),
         ),
-        (
-            TestInitTask::LastTask,
-            v3::InitTaskRequest {
-                r#type: Some(v3::init_task_request::Type::LastTask(true)),
-            },
-        ),
-        (TestInitTask::Invalid, v3::InitTaskRequest { r#type: None }),
+        (TestInitTask::LastTask, crate::InitTaskRequest::LastTask),
     ];
     for (ours, theirs) in cases {
         assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
@@ -1208,12 +1224,16 @@ fn whole_message_oneof_roundtrips() {
             ours
         );
     }
+    // "No member set" encodes to nothing and decodes to the default variant.
+    assert!(TestInitTask::Invalid.encode_to_vec().is_empty());
+    assert_eq!(
+        TestInitTask::decode(&[][..]).unwrap(),
+        TestInitTask::Invalid
+    );
 
     // Default-payload oneof fields are still emitted (oneof presence).
     let ours = TestDataChunk::Data(Bytes::new());
-    let theirs = v3::DataChunk {
-        r#type: Some(v3::data_chunk::Type::Data(Vec::new())),
-    };
+    let theirs = crate::DataChunk::Data(Bytes::new());
     assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
     assert!(!ours.encode_to_vec().is_empty());
 }

@@ -65,16 +65,16 @@ impl<T: SubmitterService + Send + Sync + 'static> SubmitterServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::submitter::submitter_server::Submitter) for SubmitterService {
-        fn get_service_configuration(v3::Empty) -> v3::Configuration { get_service_configuration }
+        fn get_service_configuration(v3::Empty) -> crate::Configuration { get_service_configuration }
         fn create_session(v3::submitter::CreateSessionRequest) -> v3::submitter::CreateSessionReply { create_session }
-        fn cancel_session(v3::Session) -> v3::Empty { cancel_session }
+        fn cancel_session(crate::Session) -> v3::Empty { cancel_session }
         fn create_small_tasks(v3::submitter::CreateSmallTaskRequest) -> v3::submitter::CreateTaskReply { create_small_tasks }
-        fn list_tasks(v3::submitter::TaskFilter) -> v3::TaskIdList { list_tasks }
+        fn list_tasks(v3::submitter::TaskFilter) -> crate::TaskIdList { list_tasks }
         fn list_sessions(v3::submitter::SessionFilter) -> v3::submitter::SessionIdList { list_sessions }
-        fn count_tasks(v3::submitter::TaskFilter) -> v3::Count { count_tasks }
-        fn try_get_task_output(v3::TaskOutputRequest) -> v3::Output { try_get_task_output }
-        fn wait_for_availability(v3::ResultRequest) -> v3::submitter::AvailabilityReply { wait_for_availability }
-        fn wait_for_completion(v3::submitter::WaitRequest) -> v3::Count { wait_for_completion }
+        fn count_tasks(v3::submitter::TaskFilter) -> crate::Count { count_tasks }
+        fn try_get_task_output(crate::TaskOutputRequest) -> crate::Output { try_get_task_output }
+        fn wait_for_availability(crate::ResultRequest) -> v3::submitter::AvailabilityReply { wait_for_availability }
+        fn wait_for_completion(v3::submitter::WaitRequest) -> crate::Count { wait_for_completion }
         fn cancel_tasks(v3::submitter::TaskFilter) -> v3::Empty { cancel_tasks }
         fn get_task_status(v3::submitter::GetTaskStatusRequest) -> v3::submitter::GetTaskStatusReply { task_status }
         fn get_result_status(v3::submitter::GetResultStatusRequest) -> v3::submitter::GetResultStatusReply { result_status }
@@ -92,7 +92,7 @@ super::impl_trait_methods! {
         type TryGetResultStreamStream = crate::server::ServerStream<v3::submitter::ResultReply>;
         async fn try_get_result_stream(
             self: std::sync::Arc<Self>,
-            request: tonic::Request<v3::ResultRequest>,
+            request: tonic::Request<crate::ResultRequest>,
         ) -> std::result::Result<
             tonic::Response<Self::TryGetResultStreamStream>,
             tonic::Status,

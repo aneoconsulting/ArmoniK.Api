@@ -24,6 +24,6 @@ impl<T: AuthService + Send + Sync + 'static> AuthServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::auth::authentication_server::Authentication) for AuthService {
-        fn get_current_user(v3::auth::GetCurrentUserRequest) -> v3::auth::GetCurrentUserResponse { current_user }
+        fn get_current_user(crate::auth::current_user::Request) -> crate::auth::current_user::Response { current_user }
     }
 }

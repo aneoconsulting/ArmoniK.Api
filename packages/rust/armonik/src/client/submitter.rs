@@ -259,8 +259,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: create_session::Request) -> Result<create_session::Response> {
@@ -343,8 +342,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: try_get_result::Request) -> Result<futures::stream::BoxStream<'static, Result<try_get_result::Response, tonic::Status>>> {
@@ -378,8 +376,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: wait_for_availability::Request) -> Result<wait_for_availability::Response> {
@@ -406,8 +403,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: cancel_tasks::Request) -> Result<cancel_tasks::Response> {

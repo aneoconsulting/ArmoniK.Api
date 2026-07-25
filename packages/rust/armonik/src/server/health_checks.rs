@@ -28,6 +28,6 @@ impl<T: HealthChecksService + Send + Sync + 'static> HealthChecksServiceExt for 
 
 super::impl_trait_methods! {
     impl (v3::health_checks::health_checks_service_server::HealthChecksService) for HealthChecksService {
-        fn check_health(v3::health_checks::CheckHealthRequest) -> v3::health_checks::CheckHealthResponse { check }
+        fn check_health(crate::health_checks::check::Request) -> crate::health_checks::check::Response { check }
     }
 }

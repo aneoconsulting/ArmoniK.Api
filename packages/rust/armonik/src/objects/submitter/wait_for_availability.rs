@@ -10,8 +10,8 @@ pub struct Request {
 }
 
 super::super::impl_convert!(
-    struct Request = v3::ResultRequest {
-        session_id = session,
+    struct Request = crate::ResultRequest {
+        session_id,
         result_id,
     }
 );
@@ -37,7 +37,7 @@ impl From<Response> for v3::submitter::AvailabilityReply {
                 r#type: Some(v3::submitter::availability_reply::Type::Ok(v3::Empty {})),
             },
             Response::TaskError(error) => Self {
-                r#type: Some(v3::submitter::availability_reply::Type::Error(error.into())),
+                r#type: Some(v3::submitter::availability_reply::Type::Error(error)),
             },
             Response::NotCompleted(msg) => Self {
                 r#type: Some(v3::submitter::availability_reply::Type::NotCompletedTask(
@@ -52,9 +52,7 @@ impl From<v3::submitter::AvailabilityReply> for Response {
     fn from(value: v3::submitter::AvailabilityReply) -> Self {
         match value.r#type {
             Some(v3::submitter::availability_reply::Type::Ok(_)) => Self::Ok,
-            Some(v3::submitter::availability_reply::Type::Error(error)) => {
-                Self::TaskError(error.into())
-            }
+            Some(v3::submitter::availability_reply::Type::Error(error)) => Self::TaskError(error),
             Some(v3::submitter::availability_reply::Type::NotCompletedTask(msg)) => {
                 Self::NotCompleted(msg)
             }

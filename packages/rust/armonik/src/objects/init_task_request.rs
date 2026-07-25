@@ -1,8 +1,6 @@
 use super::TaskRequestHeader;
 
-use crate::api::v3;
-
-#[derive(Debug, Clone, armonik_macros::Message)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.InitTaskRequest", oneof = "type")]
 pub enum InitTaskRequest {
@@ -16,28 +14,3 @@ impl Default for InitTaskRequest {
         Self::Header(Default::default())
     }
 }
-
-impl From<InitTaskRequest> for v3::InitTaskRequest {
-    fn from(value: InitTaskRequest) -> Self {
-        match value {
-            InitTaskRequest::Header(header) => Self {
-                r#type: Some(v3::init_task_request::Type::Header(header.into())),
-            },
-            InitTaskRequest::LastTask => Self {
-                r#type: Some(v3::init_task_request::Type::LastTask(true)),
-            },
-        }
-    }
-}
-
-impl From<v3::InitTaskRequest> for InitTaskRequest {
-    fn from(value: v3::InitTaskRequest) -> Self {
-        match value.r#type {
-            Some(v3::init_task_request::Type::Header(header)) => Self::Header(header.into()),
-            Some(v3::init_task_request::Type::LastTask(_)) => Self::LastTask,
-            None => Default::default(),
-        }
-    }
-}
-
-super::impl_convert!(req InitTaskRequest : v3::InitTaskRequest);

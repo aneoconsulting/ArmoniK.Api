@@ -29,7 +29,7 @@ pub struct Response {
 }
 
 super::super::impl_convert!(
-    struct Response = v3::TaskIdList {
+    struct Response = crate::TaskIdList {
         list task_ids,
     }
 );

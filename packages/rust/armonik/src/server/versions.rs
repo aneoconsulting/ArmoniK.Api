@@ -23,6 +23,6 @@ impl<T: VersionsService + Send + Sync + 'static> VersionsServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::versions::versions_server::Versions) for VersionsService {
-        fn list_versions(v3::versions::ListVersionsRequest) -> v3::versions::ListVersionsResponse { list }
+        fn list_versions(crate::versions::list::Request) -> crate::versions::list::Response { list }
     }
 }

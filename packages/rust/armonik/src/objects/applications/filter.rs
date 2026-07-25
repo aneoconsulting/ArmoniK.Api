@@ -27,7 +27,7 @@ impl Default for Condition {
 impl From<Condition> for v3::applications::filter_field::ValueCondition {
     fn from(value: Condition) -> Self {
         match value {
-            Condition::String(cond) => Self::FilterString(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond),
         }
     }
 }
@@ -36,7 +36,7 @@ impl From<v3::applications::filter_field::ValueCondition> for Condition {
     fn from(value: v3::applications::filter_field::ValueCondition) -> Self {
         match value {
             v3::applications::filter_field::ValueCondition::FilterString(cond) => {
-                Self::String(cond.into())
+                Self::String(cond)
             }
         }
     }
