@@ -492,3 +492,712 @@ fn message_clear_resets_to_default() {
     ours.clear();
     assert_eq!(ours, OurShapes::default());
 }
+
+// ---------------------------------------------------------------------------
+// Prototypes of the two hard shapes: a whole-message oneof flattened into an
+// enum (template for the `oneof` derive mode), and a oneof with a sibling
+// field flattened into enum variants (template for the hand-written
+// `agent::create_tasks` types). Ground truth: the real generated agent types.
+// ---------------------------------------------------------------------------
+
+use super::message as message_codec;
+use super::ProtoOneof;
+
+/// Mirror of `armonik.api.grpc.v1.DataChunk`: whole-message oneof
+/// { bytes data = 1; bool data_complete = 2; }, default variant `Data("")`.
+#[derive(Debug, Clone, PartialEq)]
+enum TestDataChunk {
+    Data(Bytes),
+    Complete,
+}
+
+impl Default for TestDataChunk {
+    fn default() -> Self {
+        Self::Data(Bytes::new())
+    }
+}
+
+impl ProtoOneof for TestDataChunk {
+    fn encode_oneof(value: &Self, buf: &mut impl BufMut) {
+        // Oneof presence is significant: the active field is always emitted,
+        // even when its payload is the default.
+        match value {
+            Self::Data(data) => ProtoField::encode_field(1, data, buf),
+            Self::Complete => ProtoField::encode_field(2, &true, buf),
+        }
+    }
+
+    fn merge_oneof(
+        tag: u32,
+        wire_type: WireType,
+        value: &mut Self,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1 => {
+                let mut data = if let Self::Data(data) = value {
+                    std::mem::take(data)
+                } else {
+                    Bytes::new()
+                };
+                ProtoField::merge_field(wire_type, &mut data, buf, ctx)?;
+                *value = Self::Data(data);
+                Ok(())
+            }
+            2 => {
+                let mut marker = false;
+                ProtoField::merge_field(wire_type, &mut marker, buf, ctx)?;
+                *value = Self::Complete;
+                Ok(())
+            }
+            _ => unreachable!("oneof tags are routed by the containing message"),
+        }
+    }
+
+    fn encoded_len_oneof(value: &Self) -> usize {
+        match value {
+            Self::Data(data) => ProtoField::encoded_len_field(1, data),
+            Self::Complete => ProtoField::encoded_len_field(2, &true),
+        }
+    }
+}
+
+impl Message for TestDataChunk {
+    fn encode_raw(&self, buf: &mut impl BufMut) {
+        ProtoOneof::encode_oneof(self, buf);
+    }
+
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: WireType,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1..=2 => ProtoOneof::merge_oneof(tag, wire_type, self, buf, ctx),
+            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+
+    fn encoded_len(&self) -> usize {
+        ProtoOneof::encoded_len_oneof(self)
+    }
+
+    fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// Mirror of `armonik.api.grpc.v1.InitTaskRequest`: whole-message oneof
+/// { TaskRequestHeader header = 1; bool last_task = 2; } with a message
+/// payload and a marker variant.
+#[derive(Debug, Clone, PartialEq, Default)]
+enum TestInitTask {
+    #[default]
+    Invalid,
+    Header(TestHeader),
+    LastTask,
+}
+
+/// Mirror of `armonik.api.grpc.v1.TaskRequestHeader`.
+#[derive(Debug, Clone, PartialEq, Default)]
+struct TestHeader {
+    expected_output_keys: Vec<String>,
+    data_dependencies: Vec<String>,
+}
+
+impl Message for TestHeader {
+    fn encode_raw(&self, buf: &mut impl BufMut) {
+        if !ProtoField::is_default(&self.expected_output_keys) {
+            ProtoField::encode_field(1, &self.expected_output_keys, buf);
+        }
+        if !ProtoField::is_default(&self.data_dependencies) {
+            ProtoField::encode_field(2, &self.data_dependencies, buf);
+        }
+    }
+
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: WireType,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1 => ProtoField::merge_field(wire_type, &mut self.expected_output_keys, buf, ctx),
+            2 => ProtoField::merge_field(wire_type, &mut self.data_dependencies, buf, ctx),
+            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+
+    fn encoded_len(&self) -> usize {
+        let mut len = 0;
+        if !ProtoField::is_default(&self.expected_output_keys) {
+            len += ProtoField::encoded_len_field(1, &self.expected_output_keys);
+        }
+        if !ProtoField::is_default(&self.data_dependencies) {
+            len += ProtoField::encoded_len_field(2, &self.data_dependencies);
+        }
+        len
+    }
+
+    fn clear(&mut self) {
+        ProtoField::clear_field(&mut self.expected_output_keys);
+        ProtoField::clear_field(&mut self.data_dependencies);
+    }
+}
+
+impl ProtoOneof for TestInitTask {
+    fn encode_oneof(value: &Self, buf: &mut impl BufMut) {
+        match value {
+            Self::Invalid => {}
+            Self::Header(header) => message_codec::encode(1, header, buf),
+            Self::LastTask => ProtoField::encode_field(2, &true, buf),
+        }
+    }
+
+    fn merge_oneof(
+        tag: u32,
+        wire_type: WireType,
+        value: &mut Self,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1 => {
+                // Same-variant occurrences merge into the payload, like prost.
+                let mut header = if let Self::Header(header) = value {
+                    std::mem::take(header)
+                } else {
+                    TestHeader::default()
+                };
+                message_codec::merge(wire_type, &mut header, buf, ctx)?;
+                *value = Self::Header(header);
+                Ok(())
+            }
+            2 => {
+                let mut marker = false;
+                ProtoField::merge_field(wire_type, &mut marker, buf, ctx)?;
+                *value = Self::LastTask;
+                Ok(())
+            }
+            _ => unreachable!("oneof tags are routed by the containing message"),
+        }
+    }
+
+    fn encoded_len_oneof(value: &Self) -> usize {
+        match value {
+            Self::Invalid => 0,
+            Self::Header(header) => message_codec::encoded_len(1, header),
+            Self::LastTask => ProtoField::encoded_len_field(2, &true),
+        }
+    }
+}
+
+impl Message for TestInitTask {
+    fn encode_raw(&self, buf: &mut impl BufMut) {
+        ProtoOneof::encode_oneof(self, buf);
+    }
+
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: WireType,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1..=2 => ProtoOneof::merge_oneof(tag, wire_type, self, buf, ctx),
+            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+
+    fn encoded_len(&self) -> usize {
+        ProtoOneof::encoded_len_oneof(self)
+    }
+
+    fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// The derives also emit a [`ProtoField`] impl for every message type so it
+/// composes as a field of other messages; this is its template.
+impl ProtoField for TestOptions {
+    const KIND: FieldKind = FieldKind::Message;
+    const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.TaskOptions"];
+
+    fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
+        message_codec::encode(tag, value, buf);
+    }
+
+    fn merge_field(
+        wire_type: WireType,
+        value: &mut Self,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        message_codec::merge(wire_type, value, buf, ctx)
+    }
+
+    fn encoded_len_field(tag: u32, value: &Self) -> usize {
+        message_codec::encoded_len(tag, value)
+    }
+
+    fn is_default(value: &Self) -> bool {
+        message_codec::is_default(value)
+    }
+
+    fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
+        message_codec::encode_repeated(tag, values, buf);
+    }
+
+    fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
+        message_codec::encoded_len_repeated(tag, values)
+    }
+
+    fn merge_repeated(
+        wire_type: WireType,
+        values: &mut Vec<Self>,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        message_codec::merge_repeated(wire_type, values, buf, ctx)
+    }
+}
+
+/// Mirror of `armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest`.
+#[derive(Debug, Clone, PartialEq, Default)]
+struct TestInitRequest {
+    task_options: Option<TestOptions>,
+}
+
+impl Message for TestInitRequest {
+    fn encode_raw(&self, buf: &mut impl BufMut) {
+        if !ProtoField::is_default(&self.task_options) {
+            ProtoField::encode_field(1, &self.task_options, buf);
+        }
+    }
+
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: WireType,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1 => ProtoField::merge_field(wire_type, &mut self.task_options, buf, ctx),
+            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+
+    fn encoded_len(&self) -> usize {
+        if !ProtoField::is_default(&self.task_options) {
+            ProtoField::encoded_len_field(1, &self.task_options)
+        } else {
+            0
+        }
+    }
+
+    fn clear(&mut self) {
+        ProtoField::clear_field(&mut self.task_options);
+    }
+}
+
+/// Mirror of `armonik.api.grpc.v1.agent.CreateTaskRequest`: a oneof
+/// (tags 1-3) plus a sibling `communication_token = 4`, flattened into enum
+/// variants that carry the token. Template for the hand-written
+/// `agent::create_tasks::{Request, Response}` implementations.
+#[derive(Debug, Clone, PartialEq, Default)]
+enum TestCreateTaskRequest {
+    #[default]
+    Invalid,
+    InitRequest {
+        communication_token: String,
+        request: TestInitRequest,
+    },
+    InitTask {
+        communication_token: String,
+        request: TestInitTask,
+    },
+    DataChunk {
+        communication_token: String,
+        chunk: TestDataChunk,
+    },
+}
+
+impl TestCreateTaskRequest {
+    fn token_mut(&mut self) -> Option<&mut String> {
+        match self {
+            Self::Invalid => None,
+            Self::InitRequest {
+                communication_token,
+                ..
+            }
+            | Self::InitTask {
+                communication_token,
+                ..
+            }
+            | Self::DataChunk {
+                communication_token,
+                ..
+            } => Some(communication_token),
+        }
+    }
+
+    /// Merge one oneof field into the variant, preserving the token slot
+    /// semantics of the caller (the token is re-applied afterwards).
+    fn merge_variant(
+        &mut self,
+        tag: u32,
+        wire_type: WireType,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1 => {
+                let mut request = if let Self::InitRequest { request, .. } = self {
+                    std::mem::take(request)
+                } else {
+                    TestInitRequest::default()
+                };
+                message_codec::merge(wire_type, &mut request, buf, ctx)?;
+                *self = Self::InitRequest {
+                    communication_token: String::new(),
+                    request,
+                };
+                Ok(())
+            }
+            2 => {
+                let mut request = if let Self::InitTask { request, .. } = self {
+                    std::mem::take(request)
+                } else {
+                    TestInitTask::default()
+                };
+                message_codec::merge(wire_type, &mut request, buf, ctx)?;
+                *self = Self::InitTask {
+                    communication_token: String::new(),
+                    request,
+                };
+                Ok(())
+            }
+            3 => {
+                let mut chunk = if let Self::DataChunk { chunk, .. } = self {
+                    std::mem::take(chunk)
+                } else {
+                    TestDataChunk::default()
+                };
+                message_codec::merge(wire_type, &mut chunk, buf, ctx)?;
+                *self = Self::DataChunk {
+                    communication_token: String::new(),
+                    chunk,
+                };
+                Ok(())
+            }
+            _ => unreachable!("oneof tags are routed by merge/merge_field"),
+        }
+    }
+}
+
+impl Message for TestCreateTaskRequest {
+    fn encode_raw(&self, buf: &mut impl BufMut) {
+        let token = match self {
+            Self::Invalid => return,
+            Self::InitRequest {
+                communication_token,
+                request,
+            } => {
+                message_codec::encode(1, request, buf);
+                communication_token
+            }
+            Self::InitTask {
+                communication_token,
+                request,
+            } => {
+                message_codec::encode(2, request, buf);
+                communication_token
+            }
+            Self::DataChunk {
+                communication_token,
+                chunk,
+            } => {
+                message_codec::encode(3, chunk, buf);
+                communication_token
+            }
+        };
+        if !token.is_empty() {
+            ProtoField::encode_field(4, token, buf);
+        }
+    }
+
+    /// Handles a single field in isolation. The sibling token is only
+    /// retained when a variant is already selected; the top-level decode
+    /// path goes through the overridden [`Message::merge`], which buffers
+    /// the token across fields regardless of their order. This type is never
+    /// nested inside another message, so `merge_field` is not reached from
+    /// `prost::encoding::message::merge`.
+    fn merge_field(
+        &mut self,
+        tag: u32,
+        wire_type: WireType,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), prost::DecodeError> {
+        match tag {
+            1..=3 => {
+                let token = self.token_mut().map(std::mem::take);
+                self.merge_variant(tag, wire_type, buf, ctx)?;
+                if let (Some(token), Some(slot)) = (token, self.token_mut()) {
+                    *slot = token;
+                }
+                Ok(())
+            }
+            4 => {
+                let mut token = String::new();
+                ProtoField::merge_field(wire_type, &mut token, buf, ctx)?;
+                if let Some(slot) = self.token_mut() {
+                    *slot = token;
+                }
+                Ok(())
+            }
+            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
+        }
+    }
+
+    /// Top-level decode entry: buffers the sibling token so that any field
+    /// order on the wire produces the same value.
+    fn merge(&mut self, mut buf: impl Buf) -> Result<(), prost::DecodeError>
+    where
+        Self: Sized,
+    {
+        let ctx = DecodeContext::default();
+        let mut token = self.token_mut().map(std::mem::take);
+        while buf.has_remaining() {
+            let (tag, wire_type) = prost::encoding::decode_key(&mut buf)?;
+            match tag {
+                1..=3 => self.merge_variant(tag, wire_type, &mut buf, ctx.clone())?,
+                4 => {
+                    ProtoField::merge_field(
+                        wire_type,
+                        token.get_or_insert_with(String::new),
+                        &mut buf,
+                        ctx.clone(),
+                    )?;
+                }
+                _ => prost::encoding::skip_field(wire_type, tag, &mut buf, ctx.clone())?,
+            }
+        }
+        if let (Some(token), Some(slot)) = (token, self.token_mut()) {
+            *slot = token;
+        }
+        Ok(())
+    }
+
+    fn encoded_len(&self) -> usize {
+        let (payload_len, token) = match self {
+            Self::Invalid => return 0,
+            Self::InitRequest {
+                communication_token,
+                request,
+            } => (message_codec::encoded_len(1, request), communication_token),
+            Self::InitTask {
+                communication_token,
+                request,
+            } => (message_codec::encoded_len(2, request), communication_token),
+            Self::DataChunk {
+                communication_token,
+                chunk,
+            } => (message_codec::encoded_len(3, chunk), communication_token),
+        };
+        let token_len = if token.is_empty() {
+            0
+        } else {
+            ProtoField::encoded_len_field(4, token)
+        };
+        payload_len + token_len
+    }
+
+    fn clear(&mut self) {
+        *self = Self::default();
+    }
+}
+
+fn v3_request_samples() -> Vec<v3::agent::CreateTaskRequest> {
+    vec![
+        v3::agent::CreateTaskRequest {
+            communication_token: "token-1".into(),
+            r#type: Some(v3::agent::create_task_request::Type::InitRequest(
+                v3::agent::create_task_request::InitRequest {
+                    task_options: Some(v3::TaskOptions {
+                        max_retries: 3,
+                        priority: 1,
+                        partition_id: "part".into(),
+                        ..Default::default()
+                    }),
+                },
+            )),
+        },
+        v3::agent::CreateTaskRequest {
+            communication_token: "token-2".into(),
+            r#type: Some(v3::agent::create_task_request::Type::InitTask(
+                v3::InitTaskRequest {
+                    r#type: Some(v3::init_task_request::Type::Header(v3::TaskRequestHeader {
+                        expected_output_keys: vec!["out1".into(), "out2".into()],
+                        data_dependencies: vec!["dep".into()],
+                    })),
+                },
+            )),
+        },
+        v3::agent::CreateTaskRequest {
+            communication_token: String::new(),
+            r#type: Some(v3::agent::create_task_request::Type::InitTask(
+                v3::InitTaskRequest {
+                    r#type: Some(v3::init_task_request::Type::LastTask(true)),
+                },
+            )),
+        },
+        v3::agent::CreateTaskRequest {
+            communication_token: "token-3".into(),
+            r#type: Some(v3::agent::create_task_request::Type::TaskPayload(
+                v3::DataChunk {
+                    r#type: Some(v3::data_chunk::Type::Data(b"chunk-data".to_vec())),
+                },
+            )),
+        },
+        v3::agent::CreateTaskRequest {
+            communication_token: "token-4".into(),
+            r#type: Some(v3::agent::create_task_request::Type::TaskPayload(
+                v3::DataChunk {
+                    r#type: Some(v3::data_chunk::Type::DataComplete(true)),
+                },
+            )),
+        },
+    ]
+}
+
+#[test]
+fn sibling_oneof_roundtrip_through_generated_type() {
+    for theirs in v3_request_samples() {
+        let bytes = theirs.encode_to_vec();
+        let ours = TestCreateTaskRequest::decode(bytes.as_slice()).unwrap();
+
+        match (&theirs.r#type, &ours) {
+            (
+                Some(v3::agent::create_task_request::Type::InitRequest(_)),
+                TestCreateTaskRequest::InitRequest {
+                    communication_token,
+                    ..
+                },
+            )
+            | (
+                Some(v3::agent::create_task_request::Type::InitTask(_)),
+                TestCreateTaskRequest::InitTask {
+                    communication_token,
+                    ..
+                },
+            )
+            | (
+                Some(v3::agent::create_task_request::Type::TaskPayload(_)),
+                TestCreateTaskRequest::DataChunk {
+                    communication_token,
+                    ..
+                },
+            ) => assert_eq!(communication_token, &theirs.communication_token),
+            (t, o) => panic!("variant mismatch: {t:?} vs {o:?}"),
+        }
+
+        // Re-encode and decode with the generated type: must be identical.
+        let back = v3::agent::CreateTaskRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(back, theirs);
+    }
+}
+
+#[test]
+fn sibling_token_before_oneof_field_is_kept() {
+    // The token (tag 4) can legally precede the oneof fields on the wire;
+    // this is exactly what the overridden `merge` exists for.
+    let mut buf = Vec::new();
+    prost::encoding::string::encode(4, &"early-token".to_owned(), &mut buf);
+    message_codec::encode(3, &TestDataChunk::Complete, &mut buf);
+
+    let ours = TestCreateTaskRequest::decode(buf.as_slice()).unwrap();
+    assert_eq!(
+        ours,
+        TestCreateTaskRequest::DataChunk {
+            communication_token: "early-token".into(),
+            chunk: TestDataChunk::Complete,
+        }
+    );
+}
+
+#[test]
+fn sibling_token_without_oneof_decodes_as_invalid() {
+    // Matches the historical conversion: no oneof field set means Invalid,
+    // and the token is dropped.
+    let mut buf = Vec::new();
+    prost::encoding::string::encode(4, &"lonely-token".to_owned(), &mut buf);
+    let ours = TestCreateTaskRequest::decode(buf.as_slice()).unwrap();
+    assert_eq!(ours, TestCreateTaskRequest::Invalid);
+}
+
+#[test]
+fn oneof_variant_switch_keeps_sibling_token() {
+    // Later oneof fields replace earlier ones (last-one-wins), and the
+    // token survives the switch regardless of where it appeared.
+    let mut buf = Vec::new();
+    message_codec::encode(1, &TestInitRequest::default(), &mut buf);
+    prost::encoding::string::encode(4, &"kept".to_owned(), &mut buf);
+    message_codec::encode(3, &TestDataChunk::Data(Bytes::from_static(b"x")), &mut buf);
+
+    let ours = TestCreateTaskRequest::decode(buf.as_slice()).unwrap();
+    assert_eq!(
+        ours,
+        TestCreateTaskRequest::DataChunk {
+            communication_token: "kept".into(),
+            chunk: TestDataChunk::Data(Bytes::from_static(b"x")),
+        }
+    );
+}
+
+#[test]
+fn whole_message_oneof_roundtrips() {
+    let cases = [
+        (
+            TestInitTask::Header(TestHeader {
+                expected_output_keys: vec!["a".into()],
+                data_dependencies: vec![],
+            }),
+            v3::InitTaskRequest {
+                r#type: Some(v3::init_task_request::Type::Header(v3::TaskRequestHeader {
+                    expected_output_keys: vec!["a".into()],
+                    data_dependencies: vec![],
+                })),
+            },
+        ),
+        (
+            TestInitTask::LastTask,
+            v3::InitTaskRequest {
+                r#type: Some(v3::init_task_request::Type::LastTask(true)),
+            },
+        ),
+        (TestInitTask::Invalid, v3::InitTaskRequest { r#type: None }),
+    ];
+    for (ours, theirs) in cases {
+        assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
+        assert_eq!(
+            TestInitTask::decode(theirs.encode_to_vec().as_slice()).unwrap(),
+            ours
+        );
+    }
+
+    // Default-payload oneof fields are still emitted (oneof presence).
+    let ours = TestDataChunk::Data(Bytes::new());
+    let theirs = v3::DataChunk {
+        r#type: Some(v3::data_chunk::Type::Data(Vec::new())),
+    };
+    assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
+    assert!(!ours.encode_to_vec().is_empty());
+}
