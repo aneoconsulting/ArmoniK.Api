@@ -1,12 +1,11 @@
-use crate::api::v3;
-
 use super::{filter, Raw, Sort};
 
 /// Request to list results.
 ///
 /// Use pagination, filtering and sorting.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.ListResultsRequest")]
 pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
@@ -31,21 +30,13 @@ impl Default for Request {
     }
 }
 
-super::super::impl_convert!(
-    struct Request = v3::results::ListResultsRequest {
-        page,
-        page_size,
-        filters = option filters,
-        sort = option sort,
-    }
-);
-
 /// Response to list results.
 ///
 /// Use pagination, filtering and sorting from the request.
-/// Retunr a list of raw results.
-#[derive(Debug, Clone)]
+/// Return a list of raw results.
+#[derive(Debug, Clone, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.ListResultsResponse")]
 pub struct Response {
     /// The list of raw results.
     pub results: Vec<Raw>,
@@ -67,12 +58,3 @@ impl Default for Response {
         }
     }
 }
-
-super::super::impl_convert!(
-    struct Response = v3::results::ListResultsResponse {
-        list results,
-        page,
-        page_size,
-        total,
-    }
-);

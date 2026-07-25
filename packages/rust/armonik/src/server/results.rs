@@ -70,31 +70,31 @@ impl<T: ResultsService + Send + Sync + 'static> ResultsServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::results::results_server::Results) for ResultsService {
-        fn list_results(v3::results::ListResultsRequest) -> v3::results::ListResultsResponse { list }
-        fn get_result(v3::results::GetResultRequest) -> v3::results::GetResultResponse { get }
-        fn get_owner_task_id(v3::results::GetOwnerTaskIdRequest) -> v3::results::GetOwnerTaskIdResponse { get_owner_task_id }
-        fn create_results_meta_data(v3::results::CreateResultsMetaDataRequest) -> v3::results::CreateResultsMetaDataResponse { create_metadata }
-        fn create_results(v3::results::CreateResultsRequest) -> v3::results::CreateResultsResponse { create }
-        fn import_results_data(v3::results::ImportResultsDataRequest) -> v3::results::ImportResultsDataResponse { import }
-        fn delete_results_data(v3::results::DeleteResultsDataRequest) -> v3::results::DeleteResultsDataResponse { delete_data }
-        fn get_service_configuration(v3::Empty) -> v3::results::ResultsServiceConfigurationResponse { get_service_configuration }
+        fn list_results(crate::results::list::Request) -> crate::results::list::Response { list }
+        fn get_result(crate::results::get::Request) -> crate::results::get::Response { get }
+        fn get_owner_task_id(crate::results::get_owner_task_id::Request) -> crate::results::get_owner_task_id::Response { get_owner_task_id }
+        fn create_results_meta_data(crate::results::create_metadata::Request) -> crate::results::create_metadata::Response { create_metadata }
+        fn create_results(crate::results::create::Request) -> crate::results::create::Response { create }
+        fn import_results_data(crate::results::import::Request) -> crate::results::import::Response { import }
+        fn delete_results_data(crate::results::delete_data::Request) -> crate::results::delete_data::Response { delete_data }
+        fn get_service_configuration(v3::Empty) -> crate::results::get_service_configuration::Response { get_service_configuration }
 
         ---
 
         async fn upload_result_data(
             self: std::sync::Arc<Self>,
-            request: tonic::Request<tonic::Streaming<v3::results::UploadResultDataRequest>>,
+            request: tonic::Request<tonic::Streaming<crate::results::upload::Request>>,
         ) -> std::result::Result<
-            tonic::Response<v3::results::UploadResultDataResponse>,
+            tonic::Response<crate::results::upload::Response>,
             tonic::Status,
         > {
             crate::server::impl_trait_methods!(stream client (self, request) {ResultsService::upload})
         }
 
-        type DownloadResultDataStream = crate::server::ServerStream<v3::results::DownloadResultDataResponse>;
+        type DownloadResultDataStream = crate::server::ServerStream<crate::results::download::Response>;
         async fn download_result_data(
             self: std::sync::Arc<Self>,
-            request: tonic::Request<v3::results::DownloadResultDataRequest>,
+            request: tonic::Request<crate::results::download::Request>,
         ) -> std::result::Result<
             tonic::Response<Self::DownloadResultDataStream>,
             tonic::Status,

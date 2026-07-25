@@ -1,10 +1,9 @@
 use super::Raw;
 
-use crate::api::v3;
-
 /// Result to create without data.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest.ResultCreate")]
 pub struct RequestItem {
     /// The name of the result to create.
     pub name: String,
@@ -21,16 +20,10 @@ impl<T: Into<String>> From<T> for RequestItem {
     }
 }
 
-super::super::impl_convert!(
-  struct RequestItem = v3::results::create_results_meta_data_request::ResultCreate {
-      name,
-      manual_deletion,
-  }
-);
-
 /// Request for creating results without data.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest")]
 pub struct Request {
     /// Results to create.
     pub results: Vec<RequestItem>,
@@ -38,23 +31,11 @@ pub struct Request {
     pub session_id: String,
 }
 
-super::super::impl_convert!(
-  struct Request = v3::results::CreateResultsMetaDataRequest {
-      list results = list results,
-      session_id,
-  }
-);
-
 /// Response for creating results without data.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.CreateResultsMetaDataResponse")]
 pub struct Response {
     /// The list of raw results that were created.
     pub results: Vec<Raw>,
 }
-
-super::super::impl_convert!(
-    struct Response = v3::results::CreateResultsMetaDataResponse {
-        list results,
-    }
-);

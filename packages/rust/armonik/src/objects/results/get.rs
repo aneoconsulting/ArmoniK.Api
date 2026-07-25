@@ -1,31 +1,20 @@
 use super::Raw;
 
-use crate::api::v3;
-
 /// Request to get an result.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.GetResultRequest")]
 pub struct Request {
     /// Result id. Must fail when name is empty.
+    #[armonik(rename = "result_id")]
     pub id: String,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::results::GetResultRequest {
-        id = result_id,
-    }
-);
-
 /// Response to get an result.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.GetResultResponse")]
 pub struct Response {
     /// The result.
     pub result: Raw,
 }
-
-super::super::impl_convert!(
-    struct Response = v3::results::GetResultResponse {
-        result = option result,
-    }
-);

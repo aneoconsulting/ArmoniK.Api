@@ -13,7 +13,6 @@ use prost::encoding::{DecodeContext, WireType};
 use prost::Message;
 
 use super::{enumeration, FieldKind, ProtoField};
-use crate::api::v3;
 
 /// Prototype of the `derive(armonik::Enum)` output (without the `Other`
 /// catch-all, which is irrelevant to the wire format).
