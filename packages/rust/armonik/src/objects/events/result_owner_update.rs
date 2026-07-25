@@ -1,8 +1,7 @@
-use crate::api::v3;
-
 /// Represents an update to the owner task id of a result.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultOwnerUpdate")]
 pub struct ResultOwnerUpdate {
     /// The result id.
     pub result_id: String,
@@ -11,11 +10,3 @@ pub struct ResultOwnerUpdate {
     /// The current owner id.
     pub current_owner_id: String,
 }
-
-super::super::impl_convert!(
-    struct ResultOwnerUpdate = v3::events::event_subscription_response::ResultOwnerUpdate {
-        result_id,
-        previous_owner_id,
-        current_owner_id,
-    }
-);

@@ -10,7 +10,7 @@ mod update;
 
 pub mod subscribe;
 
-pub use events_enum::EventsEnum;
+pub use events_enum::{EventsEnum, OtherEventsEnum};
 pub use new_result::NewResult;
 pub use new_task::NewTask;
 pub use result_owner_update::ResultOwnerUpdate;

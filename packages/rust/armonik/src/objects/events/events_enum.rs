@@ -1,62 +1,18 @@
-use crate::api::v3;
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Represents the events that can be returned in the EventSubscriptionResponse
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(enum = "armonik.api.grpc.v1.events.EventsEnum")]
 pub enum EventsEnum {
-    /// Unspecified
-    #[default]
-    Unspecified = 0,
     /// New task
-    NewTask = 1,
+    NewTask,
     /// Task status update
-    TaskStatusUpdate = 2,
+    TaskStatusUpdate,
     /// New result
-    NewResult = 3,
+    NewResult,
     /// Result status update
-    ResultStatusUpdate = 4,
+    ResultStatusUpdate,
     /// Result owner update
-    ResultOwnerUpdate = 5,
+    ResultOwnerUpdate,
+    /// Unspecified (zero) or an event unknown to this crate version.
+    Other(OtherEventsEnum),
 }
-
-impl From<i32> for EventsEnum {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::NewTask,
-            2 => Self::TaskStatusUpdate,
-            3 => Self::NewResult,
-            4 => Self::ResultStatusUpdate,
-            5 => Self::ResultOwnerUpdate,
-            _ => Default::default(),
-        }
-    }
-}
-
-impl From<EventsEnum> for v3::events::EventsEnum {
-    fn from(value: EventsEnum) -> Self {
-        match value {
-            EventsEnum::Unspecified => Self::Unspecified,
-            EventsEnum::NewTask => Self::NewTask,
-            EventsEnum::TaskStatusUpdate => Self::TaskStatusUpdate,
-            EventsEnum::NewResult => Self::NewResult,
-            EventsEnum::ResultStatusUpdate => Self::ResultStatusUpdate,
-            EventsEnum::ResultOwnerUpdate => Self::ResultOwnerUpdate,
-        }
-    }
-}
-
-impl From<v3::events::EventsEnum> for EventsEnum {
-    fn from(value: v3::events::EventsEnum) -> Self {
-        match value {
-            v3::events::EventsEnum::Unspecified => Self::Unspecified,
-            v3::events::EventsEnum::NewTask => Self::NewTask,
-            v3::events::EventsEnum::TaskStatusUpdate => Self::TaskStatusUpdate,
-            v3::events::EventsEnum::NewResult => Self::NewResult,
-            v3::events::EventsEnum::ResultStatusUpdate => Self::ResultStatusUpdate,
-            v3::events::EventsEnum::ResultOwnerUpdate => Self::ResultOwnerUpdate,
-        }
-    }
-}
-
-super::super::impl_convert!(req EventsEnum : v3::events::EventsEnum);

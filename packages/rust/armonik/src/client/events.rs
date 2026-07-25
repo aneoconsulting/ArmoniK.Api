@@ -60,7 +60,7 @@ where
             .await
             .context(super::GrpcSnafu {})?
             .into_inner()
-            .map(|response| response.map(Into::into).context(super::GrpcSnafu {}));
+            .map(|response| response.context(super::GrpcSnafu {}));
         Ok(tracing_futures::Instrument::instrument(
             stream,
             tracing::trace_span!(parent: &span, "stream"),
@@ -123,7 +123,7 @@ mod tests {
                 "session-id",
                 crate::tasks::filter::Or { or: vec![] },
                 crate::results::filter::Or { or: vec![] },
-                vec![crate::events::EventsEnum::Unspecified],
+                vec![crate::events::EventsEnum::UNSPECIFIED],
             )
             .await
             .unwrap()

@@ -175,6 +175,17 @@ registry! {
         => armonik::results::download::Response,
     "armonik.api.grpc.v1.results.ResultsServiceConfigurationResponse"
         => armonik::results::get_service_configuration::Response,
+    "armonik.api.grpc.v1.events.EventSubscriptionRequest" => armonik::events::subscribe::Request,
+    "armonik.api.grpc.v1.events.EventSubscriptionResponse"
+        => armonik::events::subscribe::Response,
+    "armonik.api.grpc.v1.events.EventSubscriptionResponse.TaskStatusUpdate"
+        => armonik::events::TaskStatusUpdate,
+    "armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultStatusUpdate"
+        => armonik::events::ResultStatusUpdate,
+    "armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultOwnerUpdate"
+        => armonik::events::ResultOwnerUpdate,
+    "armonik.api.grpc.v1.events.EventSubscriptionResponse.NewTask" => armonik::events::NewTask,
+    "armonik.api.grpc.v1.events.EventSubscriptionResponse.NewResult" => armonik::events::NewResult,
     "armonik.api.grpc.v1.auth.GetCurrentUserRequest" => armonik::auth::current_user::Request,
     "armonik.api.grpc.v1.auth.GetCurrentUserResponse" => armonik::auth::current_user::Response,
     "armonik.api.grpc.v1.auth.User" => armonik::auth::User,

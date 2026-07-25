@@ -32,10 +32,10 @@ impl<T: EventsService + Send + Sync + 'static> EventsServiceExt for T {
 
 #[crate::reexports::async_trait]
 impl<T: EventsService + Send + Sync + 'static> v3::events::events_server::Events for T {
-    type GetEventsStream = crate::server::ServerStream<v3::events::EventSubscriptionResponse>;
+    type GetEventsStream = crate::server::ServerStream<crate::events::subscribe::Response>;
     async fn get_events(
         self: Arc<Self>,
-        request: tonic::Request<v3::events::EventSubscriptionRequest>,
+        request: tonic::Request<crate::events::subscribe::Request>,
     ) -> Result<tonic::Response<Self::GetEventsStream>, tonic::Status> {
         super::impl_trait_methods!(stream server (self, request) {EventsService::subscribe})
     }
