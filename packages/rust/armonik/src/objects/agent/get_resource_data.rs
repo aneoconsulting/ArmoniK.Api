@@ -1,6 +1,8 @@
-use crate::api::v3;
-
 /// Request to retrieve data.
+///
+/// Shares its wire form (`DataRequest`) with the other data RPCs, which the
+/// stubs express with [`super::get_common_data::Request`]; this type only
+/// exists so that the calls stay distinguishable.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
@@ -10,10 +12,23 @@ pub struct Request {
     pub result_id: String,
 }
 
-super::super::impl_convert!(struct Request = v3::agent::DataRequest {
-    communication_token,
-    result_id,
-});
+impl From<Request> for super::get_common_data::Request {
+    fn from(value: Request) -> Self {
+        Self {
+            communication_token: value.communication_token,
+            result_id: value.result_id,
+        }
+    }
+}
+
+impl From<super::get_common_data::Request> for Request {
+    fn from(value: super::get_common_data::Request) -> Self {
+        Self {
+            communication_token: value.communication_token,
+            result_id: value.result_id,
+        }
+    }
+}
 
 /// Response when data is available in the shared folder.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -23,6 +38,18 @@ pub struct Response {
     pub result_id: String,
 }
 
-super::super::impl_convert!(struct Response = v3::agent::DataResponse {
-    result_id,
-});
+impl From<Response> for super::get_common_data::Response {
+    fn from(value: Response) -> Self {
+        Self {
+            result_id: value.result_id,
+        }
+    }
+}
+
+impl From<super::get_common_data::Response> for Response {
+    fn from(value: super::get_common_data::Response) -> Self {
+        Self {
+            result_id: value.result_id,
+        }
+    }
+}

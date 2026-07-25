@@ -140,28 +140,14 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     // The WatchResults RPC is not exposed by the crate.
     "armonik.api.grpc.v1.results.WatchResultRequest",
     "armonik.api.grpc.v1.results.WatchResultResponse",
+    // Pair entries flattened into the shared session ID and result IDs.
+    "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier",
 ];
 
 /// Messages not yet migrated to a direct wire implementation. This list
 /// only shrinks: annotating a type moves it to the registry, and the test
 /// fails on stale entries. It must be empty by the end of the migration.
 const TEMP_UNMAPPED: &[&str] = &[
-    "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest",
-    "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate",
-    "armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse",
-    "armonik.api.grpc.v1.agent.CreateResultsRequest",
-    "armonik.api.grpc.v1.agent.CreateResultsRequest.ResultCreate",
-    "armonik.api.grpc.v1.agent.CreateResultsResponse",
-    "armonik.api.grpc.v1.agent.DataRequest",
-    "armonik.api.grpc.v1.agent.DataResponse",
-    "armonik.api.grpc.v1.agent.NotifyResultDataRequest",
-    "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier",
-    "armonik.api.grpc.v1.agent.NotifyResultDataResponse",
-    "armonik.api.grpc.v1.agent.ResultMetaData",
-    "armonik.api.grpc.v1.agent.SubmitTasksRequest",
-    "armonik.api.grpc.v1.agent.SubmitTasksRequest.TaskCreation",
-    "armonik.api.grpc.v1.agent.SubmitTasksResponse",
-    "armonik.api.grpc.v1.agent.SubmitTasksResponse.TaskInfo",
     "armonik.api.grpc.v1.submitter.AvailabilityReply",
     "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest",
     "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest",

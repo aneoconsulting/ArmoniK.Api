@@ -147,8 +147,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: create_results::Request) -> Result<create_results::Response> {
@@ -161,8 +160,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: notify_result_data::Request) -> Result<notify_result_data::Response> {
@@ -175,8 +173,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: submit_tasks::Request) -> Result<submit_tasks::Response> {
@@ -189,15 +186,14 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get_resource_data::Request) -> Result<get_resource_data::Response> {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .get_resource_data(request),
+                    .get_resource_data(get_common_data::Request::from(request)),
                 tracing::debug_span!("Agent::get_resource_data")
             );
             Ok(call
@@ -217,15 +213,14 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get_direct_data::Request) -> Result<get_direct_data::Response> {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .get_direct_data(request),
+                    .get_direct_data(get_common_data::Request::from(request)),
                 tracing::debug_span!("Agent::get_direct_data")
             );
             Ok(call
