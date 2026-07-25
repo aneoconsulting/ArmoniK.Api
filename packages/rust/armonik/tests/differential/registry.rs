@@ -37,6 +37,7 @@ macro_rules! registry {
 
 registry! {
     "armonik.api.grpc.v1.Session" => armonik::Session,
+    "armonik.api.grpc.v1.StatusCount" => armonik::StatusCount,
     "armonik.api.grpc.v1.TaskOptions" => armonik::TaskOptions,
         normalize = normalize_task_options,
 }

@@ -83,11 +83,31 @@ pub use task_id::TaskId;
 pub use task_id_list::TaskIdList;
 pub use task_id_with_status::TaskIdWithStatus;
 pub use task_list::TaskList;
-pub use task_options::{TaskOptionField, TaskOptions};
+pub use task_options::{OtherTaskOptionField, TaskOptionField, TaskOptions};
 pub use task_output_request::TaskOutputRequest;
 pub use task_request::TaskRequest;
 pub use task_request_header::TaskRequestHeader;
-pub use task_status::TaskStatus;
+pub use task_status::{OtherTaskStatus, TaskStatus};
+
+/// Interim `i32` conversions for the enums not yet migrated to
+/// `derive(armonik::Enum)` (which emits its own `From` implementations).
+/// Entries disappear as the migration proceeds.
+macro_rules! impl_enum_into_i32 {
+    ($($ty:ty),* $(,)?) => {$(
+        impl From<$ty> for i32 {
+            fn from(value: $ty) -> i32 {
+                value as i32
+            }
+        }
+    )*};
+}
+
+impl_enum_into_i32!(
+    SessionStatus,
+    ResultStatus,
+    FilterStatusOperator,
+    health_checks::Status,
+);
 
 macro_rules! impl_convert {
     // * -> *
@@ -105,7 +125,7 @@ macro_rules! impl_convert {
         crate::impl_convert!(
             @struct {
                 $($body)*
-                $b: $value.$a as i32,
+                $b: i32::from($value.$a),
             }
             $value: $A => $B { $($tail)* }
         );

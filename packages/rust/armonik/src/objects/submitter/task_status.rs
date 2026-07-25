@@ -31,7 +31,7 @@ impl From<Response> for v3::submitter::GetTaskStatusReply {
                 .map(
                     |(id, status)| v3::submitter::get_task_status_reply::IdStatus {
                         task_id: id,
-                        status: status as i32,
+                        status: i32::from(status),
                     },
                 )
                 .collect(),

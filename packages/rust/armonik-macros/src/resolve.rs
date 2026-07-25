@@ -459,3 +459,314 @@ impl Cardinality {
 fn unraw(ident: &syn::Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
 }
+
+/// Plan for a protobuf enum (or a transparent single-enum-field wrapper).
+pub(crate) struct EnumPlan {
+    pub(crate) ident: syn::Ident,
+    /// The catch-all variant (`Other`) and its payload struct, which the
+    /// derive emits.
+    pub(crate) other_variant: syn::Ident,
+    pub(crate) payload: syn::Ident,
+    /// Named variants with their proto numbers.
+    pub(crate) named: Vec<(syn::Ident, i32)>,
+    /// Named variant covering 0, when there is one; otherwise the derive
+    /// emits an `UNSPECIFIED` const based on the catch-all.
+    pub(crate) zero_variant: Option<syn::Ident>,
+    pub(crate) mode: EnumMode,
+    pub(crate) fingerprint: u128,
+}
+
+pub(crate) enum EnumMode {
+    /// The Rust enum is a proto enum, an `int32` varint on the wire.
+    Plain { names: Vec<String> },
+    /// The Rust enum stands for proto message(s) wrapping a single enum
+    /// field at `inner_tag`.
+    Transparent { names: Vec<String>, inner_tag: u32 },
+}
+
+pub(crate) fn enum_plan(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+) -> Result<EnumPlan, Errors> {
+    let mut errors = Errors::new();
+
+    let entries = match attrs::parse(&input.attrs) {
+        Ok(entries) => entries,
+        Err(err) => return Err(Errors::from(err)),
+    };
+
+    let mut enum_names: Vec<(Span, String)> = Vec::new();
+    let mut message_names: Vec<(Span, String)> = Vec::new();
+    let mut transparent = false;
+    for entry in &entries {
+        match &entry.item {
+            AttrItem::Enum(lit) => enum_names.push((entry.span, lit.value())),
+            AttrItem::Message(lit) => message_names.push((entry.span, lit.value())),
+            AttrItem::Transparent => transparent = true,
+            _ => errors.push(syn::Error::new(
+                entry.span,
+                "this armonik attribute is not valid at type level on derive(Enum)",
+            )),
+        }
+    }
+
+    // Resolve the proto enum(s) the variants are matched against, and the
+    // wrapper tag in transparent mode.
+    let mut proto_enums: Vec<(String, &crate::descriptor::EnumMeta)> = Vec::new();
+    let mode = if transparent {
+        if message_names.is_empty() {
+            errors.push(syn::Error::new(
+                input.ident.span(),
+                "#[armonik(transparent)] requires #[armonik(message = \"full.proto.Name\")] \
+                 naming the single-field wrapper message",
+            ));
+            return Err(errors);
+        }
+        let mut inner_tag: Option<u32> = None;
+        for (span, name) in &message_names {
+            let Some(meta) = index.messages.get(name) else {
+                errors.push(syn::Error::new(
+                    *span,
+                    format!("proto message `{name}` not found in the compiled descriptor set"),
+                ));
+                continue;
+            };
+            let [field] = meta.fields.as_slice() else {
+                errors.push(syn::Error::new(
+                    *span,
+                    format!("`{name}` is not a single-field wrapper message"),
+                ));
+                continue;
+            };
+            let FieldKind::Enum(inner) = &field.kind else {
+                errors.push(syn::Error::new(
+                    *span,
+                    format!("the single field of `{name}` is not an enum"),
+                ));
+                continue;
+            };
+            if *inner_tag.get_or_insert(field.tag) != field.tag {
+                errors.push(syn::Error::new(
+                    *span,
+                    "transparent wrapper messages disagree on the inner field tag",
+                ));
+            }
+            match index.enums.get(inner) {
+                Some(enum_meta) => proto_enums.push((inner.clone(), enum_meta)),
+                None => errors.push(syn::Error::new(
+                    *span,
+                    format!("proto enum `{inner}` not found in the compiled descriptor set"),
+                )),
+            }
+        }
+        let Some(inner_tag) = inner_tag else {
+            return Err(errors);
+        };
+        EnumMode::Transparent {
+            names: message_names.iter().map(|(_, name)| name.clone()).collect(),
+            inner_tag,
+        }
+    } else {
+        if enum_names.is_empty() {
+            errors.push(syn::Error::new(
+                input.ident.span(),
+                "missing #[armonik(enum = \"full.proto.Name\")]",
+            ));
+            return Err(errors);
+        }
+        for (span, name) in &enum_names {
+            match index.enums.get(name) {
+                Some(meta) => proto_enums.push((name.clone(), meta)),
+                None => errors.push(syn::Error::new(
+                    *span,
+                    format!("proto enum `{name}` not found in the compiled descriptor set"),
+                )),
+            }
+        }
+        EnumMode::Plain {
+            names: enum_names.iter().map(|(_, name)| name.clone()).collect(),
+        }
+    };
+    if proto_enums.is_empty() {
+        return Err(errors);
+    }
+
+    let syn::Data::Enum(data) = &input.data else {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "#[derive(armonik::Enum)] expects an enum",
+        ));
+        return Err(errors);
+    };
+
+    // Collect variants: unit variants matched by name, plus exactly one
+    // catch-all tuple variant whose payload struct the derive emits.
+    let mut named: Vec<(syn::Ident, String)> = Vec::new();
+    let mut other: Option<(syn::Ident, syn::Ident)> = None;
+    for variant in &data.variants {
+        let variant_entries = match attrs::parse(&variant.attrs) {
+            Ok(entries) => entries,
+            Err(err) => {
+                errors.push(err);
+                continue;
+            }
+        };
+        let mut rename = None;
+        for entry in &variant_entries {
+            match &entry.item {
+                AttrItem::Rename(lit) => rename = Some(lit.value()),
+                _ => errors.push(syn::Error::new(
+                    entry.span,
+                    "this armonik attribute is not valid on a derive(Enum) variant",
+                )),
+            }
+        }
+
+        match &variant.fields {
+            syn::Fields::Unit => {
+                let proto_name = rename.unwrap_or_else(|| unraw(&variant.ident));
+                named.push((variant.ident.clone(), proto_name));
+            }
+            syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                let payload = match &fields.unnamed[0].ty {
+                    syn::Type::Path(path) if path.qself.is_none() => path.path.get_ident().cloned(),
+                    _ => None,
+                };
+                let Some(payload) = payload else {
+                    errors.push(syn::Error::new(
+                        variant.ident.span(),
+                        "the catch-all payload must be a bare type name; the derive emits \
+                         that struct",
+                    ));
+                    continue;
+                };
+                if other.replace((variant.ident.clone(), payload)).is_some() {
+                    errors.push(syn::Error::new(
+                        variant.ident.span(),
+                        "derive(Enum) expects exactly one catch-all tuple variant",
+                    ));
+                }
+            }
+            _ => errors.push(syn::Error::new(
+                variant.ident.span(),
+                "derive(Enum) variants must be unit variants or the single catch-all \
+                 tuple variant",
+            )),
+        }
+    }
+    let Some((other_variant, payload)) = other else {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "derive(Enum) requires a catch-all tuple variant, e.g. `Other(OtherTaskStatus)`",
+        ));
+        return Err(errors);
+    };
+
+    // Match every named variant against every proto enum; they must agree.
+    let mut resolved: Vec<(syn::Ident, i32)> = Vec::new();
+    let mut zero_variant = None;
+    for (ident, proto_name) in &named {
+        let mut number: Option<i32> = None;
+        for (enum_name, meta) in &proto_enums {
+            let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
+            let matched = meta.values.iter().find(|(value_name, _)| {
+                value_name == proto_name || variant_name(simple, value_name) == *proto_name
+            });
+            match matched {
+                Some((_, value)) => {
+                    if *number.get_or_insert(*value) != *value {
+                        errors.push(syn::Error::new(
+                            ident.span(),
+                            format!("unified proto enums disagree on the value of `{proto_name}`"),
+                        ));
+                    }
+                }
+                None => {
+                    let mut available: Vec<String> = meta
+                        .values
+                        .iter()
+                        .map(|(value_name, _)| variant_name(simple, value_name))
+                        .collect();
+                    available.sort_unstable();
+                    errors.push(syn::Error::new(
+                        ident.span(),
+                        format!(
+                            "no value named `{proto_name}` in proto enum `{enum_name}` \
+                             (available: {}); use #[armonik(rename = \"...\")] with the full \
+                             proto value name if needed",
+                            available.join(", ")
+                        ),
+                    ));
+                }
+            }
+        }
+        if let Some(number) = number {
+            if number == 0 {
+                zero_variant = Some(ident.clone());
+            }
+            resolved.push((ident.clone(), number));
+        }
+    }
+
+    // Completeness: every proto value needs a named variant, except a
+    // conventional `*_UNSPECIFIED = 0`, which the catch-all covers.
+    for (enum_name, meta) in &proto_enums {
+        let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
+        for (value_name, value) in &meta.values {
+            let mapped = variant_name(simple, value_name);
+            let covered = named
+                .iter()
+                .any(|(_, proto_name)| *proto_name == mapped || proto_name == value_name);
+            if !(covered || (*value == 0 && mapped == "Unspecified")) {
+                errors.push(syn::Error::new(
+                    input.ident.span(),
+                    format!(
+                        "proto enum value `{enum_name}.{value_name}` (= {value}) is not \
+                         covered by any Rust variant"
+                    ),
+                ));
+            }
+        }
+    }
+
+    errors.into_result()?;
+
+    Ok(EnumPlan {
+        ident: input.ident.clone(),
+        other_variant,
+        payload,
+        named: resolved,
+        zero_variant,
+        mode,
+        fingerprint: index.fingerprint,
+    })
+}
+
+/// prost-style variant name for a proto enum value: upper-camel the value
+/// name, then strip the enum-name prefix when present.
+fn variant_name(enum_simple_name: &str, value_name: &str) -> String {
+    let camel = upper_camel(value_name);
+    match camel.strip_prefix(enum_simple_name) {
+        Some(stripped)
+            if !stripped.is_empty() && !stripped.starts_with(|c: char| c.is_ascii_digit()) =>
+        {
+            stripped.to_owned()
+        }
+        _ => camel,
+    }
+}
+
+fn upper_camel(screaming_snake: &str) -> String {
+    screaming_snake
+        .split('_')
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let mut chars = part.chars();
+            let first = chars.next().map(|c| c.to_ascii_uppercase());
+            first
+                .into_iter()
+                .chain(chars.map(|c| c.to_ascii_lowercase()))
+                .collect::<String>()
+        })
+        .collect()
+}

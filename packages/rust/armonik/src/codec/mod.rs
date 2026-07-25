@@ -29,6 +29,7 @@ pub(crate) mod enumeration;
 pub(crate) mod message;
 mod scalars;
 mod well_known;
+pub(crate) mod wrapper_enum;
 
 /// Wire-level kind of a protobuf field, checked by derive-emitted
 /// const-asserts against the descriptor.

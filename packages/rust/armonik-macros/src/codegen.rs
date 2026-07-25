@@ -4,7 +4,9 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
 use crate::kind::{Cardinality, FieldKind};
-use crate::resolve::{FieldAccess, FieldCodec, FieldPlan, MessagePlan, StructStyle};
+use crate::resolve::{
+    EnumMode, EnumPlan, FieldAccess, FieldCodec, FieldPlan, MessagePlan, StructStyle,
+};
 
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -395,5 +397,164 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                 #wire_default_body
             }
         }
+    }
+}
+
+pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
+    let ident = &plan.ident;
+    let other = &plan.other_variant;
+    let payload = &plan.payload;
+    let fingerprint = proc_macro2::Literal::u128_suffixed(plan.fingerprint);
+
+    let payload_doc = format!(
+        "Raw value of an `{ident}` not known to this crate version (or the \
+         unspecified zero value). Only constructible by decoding, so a known \
+         value can never hide inside the catch-all variant.",
+    );
+
+    let from_named_arms = plan
+        .named
+        .iter()
+        .map(|(variant, number)| quote!(#number => Self::#variant));
+    let into_named_arms = plan
+        .named
+        .iter()
+        .map(|(variant, number)| quote!(#ident::#variant => #number));
+
+    let default_expr = match &plan.zero_variant {
+        Some(variant) => quote!(Self::#variant),
+        None => quote!(Self::UNSPECIFIED),
+    };
+    let unspecified_const = plan.zero_variant.is_none().then(|| {
+        quote! {
+            impl #ident {
+                /// Unspecified (zero) value; usable in `match` patterns.
+                pub const UNSPECIFIED: Self = Self::#other(#payload(0));
+            }
+        }
+    });
+
+    let proto_field = match &plan.mode {
+        EnumMode::Plain { names } => quote! {
+            impl crate::codec::ProtoField for #ident {
+                const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Enum;
+                const NAMES: &'static [&'static str] = &[#(#names),*];
+
+                fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+                    crate::codec::enumeration::encode(tag, value, buf);
+                }
+
+                fn merge_field(
+                    wire_type: ::prost::encoding::WireType,
+                    value: &mut Self,
+                    buf: &mut impl ::prost::bytes::Buf,
+                    ctx: ::prost::encoding::DecodeContext,
+                ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                    crate::codec::enumeration::merge(wire_type, value, buf, ctx)
+                }
+
+                fn encoded_len_field(tag: u32, value: &Self) -> usize {
+                    crate::codec::enumeration::encoded_len(tag, value)
+                }
+
+                fn is_default(value: &Self) -> bool {
+                    crate::codec::enumeration::is_default(value)
+                }
+
+                fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
+                    crate::codec::enumeration::encode_repeated(tag, values, buf);
+                }
+
+                fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
+                    crate::codec::enumeration::encoded_len_repeated(tag, values)
+                }
+
+                fn merge_repeated(
+                    wire_type: ::prost::encoding::WireType,
+                    values: &mut ::std::vec::Vec<Self>,
+                    buf: &mut impl ::prost::bytes::Buf,
+                    ctx: ::prost::encoding::DecodeContext,
+                ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                    crate::codec::enumeration::merge_repeated(wire_type, values, buf, ctx)
+                }
+            }
+        },
+        EnumMode::Transparent { names, inner_tag } => quote! {
+            impl crate::codec::ProtoField for #ident {
+                const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
+                const NAMES: &'static [&'static str] = &[#(#names),*];
+
+                fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+                    crate::codec::wrapper_enum::encode(tag, #inner_tag, value, buf);
+                }
+
+                fn merge_field(
+                    wire_type: ::prost::encoding::WireType,
+                    value: &mut Self,
+                    buf: &mut impl ::prost::bytes::Buf,
+                    ctx: ::prost::encoding::DecodeContext,
+                ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                    crate::codec::wrapper_enum::merge(#inner_tag, wire_type, value, buf, ctx)
+                }
+
+                fn encoded_len_field(tag: u32, value: &Self) -> usize {
+                    crate::codec::wrapper_enum::encoded_len(tag, #inner_tag, value)
+                }
+
+                fn is_default(value: &Self) -> bool {
+                    crate::codec::wrapper_enum::is_default(value)
+                }
+            }
+        },
+    };
+
+    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
+                            rebuild the crate";
+    quote_spanned! {ident.span()=>
+        const _: () = assert!(
+            crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
+            #tripwire_message
+        );
+
+        #[doc = #payload_doc]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        pub struct #payload(i32);
+
+        impl #payload {
+            /// The raw protobuf value.
+            pub const fn value(self) -> i32 {
+                self.0
+            }
+        }
+
+        impl ::core::convert::From<i32> for #ident {
+            /// Normalizing: known values always map to their named variants.
+            fn from(value: i32) -> Self {
+                match value {
+                    #(#from_named_arms,)*
+                    other => Self::#other(#payload(other)),
+                }
+            }
+        }
+
+        impl ::core::convert::From<#ident> for i32 {
+            fn from(value: #ident) -> Self {
+                match value {
+                    #(#into_named_arms,)*
+                    #ident::#other(raw) => raw.0,
+                }
+            }
+        }
+
+        #unspecified_const
+
+        impl ::core::default::Default for #ident {
+            fn default() -> Self {
+                #default_expr
+            }
+        }
+
+        #proto_field
     }
 }
