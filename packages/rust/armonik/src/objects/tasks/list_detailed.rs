@@ -1,11 +1,13 @@
-use crate::api::v3;
-
 use super::{filter, Raw, Sort};
 
 /// Request to list tasks.
 ///
 /// Use pagination, filtering and sorting.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Shares its wire form with [`super::list::Request`], which the client
+/// and server stubs use for both RPCs; this type only exists so that the
+/// two calls stay distinguishable.
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     /// The page number. Start at 0.
@@ -34,22 +36,37 @@ impl Default for Request {
     }
 }
 
-super::super::impl_convert!(
-    struct Request = v3::tasks::ListTasksRequest {
-        page,
-        page_size,
-        filters = option filters,
-        sort = option sort,
-        with_errors,
+impl From<Request> for super::list::Request {
+    fn from(value: Request) -> Self {
+        Self {
+            page: value.page,
+            page_size: value.page_size,
+            filters: value.filters,
+            sort: value.sort,
+            with_errors: value.with_errors,
+        }
     }
-);
+}
+
+impl From<super::list::Request> for Request {
+    fn from(value: super::list::Request) -> Self {
+        Self {
+            page: value.page,
+            page_size: value.page_size,
+            filters: value.filters,
+            sort: value.sort,
+            with_errors: value.with_errors,
+        }
+    }
+}
 
 /// Response to list tasks.
 ///
 /// Use pagination, filtering and sorting from the request.
 /// Return a list of detailed tasks.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksDetailedResponse")]
 pub struct Response {
     /// The list of detailed tasks.
     pub tasks: Vec<Raw>,
@@ -71,12 +88,3 @@ impl Default for Response {
         }
     }
 }
-
-super::super::impl_convert!(
-    struct Response = v3::tasks::ListTasksDetailedResponse {
-        list tasks,
-        page,
-        page_size,
-        total,
-    }
-);

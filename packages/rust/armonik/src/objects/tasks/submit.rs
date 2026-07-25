@@ -1,10 +1,9 @@
 use super::super::TaskOptions;
 
-use crate::api::v3;
-
 /// Task creation requests.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.SubmitTasksRequest.TaskCreation")]
 pub struct RequestItem {
     /// Unique ID of the results that will be produced by the task. Results should be created using ResultsService.
     pub expected_output_keys: Vec<String>,
@@ -16,38 +15,24 @@ pub struct RequestItem {
     pub task_options: Option<TaskOptions>,
 }
 
-super::super::impl_convert!(
-    struct RequestItem = v3::tasks::submit_tasks_request::TaskCreation {
-        expected_output_keys,
-        data_dependencies,
-        payload_id,
-        option task_options,
-    }
-);
-
 /// Request to create tasks.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.SubmitTasksRequest")]
 pub struct Request {
     /// The session ID.
     pub session_id: String,
     /// The options for the tasks. Each task will have the same. Options are merged with the one from the session.
     pub task_options: Option<TaskOptions>,
     /// Task creation requests.
+    #[armonik(rename = "task_creations")]
     pub items: Vec<RequestItem>,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::tasks::SubmitTasksRequest {
-        session_id,
-        option task_options,
-        list items = list task_creations,
-    }
-);
-
 /// task infos if submission successful, else throw gRPC exception.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.SubmitTasksResponse.TaskInfo")]
 pub struct ResponseItem {
     /// The task ID.
     pub task_id: String,
@@ -60,23 +45,11 @@ pub struct ResponseItem {
     pub payload_id: String,
 }
 
-super::super::impl_convert!(
-    struct ResponseItem = v3::tasks::submit_tasks_response::TaskInfo {
-        task_id,
-        expected_output_ids,
-        data_dependencies,
-        payload_id,
-    }
-);
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.SubmitTasksResponse")]
 pub struct Response {
+    /// List of task infos if submission successful, else throw gRPC exception.
+    #[armonik(rename = "task_infos")]
     pub items: Vec<ResponseItem>,
 }
-
-super::super::impl_convert!(
-    struct Response = v3::tasks::SubmitTasksResponse {
-        list items = list task_infos,
-    }
-);

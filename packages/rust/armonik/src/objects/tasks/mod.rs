@@ -14,16 +14,9 @@ mod output;
 mod raw;
 mod summary;
 
-pub use field::{Field, SummaryField};
+pub use field::{Field, OtherSummaryField, SummaryField};
 pub use output::Output;
 pub use raw::{Raw, Raw as Task};
 pub use summary::Summary;
 
 pub type Sort = super::Sort<Field>;
-
-super::super::impl_convert!(
-    struct Sort = crate::api::v3::tasks::list_tasks_request::Sort {
-        field = option field,
-        direction = enum direction,
-    }
-);
