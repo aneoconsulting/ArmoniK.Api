@@ -101,6 +101,69 @@ where
     }
 }
 
+/// `Wrapper { string inner = TAG }` exposed as a `String`.
+pub(crate) struct StringWrapper<const TAG: u32 = 1>;
+
+impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
+    fn encode_field(tag: u32, value: &String, buf: &mut impl BufMut) {
+        let body = if <String as ProtoField>::is_default(value) {
+            0
+        } else {
+            String::encoded_len_field(TAG, value)
+        };
+        encoding::encode_key(tag, WireType::LengthDelimited, buf);
+        encoding::encode_varint(body as u64, buf);
+        if body != 0 {
+            String::encode_field(TAG, value, buf);
+        }
+    }
+
+    fn merge_field(
+        wire_type: WireType,
+        value: &mut String,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
+        let len = encoding::decode_varint(buf)? as usize;
+        if buf.remaining() < len {
+            // prost offers no other public constructor; pinned to prost 0.14.
+            #[allow(deprecated)]
+            return Err(DecodeError::new("buffer underflow"));
+        }
+        let mut wrapper = buf.take(len);
+        while wrapper.has_remaining() {
+            let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
+            if tag == TAG {
+                String::merge_field(wire_type, value, &mut wrapper, ctx.clone())?;
+            } else {
+                encoding::skip_field(wire_type, tag, &mut wrapper, ctx.clone())?;
+            }
+        }
+        Ok(())
+    }
+
+    fn encoded_len_field(tag: u32, value: &String) -> usize {
+        let body = if <String as ProtoField>::is_default(value) {
+            0
+        } else {
+            String::encoded_len_field(TAG, value)
+        };
+        key_len(tag) + encoding::encoded_len_varint(body as u64) + body
+    }
+
+    /// The wrapper itself carries oneof presence in its uses; an empty one
+    /// still encodes (as an empty message).
+    fn is_default(value: &String) -> bool {
+        let _ = value;
+        false
+    }
+
+    fn clear_field(value: &mut String) {
+        value.clear();
+    }
+}
+
 /// `Wrapper { repeated T inner = TAG }` exposed as a `Vec<T>`.
 pub(crate) struct VecWrapper<const TAG: u32 = 1>;
 

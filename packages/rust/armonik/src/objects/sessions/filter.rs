@@ -3,36 +3,39 @@ use super::super::{
     SessionStatus,
 };
 
-use crate::{api::v3, impl_filter};
+use crate::impl_filter;
 
 impl_filter!(
     Filter[super::Field, Condition]:
-    v3::sessions::Filters[
-        v3::sessions::FiltersAnd[
-            v3::sessions::FilterField,
-            v3::sessions::filter_field::ValueCondition
-        ]
+    protos[
+        "armonik.api.grpc.v1.sessions.Filters",
+        "armonik.api.grpc.v1.sessions.FiltersAnd",
+        "armonik.api.grpc.v1.sessions.FilterField"
     ]
 );
 
 pub type Status = super::super::FilterStatus<SessionStatus>;
 
-super::super::impl_convert!(
-    struct Status = v3::sessions::FilterStatus {
-        value = enum value,
-        operator = enum operator,
-    }
-);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(
+    message = "armonik.api.grpc.v1.sessions.FilterField",
+    oneof = "value_condition"
+)]
 pub enum Condition {
+    #[armonik(rename = "filter_string")]
     String(FilterString),
+    #[armonik(rename = "filter_number")]
     Number(FilterNumber),
+    #[armonik(rename = "filter_boolean")]
     Boolean(FilterBoolean),
+    #[armonik(rename = "filter_status")]
     Status(Status),
+    #[armonik(rename = "filter_date")]
     Date(FilterDate),
+    #[armonik(rename = "filter_duration")]
     Duration(FilterDuration),
+    #[armonik(rename = "filter_array")]
     Array(FilterArray),
 }
 
@@ -41,37 +44,3 @@ impl Default for Condition {
         Self::String(Default::default())
     }
 }
-
-impl From<Condition> for v3::sessions::filter_field::ValueCondition {
-    fn from(value: Condition) -> Self {
-        match value {
-            Condition::String(cond) => Self::FilterString(cond),
-            Condition::Number(cond) => Self::FilterNumber(cond),
-            Condition::Boolean(cond) => Self::FilterBoolean(cond),
-            Condition::Status(cond) => Self::FilterStatus(cond.into()),
-            Condition::Date(cond) => Self::FilterDate(cond),
-            Condition::Duration(cond) => Self::FilterDuration(cond),
-            Condition::Array(cond) => Self::FilterArray(cond),
-        }
-    }
-}
-
-impl From<v3::sessions::filter_field::ValueCondition> for Condition {
-    fn from(value: v3::sessions::filter_field::ValueCondition) -> Self {
-        match value {
-            v3::sessions::filter_field::ValueCondition::FilterString(cond) => Self::String(cond),
-            v3::sessions::filter_field::ValueCondition::FilterNumber(cond) => Self::Number(cond),
-            v3::sessions::filter_field::ValueCondition::FilterBoolean(cond) => Self::Boolean(cond),
-            v3::sessions::filter_field::ValueCondition::FilterStatus(cond) => {
-                Self::Status(cond.into())
-            }
-            v3::sessions::filter_field::ValueCondition::FilterDate(cond) => Self::Date(cond),
-            v3::sessions::filter_field::ValueCondition::FilterArray(cond) => Self::Array(cond),
-            v3::sessions::filter_field::ValueCondition::FilterDuration(cond) => {
-                Self::Duration(cond)
-            }
-        }
-    }
-}
-
-super::super::impl_convert!(req Condition : v3::sessions::filter_field::ValueCondition);
