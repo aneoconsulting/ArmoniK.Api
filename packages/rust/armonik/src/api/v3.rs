@@ -1,4 +1,9 @@
 #![allow(non_snake_case)]
+// A few generated messages remain unreferenced: leftovers whose parents are
+// implemented directly by armonik types (field/status wrappers), and
+// messages of RPCs the crate does not expose (watch results).
+#![allow(dead_code)]
+#![allow(clippy::enum_variant_names)]
 
 tonic::include_proto!("armonik.api.grpc.v1");
 
