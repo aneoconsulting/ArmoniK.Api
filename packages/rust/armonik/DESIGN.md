@@ -216,6 +216,24 @@ and are covered by the differential harness instead.
 
 ### 3.6 Presence semantics
 
+> **Implementation addendum (settled during Stage A).** Decoding seeds from
+> `ProtoField::wire_default()`, not `Default::default()`: proto zero values
+> everywhere, except singular message fields, which keep the containing
+> type's `Default` (reproducing the historical `unwrap_or` conversions —
+> e.g. absent `TaskOptions.max_duration` ⇒ `INFINITE_DURATION`, while absent
+> `max_retries`/`priority` ⇒ 0, not the API default 1). Enum fields seed and
+> clear from `from(0)` even when the API `Default` differs (`SortDirection`
+> defaults to `Asc`). The derived merge carries a reset-if-seed guard so a
+> *present* nested message merges from the proto zero value and partial
+> messages never inherit seed pieces. The remaining projections (asserted by
+> the harness normalizer in `tests/differential/registry.rs`): absent-or-empty
+> `max_duration` ⇒ `INFINITE_DURATION`; marker oneof members forget their
+> payload (explicit `false` re-encodes as `true`); oneofs whose Rust default
+> is a member variant re-encode an absent oneof with that member present;
+> `agent.CreateTaskRequest` drops the token when no member is set; pair-map
+> fields lose entry order and collapse duplicate keys. All of these match the
+> historical conversion layer.
+
 - Non-`Option` message field ("absent = default"): decode merges in place,
   absence leaves the default; encode **skips the field when the nested
   `encoded_len() == 0`**. The length is computed anyway for the varint
