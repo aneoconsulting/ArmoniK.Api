@@ -19,6 +19,7 @@ pub(crate) struct MessagePlan {
     /// Fields sorted by tag (canonical encode order).
     pub(crate) fields: Vec<FieldPlan>,
     pub(crate) style: StructStyle,
+    pub(crate) generics: syn::Generics,
     pub(crate) fingerprint: u128,
 }
 
@@ -94,13 +95,15 @@ pub(crate) fn message_plan(
     };
 
     let mut proto_names: Vec<(Span, String)> = Vec::new();
+    let mut generic = false;
     for entry in &entries {
         match &entry.item {
             AttrItem::Message(lit) => proto_names.push((entry.span, lit.value())),
-            AttrItem::Generic | AttrItem::Oneof(_) | AttrItem::Transparent => {
+            AttrItem::Generic => generic = true,
+            AttrItem::Oneof(_) | AttrItem::Transparent => {
                 errors.push(syn::Error::new(
                     entry.span,
-                    "this armonik attribute mode is not implemented yet",
+                    "this armonik attribute mode is not valid here",
                 ));
             }
             _ => errors.push(syn::Error::new(
@@ -109,10 +112,29 @@ pub(crate) fn message_plan(
             )),
         }
     }
+    if generic {
+        if !proto_names.is_empty() {
+            errors.push(syn::Error::new(
+                input.ident.span(),
+                "#[armonik(generic)] types are not validated against the descriptor; \
+                 remove the message attribute",
+            ));
+            return Err(errors);
+        }
+        return generic_plan(input, index, errors);
+    }
     if proto_names.is_empty() {
         errors.push(syn::Error::new(
             input.ident.span(),
-            "missing #[armonik(message = \"full.proto.Name\")]",
+            "missing #[armonik(message = \"full.proto.Name\")] \
+             (or #[armonik(generic)] with explicit tags)",
+        ));
+        return Err(errors);
+    }
+    if !input.generics.params.is_empty() {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "descriptor-validated types cannot be generic; use #[armonik(generic)]",
         ));
         return Err(errors);
     }
@@ -392,6 +414,111 @@ pub(crate) fn message_plan(
             syn::Fields::Unnamed(_) => StructStyle::Tuple,
             syn::Fields::Unit => StructStyle::Unit,
         },
+        generics: input.generics.clone(),
+        fingerprint: index.fingerprint,
+    })
+}
+
+/// Plan for a generic type: no descriptor validation, explicit tags; the
+/// concrete instantiations are covered by the differential harness.
+fn generic_plan(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+    mut errors: Errors,
+) -> Result<MessagePlan, Errors> {
+    let syn::Data::Struct(data) = &input.data else {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "#[armonik(generic)] expects a struct",
+        ));
+        return Err(errors);
+    };
+
+    let mut fields = Vec::new();
+    for (field_index, field) in data.fields.iter().enumerate() {
+        let span = field
+            .ident
+            .as_ref()
+            .map(|ident| ident.span())
+            .unwrap_or_else(|| field.ty.span());
+        let access = match &field.ident {
+            Some(ident) => FieldAccess::Named(ident.clone()),
+            None => FieldAccess::Indexed(syn::Index::from(field_index)),
+        };
+
+        let field_entries = match attrs::parse(&field.attrs) {
+            Ok(entries) => entries,
+            Err(err) => {
+                errors.push(err);
+                continue;
+            }
+        };
+        let mut tag = None;
+        let mut with = None;
+        for entry in &field_entries {
+            match &entry.item {
+                AttrItem::Tag(lit) => match lit.base10_parse::<u32>() {
+                    Ok(value) => tag = Some(value),
+                    Err(err) => errors.push(syn::Error::new(entry.span, err)),
+                },
+                AttrItem::With(lit) => match syn::parse_str::<syn::Type>(&lit.value()) {
+                    Ok(ty) => with = Some(ty),
+                    Err(err) => errors.push(syn::Error::new(
+                        entry.span,
+                        format!("invalid adapter type in with = ...: {err}"),
+                    )),
+                },
+                _ => errors.push(syn::Error::new(
+                    entry.span,
+                    "generic-mode fields only take tag = ... and with = ...",
+                )),
+            }
+        }
+        let Some(tag) = tag else {
+            errors.push(syn::Error::new(
+                span,
+                "generic-mode fields need an explicit #[armonik(tag = ...)]",
+            ));
+            continue;
+        };
+
+        let codec = match with {
+            Some(adapter) => FieldCodec::Adapter(Box::new(adapter)),
+            None => FieldCodec::Plain,
+        };
+        let proto_path = format!(
+            "{}.{}",
+            input.ident,
+            field
+                .ident
+                .as_ref()
+                .map(|ident| ident.to_string())
+                .unwrap_or_else(|| field_index.to_string())
+        );
+        fields.push(FieldPlan {
+            access,
+            ty: field.ty.clone(),
+            span,
+            tag,
+            codec,
+            checks: FieldChecks::none(),
+            proto_path,
+        });
+    }
+
+    errors.into_result()?;
+
+    fields.sort_by_key(|field| field.tag);
+    Ok(MessagePlan {
+        ident: input.ident.clone(),
+        proto_names: Vec::new(),
+        fields,
+        style: match &data.fields {
+            syn::Fields::Named(_) => StructStyle::Named,
+            syn::Fields::Unnamed(_) => StructStyle::Tuple,
+            syn::Fields::Unit => StructStyle::Unit,
+        },
+        generics: input.generics.clone(),
         fingerprint: index.fingerprint,
     })
 }
@@ -472,6 +599,9 @@ pub(crate) struct EnumPlan {
     /// Named variant covering 0, when there is one; otherwise the derive
     /// emits an `UNSPECIFIED` const based on the catch-all.
     pub(crate) zero_variant: Option<syn::Ident>,
+    /// Whether a variant carries the standard `#[default]` attribute, in
+    /// which case the user derives `Default` and the macro must not.
+    pub(crate) has_std_default: bool,
     pub(crate) mode: EnumMode,
     pub(crate) fingerprint: u128,
 }
@@ -603,7 +733,12 @@ pub(crate) fn enum_plan(
     // catch-all tuple variant whose payload struct the derive emits.
     let mut named: Vec<(syn::Ident, String)> = Vec::new();
     let mut other: Option<(syn::Ident, syn::Ident)> = None;
+    let mut has_std_default = false;
     for variant in &data.variants {
+        has_std_default |= variant
+            .attrs
+            .iter()
+            .any(|attr| attr.path().is_ident("default"));
         let variant_entries = match attrs::parse(&variant.attrs) {
             Ok(entries) => entries,
             Err(err) => {
@@ -737,6 +872,7 @@ pub(crate) fn enum_plan(
         payload,
         named: resolved,
         zero_variant,
+        has_std_default,
         mode,
         fingerprint: index.fingerprint,
     })

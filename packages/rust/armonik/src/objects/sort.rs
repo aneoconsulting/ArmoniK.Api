@@ -1,67 +1,56 @@
 use crate::api::v3;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, armonik_macros::Enum,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(enum = "armonik.api.grpc.v1.sort_direction.SortDirection")]
 pub enum SortDirection {
     /// Unspecified. Do not use.
-    Unspecified = 0,
+    Unspecified,
     /// Ascending.
     #[default]
-    Asc = 1,
+    Asc,
     /// Descending
-    Desc = 2,
-}
-
-impl From<i32> for SortDirection {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::Asc,
-            2 => Self::Desc,
-            _ => Self::Unspecified,
-        }
-    }
-}
-
-impl From<SortDirection> for i32 {
-    fn from(value: SortDirection) -> Self {
-        value as i32
-    }
+    Desc,
+    /// Unknown to this crate version.
+    Other(OtherSortDirection),
 }
 
 impl From<SortDirection> for v3::sort_direction::SortDirection {
     fn from(value: SortDirection) -> Self {
-        match value {
-            SortDirection::Unspecified => Self::Unspecified,
-            SortDirection::Asc => Self::Asc,
-            SortDirection::Desc => Self::Desc,
-        }
+        Self::try_from(i32::from(value)).unwrap_or(Self::Unspecified)
     }
 }
 
 impl From<v3::sort_direction::SortDirection> for SortDirection {
     fn from(value: v3::sort_direction::SortDirection) -> Self {
-        match value {
-            v3::sort_direction::SortDirection::Unspecified => Self::Unspecified,
-            v3::sort_direction::SortDirection::Asc => Self::Asc,
-            v3::sort_direction::SortDirection::Desc => Self::Desc,
-        }
+        Self::from(value as i32)
     }
 }
 
 super::impl_convert!(req SortDirection : v3::sort_direction::SortDirection);
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Sort on a single field; stands for the per-service `Sort` messages, whose
+/// concrete instantiations are validated by the differential harness.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(generic)]
 pub struct Sort<T> {
+    #[armonik(tag = 1)]
     pub field: T,
+    #[armonik(tag = 2)]
     pub direction: SortDirection,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Sort on several fields; stands for the per-service `Sort` messages with
+/// repeated fields.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(generic)]
 pub struct SortMany<T> {
+    #[armonik(tag = 1)]
     pub fields: Vec<T>,
+    #[armonik(tag = 2)]
     pub direction: SortDirection,
 }

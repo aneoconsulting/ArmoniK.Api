@@ -1,4 +1,6 @@
-//! Mapping from proto full names to the armonik types implementing them.
+//! Mapping from proto full names to the armonik types implementing them,
+//! and the projection of messages onto the armonik types' documented
+//! equivalence classes.
 //!
 //! Grown in lockstep with the annotation of `src/objects/`: registering a
 //! type here removes it from `TEMP_UNMAPPED` in `main.rs` (the coverage
@@ -11,105 +13,187 @@ pub struct Entry {
     pub proto: &'static str,
     /// Decode the bytes as the armonik type and re-encode them.
     pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, armonik::reexports::prost::DecodeError>,
-    /// Projection onto the type's documented equivalence classes, applied to
-    /// both sides before the semantic comparison. Needed only where an
-    /// armonik type has a custom default that differs from the proto zero
-    /// value (see `normalize_task_options`).
-    pub normalize: Option<fn(&mut DynamicMessage)>,
 }
 
 macro_rules! registry {
-    ($($proto:literal => $ty:ty $(, normalize = $normalize:expr)?),* $(,)?) => {
+    ($($proto:literal => $ty:ty),* $(,)?) => {
         pub fn entries() -> Vec<Entry> {
             vec![$(Entry {
                 proto: $proto,
                 roundtrip: |bytes| Ok(<$ty as Message>::decode(bytes)?.encode_to_vec()),
-                #[allow(unused_mut, unused_assignments)]
-                normalize: {
-                    let mut normalize: Option<fn(&mut DynamicMessage)> = None;
-                    $(normalize = Some($normalize);)?
-                    normalize
-                },
             }),*]
         }
     };
 }
 
 registry! {
+    "armonik.api.grpc.v1.Count" => armonik::Count,
     "armonik.api.grpc.v1.DataChunk" => armonik::DataChunk,
-        normalize = |message| {
-            normalize_bool_marker(message, "data_complete");
-            normalize_default_member(message, "data");
-        },
     "armonik.api.grpc.v1.InitKeyedDataStream" => armonik::InitKeyedDataStream,
-        normalize = |message| {
-            normalize_bool_marker(message, "last_result");
-            normalize_default_member(message, "key");
-        },
     "armonik.api.grpc.v1.InitTaskRequest" => armonik::InitTaskRequest,
-        normalize = |message| {
-            normalize_bool_marker(message, "last_task");
-            normalize_default_member(message, "header");
-        },
     "armonik.api.grpc.v1.Output" => armonik::Output,
-        normalize = |message| normalize_default_member(message, "ok"),
     "armonik.api.grpc.v1.Session" => armonik::Session,
     "armonik.api.grpc.v1.StatusCount" => armonik::StatusCount,
     "armonik.api.grpc.v1.TaskOptions" => armonik::TaskOptions,
-        normalize = normalize_task_options,
     "armonik.api.grpc.v1.TaskRequestHeader" => armonik::TaskRequestHeader,
+    "armonik.api.grpc.v1.agent.CreateTaskRequest" => armonik::agent::create_tasks::Request,
+    "armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest"
+        => armonik::agent::create_tasks::InitRequest,
+    "armonik.api.grpc.v1.agent.CreateTaskReply" => armonik::agent::create_tasks::Response,
+    "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus"
+        => armonik::agent::create_tasks::Status,
 }
 
-/// Marker oneof members: the armonik types only remember *which* member was
-/// set, so a pathological explicit `false` re-encodes as `true` — exactly
-/// like the historical conversions. Project the member onto `true`.
-fn normalize_bool_marker(message: &mut DynamicMessage, member: &str) {
-    let field = message
-        .descriptor()
-        .get_field_by_name(member)
-        .expect("marker member exists");
-    if message.has_field(&field) {
-        message.set_field(&field, Value::Bool(true));
+/// Project a message (recursively) onto the equivalence classes of its
+/// armonik type, so that the semantic comparison reflects the documented
+/// semantics. Applied to both sides of every round-trip.
+pub fn normalize(message: &mut DynamicMessage) {
+    let descriptor = message.descriptor();
+    for field in descriptor.fields() {
+        if !message.has_field(&field) {
+            continue;
+        }
+        let mut value = message.get_field(&field).into_owned();
+        if normalize_value(&mut value) {
+            message.set_field(&field, value);
+        }
+    }
+    apply_rules(message);
+}
+
+fn normalize_value(value: &mut Value) -> bool {
+    match value {
+        Value::Message(inner) => {
+            normalize(inner);
+            true
+        }
+        Value::List(items) => {
+            let mut changed = false;
+            for item in items {
+                changed |= normalize_value(item);
+            }
+            changed
+        }
+        Value::Map(map) => {
+            let mut changed = false;
+            for item in map.values_mut() {
+                changed |= normalize_value(item);
+            }
+            changed
+        }
+        _ => false,
     }
 }
 
-/// Flattened oneofs whose Rust `Default` is a member variant (`DataChunk` =
-/// empty `Data`, `InitTaskRequest` = empty `Header`, ...): an absent oneof
-/// decodes to that variant and re-encodes with the member present, exactly
-/// like the historical `None => Default::default()` conversions. Project the
-/// absent case onto the default member.
-fn normalize_default_member(message: &mut DynamicMessage, member: &str) {
+fn apply_rules(message: &mut DynamicMessage) {
+    match message.descriptor().full_name() {
+        // Absent or empty max_duration folds to the INFINITE_DURATION
+        // default of `TaskOptions`.
+        "armonik.api.grpc.v1.TaskOptions" => normalize_task_options(message),
+        // Marker members only remember which member was set; oneofs whose
+        // Rust `Default` is a member variant re-encode an absent oneof with
+        // that member present — like the historical None => Default.
+        "armonik.api.grpc.v1.DataChunk" => {
+            normalize_bool_marker(message, "data_complete");
+            normalize_default_member(message, "data");
+        }
+        "armonik.api.grpc.v1.InitKeyedDataStream" => {
+            normalize_bool_marker(message, "last_result");
+            normalize_default_member(message, "key");
+        }
+        "armonik.api.grpc.v1.InitTaskRequest" => {
+            normalize_bool_marker(message, "last_task");
+            normalize_default_member(message, "header");
+        }
+        "armonik.api.grpc.v1.Output" => normalize_default_member(message, "ok"),
+        // Repeated pairs exposed as a map: order is lost and duplicate
+        // statuses collapse (last wins).
+        "armonik.api.grpc.v1.Count" => normalize_count(message),
+        // The historical conversion drops the token when no member is set
+        // (`Request::Invalid` has no slot for it).
+        "armonik.api.grpc.v1.agent.CreateTaskRequest" => {
+            if !any_member_set(message) {
+                let token = field(message, "communication_token");
+                message.clear_field(&token);
+            }
+        }
+        // `Response`'s default is an empty `Error` carrying the token.
+        "armonik.api.grpc.v1.agent.CreateTaskReply" => {
+            normalize_default_member(message, "error");
+        }
+        "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus" => {
+            normalize_default_member(message, "error");
+        }
+        _ => {}
+    }
+}
+
+fn field(message: &DynamicMessage, name: &str) -> prost_reflect::FieldDescriptor {
+    message
+        .descriptor()
+        .get_field_by_name(name)
+        .unwrap_or_else(|| panic!("field `{name}` exists"))
+}
+
+fn any_member_set(message: &DynamicMessage) -> bool {
     let descriptor = message.descriptor();
     let oneof = descriptor.oneofs().next().expect("flattened oneof exists");
-    let member_set = oneof.fields().any(|field| message.has_field(&field));
-    if !member_set {
-        let field = descriptor
-            .get_field_by_name(member)
-            .expect("default member exists");
-        message.set_field(&field, Value::default_value_for_field(&field));
+    let member_set = oneof.fields().any(|member| message.has_field(&member));
+    member_set
+}
+
+fn normalize_bool_marker(message: &mut DynamicMessage, member: &str) {
+    let member = field(message, member);
+    if message.has_field(&member) {
+        message.set_field(&member, Value::Bool(true));
     }
 }
 
-/// `TaskOptions::default()` uses `INFINITE_DURATION` for `max_duration`, and
-/// the wire mapping folds "absent" and "present but empty" (both encode zero
-/// bytes) into that default. Project both representations onto the explicit
-/// infinite duration so the comparison reflects the documented semantics.
+fn normalize_default_member(message: &mut DynamicMessage, member: &str) {
+    if !any_member_set(message) {
+        let member = field(message, member);
+        message.set_field(&member, Value::default_value_for_field(&member));
+    }
+}
+
 fn normalize_task_options(message: &mut DynamicMessage) {
-    let field = message
-        .descriptor()
-        .get_field_by_name("max_duration")
-        .expect("TaskOptions.max_duration exists");
-    let is_empty = match message.get_field(&field).as_ref() {
+    let max_duration = field(message, "max_duration");
+    let is_empty = match message.get_field(&max_duration).as_ref() {
         Value::Message(duration) => duration.encode_to_vec().is_empty(),
         _ => true,
     };
     if is_empty {
-        let duration_desc = match field.kind() {
+        let duration_desc = match max_duration.kind() {
             prost_reflect::Kind::Message(desc) => desc,
             other => panic!("max_duration should be a message, got {other:?}"),
         };
         let mut infinite = DynamicMessage::new(duration_desc);
         infinite.set_field_by_name("seconds", Value::I64(315576000000));
-        message.set_field(&field, Value::Message(infinite));
+        message.set_field(&max_duration, Value::Message(infinite));
     }
+}
+
+/// Fold the repeated `StatusCount` pairs by status (last wins) and order
+/// them, mirroring the `HashMap` representation.
+fn normalize_count(message: &mut DynamicMessage) {
+    let values = field(message, "values");
+    if !message.has_field(&values) {
+        return;
+    }
+    let Value::List(entries) = message.get_field(&values).into_owned() else {
+        return;
+    };
+    let mut by_status = std::collections::BTreeMap::new();
+    for entry in entries {
+        let Value::Message(status_count) = &entry else {
+            continue;
+        };
+        let status = field(status_count, "status");
+        let key = match status_count.get_field(&status).as_ref() {
+            Value::EnumNumber(number) => *number,
+            _ => 0,
+        };
+        by_status.insert(key, entry);
+    }
+    message.set_field(&values, Value::List(by_status.into_values().collect()));
 }
