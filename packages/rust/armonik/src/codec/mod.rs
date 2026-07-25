@@ -34,6 +34,9 @@ pub(crate) mod wrapper_enum;
 
 /// Wire-level kind of a protobuf field, checked by derive-emitted
 /// const-asserts against the descriptor.
+// The full scalar vocabulary is mirrored from the descriptor even though the
+// ArmoniK protos do not use every kind (sint*/*fixed* currently unused).
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FieldKind {
     Double,
