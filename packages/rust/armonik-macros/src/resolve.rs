@@ -609,9 +609,10 @@ pub(crate) struct EnumPlan {
 pub(crate) enum EnumMode {
     /// The Rust enum is a proto enum, an `int32` varint on the wire.
     Plain { names: Vec<String> },
-    /// The Rust enum stands for proto message(s) wrapping a single enum
-    /// field at `inner_tag`.
-    Transparent { names: Vec<String>, inner_tag: u32 },
+    /// The Rust enum stands for proto message(s) wrapping an enum field
+    /// through a chain of single-field wrappers; `path` holds the tags from
+    /// the outermost wrapper down to the enum field.
+    Transparent { names: Vec<String>, path: Vec<u32> },
 }
 
 pub(crate) fn enum_plan(
@@ -652,49 +653,71 @@ pub(crate) fn enum_plan(
             ));
             return Err(errors);
         }
-        let mut inner_tag: Option<u32> = None;
+        let mut wrapper_path: Option<Vec<u32>> = None;
         for (span, name) in &message_names {
-            let Some(meta) = index.messages.get(name) else {
-                errors.push(syn::Error::new(
-                    *span,
-                    format!("proto message `{name}` not found in the compiled descriptor set"),
-                ));
+            // Follow the chain of single-field wrappers down to the enum.
+            let mut current = name.clone();
+            let mut path = Vec::new();
+            let enum_name = loop {
+                let Some(meta) = index.messages.get(&current) else {
+                    errors.push(syn::Error::new(
+                        *span,
+                        format!(
+                            "proto message `{current}` not found in the compiled descriptor set"
+                        ),
+                    ));
+                    break None;
+                };
+                let [field] = meta.fields.as_slice() else {
+                    errors.push(syn::Error::new(
+                        *span,
+                        format!("`{current}` is not a single-field wrapper message"),
+                    ));
+                    break None;
+                };
+                path.push(field.tag);
+                match &field.kind {
+                    FieldKind::Enum(inner) => break Some(inner.clone()),
+                    FieldKind::Message(inner) => current = inner.clone(),
+                    other => {
+                        errors.push(syn::Error::new(
+                            *span,
+                            format!(
+                                "the single field of `{current}` is neither an enum nor a \
+                                 wrapper message ({other:?})"
+                            ),
+                        ));
+                        break None;
+                    }
+                }
+            };
+            let Some(enum_name) = enum_name else {
                 continue;
             };
-            let [field] = meta.fields.as_slice() else {
-                errors.push(syn::Error::new(
-                    *span,
-                    format!("`{name}` is not a single-field wrapper message"),
-                ));
-                continue;
-            };
-            let FieldKind::Enum(inner) = &field.kind else {
-                errors.push(syn::Error::new(
-                    *span,
-                    format!("the single field of `{name}` is not an enum"),
-                ));
-                continue;
-            };
-            if *inner_tag.get_or_insert(field.tag) != field.tag {
-                errors.push(syn::Error::new(
-                    *span,
-                    "transparent wrapper messages disagree on the inner field tag",
-                ));
+            if let Some(previous) = &wrapper_path {
+                if *previous != path {
+                    errors.push(syn::Error::new(
+                        *span,
+                        "transparent wrapper messages disagree on the wrapper tag path",
+                    ));
+                }
+            } else {
+                wrapper_path = Some(path);
             }
-            match index.enums.get(inner) {
-                Some(enum_meta) => proto_enums.push((inner.clone(), enum_meta)),
+            match index.enums.get(&enum_name) {
+                Some(enum_meta) => proto_enums.push((enum_name.clone(), enum_meta)),
                 None => errors.push(syn::Error::new(
                     *span,
-                    format!("proto enum `{inner}` not found in the compiled descriptor set"),
+                    format!("proto enum `{enum_name}` not found in the compiled descriptor set"),
                 )),
             }
         }
-        let Some(inner_tag) = inner_tag else {
+        let Some(path) = wrapper_path else {
             return Err(errors);
         };
         EnumMode::Transparent {
             names: message_names.iter().map(|(_, name)| name.clone()).collect(),
-            inner_tag,
+            path,
         }
     } else {
         if enum_names.is_empty() {

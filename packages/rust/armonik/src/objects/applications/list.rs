@@ -1,9 +1,8 @@
-use crate::api::v3;
-
 use super::{filter, Raw, Sort};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.applications.ListApplicationsRequest")]
 pub struct Request {
     pub page: i32,
     pub page_size: i32,
@@ -22,10 +21,9 @@ impl Default for Request {
     }
 }
 
-super::super::impl_convert!(struct Request = v3::applications::ListApplicationsRequest { page, page_size, filters = option filters, sort = option sort });
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.applications.ListApplicationsResponse")]
 pub struct Response {
     pub applications: Vec<Raw>,
     pub page: i32,
@@ -43,5 +41,3 @@ impl Default for Response {
         }
     }
 }
-
-super::super::impl_convert!(struct Response = v3::applications::ListApplicationsResponse { list applications, page, page_size, total });

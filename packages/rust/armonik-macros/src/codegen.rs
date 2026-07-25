@@ -224,8 +224,9 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                     merge_arms.push(quote! {
                         #tag => {
                             let seed = <Self as ::core::default::Default>::default().#access;
-                            if seed != ::core::default::Default::default() && self.#access == seed {
-                                self.#access = ::core::default::Default::default();
+                            let wire_zero = <#ty as crate::codec::ProtoField>::wire_default();
+                            if seed != wire_zero && self.#access == seed {
+                                self.#access = wire_zero;
                             }
                             <#ty as crate::codec::ProtoField>::merge_field(
                                 wire_type, &mut self.#access, buf, ctx,
@@ -521,13 +522,13 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                 }
             }
         },
-        EnumMode::Transparent { names, inner_tag } => quote! {
+        EnumMode::Transparent { names, path } => quote! {
             impl crate::codec::ProtoField for #ident {
                 const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
                 const NAMES: &'static [&'static str] = &[#(#names),*];
 
                 fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                    crate::codec::wrapper_enum::encode(tag, #inner_tag, value, buf);
+                    crate::codec::wrapper_enum::encode(tag, &[#(#path),*], value, buf);
                 }
 
                 fn merge_field(
@@ -536,11 +537,11 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                     buf: &mut impl ::prost::bytes::Buf,
                     ctx: ::prost::encoding::DecodeContext,
                 ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    crate::codec::wrapper_enum::merge(#inner_tag, wire_type, value, buf, ctx)
+                    crate::codec::wrapper_enum::merge(&[#(#path),*], wire_type, value, buf, ctx)
                 }
 
                 fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                    crate::codec::wrapper_enum::encoded_len(tag, #inner_tag, value)
+                    crate::codec::wrapper_enum::encoded_len(tag, &[#(#path),*], value)
                 }
 
                 fn is_default(value: &Self) -> bool {
