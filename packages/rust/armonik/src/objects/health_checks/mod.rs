@@ -6,4 +6,4 @@ mod status;
 pub mod check;
 
 pub use service_health::ServiceHealth;
-pub use status::Status;
+pub use status::{OtherStatus, Status};

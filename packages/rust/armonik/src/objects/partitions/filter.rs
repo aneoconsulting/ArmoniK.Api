@@ -30,10 +30,10 @@ impl Default for Condition {
 impl From<Condition> for v3::partitions::filter_field::ValueCondition {
     fn from(value: Condition) -> Self {
         match value {
-            Condition::String(cond) => Self::FilterString(cond.into()),
-            Condition::Number(cond) => Self::FilterNumber(cond.into()),
-            Condition::Boolean(cond) => Self::FilterBoolean(cond.into()),
-            Condition::Array(cond) => Self::FilterArray(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond),
+            Condition::Number(cond) => Self::FilterNumber(cond),
+            Condition::Boolean(cond) => Self::FilterBoolean(cond),
+            Condition::Array(cond) => Self::FilterArray(cond),
         }
     }
 }
@@ -41,18 +41,12 @@ impl From<Condition> for v3::partitions::filter_field::ValueCondition {
 impl From<v3::partitions::filter_field::ValueCondition> for Condition {
     fn from(value: v3::partitions::filter_field::ValueCondition) -> Self {
         match value {
-            v3::partitions::filter_field::ValueCondition::FilterString(cond) => {
-                Self::String(cond.into())
-            }
-            v3::partitions::filter_field::ValueCondition::FilterNumber(cond) => {
-                Self::Number(cond.into())
-            }
+            v3::partitions::filter_field::ValueCondition::FilterString(cond) => Self::String(cond),
+            v3::partitions::filter_field::ValueCondition::FilterNumber(cond) => Self::Number(cond),
             v3::partitions::filter_field::ValueCondition::FilterBoolean(cond) => {
-                Self::Boolean(cond.into())
+                Self::Boolean(cond)
             }
-            v3::partitions::filter_field::ValueCondition::FilterArray(cond) => {
-                Self::Array(cond.into())
-            }
+            v3::partitions::filter_field::ValueCondition::FilterArray(cond) => Self::Array(cond),
         }
     }
 }

@@ -58,169 +58,6 @@ impl Default for TaskOptions {
     }
 }
 
-impl From<TaskOptions> for v3::TaskOptions {
-    fn from(value: TaskOptions) -> Self {
-        Self {
-            options: value.options,
-            max_duration: Some(value.max_duration),
-            max_retries: value.max_retries,
-            priority: value.priority,
-            partition_id: value.partition_id,
-            application_name: value.application_name,
-            application_version: value.application_version,
-            application_namespace: value.application_namespace,
-            application_service: value.application_service,
-            engine_type: value.engine_type,
-        }
-    }
-}
-
-impl From<v3::TaskOptions> for TaskOptions {
-    fn from(value: v3::TaskOptions) -> Self {
-        Self {
-            options: value.options,
-            max_duration: value.max_duration.unwrap_or(INFINITE_DURATION),
-            max_retries: value.max_retries,
-            priority: value.priority,
-            partition_id: value.partition_id,
-            application_name: value.application_name,
-            application_version: value.application_version,
-            application_namespace: value.application_namespace,
-            application_service: value.application_service,
-            engine_type: value.engine_type,
-        }
-    }
-}
-
-super::impl_convert!(req TaskOptions : v3::TaskOptions);
-
-#[cfg(test)]
-mod tests {
-    use prost::Message;
-
-    use super::{TaskOptions, INFINITE_DURATION};
-    use crate::api::v3;
-
-    /// The derived implementation must round-trip against the generated type.
-    #[test]
-    fn derived_message_roundtrips() {
-        let ours = TaskOptions {
-            options: [("k".to_owned(), "v".to_owned())].into_iter().collect(),
-            max_duration: prost_types::Duration {
-                seconds: 60,
-                nanos: 7,
-            },
-            max_retries: 4,
-            priority: 2,
-            partition_id: "part".into(),
-            application_name: "app".into(),
-            application_version: "1.0".into(),
-            application_namespace: "ns".into(),
-            application_service: "svc".into(),
-            engine_type: "engine".into(),
-        };
-        let theirs = v3::TaskOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(theirs, v3::TaskOptions::from(ours.clone()));
-
-        let back = TaskOptions::decode(theirs.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(back, ours);
-        assert_eq!(back.options, ours.options);
-    }
-
-    /// `Message::decode` seeds with `Default::default()`, so a message with
-    /// an absent `max_duration` decodes to `INFINITE_DURATION`, exactly like
-    /// the historical `unwrap_or(INFINITE_DURATION)` conversion. And since
-    /// `INFINITE_DURATION` does not encode to zero bytes, it is emitted on
-    /// encode, matching the historical `Some(max_duration)`.
-    #[test]
-    fn custom_default_survives_via_merge_seeding() {
-        let absent = v3::TaskOptions {
-            max_duration: None,
-            max_retries: 3,
-            ..Default::default()
-        };
-        let ours = TaskOptions::decode(absent.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(ours.max_duration.seconds, INFINITE_DURATION.seconds);
-        assert_eq!(ours.max_duration.nanos, INFINITE_DURATION.nanos);
-
-        let reencoded = v3::TaskOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(reencoded.max_duration, Some(INFINITE_DURATION));
-    }
-
-    /// A wire occurrence of `max_duration` must merge from the proto zero
-    /// value, not from the `INFINITE_DURATION` seed: a partial duration
-    /// (only nanos set) is a partial duration, exactly like the historical
-    /// `unwrap_or` conversion produced.
-    #[test]
-    fn present_duration_does_not_inherit_the_seed() {
-        let partial = v3::TaskOptions {
-            max_duration: Some(prost_types::Duration {
-                seconds: 0,
-                nanos: 7,
-            }),
-            ..Default::default()
-        };
-        let ours = TaskOptions::decode(partial.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(ours.max_duration.seconds, 0);
-        assert_eq!(ours.max_duration.nanos, 7);
-
-        let explicit_zero = v3::TaskOptions {
-            max_duration: Some(prost_types::Duration::default()),
-            ..Default::default()
-        };
-        let ours = TaskOptions::decode(explicit_zero.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(ours.max_duration, prost_types::Duration::default());
-    }
-
-    /// `TaskOptionField` stands for the single-enum-field wrapper messages;
-    /// its wire form must match the generated wrappers of both services.
-    #[test]
-    fn transparent_wrapper_roundtrips() {
-        use prost::encoding::{decode_key, DecodeContext};
-
-        use super::TaskOptionField;
-        use crate::codec::ProtoField;
-
-        #[derive(Clone, PartialEq, prost::Message)]
-        struct Ref {
-            #[prost(message, optional, tag = "1")]
-            field: Option<v3::sessions::TaskOptionField>,
-        }
-
-        // The old ApplicationEngine variant maps to the proto ENGINE_TYPE.
-        assert_eq!(i32::from(TaskOptionField::ApplicationEngine), 9);
-        assert_eq!(TaskOptionField::from(9), TaskOptionField::ApplicationEngine);
-
-        for value in [
-            TaskOptionField::MaxDuration,
-            TaskOptionField::ApplicationEngine,
-            TaskOptionField::from(0),
-            TaskOptionField::from(77),
-        ] {
-            // Ours -> generated.
-            let mut buf = Vec::new();
-            ProtoField::encode_field(1, &value, &mut buf);
-            let decoded = Ref::decode(buf.as_slice()).unwrap();
-            assert_eq!(decoded.field.unwrap().field, i32::from(value));
-
-            // Generated -> ours.
-            let bytes = Ref {
-                field: Some(v3::sessions::TaskOptionField {
-                    field: i32::from(value),
-                }),
-            }
-            .encode_to_vec();
-            let mut cursor = bytes.as_slice();
-            let (tag, wire_type) = decode_key(&mut cursor).unwrap();
-            assert_eq!(tag, 1);
-            let mut back = TaskOptionField::default();
-            ProtoField::merge_field(wire_type, &mut back, &mut cursor, DecodeContext::default())
-                .unwrap();
-            assert_eq!(back, value);
-        }
-    }
-}
-
 /// Represents a field in a task option.
 ///
 /// Stands for the single-enum-field wrapper messages
@@ -276,3 +113,158 @@ impl From<v3::tasks::TaskOptionField> for TaskOptionField {
 
 super::super::impl_convert!(req TaskOptionField : v3::sessions::TaskOptionField);
 super::super::impl_convert!(req TaskOptionField : v3::tasks::TaskOptionField);
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use prost::Message;
+
+    use super::{TaskOptions, INFINITE_DURATION};
+
+    /// prost-derived reference (the generated type no longer exists).
+    #[derive(Clone, PartialEq, Message)]
+    struct RefOptions {
+        #[prost(map = "string, string", tag = "1")]
+        options: HashMap<String, String>,
+        #[prost(message, optional, tag = "2")]
+        max_duration: Option<prost_types::Duration>,
+        #[prost(int32, tag = "3")]
+        max_retries: i32,
+        #[prost(int32, tag = "4")]
+        priority: i32,
+        #[prost(string, tag = "5")]
+        partition_id: String,
+        #[prost(string, tag = "6")]
+        application_name: String,
+        #[prost(string, tag = "7")]
+        application_version: String,
+        #[prost(string, tag = "8")]
+        application_namespace: String,
+        #[prost(string, tag = "9")]
+        application_service: String,
+        #[prost(string, tag = "10")]
+        engine_type: String,
+    }
+
+    /// The derived implementation must round-trip against the reference.
+    #[test]
+    fn derived_message_roundtrips() {
+        let ours = TaskOptions {
+            options: [("k".to_owned(), "v".to_owned())].into_iter().collect(),
+            max_duration: prost_types::Duration {
+                seconds: 60,
+                nanos: 7,
+            },
+            max_retries: 4,
+            priority: 2,
+            partition_id: "part".into(),
+            application_name: "app".into(),
+            application_version: "1.0".into(),
+            application_namespace: "ns".into(),
+            application_service: "svc".into(),
+            engine_type: "engine".into(),
+        };
+        let theirs = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(theirs.options, ours.options);
+        assert_eq!(theirs.max_duration, Some(ours.max_duration));
+        assert_eq!(theirs.max_retries, ours.max_retries);
+        assert_eq!(theirs.priority, ours.priority);
+        assert_eq!(theirs.partition_id, ours.partition_id);
+
+        let back = TaskOptions::decode(theirs.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(back, ours);
+        assert_eq!(back.options, ours.options);
+    }
+
+    /// Absent max_duration decodes to INFINITE_DURATION (the seed), exactly
+    /// like the historical unwrap_or(INFINITE_DURATION) conversion; and it
+    /// re-encodes explicitly since it is not the proto zero value.
+    #[test]
+    fn custom_default_survives_via_merge_seeding() {
+        let absent = RefOptions {
+            max_duration: None,
+            max_retries: 3,
+            ..Default::default()
+        };
+        let ours = TaskOptions::decode(absent.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(ours.max_duration.seconds, INFINITE_DURATION.seconds);
+        assert_eq!(ours.max_duration.nanos, INFINITE_DURATION.nanos);
+        // Absent scalars decode to the proto zero, not the API default.
+        assert_eq!(ours.priority, 0);
+
+        let reencoded = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(reencoded.max_duration, Some(INFINITE_DURATION));
+    }
+
+    /// A wire occurrence of `max_duration` must merge from the proto zero
+    /// value, not from the `INFINITE_DURATION` seed.
+    #[test]
+    fn present_duration_does_not_inherit_the_seed() {
+        let partial = RefOptions {
+            max_duration: Some(prost_types::Duration {
+                seconds: 0,
+                nanos: 7,
+            }),
+            ..Default::default()
+        };
+        let ours = TaskOptions::decode(partial.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(ours.max_duration.seconds, 0);
+        assert_eq!(ours.max_duration.nanos, 7);
+
+        let explicit_zero = RefOptions {
+            max_duration: Some(prost_types::Duration::default()),
+            ..Default::default()
+        };
+        let ours = TaskOptions::decode(explicit_zero.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(ours.max_duration, prost_types::Duration::default());
+    }
+
+    /// `TaskOptionField` stands for the single-enum-field wrapper messages;
+    /// its wire form must match the generated wrappers of both services.
+    #[test]
+    fn transparent_wrapper_roundtrips() {
+        use prost::encoding::{decode_key, DecodeContext};
+
+        use super::TaskOptionField;
+        use crate::codec::ProtoField;
+
+        #[derive(Clone, PartialEq, prost::Message)]
+        struct Ref {
+            #[prost(message, optional, tag = "1")]
+            field: Option<crate::api::v3::sessions::TaskOptionField>,
+        }
+
+        // The old ApplicationEngine variant maps to the proto ENGINE_TYPE.
+        assert_eq!(i32::from(TaskOptionField::ApplicationEngine), 9);
+        assert_eq!(TaskOptionField::from(9), TaskOptionField::ApplicationEngine);
+
+        for value in [
+            TaskOptionField::MaxDuration,
+            TaskOptionField::ApplicationEngine,
+            TaskOptionField::from(0),
+            TaskOptionField::from(77),
+        ] {
+            // Ours -> generated.
+            let mut buf = Vec::new();
+            ProtoField::encode_field(1, &value, &mut buf);
+            let decoded = Ref::decode(buf.as_slice()).unwrap();
+            assert_eq!(decoded.field.unwrap().field, i32::from(value));
+
+            // Generated -> ours.
+            let bytes = Ref {
+                field: Some(crate::api::v3::sessions::TaskOptionField {
+                    field: i32::from(value),
+                }),
+            }
+            .encode_to_vec();
+            let mut cursor = bytes.as_slice();
+            let (tag, wire_type) = decode_key(&mut cursor).unwrap();
+            assert_eq!(tag, 1);
+            let mut back = TaskOptionField::default();
+            ProtoField::merge_field(wire_type, &mut back, &mut cursor, DecodeContext::default())
+                .unwrap();
+            assert_eq!(back, value);
+        }
+    }
+}

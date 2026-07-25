@@ -7,8 +7,8 @@ pub struct Request {
 }
 
 super::super::impl_convert!(
-    struct Request = v3::Session {
-        session_id = id,
+    struct Request = crate::Session {
+        session_id,
     }
 );
 

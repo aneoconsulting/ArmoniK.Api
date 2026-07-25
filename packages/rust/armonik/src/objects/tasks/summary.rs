@@ -118,7 +118,7 @@ impl From<Summary> for v3::tasks::TaskSummary {
             count_retry_of_ids: value.count_retry_of_ids,
             status: i32::from(value.status),
             status_message: value.status_message,
-            options: Some(value.options.into()),
+            options: Some(value.options),
             created_at: value.created_at,
             submitted_at: value.submitted_at,
             received_at: value.received_at,

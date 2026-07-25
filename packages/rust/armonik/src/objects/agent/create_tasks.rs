@@ -456,15 +456,15 @@ mod tests {
         #[prost(message, tag = "1")]
         InitRequest(RefInitRequest),
         #[prost(message, tag = "2")]
-        InitTask(crate::api::v3::InitTaskRequest),
+        InitTask(crate::InitTaskRequest),
         #[prost(message, tag = "3")]
-        TaskPayload(crate::api::v3::DataChunk),
+        TaskPayload(crate::DataChunk),
     }
 
     #[derive(Clone, PartialEq, Message)]
     struct RefInitRequest {
         #[prost(message, optional, tag = "1")]
-        task_options: Option<crate::api::v3::TaskOptions>,
+        task_options: Option<crate::TaskOptions>,
     }
 
     #[derive(Clone, PartialEq, Message)]
@@ -520,13 +520,7 @@ mod tests {
             RefRequest {
                 communication_token: "token-1".into(),
                 r#type: Some(RefRequestType::InitRequest(RefInitRequest {
-                    task_options: Some(crate::api::v3::TaskOptions {
-                        // Explicit so the round-trip is the identity: an
-                        // absent duration folds to INFINITE_DURATION.
-                        max_duration: Some(prost_types::Duration {
-                            seconds: 60,
-                            nanos: 0,
-                        }),
+                    task_options: Some(crate::TaskOptions {
                         max_retries: 3,
                         partition_id: "part".into(),
                         ..Default::default()
@@ -535,20 +529,18 @@ mod tests {
             },
             RefRequest {
                 communication_token: "token-2".into(),
-                r#type: Some(RefRequestType::InitTask(crate::api::v3::InitTaskRequest {
-                    r#type: Some(crate::api::v3::init_task_request::Type::Header(
-                        crate::api::v3::TaskRequestHeader {
-                            expected_output_keys: vec!["out".into()],
-                            data_dependencies: vec!["dep".into()],
-                        },
-                    )),
-                })),
+                r#type: Some(RefRequestType::InitTask(crate::InitTaskRequest::Header(
+                    crate::TaskRequestHeader {
+                        expected_output_keys: vec!["out".into()],
+                        data_dependencies: vec!["dep".into()],
+                    },
+                ))),
             },
             RefRequest {
                 communication_token: "token-3".into(),
-                r#type: Some(RefRequestType::TaskPayload(crate::api::v3::DataChunk {
-                    r#type: Some(crate::api::v3::data_chunk::Type::Data(b"chunk".to_vec())),
-                })),
+                r#type: Some(RefRequestType::TaskPayload(crate::DataChunk::Data(
+                    bytes::Bytes::from_static(b"chunk"),
+                ))),
             },
         ]
     }
@@ -642,9 +634,9 @@ mod tests {
         let theirs = RefRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
         assert_eq!(
             theirs.r#type,
-            Some(RefRequestType::TaskPayload(crate::api::v3::DataChunk {
-                r#type: Some(crate::api::v3::data_chunk::Type::Data(b"payload".to_vec())),
-            }))
+            Some(RefRequestType::TaskPayload(DataChunk::Data(
+                bytes::Bytes::from_static(b"payload"),
+            )))
         );
     }
 }

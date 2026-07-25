@@ -61,6 +61,74 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
         ".armonik.api.grpc.v1.agent.CreateTaskReply",
         "crate::agent::create_tasks::Response",
     ),
+    (".armonik.api.grpc.v1.Configuration", "crate::Configuration"),
+    (".armonik.api.grpc.v1.Count", "crate::Count"),
+    (".armonik.api.grpc.v1.DataChunk", "crate::DataChunk"),
+    (".armonik.api.grpc.v1.Error", "crate::Error"),
+    (".armonik.api.grpc.v1.FilterArray", "crate::FilterArray"),
+    (".armonik.api.grpc.v1.FilterBoolean", "crate::FilterBoolean"),
+    (".armonik.api.grpc.v1.FilterDate", "crate::FilterDate"),
+    (
+        ".armonik.api.grpc.v1.FilterDuration",
+        "crate::FilterDuration",
+    ),
+    (".armonik.api.grpc.v1.FilterNumber", "crate::FilterNumber"),
+    (".armonik.api.grpc.v1.FilterString", "crate::FilterString"),
+    (
+        ".armonik.api.grpc.v1.InitKeyedDataStream",
+        "crate::InitKeyedDataStream",
+    ),
+    (
+        ".armonik.api.grpc.v1.InitTaskRequest",
+        "crate::InitTaskRequest",
+    ),
+    (".armonik.api.grpc.v1.Output", "crate::Output"),
+    (".armonik.api.grpc.v1.ResultRequest", "crate::ResultRequest"),
+    (".armonik.api.grpc.v1.Session", "crate::Session"),
+    (".armonik.api.grpc.v1.StatusCount", "crate::StatusCount"),
+    (".armonik.api.grpc.v1.TaskError", "crate::TaskError"),
+    (".armonik.api.grpc.v1.TaskId", "crate::TaskId"),
+    (".armonik.api.grpc.v1.TaskIdList", "crate::TaskIdList"),
+    (
+        ".armonik.api.grpc.v1.TaskIdWithStatus",
+        "crate::TaskIdWithStatus",
+    ),
+    (".armonik.api.grpc.v1.TaskList", "crate::TaskList"),
+    (".armonik.api.grpc.v1.TaskOptions", "crate::TaskOptions"),
+    (
+        ".armonik.api.grpc.v1.TaskOutputRequest",
+        "crate::TaskOutputRequest",
+    ),
+    (".armonik.api.grpc.v1.TaskRequest", "crate::TaskRequest"),
+    (
+        ".armonik.api.grpc.v1.TaskRequestHeader",
+        "crate::TaskRequestHeader",
+    ),
+    (
+        ".armonik.api.grpc.v1.versions.ListVersionsRequest",
+        "crate::versions::list::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.versions.ListVersionsResponse",
+        "crate::versions::list::Response",
+    ),
+    (".armonik.api.grpc.v1.auth.User", "crate::auth::User"),
+    (
+        ".armonik.api.grpc.v1.auth.GetCurrentUserRequest",
+        "crate::auth::current_user::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.auth.GetCurrentUserResponse",
+        "crate::auth::current_user::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.health_checks.CheckHealthRequest",
+        "crate::health_checks::check::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.health_checks.CheckHealthResponse",
+        "crate::health_checks::check::Response",
+    ),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {

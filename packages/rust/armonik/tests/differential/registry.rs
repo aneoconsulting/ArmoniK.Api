@@ -64,6 +64,17 @@ registry! {
     "armonik.api.grpc.v1.agent.CreateTaskReply" => armonik::agent::create_tasks::Response,
     "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus"
         => armonik::agent::create_tasks::Status,
+    "armonik.api.grpc.v1.auth.GetCurrentUserRequest" => armonik::auth::current_user::Request,
+    "armonik.api.grpc.v1.auth.GetCurrentUserResponse" => armonik::auth::current_user::Response,
+    "armonik.api.grpc.v1.auth.User" => armonik::auth::User,
+    "armonik.api.grpc.v1.health_checks.CheckHealthRequest"
+        => armonik::health_checks::check::Request,
+    "armonik.api.grpc.v1.health_checks.CheckHealthResponse"
+        => armonik::health_checks::check::Response,
+    "armonik.api.grpc.v1.health_checks.CheckHealthResponse.ServiceHealth"
+        => armonik::health_checks::ServiceHealth,
+    "armonik.api.grpc.v1.versions.ListVersionsRequest" => armonik::versions::list::Request,
+    "armonik.api.grpc.v1.versions.ListVersionsResponse" => armonik::versions::list::Response,
 }
 
 /// Project a message (recursively) onto the equivalence classes of its

@@ -45,13 +45,13 @@ impl Default for Condition {
 impl From<Condition> for v3::sessions::filter_field::ValueCondition {
     fn from(value: Condition) -> Self {
         match value {
-            Condition::String(cond) => Self::FilterString(cond.into()),
-            Condition::Number(cond) => Self::FilterNumber(cond.into()),
-            Condition::Boolean(cond) => Self::FilterBoolean(cond.into()),
+            Condition::String(cond) => Self::FilterString(cond),
+            Condition::Number(cond) => Self::FilterNumber(cond),
+            Condition::Boolean(cond) => Self::FilterBoolean(cond),
             Condition::Status(cond) => Self::FilterStatus(cond.into()),
-            Condition::Date(cond) => Self::FilterDate(cond.into()),
-            Condition::Duration(cond) => Self::FilterDuration(cond.into()),
-            Condition::Array(cond) => Self::FilterArray(cond.into()),
+            Condition::Date(cond) => Self::FilterDate(cond),
+            Condition::Duration(cond) => Self::FilterDuration(cond),
+            Condition::Array(cond) => Self::FilterArray(cond),
         }
     }
 }
@@ -59,24 +59,16 @@ impl From<Condition> for v3::sessions::filter_field::ValueCondition {
 impl From<v3::sessions::filter_field::ValueCondition> for Condition {
     fn from(value: v3::sessions::filter_field::ValueCondition) -> Self {
         match value {
-            v3::sessions::filter_field::ValueCondition::FilterString(cond) => {
-                Self::String(cond.into())
-            }
-            v3::sessions::filter_field::ValueCondition::FilterNumber(cond) => {
-                Self::Number(cond.into())
-            }
-            v3::sessions::filter_field::ValueCondition::FilterBoolean(cond) => {
-                Self::Boolean(cond.into())
-            }
+            v3::sessions::filter_field::ValueCondition::FilterString(cond) => Self::String(cond),
+            v3::sessions::filter_field::ValueCondition::FilterNumber(cond) => Self::Number(cond),
+            v3::sessions::filter_field::ValueCondition::FilterBoolean(cond) => Self::Boolean(cond),
             v3::sessions::filter_field::ValueCondition::FilterStatus(cond) => {
                 Self::Status(cond.into())
             }
-            v3::sessions::filter_field::ValueCondition::FilterDate(cond) => Self::Date(cond.into()),
-            v3::sessions::filter_field::ValueCondition::FilterArray(cond) => {
-                Self::Array(cond.into())
-            }
+            v3::sessions::filter_field::ValueCondition::FilterDate(cond) => Self::Date(cond),
+            v3::sessions::filter_field::ValueCondition::FilterArray(cond) => Self::Array(cond),
             v3::sessions::filter_field::ValueCondition::FilterDuration(cond) => {
-                Self::Duration(cond.into())
+                Self::Duration(cond)
             }
         }
     }
