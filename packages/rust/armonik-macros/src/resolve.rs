@@ -770,3 +770,376 @@ fn upper_camel(screaming_snake: &str) -> String {
         })
         .collect()
 }
+
+/// Plan for a flattened oneof: a Rust enum standing for the oneof `oneof_name`
+/// of the proto message `proto_name`.
+pub(crate) struct OneofPlan {
+    pub(crate) ident: syn::Ident,
+    pub(crate) proto_name: String,
+    /// All member tags, for routing by containers and the whole-message
+    /// implementation.
+    pub(crate) tags: Vec<u32>,
+    /// Whether the oneof covers every field of the message, in which case
+    /// the enum also gets `prost::Message` + `ProtoField` implementations.
+    pub(crate) whole_message: bool,
+    pub(crate) variants: Vec<OneofVariant>,
+    /// The attribute-less unit variant standing for "no member set", if any.
+    pub(crate) default_variant: Option<syn::Ident>,
+    pub(crate) fingerprint: u128,
+}
+
+pub(crate) struct OneofVariant {
+    pub(crate) ident: syn::Ident,
+    pub(crate) span: Span,
+    pub(crate) tag: u32,
+    pub(crate) proto_path: String,
+    pub(crate) shape: OneofVariantShape,
+}
+
+pub(crate) enum OneofVariantShape {
+    /// `Variant(T)` where `T: ProtoField` carries the member value.
+    Payload {
+        ty: Box<syn::Type>,
+        checks: Box<FieldChecks>,
+    },
+    /// `#[armonik(present)]` unit variant selected by a `bool` member.
+    MarkerBool,
+    /// `#[armonik(present)]` unit variant selected by an empty-message member.
+    MarkerMessage,
+    /// `Variant { field, ... }` inlining the fields of the member's message.
+    Inline { parts: Vec<InlinePart> },
+}
+
+pub(crate) struct InlinePart {
+    pub(crate) ident: syn::Ident,
+    pub(crate) ty: syn::Type,
+    pub(crate) span: Span,
+    pub(crate) tag: u32,
+    pub(crate) proto_path: String,
+    pub(crate) checks: FieldChecks,
+    /// Wire-absence seed rule, as in message fields.
+    pub(crate) keeps_api_default: bool,
+}
+
+pub(crate) fn oneof_plan(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+) -> Result<OneofPlan, Errors> {
+    let mut errors = Errors::new();
+
+    let entries = match attrs::parse(&input.attrs) {
+        Ok(entries) => entries,
+        Err(err) => return Err(Errors::from(err)),
+    };
+
+    let mut proto_name: Option<(Span, String)> = None;
+    let mut oneof_name: Option<(Span, String)> = None;
+    for entry in &entries {
+        match &entry.item {
+            AttrItem::Message(lit) => {
+                if proto_name.replace((entry.span, lit.value())).is_some() {
+                    errors.push(syn::Error::new(
+                        entry.span,
+                        "flattened oneofs support a single proto message",
+                    ));
+                }
+            }
+            AttrItem::Oneof(lit) => oneof_name = Some((entry.span, lit.value())),
+            _ => errors.push(syn::Error::new(
+                entry.span,
+                "this armonik attribute is not valid at type level on a flattened oneof",
+            )),
+        }
+    }
+    let (Some((message_span, proto_name)), Some((oneof_span, oneof_name))) =
+        (proto_name, oneof_name)
+    else {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "flattened oneofs need both #[armonik(message = \"...\")] and \
+             #[armonik(oneof = \"...\")]",
+        ));
+        return Err(errors);
+    };
+
+    let Some(meta) = index.messages.get(&proto_name) else {
+        errors.push(syn::Error::new(
+            message_span,
+            format!("proto message `{proto_name}` not found in the compiled descriptor set"),
+        ));
+        return Err(errors);
+    };
+    let Some((oneof_index, oneof)) = meta.oneof(&oneof_name) else {
+        errors.push(syn::Error::new(
+            oneof_span,
+            format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
+        ));
+        return Err(errors);
+    };
+    let whole_message = meta
+        .fields
+        .iter()
+        .all(|field| field.oneof == Some(oneof_index));
+    let tags: Vec<u32> = oneof
+        .fields
+        .iter()
+        .map(|&field| meta.fields[field].tag)
+        .collect();
+
+    let syn::Data::Enum(data) = &input.data else {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "#[armonik(oneof = ...)] expects an enum",
+        ));
+        return Err(errors);
+    };
+
+    let mut variants = Vec::new();
+    let mut default_variant: Option<syn::Ident> = None;
+    let mut covered = vec![false; oneof.fields.len()];
+    for variant in &data.variants {
+        let span = variant.ident.span();
+        let variant_entries = match attrs::parse(&variant.attrs) {
+            Ok(entries) => entries,
+            Err(err) => {
+                errors.push(err);
+                continue;
+            }
+        };
+        let mut rename = None;
+        let mut present = false;
+        for entry in &variant_entries {
+            match &entry.item {
+                AttrItem::Rename(lit) => rename = Some(lit.value()),
+                AttrItem::Present => present = true,
+                _ => errors.push(syn::Error::new(
+                    entry.span,
+                    "this armonik attribute is not valid on a oneof variant",
+                )),
+            }
+        }
+
+        // The attribute-less unit variant is "no member set".
+        if matches!(variant.fields, syn::Fields::Unit) && !present && rename.is_none() {
+            if default_variant.replace(variant.ident.clone()).is_some() {
+                errors.push(syn::Error::new(
+                    span,
+                    "at most one attribute-less unit variant (the \"no member set\" case) \
+                     is allowed",
+                ));
+            }
+            continue;
+        }
+
+        let member_name = rename.unwrap_or_else(|| snake_case(&unraw(&variant.ident)));
+        let member = oneof
+            .fields
+            .iter()
+            .enumerate()
+            .find_map(|(position, &field)| {
+                (meta.fields[field].name == member_name).then_some((position, &meta.fields[field]))
+            });
+        let Some((position, field_meta)) = member else {
+            let mut available: Vec<&str> = oneof
+                .fields
+                .iter()
+                .map(|&field| meta.fields[field].name.as_str())
+                .collect();
+            available.sort_unstable();
+            errors.push(syn::Error::new(
+                span,
+                format!(
+                    "no member named `{member_name}` in oneof `{proto_name}.{oneof_name}` \
+                     (available: {}); use #[armonik(rename = \"...\")] if the names differ",
+                    available.join(", ")
+                ),
+            ));
+            continue;
+        };
+        covered[position] = true;
+        let proto_path = format!("{proto_name}.{}", field_meta.name);
+
+        let shape = if present {
+            if !matches!(variant.fields, syn::Fields::Unit) {
+                errors.push(syn::Error::new(
+                    span,
+                    "#[armonik(present)] variants must be unit variants",
+                ));
+                continue;
+            }
+            match &field_meta.kind {
+                FieldKind::Bool => OneofVariantShape::MarkerBool,
+                FieldKind::Message(_) => OneofVariantShape::MarkerMessage,
+                other => {
+                    errors.push(syn::Error::new(
+                        span,
+                        format!(
+                            "#[armonik(present)] needs a bool or message member, but \
+                             `{proto_path}` is {other:?}"
+                        ),
+                    ));
+                    continue;
+                }
+            }
+        } else {
+            match &variant.fields {
+                syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                    OneofVariantShape::Payload {
+                        ty: Box::new(fields.unnamed[0].ty.clone()),
+                        checks: Box::new(expected_checks(field_meta)),
+                    }
+                }
+                syn::Fields::Named(named) => {
+                    let FieldKind::Message(inner_name) = &field_meta.kind else {
+                        errors.push(syn::Error::new(
+                            span,
+                            format!(
+                                "struct variants inline a message member, but `{proto_path}` \
+                                 is not a message"
+                            ),
+                        ));
+                        continue;
+                    };
+                    let Some(inner) = index.messages.get(inner_name) else {
+                        errors.push(syn::Error::new(
+                            span,
+                            format!("proto message `{inner_name}` not found"),
+                        ));
+                        continue;
+                    };
+                    if !inner.oneofs.is_empty() {
+                        errors.push(syn::Error::new(
+                            span,
+                            format!(
+                                "`{inner_name}` contains a oneof; it cannot be inlined into \
+                                 a struct variant"
+                            ),
+                        ));
+                        continue;
+                    }
+                    let mut parts = Vec::new();
+                    let mut inner_covered = vec![false; inner.fields.len()];
+                    for part in &named.named {
+                        let part_ident = part.ident.clone().expect("named fields have idents");
+                        let part_entries = match attrs::parse(&part.attrs) {
+                            Ok(entries) => entries,
+                            Err(err) => {
+                                errors.push(err);
+                                continue;
+                            }
+                        };
+                        let mut part_rename = None;
+                        for entry in &part_entries {
+                            match &entry.item {
+                                AttrItem::Rename(lit) => part_rename = Some(lit.value()),
+                                _ => errors.push(syn::Error::new(
+                                    entry.span,
+                                    "this armonik attribute is not valid on a struct \
+                                     variant field",
+                                )),
+                            }
+                        }
+                        let part_name = part_rename.unwrap_or_else(|| unraw(&part_ident));
+                        let Some(part_position) = inner
+                            .fields
+                            .iter()
+                            .position(|field| field.name == part_name)
+                        else {
+                            errors.push(syn::Error::new(
+                                part_ident.span(),
+                                format!(
+                                    "no field named `{part_name}` in proto message \
+                                     `{inner_name}`"
+                                ),
+                            ));
+                            continue;
+                        };
+                        inner_covered[part_position] = true;
+                        let part_meta = &inner.fields[part_position];
+                        parts.push(InlinePart {
+                            span: part_ident.span(),
+                            ident: part_ident,
+                            ty: part.ty.clone(),
+                            tag: part_meta.tag,
+                            proto_path: format!("{inner_name}.{}", part_meta.name),
+                            keeps_api_default: matches!(part_meta.kind, FieldKind::Message(_))
+                                && matches!(part_meta.cardinality, Cardinality::Singular),
+                            checks: expected_checks(part_meta),
+                        });
+                    }
+                    for (position, part_covered) in inner_covered.iter().enumerate() {
+                        if !part_covered {
+                            errors.push(syn::Error::new(
+                                span,
+                                format!(
+                                    "proto field `{inner_name}.{}` (tag {}) is not covered \
+                                     by the struct variant",
+                                    inner.fields[position].name, inner.fields[position].tag
+                                ),
+                            ));
+                        }
+                    }
+                    parts.sort_by_key(|part| part.tag);
+                    OneofVariantShape::Inline { parts }
+                }
+                _ => {
+                    errors.push(syn::Error::new(
+                        span,
+                        "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
+                         #[armonik(present)] marker, or the attribute-less default",
+                    ));
+                    continue;
+                }
+            }
+        };
+
+        variants.push(OneofVariant {
+            ident: variant.ident.clone(),
+            span,
+            tag: field_meta.tag,
+            proto_path,
+            shape,
+        });
+    }
+
+    for (position, member_covered) in covered.iter().enumerate() {
+        if !member_covered {
+            let field = &meta.fields[oneof.fields[position]];
+            errors.push(syn::Error::new(
+                input.ident.span(),
+                format!(
+                    "oneof member `{proto_name}.{}` (tag {}) is not covered by any variant",
+                    field.name, field.tag
+                ),
+            ));
+        }
+    }
+
+    errors.into_result()?;
+
+    variants.sort_by_key(|variant| variant.tag);
+    Ok(OneofPlan {
+        ident: input.ident.clone(),
+        proto_name,
+        tags,
+        whole_message,
+        variants,
+        default_variant,
+        fingerprint: index.fingerprint,
+    })
+}
+
+fn snake_case(camel: &str) -> String {
+    let mut out = String::with_capacity(camel.len() + 4);
+    for (i, c) in camel.chars().enumerate() {
+        if c.is_ascii_uppercase() {
+            if i != 0 {
+                out.push('_');
+            }
+            out.push(c.to_ascii_lowercase());
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}

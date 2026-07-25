@@ -69,12 +69,25 @@ fn cardinality_description(cardinality: &Cardinality) -> &'static str {
 
 /// Const-asserts checking the Rust field type against the descriptor.
 fn field_asserts(plan: &FieldPlan, type_ident: &syn::Ident) -> TokenStream {
-    let ty = &plan.ty;
-    let span = plan.span;
-    let proto_path = &plan.proto_path;
+    field_asserts_for(
+        &plan.ty,
+        plan.span,
+        &plan.proto_path,
+        &plan.checks,
+        type_ident,
+    )
+}
+
+fn field_asserts_for(
+    ty: &syn::Type,
+    span: proc_macro2::Span,
+    proto_path: &str,
+    checks: &crate::resolve::FieldChecks,
+    type_ident: &syn::Ident,
+) -> TokenStream {
     let mut asserts = TokenStream::new();
 
-    if let Some(kind) = &plan.checks.kind {
+    if let Some(kind) = &checks.kind {
         let pattern = kind_pattern(kind);
         let message = format!(
             "armonik: field of `{type_ident}` maps to proto field `{proto_path}` of kind {}, \
@@ -89,15 +102,13 @@ fn field_asserts(plan: &FieldPlan, type_ident: &syn::Ident) -> TokenStream {
         });
     }
 
-    if !plan.checks.cardinalities.is_empty() {
-        let patterns = plan
-            .checks
+    if !checks.cardinalities.is_empty() {
+        let patterns = checks
             .cardinalities
             .iter()
             .map(cardinality_pattern)
             .collect::<Vec<_>>();
-        let expected = plan
-            .checks
+        let expected = checks
             .cardinalities
             .iter()
             .map(cardinality_description)
@@ -115,7 +126,7 @@ fn field_asserts(plan: &FieldPlan, type_ident: &syn::Ident) -> TokenStream {
         });
     }
 
-    for name in &plan.checks.names {
+    for name in &checks.names {
         let message = format!(
             "armonik: proto field `{proto_path}` has type `{name}`, which the Rust type of \
              the corresponding field of `{type_ident}` does not stand for",
@@ -128,7 +139,7 @@ fn field_asserts(plan: &FieldPlan, type_ident: &syn::Ident) -> TokenStream {
         });
     }
 
-    if let Some((key, value)) = &plan.checks.map_kinds {
+    if let Some((key, value)) = &checks.map_kinds {
         let key_pattern = kind_pattern(key);
         let value_pattern = kind_pattern(value);
         let message = format!(
@@ -556,5 +567,323 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
         }
 
         #proto_field
+    }
+}
+
+pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
+    use crate::resolve::OneofVariantShape;
+
+    let ident = &plan.ident;
+    let proto_name = &plan.proto_name;
+    let tags = &plan.tags;
+    let fingerprint = proc_macro2::Literal::u128_suffixed(plan.fingerprint);
+
+    let mut encode_arms = Vec::new();
+    let mut len_arms = Vec::new();
+    let mut merge_arms = Vec::new();
+    let mut asserts = TokenStream::new();
+
+    for variant in &plan.variants {
+        let var = &variant.ident;
+        let tag = variant.tag;
+        match &variant.shape {
+            OneofVariantShape::Payload { ty, checks } => {
+                // Oneof presence is significant: the member is always
+                // emitted, even with a default payload.
+                encode_arms.push(quote! {
+                    Self::#var(payload) => {
+                        <#ty as crate::codec::ProtoField>::encode_field(#tag, payload, buf);
+                    }
+                });
+                len_arms.push(quote! {
+                    Self::#var(payload) => {
+                        <#ty as crate::codec::ProtoField>::encoded_len_field(#tag, payload)
+                    }
+                });
+                merge_arms.push(quote! {
+                    #tag => {
+                        let mut payload = if let Self::#var(payload) = value {
+                            ::std::mem::take(payload)
+                        } else {
+                            <#ty as crate::codec::ProtoField>::wire_default()
+                        };
+                        <#ty as crate::codec::ProtoField>::merge_field(
+                            wire_type, &mut payload, buf, ctx,
+                        )?;
+                        *value = Self::#var(payload);
+                        ::core::result::Result::Ok(())
+                    }
+                });
+                asserts.extend(field_asserts_for(
+                    ty,
+                    variant.span,
+                    &variant.proto_path,
+                    checks,
+                    ident,
+                ));
+            }
+            OneofVariantShape::MarkerBool => {
+                encode_arms.push(quote! {
+                    Self::#var => {
+                        <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
+                    }
+                });
+                len_arms.push(quote! {
+                    Self::#var => {
+                        <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true)
+                    }
+                });
+                merge_arms.push(quote! {
+                    #tag => {
+                        let mut marker = false;
+                        <bool as crate::codec::ProtoField>::merge_field(
+                            wire_type, &mut marker, buf, ctx,
+                        )?;
+                        *value = Self::#var;
+                        ::core::result::Result::Ok(())
+                    }
+                });
+            }
+            OneofVariantShape::MarkerMessage => {
+                encode_arms.push(quote! {
+                    Self::#var => {
+                        ::prost::encoding::encode_key(
+                            #tag,
+                            ::prost::encoding::WireType::LengthDelimited,
+                            buf,
+                        );
+                        ::prost::encoding::encode_varint(0, buf);
+                    }
+                });
+                len_arms.push(quote! {
+                    Self::#var => {
+                        ::prost::encoding::encoded_len_varint(u64::from(#tag) << 3) + 1
+                    }
+                });
+                merge_arms.push(quote! {
+                    #tag => {
+                        ::prost::encoding::skip_field(wire_type, tag, buf, ctx)?;
+                        *value = Self::#var;
+                        ::core::result::Result::Ok(())
+                    }
+                });
+            }
+            OneofVariantShape::Inline { parts } => {
+                let part_idents: Vec<_> = parts.iter().map(|part| &part.ident).collect();
+                let part_tys: Vec<_> = parts.iter().map(|part| &part.ty).collect();
+                let part_tags: Vec<_> = parts.iter().map(|part| part.tag).collect();
+                let part_seeds: Vec<_> = parts
+                    .iter()
+                    .map(|part| {
+                        let ty = &part.ty;
+                        // Inline parts have no containing Default to inherit
+                        // from; they seed from the wire default.
+                        let _ = part.keeps_api_default;
+                        quote!(<#ty as crate::codec::ProtoField>::wire_default())
+                    })
+                    .collect();
+
+                encode_arms.push(quote! {
+                    Self::#var { #(#part_idents),* } => {
+                        #[allow(unused_mut)]
+                        let mut body_len = 0;
+                        #(
+                            if !<#part_tys as crate::codec::ProtoField>::is_default(#part_idents) {
+                                body_len += <#part_tys as crate::codec::ProtoField>::encoded_len_field(#part_tags, #part_idents);
+                            }
+                        )*
+                        ::prost::encoding::encode_key(
+                            #tag,
+                            ::prost::encoding::WireType::LengthDelimited,
+                            buf,
+                        );
+                        ::prost::encoding::encode_varint(body_len as u64, buf);
+                        #(
+                            if !<#part_tys as crate::codec::ProtoField>::is_default(#part_idents) {
+                                <#part_tys as crate::codec::ProtoField>::encode_field(#part_tags, #part_idents, buf);
+                            }
+                        )*
+                    }
+                });
+                len_arms.push(quote! {
+                    Self::#var { #(#part_idents),* } => {
+                        #[allow(unused_mut)]
+                        let mut body_len = 0;
+                        #(
+                            if !<#part_tys as crate::codec::ProtoField>::is_default(#part_idents) {
+                                body_len += <#part_tys as crate::codec::ProtoField>::encoded_len_field(#part_tags, #part_idents);
+                            }
+                        )*
+                        ::prost::encoding::encoded_len_varint(u64::from(#tag) << 3)
+                            + ::prost::encoding::encoded_len_varint(body_len as u64)
+                            + body_len
+                    }
+                });
+                merge_arms.push(quote! {
+                    #tag => {
+                        ::prost::encoding::check_wire_type(
+                            ::prost::encoding::WireType::LengthDelimited,
+                            wire_type,
+                        )?;
+                        #[allow(unused_parens)]
+                        let (#(mut #part_idents),*) = if let Self::#var { #(#part_idents),* } = value {
+                            (#(::std::mem::take(#part_idents)),*)
+                        } else {
+                            (#(#part_seeds),*)
+                        };
+                        let len = ::prost::encoding::decode_varint(buf)? as usize;
+                        if ::prost::bytes::Buf::remaining(buf) < len {
+                            // prost offers no other public constructor.
+                            #[allow(deprecated)]
+                            return ::core::result::Result::Err(
+                                ::prost::DecodeError::new("buffer underflow"),
+                            );
+                        }
+                        let mut body = ::prost::bytes::Buf::take(buf, len);
+                        while ::prost::bytes::Buf::has_remaining(&body) {
+                            let (tag, wire_type) = ::prost::encoding::decode_key(&mut body)?;
+                            match tag {
+                                #(
+                                    #part_tags => <#part_tys as crate::codec::ProtoField>::merge_field(
+                                        wire_type, &mut #part_idents, &mut body, ctx.clone(),
+                                    )?,
+                                )*
+                                _ => ::prost::encoding::skip_field(
+                                    wire_type, tag, &mut body, ctx.clone(),
+                                )?,
+                            }
+                        }
+                        *value = Self::#var { #(#part_idents),* };
+                        ::core::result::Result::Ok(())
+                    }
+                });
+                for part in parts {
+                    asserts.extend(field_asserts_for(
+                        &part.ty,
+                        part.span,
+                        &part.proto_path,
+                        &part.checks,
+                        ident,
+                    ));
+                }
+            }
+        }
+    }
+
+    let default_encode_arm = plan.default_variant.as_ref().map(|var| {
+        quote! { Self::#var => {} }
+    });
+    let default_len_arm = plan.default_variant.as_ref().map(|var| {
+        quote! { Self::#var => 0, }
+    });
+
+    let whole_message = plan.whole_message.then(|| {
+        quote! {
+            impl ::prost::Message for #ident {
+                fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+                    crate::codec::ProtoOneof::encode_oneof(self, buf);
+                }
+
+                fn merge_field(
+                    &mut self,
+                    tag: u32,
+                    wire_type: ::prost::encoding::WireType,
+                    buf: &mut impl ::prost::bytes::Buf,
+                    ctx: ::prost::encoding::DecodeContext,
+                ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                    match tag {
+                        #(#tags)|* => crate::codec::ProtoOneof::merge_oneof(
+                            tag, wire_type, self, buf, ctx,
+                        ),
+                        _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+                    }
+                }
+
+                fn encoded_len(&self) -> usize {
+                    crate::codec::ProtoOneof::encoded_len_oneof(self)
+                }
+
+                fn clear(&mut self) {
+                    *self = ::core::default::Default::default();
+                }
+            }
+
+            impl crate::codec::ProtoField for #ident {
+                const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
+                const NAMES: &'static [&'static str] = &[#proto_name];
+
+                fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+                    crate::codec::message::encode(tag, value, buf);
+                }
+
+                fn merge_field(
+                    wire_type: ::prost::encoding::WireType,
+                    value: &mut Self,
+                    buf: &mut impl ::prost::bytes::Buf,
+                    ctx: ::prost::encoding::DecodeContext,
+                ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                    crate::codec::message::merge(wire_type, value, buf, ctx)
+                }
+
+                fn encoded_len_field(tag: u32, value: &Self) -> usize {
+                    crate::codec::message::encoded_len(tag, value)
+                }
+
+                fn is_default(value: &Self) -> bool {
+                    crate::codec::message::is_default(value)
+                }
+
+                fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
+                    crate::codec::message::encode_repeated(tag, values, buf);
+                }
+
+                fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
+                    crate::codec::message::encoded_len_repeated(tag, values)
+                }
+            }
+        }
+    });
+
+    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
+                            rebuild the crate";
+    quote_spanned! {ident.span()=>
+        const _: () = {
+            assert!(
+                crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
+                #tripwire_message
+            );
+            #asserts
+        };
+
+        impl crate::codec::ProtoOneof for #ident {
+            fn encode_oneof(value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+                match value {
+                    #(#encode_arms)*
+                    #default_encode_arm
+                }
+            }
+
+            fn merge_oneof(
+                tag: u32,
+                wire_type: ::prost::encoding::WireType,
+                value: &mut Self,
+                buf: &mut impl ::prost::bytes::Buf,
+                ctx: ::prost::encoding::DecodeContext,
+            ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                match tag {
+                    #(#merge_arms)*
+                    _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+                }
+            }
+
+            fn encoded_len_oneof(value: &Self) -> usize {
+                match value {
+                    #(#len_arms)*
+                    #default_len_arm
+                }
+            }
+        }
+
+        #whole_message
     }
 }

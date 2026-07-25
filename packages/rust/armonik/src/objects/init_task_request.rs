@@ -2,10 +2,12 @@ use super::TaskRequestHeader;
 
 use crate::api::v3;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.InitTaskRequest", oneof = "type")]
 pub enum InitTaskRequest {
     Header(TaskRequestHeader),
+    #[armonik(present)]
     LastTask,
 }
 

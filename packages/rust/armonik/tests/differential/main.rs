@@ -103,6 +103,10 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     // every message embedding them.
     "armonik.api.grpc.v1.sessions.TaskOptionField",
     "armonik.api.grpc.v1.tasks.TaskOptionField",
+    // Marker payload of `Output::Ok`; carries no data.
+    "armonik.api.grpc.v1.Empty",
+    // Inlined into the `Output::Error` struct variant.
+    "armonik.api.grpc.v1.Output.Error",
 ];
 
 /// Messages not yet migrated to a direct wire implementation. This list
@@ -111,8 +115,6 @@ const PERMANENT_UNMAPPED: &[&str] = &[
 const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.Configuration",
     "armonik.api.grpc.v1.Count",
-    "armonik.api.grpc.v1.DataChunk",
-    "armonik.api.grpc.v1.Empty",
     "armonik.api.grpc.v1.Error",
     "armonik.api.grpc.v1.FilterArray",
     "armonik.api.grpc.v1.FilterBoolean",
@@ -120,10 +122,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.FilterDuration",
     "armonik.api.grpc.v1.FilterNumber",
     "armonik.api.grpc.v1.FilterString",
-    "armonik.api.grpc.v1.InitKeyedDataStream",
-    "armonik.api.grpc.v1.InitTaskRequest",
-    "armonik.api.grpc.v1.Output",
-    "armonik.api.grpc.v1.Output.Error",
     "armonik.api.grpc.v1.ResultRequest",
     "armonik.api.grpc.v1.TaskError",
     "armonik.api.grpc.v1.TaskId",
@@ -132,7 +130,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.TaskList",
     "armonik.api.grpc.v1.TaskOutputRequest",
     "armonik.api.grpc.v1.TaskRequest",
-    "armonik.api.grpc.v1.TaskRequestHeader",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse",
