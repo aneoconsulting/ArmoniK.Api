@@ -146,6 +146,31 @@ mod tests {
         let reencoded = v3::TaskOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
         assert_eq!(reencoded.max_duration, Some(INFINITE_DURATION));
     }
+
+    /// A wire occurrence of `max_duration` must merge from the proto zero
+    /// value, not from the `INFINITE_DURATION` seed: a partial duration
+    /// (only nanos set) is a partial duration, exactly like the historical
+    /// `unwrap_or` conversion produced.
+    #[test]
+    fn present_duration_does_not_inherit_the_seed() {
+        let partial = v3::TaskOptions {
+            max_duration: Some(prost_types::Duration {
+                seconds: 0,
+                nanos: 7,
+            }),
+            ..Default::default()
+        };
+        let ours = TaskOptions::decode(partial.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(ours.max_duration.seconds, 0);
+        assert_eq!(ours.max_duration.nanos, 7);
+
+        let explicit_zero = v3::TaskOptions {
+            max_duration: Some(prost_types::Duration::default()),
+            ..Default::default()
+        };
+        let ours = TaskOptions::decode(explicit_zero.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(ours.max_duration, prost_types::Duration::default());
+    }
 }
 
 /// Represents a field in a task option.
