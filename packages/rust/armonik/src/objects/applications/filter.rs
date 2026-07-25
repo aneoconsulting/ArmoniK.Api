@@ -1,20 +1,24 @@
 use super::super::FilterString;
 
-use crate::{api::v3, impl_filter};
+use crate::impl_filter;
 
 impl_filter!(
     Filter[super::Field, Condition]:
-    v3::applications::Filters[
-        v3::applications::FiltersAnd[
-            v3::applications::FilterField,
-            v3::applications::filter_field::ValueCondition
-        ]
+    protos[
+        "armonik.api.grpc.v1.applications.Filters",
+        "armonik.api.grpc.v1.applications.FiltersAnd",
+        "armonik.api.grpc.v1.applications.FilterField"
     ]
 );
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(
+    message = "armonik.api.grpc.v1.applications.FilterField",
+    oneof = "value_condition"
+)]
 pub enum Condition {
+    #[armonik(rename = "filter_string")]
     String(FilterString),
 }
 
@@ -23,23 +27,3 @@ impl Default for Condition {
         Self::String(Default::default())
     }
 }
-
-impl From<Condition> for v3::applications::filter_field::ValueCondition {
-    fn from(value: Condition) -> Self {
-        match value {
-            Condition::String(cond) => Self::FilterString(cond),
-        }
-    }
-}
-
-impl From<v3::applications::filter_field::ValueCondition> for Condition {
-    fn from(value: v3::applications::filter_field::ValueCondition) -> Self {
-        match value {
-            v3::applications::filter_field::ValueCondition::FilterString(cond) => {
-                Self::String(cond)
-            }
-        }
-    }
-}
-
-super::super::impl_convert!(req Condition : v3::applications::filter_field::ValueCondition);

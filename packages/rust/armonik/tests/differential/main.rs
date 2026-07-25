@@ -34,17 +34,21 @@ fn debug_fields(message: &DynamicMessage) -> String {
             continue;
         }
         let value = message.get_field(&field);
-        match value.as_ref() {
-            prost_reflect::Value::Message(inner) => {
-                let _ = write!(out, "{}: {}, ", field.name(), debug_fields(inner));
-            }
-            other => {
-                let _ = write!(out, "{}: {other:?}, ", field.name());
-            }
-        }
+        let _ = write!(out, "{}: {}, ", field.name(), debug_value(value.as_ref()));
     }
     out.push('}');
     out
+}
+
+fn debug_value(value: &prost_reflect::Value) -> String {
+    match value {
+        prost_reflect::Value::Message(inner) => debug_fields(inner),
+        prost_reflect::Value::List(items) => {
+            let items: Vec<String> = items.iter().map(debug_value).collect();
+            format!("[{}]", items.join(", "))
+        }
+        other => format!("{other:?}"),
+    }
 }
 
 #[test]
@@ -109,6 +113,9 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.agent.CreateTaskReply.TaskInfo",
     // Flattened into `agent::create_tasks::Response::Status.statuses`.
     "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatusList",
+    // Enum wrapper chain flattened into `applications::Field`.
+    "armonik.api.grpc.v1.applications.ApplicationField",
+    "armonik.api.grpc.v1.applications.ApplicationRawField",
 ];
 
 /// Messages not yet migrated to a direct wire implementation. This list
@@ -132,14 +139,7 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.agent.SubmitTasksResponse",
     "armonik.api.grpc.v1.agent.SubmitTasksResponse.TaskInfo",
     "armonik.api.grpc.v1.applications.ApplicationField",
-    "armonik.api.grpc.v1.applications.ApplicationRaw",
     "armonik.api.grpc.v1.applications.ApplicationRawField",
-    "armonik.api.grpc.v1.applications.FilterField",
-    "armonik.api.grpc.v1.applications.Filters",
-    "armonik.api.grpc.v1.applications.FiltersAnd",
-    "armonik.api.grpc.v1.applications.ListApplicationsRequest",
-    "armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort",
-    "armonik.api.grpc.v1.applications.ListApplicationsResponse",
     "armonik.api.grpc.v1.events.EventSubscriptionRequest",
     "armonik.api.grpc.v1.events.EventSubscriptionResponse",
     "armonik.api.grpc.v1.events.EventSubscriptionResponse.NewResult",

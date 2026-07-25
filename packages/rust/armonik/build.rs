@@ -129,6 +129,34 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
         ".armonik.api.grpc.v1.health_checks.CheckHealthResponse",
         "crate::health_checks::check::Response",
     ),
+    (
+        ".armonik.api.grpc.v1.applications.ApplicationRaw",
+        "crate::applications::Raw",
+    ),
+    (
+        ".armonik.api.grpc.v1.applications.Filters",
+        "crate::applications::filter::Or",
+    ),
+    (
+        ".armonik.api.grpc.v1.applications.FiltersAnd",
+        "crate::applications::filter::And",
+    ),
+    (
+        ".armonik.api.grpc.v1.applications.FilterField",
+        "crate::applications::filter::Field",
+    ),
+    (
+        ".armonik.api.grpc.v1.applications.ListApplicationsRequest",
+        "crate::applications::list::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort",
+        "crate::applications::Sort",
+    ),
+    (
+        ".armonik.api.grpc.v1.applications.ListApplicationsResponse",
+        "crate::applications::list::Response",
+    ),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {

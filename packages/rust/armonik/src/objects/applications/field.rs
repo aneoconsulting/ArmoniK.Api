@@ -1,59 +1,22 @@
-use crate::api::v3;
-
 /// Represents every available field in a Application.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(
+    transparent,
+    message = "armonik.api.grpc.v1.applications.ApplicationField"
+)]
 pub enum Field {
-    /// Unspecified.
-    Unspecified = 0,
     /// Application name.
     #[default]
-    Name = 1,
+    Name,
     /// Application version.
-    Version = 2,
+    Version,
     /// Application namespace.
-    Namespace = 3,
+    Namespace,
     /// Application service.
-    Service = 4,
+    Service,
+    /// Unspecified (zero) or a field unknown to this crate version.
+    Other(OtherField),
 }
-
-impl From<i32> for Field {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::Name,
-            2 => Self::Version,
-            3 => Self::Namespace,
-            4 => Self::Service,
-            _ => Self::Unspecified,
-        }
-    }
-}
-
-impl From<Field> for v3::applications::ApplicationField {
-    fn from(value: Field) -> Self {
-        Self {
-            field: Some(
-                v3::applications::application_field::Field::ApplicationField(
-                    v3::applications::ApplicationRawField {
-                        field: value as i32,
-                    },
-                ),
-            ),
-        }
-    }
-}
-
-impl From<v3::applications::ApplicationField> for Field {
-    fn from(value: v3::applications::ApplicationField) -> Self {
-        match value.field {
-            Some(v3::applications::application_field::Field::ApplicationField(field)) => {
-                Self::from(field.field)
-            }
-            None => Self::Unspecified,
-        }
-    }
-}
-
-super::super::impl_convert!(req Field : v3::applications::ApplicationField);

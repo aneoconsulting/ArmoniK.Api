@@ -64,6 +64,16 @@ registry! {
     "armonik.api.grpc.v1.agent.CreateTaskReply" => armonik::agent::create_tasks::Response,
     "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus"
         => armonik::agent::create_tasks::Status,
+    "armonik.api.grpc.v1.applications.ApplicationRaw" => armonik::applications::Raw,
+    "armonik.api.grpc.v1.applications.Filters" => armonik::applications::filter::Or,
+    "armonik.api.grpc.v1.applications.FiltersAnd" => armonik::applications::filter::And,
+    "armonik.api.grpc.v1.applications.FilterField" => armonik::applications::filter::Field,
+    "armonik.api.grpc.v1.applications.ListApplicationsRequest"
+        => armonik::applications::list::Request,
+    "armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort"
+        => armonik::applications::Sort,
+    "armonik.api.grpc.v1.applications.ListApplicationsResponse"
+        => armonik::applications::list::Response,
     "armonik.api.grpc.v1.auth.GetCurrentUserRequest" => armonik::auth::current_user::Request,
     "armonik.api.grpc.v1.auth.GetCurrentUserResponse" => armonik::auth::current_user::Response,
     "armonik.api.grpc.v1.auth.User" => armonik::auth::User,
@@ -157,6 +167,24 @@ fn apply_rules(message: &mut DynamicMessage) {
         "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus" => {
             normalize_default_member(message, "error");
         }
+        // List requests: an absent/empty sort folds to the API default,
+        // whose direction is ascending (1).
+        "armonik.api.grpc.v1.applications.ListApplicationsRequest" => {
+            normalize_default_sort(message);
+        }
+        // Wrapper chains: zero, absent and present-but-empty carry no
+        // information; canonicalize to the empty wrapper.
+        "armonik.api.grpc.v1.applications.ApplicationField" => {
+            normalize_wrapper_root(message);
+        }
+        // Filter fields: the condition oneof defaults to an empty string
+        // filter, and enum wrappers fold zero/absent/empty uniformly.
+        "armonik.api.grpc.v1.applications.FilterField" => {
+            normalize_default_member(message, "filter_string");
+            // Absent/empty wrappers fold to the API default (`Field::Name`),
+            // like the historical `map_or_else(Default::default, ...)`.
+            normalize_enum_wrapper(message, "field", 1);
+        }
         _ => {}
     }
 }
@@ -187,6 +215,109 @@ fn normalize_default_member(message: &mut DynamicMessage, member: &str) {
         let member = field(message, member);
         message.set_field(&member, Value::default_value_for_field(&member));
     }
+}
+
+/// Canonicalize an enum wrapper (chain) message: when the chained enum value
+/// is zero, every representation (absent members, empty inner wrappers) is
+/// equivalent to the empty message.
+fn normalize_wrapper_root(message: &mut DynamicMessage) {
+    let mut number = 0;
+    let mut cursor = Value::Message(message.clone());
+    loop {
+        match cursor {
+            Value::Message(wrapper) => {
+                let Some(inner) = wrapper.descriptor().fields().next() else {
+                    break;
+                };
+                cursor = wrapper.get_field(&inner).into_owned();
+            }
+            Value::EnumNumber(value) => {
+                number = value;
+                break;
+            }
+            _ => break,
+        }
+    }
+    if number == 0 {
+        let fields: Vec<_> = message.descriptor().fields().collect();
+        for member in fields {
+            message.clear_field(&member);
+        }
+    }
+}
+
+/// An absent or empty `sort` message folds to the API default, whose
+/// direction is ascending; like the historical `unwrap_or_default`.
+fn normalize_default_sort(message: &mut DynamicMessage) {
+    let sort = field(message, "sort");
+    let is_empty = match message.get_field(&sort).as_ref() {
+        Value::Message(inner) => inner.encode_to_vec().is_empty(),
+        _ => true,
+    };
+    if is_empty {
+        let prost_reflect::Kind::Message(desc) = sort.kind() else {
+            panic!("sort is a message");
+        };
+        let mut default_sort = DynamicMessage::new(desc);
+        default_sort.set_field_by_name("direction", Value::EnumNumber(1));
+        message.set_field(&sort, Value::Message(default_sort));
+    }
+}
+
+/// Enum wrappers (possibly chained) fold "absent", "empty" and "zero" into
+/// the API default of the flattened enum: project the member field onto the
+/// wrapper chain carrying `default_number` when it holds no information.
+fn normalize_enum_wrapper(message: &mut DynamicMessage, member: &str, default_number: i32) {
+    let member = field(message, member);
+    // Read the enum number through the wrapper chain (0 when any level is
+    // absent): only a non-zero value carries information.
+    let mut number = 0;
+    let mut cursor = message.get_field(&member).into_owned();
+    loop {
+        match cursor {
+            Value::Message(wrapper) => {
+                let inner = wrapper
+                    .descriptor()
+                    .fields()
+                    .next()
+                    .expect("wrapper has one field");
+                cursor = wrapper.get_field(&inner).into_owned();
+            }
+            Value::EnumNumber(value) => {
+                number = value;
+                break;
+            }
+            _ => break,
+        }
+    }
+    if number != 0 {
+        return;
+    }
+    // Build the wrapper chain down to the enum field.
+    let prost_reflect::Kind::Message(mut desc) = member.kind() else {
+        panic!("enum wrapper member is a message");
+    };
+    let mut chain = Vec::new();
+    let enum_field = loop {
+        let inner = desc.fields().next().expect("wrapper has one field");
+        match inner.kind() {
+            prost_reflect::Kind::Message(next) => {
+                chain.push((desc.clone(), inner));
+                desc = next;
+            }
+            prost_reflect::Kind::Enum(_) => break inner,
+            other => panic!("unexpected wrapper field kind {other:?}"),
+        }
+    };
+    let mut value = DynamicMessage::new(desc);
+    value.set_field(&enum_field, Value::EnumNumber(default_number));
+    let mut wrapped = value;
+    for (outer_desc, outer_field) in chain.into_iter().rev() {
+        let mut outer = DynamicMessage::new(outer_desc);
+        outer.set_field(&outer_field, Value::Message(wrapped));
+        wrapped = outer;
+    }
+    message.set_field(&member, Value::Message(wrapped));
 }
 
 fn normalize_task_options(message: &mut DynamicMessage) {

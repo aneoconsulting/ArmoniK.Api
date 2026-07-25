@@ -25,6 +25,6 @@ impl<T: ApplicationsService + Send + Sync + 'static> ApplicationsServiceExt for 
 
 super::impl_trait_methods! {
     impl (v3::applications::applications_server::Applications) for ApplicationsService {
-        fn list_applications(v3::applications::ListApplicationsRequest) -> v3::applications::ListApplicationsResponse { list }
+        fn list_applications(crate::applications::list::Request) -> crate::applications::list::Response { list }
     }
 }
