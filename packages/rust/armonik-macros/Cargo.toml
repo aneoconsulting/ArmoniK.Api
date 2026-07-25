@@ -1,0 +1,14 @@
+[package]
+authors = ["Florian Lemaitre <flemaitre@aneo.fr>"]
+description = "Internal derive macros for the armonik crate"
+edition = "2021"
+include = ["**/*.rs", "Cargo.toml", "LICENSE", "README.md"]
+license = "Apache-2.0"
+readme = "README.md"
+name = "armonik-macros"
+repository = "https://github.com/aneoconsulting/ArmoniK.Api"
+version = "3.29.2-beta-0"
+rust-version = "1.88.0"
+
+[lib]
+proc-macro = true
