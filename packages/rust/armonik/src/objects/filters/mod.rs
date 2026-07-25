@@ -9,17 +9,17 @@ mod number_operator;
 mod status_operator;
 mod string_operator;
 
-pub use array_operator::FilterArrayOperator;
-pub use boolean_operator::FilterBooleanOperator;
-pub use date_operator::FilterDateOperator;
-pub use duration_operator::FilterDurationOperator;
+pub use array_operator::{FilterArrayOperator, OtherFilterArrayOperator};
+pub use boolean_operator::{FilterBooleanOperator, OtherFilterBooleanOperator};
+pub use date_operator::{FilterDateOperator, OtherFilterDateOperator};
+pub use duration_operator::{FilterDurationOperator, OtherFilterDurationOperator};
 pub use filter::{
     FilterArray, FilterBoolean, FilterDate, FilterDuration, FilterNumber, FilterStatus,
     FilterString,
 };
-pub use number_operator::FilterNumberOperator;
-pub use status_operator::FilterStatusOperator;
-pub use string_operator::FilterStringOperator;
+pub use number_operator::{FilterNumberOperator, OtherFilterNumberOperator};
+pub use status_operator::{FilterStatusOperator, OtherFilterStatusOperator};
+pub use string_operator::{FilterStringOperator, OtherFilterStringOperator};
 
 macro_rules! impl_filter {
     (Filter[$field:ty, $condition:ty]: $api_or:ty [$api_and:ty[$api_field:ty, $api_condition:ty]]) => {

@@ -73,9 +73,9 @@ pub use init_keyed_data_stream::InitKeyedDataStream;
 pub use init_task_request::InitTaskRequest;
 pub use output::Output;
 pub use result_request::ResultRequest;
-pub use result_status::ResultStatus;
+pub use result_status::{OtherResultStatus, ResultStatus};
 pub use session::Session;
-pub use session_status::SessionStatus;
+pub use session_status::{OtherSessionStatus, SessionStatus};
 pub use sort::{OtherSortDirection, Sort, SortDirection, SortMany};
 pub use status_count::StatusCount;
 pub use task_error::TaskError;
@@ -102,12 +102,7 @@ macro_rules! impl_enum_into_i32 {
     )*};
 }
 
-impl_enum_into_i32!(
-    SessionStatus,
-    ResultStatus,
-    FilterStatusOperator,
-    health_checks::Status,
-);
+impl_enum_into_i32!(health_checks::Status);
 
 macro_rules! impl_convert {
     // * -> *

@@ -316,7 +316,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
 
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
-    quote_spanned! {ident.span()=>
+    quote! {
         const _: () = {
             assert!(
                 crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
@@ -560,7 +560,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
-    quote_spanned! {ident.span()=>
+    quote! {
         const _: () = assert!(
             crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
             #tripwire_message
@@ -881,7 +881,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
 
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
-    quote_spanned! {ident.span()=>
+    quote! {
         const _: () = {
             assert!(
                 crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
