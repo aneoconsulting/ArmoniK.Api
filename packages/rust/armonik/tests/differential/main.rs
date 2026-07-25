@@ -80,8 +80,8 @@ fn registered_types_roundtrip() {
                     )
                 });
 
-            registry::normalize(&mut original);
-            registry::normalize(&mut back);
+            registry::normalize(&mut original, registry::Side::Original);
+            registry::normalize(&mut back, registry::Side::Back);
 
             assert!(
                 compare::messages(&original, &back),
@@ -116,6 +116,9 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     // Enum wrapper chain flattened into `applications::Field`.
     "armonik.api.grpc.v1.applications.ApplicationField",
     "armonik.api.grpc.v1.applications.ApplicationRawField",
+    // Enum wrapper chain flattened into `partitions::Field`.
+    "armonik.api.grpc.v1.partitions.PartitionField",
+    "armonik.api.grpc.v1.partitions.PartitionRawField",
 ];
 
 /// Messages not yet migrated to a direct wire implementation. This list
@@ -147,16 +150,7 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultOwnerUpdate",
     "armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultStatusUpdate",
     "armonik.api.grpc.v1.events.EventSubscriptionResponse.TaskStatusUpdate",
-    "armonik.api.grpc.v1.partitions.FilterField",
-    "armonik.api.grpc.v1.partitions.Filters",
-    "armonik.api.grpc.v1.partitions.FiltersAnd",
-    "armonik.api.grpc.v1.partitions.GetPartitionRequest",
-    "armonik.api.grpc.v1.partitions.GetPartitionResponse",
-    "armonik.api.grpc.v1.partitions.ListPartitionsRequest",
-    "armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort",
-    "armonik.api.grpc.v1.partitions.ListPartitionsResponse",
     "armonik.api.grpc.v1.partitions.PartitionField",
-    "armonik.api.grpc.v1.partitions.PartitionRaw",
     "armonik.api.grpc.v1.partitions.PartitionRawField",
     "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest",
     "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest.ResultCreate",

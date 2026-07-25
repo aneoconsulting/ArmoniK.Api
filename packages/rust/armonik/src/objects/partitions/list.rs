@@ -1,10 +1,9 @@
-use crate::api::v3;
-
 use super::{filter, Raw, Sort};
 
 /// Request to list partitions.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.partitions.ListPartitionsRequest")]
 pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
@@ -29,21 +28,13 @@ impl Default for Request {
     }
 }
 
-super::super::impl_convert!(
-    struct Request = v3::partitions::ListPartitionsRequest {
-        page,
-        page_size,
-        filters = option filters,
-        sort = option sort,
-    }
-);
-
 /// Response to list partitions.
 ///
 /// Use pagination, filtering and sorting from the request.
 /// Retunr a list of raw partitions.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.partitions.ListPartitionsResponse")]
 pub struct Response {
     /// The list of raw partitions.
     pub partitions: Vec<Raw>,
@@ -65,12 +56,3 @@ impl Default for Response {
         }
     }
 }
-
-super::super::impl_convert!(
-    struct Response = v3::partitions::ListPartitionsResponse {
-        list partitions,
-        page,
-        page_size,
-        total,
-    }
-);

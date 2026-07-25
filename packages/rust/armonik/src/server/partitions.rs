@@ -24,7 +24,7 @@ impl<T: PartitionsService + Send + Sync + 'static> PartitionsServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::partitions::partitions_server::Partitions) for PartitionsService {
-        fn list_partitions(v3::partitions::ListPartitionsRequest) -> v3::partitions::ListPartitionsResponse { list }
-        fn get_partition(v3::partitions::GetPartitionRequest) -> v3::partitions::GetPartitionResponse { get }
+        fn list_partitions(crate::partitions::list::Request) -> crate::partitions::list::Response { list }
+        fn get_partition(crate::partitions::get::Request) -> crate::partitions::get::Response { get }
     }
 }

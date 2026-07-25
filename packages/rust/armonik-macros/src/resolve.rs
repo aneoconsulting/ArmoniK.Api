@@ -20,6 +20,9 @@ pub(crate) struct MessagePlan {
     pub(crate) fields: Vec<FieldPlan>,
     pub(crate) style: StructStyle,
     pub(crate) generics: syn::Generics,
+    /// Generic mode: no descriptor validation; wire seeds are decided at
+    /// runtime from the field types' KIND/CARDINALITY consts.
+    pub(crate) generic: bool,
     pub(crate) fingerprint: u128,
 }
 
@@ -415,6 +418,7 @@ pub(crate) fn message_plan(
             syn::Fields::Unit => StructStyle::Unit,
         },
         generics: input.generics.clone(),
+        generic: false,
         fingerprint: index.fingerprint,
     })
 }
@@ -519,6 +523,7 @@ fn generic_plan(
             syn::Fields::Unit => StructStyle::Unit,
         },
         generics: input.generics.clone(),
+        generic: true,
         fingerprint: index.fingerprint,
     })
 }

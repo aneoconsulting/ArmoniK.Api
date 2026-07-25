@@ -1,23 +1,30 @@
 use super::super::{FilterArray, FilterBoolean, FilterNumber, FilterString};
 
-use crate::{api::v3, impl_filter};
+use crate::impl_filter;
 
 impl_filter!(
     Filter[super::Field, Condition]:
-    v3::partitions::Filters[
-        v3::partitions::FiltersAnd[
-            v3::partitions::FilterField,
-            v3::partitions::filter_field::ValueCondition
-        ]
+    protos[
+        "armonik.api.grpc.v1.partitions.Filters",
+        "armonik.api.grpc.v1.partitions.FiltersAnd",
+        "armonik.api.grpc.v1.partitions.FilterField"
     ]
 );
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(
+    message = "armonik.api.grpc.v1.partitions.FilterField",
+    oneof = "value_condition"
+)]
 pub enum Condition {
+    #[armonik(rename = "filter_string")]
     String(FilterString),
+    #[armonik(rename = "filter_number")]
     Number(FilterNumber),
+    #[armonik(rename = "filter_boolean")]
     Boolean(FilterBoolean),
+    #[armonik(rename = "filter_array")]
     Array(FilterArray),
 }
 
@@ -26,29 +33,3 @@ impl Default for Condition {
         Self::String(Default::default())
     }
 }
-
-impl From<Condition> for v3::partitions::filter_field::ValueCondition {
-    fn from(value: Condition) -> Self {
-        match value {
-            Condition::String(cond) => Self::FilterString(cond),
-            Condition::Number(cond) => Self::FilterNumber(cond),
-            Condition::Boolean(cond) => Self::FilterBoolean(cond),
-            Condition::Array(cond) => Self::FilterArray(cond),
-        }
-    }
-}
-
-impl From<v3::partitions::filter_field::ValueCondition> for Condition {
-    fn from(value: v3::partitions::filter_field::ValueCondition) -> Self {
-        match value {
-            v3::partitions::filter_field::ValueCondition::FilterString(cond) => Self::String(cond),
-            v3::partitions::filter_field::ValueCondition::FilterNumber(cond) => Self::Number(cond),
-            v3::partitions::filter_field::ValueCondition::FilterBoolean(cond) => {
-                Self::Boolean(cond)
-            }
-            v3::partitions::filter_field::ValueCondition::FilterArray(cond) => Self::Array(cond),
-        }
-    }
-}
-
-super::super::impl_convert!(req Condition : v3::partitions::filter_field::ValueCondition);

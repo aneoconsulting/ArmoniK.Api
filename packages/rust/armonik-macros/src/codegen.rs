@@ -170,6 +170,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         param
             .bounds
             .push(syn::parse_quote!(crate::codec::ProtoField));
+        param.bounds.push(syn::parse_quote!(::core::cmp::PartialEq));
         param.bounds.push(syn::parse_quote!(::core::fmt::Debug));
         param.bounds.push(syn::parse_quote!(::core::marker::Send));
         param.bounds.push(syn::parse_quote!(::core::marker::Sync));
@@ -199,7 +200,23 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                 quote!(__default.#access)
             } else if matches!(field.codec, FieldCodec::Plain) {
                 let ty = &field.ty;
-                quote!(<#ty as crate::codec::ProtoField>::wire_default())
+                if plan.generic {
+                    quote!(
+                        if matches!(
+                            <#ty as crate::codec::ProtoField>::KIND,
+                            crate::codec::FieldKind::Message
+                        ) && matches!(
+                            <#ty as crate::codec::ProtoField>::CARDINALITY,
+                            crate::codec::Cardinality::Singular
+                        ) {
+                            __default.#access
+                        } else {
+                            <#ty as crate::codec::ProtoField>::wire_default()
+                        }
+                    )
+                } else {
+                    quote!(<#ty as crate::codec::ProtoField>::wire_default())
+                }
             } else {
                 quote!(::core::default::Default::default())
             },
@@ -220,7 +237,29 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                 // would inherit pieces of the seed.
                 let is_singular_message = matches!(&field.checks.kind, Some(FieldKind::Message(_)))
                     && field.checks.cardinalities.contains(&Cardinality::Singular);
-                if is_singular_message {
+                if plan.generic {
+                    // The seed rule is decided at runtime for generic types.
+                    merge_arms.push(quote! {
+                        #tag => {
+                            if matches!(
+                                <#ty as crate::codec::ProtoField>::KIND,
+                                crate::codec::FieldKind::Message
+                            ) && matches!(
+                                <#ty as crate::codec::ProtoField>::CARDINALITY,
+                                crate::codec::Cardinality::Singular
+                            ) {
+                                let seed = <Self as ::core::default::Default>::default().#access;
+                                let wire_zero = <#ty as crate::codec::ProtoField>::wire_default();
+                                if seed != wire_zero && self.#access == seed {
+                                    self.#access = wire_zero;
+                                }
+                            }
+                            <#ty as crate::codec::ProtoField>::merge_field(
+                                wire_type, &mut self.#access, buf, ctx,
+                            )
+                        }
+                    });
+                } else if is_singular_message {
                     merge_arms.push(quote! {
                         #tag => {
                             let seed = <Self as ::core::default::Default>::default().#access;

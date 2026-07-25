@@ -97,8 +97,11 @@ fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
     Ok(())
 }
 
-/// A zero value encodes to an empty wrapper, indistinguishable from an
-/// absent one.
+/// Wrapper enums are always emitted (a zero value encodes as an empty
+/// wrapper), preserving the absent-vs-explicit-zero distinction that fields
+/// with a non-zero API default rely on — exactly like the historical
+/// `Some(wrapper)` conversions.
 pub(crate) fn is_default<T: Copy + Into<i32>>(value: &T) -> bool {
-    (*value).into() == 0
+    let _ = value;
+    false
 }
