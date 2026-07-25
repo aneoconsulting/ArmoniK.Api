@@ -84,6 +84,34 @@ registry! {
     "armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort" => armonik::partitions::Sort,
     "armonik.api.grpc.v1.partitions.ListPartitionsResponse"
         => armonik::partitions::list::Response,
+    "armonik.api.grpc.v1.sessions.SessionRaw" => armonik::sessions::Raw,
+    "armonik.api.grpc.v1.sessions.SessionField" => armonik::sessions::Field,
+    "armonik.api.grpc.v1.sessions.Filters" => armonik::sessions::filter::Or,
+    "armonik.api.grpc.v1.sessions.FiltersAnd" => armonik::sessions::filter::And,
+    "armonik.api.grpc.v1.sessions.FilterField" => armonik::sessions::filter::Field,
+    "armonik.api.grpc.v1.sessions.ListSessionsRequest" => armonik::sessions::list::Request,
+    "armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort" => armonik::sessions::Sort,
+    "armonik.api.grpc.v1.sessions.ListSessionsResponse" => armonik::sessions::list::Response,
+    "armonik.api.grpc.v1.sessions.GetSessionRequest" => armonik::sessions::get::Request,
+    "armonik.api.grpc.v1.sessions.GetSessionResponse" => armonik::sessions::get::Response,
+    "armonik.api.grpc.v1.sessions.CancelSessionRequest" => armonik::sessions::cancel::Request,
+    "armonik.api.grpc.v1.sessions.CancelSessionResponse" => armonik::sessions::cancel::Response,
+    "armonik.api.grpc.v1.sessions.CreateSessionRequest" => armonik::sessions::create::Request,
+    "armonik.api.grpc.v1.sessions.CreateSessionReply" => armonik::sessions::create::Response,
+    "armonik.api.grpc.v1.sessions.PauseSessionRequest" => armonik::sessions::pause::Request,
+    "armonik.api.grpc.v1.sessions.PauseSessionResponse" => armonik::sessions::pause::Response,
+    "armonik.api.grpc.v1.sessions.ResumeSessionRequest" => armonik::sessions::resume::Request,
+    "armonik.api.grpc.v1.sessions.ResumeSessionResponse" => armonik::sessions::resume::Response,
+    "armonik.api.grpc.v1.sessions.CloseSessionRequest" => armonik::sessions::close::Request,
+    "armonik.api.grpc.v1.sessions.CloseSessionResponse" => armonik::sessions::close::Response,
+    "armonik.api.grpc.v1.sessions.PurgeSessionRequest" => armonik::sessions::purge::Request,
+    "armonik.api.grpc.v1.sessions.PurgeSessionResponse" => armonik::sessions::purge::Response,
+    "armonik.api.grpc.v1.sessions.DeleteSessionRequest" => armonik::sessions::delete::Request,
+    "armonik.api.grpc.v1.sessions.DeleteSessionResponse" => armonik::sessions::delete::Response,
+    "armonik.api.grpc.v1.sessions.StopSubmissionRequest"
+        => armonik::sessions::stop_submission::Request,
+    "armonik.api.grpc.v1.sessions.StopSubmissionResponse"
+        => armonik::sessions::stop_submission::Response,
     "armonik.api.grpc.v1.auth.GetCurrentUserRequest" => armonik::auth::current_user::Request,
     "armonik.api.grpc.v1.auth.GetCurrentUserResponse" => armonik::auth::current_user::Response,
     "armonik.api.grpc.v1.auth.User" => armonik::auth::User,
@@ -207,11 +235,47 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         // Filter fields: the condition oneof defaults to an empty string
         // filter, and enum wrappers fold zero/absent/empty uniformly.
         "armonik.api.grpc.v1.applications.FilterField"
-        | "armonik.api.grpc.v1.partitions.FilterField" => {
+        | "armonik.api.grpc.v1.partitions.FilterField"
+        | "armonik.api.grpc.v1.sessions.FilterField" => {
             normalize_default_member(message, "filter_string");
             // Absent/empty wrappers fold to the API default (Name/Id = 1),
             // like the historical `map_or_else(Default::default, ...)`.
             normalize_enum_wrapper(message, "field", 1);
+        }
+        "armonik.api.grpc.v1.sessions.ListSessionsRequest" => {
+            normalize_default_sort(message, side, Some(1));
+        }
+        "armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort" => {
+            normalize_enum_wrapper(message, "field", 1);
+        }
+        // A memberless field oneof decodes to the API default (SessionId).
+        "armonik.api.grpc.v1.sessions.SessionField" => {
+            if !any_member_set(message) {
+                normalize_enum_wrapper(message, "session_raw_field", 1);
+            }
+        }
+        "armonik.api.grpc.v1.sessions.SessionRawField"
+        | "armonik.api.grpc.v1.sessions.TaskOptionField"
+        | "armonik.api.grpc.v1.tasks.TaskOptionField" => {
+            normalize_wrapper_root(message);
+        }
+        // Task-options members kept as a plain `TaskOptions`.
+        "armonik.api.grpc.v1.sessions.SessionRaw" => {
+            normalize_task_options_member(message, side, "options");
+        }
+        "armonik.api.grpc.v1.sessions.CreateSessionRequest" => {
+            normalize_task_options_member(message, side, "default_task_option");
+        }
+        // Raw-session members kept as a plain `sessions::Raw`.
+        "armonik.api.grpc.v1.sessions.GetSessionResponse"
+        | "armonik.api.grpc.v1.sessions.CancelSessionResponse"
+        | "armonik.api.grpc.v1.sessions.PauseSessionResponse"
+        | "armonik.api.grpc.v1.sessions.ResumeSessionResponse"
+        | "armonik.api.grpc.v1.sessions.CloseSessionResponse"
+        | "armonik.api.grpc.v1.sessions.PurgeSessionResponse"
+        | "armonik.api.grpc.v1.sessions.DeleteSessionResponse"
+        | "armonik.api.grpc.v1.sessions.StopSubmissionResponse" => {
+            normalize_session_member(message, side);
         }
         _ => {}
     }
@@ -335,6 +399,43 @@ fn normalize_enum_wrapper(message: &mut DynamicMessage, member: &str, default_nu
         wrapped = outer;
     }
     message.set_field(&member, Value::Message(wrapped));
+}
+
+/// A task-options member kept as a plain `TaskOptions`: an absent member
+/// folds to the API default on the original side (the historical
+/// `unwrap_or_default`), and to the wire-zero form on the way back (a
+/// wire-zero `TaskOptions` encodes empty and is dropped); both foldings are
+/// then max_duration-canonicalized like any present `TaskOptions`.
+fn normalize_task_options_member(message: &mut DynamicMessage, side: Side, member: &str) {
+    let member = field(message, member);
+    if message.has_field(&member) {
+        return;
+    }
+    let prost_reflect::Kind::Message(desc) = member.kind() else {
+        panic!("task-options member is a message");
+    };
+    let mut options = DynamicMessage::new(desc);
+    if side == Side::Original {
+        options.set_field_by_name("max_retries", Value::I32(1));
+        options.set_field_by_name("priority", Value::I32(1));
+    }
+    normalize_task_options(&mut options);
+    message.set_field(&member, Value::Message(options));
+}
+
+/// A raw-session member kept as a plain `sessions::Raw`: absent members fold
+/// like [`normalize_task_options_member`], one level deeper.
+fn normalize_session_member(message: &mut DynamicMessage, side: Side) {
+    let member = field(message, "session");
+    if message.has_field(&member) {
+        return;
+    }
+    let prost_reflect::Kind::Message(desc) = member.kind() else {
+        panic!("session member is a message");
+    };
+    let mut session = DynamicMessage::new(desc);
+    normalize_task_options_member(&mut session, side, "options");
+    message.set_field(&member, Value::Message(session));
 }
 
 fn normalize_task_options(message: &mut DynamicMessage) {

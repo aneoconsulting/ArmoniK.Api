@@ -1,33 +1,21 @@
-use crate::api::v3;
-
 use super::Raw;
 
 /// Request for deleting a single session.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.sessions.DeleteSessionRequest")]
 pub struct Request {
     /// The session ID.
     pub session_id: String,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::sessions::DeleteSessionRequest {
-        session_id,
-    }
-);
-
 /// Response for deleting a single session.
 ///
 /// Return a raw session.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.sessions.DeleteSessionResponse")]
 pub struct Response {
     /// The session.
     pub session: Raw,
 }
-
-super::super::impl_convert!(
-    struct Response = v3::sessions::DeleteSessionResponse {
-        session = option session,
-    }
-);

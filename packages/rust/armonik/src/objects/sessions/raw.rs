@@ -1,10 +1,9 @@
 use super::super::{SessionStatus, TaskOptions};
 
-use crate::api::v3;
-
 /// A raw session object.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.sessions.SessionRaw")]
 pub struct Raw {
     /// The session ID.
     pub session_id: String,
@@ -17,6 +16,7 @@ pub struct Raw {
     /// The partition IDs.
     pub partition_ids: Vec<String>,
     /// The task options. In fact, these are used as default value in child tasks.
+    #[armonik(rename = "options")]
     pub default_task_options: TaskOptions,
     /// The creation date.
     #[cfg_attr(
@@ -52,20 +52,3 @@ pub struct Raw {
     #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_option_duration"))]
     pub duration: Option<prost_types::Duration>,
 }
-
-super::super::impl_convert!(
-    struct Raw = v3::sessions::SessionRaw {
-        session_id,
-        status = enum status,
-        client_submission,
-        worker_submission,
-        partition_ids,
-        default_task_options = option options,
-        created_at,
-        cancelled_at,
-        closed_at,
-        purged_at,
-        deleted_at,
-        duration,
-    }
-);

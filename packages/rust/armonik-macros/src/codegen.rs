@@ -677,6 +677,22 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 });
                 merge_arms.push(quote! {
                     #tag => {
+                        // reset-if-seed: when the value still is the API
+                        // default (the decode seed), a member appearing on
+                        // the wire merges from the wire zero value, so the
+                        // seed cannot leak into a partial member.
+                        {
+                            let seed = <Self as ::core::default::Default>::default();
+                            if *value == seed {
+                                if let Self::#var(seed_payload) = &seed {
+                                    let wire_zero =
+                                        <#ty as crate::codec::ProtoField>::wire_default();
+                                    if *seed_payload != wire_zero {
+                                        *value = Self::#var(wire_zero);
+                                    }
+                                }
+                            }
+                        }
                         let mut payload = if let Self::#var(payload) = value {
                             ::std::mem::take(payload)
                         } else {
@@ -696,6 +712,51 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                     checks,
                     ident,
                 ));
+            }
+            OneofVariantShape::Adapter { ty, adapter } => {
+                // Oneof presence is significant: the member is always
+                // emitted; the adapter's is_default is not consulted.
+                encode_arms.push(quote! {
+                    Self::#var(payload) => {
+                        <#adapter as crate::codec::ProtoAdapter<#ty>>::encode_field(
+                            #tag, payload, buf,
+                        );
+                    }
+                });
+                len_arms.push(quote! {
+                    Self::#var(payload) => {
+                        <#adapter as crate::codec::ProtoAdapter<#ty>>::encoded_len_field(
+                            #tag, payload,
+                        )
+                    }
+                });
+                merge_arms.push(quote! {
+                    #tag => {
+                        // reset-if-seed, as for plain payload variants;
+                        // adapters merge from the plain `Default`.
+                        {
+                            let seed = <Self as ::core::default::Default>::default();
+                            if *value == seed {
+                                if let Self::#var(seed_payload) = &seed {
+                                    let wire_zero: #ty = ::core::default::Default::default();
+                                    if *seed_payload != wire_zero {
+                                        *value = Self::#var(wire_zero);
+                                    }
+                                }
+                            }
+                        }
+                        let mut payload = if let Self::#var(payload) = value {
+                            ::std::mem::take(payload)
+                        } else {
+                            ::core::default::Default::default()
+                        };
+                        <#adapter as crate::codec::ProtoAdapter<#ty>>::merge_field(
+                            wire_type, &mut payload, buf, ctx,
+                        )?;
+                        *value = Self::#var(payload);
+                        ::core::result::Result::Ok(())
+                    }
+                });
             }
             OneofVariantShape::MarkerBool => {
                 encode_arms.push(quote! {

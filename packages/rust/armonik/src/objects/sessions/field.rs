@@ -1,85 +1,56 @@
 use super::super::TaskOptionField;
 
-use crate::api::v3;
-
 /// Represents every available field in a session raw.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(transparent, message = "armonik.api.grpc.v1.sessions.SessionRawField")]
 pub enum RawField {
-    /// Unspecified.
-    Unspecified = 0,
     /// The session ID.
     #[default]
-    SessionId = 1,
+    SessionId,
     /// The session status.
-    Status = 2,
+    Status,
     /// Whether clients can submit tasks in the session.
-    ClientSubmission = 8,
+    ClientSubmission,
     /// Whether workers can submit tasks in the session.
-    WorkerSubmission = 9,
+    WorkerSubmission,
     /// The partition IDs.
-    PartitionIds = 3,
+    PartitionIds,
     /// The task options. In fact, these are used as default value in child tasks.
-    Options = 4,
+    Options,
     /// The creation date.
-    CreatedAt = 5,
+    CreatedAt,
     /// The cancellation date. Only set when status is 'cancelled'.
-    CancelledAt = 6,
+    CancelledAt,
     /// The closure date. Only set when status is 'closed'.
-    ClosedAt = 12,
+    ClosedAt,
     /// The purge date. Only set when status is 'purged'.
-    PurgedAt = 10,
+    PurgedAt,
     /// The deletion date. Only set when status is 'deleted'.
-    DeletedAt = 11,
+    DeletedAt,
     /// The duration. Only set when status is 'cancelled' and 'closed'.
-    Duration = 7,
+    Duration,
+    /// Unspecified (zero) or a field unknown to this crate version.
+    Other(OtherRawField),
 }
 
-impl From<i32> for RawField {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::SessionId,
-            2 => Self::Status,
-            8 => Self::ClientSubmission,
-            9 => Self::WorkerSubmission,
-            3 => Self::PartitionIds,
-            4 => Self::Options,
-            5 => Self::CreatedAt,
-            6 => Self::CancelledAt,
-            12 => Self::ClosedAt,
-            10 => Self::PurgedAt,
-            11 => Self::DeletedAt,
-            7 => Self::Duration,
-            _ => Self::Unspecified,
-        }
-    }
-}
-
-impl From<RawField> for v3::sessions::SessionRawField {
-    fn from(value: RawField) -> Self {
-        Self {
-            field: value as i32,
-        }
-    }
-}
-
-impl From<v3::sessions::SessionRawField> for RawField {
-    fn from(value: v3::sessions::SessionRawField) -> Self {
-        Self::from(value.field)
-    }
-}
-
-super::super::impl_convert!(req RawField : v3::sessions::SessionRawField);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.sessions.SessionField", oneof = "field")]
 pub enum Field {
+    /// The session raw field.
+    #[armonik(rename = "session_raw_field")]
     Raw(RawField),
     /// The task option field.
+    #[armonik(rename = "task_option_field")]
     TaskOption(TaskOptionField),
     /// Represents a generic field in a task option.
+    #[armonik(
+        rename = "task_option_generic_field",
+        with = "crate::codec::adapters::StringWrapper<1>"
+    )]
     TaskOptionGeneric(String),
 }
 
@@ -88,42 +59,3 @@ impl Default for Field {
         Self::Raw(Default::default())
     }
 }
-
-impl From<Field> for v3::sessions::SessionField {
-    fn from(value: Field) -> Self {
-        Self {
-            field: Some(match value {
-                Field::Raw(field) => {
-                    v3::sessions::session_field::Field::SessionRawField(field.into())
-                }
-                Field::TaskOption(field) => {
-                    v3::sessions::session_field::Field::TaskOptionField(field.into())
-                }
-                Field::TaskOptionGeneric(field) => {
-                    v3::sessions::session_field::Field::TaskOptionGenericField(
-                        v3::sessions::TaskOptionGenericField { field },
-                    )
-                }
-            }),
-        }
-    }
-}
-
-impl From<v3::sessions::SessionField> for Field {
-    fn from(value: v3::sessions::SessionField) -> Self {
-        match value.field {
-            Some(v3::sessions::session_field::Field::SessionRawField(field)) => {
-                Self::Raw(field.into())
-            }
-            Some(v3::sessions::session_field::Field::TaskOptionField(field)) => {
-                Self::TaskOption(field.into())
-            }
-            Some(v3::sessions::session_field::Field::TaskOptionGenericField(field)) => {
-                Self::TaskOptionGeneric(field.field)
-            }
-            None => Default::default(),
-        }
-    }
-}
-
-super::super::impl_convert!(req Field : v3::sessions::SessionField);

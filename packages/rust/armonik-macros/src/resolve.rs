@@ -966,6 +966,12 @@ pub(crate) enum OneofVariantShape {
         ty: Box<syn::Type>,
         checks: Box<FieldChecks>,
     },
+    /// `Variant(T)` encoded through a `ProtoAdapter`
+    /// (`#[armonik(with = "...")]`); skips kind checks by design.
+    Adapter {
+        ty: Box<syn::Type>,
+        adapter: Box<syn::Type>,
+    },
     /// `#[armonik(present)]` unit variant selected by a `bool` member.
     MarkerBool,
     /// `#[armonik(present)]` unit variant selected by an empty-message member.
@@ -1072,10 +1078,18 @@ pub(crate) fn oneof_plan(
         };
         let mut rename = None;
         let mut present = false;
+        let mut with = None;
         for entry in &variant_entries {
             match &entry.item {
                 AttrItem::Rename(lit) => rename = Some(lit.value()),
                 AttrItem::Present => present = true,
+                AttrItem::With(lit) => match syn::parse_str::<syn::Type>(&lit.value()) {
+                    Ok(ty) => with = Some((entry.span, ty)),
+                    Err(err) => errors.push(syn::Error::new(
+                        entry.span,
+                        format!("invalid adapter type in with = ...: {err}"),
+                    )),
+                },
                 _ => errors.push(syn::Error::new(
                     entry.span,
                     "this armonik attribute is not valid on a oneof variant",
@@ -1123,7 +1137,30 @@ pub(crate) fn oneof_plan(
         covered[position] = true;
         let proto_path = format!("{proto_name}.{}", field_meta.name);
 
-        let shape = if present {
+        let shape = if let Some((with_span, adapter)) = with {
+            if present {
+                errors.push(syn::Error::new(
+                    with_span,
+                    "with = ... and present cannot be combined on a oneof variant",
+                ));
+                continue;
+            }
+            match &variant.fields {
+                syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                    OneofVariantShape::Adapter {
+                        ty: Box::new(fields.unnamed[0].ty.clone()),
+                        adapter: Box::new(adapter),
+                    }
+                }
+                _ => {
+                    errors.push(syn::Error::new(
+                        with_span,
+                        "with = ... needs a single-payload tuple variant",
+                    ));
+                    continue;
+                }
+            }
+        } else if present {
             if !matches!(variant.fields, syn::Fields::Unit) {
                 errors.push(syn::Error::new(
                     span,
