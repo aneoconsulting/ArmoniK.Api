@@ -115,12 +115,6 @@ const PERMANENT_UNMAPPED: &[&str] = &[
 /// only shrinks: annotating a type moves it to the registry, and the test
 /// fails on stale entries. It must be empty by the end of the migration.
 const TEMP_UNMAPPED: &[&str] = &[
-    "armonik.api.grpc.v1.FilterArray",
-    "armonik.api.grpc.v1.FilterBoolean",
-    "armonik.api.grpc.v1.FilterDate",
-    "armonik.api.grpc.v1.FilterDuration",
-    "armonik.api.grpc.v1.FilterNumber",
-    "armonik.api.grpc.v1.FilterString",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse",
@@ -181,7 +175,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.results.DownloadResultDataRequest",
     "armonik.api.grpc.v1.results.DownloadResultDataResponse",
     "armonik.api.grpc.v1.results.FilterField",
-    "armonik.api.grpc.v1.results.FilterStatus",
     "armonik.api.grpc.v1.results.Filters",
     "armonik.api.grpc.v1.results.FiltersAnd",
     "armonik.api.grpc.v1.results.GetOwnerTaskIdRequest",
@@ -213,7 +206,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.sessions.DeleteSessionRequest",
     "armonik.api.grpc.v1.sessions.DeleteSessionResponse",
     "armonik.api.grpc.v1.sessions.FilterField",
-    "armonik.api.grpc.v1.sessions.FilterStatus",
     "armonik.api.grpc.v1.sessions.Filters",
     "armonik.api.grpc.v1.sessions.FiltersAnd",
     "armonik.api.grpc.v1.sessions.GetSessionRequest",
@@ -265,7 +257,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.tasks.CountTasksByStatusRequest",
     "armonik.api.grpc.v1.tasks.CountTasksByStatusResponse",
     "armonik.api.grpc.v1.tasks.FilterField",
-    "armonik.api.grpc.v1.tasks.FilterStatus",
     "armonik.api.grpc.v1.tasks.Filters",
     "armonik.api.grpc.v1.tasks.FiltersAnd",
     "armonik.api.grpc.v1.tasks.GetResultIdsRequest",

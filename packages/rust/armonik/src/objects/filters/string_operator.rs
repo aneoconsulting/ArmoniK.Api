@@ -1,61 +1,37 @@
 use crate::api::v3;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(enum = "armonik.api.grpc.v1.FilterStringOperator")]
 pub enum FilterStringOperator {
     /// Is equal to the specified string.
     #[default]
-    Equal = 0,
+    Equal,
     /// Is not equal to the specified string.
-    NotEqual = 1,
+    NotEqual,
     /// Contains the specified substring.
-    Contains = 2,
+    Contains,
     /// Does not contain the specified substring.
-    NotContains = 3,
+    NotContains,
     /// Starts with the specified substring.
-    StartsWith = 4,
+    StartsWith,
     /// Ends with the specified substring.
-    EndsWith = 5,
-}
-
-impl From<i32> for FilterStringOperator {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Equal,
-            1 => Self::NotEqual,
-            2 => Self::Contains,
-            3 => Self::NotContains,
-            4 => Self::StartsWith,
-            5 => Self::EndsWith,
-            _ => Default::default(),
-        }
-    }
+    EndsWith,
+    /// Unknown to this crate version; round-trips losslessly.
+    Other(OtherFilterStringOperator),
 }
 
 impl From<FilterStringOperator> for v3::FilterStringOperator {
     fn from(value: FilterStringOperator) -> Self {
-        match value {
-            FilterStringOperator::Equal => Self::Equal,
-            FilterStringOperator::NotEqual => Self::NotEqual,
-            FilterStringOperator::Contains => Self::Contains,
-            FilterStringOperator::NotContains => Self::NotContains,
-            FilterStringOperator::StartsWith => Self::StartsWith,
-            FilterStringOperator::EndsWith => Self::EndsWith,
-        }
+        Self::try_from(i32::from(value)).unwrap_or_default()
     }
 }
 
 impl From<v3::FilterStringOperator> for FilterStringOperator {
     fn from(value: v3::FilterStringOperator) -> Self {
-        match value {
-            v3::FilterStringOperator::Equal => Self::Equal,
-            v3::FilterStringOperator::NotEqual => Self::NotEqual,
-            v3::FilterStringOperator::Contains => Self::Contains,
-            v3::FilterStringOperator::NotContains => Self::NotContains,
-            v3::FilterStringOperator::StartsWith => Self::StartsWith,
-            v3::FilterStringOperator::EndsWith => Self::EndsWith,
-        }
+        Self::from(value as i32)
     }
 }
 

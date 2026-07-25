@@ -1,61 +1,34 @@
 use crate::api::v3;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(enum = "armonik.api.grpc.v1.result_status.ResultStatus")]
 pub enum ResultStatus {
-    /// Result is in an unspecified state.
-    #[default]
-    Unspecified = 0,
     /// Result is created and task is created, submitted or dispatched.
-    Created = 1,
+    Created,
     /// Result is completed with a completed task.
-    Completed = 2,
+    Completed,
     /// Result is aborted.
-    Aborted = 3,
+    Aborted,
     /// Result is completed, but data has been deleted from object storage.
-    Deleted = 4,
-    /// Result was not found.
-    NotFound = 127,
-}
-
-impl From<i32> for ResultStatus {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::Created,
-            2 => Self::Completed,
-            3 => Self::Aborted,
-            4 => Self::Deleted,
-            127 => Self::NotFound,
-            _ => Default::default(),
-        }
-    }
+    Deleted,
+    /// Result was not found. Whether this is a temporary or definitive state depends on the reliability of the sender.
+    #[armonik(rename = "RESULT_STATUS_NOTFOUND")]
+    NotFound,
+    /// Unspecified (zero) or a status unknown to this crate version;
+    /// round-trips losslessly.
+    Other(OtherResultStatus),
 }
 
 impl From<ResultStatus> for v3::result_status::ResultStatus {
     fn from(value: ResultStatus) -> Self {
-        match value {
-            ResultStatus::Unspecified => Self::Unspecified,
-            ResultStatus::Created => Self::Created,
-            ResultStatus::Completed => Self::Completed,
-            ResultStatus::Aborted => Self::Aborted,
-            ResultStatus::Deleted => Self::Deleted,
-            ResultStatus::NotFound => Self::Notfound,
-        }
+        Self::try_from(i32::from(value)).unwrap_or(Self::Unspecified)
     }
 }
 
 impl From<v3::result_status::ResultStatus> for ResultStatus {
     fn from(value: v3::result_status::ResultStatus) -> Self {
-        match value {
-            v3::result_status::ResultStatus::Unspecified => Self::Unspecified,
-            v3::result_status::ResultStatus::Created => Self::Created,
-            v3::result_status::ResultStatus::Completed => Self::Completed,
-            v3::result_status::ResultStatus::Aborted => Self::Aborted,
-            v3::result_status::ResultStatus::Deleted => Self::Deleted,
-            v3::result_status::ResultStatus::Notfound => Self::NotFound,
-        }
+        Self::from(value as i32)
     }
 }
 

@@ -21,12 +21,12 @@ impl From<SessionFilterStatuses> for v3::submitter::session_filter::Statuses {
         match value {
             SessionFilterStatuses::Include(statuses) => {
                 Self::Excluded(v3::submitter::session_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(|status| status as i32).collect(),
+                    statuses: statuses.into_iter().map(i32::from).collect(),
                 })
             }
             SessionFilterStatuses::Exclude(statuses) => {
                 Self::Included(v3::submitter::session_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(|status| status as i32).collect(),
+                    statuses: statuses.into_iter().map(i32::from).collect(),
                 })
             }
         }

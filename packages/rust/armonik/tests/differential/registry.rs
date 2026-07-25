@@ -30,6 +30,18 @@ registry! {
     "armonik.api.grpc.v1.Configuration" => armonik::Configuration,
     "armonik.api.grpc.v1.Count" => armonik::Count,
     "armonik.api.grpc.v1.Error" => armonik::Error,
+    "armonik.api.grpc.v1.FilterArray" => armonik::FilterArray,
+    "armonik.api.grpc.v1.FilterBoolean" => armonik::FilterBoolean,
+    "armonik.api.grpc.v1.FilterDate" => armonik::FilterDate,
+    "armonik.api.grpc.v1.FilterDuration" => armonik::FilterDuration,
+    "armonik.api.grpc.v1.FilterNumber" => armonik::FilterNumber,
+    "armonik.api.grpc.v1.FilterString" => armonik::FilterString,
+    "armonik.api.grpc.v1.sessions.FilterStatus"
+        => armonik::FilterStatus<armonik::SessionStatus>,
+    "armonik.api.grpc.v1.tasks.FilterStatus"
+        => armonik::FilterStatus<armonik::TaskStatus>,
+    "armonik.api.grpc.v1.results.FilterStatus"
+        => armonik::FilterStatus<armonik::ResultStatus>,
     "armonik.api.grpc.v1.ResultRequest" => armonik::ResultRequest,
     "armonik.api.grpc.v1.TaskError" => armonik::TaskError,
     "armonik.api.grpc.v1.TaskId" => armonik::TaskId,
