@@ -67,7 +67,7 @@ async fn subscribe() {
             "rpc-subscribe-input",
             armonik::tasks::filter::Or::default(),
             armonik::results::filter::Or::default(),
-            [events::EventsEnum::Unspecified],
+            [events::EventsEnum::UNSPECIFIED],
         )
         .await
         .unwrap();

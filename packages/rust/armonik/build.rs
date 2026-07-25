@@ -493,6 +493,34 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
         ".armonik.api.grpc.v1.results.ResultsServiceConfigurationResponse",
         "crate::results::get_service_configuration::Response",
     ),
+    (
+        ".armonik.api.grpc.v1.events.EventSubscriptionRequest",
+        "crate::events::subscribe::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.events.EventSubscriptionResponse",
+        "crate::events::subscribe::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.TaskStatusUpdate",
+        "crate::events::TaskStatusUpdate",
+    ),
+    (
+        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultStatusUpdate",
+        "crate::events::ResultStatusUpdate",
+    ),
+    (
+        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultOwnerUpdate",
+        "crate::events::ResultOwnerUpdate",
+    ),
+    (
+        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.NewTask",
+        "crate::events::NewTask",
+    ),
+    (
+        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.NewResult",
+        "crate::events::NewResult",
+    ),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {
