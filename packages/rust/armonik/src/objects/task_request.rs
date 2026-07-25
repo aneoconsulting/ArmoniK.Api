@@ -1,11 +1,12 @@
 use crate::api::v3;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.TaskRequest")]
 pub struct TaskRequest {
     pub expected_output_keys: Vec<String>,
     pub data_dependencies: Vec<String>,
-    pub payload: Vec<u8>,
+    pub payload: bytes::Bytes,
     pub payload_name: String,
 }
 

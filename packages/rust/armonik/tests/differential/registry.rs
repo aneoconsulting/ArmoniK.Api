@@ -27,7 +27,17 @@ macro_rules! registry {
 }
 
 registry! {
+    "armonik.api.grpc.v1.Configuration" => armonik::Configuration,
     "armonik.api.grpc.v1.Count" => armonik::Count,
+    "armonik.api.grpc.v1.Error" => armonik::Error,
+    "armonik.api.grpc.v1.ResultRequest" => armonik::ResultRequest,
+    "armonik.api.grpc.v1.TaskError" => armonik::TaskError,
+    "armonik.api.grpc.v1.TaskId" => armonik::TaskId,
+    "armonik.api.grpc.v1.TaskIdList" => armonik::TaskIdList,
+    "armonik.api.grpc.v1.TaskIdWithStatus" => armonik::TaskIdWithStatus,
+    "armonik.api.grpc.v1.TaskList" => armonik::TaskList,
+    "armonik.api.grpc.v1.TaskOutputRequest" => armonik::TaskOutputRequest,
+    "armonik.api.grpc.v1.TaskRequest" => armonik::TaskRequest,
     "armonik.api.grpc.v1.DataChunk" => armonik::DataChunk,
     "armonik.api.grpc.v1.InitKeyedDataStream" => armonik::InitKeyedDataStream,
     "armonik.api.grpc.v1.InitTaskRequest" => armonik::InitTaskRequest,

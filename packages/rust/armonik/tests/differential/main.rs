@@ -115,22 +115,12 @@ const PERMANENT_UNMAPPED: &[&str] = &[
 /// only shrinks: annotating a type moves it to the registry, and the test
 /// fails on stale entries. It must be empty by the end of the migration.
 const TEMP_UNMAPPED: &[&str] = &[
-    "armonik.api.grpc.v1.Configuration",
-    "armonik.api.grpc.v1.Error",
     "armonik.api.grpc.v1.FilterArray",
     "armonik.api.grpc.v1.FilterBoolean",
     "armonik.api.grpc.v1.FilterDate",
     "armonik.api.grpc.v1.FilterDuration",
     "armonik.api.grpc.v1.FilterNumber",
     "armonik.api.grpc.v1.FilterString",
-    "armonik.api.grpc.v1.ResultRequest",
-    "armonik.api.grpc.v1.TaskError",
-    "armonik.api.grpc.v1.TaskId",
-    "armonik.api.grpc.v1.TaskIdList",
-    "armonik.api.grpc.v1.TaskIdWithStatus",
-    "armonik.api.grpc.v1.TaskList",
-    "armonik.api.grpc.v1.TaskOutputRequest",
-    "armonik.api.grpc.v1.TaskRequest",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate",
     "armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse",
