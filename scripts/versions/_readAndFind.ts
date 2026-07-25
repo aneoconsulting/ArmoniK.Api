@@ -3,7 +3,7 @@ import process from 'node:process'
 import { resolve } from 'pathe'
 import consola from 'consola'
 
-export function _readAndFind(pattern: RegExp, versions: Map<string, string>, key?: string) {
+export function _readAndFind(pattern: RegExp, versions: Map<string, string>, label?: string) {
   return (file: string) => {
     const data = fs.readFileSync(resolve(file), {
       encoding: 'utf8',
@@ -17,7 +17,9 @@ export function _readAndFind(pattern: RegExp, versions: Map<string, string>, key
       process.exit(1)
     }
 
-    versions.set(key ?? file, version)
-    consola.log(`Found ${key ?? file.split('/').pop()}@${version}`)
+    // The label keeps entries distinct when several patterns are matched
+    // against the same file (e.g. a package version and a dependency pin).
+    versions.set(label ? `${file} (${label})` : file, version)
+    consola.log(`Found ${file.split('/').pop()}@${version}`)
   }
 }
