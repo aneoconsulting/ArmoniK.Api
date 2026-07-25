@@ -1,112 +1,74 @@
 use super::super::TaskOptionField;
 
-use crate::api::v3;
-
 /// Represents every available field in a Task.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(transparent, message = "armonik.api.grpc.v1.tasks.TaskSummaryField")]
 pub enum SummaryField {
-    /// Unspecified.
-    Unspecified = 0,
     /// The task ID.
     #[default]
-    TaskId = 16,
+    TaskId,
     /// The session ID.
-    SessionId = 1,
+    SessionId,
     /// The owner pod ID.
-    OwnerPodId = 9,
+    OwnerPodId,
     /// The initial task ID. Set when a task is submitted independently of retries.
-    InitialTaskId = 10,
+    InitialTaskId,
     /// The task status.
-    Status = 2,
+    Status,
     /// The task creation date.
-    CreatedAt = 3,
+    CreatedAt,
     /// The task submission date.
-    SubmittedAt = 11,
+    SubmittedAt,
     /// The task start date.
-    StartedAt = 4,
+    StartedAt,
     /// The task end date.
-    EndedAt = 5,
+    EndedAt,
     /// The task duration. Between the creation date and the end date.
-    CreationToEndDuration = 6,
+    CreationToEndDuration,
     /// The task calculated duration. Between the start date and the end date.
-    ProcessingToEndDuration = 7,
+    ProcessingToEndDuration,
     /// The task calculated duration. Between the received date and the end date.
-    ReceivedToEndDuration = 18,
+    ReceivedToEndDuration,
     /// The pod TTL (Time To Live).
-    PodTtl = 12,
+    PodTtl,
     /// The hostname of the container running the task.
-    PodHostname = 13,
+    PodHostname,
     /// When the task is received by the agent.
-    ReceivedAt = 14,
+    ReceivedAt,
     /// When the task is acquired by the agent.
-    AcquiredAt = 15,
+    AcquiredAt,
     /// When the task is processed by the agent.
-    ProcessedAt = 17,
+    ProcessedAt,
     /// When task data are fetched by the agent.
-    FetchedAt = 19,
+    FetchedAt,
     /// The error message. Only set if task have failed.
-    Error = 8,
+    Error,
     /// The ID of the Result that is used as a payload for this task.
-    PayloadId = 20,
+    PayloadId,
     /// The ID of the Result that is used as a payload for this task.
-    CreatedBy = 21,
+    CreatedBy,
+    /// Unspecified (zero) or a field unknown to this crate version.
+    Other(OtherSummaryField),
 }
 
-impl From<i32> for SummaryField {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            16 => Self::TaskId,
-            1 => Self::SessionId,
-            9 => Self::OwnerPodId,
-            10 => Self::InitialTaskId,
-            2 => Self::Status,
-            3 => Self::CreatedAt,
-            11 => Self::SubmittedAt,
-            4 => Self::StartedAt,
-            5 => Self::EndedAt,
-            6 => Self::CreationToEndDuration,
-            7 => Self::ProcessingToEndDuration,
-            18 => Self::ReceivedToEndDuration,
-            12 => Self::PodTtl,
-            13 => Self::PodHostname,
-            14 => Self::ReceivedAt,
-            15 => Self::AcquiredAt,
-            17 => Self::ProcessedAt,
-            19 => Self::FetchedAt,
-            8 => Self::Error,
-            20 => Self::PayloadId,
-            21 => Self::CreatedBy,
-            _ => Self::Unspecified,
-        }
-    }
-}
-
-impl From<SummaryField> for v3::tasks::TaskSummaryField {
-    fn from(value: SummaryField) -> Self {
-        Self {
-            field: value as i32,
-        }
-    }
-}
-
-impl From<v3::tasks::TaskSummaryField> for SummaryField {
-    fn from(value: v3::tasks::TaskSummaryField) -> Self {
-        value.field.into()
-    }
-}
-
-super::super::impl_convert!(req SummaryField : v3::tasks::TaskSummaryField);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.TaskField", oneof = "field")]
 pub enum Field {
+    /// The task summary field.
+    #[armonik(rename = "task_summary_field")]
     Summary(SummaryField),
     /// The task option field.
+    #[armonik(rename = "task_option_field")]
     Option(TaskOptionField),
     /// Represents a generic field in a task option.
+    #[armonik(
+        rename = "task_option_generic_field",
+        with = "crate::codec::adapters::StringWrapper<1>"
+    )]
     OptionGeneric(String),
 }
 
@@ -115,40 +77,3 @@ impl Default for Field {
         Self::Summary(Default::default())
     }
 }
-
-impl From<Field> for v3::tasks::TaskField {
-    fn from(value: Field) -> Self {
-        Self {
-            field: Some(match value {
-                Field::Summary(field) => {
-                    v3::tasks::task_field::Field::TaskSummaryField(field.into())
-                }
-                Field::Option(field) => v3::tasks::task_field::Field::TaskOptionField(field.into()),
-                Field::OptionGeneric(field) => {
-                    v3::tasks::task_field::Field::TaskOptionGenericField(
-                        v3::tasks::TaskOptionGenericField { field },
-                    )
-                }
-            }),
-        }
-    }
-}
-
-impl From<v3::tasks::TaskField> for Field {
-    fn from(value: v3::tasks::TaskField) -> Self {
-        match value.field {
-            Some(v3::tasks::task_field::Field::TaskSummaryField(field)) => {
-                Self::Summary(field.into())
-            }
-            Some(v3::tasks::task_field::Field::TaskOptionField(field)) => {
-                Self::Option(field.into())
-            }
-            Some(v3::tasks::task_field::Field::TaskOptionGenericField(field)) => {
-                Self::OptionGeneric(field.field)
-            }
-            None => Default::default(),
-        }
-    }
-}
-
-super::super::impl_convert!(req Field : v3::tasks::TaskField);

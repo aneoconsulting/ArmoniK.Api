@@ -1,12 +1,11 @@
-use crate::api::v3;
-
 use super::{filter, Sort, Summary};
 
 /// Request to list tasks.
 ///
 /// Use pagination, filtering and sorting.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksRequest")]
 pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
@@ -34,22 +33,13 @@ impl Default for Request {
     }
 }
 
-super::super::impl_convert!(
-    struct Request = v3::tasks::ListTasksRequest {
-        page,
-        page_size,
-        filters = option filters,
-        sort = option sort,
-        with_errors,
-    }
-);
-
 /// Response to list tasks.
 ///
 /// Use pagination, filtering and sorting from the request.
-/// Retunr a list of tasks summary.
-#[derive(Debug, Clone)]
+/// Return a list of tasks summary.
+#[derive(Debug, Clone, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksResponse")]
 pub struct Response {
     /// The list of tasks summary.
     pub tasks: Vec<Summary>,
@@ -71,12 +61,3 @@ impl Default for Response {
         }
     }
 }
-
-super::super::impl_convert!(
-    struct Response = v3::tasks::ListTasksResponse {
-        list tasks,
-        page,
-        page_size,
-        total,
-    }
-);

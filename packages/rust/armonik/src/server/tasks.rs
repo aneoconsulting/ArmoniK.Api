@@ -42,12 +42,12 @@ impl<T: TasksService + Send + Sync + 'static> TasksServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::tasks::tasks_server::Tasks) for TasksService {
-        fn list_tasks(v3::tasks::ListTasksRequest) -> v3::tasks::ListTasksResponse { list }
-        fn list_tasks_detailed(v3::tasks::ListTasksRequest) -> v3::tasks::ListTasksDetailedResponse { list_detailed }
-        fn get_task(v3::tasks::GetTaskRequest) -> v3::tasks::GetTaskResponse { get }
-        fn cancel_tasks(v3::tasks::CancelTasksRequest) -> v3::tasks::CancelTasksResponse { cancel }
-        fn get_result_ids(v3::tasks::GetResultIdsRequest) -> v3::tasks::GetResultIdsResponse { get_result_ids }
-        fn count_tasks_by_status(v3::tasks::CountTasksByStatusRequest) -> v3::tasks::CountTasksByStatusResponse { count_status }
-        fn submit_tasks(v3::tasks::SubmitTasksRequest) -> v3::tasks::SubmitTasksResponse { submit }
+        fn list_tasks(crate::tasks::list::Request) -> crate::tasks::list::Response { list }
+        fn list_tasks_detailed(crate::tasks::list::Request) -> crate::tasks::list_detailed::Response { list_detailed }
+        fn get_task(crate::tasks::get::Request) -> crate::tasks::get::Response { get }
+        fn cancel_tasks(crate::tasks::cancel::Request) -> crate::tasks::cancel::Response { cancel }
+        fn get_result_ids(crate::tasks::get_result_ids::Request) -> crate::tasks::get_result_ids::Response { get_result_ids }
+        fn count_tasks_by_status(crate::tasks::count_status::Request) -> crate::tasks::count_status::Response { count_status }
+        fn submit_tasks(crate::tasks::submit::Request) -> crate::tasks::submit::Response { submit }
     }
 }

@@ -1,16 +1,13 @@
 use super::super::{TaskOptions, TaskStatus};
 use super::Output;
 
-use crate::api::v3;
-
-/// A summary task object.
-///
-/// It contains only a subset of the fields from the underlying task object.
-/// Used when a list of tasks are returned.
-#[derive(Debug, Clone, Default)]
+/// A detailed task object.
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.TaskDetailed")]
 pub struct Raw {
     /// The task ID.
+    #[armonik(rename = "id")]
     pub task_id: String,
     /// The session ID. A task have only one related session but a session have many tasks.
     pub session_id: String,
@@ -104,35 +101,3 @@ pub struct Raw {
     /// The ID of the Task that as submitted this task, empty if none.
     pub created_by: String,
 }
-
-super::super::impl_convert!(
-    struct Raw = v3::tasks::TaskDetailed {
-        task_id = id,
-        session_id,
-        owner_pod_id,
-        initial_task_id,
-        parent_task_ids,
-        data_dependencies,
-        expected_output_ids,
-        retry_of_ids,
-        status = enum status,
-        status_message,
-        options = option options,
-        created_at,
-        submitted_at,
-        received_at,
-        acquired_at,
-        fetched_at,
-        started_at,
-        processed_at,
-        ended_at,
-        creation_to_end_duration,
-        processing_to_end_duration,
-        received_to_end_duration,
-        pod_ttl,
-        output = option output,
-        pod_hostname,
-        payload_id,
-        created_by,
-    }
-);

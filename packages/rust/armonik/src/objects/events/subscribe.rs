@@ -20,7 +20,7 @@ impl From<Request> for v3::events::EventSubscriptionRequest {
     fn from(value: Request) -> Self {
         Self {
             session_id: value.session_id,
-            tasks_filters: Some(value.task_filters.into()),
+            tasks_filters: Some(value.task_filters),
             results_filters: Some(value.result_filters.into()),
             returned_events: value
                 .returned_events
@@ -35,7 +35,7 @@ impl From<v3::events::EventSubscriptionRequest> for Request {
     fn from(value: v3::events::EventSubscriptionRequest) -> Self {
         Self {
             session_id: value.session_id,
-            task_filters: value.tasks_filters.unwrap_or_default().into(),
+            task_filters: value.tasks_filters.unwrap_or_default(),
             result_filters: value.results_filters.unwrap_or_default().into(),
             returned_events: value.returned_events.into_collect(),
         }

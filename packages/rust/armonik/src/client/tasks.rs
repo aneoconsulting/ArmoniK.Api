@@ -161,22 +161,20 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: list_detailed::Request) -> Result<list_detailed::Response> {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .list_tasks_detailed(request),
+                    .list_tasks_detailed(list::Request::from(request)),
                 tracing::debug_span!("Tasks::list_detailed")
             );
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
@@ -189,8 +187,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: cancel::Request) -> Result<cancel::Response> {
@@ -203,8 +200,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get_result_ids::Request) -> Result<get_result_ids::Response> {
@@ -217,8 +213,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: count_status::Request) -> Result<count_status::Response> {
@@ -231,8 +226,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: submit::Request) -> Result<submit::Response> {
@@ -245,8 +239,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
     }
 }

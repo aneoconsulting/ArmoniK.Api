@@ -123,6 +123,12 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.sessions.SessionRawField",
     // String wrapper flattened into `sessions::Field::TaskOptionGeneric`.
     "armonik.api.grpc.v1.sessions.TaskOptionGenericField",
+    // Enum wrapper flattened into `tasks::SummaryField`.
+    "armonik.api.grpc.v1.tasks.TaskSummaryField",
+    // String wrapper flattened into `tasks::Field::OptionGeneric`.
+    "armonik.api.grpc.v1.tasks.TaskOptionGenericField",
+    // Pair entries flattened into the `task_results` map.
+    "armonik.api.grpc.v1.tasks.GetResultIdsResponse.MapTaskResult",
 ];
 
 /// Messages not yet migrated to a direct wire implementation. This list
@@ -212,32 +218,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.submitter.WaitRequest",
     "armonik.api.grpc.v1.submitter.WatchResultRequest",
     "armonik.api.grpc.v1.submitter.WatchResultStream",
-    "armonik.api.grpc.v1.tasks.CancelTasksRequest",
-    "armonik.api.grpc.v1.tasks.CancelTasksResponse",
-    "armonik.api.grpc.v1.tasks.CountTasksByStatusRequest",
-    "armonik.api.grpc.v1.tasks.CountTasksByStatusResponse",
-    "armonik.api.grpc.v1.tasks.FilterField",
-    "armonik.api.grpc.v1.tasks.Filters",
-    "armonik.api.grpc.v1.tasks.FiltersAnd",
-    "armonik.api.grpc.v1.tasks.GetResultIdsRequest",
-    "armonik.api.grpc.v1.tasks.GetResultIdsResponse",
-    "armonik.api.grpc.v1.tasks.GetResultIdsResponse.MapTaskResult",
-    "armonik.api.grpc.v1.tasks.GetTaskRequest",
-    "armonik.api.grpc.v1.tasks.GetTaskResponse",
-    "armonik.api.grpc.v1.tasks.ListTasksDetailedResponse",
-    "armonik.api.grpc.v1.tasks.ListTasksRequest",
-    "armonik.api.grpc.v1.tasks.ListTasksRequest.Sort",
-    "armonik.api.grpc.v1.tasks.ListTasksResponse",
-    "armonik.api.grpc.v1.tasks.SubmitTasksRequest",
-    "armonik.api.grpc.v1.tasks.SubmitTasksRequest.TaskCreation",
-    "armonik.api.grpc.v1.tasks.SubmitTasksResponse",
-    "armonik.api.grpc.v1.tasks.SubmitTasksResponse.TaskInfo",
-    "armonik.api.grpc.v1.tasks.TaskDetailed",
-    "armonik.api.grpc.v1.tasks.TaskDetailed.Output",
-    "armonik.api.grpc.v1.tasks.TaskField",
-    "armonik.api.grpc.v1.tasks.TaskOptionGenericField",
-    "armonik.api.grpc.v1.tasks.TaskSummary",
-    "armonik.api.grpc.v1.tasks.TaskSummaryField",
     "armonik.api.grpc.v1.worker.HealthCheckReply",
     "armonik.api.grpc.v1.worker.ProcessReply",
     "armonik.api.grpc.v1.worker.ProcessRequest",
