@@ -175,9 +175,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.submitter.WaitRequest",
     "armonik.api.grpc.v1.submitter.WatchResultRequest",
     "armonik.api.grpc.v1.submitter.WatchResultStream",
-    "armonik.api.grpc.v1.worker.HealthCheckReply",
-    "armonik.api.grpc.v1.worker.ProcessReply",
-    "armonik.api.grpc.v1.worker.ProcessRequest",
 ];
 
 #[test]

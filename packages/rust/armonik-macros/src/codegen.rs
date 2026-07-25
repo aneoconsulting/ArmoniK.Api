@@ -562,6 +562,58 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             }
         },
         EnumMode::Transparent { names, path } => quote! {
+            // Transparent enums also ARE their outermost wrapper message,
+            // so they can stand for RPC messages in stub signatures.
+            impl ::prost::Message for #ident {
+                fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+                    crate::codec::wrapper_enum::encode_raw(&[#(#path),*], self, buf);
+                }
+
+                fn merge_field(
+                    &mut self,
+                    tag: u32,
+                    wire_type: ::prost::encoding::WireType,
+                    buf: &mut impl ::prost::bytes::Buf,
+                    ctx: ::prost::encoding::DecodeContext,
+                ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                    crate::codec::wrapper_enum::merge_root_field(
+                        &[#(#path),*], tag, wire_type, self, buf, ctx,
+                    )
+                }
+
+                fn encoded_len(&self) -> usize {
+                    crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self)
+                }
+
+                fn clear(&mut self) {
+                    *self = Self::from(0);
+                }
+
+                // Seed from the wire zero: custom API defaults must not leak
+                // into an absent enum field.
+                fn decode(
+                    mut buf: impl ::prost::bytes::Buf,
+                ) -> ::core::result::Result<Self, ::prost::DecodeError>
+                where
+                    Self: ::core::default::Default,
+                {
+                    let mut message = Self::from(0);
+                    ::prost::Message::merge(&mut message, &mut buf)?;
+                    ::core::result::Result::Ok(message)
+                }
+
+                fn decode_length_delimited(
+                    buf: impl ::prost::bytes::Buf,
+                ) -> ::core::result::Result<Self, ::prost::DecodeError>
+                where
+                    Self: ::core::default::Default,
+                {
+                    let mut message = Self::from(0);
+                    ::prost::Message::merge_length_delimited(&mut message, buf)?;
+                    ::core::result::Result::Ok(message)
+                }
+            }
+
             impl crate::codec::ProtoField for #ident {
                 const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
                 const NAMES: &'static [&'static str] = &[#(#names),*];

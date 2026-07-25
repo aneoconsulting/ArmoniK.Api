@@ -581,6 +581,18 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
         ".armonik.api.grpc.v1.agent.NotifyResultDataResponse",
         "crate::agent::notify_result_data::Response",
     ),
+    (
+        ".armonik.api.grpc.v1.worker.ProcessRequest",
+        "crate::worker::process::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.worker.ProcessReply",
+        "crate::worker::process::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.worker.HealthCheckReply",
+        "crate::worker::health_check::Response",
+    ),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {

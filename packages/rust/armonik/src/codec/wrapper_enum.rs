@@ -105,3 +105,45 @@ pub(crate) fn is_default<T: Copy + Into<i32>>(value: &T) -> bool {
     let _ = value;
     false
 }
+
+// Body forms of the outermost wrapper (no containing field key), for the
+// `prost::Message` impls of transparent enums standing for RPC messages.
+
+pub(crate) fn encode_raw<T: Copy + Into<i32>>(path: &[u32], value: &T, buf: &mut impl BufMut) {
+    let raw: i32 = (*value).into();
+    if raw == 0 {
+        return;
+    }
+    let (&inner_tag, rest) = path.split_first().expect("non-empty wrapper path");
+    if rest.is_empty() {
+        encoding::int32::encode(inner_tag, &raw, buf);
+    } else {
+        encode(inner_tag, rest, value, buf);
+    }
+}
+
+pub(crate) fn encoded_len_raw<T: Copy + Into<i32>>(path: &[u32], value: &T) -> usize {
+    body_len(path, value)
+}
+
+pub(crate) fn merge_root_field<T: Copy + Into<i32> + From<i32>>(
+    path: &[u32],
+    tag: u32,
+    wire_type: WireType,
+    value: &mut T,
+    buf: &mut impl Buf,
+    ctx: DecodeContext,
+) -> Result<(), DecodeError> {
+    let (&inner_tag, rest) = path.split_first().expect("non-empty wrapper path");
+    if tag != inner_tag {
+        return encoding::skip_field(wire_type, tag, buf, ctx);
+    }
+    if rest.is_empty() {
+        let mut raw: i32 = (*value).into();
+        encoding::int32::merge(wire_type, &mut raw, buf, ctx)?;
+        *value = T::from(raw);
+        Ok(())
+    } else {
+        merge(rest, wire_type, value, buf, ctx)
+    }
+}
