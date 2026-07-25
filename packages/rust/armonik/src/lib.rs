@@ -10,9 +10,6 @@ mod __schema {
 pub(crate) mod api;
 #[cfg(feature = "_gen-client")]
 pub mod client;
-// TODO(direct-wire revamp): the allow goes away once the derives emit codec
-// calls for every type.
-#[allow(dead_code)]
 pub(crate) mod codec;
 mod objects;
 #[cfg(feature = "_gen-server")]
