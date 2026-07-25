@@ -1,5 +1,3 @@
-use crate::api::v3;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
@@ -34,20 +32,6 @@ pub enum TaskStatus {
     /// round-trips losslessly.
     Other(OtherTaskStatus),
 }
-
-impl From<TaskStatus> for v3::task_status::TaskStatus {
-    fn from(value: TaskStatus) -> Self {
-        Self::try_from(i32::from(value)).unwrap_or(Self::Unspecified)
-    }
-}
-
-impl From<v3::task_status::TaskStatus> for TaskStatus {
-    fn from(value: v3::task_status::TaskStatus) -> Self {
-        Self::from(value as i32)
-    }
-}
-
-super::impl_convert!(req TaskStatus : v3::task_status::TaskStatus);
 
 #[cfg(test)]
 mod tests {

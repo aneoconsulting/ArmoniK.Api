@@ -1,5 +1,3 @@
-use crate::api::v3;
-
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
 )]
@@ -22,17 +20,3 @@ pub enum FilterStringOperator {
     /// Unknown to this crate version; round-trips losslessly.
     Other(OtherFilterStringOperator),
 }
-
-impl From<FilterStringOperator> for v3::FilterStringOperator {
-    fn from(value: FilterStringOperator) -> Self {
-        Self::try_from(i32::from(value)).unwrap_or_default()
-    }
-}
-
-impl From<v3::FilterStringOperator> for FilterStringOperator {
-    fn from(value: v3::FilterStringOperator) -> Self {
-        Self::from(value as i32)
-    }
-}
-
-super::super::impl_convert!(req FilterStringOperator : v3::FilterStringOperator);

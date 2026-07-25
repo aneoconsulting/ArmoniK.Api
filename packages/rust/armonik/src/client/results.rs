@@ -309,7 +309,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .get_service_configuration(request),
+                    .get_service_configuration(v3::Empty::from(request)),
                 tracing::debug_span!("Results::get_service_configuration")
             );
             Ok(call

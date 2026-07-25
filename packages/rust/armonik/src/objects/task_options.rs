@@ -1,7 +1,5 @@
 use ::std::collections::HashMap;
 
-use crate::api::v3;
-
 const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
     seconds: 315576000000,
     nanos: 0,
@@ -82,37 +80,6 @@ pub enum TaskOptionField {
     /// Unspecified (zero) or a field unknown to this crate version.
     Other(OtherTaskOptionField),
 }
-
-impl From<TaskOptionField> for v3::sessions::TaskOptionField {
-    fn from(value: TaskOptionField) -> Self {
-        Self {
-            field: i32::from(value),
-        }
-    }
-}
-
-impl From<TaskOptionField> for v3::tasks::TaskOptionField {
-    fn from(value: TaskOptionField) -> Self {
-        Self {
-            field: i32::from(value),
-        }
-    }
-}
-
-impl From<v3::sessions::TaskOptionField> for TaskOptionField {
-    fn from(value: v3::sessions::TaskOptionField) -> Self {
-        value.field.into()
-    }
-}
-
-impl From<v3::tasks::TaskOptionField> for TaskOptionField {
-    fn from(value: v3::tasks::TaskOptionField) -> Self {
-        value.field.into()
-    }
-}
-
-super::super::impl_convert!(req TaskOptionField : v3::sessions::TaskOptionField);
-super::super::impl_convert!(req TaskOptionField : v3::tasks::TaskOptionField);
 
 #[cfg(test)]
 mod tests {

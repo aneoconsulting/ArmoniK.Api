@@ -47,51 +47,8 @@ macro_rules! impl_filter {
             pub condition: $condition,
         }
 
-        crate::utils::impl_vec_wrapper!(Or{or: And});
-        crate::utils::impl_vec_wrapper!(And{and: Field});
-    };
-    // Legacy form for the services not yet flipped.
-    (Filter[$field:ty, $condition:ty]: $api_or:ty [$api_and:ty[$api_field:ty, $api_condition:ty]]) => {
-        #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        pub struct Or {
-            pub or: Vec<And>,
-        }
-
-        super::super::impl_convert!(
-            struct Or = $api_or {
-                list or,
-            }
-        );
-
-        #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        pub struct And {
-            pub and: Vec<Field>,
-        }
-
-        super::super::impl_convert!(
-            struct And = $api_and {
-                list and,
-            }
-        );
-
-        #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        pub struct Field {
-            pub field: $field,
-            pub condition: $condition,
-        }
-
-        super::super::impl_convert!(
-            struct Field = $api_field {
-                field = option field,
-                condition = option value_condition,
-            }
-        );
-
-        crate::utils::impl_vec_wrapper!(Or{or: And});
-        crate::utils::impl_vec_wrapper!(And{and: Field});
+        crate::utils::impl_vec_wrapper!(Or { or: And });
+        crate::utils::impl_vec_wrapper!(And { and: Field });
     };
 }
 
