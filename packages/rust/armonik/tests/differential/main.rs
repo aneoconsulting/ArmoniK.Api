@@ -76,10 +76,8 @@ fn registered_types_roundtrip() {
                     )
                 });
 
-            if let Some(normalize) = entry.normalize {
-                normalize(&mut original);
-                normalize(&mut back);
-            }
+            registry::normalize(&mut original);
+            registry::normalize(&mut back);
 
             assert!(
                 compare::messages(&original, &back),
@@ -107,6 +105,10 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.Empty",
     // Inlined into the `Output::Error` struct variant.
     "armonik.api.grpc.v1.Output.Error",
+    // Inlined into the `agent::create_tasks::Status::TaskInfo` variant.
+    "armonik.api.grpc.v1.agent.CreateTaskReply.TaskInfo",
+    // Flattened into `agent::create_tasks::Response::Status.statuses`.
+    "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatusList",
 ];
 
 /// Messages not yet migrated to a direct wire implementation. This list
@@ -114,7 +116,6 @@ const PERMANENT_UNMAPPED: &[&str] = &[
 /// fails on stale entries. It must be empty by the end of the migration.
 const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.Configuration",
-    "armonik.api.grpc.v1.Count",
     "armonik.api.grpc.v1.Error",
     "armonik.api.grpc.v1.FilterArray",
     "armonik.api.grpc.v1.FilterBoolean",
@@ -136,12 +137,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.agent.CreateResultsRequest",
     "armonik.api.grpc.v1.agent.CreateResultsRequest.ResultCreate",
     "armonik.api.grpc.v1.agent.CreateResultsResponse",
-    "armonik.api.grpc.v1.agent.CreateTaskReply",
-    "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus",
-    "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatusList",
-    "armonik.api.grpc.v1.agent.CreateTaskReply.TaskInfo",
-    "armonik.api.grpc.v1.agent.CreateTaskRequest",
-    "armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest",
     "armonik.api.grpc.v1.agent.DataRequest",
     "armonik.api.grpc.v1.agent.DataResponse",
     "armonik.api.grpc.v1.agent.NotifyResultDataRequest",

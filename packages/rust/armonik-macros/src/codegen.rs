@@ -165,6 +165,17 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let proto_names = &plan.proto_names;
     let fingerprint = proc_macro2::Literal::u128_suffixed(plan.fingerprint);
 
+    let mut generics = plan.generics.clone();
+    for param in generics.type_params_mut() {
+        param
+            .bounds
+            .push(syn::parse_quote!(crate::codec::ProtoField));
+        param.bounds.push(syn::parse_quote!(::core::fmt::Debug));
+        param.bounds.push(syn::parse_quote!(::core::marker::Send));
+        param.bounds.push(syn::parse_quote!(::core::marker::Sync));
+    }
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
     let mut encode_fragments = Vec::new();
     let mut merge_arms = Vec::new();
     let mut len_fragments = Vec::new();
@@ -186,6 +197,9 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             access,
             if keeps_api_default {
                 quote!(__default.#access)
+            } else if matches!(field.codec, FieldCodec::Plain) {
+                let ty = &field.ty;
+                quote!(<#ty as crate::codec::ProtoField>::wire_default())
             } else {
                 quote!(::core::default::Default::default())
             },
@@ -311,7 +325,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             #asserts
         };
 
-        impl ::prost::Message for #ident {
+        impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
             fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
                 #(#encode_fragments)*
             }
@@ -366,7 +380,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             }
         }
 
-        impl crate::codec::ProtoField for #ident {
+        impl #impl_generics crate::codec::ProtoField for #ident #ty_generics #where_clause {
             const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
             const NAMES: &'static [&'static str] = &[#(#proto_names),*];
 
@@ -432,10 +446,19 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
         .iter()
         .map(|(variant, number)| quote!(#ident::#variant => #number));
 
-    let default_expr = match &plan.zero_variant {
-        Some(variant) => quote!(Self::#variant),
-        None => quote!(Self::UNSPECIFIED),
-    };
+    let default_impl = (!plan.has_std_default).then(|| {
+        let default_expr = match &plan.zero_variant {
+            Some(variant) => quote!(Self::#variant),
+            None => quote!(Self::UNSPECIFIED),
+        };
+        quote! {
+            impl ::core::default::Default for #ident {
+                fn default() -> Self {
+                    #default_expr
+                }
+            }
+        }
+    });
     let unspecified_const = plan.zero_variant.is_none().then(|| {
         quote! {
             impl #ident {
@@ -470,6 +493,14 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
                 fn is_default(value: &Self) -> bool {
                     crate::codec::enumeration::is_default(value)
+                }
+
+                fn wire_default() -> Self {
+                    Self::from(0)
+                }
+
+                fn clear_field(value: &mut Self) {
+                    *value = Self::from(0);
                 }
 
                 fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
@@ -514,6 +545,14 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
                 fn is_default(value: &Self) -> bool {
                     crate::codec::wrapper_enum::is_default(value)
+                }
+
+                fn wire_default() -> Self {
+                    Self::from(0)
+                }
+
+                fn clear_field(value: &mut Self) {
+                    *value = Self::from(0);
                 }
             }
         },
@@ -560,11 +599,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
         #unspecified_const
 
-        impl ::core::default::Default for #ident {
-            fn default() -> Self {
-                #default_expr
-            }
-        }
+        #default_impl
 
         #proto_field
     }

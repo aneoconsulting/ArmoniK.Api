@@ -76,7 +76,7 @@ pub use result_request::ResultRequest;
 pub use result_status::ResultStatus;
 pub use session::Session;
 pub use session_status::SessionStatus;
-pub use sort::{Sort, SortDirection, SortMany};
+pub use sort::{OtherSortDirection, Sort, SortDirection, SortMany};
 pub use status_count::StatusCount;
 pub use task_error::TaskError;
 pub use task_id::TaskId;

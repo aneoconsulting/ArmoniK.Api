@@ -23,6 +23,7 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{DecodeContext, WireType};
 use prost::DecodeError;
 
+pub(crate) mod adapters;
 mod bytes;
 mod containers;
 pub(crate) mod enumeration;
