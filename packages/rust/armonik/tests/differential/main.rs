@@ -97,7 +97,13 @@ fn registered_types_roundtrip() {
 /// Messages that never get their own Rust type: they are flattened into
 /// their parent's representation (wrappers, pair entries) and are covered
 /// through the parent's round-trips.
-const PERMANENT_UNMAPPED: &[&str] = &[];
+const PERMANENT_UNMAPPED: &[&str] = &[
+    // Single-enum-field wrappers flattened into `TaskOptionField`; their wire
+    // form is unit-tested in `objects/task_options.rs` and exercised through
+    // every message embedding them.
+    "armonik.api.grpc.v1.sessions.TaskOptionField",
+    "armonik.api.grpc.v1.tasks.TaskOptionField",
+];
 
 /// Messages not yet migrated to a direct wire implementation. This list
 /// only shrinks: annotating a type moves it to the registry, and the test
@@ -119,7 +125,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.Output",
     "armonik.api.grpc.v1.Output.Error",
     "armonik.api.grpc.v1.ResultRequest",
-    "armonik.api.grpc.v1.StatusCount",
     "armonik.api.grpc.v1.TaskError",
     "armonik.api.grpc.v1.TaskId",
     "armonik.api.grpc.v1.TaskIdList",
@@ -245,7 +250,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.sessions.SessionRawField",
     "armonik.api.grpc.v1.sessions.StopSubmissionRequest",
     "armonik.api.grpc.v1.sessions.StopSubmissionResponse",
-    "armonik.api.grpc.v1.sessions.TaskOptionField",
     "armonik.api.grpc.v1.sessions.TaskOptionGenericField",
     "armonik.api.grpc.v1.submitter.AvailabilityReply",
     "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest",
@@ -298,7 +302,6 @@ const TEMP_UNMAPPED: &[&str] = &[
     "armonik.api.grpc.v1.tasks.TaskDetailed",
     "armonik.api.grpc.v1.tasks.TaskDetailed.Output",
     "armonik.api.grpc.v1.tasks.TaskField",
-    "armonik.api.grpc.v1.tasks.TaskOptionField",
     "armonik.api.grpc.v1.tasks.TaskOptionGenericField",
     "armonik.api.grpc.v1.tasks.TaskSummary",
     "armonik.api.grpc.v1.tasks.TaskSummaryField",

@@ -17,7 +17,7 @@ impl From<Count> for v3::Count {
                 .values
                 .into_iter()
                 .map(|(status, count)| v3::StatusCount {
-                    status: status as i32,
+                    status: i32::from(status),
                     count,
                 })
                 .collect(),

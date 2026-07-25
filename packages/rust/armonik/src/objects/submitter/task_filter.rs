@@ -56,12 +56,12 @@ impl From<TaskFilterStatuses> for v3::submitter::task_filter::Statuses {
         match value {
             TaskFilterStatuses::Include(statuses) => {
                 Self::Excluded(v3::submitter::task_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(|status| status as i32).collect(),
+                    statuses: statuses.into_iter().map(i32::from).collect(),
                 })
             }
             TaskFilterStatuses::Exclude(statuses) => {
                 Self::Included(v3::submitter::task_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(|status| status as i32).collect(),
+                    statuses: statuses.into_iter().map(i32::from).collect(),
                 })
             }
         }

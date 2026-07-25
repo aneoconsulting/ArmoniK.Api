@@ -171,49 +171,85 @@ mod tests {
         let ours = TaskOptions::decode(explicit_zero.encode_to_vec().as_slice()).unwrap();
         assert_eq!(ours.max_duration, prost_types::Duration::default());
     }
+
+    /// `TaskOptionField` stands for the single-enum-field wrapper messages;
+    /// its wire form must match the generated wrappers of both services.
+    #[test]
+    fn transparent_wrapper_roundtrips() {
+        use prost::encoding::{decode_key, DecodeContext};
+
+        use super::TaskOptionField;
+        use crate::codec::ProtoField;
+
+        #[derive(Clone, PartialEq, prost::Message)]
+        struct Ref {
+            #[prost(message, optional, tag = "1")]
+            field: Option<v3::sessions::TaskOptionField>,
+        }
+
+        // The old ApplicationEngine variant maps to the proto ENGINE_TYPE.
+        assert_eq!(i32::from(TaskOptionField::ApplicationEngine), 9);
+        assert_eq!(TaskOptionField::from(9), TaskOptionField::ApplicationEngine);
+
+        for value in [
+            TaskOptionField::MaxDuration,
+            TaskOptionField::ApplicationEngine,
+            TaskOptionField::from(0),
+            TaskOptionField::from(77),
+        ] {
+            // Ours -> generated.
+            let mut buf = Vec::new();
+            ProtoField::encode_field(1, &value, &mut buf);
+            let decoded = Ref::decode(buf.as_slice()).unwrap();
+            assert_eq!(decoded.field.unwrap().field, i32::from(value));
+
+            // Generated -> ours.
+            let bytes = Ref {
+                field: Some(v3::sessions::TaskOptionField {
+                    field: i32::from(value),
+                }),
+            }
+            .encode_to_vec();
+            let mut cursor = bytes.as_slice();
+            let (tag, wire_type) = decode_key(&mut cursor).unwrap();
+            assert_eq!(tag, 1);
+            let mut back = TaskOptionField::default();
+            ProtoField::merge_field(wire_type, &mut back, &mut cursor, DecodeContext::default())
+                .unwrap();
+            assert_eq!(back, value);
+        }
+    }
 }
 
 /// Represents a field in a task option.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+///
+/// Stands for the single-enum-field wrapper messages
+/// `sessions.TaskOptionField` and `tasks.TaskOptionField`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik(transparent)]
+#[armonik(message = "armonik.api.grpc.v1.sessions.TaskOptionField")]
+#[armonik(message = "armonik.api.grpc.v1.tasks.TaskOptionField")]
 pub enum TaskOptionField {
-    /// Unspecified.
-    #[default]
-    Unspecified = 0,
-    MaxDuration = 1,
-    MaxRetries = 2,
-    Priority = 3,
-    PartitionId = 4,
-    ApplicationName = 5,
-    ApplicationVersion = 6,
-    ApplicationNamespace = 7,
-    ApplicationService = 8,
-    ApplicationEngine = 9,
-}
-
-impl From<i32> for TaskOptionField {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::MaxDuration,
-            2 => Self::MaxRetries,
-            3 => Self::Priority,
-            4 => Self::PartitionId,
-            5 => Self::ApplicationName,
-            6 => Self::ApplicationVersion,
-            7 => Self::ApplicationNamespace,
-            8 => Self::ApplicationService,
-            9 => Self::ApplicationEngine,
-            _ => Self::Unspecified,
-        }
-    }
+    MaxDuration,
+    MaxRetries,
+    Priority,
+    PartitionId,
+    ApplicationName,
+    ApplicationVersion,
+    ApplicationNamespace,
+    ApplicationService,
+    /// Named `ENGINE_TYPE` in the protos.
+    #[armonik(rename = "TASK_OPTION_ENUM_FIELD_ENGINE_TYPE")]
+    ApplicationEngine,
+    /// Unspecified (zero) or a field unknown to this crate version.
+    Other(OtherTaskOptionField),
 }
 
 impl From<TaskOptionField> for v3::sessions::TaskOptionField {
     fn from(value: TaskOptionField) -> Self {
         Self {
-            field: value as i32,
+            field: i32::from(value),
         }
     }
 }
@@ -221,7 +257,7 @@ impl From<TaskOptionField> for v3::sessions::TaskOptionField {
 impl From<TaskOptionField> for v3::tasks::TaskOptionField {
     fn from(value: TaskOptionField) -> Self {
         Self {
-            field: value as i32,
+            field: i32::from(value),
         }
     }
 }
