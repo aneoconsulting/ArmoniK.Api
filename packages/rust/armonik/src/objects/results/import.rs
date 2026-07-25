@@ -1,78 +1,72 @@
 use std::collections::HashMap;
 
+use prost::bytes::{Buf, BufMut};
+use prost::encoding::{self, DecodeContext, WireType};
+use prost::DecodeError;
+
+use crate::codec::{ProtoAdapter, ProtoField};
+
 use super::Raw;
 
-use crate::api::v3;
-
 /// Request for creating results without data.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataRequest")]
 pub struct Request {
     /// The opaque ids associated to the results to import.
-    pub results: HashMap<String, Vec<u8>>,
+    #[armonik(with = "crate::codec::adapters::PairMap<1, 2>")]
+    pub results: HashMap<String, bytes::Bytes>,
     /// The session in which create results.
     pub session_id: String,
 }
 
-impl From<Request> for v3::results::ImportResultsDataRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|(result_id, opaque_id)| {
-                    v3::results::import_results_data_request::ResultOpaqueId {
-                        opaque_id,
-                        result_id,
-                    }
-                })
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-impl From<v3::results::ImportResultsDataRequest> for Request {
-    fn from(value: v3::results::ImportResultsDataRequest) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|result| (result.result_id, result.opaque_id))
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-super::super::impl_convert!(req Request : v3::results::ImportResultsDataRequest);
-
 /// Response for creating results without data.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataResponse")]
 pub struct Response {
     /// The list of raw results that were created.
+    #[armonik(with = "RawByName")]
     pub results: HashMap<String, Raw>,
 }
 
-impl From<Response> for v3::results::ImportResultsDataResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            results: value.results.into_values().map(Into::into).collect(),
+/// `repeated ResultRaw` exposed as a `HashMap` keyed by the results' own
+/// `name` field: entry order is not preserved and duplicate names collapse
+/// (last wins), exactly like the historical conversion.
+pub(crate) struct RawByName;
+
+impl ProtoAdapter<HashMap<String, Raw>> for RawByName {
+    fn encode_field(tag: u32, value: &HashMap<String, Raw>, buf: &mut impl BufMut) {
+        for raw in value.values() {
+            Raw::encode_field(tag, raw, buf);
         }
     }
-}
 
-impl From<v3::results::ImportResultsDataResponse> for Response {
-    fn from(value: v3::results::ImportResultsDataResponse) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|result| (result.name.clone(), result.into()))
-                .collect(),
-        }
+    fn merge_field(
+        wire_type: WireType,
+        value: &mut HashMap<String, Raw>,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
+        let mut raw = Raw::wire_default();
+        Raw::merge_field(wire_type, &mut raw, buf, ctx)?;
+        value.insert(raw.name.clone(), raw);
+        Ok(())
+    }
+
+    fn encoded_len_field(tag: u32, value: &HashMap<String, Raw>) -> usize {
+        value
+            .values()
+            .map(|raw| Raw::encoded_len_field(tag, raw))
+            .sum()
+    }
+
+    fn is_default(value: &HashMap<String, Raw>) -> bool {
+        value.is_empty()
+    }
+
+    fn clear_field(value: &mut HashMap<String, Raw>) {
+        value.clear();
     }
 }
-
-super::super::impl_convert!(req Response : v3::results::ImportResultsDataResponse);

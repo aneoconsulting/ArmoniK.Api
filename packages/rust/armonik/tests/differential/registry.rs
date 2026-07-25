@@ -138,6 +138,43 @@ registry! {
     "armonik.api.grpc.v1.tasks.SubmitTasksResponse" => armonik::tasks::submit::Response,
     "armonik.api.grpc.v1.tasks.SubmitTasksResponse.TaskInfo"
         => armonik::tasks::submit::ResponseItem,
+    "armonik.api.grpc.v1.results.ResultRaw" => armonik::results::Raw,
+    "armonik.api.grpc.v1.results.Filters" => armonik::results::filter::Or,
+    "armonik.api.grpc.v1.results.FiltersAnd" => armonik::results::filter::And,
+    "armonik.api.grpc.v1.results.FilterField" => armonik::results::filter::Field,
+    "armonik.api.grpc.v1.results.ListResultsRequest" => armonik::results::list::Request,
+    "armonik.api.grpc.v1.results.ListResultsRequest.Sort" => armonik::results::Sort,
+    "armonik.api.grpc.v1.results.ListResultsResponse" => armonik::results::list::Response,
+    "armonik.api.grpc.v1.results.GetResultRequest" => armonik::results::get::Request,
+    "armonik.api.grpc.v1.results.GetResultResponse" => armonik::results::get::Response,
+    "armonik.api.grpc.v1.results.GetOwnerTaskIdRequest"
+        => armonik::results::get_owner_task_id::Request,
+    "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse"
+        => armonik::results::get_owner_task_id::Response,
+    "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest"
+        => armonik::results::create_metadata::Request,
+    "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest.ResultCreate"
+        => armonik::results::create_metadata::RequestItem,
+    "armonik.api.grpc.v1.results.CreateResultsMetaDataResponse"
+        => armonik::results::create_metadata::Response,
+    "armonik.api.grpc.v1.results.CreateResultsRequest" => armonik::results::create::Request,
+    "armonik.api.grpc.v1.results.CreateResultsRequest.ResultCreate"
+        => armonik::results::create::RequestItem,
+    "armonik.api.grpc.v1.results.CreateResultsResponse" => armonik::results::create::Response,
+    "armonik.api.grpc.v1.results.ImportResultsDataRequest" => armonik::results::import::Request,
+    "armonik.api.grpc.v1.results.ImportResultsDataResponse" => armonik::results::import::Response,
+    "armonik.api.grpc.v1.results.DeleteResultsDataRequest"
+        => armonik::results::delete_data::Request,
+    "armonik.api.grpc.v1.results.DeleteResultsDataResponse"
+        => armonik::results::delete_data::Response,
+    "armonik.api.grpc.v1.results.UploadResultDataRequest" => armonik::results::upload::Request,
+    "armonik.api.grpc.v1.results.UploadResultDataResponse" => armonik::results::upload::Response,
+    "armonik.api.grpc.v1.results.DownloadResultDataRequest"
+        => armonik::results::download::Request,
+    "armonik.api.grpc.v1.results.DownloadResultDataResponse"
+        => armonik::results::download::Response,
+    "armonik.api.grpc.v1.results.ResultsServiceConfigurationResponse"
+        => armonik::results::get_service_configuration::Response,
     "armonik.api.grpc.v1.auth.GetCurrentUserRequest" => armonik::auth::current_user::Request,
     "armonik.api.grpc.v1.auth.GetCurrentUserResponse" => armonik::auth::current_user::Response,
     "armonik.api.grpc.v1.auth.User" => armonik::auth::User,
@@ -255,7 +292,8 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         // Wrapper chains: zero, absent and present-but-empty carry no
         // information; canonicalize to the empty wrapper.
         "armonik.api.grpc.v1.applications.ApplicationField"
-        | "armonik.api.grpc.v1.partitions.PartitionField" => {
+        | "armonik.api.grpc.v1.partitions.PartitionField"
+        | "armonik.api.grpc.v1.results.ResultField" => {
             normalize_wrapper_root(message);
         }
         // Filter fields: the condition oneof defaults to an empty string
@@ -331,9 +369,32 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
             normalize_task_member(message, side);
         }
         // Repeated pairs exposed as a map: order is lost and duplicate
-        // task ids collapse (last wins).
+        // keys collapse (last wins).
         "armonik.api.grpc.v1.tasks.GetResultIdsResponse" => {
-            normalize_task_results(message);
+            normalize_string_keyed_pairs(message, "task_results", "task_id");
+        }
+        "armonik.api.grpc.v1.results.ListResultsRequest" => {
+            normalize_default_sort(message, side, Some(7));
+        }
+        "armonik.api.grpc.v1.results.ListResultsRequest.Sort" => {
+            normalize_enum_wrapper(message, "field", 7);
+        }
+        "armonik.api.grpc.v1.results.FilterField" => {
+            normalize_default_member(message, "filter_string");
+            normalize_enum_wrapper(message, "field", 7);
+        }
+        "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse" => {
+            normalize_string_keyed_pairs(message, "result_task", "result_id");
+        }
+        "armonik.api.grpc.v1.results.ImportResultsDataRequest" => {
+            normalize_string_keyed_pairs(message, "results", "result_id");
+        }
+        // Repeated results exposed as a map keyed by their own name.
+        "armonik.api.grpc.v1.results.ImportResultsDataResponse" => {
+            normalize_string_keyed_pairs(message, "results", "name");
+        }
+        "armonik.api.grpc.v1.results.UploadResultDataRequest" => {
+            normalize_default_member(message, "id");
         }
         // Raw-session members kept as a plain `sessions::Raw`.
         "armonik.api.grpc.v1.sessions.GetSessionResponse"
@@ -540,29 +601,30 @@ fn normalize_task_member(message: &mut DynamicMessage, side: Side) {
     message.set_field(&member, Value::Message(task));
 }
 
-/// Fold the repeated `MapTaskResult` pairs by task id (last wins) and order
-/// them, mirroring the `HashMap` representation.
-fn normalize_task_results(message: &mut DynamicMessage) {
-    let values = field(message, "task_results");
+/// Fold a repeated message member exposed as a `HashMap` keyed by one of the
+/// entries' own string fields: duplicates collapse (last wins) and order is
+/// lost, so entries are sorted by key.
+fn normalize_string_keyed_pairs(message: &mut DynamicMessage, member: &str, key_name: &str) {
+    let values = field(message, member);
     if !message.has_field(&values) {
         return;
     }
     let Value::List(entries) = message.get_field(&values).into_owned() else {
         return;
     };
-    let mut by_task = std::collections::BTreeMap::new();
+    let mut by_key = std::collections::BTreeMap::new();
     for entry in entries {
         let Value::Message(pair) = &entry else {
             continue;
         };
-        let task_id = field(pair, "task_id");
-        let key = match pair.get_field(&task_id).as_ref() {
-            Value::String(task_id) => task_id.clone(),
+        let key_field = field(pair, key_name);
+        let key = match pair.get_field(&key_field).as_ref() {
+            Value::String(key) => key.clone(),
             _ => String::new(),
         };
-        by_task.insert(key, entry);
+        by_key.insert(key, entry);
     }
-    message.set_field(&values, Value::List(by_task.into_values().collect()));
+    message.set_field(&values, Value::List(by_key.into_values().collect()));
 }
 
 fn normalize_task_options(message: &mut DynamicMessage) {

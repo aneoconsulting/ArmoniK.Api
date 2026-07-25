@@ -211,7 +211,7 @@ impl armonik::server::ResultsService for Service {
                 }
 
                 yield results::download::Response{
-                    data_chunk: Vec::from(chunk)
+                    data_chunk: bytes::Bytes::copy_from_slice(chunk)
                 };
             }
         })
@@ -348,7 +348,7 @@ async fn create() {
             "session-id",
             [create::RequestItem {
                 name: String::from("rpc-create-input"),
-                data: Vec::from("payload".as_bytes()),
+                data: bytes::Bytes::from_static(b"payload"),
                 ..Default::default()
             }],
         )
@@ -417,13 +417,13 @@ async fn download() {
         .unwrap();
 
     let chunk = response.next().await.unwrap().unwrap();
-    assert_eq!(chunk, b"rpc-download-input");
+    assert_eq!(chunk, b"rpc-download-input"[..]);
 
     let chunk = response.next().await.unwrap().unwrap();
-    assert_eq!(chunk, b"rpc-download-output-0");
+    assert_eq!(chunk, b"rpc-download-output-0"[..]);
 
     let chunk = response.next().await.unwrap().unwrap();
-    assert_eq!(chunk, b"rpc-download-output-1");
+    assert_eq!(chunk, b"rpc-download-output-1"[..]);
 
     assert!(response.next().await.is_none());
 }
@@ -608,9 +608,9 @@ async fn upload_wait_late() {
         "session-id",
         "result-id",
         async_stream::stream! {
-            yield b"";
+            yield bytes::Bytes::new();
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-            yield b"";
+            yield bytes::Bytes::new();
         },
     );
 
@@ -767,7 +767,7 @@ async fn upload_failure_late() {
 
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-        yield results::upload::Request::DataChunk(Vec::new());
+        yield results::upload::Request::DataChunk(bytes::Bytes::new());
     });
 
     match tokio::time::timeout(tokio::time::Duration::from_millis(10), future).await {

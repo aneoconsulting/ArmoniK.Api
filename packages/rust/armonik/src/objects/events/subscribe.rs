@@ -21,7 +21,7 @@ impl From<Request> for v3::events::EventSubscriptionRequest {
         Self {
             session_id: value.session_id,
             tasks_filters: Some(value.task_filters),
-            results_filters: Some(value.result_filters.into()),
+            results_filters: Some(value.result_filters),
             returned_events: value
                 .returned_events
                 .into_iter()
@@ -36,7 +36,7 @@ impl From<v3::events::EventSubscriptionRequest> for Request {
         Self {
             session_id: value.session_id,
             task_filters: value.tasks_filters.unwrap_or_default(),
-            result_filters: value.results_filters.unwrap_or_default().into(),
+            result_filters: value.results_filters.unwrap_or_default(),
             returned_events: value.returned_events.into_collect(),
         }
     }

@@ -112,7 +112,7 @@ where
     pub async fn import(
         &mut self,
         session_id: impl Into<String>,
-        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
+        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<bytes::Bytes>)>,
     ) -> Result<HashMap<String, Raw>, super::RequestError> {
         Ok(self
             .call(import::Request {
@@ -135,21 +135,17 @@ where
     ) -> Result<Raw, super::RequestError>
     where
         S: futures::Stream + Send + 'static,
-        <S as futures::Stream>::Item: Into<Vec<u8>>,
+        <S as futures::Stream>::Item: Into<bytes::Bytes>,
     {
         let span = tracing::debug_span!("Results::upload");
         let session_id: String = session_id.into();
         let result_id: String = result_id.into();
 
-        let request = futures::stream::iter([v3::results::UploadResultDataRequest::from(
-            upload::Request::Identifier {
-                session_id,
-                result_id,
-            },
-        )]);
-        let request = request.chain(data.map(|chunk| {
-            v3::results::UploadResultDataRequest::from(upload::Request::DataChunk(chunk.into()))
-        }));
+        let request = futures::stream::iter([upload::Request::Identifier {
+            session_id,
+            result_id,
+        }]);
+        let request = request.chain(data.map(|chunk| upload::Request::DataChunk(chunk.into())));
         let stream = tracing_futures::Instrument::instrument(
             request,
             tracing::trace_span!(parent: &span, "stream"),
@@ -160,12 +156,7 @@ where
             tracing::trace_span!(parent: &span, "rpc"),
         );
 
-        Ok(call
-            .await
-            .context(super::GrpcSnafu {})?
-            .into_inner()
-            .result
-            .map_or_else(Default::default, Into::into))
+        Ok(call.await.context(super::GrpcSnafu {})?.into_inner().result)
     }
 
     /// Retrieve data.
@@ -174,7 +165,7 @@ where
         session_id: impl Into<String>,
         result_id: impl Into<String>,
     ) -> Result<
-        impl futures::Stream<Item = Result<Vec<u8>, super::RequestError>> + 'static,
+        impl futures::Stream<Item = Result<bytes::Bytes, super::RequestError>> + 'static,
         super::RequestError,
     > {
         let span = tracing::debug_span!("Results::download");
@@ -246,8 +237,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
@@ -260,8 +250,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get_owner_task_id::Request) -> Result<get_owner_task_id::Response> {
@@ -274,8 +263,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: create_metadata::Request) -> Result<create_metadata::Response> {
@@ -288,8 +276,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: create::Request) -> Result<create::Response> {
@@ -302,8 +289,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: delete_data::Request) -> Result<delete_data::Response> {
@@ -316,8 +302,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get_service_configuration::Request) -> Result<get_service_configuration::Response> {
@@ -330,8 +315,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: import::Request) -> Result<import::Response> {
@@ -340,8 +324,7 @@ super::impl_call! {
               .import_results_data(request)
               .await
               .context(super::GrpcSnafu {})?
-              .into_inner()
-              .into())
+              .into_inner())
       }
     }
 }
@@ -367,7 +350,7 @@ where
             .await
             .context(super::GrpcSnafu {})?
             .into_inner()
-            .map(|response| response.map(Into::into).context(super::GrpcSnafu {}));
+            .map(|response| response.context(super::GrpcSnafu {}));
         Ok(futures::stream::StreamExt::boxed(
             tracing_futures::Instrument::instrument(
                 stream,
@@ -398,7 +381,7 @@ where
             self.inner.upload_result_data(stream),
             tracing::trace_span!(parent: &span, "rpc"),
         );
-        Ok(call.await.context(super::GrpcSnafu {})?.into_inner().into())
+        Ok(call.await.context(super::GrpcSnafu {})?.into_inner())
     }
 }
 
@@ -478,12 +461,12 @@ mod tests {
                 [
                     crate::results::create::RequestItem {
                         name: "result1".into(),
-                        data: b"data1".to_vec(),
+                        data: bytes::Bytes::from_static(b"data1"),
                         manual_deletion: false,
                     },
                     crate::results::create::RequestItem {
                         name: "result2".into(),
-                        data: b"data2".to_vec(),
+                        data: bytes::Bytes::from_static(b"data2"),
                         manual_deletion: false,
                     },
                 ],
@@ -499,7 +482,11 @@ mod tests {
         let before = Client::get_nb_request("Results", "UploadResultData").await;
         let mut client = Client::new().await.unwrap().into_results();
         client
-            .upload("session-id", "result-id", futures::stream::iter([b""]))
+            .upload(
+                "session-id",
+                "result-id",
+                futures::stream::iter([bytes::Bytes::new()]),
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "UploadResultData").await;
@@ -538,7 +525,10 @@ mod tests {
         let before = Client::get_nb_request("Results", "ImportResultsData").await;
         let mut client = Client::new().await.unwrap().into_results();
         client
-            .import("session-id", [("result", b"opaque-id")])
+            .import(
+                "session-id",
+                [("result", bytes::Bytes::from_static(b"opaque-id"))],
+            )
             .await
             .unwrap();
         let after = Client::get_nb_request("Results", "ImportResultsData").await;

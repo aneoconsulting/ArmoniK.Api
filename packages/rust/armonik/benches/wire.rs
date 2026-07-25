@@ -3,20 +3,13 @@
 //! `benches/roundtrip.rs` measures whole calls; this one isolates the codec,
 //! which is the part of the stack this branch replaces.
 //!
-//! # This is the pre-revamp form
+//! # This is the post-revamp form
 //!
-//! Before the migration the armonik types are plain Rust structs that do not
-//! implement [`prost::Message`]. Putting one on the wire means converting it to
-//! the generated `api::v3` mirror first, and reading one back means decoding the
-//! mirror and converting out of it. So "encode" here is *convert + encode* and
-//! "decode" is *decode + convert*, which is exactly the double pass the branch
-//! sets out to delete.
-//!
-//! Once the results service flips to a direct wire implementation the `v3`
-//! mirrors of these messages stop being generated and the conversions are
-//! deleted, so this file is rewritten at that commit to call
-//! [`prost::Message`] on the armonik types directly. Same benchmark ids and
-//! same payloads on both sides of that commit, so the two are comparable.
+//! The armonik types implement [`prost::Message`] themselves, so encoding is one
+//! pass over the value and decoding is one pass into it. Before the results
+//! service flipped, this file went through the generated `api::v3` mirrors and
+//! the conversions either way; it was rewritten at that commit, keeping the same
+//! benchmark ids and the same payloads so the two forms are comparable.
 //!
 //! Two shapes, picked because they stress different things:
 //!
@@ -24,7 +17,6 @@
 //!   per-field work dominates;
 //! * `download_chunk`: one large `bytes` field, so the payload copy dominates.
 
-use armonik::api::v3;
 use armonik::results;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use prost::Message;
@@ -69,23 +61,19 @@ fn download_chunk() -> results::download::Response {
 // ---- the codec path under measurement ----
 
 fn encode_list(value: results::list::Response) -> Vec<u8> {
-    v3::results::ListResultsResponse::from(value).encode_to_vec()
+    value.encode_to_vec()
 }
 
 fn decode_list(buffer: bytes::Bytes) -> results::list::Response {
-    results::list::Response::from(
-        v3::results::ListResultsResponse::decode(buffer).expect("decode a list response"),
-    )
+    results::list::Response::decode(buffer).expect("decode a list response")
 }
 
 fn encode_chunk(value: results::download::Response) -> Vec<u8> {
-    v3::results::DownloadResultDataResponse::from(value).encode_to_vec()
+    value.encode_to_vec()
 }
 
 fn decode_chunk(buffer: bytes::Bytes) -> results::download::Response {
-    results::download::Response::from(
-        v3::results::DownloadResultDataResponse::decode(buffer).expect("decode a data chunk"),
-    )
+    results::download::Response::decode(buffer).expect("decode a data chunk")
 }
 
 // ---- benchmarks ----
@@ -96,9 +84,9 @@ fn encode(c: &mut Criterion) {
     let value = list_response();
     group.throughput(Throughput::Bytes(encode_list(value.clone()).len() as u64));
     group.bench_function("list_response", |b| {
-        // The pre-revamp path consumes the value to convert it, the direct one
-        // does not. Cloning in an untimed setup keeps the timed region the same
-        // work on both sides of the changeover.
+        // The value is taken by value here only so the timed region matches the
+        // pre-revamp form, whose conversion consumes it; the clone is setup and
+        // is not timed.
         b.iter_batched(
             || value.clone(),
             |value| criterion::black_box(encode_list(value)),
@@ -109,7 +97,7 @@ fn encode(c: &mut Criterion) {
     // Into a buffer the iterations share, which is what tonic's encoder does and the
     // only way this row measures the codec: allocating 80 KiB inside the timed region
     // measures the state of the heap instead, and swings 5x with it.
-    let wire = v3::results::DownloadResultDataResponse::from(download_chunk());
+    let wire = download_chunk();
     group.throughput(Throughput::Bytes(CHUNK as u64));
     group.bench_function("download_chunk", |b| {
         let mut buf = Vec::with_capacity(wire.encoded_len());

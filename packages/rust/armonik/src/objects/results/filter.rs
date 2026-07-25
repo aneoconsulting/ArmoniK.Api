@@ -1,33 +1,34 @@
 use super::super::{FilterArray, FilterDate, FilterNumber, FilterString, ResultStatus};
 
-use crate::{api::v3, impl_filter};
+use crate::impl_filter;
 
 impl_filter!(
     Filter[super::Field, Condition]:
-    v3::results::Filters[
-        v3::results::FiltersAnd[
-            v3::results::FilterField,
-            v3::results::filter_field::ValueCondition
-        ]
+    protos[
+        "armonik.api.grpc.v1.results.Filters",
+        "armonik.api.grpc.v1.results.FiltersAnd",
+        "armonik.api.grpc.v1.results.FilterField"
     ]
 );
 
 pub type Status = super::super::FilterStatus<ResultStatus>;
 
-super::super::impl_convert!(
-    struct Status = v3::results::FilterStatus {
-        value = enum value,
-        operator = enum operator,
-    }
-);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(
+    message = "armonik.api.grpc.v1.results.FilterField",
+    oneof = "value_condition"
+)]
 pub enum Condition {
+    #[armonik(rename = "filter_string")]
     String(FilterString),
+    #[armonik(rename = "filter_date")]
     Date(FilterDate),
+    #[armonik(rename = "filter_array")]
     Array(FilterArray),
+    #[armonik(rename = "filter_status")]
     Status(Status),
+    #[armonik(rename = "filter_number")]
     Number(FilterNumber),
 }
 
@@ -36,31 +37,3 @@ impl Default for Condition {
         Self::String(Default::default())
     }
 }
-
-impl From<Condition> for v3::results::filter_field::ValueCondition {
-    fn from(value: Condition) -> Self {
-        match value {
-            Condition::String(cond) => Self::FilterString(cond),
-            Condition::Date(cond) => Self::FilterDate(cond),
-            Condition::Array(cond) => Self::FilterArray(cond),
-            Condition::Status(cond) => Self::FilterStatus(cond.into()),
-            Condition::Number(cond) => Self::FilterNumber(cond),
-        }
-    }
-}
-
-impl From<v3::results::filter_field::ValueCondition> for Condition {
-    fn from(value: v3::results::filter_field::ValueCondition) -> Self {
-        match value {
-            v3::results::filter_field::ValueCondition::FilterString(cond) => Self::String(cond),
-            v3::results::filter_field::ValueCondition::FilterDate(cond) => Self::Date(cond),
-            v3::results::filter_field::ValueCondition::FilterArray(cond) => Self::Array(cond),
-            v3::results::filter_field::ValueCondition::FilterStatus(cond) => {
-                Self::Status(cond.into())
-            }
-            v3::results::filter_field::ValueCondition::FilterNumber(cond) => Self::Number(cond),
-        }
-    }
-}
-
-super::super::impl_convert!(req Condition : v3::results::filter_field::ValueCondition);

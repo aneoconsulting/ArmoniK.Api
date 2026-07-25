@@ -1,10 +1,9 @@
 use super::super::ResultStatus;
 
-use crate::api::v3;
-
 /// A raw Result object.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.results.ResultRaw")]
 pub struct Raw {
     /// The session ID.
     pub session_id: String,
@@ -33,23 +32,7 @@ pub struct Raw {
     /// The ID of the Task that as submitted this result.
     pub created_by: String,
     /// ID of the data in the underlying object storage.
-    pub opaque_id: Vec<u8>,
+    pub opaque_id: bytes::Bytes,
     /// If the user is responsible for the deletion of the data in the underlying object storage
     pub manual_deletion: bool,
 }
-
-super::super::impl_convert!(
-    struct Raw = v3::results::ResultRaw {
-        session_id,
-        name,
-        owner_task_id,
-        status = enum status,
-        created_at,
-        completed_at,
-        result_id,
-        size,
-        created_by,
-        opaque_id,
-        manual_deletion,
-    }
-);
