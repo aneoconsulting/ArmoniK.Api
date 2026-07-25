@@ -72,8 +72,10 @@ super::impl_trait_methods! {
 
         async fn create_task(
             self: std::sync::Arc<Self>,
-            request: tonic::Request<tonic::Streaming<v3::agent::CreateTaskRequest>>,
-        ) -> std::result::Result<tonic::Response<v3::agent::CreateTaskReply>, tonic::Status> {
+            // Extern'd types: the generated stub speaks the armonik types
+            // directly, no conversion left on this path.
+            request: tonic::Request<tonic::Streaming<agent::create_tasks::Request>>,
+        ) -> std::result::Result<tonic::Response<agent::create_tasks::Response>, tonic::Status> {
             crate::server::impl_trait_methods!(stream client (self, request) {AgentService::create_tasks})
         }
     }

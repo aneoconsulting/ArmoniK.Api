@@ -52,7 +52,16 @@ const PROTO_FILES: &[&str] = &[
 /// rewrites the signatures of the client/server stubs that reference it.
 ///
 /// Flipped service by service during the direct-wire migration.
-const EXTERN_TYPES: &[(&str, &str)] = &[];
+const EXTERN_TYPES: &[(&str, &str)] = &[
+    (
+        ".armonik.api.grpc.v1.agent.CreateTaskRequest",
+        "crate::agent::create_tasks::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.agent.CreateTaskReply",
+        "crate::agent::create_tasks::Response",
+    ),
+];
 
 fn main() -> Result<(), Box<dyn Error>> {
     for proto in PROTO_FILES {

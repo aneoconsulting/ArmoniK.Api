@@ -1025,82 +1025,98 @@ impl Message for TestCreateTaskRequest {
     }
 }
 
-fn v3_request_samples() -> Vec<v3::agent::CreateTaskRequest> {
+/// prost-derived reference for `agent.CreateTaskRequest` (extern'd, so no
+/// generated type exists anymore).
+#[derive(Clone, PartialEq, Message)]
+struct RefCreateTaskRequest {
+    #[prost(oneof = "RefCreateTaskType", tags = "1, 2, 3")]
+    r#type: Option<RefCreateTaskType>,
+    #[prost(string, tag = "4")]
+    communication_token: String,
+}
+
+#[derive(Clone, PartialEq, prost::Oneof)]
+enum RefCreateTaskType {
+    #[prost(message, tag = "1")]
+    InitRequest(RefInitRequest),
+    #[prost(message, tag = "2")]
+    InitTask(v3::InitTaskRequest),
+    #[prost(message, tag = "3")]
+    TaskPayload(v3::DataChunk),
+}
+
+#[derive(Clone, PartialEq, Message)]
+struct RefInitRequest {
+    #[prost(message, optional, tag = "1")]
+    task_options: Option<v3::TaskOptions>,
+}
+
+fn v3_request_samples() -> Vec<RefCreateTaskRequest> {
     vec![
-        v3::agent::CreateTaskRequest {
+        RefCreateTaskRequest {
             communication_token: "token-1".into(),
-            r#type: Some(v3::agent::create_task_request::Type::InitRequest(
-                v3::agent::create_task_request::InitRequest {
-                    task_options: Some(v3::TaskOptions {
-                        max_retries: 3,
-                        priority: 1,
-                        partition_id: "part".into(),
-                        ..Default::default()
-                    }),
-                },
-            )),
+            r#type: Some(RefCreateTaskType::InitRequest(RefInitRequest {
+                task_options: Some(v3::TaskOptions {
+                    max_retries: 3,
+                    priority: 1,
+                    partition_id: "part".into(),
+                    ..Default::default()
+                }),
+            })),
         },
-        v3::agent::CreateTaskRequest {
+        RefCreateTaskRequest {
             communication_token: "token-2".into(),
-            r#type: Some(v3::agent::create_task_request::Type::InitTask(
-                v3::InitTaskRequest {
-                    r#type: Some(v3::init_task_request::Type::Header(v3::TaskRequestHeader {
-                        expected_output_keys: vec!["out1".into(), "out2".into()],
-                        data_dependencies: vec!["dep".into()],
-                    })),
-                },
-            )),
+            r#type: Some(RefCreateTaskType::InitTask(v3::InitTaskRequest {
+                r#type: Some(v3::init_task_request::Type::Header(v3::TaskRequestHeader {
+                    expected_output_keys: vec!["out1".into(), "out2".into()],
+                    data_dependencies: vec!["dep".into()],
+                })),
+            })),
         },
-        v3::agent::CreateTaskRequest {
+        RefCreateTaskRequest {
             communication_token: String::new(),
-            r#type: Some(v3::agent::create_task_request::Type::InitTask(
-                v3::InitTaskRequest {
-                    r#type: Some(v3::init_task_request::Type::LastTask(true)),
-                },
-            )),
+            r#type: Some(RefCreateTaskType::InitTask(v3::InitTaskRequest {
+                r#type: Some(v3::init_task_request::Type::LastTask(true)),
+            })),
         },
-        v3::agent::CreateTaskRequest {
+        RefCreateTaskRequest {
             communication_token: "token-3".into(),
-            r#type: Some(v3::agent::create_task_request::Type::TaskPayload(
-                v3::DataChunk {
-                    r#type: Some(v3::data_chunk::Type::Data(b"chunk-data".to_vec())),
-                },
-            )),
+            r#type: Some(RefCreateTaskType::TaskPayload(v3::DataChunk {
+                r#type: Some(v3::data_chunk::Type::Data(b"chunk-data".to_vec())),
+            })),
         },
-        v3::agent::CreateTaskRequest {
+        RefCreateTaskRequest {
             communication_token: "token-4".into(),
-            r#type: Some(v3::agent::create_task_request::Type::TaskPayload(
-                v3::DataChunk {
-                    r#type: Some(v3::data_chunk::Type::DataComplete(true)),
-                },
-            )),
+            r#type: Some(RefCreateTaskType::TaskPayload(v3::DataChunk {
+                r#type: Some(v3::data_chunk::Type::DataComplete(true)),
+            })),
         },
     ]
 }
 
 #[test]
-fn sibling_oneof_roundtrip_through_generated_type() {
+fn sibling_oneof_roundtrip_through_reference_encoding() {
     for theirs in v3_request_samples() {
         let bytes = theirs.encode_to_vec();
         let ours = TestCreateTaskRequest::decode(bytes.as_slice()).unwrap();
 
         match (&theirs.r#type, &ours) {
             (
-                Some(v3::agent::create_task_request::Type::InitRequest(_)),
+                Some(RefCreateTaskType::InitRequest(_)),
                 TestCreateTaskRequest::InitRequest {
                     communication_token,
                     ..
                 },
             )
             | (
-                Some(v3::agent::create_task_request::Type::InitTask(_)),
+                Some(RefCreateTaskType::InitTask(_)),
                 TestCreateTaskRequest::InitTask {
                     communication_token,
                     ..
                 },
             )
             | (
-                Some(v3::agent::create_task_request::Type::TaskPayload(_)),
+                Some(RefCreateTaskType::TaskPayload(_)),
                 TestCreateTaskRequest::DataChunk {
                     communication_token,
                     ..
@@ -1109,8 +1125,8 @@ fn sibling_oneof_roundtrip_through_generated_type() {
             (t, o) => panic!("variant mismatch: {t:?} vs {o:?}"),
         }
 
-        // Re-encode and decode with the generated type: must be identical.
-        let back = v3::agent::CreateTaskRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
+        // Re-encode and decode with the reference type: must be identical.
+        let back = RefCreateTaskRequest::decode(ours.encode_to_vec().as_slice()).unwrap();
         assert_eq!(back, theirs);
     }
 }
