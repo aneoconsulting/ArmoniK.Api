@@ -10,6 +10,10 @@ mod __schema {
 pub mod api;
 #[cfg(feature = "_gen-client")]
 pub mod client;
+// TODO(direct-wire revamp): the allow goes away once the derives emit codec
+// calls for every type.
+#[allow(dead_code)]
+pub(crate) mod codec;
 mod objects;
 #[cfg(feature = "_gen-server")]
 pub mod server;
@@ -24,7 +28,8 @@ pub use objects::*;
 mod utils;
 
 pub mod reexports {
-    // Through `armonik-transport`, which owns these, so `armonik::reexports::rustls` cannot differ
+    pub use bytes;
+    // Through `armonik-transport`, which owns these now, so `armonik::reexports::rustls` cannot differ
     // from the `rustls` the connection was built with.
     #[cfg(feature = "_gen-client")]
     pub use armonik_transport::reexports::{hyper, hyper_rustls, rustls};
