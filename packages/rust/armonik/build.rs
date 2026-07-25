@@ -157,6 +157,42 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
         ".armonik.api.grpc.v1.applications.ListApplicationsResponse",
         "crate::applications::list::Response",
     ),
+    (
+        ".armonik.api.grpc.v1.partitions.PartitionRaw",
+        "crate::partitions::Raw",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.Filters",
+        "crate::partitions::filter::Or",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.FiltersAnd",
+        "crate::partitions::filter::And",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.FilterField",
+        "crate::partitions::filter::Field",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.GetPartitionRequest",
+        "crate::partitions::get::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.GetPartitionResponse",
+        "crate::partitions::get::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.ListPartitionsRequest",
+        "crate::partitions::list::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort",
+        "crate::partitions::Sort",
+    ),
+    (
+        ".armonik.api.grpc.v1.partitions.ListPartitionsResponse",
+        "crate::partitions::list::Response",
+    ),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {

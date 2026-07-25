@@ -80,8 +80,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get::Request) -> Result<get::Response> {
@@ -94,8 +93,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
     }
 }

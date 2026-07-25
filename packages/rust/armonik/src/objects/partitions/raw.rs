@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use crate::api::v3;
-
 /// A raw partition object.
 ///
 /// Used when a list or a single partition is returned.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.partitions.PartitionRaw")]
 pub struct Raw {
     /// The partition ID.
+    #[armonik(rename = "id")]
     pub partition_id: String,
     /// The parent partition IDs.
     pub parent_partition_ids: Vec<String>,
@@ -23,15 +23,3 @@ pub struct Raw {
     /// The priority of the partition.
     pub priority: i64,
 }
-
-super::super::impl_convert!(
-    struct Raw = v3::partitions::PartitionRaw {
-        partition_id = id,
-        parent_partition_ids,
-        pod_reserved,
-        pod_max,
-        pod_configuration,
-        preemption_percentage,
-        priority,
-    }
-);
