@@ -18,7 +18,15 @@ pub(crate) struct MessagePlan {
     pub(crate) proto_names: Vec<String>,
     /// Fields sorted by tag (canonical encode order).
     pub(crate) fields: Vec<FieldPlan>,
+    pub(crate) style: StructStyle,
     pub(crate) fingerprint: u128,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum StructStyle {
+    Named,
+    Tuple,
+    Unit,
 }
 
 pub(crate) enum FieldAccess {
@@ -379,6 +387,11 @@ pub(crate) fn message_plan(
         ident: input.ident.clone(),
         proto_names: proto_names.into_iter().map(|(_, name)| name).collect(),
         fields,
+        style: match &data.fields {
+            syn::Fields::Named(_) => StructStyle::Named,
+            syn::Fields::Unnamed(_) => StructStyle::Tuple,
+            syn::Fields::Unit => StructStyle::Unit,
+        },
         fingerprint: index.fingerprint,
     })
 }
