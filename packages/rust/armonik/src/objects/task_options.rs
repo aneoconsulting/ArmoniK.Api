@@ -7,8 +7,9 @@ const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
     nanos: 0,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.TaskOptions")]
 pub struct TaskOptions {
     pub options: HashMap<String, String>,
     #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_duration"))]
@@ -92,6 +93,60 @@ impl From<v3::TaskOptions> for TaskOptions {
 }
 
 super::impl_convert!(req TaskOptions : v3::TaskOptions);
+
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+
+    use super::{TaskOptions, INFINITE_DURATION};
+    use crate::api::v3;
+
+    /// The derived implementation must round-trip against the generated type.
+    #[test]
+    fn derived_message_roundtrips() {
+        let ours = TaskOptions {
+            options: [("k".to_owned(), "v".to_owned())].into_iter().collect(),
+            max_duration: prost_types::Duration {
+                seconds: 60,
+                nanos: 7,
+            },
+            max_retries: 4,
+            priority: 2,
+            partition_id: "part".into(),
+            application_name: "app".into(),
+            application_version: "1.0".into(),
+            application_namespace: "ns".into(),
+            application_service: "svc".into(),
+            engine_type: "engine".into(),
+        };
+        let theirs = v3::TaskOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(theirs, v3::TaskOptions::from(ours.clone()));
+
+        let back = TaskOptions::decode(theirs.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(back, ours);
+        assert_eq!(back.options, ours.options);
+    }
+
+    /// `Message::decode` seeds with `Default::default()`, so a message with
+    /// an absent `max_duration` decodes to `INFINITE_DURATION`, exactly like
+    /// the historical `unwrap_or(INFINITE_DURATION)` conversion. And since
+    /// `INFINITE_DURATION` does not encode to zero bytes, it is emitted on
+    /// encode, matching the historical `Some(max_duration)`.
+    #[test]
+    fn custom_default_survives_via_merge_seeding() {
+        let absent = v3::TaskOptions {
+            max_duration: None,
+            max_retries: 3,
+            ..Default::default()
+        };
+        let ours = TaskOptions::decode(absent.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(ours.max_duration.seconds, INFINITE_DURATION.seconds);
+        assert_eq!(ours.max_duration.nanos, INFINITE_DURATION.nanos);
+
+        let reencoded = v3::TaskOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
+        assert_eq!(reencoded.max_duration, Some(INFINITE_DURATION));
+    }
+}
 
 /// Represents a field in a task option.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
