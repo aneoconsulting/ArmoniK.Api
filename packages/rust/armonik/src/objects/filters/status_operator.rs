@@ -1,5 +1,3 @@
-use crate::api::v3;
-
 #[derive(
     Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
 )]
@@ -14,17 +12,3 @@ pub enum FilterStatusOperator {
     /// Unknown to this crate version; round-trips losslessly.
     Other(OtherFilterStatusOperator),
 }
-
-impl From<FilterStatusOperator> for v3::FilterStatusOperator {
-    fn from(value: FilterStatusOperator) -> Self {
-        Self::try_from(i32::from(value)).unwrap_or_default()
-    }
-}
-
-impl From<v3::FilterStatusOperator> for FilterStatusOperator {
-    fn from(value: v3::FilterStatusOperator) -> Self {
-        Self::from(value as i32)
-    }
-}
-
-super::super::impl_convert!(req FilterStatusOperator : v3::FilterStatusOperator);

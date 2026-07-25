@@ -1,5 +1,3 @@
-use crate::api::v3;
-
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, armonik_macros::Enum,
 )]
@@ -16,20 +14,6 @@ pub enum SortDirection {
     /// Unknown to this crate version.
     Other(OtherSortDirection),
 }
-
-impl From<SortDirection> for v3::sort_direction::SortDirection {
-    fn from(value: SortDirection) -> Self {
-        Self::try_from(i32::from(value)).unwrap_or(Self::Unspecified)
-    }
-}
-
-impl From<v3::sort_direction::SortDirection> for SortDirection {
-    fn from(value: v3::sort_direction::SortDirection) -> Self {
-        Self::from(value as i32)
-    }
-}
-
-super::impl_convert!(req SortDirection : v3::sort_direction::SortDirection);
 
 /// Sort on a single field; stands for the per-service `Sort` messages, whose
 /// concrete instantiations are validated by the differential harness.
