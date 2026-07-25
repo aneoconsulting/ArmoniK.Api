@@ -67,6 +67,13 @@ dependencies = [
 [[package]]
 name = "armonik-macros"
 version = "3.29.2-beta-0"
+dependencies = [
+ "proc-macro2",
+ "prost",
+ "prost-types",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "armonik-transport"

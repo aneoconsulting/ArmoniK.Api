@@ -12,3 +12,10 @@ rust-version = "1.88.0"
 
 [lib]
 proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+prost = "0.14"
+prost-types = "0.14"
