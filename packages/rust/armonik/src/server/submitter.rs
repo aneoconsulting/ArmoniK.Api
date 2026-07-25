@@ -66,30 +66,30 @@ impl<T: SubmitterService + Send + Sync + 'static> SubmitterServiceExt for T {
 super::impl_trait_methods! {
     impl (v3::submitter::submitter_server::Submitter) for SubmitterService {
         fn get_service_configuration(v3::Empty) -> crate::Configuration { get_service_configuration }
-        fn create_session(v3::submitter::CreateSessionRequest) -> v3::submitter::CreateSessionReply { create_session }
+        fn create_session(crate::submitter::create_session::Request) -> crate::submitter::create_session::Response { create_session }
         fn cancel_session(crate::Session) -> v3::Empty { cancel_session }
-        fn create_small_tasks(v3::submitter::CreateSmallTaskRequest) -> v3::submitter::CreateTaskReply { create_small_tasks }
-        fn list_tasks(v3::submitter::TaskFilter) -> crate::TaskIdList { list_tasks }
-        fn list_sessions(v3::submitter::SessionFilter) -> v3::submitter::SessionIdList { list_sessions }
-        fn count_tasks(v3::submitter::TaskFilter) -> crate::Count { count_tasks }
+        fn create_small_tasks(crate::submitter::create_tasks::SmallRequest) -> crate::submitter::create_tasks::Response { create_small_tasks }
+        fn list_tasks(crate::submitter::TaskFilter) -> crate::TaskIdList { list_tasks }
+        fn list_sessions(crate::submitter::SessionFilter) -> crate::submitter::list_sessions::Response { list_sessions }
+        fn count_tasks(crate::submitter::TaskFilter) -> crate::Count { count_tasks }
         fn try_get_task_output(crate::TaskOutputRequest) -> crate::Output { try_get_task_output }
-        fn wait_for_availability(crate::ResultRequest) -> v3::submitter::AvailabilityReply { wait_for_availability }
-        fn wait_for_completion(v3::submitter::WaitRequest) -> crate::Count { wait_for_completion }
-        fn cancel_tasks(v3::submitter::TaskFilter) -> v3::Empty { cancel_tasks }
-        fn get_task_status(v3::submitter::GetTaskStatusRequest) -> v3::submitter::GetTaskStatusReply { task_status }
-        fn get_result_status(v3::submitter::GetResultStatusRequest) -> v3::submitter::GetResultStatusReply { result_status }
+        fn wait_for_availability(crate::ResultRequest) -> crate::submitter::wait_for_availability::Response { wait_for_availability }
+        fn wait_for_completion(crate::submitter::wait_for_completion::Request) -> crate::Count { wait_for_completion }
+        fn cancel_tasks(crate::submitter::TaskFilter) -> v3::Empty { cancel_tasks }
+        fn get_task_status(crate::submitter::task_status::Request) -> crate::submitter::task_status::Response { task_status }
+        fn get_result_status(crate::submitter::result_status::Request) -> crate::submitter::result_status::Response { result_status }
 
         ---
 
         async fn create_large_tasks(
             self: std::sync::Arc<Self>,
-            request: tonic::Request<tonic::Streaming<v3::submitter::CreateLargeTaskRequest>>,
-        ) -> std::result::Result<tonic::Response<v3::submitter::CreateTaskReply>, tonic::Status> {
+            request: tonic::Request<tonic::Streaming<crate::submitter::create_tasks::LargeRequest>>,
+        ) -> std::result::Result<tonic::Response<crate::submitter::create_tasks::Response>, tonic::Status> {
             crate::server::impl_trait_methods!(stream client (self, request) {SubmitterService::create_large_tasks})
         }
 
 
-        type TryGetResultStreamStream = crate::server::ServerStream<v3::submitter::ResultReply>;
+        type TryGetResultStreamStream = crate::server::ServerStream<crate::submitter::try_get_result::Response>;
         async fn try_get_result_stream(
             self: std::sync::Arc<Self>,
             request: tonic::Request<crate::ResultRequest>,

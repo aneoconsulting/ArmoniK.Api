@@ -1,35 +1,43 @@
-use crate::api::v3;
-
-#[derive(Debug, Clone, Default)]
+/// Request for listing tasks, standing for the `TaskFilter` message the
+/// stubs use.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub filter: super::TaskFilter,
 }
 
-impl From<Request> for v3::submitter::TaskFilter {
+impl From<Request> for super::TaskFilter {
     fn from(value: Request) -> Self {
-        value.filter.into()
+        value.filter
     }
 }
 
-impl From<v3::submitter::TaskFilter> for Request {
-    fn from(value: v3::submitter::TaskFilter) -> Self {
-        Self {
-            filter: value.into(),
-        }
+impl From<super::TaskFilter> for Request {
+    fn from(value: super::TaskFilter) -> Self {
+        Self { filter: value }
     }
 }
 
-super::super::impl_convert!(req Request : v3::submitter::TaskFilter);
-
+/// Response for listing tasks, standing for the `TaskIdList` message the
+/// stubs use.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub task_ids: Vec<String>,
 }
 
-super::super::impl_convert!(
-    struct Response = crate::TaskIdList {
-        list task_ids,
+impl From<Response> for crate::TaskIdList {
+    fn from(value: Response) -> Self {
+        Self {
+            task_ids: value.task_ids,
+        }
     }
-);
+}
+
+impl From<crate::TaskIdList> for Response {
+    fn from(value: crate::TaskIdList) -> Self {
+        Self {
+            task_ids: value.task_ids,
+        }
+    }
+}

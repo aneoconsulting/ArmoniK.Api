@@ -139,7 +139,7 @@ where
     > {
         let span = tracing::debug_span!("Submitter::try_get_result");
         let call = tracing_futures::Instrument::instrument(
-            self.inner.try_get_result_stream(try_get_result::Request {
+            self.inner.try_get_result_stream(crate::ResultRequest {
                 session_id: session_id.into(),
                 result_id: result_id.into(),
             }),
@@ -149,7 +149,7 @@ where
             .await
             .context(super::GrpcSnafu {})?
             .into_inner()
-            .map(|item| item.map(Into::into).context(super::GrpcSnafu {}));
+            .map(|item| item.context(super::GrpcSnafu {}));
         Ok(tracing_futures::Instrument::instrument(
             stream,
             tracing::trace_span!(parent: &span, "stream"),
@@ -253,7 +253,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .get_service_configuration(request),
+                    .get_service_configuration(v3::Empty::from(request)),
                 tracing::debug_span!("Submitter::get_service_configuration")
             );
             Ok(call
@@ -272,15 +272,14 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: cancel_session::Request) -> Result<cancel_session::Response> {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .cancel_session(request),
+                    .cancel_session(crate::Session::from(request)),
                 tracing::debug_span!("Submitter::cancel_session")
             );
             Ok(call
@@ -300,15 +299,14 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: list_tasks::Request) -> Result<list_tasks::Response> {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .list_tasks(request),
+                    .list_tasks(super::super::submitter::TaskFilter::from(request)),
                 tracing::debug_span!("Submitter::list_tasks")
             );
             Ok(call
@@ -322,21 +320,20 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .list_sessions(request),
+                    .list_sessions(super::super::submitter::SessionFilter::from(request)),
                 tracing::debug_span!("Submitter::list_sessions")
             );
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: count_tasks::Request) -> Result<count_tasks::Response> {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .count_tasks(request),
+                    .count_tasks(super::super::submitter::TaskFilter::from(request)),
                 tracing::debug_span!("Submitter::count_tasks")
             );
             Ok(call
@@ -350,14 +347,14 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .try_get_result_stream(request),
+                    .try_get_result_stream(crate::ResultRequest::from(request)),
                 tracing::trace_span!(parent: &span, "rpc")
             );
             let stream = call
                 .await
                 .context(super::GrpcSnafu{})?
                 .into_inner()
-                .map(|item| item.map(Into::into));
+                .map(|item| item);
             Ok(futures::stream::StreamExt::boxed(
                 tracing_futures::Instrument::instrument(
                     stream,
@@ -370,7 +367,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .try_get_task_output(request),
+                    .try_get_task_output(crate::TaskOutputRequest::from(request)),
                 tracing::debug_span!("Submitter::try_get_task_output")
             );
             Ok(call
@@ -383,14 +380,13 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .wait_for_availability(request),
+                    .wait_for_availability(crate::ResultRequest::from(request)),
                 tracing::debug_span!("Submitter::wait_for_availability")
             );
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: wait_for_completion::Request) -> Result<wait_for_completion::Response> {
@@ -410,7 +406,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .cancel_tasks(request),
+                    .cancel_tasks(super::super::submitter::TaskFilter::from(request)),
                 tracing::debug_span!("Submitter::cancel_tasks")
             );
             Ok(call
@@ -430,8 +426,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: result_status::Request) -> Result<result_status::Response> {
@@ -444,8 +439,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
     }
 }
@@ -471,7 +465,7 @@ where
             self.inner.create_large_tasks(stream),
             tracing::trace_span!(parent: &span, "rpc"),
         );
-        Ok(call.await.context(super::GrpcSnafu {})?.into_inner().into())
+        Ok(call.await.context(super::GrpcSnafu {})?.into_inner())
     }
 }
 

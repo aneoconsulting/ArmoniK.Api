@@ -1,22 +1,41 @@
 use crate::api::v3;
 
+/// Request for cancelling a session, standing for the `Session` message the
+/// stubs use.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub session_id: String,
 }
 
-super::super::impl_convert!(
-    struct Request = crate::Session {
-        session_id,
+impl From<Request> for crate::Session {
+    fn from(value: Request) -> Self {
+        Self {
+            session_id: value.session_id,
+        }
     }
-);
+}
+
+impl From<crate::Session> for Request {
+    fn from(value: crate::Session) -> Self {
+        Self {
+            session_id: value.session_id,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {}
 
-super::super::impl_convert!(
-    struct Response = v3::Empty {
+impl From<Response> for v3::Empty {
+    fn from(_: Response) -> Self {
+        Self {}
     }
-);
+}
+
+impl From<v3::Empty> for Response {
+    fn from(_: v3::Empty) -> Self {
+        Self {}
+    }
+}
