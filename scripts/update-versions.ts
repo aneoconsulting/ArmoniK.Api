@@ -14,6 +14,8 @@ import {
   rustDependencyFiles,
   rustDependencyPattern,
   rustFiles,
+  rustMacrosPinFiles,
+  rustMacrosPinPattern,
   rustPattern,
 } from './versions/_contants'
 
@@ -49,3 +51,4 @@ javaFiles.forEach(_readAndReplace(javaPattern, `<version>${version}</version>`))
 consola.info('Updating rust projects to ', version)
 rustFiles.forEach(_readAndReplace(rustPattern, `version = "${version}-beta-0"`))
 rustDependencyFiles.forEach(_readAndReplace(rustDependencyPattern, `${version}-beta-0`))
+rustMacrosPinFiles.forEach(_readAndReplace(rustMacrosPinPattern, `version = "=${version}-beta-0"`))

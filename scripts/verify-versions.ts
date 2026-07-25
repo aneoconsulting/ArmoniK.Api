@@ -14,6 +14,8 @@ import {
   rustDependencyKey,
   rustDependencyPattern,
   rustFiles,
+  rustMacrosPinFiles,
+  rustMacrosPinPattern,
   rustPattern,
 } from './versions/_contants'
 import { _readAndFind } from './versions/_readAndFind'
@@ -35,6 +37,7 @@ consola.info('Finding rust projects versions')
 rustFiles.forEach(_readAndFind(rustPattern, versions))
 consola.info('Finding the rust internal dependency version')
 rustDependencyFiles.forEach(_readAndFind(rustDependencyPattern, versions, rustDependencyKey))
+rustMacrosPinFiles.forEach(_readAndFind(rustMacrosPinPattern, versions))
 
 const versionsArray = [...versions.values()]
 const uniqueVersions = [...new Set(versionsArray)]

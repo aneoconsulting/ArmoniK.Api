@@ -21,6 +21,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "armonik"
 version = "3.29.2-beta-0"
 dependencies = [
+ "armonik-macros",
  "armonik-transport",
  "async-stream",
  "eyre",
@@ -43,6 +44,10 @@ dependencies = [
  "tracing-futures",
  "tracing-subscriber",
 ]
+
+[[package]]
+name = "armonik-macros"
+version = "3.29.2-beta-0"
 
 [[package]]
 name = "armonik-transport"

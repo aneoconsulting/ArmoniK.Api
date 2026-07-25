@@ -1,5 +1,9 @@
 //! Rust bindings for the ArmoniK API
 
+// Used by the wire-representation derives; placeholder use until the derives
+// are applied to the API types.
+use armonik_macros as _;
+
 pub mod api;
 #[cfg(feature = "_gen-client")]
 pub mod client;
