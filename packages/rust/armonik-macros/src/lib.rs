@@ -16,9 +16,12 @@ use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
 mod attrs;
+mod codegen;
 mod descriptor;
+mod errors;
 mod expand;
 mod kind;
+mod resolve;
 
 /// Derive `prost::Message` for an ArmoniK API type, validated against the
 /// protobuf descriptors compiled by the `armonik` build script.

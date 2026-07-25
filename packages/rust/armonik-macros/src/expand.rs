@@ -1,8 +1,7 @@
 //! Expansion entry points for the derives.
 //!
-//! Current state: descriptor resolution and the staleness tripwire only; the
-//! wire-implementation codegen lands with the later stages of the
-//! direct-wire revamp.
+//! Struct messages are fully implemented; oneof/generic modes and the enum
+//! derive land with the later stages of the direct-wire revamp.
 
 use proc_macro2::TokenStream;
 use quote::quote_spanned;
@@ -10,40 +9,13 @@ use syn::DeriveInput;
 
 use crate::attrs::{self, AttrItem};
 use crate::descriptor::{self, DescriptorIndex};
+use crate::{codegen, resolve};
 
 pub(crate) fn message(input: DeriveInput) -> syn::Result<TokenStream> {
-    let entries = attrs::parse(&input.attrs)?;
     let index = load_index(&input)?;
-
-    let mut messages = Vec::new();
-    let mut generic = false;
-    for entry in &entries {
-        match &entry.item {
-            AttrItem::Message(lit) => messages.push((entry.span, lit.value())),
-            AttrItem::Generic => generic = true,
-            _ => {}
-        }
-    }
-
-    if !generic {
-        if messages.is_empty() {
-            return Err(syn::Error::new(
-                input.ident.span(),
-                "missing #[armonik(message = \"full.proto.Name\")] \
-                 (or #[armonik(generic)] for types validated per instantiation)",
-            ));
-        }
-        for (span, name) in &messages {
-            if !index.messages.contains_key(name) {
-                return Err(syn::Error::new(
-                    *span,
-                    format!("proto message `{name}` not found in the compiled descriptor set"),
-                ));
-            }
-        }
-    }
-
-    Ok(fingerprint_tripwire(&input, &index))
+    let plan =
+        resolve::message_plan(&input, &index).map_err(crate::errors::Errors::into_syn_error)?;
+    Ok(codegen::message(&plan))
 }
 
 pub(crate) fn enumeration(input: DeriveInput) -> syn::Result<TokenStream> {
