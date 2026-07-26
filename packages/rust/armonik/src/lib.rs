@@ -7,6 +7,7 @@ mod __schema {
     include!(concat!(env!("OUT_DIR"), "/schema_meta.rs"));
 }
 
+#[cfg(any(feature = "_gen-client", feature = "_gen-server"))]
 pub(crate) mod api;
 #[cfg(feature = "_gen-client")]
 pub mod client;

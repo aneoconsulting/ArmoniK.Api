@@ -1,5 +1,3 @@
-use crate::api::v3;
-
 /// Request for cancelling tasks, standing for the `TaskFilter` message the
 /// stubs use.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -24,14 +22,14 @@ impl From<super::TaskFilter> for Request {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {}
 
-impl From<Response> for v3::Empty {
+impl From<Response> for crate::Empty {
     fn from(_: Response) -> Self {
         Self {}
     }
 }
 
-impl From<v3::Empty> for Response {
-    fn from(_: v3::Empty) -> Self {
+impl From<crate::Empty> for Response {
+    fn from(_: crate::Empty) -> Self {
         Self {}
     }
 }

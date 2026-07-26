@@ -31,6 +31,7 @@ macro_rules! registry {
 }
 
 registry! {
+    "armonik.api.grpc.v1.Empty" => armonik::Empty,
     "armonik.api.grpc.v1.Configuration" => armonik::Configuration,
     "armonik.api.grpc.v1.Count" => armonik::Count,
     "armonik.api.grpc.v1.Error" => armonik::Error,

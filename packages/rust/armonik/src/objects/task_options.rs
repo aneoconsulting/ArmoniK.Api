@@ -143,6 +143,14 @@ mod tests {
         assert_eq!(back.options, ours.options);
     }
 
+    /// prost-derived mirror of the generated single-enum-field wrappers
+    /// (`sessions.TaskOptionField` / `tasks.TaskOptionField`).
+    #[derive(Clone, PartialEq, prost::Message)]
+    struct RefWrapper {
+        #[prost(enumeration = "i32", tag = "1")]
+        field: i32,
+    }
+
     /// Absent fields decode to `Default::default()`, which is the proto
     /// zero value for every field (the zero-default invariant); the
     /// historical defaults live in [`TaskOptions::recommended`].
@@ -200,7 +208,7 @@ mod tests {
         #[derive(Clone, PartialEq, prost::Message)]
         struct Ref {
             #[prost(message, optional, tag = "1")]
-            field: Option<crate::api::v3::sessions::TaskOptionField>,
+            field: Option<RefWrapper>,
         }
 
         // The old ApplicationEngine variant maps to the proto ENGINE_TYPE.
@@ -221,7 +229,7 @@ mod tests {
 
             // Generated -> ours.
             let bytes = Ref {
-                field: Some(crate::api::v3::sessions::TaskOptionField {
+                field: Some(RefWrapper {
                     field: i32::from(value),
                 }),
             }

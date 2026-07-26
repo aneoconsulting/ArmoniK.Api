@@ -25,7 +25,7 @@ impl<T: WorkerService + Send + Sync + 'static> WorkerServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::worker::worker_server::Worker) for WorkerService {
-        fn health_check(v3::Empty) -> crate::worker::health_check::Response { health_check }
+        fn health_check(crate::Empty) -> crate::worker::health_check::Response { health_check }
         fn process(crate::worker::process::Request) -> crate::worker::process::Response { process }
     }
 }

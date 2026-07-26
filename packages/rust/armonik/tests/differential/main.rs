@@ -121,8 +121,6 @@ const PERMANENT_UNMAPPED: &[&str] = &[
     // every message embedding them.
     "armonik.api.grpc.v1.sessions.TaskOptionField",
     "armonik.api.grpc.v1.tasks.TaskOptionField",
-    // Marker payload of `Output::Ok`; carries no data.
-    "armonik.api.grpc.v1.Empty",
     // Inlined into the `Output::Error` struct variant.
     "armonik.api.grpc.v1.Output.Error",
     // Inlined into the `agent::create_tasks::Status::TaskInfo` variant.

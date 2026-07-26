@@ -1,11 +1,9 @@
-#![allow(non_snake_case)]
-// A few generated messages remain unreferenced: leftovers whose parents are
-// implemented directly by armonik types (field/status wrappers), and
-// messages of RPCs the crate does not expose (watch results).
-#![allow(dead_code)]
-#![allow(clippy::enum_variant_names)]
+//! Tonic client/server stubs, and nothing else: every message referenced by
+//! their signatures is implemented natively (`EXTERN_TYPES` in build.rs) and
+//! the unreferenced leftovers are pruned from the stub generation
+//! (`PRUNED_MESSAGES`), so the message-only proto packages produce no file.
 
-tonic::include_proto!("armonik.api.grpc.v1");
+#![allow(non_snake_case)]
 
 pub mod agent {
     tonic::include_proto!("armonik.api.grpc.v1.agent");
@@ -25,26 +23,14 @@ pub mod health_checks {
 pub mod partitions {
     tonic::include_proto!("armonik.api.grpc.v1.partitions");
 }
-pub mod result_status {
-    tonic::include_proto!("armonik.api.grpc.v1.result_status");
-}
 pub mod results {
     tonic::include_proto!("armonik.api.grpc.v1.results");
-}
-pub mod session_status {
-    tonic::include_proto!("armonik.api.grpc.v1.session_status");
 }
 pub mod sessions {
     tonic::include_proto!("armonik.api.grpc.v1.sessions");
 }
-pub mod sort_direction {
-    tonic::include_proto!("armonik.api.grpc.v1.sort_direction");
-}
 pub mod submitter {
     tonic::include_proto!("armonik.api.grpc.v1.submitter");
-}
-pub mod task_status {
-    tonic::include_proto!("armonik.api.grpc.v1.task_status");
 }
 pub mod tasks {
     tonic::include_proto!("armonik.api.grpc.v1.tasks");

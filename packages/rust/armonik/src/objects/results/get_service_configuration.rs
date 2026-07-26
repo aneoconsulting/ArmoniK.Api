@@ -1,20 +1,16 @@
-use crate::api::v3;
-
 /// Response for obtaining results service configuration.
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {}
 
-// The generated `Empty` stays: several `{}` request/response types across
-// services share it, so it cannot be extern'd to a single armonik type.
-impl From<Request> for v3::Empty {
+impl From<Request> for crate::Empty {
     fn from(_: Request) -> Self {
         Self {}
     }
 }
 
-impl From<v3::Empty> for Request {
-    fn from(_: v3::Empty) -> Self {
+impl From<crate::Empty> for Request {
+    fn from(_: crate::Empty) -> Self {
         Self {}
     }
 }

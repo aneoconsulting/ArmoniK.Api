@@ -65,9 +65,9 @@ impl<T: SubmitterService + Send + Sync + 'static> SubmitterServiceExt for T {
 
 super::impl_trait_methods! {
     impl (v3::submitter::submitter_server::Submitter) for SubmitterService {
-        fn get_service_configuration(v3::Empty) -> crate::Configuration { get_service_configuration }
+        fn get_service_configuration(crate::Empty) -> crate::Configuration { get_service_configuration }
         fn create_session(crate::submitter::create_session::Request) -> crate::submitter::create_session::Response { create_session }
-        fn cancel_session(crate::Session) -> v3::Empty { cancel_session }
+        fn cancel_session(crate::Session) -> crate::Empty { cancel_session }
         fn create_small_tasks(crate::submitter::create_tasks::SmallRequest) -> crate::submitter::create_tasks::Response { create_small_tasks }
         fn list_tasks(crate::submitter::TaskFilter) -> crate::TaskIdList { list_tasks }
         fn list_sessions(crate::submitter::SessionFilter) -> crate::submitter::list_sessions::Response { list_sessions }
@@ -75,7 +75,7 @@ super::impl_trait_methods! {
         fn try_get_task_output(crate::TaskOutputRequest) -> crate::Output { try_get_task_output }
         fn wait_for_availability(crate::ResultRequest) -> crate::submitter::wait_for_availability::Response { wait_for_availability }
         fn wait_for_completion(crate::submitter::wait_for_completion::Request) -> crate::Count { wait_for_completion }
-        fn cancel_tasks(crate::submitter::TaskFilter) -> v3::Empty { cancel_tasks }
+        fn cancel_tasks(crate::submitter::TaskFilter) -> crate::Empty { cancel_tasks }
         fn get_task_status(crate::submitter::task_status::Request) -> crate::submitter::task_status::Response { task_status }
         fn get_result_status(crate::submitter::result_status::Request) -> crate::submitter::result_status::Response { result_status }
 
@@ -98,20 +98,5 @@ super::impl_trait_methods! {
             tonic::Status,
         > {
             super::impl_trait_methods!(stream server (self, request) {SubmitterService::try_get_result})
-        }
-
-
-        type WatchResultsStream = crate::server::ServerStream<v3::submitter::WatchResultStream>;
-        async fn watch_results(
-            self: std::sync::Arc<Self>,
-            _request: tonic::Request<tonic::Streaming<v3::submitter::WatchResultRequest>>,
-        ) -> std::result::Result<
-            tonic::Response<Self::WatchResultsStream>,
-            tonic::Status,
-        > {
-            let span = tracing::debug_span!("SubmitterService::watch_results");
-            let _entered = span.enter();
-            Err(tonic::Status::unimplemented("Submitter::WatchResults is not implemented"))
-        }
-    }
+        }    }
 }
