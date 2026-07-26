@@ -13,6 +13,9 @@ pub struct Entry {
     pub proto: &'static str,
     /// Decode the bytes as the armonik type and re-encode them.
     pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, armonik::reexports::prost::DecodeError>,
+    /// Canonical encoding of the type's `Default`, for the zero-default
+    /// invariant (an empty message must decode to `Default::default()`).
+    pub default_encoding: fn() -> Vec<u8>,
 }
 
 macro_rules! registry {
@@ -21,6 +24,7 @@ macro_rules! registry {
             vec![$(Entry {
                 proto: $proto,
                 roundtrip: |bytes| Ok(<$ty as Message>::decode(bytes)?.encode_to_vec()),
+                default_encoding: || <$ty as Default>::default().encode_to_vec(),
             }),*]
         }
     };
@@ -256,46 +260,37 @@ registry! {
 /// Project a message (recursively) onto the equivalence classes of its
 /// armonik type, so that the semantic comparison reflects the documented
 /// semantics. Applied to both sides of every round-trip.
-/// Which side of the round-trip is being normalized: some folds (e.g.
-/// absent sort => API default) only apply to the generated original, because
-/// the round-trip itself resolves the ambiguity on the way back.
-#[derive(Clone, Copy, PartialEq)]
-pub enum Side {
-    Original,
-    Back,
-}
-
-pub fn normalize(message: &mut DynamicMessage, side: Side) {
+pub fn normalize(message: &mut DynamicMessage) {
     let descriptor = message.descriptor();
     for field in descriptor.fields() {
         if !message.has_field(&field) {
             continue;
         }
         let mut value = message.get_field(&field).into_owned();
-        if normalize_value(&mut value, side) {
+        if normalize_value(&mut value) {
             message.set_field(&field, value);
         }
     }
-    apply_rules(message, side);
+    apply_rules(message);
 }
 
-fn normalize_value(value: &mut Value, side: Side) -> bool {
+fn normalize_value(value: &mut Value) -> bool {
     match value {
         Value::Message(inner) => {
-            normalize(inner, side);
+            normalize(inner);
             true
         }
         Value::List(items) => {
             let mut changed = false;
             for item in items {
-                changed |= normalize_value(item, side);
+                changed |= normalize_value(item);
             }
             changed
         }
         Value::Map(map) => {
             let mut changed = false;
             for item in map.values_mut() {
-                changed |= normalize_value(item, side);
+                changed |= normalize_value(item);
             }
             changed
         }
@@ -303,11 +298,8 @@ fn normalize_value(value: &mut Value, side: Side) -> bool {
     }
 }
 
-fn apply_rules(message: &mut DynamicMessage, side: Side) {
+fn apply_rules(message: &mut DynamicMessage) {
     match message.descriptor().full_name() {
-        // Absent or empty max_duration folds to the INFINITE_DURATION
-        // default of `TaskOptions`.
-        "armonik.api.grpc.v1.TaskOptions" => normalize_task_options(message),
         // Marker members only remember which member was set; oneofs whose
         // Rust `Default` is a member variant re-encode an absent oneof with
         // that member present — like the historical None => Default.
@@ -327,84 +319,61 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         // Repeated pairs exposed as a map: order is lost and duplicate
         // statuses collapse (last wins).
         "armonik.api.grpc.v1.Count" => normalize_count(message),
-        // `Response`'s default is an empty `Error` carrying the token.
         "armonik.api.grpc.v1.agent.CreateTaskReply" => {
             normalize_default_member(message, "error");
         }
         "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus" => {
             normalize_default_member(message, "error");
         }
-        // List requests: an absent/empty sort folds to the API default,
-        // whose direction is ascending (1).
-        "armonik.api.grpc.v1.applications.ListApplicationsRequest" => {
-            normalize_default_sort(message, side, None);
-        }
+        // Sorts re-encode when absent (their always-emitted field member
+        // keeps them non-empty); oneof-typed field members also re-encode
+        // their default member.
         "armonik.api.grpc.v1.partitions.ListPartitionsRequest" => {
-            normalize_default_sort(message, side, Some(1));
+            normalize_default_sort(message, false);
         }
-        // Standalone sorts: an absent field member folds to the API default.
-        "armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort" => {
-            normalize_enum_wrapper(message, "field", 1);
+        "armonik.api.grpc.v1.results.ListResultsRequest" => {
+            normalize_default_sort(message, false);
+        }
+        "armonik.api.grpc.v1.sessions.ListSessionsRequest"
+        | "armonik.api.grpc.v1.tasks.ListTasksRequest" => {
+            normalize_default_sort(message, true);
+        }
+        "armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort"
+        | "armonik.api.grpc.v1.tasks.ListTasksRequest.Sort" => {
+            normalize_enum_wrapper(message, "field");
         }
         // Wrapper chains: zero, absent and present-but-empty carry no
         // information; canonicalize to the empty wrapper.
         "armonik.api.grpc.v1.applications.ApplicationField"
         | "armonik.api.grpc.v1.partitions.PartitionField"
-        | "armonik.api.grpc.v1.results.ResultField" => {
+        | "armonik.api.grpc.v1.results.ResultField"
+        | "armonik.api.grpc.v1.sessions.SessionRawField"
+        | "armonik.api.grpc.v1.sessions.TaskOptionField"
+        | "armonik.api.grpc.v1.tasks.TaskOptionField"
+        | "armonik.api.grpc.v1.tasks.TaskSummaryField" => {
             normalize_wrapper_root(message);
         }
         // Filter fields: the condition oneof defaults to an empty string
-        // filter, and enum wrappers fold zero/absent/empty uniformly.
+        // filter; oneof-typed field members re-encode their default member.
         "armonik.api.grpc.v1.applications.FilterField"
         | "armonik.api.grpc.v1.partitions.FilterField"
-        | "armonik.api.grpc.v1.sessions.FilterField" => {
+        | "armonik.api.grpc.v1.results.FilterField" => {
             normalize_default_member(message, "filter_string");
-            // Absent/empty wrappers fold to the API default (Name/Id = 1),
-            // like the historical `map_or_else(Default::default, ...)`.
-            normalize_enum_wrapper(message, "field", 1);
         }
-        "armonik.api.grpc.v1.sessions.ListSessionsRequest" => {
-            normalize_default_sort(message, side, Some(1));
+        "armonik.api.grpc.v1.sessions.FilterField" | "armonik.api.grpc.v1.tasks.FilterField" => {
+            normalize_default_member(message, "filter_string");
+            normalize_enum_wrapper(message, "field");
         }
-        "armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort" => {
-            normalize_enum_wrapper(message, "field", 1);
-        }
-        // A memberless field oneof decodes to the API default (SessionId).
+        // Memberless field oneofs re-encode their default member.
         "armonik.api.grpc.v1.sessions.SessionField" => {
             if !any_member_set(message) {
-                normalize_enum_wrapper(message, "session_raw_field", 1);
+                normalize_enum_wrapper(message, "session_raw_field");
             }
         }
-        "armonik.api.grpc.v1.sessions.SessionRawField"
-        | "armonik.api.grpc.v1.sessions.TaskOptionField"
-        | "armonik.api.grpc.v1.tasks.TaskOptionField" => {
-            normalize_wrapper_root(message);
-        }
-        // Task-options members kept as a plain `TaskOptions`.
-        "armonik.api.grpc.v1.sessions.SessionRaw" => {
-            normalize_task_options_member(message, side, "options");
-        }
-        "armonik.api.grpc.v1.sessions.CreateSessionRequest" => {
-            normalize_task_options_member(message, side, "default_task_option");
-        }
-        "armonik.api.grpc.v1.tasks.ListTasksRequest" => {
-            normalize_default_sort(message, side, Some(16));
-        }
-        "armonik.api.grpc.v1.tasks.ListTasksRequest.Sort" => {
-            normalize_enum_wrapper(message, "field", 16);
-        }
-        // A memberless field oneof decodes to the API default (TaskId).
         "armonik.api.grpc.v1.tasks.TaskField" => {
             if !any_member_set(message) {
-                normalize_enum_wrapper(message, "task_summary_field", 16);
+                normalize_enum_wrapper(message, "task_summary_field");
             }
-        }
-        "armonik.api.grpc.v1.tasks.TaskSummaryField" => {
-            normalize_wrapper_root(message);
-        }
-        "armonik.api.grpc.v1.tasks.FilterField" => {
-            normalize_default_member(message, "filter_string");
-            normalize_enum_wrapper(message, "field", 16);
         }
         // `success = true` wins over any error message.
         "armonik.api.grpc.v1.tasks.TaskDetailed.Output" => {
@@ -414,31 +383,10 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
                 message.clear_field(&error);
             }
         }
-        "armonik.api.grpc.v1.tasks.TaskDetailed" => {
-            normalize_task_options_member(message, side, "options");
-            normalize_output_member(message, side);
-        }
-        "armonik.api.grpc.v1.tasks.TaskSummary" => {
-            normalize_task_options_member(message, side, "options");
-        }
-        // Detailed-task member kept as a plain `tasks::Raw`.
-        "armonik.api.grpc.v1.tasks.GetTaskResponse" => {
-            normalize_task_member(message, side);
-        }
         // Repeated pairs exposed as a map: order is lost and duplicate
         // keys collapse (last wins).
         "armonik.api.grpc.v1.tasks.GetResultIdsResponse" => {
             normalize_string_keyed_pairs(message, "task_results", "task_id");
-        }
-        "armonik.api.grpc.v1.results.ListResultsRequest" => {
-            normalize_default_sort(message, side, Some(7));
-        }
-        "armonik.api.grpc.v1.results.ListResultsRequest.Sort" => {
-            normalize_enum_wrapper(message, "field", 7);
-        }
-        "armonik.api.grpc.v1.results.FilterField" => {
-            normalize_default_member(message, "filter_string");
-            normalize_enum_wrapper(message, "field", 7);
         }
         "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse" => {
             normalize_string_keyed_pairs(message, "result_task", "result_id");
@@ -457,9 +405,6 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         // ID (the first non-empty one) plus the result IDs.
         "armonik.api.grpc.v1.agent.NotifyResultDataRequest" => {
             normalize_notify_result_data(message);
-        }
-        "armonik.api.grpc.v1.submitter.CreateSessionRequest" => {
-            normalize_task_options_member(message, side, "default_task_option");
         }
         // Memberless oneofs re-encode with their Rust default member.
         "armonik.api.grpc.v1.submitter.CreateTaskReply" => {
@@ -482,7 +427,7 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
             normalize_default_member_in(message, "statuses", "included");
         }
         "armonik.api.grpc.v1.submitter.WaitRequest" => {
-            normalize_task_filter_member(message, side);
+            normalize_task_filter_member(message);
         }
         "armonik.api.grpc.v1.submitter.GetTaskStatusReply" => {
             normalize_string_keyed_pairs(message, "id_statuses", "task_id");
@@ -490,24 +435,10 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         "armonik.api.grpc.v1.submitter.GetResultStatusReply" => {
             normalize_string_keyed_pairs(message, "id_statuses", "result_id");
         }
-        // Members kept plain whose API defaults are not the wire zero.
-        "armonik.api.grpc.v1.worker.ProcessRequest" => {
-            normalize_task_options_member(message, side, "task_options");
-            normalize_configuration_member(message, side);
-        }
+        // An output member re-encodes even when absent: both `v1.Output`
+        // members are always emitted, so the value is never wire-empty.
         "armonik.api.grpc.v1.worker.ProcessReply" => {
-            normalize_v1_output_member(message, side);
-        }
-        // Raw-session members kept as a plain `sessions::Raw`.
-        "armonik.api.grpc.v1.sessions.GetSessionResponse"
-        | "armonik.api.grpc.v1.sessions.CancelSessionResponse"
-        | "armonik.api.grpc.v1.sessions.PauseSessionResponse"
-        | "armonik.api.grpc.v1.sessions.ResumeSessionResponse"
-        | "armonik.api.grpc.v1.sessions.CloseSessionResponse"
-        | "armonik.api.grpc.v1.sessions.PurgeSessionResponse"
-        | "armonik.api.grpc.v1.sessions.DeleteSessionResponse"
-        | "armonik.api.grpc.v1.sessions.StopSubmissionResponse" => {
-            normalize_session_member(message, side);
+            normalize_v1_output_member(message);
         }
         _ => {}
     }
@@ -570,39 +501,29 @@ fn normalize_wrapper_root(message: &mut DynamicMessage) {
     }
 }
 
-/// An absent or empty `sort` message folds to the API default, whose
-/// direction is ascending; like the historical `unwrap_or_default`.
-fn normalize_default_sort(message: &mut DynamicMessage, side: Side, field_default: Option<i32>) {
+/// An absent `sort` message re-encodes: its always-emitted field member
+/// keeps `Sort::default()` from being wire-empty. Oneof-typed field members
+/// (`with_field`) additionally re-encode their default member.
+fn normalize_default_sort(message: &mut DynamicMessage, with_field: bool) {
     let sort = field(message, "sort");
-    // A fully absent sort folds to the API default (ascending direction) on
-    // the original side only: an absent sort on the way back stems from a
-    // present-but-empty one, which the wire form legitimately drops.
-    if side == Side::Original && !message.has_field(&sort) {
-        let prost_reflect::Kind::Message(desc) = sort.kind() else {
-            panic!("sort is a message");
-        };
-        let mut default_sort = DynamicMessage::new(desc);
-        default_sort.set_field_by_name("direction", Value::EnumNumber(1));
-        message.set_field(&sort, Value::Message(default_sort));
+    if message.has_field(&sort) {
+        return;
     }
-    // Within a (possibly folded) sort, an absent field member folds to the
-    // API default field, like the nested historical `unwrap_or_default`.
-    if let Some(number) = field_default {
-        let Value::Message(mut inner) = message.get_field(&sort).into_owned() else {
-            return;
-        };
-        normalize_enum_wrapper(&mut inner, "field", number);
-        message.set_field(&sort, Value::Message(inner));
+    let prost_reflect::Kind::Message(desc) = sort.kind() else {
+        panic!("sort is a message");
+    };
+    let mut default_sort = DynamicMessage::new(desc);
+    if with_field {
+        normalize_enum_wrapper(&mut default_sort, "field");
     }
+    message.set_field(&sort, Value::Message(default_sort));
 }
 
-/// Enum wrappers (possibly chained) fold "absent", "empty" and "zero" into
-/// the API default of the flattened enum: project the member field onto the
-/// wrapper chain carrying `default_number` when it holds no information.
-fn normalize_enum_wrapper(message: &mut DynamicMessage, member: &str, default_number: i32) {
+/// A oneof-typed field member re-encodes its default member even when
+/// absent (the Rust enums have no "no member" state): materialize the
+/// default member's wrapper chain, with the zero enum value.
+fn normalize_enum_wrapper(message: &mut DynamicMessage, member: &str) {
     let member = field(message, member);
-    // Only a truly absent member folds to the API default; a present wrapper
-    // (even empty, i.e. explicit zero) is preserved by the wire form.
     if message.has_field(&member) {
         return;
     }
@@ -623,7 +544,7 @@ fn normalize_enum_wrapper(message: &mut DynamicMessage, member: &str, default_nu
         }
     };
     let mut value = DynamicMessage::new(desc);
-    value.set_field(&enum_field, Value::EnumNumber(default_number));
+    value.set_field(&enum_field, Value::EnumNumber(0));
     let mut wrapped = value;
     for (outer_desc, outer_field) in chain.into_iter().rev() {
         let mut outer = DynamicMessage::new(outer_desc);
@@ -633,45 +554,6 @@ fn normalize_enum_wrapper(message: &mut DynamicMessage, member: &str, default_nu
     message.set_field(&member, Value::Message(wrapped));
 }
 
-/// A task-options member kept as a plain `TaskOptions`: an absent member
-/// folds to the API default on the original side (the historical
-/// `unwrap_or_default`), and to the wire-zero form on the way back (a
-/// wire-zero `TaskOptions` encodes empty and is dropped); both foldings are
-/// then max_duration-canonicalized like any present `TaskOptions`.
-fn normalize_task_options_member(message: &mut DynamicMessage, side: Side, member: &str) {
-    let member = field(message, member);
-    if message.has_field(&member) {
-        return;
-    }
-    let prost_reflect::Kind::Message(desc) = member.kind() else {
-        panic!("task-options member is a message");
-    };
-    let mut options = DynamicMessage::new(desc);
-    if side == Side::Original {
-        options.set_field_by_name("max_retries", Value::I32(1));
-        options.set_field_by_name("priority", Value::I32(1));
-    }
-    normalize_task_options(&mut options);
-    message.set_field(&member, Value::Message(options));
-}
-
-/// A raw-session member kept as a plain `sessions::Raw`: absent members fold
-/// like [`normalize_task_options_member`], one level deeper.
-fn normalize_session_member(message: &mut DynamicMessage, side: Side) {
-    let member = field(message, "session");
-    if message.has_field(&member) {
-        return;
-    }
-    let prost_reflect::Kind::Message(desc) = member.kind() else {
-        panic!("session member is a message");
-    };
-    let mut session = DynamicMessage::new(desc);
-    normalize_task_options_member(&mut session, side, "options");
-    message.set_field(&member, Value::Message(session));
-}
-
-/// Project every `ResultIdentifier` pair onto the flattened representation:
-/// all the pairs share the first non-empty session ID.
 fn normalize_notify_result_data(message: &mut DynamicMessage) {
     let ids = field(message, "ids");
     if !message.has_field(&ids) {
@@ -718,14 +600,9 @@ fn normalize_default_member_in(message: &mut DynamicMessage, oneof_name: &str, m
     message.set_field(&member, Value::default_value_for_field(&member));
 }
 
-/// A task-filter member kept as a plain `submitter::TaskFilter`: an absent
-/// member folds to the API default on the original side (the wire form
-/// always carries both oneof members, so it is never absent on the way
-/// back).
-fn normalize_task_filter_member(message: &mut DynamicMessage, side: Side) {
-    if side != Side::Original {
-        return;
-    }
+/// A task-filter member re-encodes even when absent: the wire form always
+/// carries both oneof members, so the value is never wire-empty.
+fn normalize_task_filter_member(message: &mut DynamicMessage) {
     let member = field(message, "filter");
     if message.has_field(&member) {
         return;
@@ -739,33 +616,9 @@ fn normalize_task_filter_member(message: &mut DynamicMessage, side: Side) {
     message.set_field(&member, Value::Message(filter));
 }
 
-/// A configuration member kept as a plain `Configuration`: an absent member
-/// folds to the API default (80 KiB chunks) on the original side; a wire-zero
-/// configuration encodes empty, which the semantic compare already treats as
-/// absent.
-fn normalize_configuration_member(message: &mut DynamicMessage, side: Side) {
-    if side != Side::Original {
-        return;
-    }
-    let member = field(message, "configuration");
-    if message.has_field(&member) {
-        return;
-    }
-    let prost_reflect::Kind::Message(desc) = member.kind() else {
-        panic!("configuration member is a message");
-    };
-    let mut configuration = DynamicMessage::new(desc);
-    configuration.set_field_by_name("data_chunk_max_size", Value::I32(80 * 1024));
-    message.set_field(&member, Value::Message(configuration));
-}
-
-/// An output member kept as a plain `v1.Output`: an absent output means Ok,
-/// and the wire form always carries the output (both oneof members are
-/// always emitted), so absence only folds on the original side.
-fn normalize_v1_output_member(message: &mut DynamicMessage, side: Side) {
-    if side != Side::Original {
-        return;
-    }
+/// An output member re-encodes even when absent (both `v1.Output` members
+/// are always emitted): an absent output is the default `Ok`.
+fn normalize_v1_output_member(message: &mut DynamicMessage) {
     let member = field(message, "output");
     if message.has_field(&member) {
         return;
@@ -776,39 +629,6 @@ fn normalize_v1_output_member(message: &mut DynamicMessage, side: Side) {
     let mut output = DynamicMessage::new(desc);
     normalize_default_member(&mut output, "ok");
     message.set_field(&member, Value::Message(output));
-}
-
-/// An output member kept as a plain `tasks::Output`: an absent output means
-/// success, and the wire form always carries the output (an empty error
-/// encodes as an empty message), so absence only folds on the original side.
-fn normalize_output_member(message: &mut DynamicMessage, side: Side) {
-    let _ = side;
-    let member = field(message, "output");
-    if message.has_field(&member) {
-        return;
-    }
-    let prost_reflect::Kind::Message(desc) = member.kind() else {
-        panic!("output member is a message");
-    };
-    let mut output = DynamicMessage::new(desc);
-    output.set_field_by_name("success", Value::Bool(true));
-    message.set_field(&member, Value::Message(output));
-}
-
-/// A detailed-task member kept as a plain `tasks::Raw`: absent members fold
-/// like [`normalize_task_options_member`], one level deeper.
-fn normalize_task_member(message: &mut DynamicMessage, side: Side) {
-    let member = field(message, "task");
-    if message.has_field(&member) {
-        return;
-    }
-    let prost_reflect::Kind::Message(desc) = member.kind() else {
-        panic!("task member is a message");
-    };
-    let mut task = DynamicMessage::new(desc);
-    normalize_task_options_member(&mut task, side, "options");
-    normalize_output_member(&mut task, side);
-    message.set_field(&member, Value::Message(task));
 }
 
 /// Fold a repeated message member exposed as a `HashMap` keyed by one of the
@@ -835,23 +655,6 @@ fn normalize_string_keyed_pairs(message: &mut DynamicMessage, member: &str, key_
         by_key.insert(key, entry);
     }
     message.set_field(&values, Value::List(by_key.into_values().collect()));
-}
-
-fn normalize_task_options(message: &mut DynamicMessage) {
-    let max_duration = field(message, "max_duration");
-    let is_empty = match message.get_field(&max_duration).as_ref() {
-        Value::Message(duration) => duration.encode_to_vec().is_empty(),
-        _ => true,
-    };
-    if is_empty {
-        let duration_desc = match max_duration.kind() {
-            prost_reflect::Kind::Message(desc) => desc,
-            other => panic!("max_duration should be a message, got {other:?}"),
-        };
-        let mut infinite = DynamicMessage::new(duration_desc);
-        infinite.set_field_by_name("seconds", Value::I64(315576000000));
-        message.set_field(&max_duration, Value::Message(infinite));
-    }
 }
 
 /// Fold the repeated `StatusCount` pairs by status (last wins) and order

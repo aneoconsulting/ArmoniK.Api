@@ -98,17 +98,6 @@ pub(crate) trait ProtoField: Default {
     /// message type is used.
     fn is_default(value: &Self) -> bool;
 
-    /// Decode seed for a fresh value appearing on the wire.
-    ///
-    /// Equal to [`Default::default`] for every type except derived messages
-    /// with a custom `Default`: there, absent fields keep the API default
-    /// only where the historical conversions did (singular message fields,
-    /// e.g. `TaskOptions::max_duration`); scalars and containers decode from
-    /// the proto zero value.
-    fn wire_default() -> Self {
-        Self::default()
-    }
-
     fn clear_field(value: &mut Self) {
         *value = Self::default();
     }
@@ -135,7 +124,7 @@ pub(crate) trait ProtoField: Default {
         buf: &mut impl Buf,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
-        let mut value = Self::wire_default();
+        let mut value = Self::default();
         Self::merge_field(wire_type, &mut value, buf, ctx)?;
         values.push(value);
         Ok(())

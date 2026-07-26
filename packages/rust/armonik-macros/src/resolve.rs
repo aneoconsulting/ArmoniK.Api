@@ -18,19 +18,8 @@ pub(crate) struct MessagePlan {
     pub(crate) proto_names: Vec<String>,
     /// Fields sorted by tag (canonical encode order).
     pub(crate) fields: Vec<FieldPlan>,
-    pub(crate) style: StructStyle,
     pub(crate) generics: syn::Generics,
-    /// Generic mode: no descriptor validation; wire seeds are decided at
-    /// runtime from the field types' KIND/CARDINALITY consts.
-    pub(crate) generic: bool,
     pub(crate) fingerprint: u128,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(crate) enum StructStyle {
-    Named,
-    Tuple,
-    Unit,
 }
 
 pub(crate) enum FieldAccess {
@@ -412,13 +401,7 @@ pub(crate) fn message_plan(
         ident: input.ident.clone(),
         proto_names: proto_names.into_iter().map(|(_, name)| name).collect(),
         fields,
-        style: match &data.fields {
-            syn::Fields::Named(_) => StructStyle::Named,
-            syn::Fields::Unnamed(_) => StructStyle::Tuple,
-            syn::Fields::Unit => StructStyle::Unit,
-        },
         generics: input.generics.clone(),
-        generic: false,
         fingerprint: index.fingerprint,
     })
 }
@@ -517,13 +500,7 @@ fn generic_plan(
         ident: input.ident.clone(),
         proto_names: Vec::new(),
         fields,
-        style: match &data.fields {
-            syn::Fields::Named(_) => StructStyle::Named,
-            syn::Fields::Unnamed(_) => StructStyle::Tuple,
-            syn::Fields::Unit => StructStyle::Unit,
-        },
         generics: input.generics.clone(),
-        generic: true,
         fingerprint: index.fingerprint,
     })
 }
@@ -969,8 +946,6 @@ pub(crate) struct SiblingPlan {
     pub(crate) tag: u32,
     pub(crate) proto_path: String,
     pub(crate) checks: FieldChecks,
-    /// Wire-absence seed rule, as in message fields.
-    pub(crate) keeps_api_default: bool,
 }
 
 pub(crate) struct OneofVariant {
@@ -1017,8 +992,6 @@ pub(crate) struct InlinePart {
     pub(crate) tag: u32,
     pub(crate) proto_path: String,
     pub(crate) checks: FieldChecks,
-    /// Wire-absence seed rule, as in message fields.
-    pub(crate) keeps_api_default: bool,
 }
 
 /// Partition the named fields of a variant into the message's sibling
@@ -1569,8 +1542,6 @@ pub(crate) fn oneof_plan(
                             ty: part.ty.clone(),
                             tag: part_meta.tag,
                             proto_path: format!("{inner_name}.{}", part_meta.name),
-                            keeps_api_default: matches!(part_meta.kind, FieldKind::Message(_))
-                                && matches!(part_meta.cardinality, Cardinality::Singular),
                             checks: expected_checks(part_meta),
                         });
                     }
@@ -1636,8 +1607,6 @@ pub(crate) fn oneof_plan(
             tag: meta_field.tag,
             proto_path: format!("{proto_name}.{}", meta_field.name),
             checks: expected_checks(meta_field),
-            keeps_api_default: matches!(meta_field.kind, FieldKind::Message(_))
-                && matches!(meta_field.cardinality, Cardinality::Singular),
         });
     }
     siblings.sort_by_key(|sibling| sibling.tag);

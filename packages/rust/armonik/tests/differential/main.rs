@@ -80,8 +80,8 @@ fn registered_types_roundtrip() {
                     )
                 });
 
-            registry::normalize(&mut original, registry::Side::Original);
-            registry::normalize(&mut back, registry::Side::Back);
+            registry::normalize(&mut original);
+            registry::normalize(&mut back);
 
             assert!(
                 compare::messages(&original, &back),
@@ -93,6 +93,22 @@ fn registered_types_roundtrip() {
                 debug_fields(&back),
             );
         }
+    }
+}
+
+/// The zero-default invariant: every type's `Default::default()` is the
+/// proto zero value, so decoding an empty message yields it. This is what
+/// lets decoding seed from `Default` with no special wire semantics.
+#[test]
+fn empty_message_decodes_to_default() {
+    for entry in registry::entries() {
+        let reencoded = (entry.roundtrip)(&[]).expect("an empty message decodes");
+        assert_eq!(
+            reencoded,
+            (entry.default_encoding)(),
+            "`{}`: decoding an empty message must yield Default::default()",
+            entry.proto,
+        );
     }
 }
 

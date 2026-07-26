@@ -1,14 +1,11 @@
 use super::super::TaskOptionField;
 
 /// Represents every available field in a session raw.
-#[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(transparent, message = "armonik.api.grpc.v1.sessions.SessionRawField")]
 pub enum RawField {
     /// The session ID.
-    #[default]
     SessionId,
     /// The session status.
     Status,

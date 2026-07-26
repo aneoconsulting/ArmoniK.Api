@@ -60,8 +60,8 @@ where
             return Err(DecodeError::new("buffer underflow"));
         }
         let mut entry = buf.take(len);
-        let mut key = K::wire_default();
-        let mut entry_value = V::wire_default();
+        let mut key = K::default();
+        let mut entry_value = V::default();
         while entry.has_remaining() {
             let (tag, wire_type) = encoding::decode_key(&mut entry)?;
             if tag == KT {

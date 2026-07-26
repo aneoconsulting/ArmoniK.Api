@@ -223,43 +223,31 @@ and are covered by the differential harness instead.
 
 ### 3.6 Presence semantics
 
-> **Implementation addendum (settled during Stage A).** Decoding seeds from
-> `ProtoField::wire_default()`, not `Default::default()`: proto zero values
-> everywhere, except singular message fields, which keep the containing
-> type's `Default` (reproducing the historical `unwrap_or` conversions —
-> e.g. absent `TaskOptions.max_duration` ⇒ `INFINITE_DURATION`, while absent
-> `max_retries`/`priority` ⇒ 0, not the API default 1). Enum fields seed and
-> clear from `from(0)` even when the API `Default` differs (`SortDirection`
-> defaults to `Asc`). The derived merge carries a reset-if-seed guard so a
-> *present* nested message merges from the proto zero value and partial
-> messages never inherit seed pieces. The remaining projections (asserted by
-> the harness normalizer in `tests/differential/registry.rs`): absent-or-empty
-> `max_duration` ⇒ `INFINITE_DURATION`; marker oneof members forget their
-> payload (explicit `false` re-encodes as `true`); oneofs whose Rust default
-> is a member variant re-encode an absent oneof with that member present;
-> pair-map fields lose entry order and collapse duplicate keys. All of these match the
-> historical conversion layer — except `agent.CreateTaskRequest`, whose
-> `Invalid` variant now carries the sibling token like every other variant
-> (whole-message enums replicate the non-oneof fields), making the
-> memberless case lossless where the historical conversion dropped the
-> token.
+> **Zero-default invariant (supersedes the earlier addendum).** Every
+> type's `Default::default()` IS the proto zero value, so decoding simply
+> seeds from `Default` and "absent = default" holds with no further rules.
+> The harness enforces it: decoding an empty message must yield
+> `Default::default()` for every registered type
+> (`empty_message_decodes_to_default`). The historical non-zero defaults
+> (infinite `max_duration`, `priority = 1`, 80 KiB chunks, `page_size =
+> 100`, the `SessionId`/`TaskId`/`ResultId`/`Asc` sort defaults) are gone
+> from `Default` — `TaskOptions::recommended()` and the exported
+> `INFINITE_DURATION` carry the useful ones. This removed the
+> `wire_default()` trait method, the reset-if-seed merge guards, the
+> keeps-api-default rule and the generic-mode runtime seed decisions, plus
+> most harness projections.
 >
-> **Stage B/C additions.** Transparent wrapper enums are *always* emitted
-> (a zero value encodes as an empty wrapper), preserving the
-> absent-vs-explicit-zero distinction that fields with a non-zero API
-> default (`Field::Name`, `Field::Id`, …) rely on — like the historical
-> `Some(wrapper)`. Oneof payload variants carry the same reset-if-seed
-> guard as struct fields, so a member appearing on the wire never inherits
-> a non-zero API-default seed (`SessionField{session_raw_field{}}` decodes
-> to `Other(0)`, not `SessionId`). Plain members whose API default is not
-> the wire zero (`TaskOptions`, `Configuration`, `sessions::Raw`,
-> `tasks::Raw`/`Output`, `submitter::TaskFilter`) re-encode an absent
-> member as that default — the historical `unwrap_or_default`, asserted by
-> side-aware harness projections. Two deliberate divergences:
-> `tasks::Output` folds `success = true` over any error message (the
-> historical conversion did too), and `agent::notify_result_data` keeps
-> the first *non-empty* session ID of the identifier pairs where the
-> conversion kept the first one even when empty.
+> The projections that remain are *representation* facts, not defaults:
+> marker oneof members forget their payload (explicit `false` re-encodes
+> as `true`); oneofs whose Rust default is a member variant re-encode an
+> absent oneof with that member present (there is no `None` state);
+> transparent wrapper enums and multi-member field oneofs always emit, so
+> values containing them are never wire-empty; pair-map fields lose entry
+> order and collapse duplicate keys; `tasks::Output` folds `success =
+> true` over any error message, and its `Default` is `Error("")` — the
+> proto zero — so an absent output is an empty *error* (the old
+> conversion said success; the wire semantics of `TaskDetailed.Output`
+> agree with the new reading).
 
 - Non-`Option` message field ("absent = default"): decode merges in place,
   absence leaves the default; encode **skips the field when the nested
@@ -362,6 +350,12 @@ even though the branch lands as one unit:
   (`UNSPECIFIED` const provided); `as i32` casts replaced by `From` impls;
   `#[repr(i32)]` gone; matches need an `Other`/catch-all arm.
 - All `bytes` payload fields: `Vec<u8>` → `bytes::Bytes`.
+- `Default::default()` is the proto zero value for every type (the
+  zero-default invariant): `TaskOptions`, `Configuration`, the list
+  requests and the sort/field enums lose their historical non-zero
+  defaults (`TaskOptions::recommended()` and `INFINITE_DURATION` replace
+  them); `tasks::Output::default()` is `Error("")`, and an absent task
+  output now reads as an empty error rather than success.
 - serde representation shifts for the affected enums and `Bytes` fields.
 - `prost_types::{Duration, Timestamp}` remain the public time types
   (unchanged).

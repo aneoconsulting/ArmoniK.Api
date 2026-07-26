@@ -49,7 +49,7 @@ impl ProtoAdapter<HashMap<String, Raw>> for RawByName {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
         encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let mut raw = Raw::wire_default();
+        let mut raw = Raw::default();
         Raw::merge_field(wire_type, &mut raw, buf, ctx)?;
         value.insert(raw.name.clone(), raw);
         Ok(())

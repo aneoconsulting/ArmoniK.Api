@@ -4,9 +4,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
 use crate::kind::{Cardinality, FieldKind};
-use crate::resolve::{
-    EnumMode, EnumPlan, FieldAccess, FieldCodec, FieldPlan, MessagePlan, StructStyle,
-};
+use crate::resolve::{EnumMode, EnumPlan, FieldAccess, FieldCodec, FieldPlan, MessagePlan};
 
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -181,46 +179,12 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let mut merge_arms = Vec::new();
     let mut len_fragments = Vec::new();
     let mut clear_fragments = Vec::new();
-    let mut wire_inits = Vec::new();
     let mut asserts = TokenStream::new();
 
     for field in &plan.fields {
         let access = &field.access;
         let ty = &field.ty;
         let tag = field.tag;
-
-        // Wire-absence seed: singular message fields keep the API default
-        // (like the historical `unwrap_or` conversions), everything else
-        // decodes from the proto zero value.
-        let keeps_api_default = matches!(&field.checks.kind, Some(FieldKind::Message(_)))
-            && field.checks.cardinalities.contains(&Cardinality::Singular);
-        wire_inits.push((
-            access,
-            if keeps_api_default {
-                quote!(__default.#access)
-            } else if matches!(field.codec, FieldCodec::Plain) {
-                let ty = &field.ty;
-                if plan.generic {
-                    quote!(
-                        if matches!(
-                            <#ty as crate::codec::ProtoField>::KIND,
-                            crate::codec::FieldKind::Message
-                        ) && matches!(
-                            <#ty as crate::codec::ProtoField>::CARDINALITY,
-                            crate::codec::Cardinality::Singular
-                        ) {
-                            __default.#access
-                        } else {
-                            <#ty as crate::codec::ProtoField>::wire_default()
-                        }
-                    )
-                } else {
-                    quote!(<#ty as crate::codec::ProtoField>::wire_default())
-                }
-            } else {
-                quote!(::core::default::Default::default())
-            },
-        ));
 
         match &field.codec {
             FieldCodec::Plain => {
@@ -229,56 +193,11 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                         <#ty as crate::codec::ProtoField>::encode_field(#tag, &self.#access, buf);
                     }
                 });
-                // Singular message fields: when the containing type has a
-                // custom `Default` (e.g. `TaskOptions::max_duration` =
-                // infinite), the decode seed differs from the proto zero
-                // value. Wire occurrences must merge from the zero value
-                // (absence keeps the seed), otherwise a partial message
-                // would inherit pieces of the seed.
-                let is_singular_message = matches!(&field.checks.kind, Some(FieldKind::Message(_)))
-                    && field.checks.cardinalities.contains(&Cardinality::Singular);
-                if plan.generic {
-                    // The seed rule is decided at runtime for generic types.
-                    merge_arms.push(quote! {
-                        #tag => {
-                            if matches!(
-                                <#ty as crate::codec::ProtoField>::KIND,
-                                crate::codec::FieldKind::Message
-                            ) && matches!(
-                                <#ty as crate::codec::ProtoField>::CARDINALITY,
-                                crate::codec::Cardinality::Singular
-                            ) {
-                                let seed = <Self as ::core::default::Default>::default().#access;
-                                let wire_zero = <#ty as crate::codec::ProtoField>::wire_default();
-                                if seed != wire_zero && self.#access == seed {
-                                    self.#access = wire_zero;
-                                }
-                            }
-                            <#ty as crate::codec::ProtoField>::merge_field(
-                                wire_type, &mut self.#access, buf, ctx,
-                            )
-                        }
-                    });
-                } else if is_singular_message {
-                    merge_arms.push(quote! {
-                        #tag => {
-                            let seed = <Self as ::core::default::Default>::default().#access;
-                            let wire_zero = <#ty as crate::codec::ProtoField>::wire_default();
-                            if seed != wire_zero && self.#access == seed {
-                                self.#access = wire_zero;
-                            }
-                            <#ty as crate::codec::ProtoField>::merge_field(
-                                wire_type, &mut self.#access, buf, ctx,
-                            )
-                        }
-                    });
-                } else {
-                    merge_arms.push(quote! {
-                        #tag => <#ty as crate::codec::ProtoField>::merge_field(
-                            wire_type, &mut self.#access, buf, ctx,
-                        )
-                    });
-                }
+                merge_arms.push(quote! {
+                    #tag => <#ty as crate::codec::ProtoField>::merge_field(
+                        wire_type, &mut self.#access, buf, ctx,
+                    )
+                });
                 len_fragments.push(quote! {
                     if !<#ty as crate::codec::ProtoField>::is_default(&self.#access) {
                         len += <#ty as crate::codec::ProtoField>::encoded_len_field(#tag, &self.#access);
@@ -328,32 +247,6 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         }
     }
 
-    // `wire_default()` constructor; tuple structs need positional order.
-    let wire_default_body = match plan.style {
-        StructStyle::Unit => quote!(Self),
-        StructStyle::Named => {
-            let inits = wire_inits
-                .iter()
-                .map(|(access, init)| quote!(#access: #init));
-            quote!(Self { #(#inits),* })
-        }
-        StructStyle::Tuple => {
-            let mut ordered: Vec<_> = wire_inits
-                .iter()
-                .map(|(access, init)| {
-                    let index = match access {
-                        FieldAccess::Indexed(index) => index.index,
-                        FieldAccess::Named(_) => unreachable!("tuple structs have indexed fields"),
-                    };
-                    (index, init)
-                })
-                .collect();
-            ordered.sort_by_key(|(index, _)| *index);
-            let inits = ordered.into_iter().map(|(_, init)| init);
-            quote!(Self(#(#inits),*))
-        }
-    };
-
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
     quote! {
@@ -393,31 +286,6 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             fn clear(&mut self) {
                 #(#clear_fragments)*
             }
-
-            // Seed from `wire_default` instead of the provided methods'
-            // `Self::default()`: custom API defaults must not leak into
-            // fields that are absent on the wire (except where documented).
-            fn decode(
-                mut buf: impl ::prost::bytes::Buf,
-            ) -> ::core::result::Result<Self, ::prost::DecodeError>
-            where
-                Self: ::core::default::Default,
-            {
-                let mut message = <Self as crate::codec::ProtoField>::wire_default();
-                ::prost::Message::merge(&mut message, &mut buf)?;
-                ::core::result::Result::Ok(message)
-            }
-
-            fn decode_length_delimited(
-                buf: impl ::prost::bytes::Buf,
-            ) -> ::core::result::Result<Self, ::prost::DecodeError>
-            where
-                Self: ::core::default::Default,
-            {
-                let mut message = <Self as crate::codec::ProtoField>::wire_default();
-                ::prost::Message::merge_length_delimited(&mut message, buf)?;
-                ::core::result::Result::Ok(message)
-            }
         }
 
         impl #impl_generics crate::codec::ProtoField for #ident #ty_generics #where_clause {
@@ -451,15 +319,6 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
 
             fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
                 crate::codec::message::encoded_len_repeated(tag, values)
-            }
-
-            // `merge_repeated` deliberately uses the trait default, which
-            // seeds new elements with `wire_default()`.
-
-            fn wire_default() -> Self {
-                #[allow(unused_variables)]
-                let __default = <Self as ::core::default::Default>::default();
-                #wire_default_body
             }
         }
     }
@@ -535,10 +394,6 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                     crate::codec::enumeration::is_default(value)
                 }
 
-                fn wire_default() -> Self {
-                    Self::from(0)
-                }
-
                 fn clear_field(value: &mut Self) {
                     *value = Self::from(0);
                 }
@@ -588,30 +443,6 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                 fn clear(&mut self) {
                     *self = Self::from(0);
                 }
-
-                // Seed from the wire zero: custom API defaults must not leak
-                // into an absent enum field.
-                fn decode(
-                    mut buf: impl ::prost::bytes::Buf,
-                ) -> ::core::result::Result<Self, ::prost::DecodeError>
-                where
-                    Self: ::core::default::Default,
-                {
-                    let mut message = Self::from(0);
-                    ::prost::Message::merge(&mut message, &mut buf)?;
-                    ::core::result::Result::Ok(message)
-                }
-
-                fn decode_length_delimited(
-                    buf: impl ::prost::bytes::Buf,
-                ) -> ::core::result::Result<Self, ::prost::DecodeError>
-                where
-                    Self: ::core::default::Default,
-                {
-                    let mut message = Self::from(0);
-                    ::prost::Message::merge_length_delimited(&mut message, buf)?;
-                    ::core::result::Result::Ok(message)
-                }
             }
 
             impl crate::codec::ProtoField for #ident {
@@ -637,10 +468,6 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
                 fn is_default(value: &Self) -> bool {
                     crate::codec::wrapper_enum::is_default(value)
-                }
-
-                fn wire_default() -> Self {
-                    Self::from(0)
                 }
 
                 fn clear_field(value: &mut Self) {
@@ -736,26 +563,10 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 });
                 merge_arms.push(quote! {
                     #tag => {
-                        // reset-if-seed: when the value still is the API
-                        // default (the decode seed), a member appearing on
-                        // the wire merges from the wire zero value, so the
-                        // seed cannot leak into a partial member.
-                        {
-                            let seed = <Self as ::core::default::Default>::default();
-                            if *value == seed {
-                                if let Self::#var(seed_payload) = &seed {
-                                    let wire_zero =
-                                        <#ty as crate::codec::ProtoField>::wire_default();
-                                    if *seed_payload != wire_zero {
-                                        *value = Self::#var(wire_zero);
-                                    }
-                                }
-                            }
-                        }
                         let mut payload = if let Self::#var(payload) = value {
                             ::std::mem::take(payload)
                         } else {
-                            <#ty as crate::codec::ProtoField>::wire_default()
+                            ::core::default::Default::default()
                         };
                         <#ty as crate::codec::ProtoField>::merge_field(
                             wire_type, &mut payload, buf, ctx,
@@ -791,19 +602,6 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 });
                 merge_arms.push(quote! {
                     #tag => {
-                        // reset-if-seed, as for plain payload variants;
-                        // adapters merge from the plain `Default`.
-                        {
-                            let seed = <Self as ::core::default::Default>::default();
-                            if *value == seed {
-                                if let Self::#var(seed_payload) = &seed {
-                                    let wire_zero: #ty = ::core::default::Default::default();
-                                    if *seed_payload != wire_zero {
-                                        *value = Self::#var(wire_zero);
-                                    }
-                                }
-                            }
-                        }
                         let mut payload = if let Self::#var(payload) = value {
                             ::std::mem::take(payload)
                         } else {
@@ -871,10 +669,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                     .iter()
                     .map(|part| {
                         let ty = &part.ty;
-                        // Inline parts have no containing Default to inherit
-                        // from; they seed from the wire default.
-                        let _ = part.keeps_api_default;
-                        quote!(<#ty as crate::codec::ProtoField>::wire_default())
+                        quote!(<#ty as ::core::default::Default>::default())
                     })
                     .collect();
 
@@ -1214,10 +1009,6 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
             }
         });
 
-        let wire_zero = match adapter {
-            Some(_) => quote!(<#ty as ::core::default::Default>::default()),
-            None => quote!(<#ty as crate::codec::ProtoField>::wire_default()),
-        };
         let merge_payload = match adapter {
             Some(adapter) => quote! {
                 <#adapter as crate::codec::ProtoAdapter<#ty>>::merge_field(
@@ -1233,32 +1024,15 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         let take_pats = pats(&sib_idents);
         merge_arms.push(quote! {
             #tag => {
-                // reset-if-seed: when the value still is the API default
-                // (the decode seed), a member appearing on the wire merges
-                // from the wire zero value, so the seed cannot leak into a
-                // partial member.
-                let mut reset = false;
-                {
-                    let seed = <Self as ::core::default::Default>::default();
-                    if *self == seed {
-                        if let Self::#var { #payload, .. } = &seed {
-                            if *#payload != #wire_zero {
-                                reset = true;
-                            }
-                        }
-                    }
-                }
                 // Switch variants, carrying the siblings over.
                 #[allow(unused_parens)]
                 let (#(#sib_idents),*) = match self {
                     #(#take_pats)|* => (#(::std::mem::take(#sib_idents)),*),
                 };
-                let mut payload = if reset {
-                    #wire_zero
-                } else if let Self::#var { #payload, .. } = self {
+                let mut payload = if let Self::#var { #payload, .. } = self {
                     ::std::mem::take(#payload)
                 } else {
-                    #wire_zero
+                    ::core::default::Default::default()
                 };
                 #merge_payload
                 *self = Self::#var { #payload: payload, #(#sib_idents),* };
@@ -1272,25 +1046,10 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         let sty = &sibling.ty;
         let stag = sibling.tag;
         let self_pats = pats(&[sid]);
-        // Singular message siblings: merge a wire occurrence from the wire
-        // zero value when the slot still holds the API-default seed.
-        let reset = sibling.keeps_api_default.then(|| {
-            let seed_pats = pats(&[sid]);
-            quote! {
-                let seed = match <Self as ::core::default::Default>::default() {
-                    #(#seed_pats)|* => #sid,
-                };
-                let wire_zero = <#sty as crate::codec::ProtoField>::wire_default();
-                if seed != wire_zero && *#sid == seed {
-                    *#sid = wire_zero;
-                }
-            }
-        });
         merge_arms.push(quote! {
             #stag => {
                 match self {
                     #(#self_pats)|* => {
-                        #reset
                         <#sty as crate::codec::ProtoField>::merge_field(wire_type, #sid, buf, ctx)
                     }
                 }
@@ -1316,39 +1075,6 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
             }
         }
     });
-
-    // `wire_default`: the API default with the non-keeps siblings reset to
-    // their proto zero values (singular message siblings keep the API
-    // default, like struct fields).
-    let reseeded: Vec<&crate::resolve::SiblingPlan> = plan
-        .siblings
-        .iter()
-        .filter(|sibling| !sibling.keeps_api_default)
-        .collect();
-    let wire_default_fn = if reseeded.is_empty() {
-        TokenStream::new()
-    } else {
-        let rids: Vec<&syn::Ident> = reseeded.iter().map(|sibling| &sibling.ident).collect();
-        let rpats = pats(&rids);
-        let overwrites = reseeded.iter().map(|sibling| {
-            let sid = &sibling.ident;
-            let sty = &sibling.ty;
-            quote! {
-                *#sid = <#sty as crate::codec::ProtoField>::wire_default();
-            }
-        });
-        quote! {
-            fn wire_default() -> Self {
-                let mut value = <Self as ::core::default::Default>::default();
-                match &mut value {
-                    #(#rpats)|* => {
-                        #(#overwrites)*
-                    }
-                }
-                value
-            }
-        }
-    };
 
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
@@ -1392,31 +1118,6 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
             fn clear(&mut self) {
                 *self = ::core::default::Default::default();
             }
-
-            // Seed from `wire_default` instead of the provided methods'
-            // `Self::default()`: custom API defaults must not leak into
-            // fields that are absent on the wire (except where documented).
-            fn decode(
-                mut buf: impl ::prost::bytes::Buf,
-            ) -> ::core::result::Result<Self, ::prost::DecodeError>
-            where
-                Self: ::core::default::Default,
-            {
-                let mut message = <Self as crate::codec::ProtoField>::wire_default();
-                ::prost::Message::merge(&mut message, &mut buf)?;
-                ::core::result::Result::Ok(message)
-            }
-
-            fn decode_length_delimited(
-                buf: impl ::prost::bytes::Buf,
-            ) -> ::core::result::Result<Self, ::prost::DecodeError>
-            where
-                Self: ::core::default::Default,
-            {
-                let mut message = <Self as crate::codec::ProtoField>::wire_default();
-                ::prost::Message::merge_length_delimited(&mut message, buf)?;
-                ::core::result::Result::Ok(message)
-            }
         }
 
         impl crate::codec::ProtoField for #ident {
@@ -1444,7 +1145,6 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 crate::codec::message::is_default(value)
             }
 
-            #wire_default_fn
 
             fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
                 crate::codec::message::encode_repeated(tag, values, buf);
