@@ -309,9 +309,14 @@ Two independent layers:
    - round-trip both directions: dynamic → bytes → armonik type → bytes →
      dynamic, compared semantically (field-set equality, not byte equality —
      empty nested messages may legitimately disappear per §3.6);
-   - a registry test iterates *all* messages in the descriptor pool and fails
-     on any message with no mapped Rust type (explicit allowlist for
-     intentionally unmapped ones);
+   - the proto-to-type mapping is **self-registering**: each derive (and
+     hand-written impl) pushes its entry into a `linkme` distributed slice
+     under the private `_differential` feature, enabled only through the
+     self dev-dependency — new messages are covered with zero harness
+     changes, and only the generic instantiations are hand-listed;
+   - a coverage test iterates *all* messages in the descriptor pool and
+     fails on any message with no registered Rust type (explicit allowlist
+     for intentionally flattened ones);
    - covers `with` adapters, generics (`FilterStatus<T>` instantiations
      checked against each service's concrete proto), and unified types.
 3. Existing integration tests (`tests/*.rs`, client vs in-process server)

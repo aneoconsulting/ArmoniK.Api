@@ -139,6 +139,20 @@ impl prost::Message for Request {
     }
 }
 
+#[cfg(feature = "_differential")]
+const _: () = {
+    #[linkme::distributed_slice(crate::differential::REGISTRY)]
+    static ENTRY: crate::differential::Entry = crate::differential::Entry {
+        proto: "armonik.api.grpc.v1.agent.NotifyResultDataRequest",
+        roundtrip: |bytes| {
+            Ok(prost::Message::encode_to_vec(
+                &<Request as prost::Message>::decode(bytes)?,
+            ))
+        },
+        default_encoding: || prost::Message::encode_to_vec(&Request::default()),
+    };
+};
+
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

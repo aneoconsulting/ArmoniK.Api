@@ -1,262 +1,45 @@
-//! Mapping from proto full names to the armonik types implementing them,
-//! and the projection of messages onto the armonik types' documented
-//! equivalence classes.
+//! Discovery of the proto-to-type mapping, and the projection of messages
+//! onto the armonik types' documented equivalence classes.
 //!
-//! Grown in lockstep with the annotation of `src/objects/`: registering a
-//! type here removes it from `TEMP_UNMAPPED` in `main.rs` (the coverage
-//! test enforces both directions).
+//! The mapping is self-registering: every derived (and hand-written)
+//! message type pushes an [`Entry`] into `armonik::differential::REGISTRY`
+//! under the private `_differential` feature, so new messages are covered
+//! without touching the harness. Only the generic instantiations below are
+//! hand-maintained — the derive has no proto name for them.
 
 use armonik::reexports::prost::Message;
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
-pub struct Entry {
-    pub proto: &'static str,
-    /// Decode the bytes as the armonik type and re-encode them.
-    pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, armonik::reexports::prost::DecodeError>,
-    /// Canonical encoding of the type's `Default`, for the zero-default
-    /// invariant (an empty message must decode to `Default::default()`).
-    pub default_encoding: fn() -> Vec<u8>,
-}
+pub use armonik::differential::Entry;
 
-macro_rules! registry {
+macro_rules! generic_instantiations {
     ($($proto:literal => $ty:ty),* $(,)?) => {
-        pub fn entries() -> Vec<Entry> {
-            vec![$(Entry {
-                proto: $proto,
-                roundtrip: |bytes| Ok(<$ty as Message>::decode(bytes)?.encode_to_vec()),
-                default_encoding: || <$ty as Default>::default().encode_to_vec(),
-            }),*]
-        }
+        static GENERIC_INSTANTIATIONS: &[Entry] = &[$(Entry {
+            proto: $proto,
+            roundtrip: |bytes| Ok(<$ty as Message>::decode(bytes)?.encode_to_vec()),
+            default_encoding: || <$ty as Default>::default().encode_to_vec(),
+        }),*];
     };
 }
 
-registry! {
-    // Five wire-compatible API types stand for `Empty`; one covers it.
-    "armonik.api.grpc.v1.Empty" => armonik::worker::health_check::Request,
-    "armonik.api.grpc.v1.Configuration" => armonik::Configuration,
-    "armonik.api.grpc.v1.Count" => armonik::Count,
-    "armonik.api.grpc.v1.Error" => armonik::Error,
-    "armonik.api.grpc.v1.FilterArray" => armonik::FilterArray,
-    "armonik.api.grpc.v1.FilterBoolean" => armonik::FilterBoolean,
-    "armonik.api.grpc.v1.FilterDate" => armonik::FilterDate,
-    "armonik.api.grpc.v1.FilterDuration" => armonik::FilterDuration,
-    "armonik.api.grpc.v1.FilterNumber" => armonik::FilterNumber,
-    "armonik.api.grpc.v1.FilterString" => armonik::FilterString,
+generic_instantiations! {
+    "armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort" => armonik::applications::Sort,
+    "armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort" => armonik::partitions::Sort,
+    "armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort" => armonik::sessions::Sort,
+    "armonik.api.grpc.v1.tasks.ListTasksRequest.Sort" => armonik::tasks::Sort,
+    "armonik.api.grpc.v1.results.ListResultsRequest.Sort" => armonik::results::Sort,
     "armonik.api.grpc.v1.sessions.FilterStatus"
         => armonik::FilterStatus<armonik::SessionStatus>,
     "armonik.api.grpc.v1.tasks.FilterStatus"
         => armonik::FilterStatus<armonik::TaskStatus>,
     "armonik.api.grpc.v1.results.FilterStatus"
         => armonik::FilterStatus<armonik::ResultStatus>,
-    "armonik.api.grpc.v1.ResultRequest" => armonik::ResultRequest,
-    "armonik.api.grpc.v1.TaskError" => armonik::TaskError,
-    "armonik.api.grpc.v1.TaskId" => armonik::TaskId,
-    "armonik.api.grpc.v1.TaskIdList" => armonik::TaskIdList,
-    "armonik.api.grpc.v1.TaskIdWithStatus" => armonik::TaskIdWithStatus,
-    "armonik.api.grpc.v1.TaskList" => armonik::TaskList,
-    "armonik.api.grpc.v1.TaskOutputRequest" => armonik::TaskOutputRequest,
-    "armonik.api.grpc.v1.TaskRequest" => armonik::TaskRequest,
-    "armonik.api.grpc.v1.DataChunk" => armonik::DataChunk,
-    "armonik.api.grpc.v1.InitKeyedDataStream" => armonik::InitKeyedDataStream,
-    "armonik.api.grpc.v1.InitTaskRequest" => armonik::InitTaskRequest,
-    "armonik.api.grpc.v1.Output" => armonik::Output,
-    "armonik.api.grpc.v1.Session" => armonik::Session,
-    "armonik.api.grpc.v1.StatusCount" => armonik::StatusCount,
-    "armonik.api.grpc.v1.TaskOptions" => armonik::TaskOptions,
-    "armonik.api.grpc.v1.TaskRequestHeader" => armonik::TaskRequestHeader,
-    "armonik.api.grpc.v1.agent.CreateTaskRequest" => armonik::agent::create_tasks::Request,
-    "armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest"
-        => armonik::agent::create_tasks::InitRequest,
-    "armonik.api.grpc.v1.agent.CreateTaskReply" => armonik::agent::create_tasks::Response,
-    "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus"
-        => armonik::agent::create_tasks::Status,
-    "armonik.api.grpc.v1.agent.ResultMetaData" => armonik::agent::ResultMetaData,
-    "armonik.api.grpc.v1.agent.DataRequest" => armonik::agent::get_common_data::Request,
-    "armonik.api.grpc.v1.agent.DataResponse" => armonik::agent::get_common_data::Response,
-    "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest"
-        => armonik::agent::create_results_metadata::Request,
-    "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate"
-        => armonik::agent::create_results_metadata::RequestItem,
-    "armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse"
-        => armonik::agent::create_results_metadata::Response,
-    "armonik.api.grpc.v1.agent.CreateResultsRequest" => armonik::agent::create_results::Request,
-    "armonik.api.grpc.v1.agent.CreateResultsRequest.ResultCreate"
-        => armonik::agent::create_results::RequestItem,
-    "armonik.api.grpc.v1.agent.CreateResultsResponse" => armonik::agent::create_results::Response,
-    "armonik.api.grpc.v1.agent.SubmitTasksRequest" => armonik::agent::submit_tasks::Request,
-    "armonik.api.grpc.v1.agent.SubmitTasksRequest.TaskCreation"
-        => armonik::agent::submit_tasks::RequestItem,
-    "armonik.api.grpc.v1.agent.SubmitTasksResponse" => armonik::agent::submit_tasks::Response,
-    "armonik.api.grpc.v1.agent.SubmitTasksResponse.TaskInfo"
-        => armonik::agent::submit_tasks::ResponseItem,
-    "armonik.api.grpc.v1.agent.NotifyResultDataRequest"
-        => armonik::agent::notify_result_data::Request,
-    "armonik.api.grpc.v1.agent.NotifyResultDataResponse"
-        => armonik::agent::notify_result_data::Response,
-    "armonik.api.grpc.v1.applications.ApplicationRaw" => armonik::applications::Raw,
-    "armonik.api.grpc.v1.applications.Filters" => armonik::applications::filter::Or,
-    "armonik.api.grpc.v1.applications.FiltersAnd" => armonik::applications::filter::And,
-    "armonik.api.grpc.v1.applications.FilterField" => armonik::applications::filter::Field,
-    "armonik.api.grpc.v1.applications.ListApplicationsRequest"
-        => armonik::applications::list::Request,
-    "armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort"
-        => armonik::applications::Sort,
-    "armonik.api.grpc.v1.applications.ListApplicationsResponse"
-        => armonik::applications::list::Response,
-    "armonik.api.grpc.v1.partitions.PartitionRaw" => armonik::partitions::Raw,
-    "armonik.api.grpc.v1.partitions.Filters" => armonik::partitions::filter::Or,
-    "armonik.api.grpc.v1.partitions.FiltersAnd" => armonik::partitions::filter::And,
-    "armonik.api.grpc.v1.partitions.FilterField" => armonik::partitions::filter::Field,
-    "armonik.api.grpc.v1.partitions.GetPartitionRequest" => armonik::partitions::get::Request,
-    "armonik.api.grpc.v1.partitions.GetPartitionResponse" => armonik::partitions::get::Response,
-    "armonik.api.grpc.v1.partitions.ListPartitionsRequest" => armonik::partitions::list::Request,
-    "armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort" => armonik::partitions::Sort,
-    "armonik.api.grpc.v1.partitions.ListPartitionsResponse"
-        => armonik::partitions::list::Response,
-    "armonik.api.grpc.v1.sessions.SessionRaw" => armonik::sessions::Raw,
-    "armonik.api.grpc.v1.sessions.SessionField" => armonik::sessions::Field,
-    "armonik.api.grpc.v1.sessions.Filters" => armonik::sessions::filter::Or,
-    "armonik.api.grpc.v1.sessions.FiltersAnd" => armonik::sessions::filter::And,
-    "armonik.api.grpc.v1.sessions.FilterField" => armonik::sessions::filter::Field,
-    "armonik.api.grpc.v1.sessions.ListSessionsRequest" => armonik::sessions::list::Request,
-    "armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort" => armonik::sessions::Sort,
-    "armonik.api.grpc.v1.sessions.ListSessionsResponse" => armonik::sessions::list::Response,
-    "armonik.api.grpc.v1.sessions.GetSessionRequest" => armonik::sessions::get::Request,
-    "armonik.api.grpc.v1.sessions.GetSessionResponse" => armonik::sessions::get::Response,
-    "armonik.api.grpc.v1.sessions.CancelSessionRequest" => armonik::sessions::cancel::Request,
-    "armonik.api.grpc.v1.sessions.CancelSessionResponse" => armonik::sessions::cancel::Response,
-    "armonik.api.grpc.v1.sessions.CreateSessionRequest" => armonik::sessions::create::Request,
-    "armonik.api.grpc.v1.sessions.CreateSessionReply" => armonik::sessions::create::Response,
-    "armonik.api.grpc.v1.sessions.PauseSessionRequest" => armonik::sessions::pause::Request,
-    "armonik.api.grpc.v1.sessions.PauseSessionResponse" => armonik::sessions::pause::Response,
-    "armonik.api.grpc.v1.sessions.ResumeSessionRequest" => armonik::sessions::resume::Request,
-    "armonik.api.grpc.v1.sessions.ResumeSessionResponse" => armonik::sessions::resume::Response,
-    "armonik.api.grpc.v1.sessions.CloseSessionRequest" => armonik::sessions::close::Request,
-    "armonik.api.grpc.v1.sessions.CloseSessionResponse" => armonik::sessions::close::Response,
-    "armonik.api.grpc.v1.sessions.PurgeSessionRequest" => armonik::sessions::purge::Request,
-    "armonik.api.grpc.v1.sessions.PurgeSessionResponse" => armonik::sessions::purge::Response,
-    "armonik.api.grpc.v1.sessions.DeleteSessionRequest" => armonik::sessions::delete::Request,
-    "armonik.api.grpc.v1.sessions.DeleteSessionResponse" => armonik::sessions::delete::Response,
-    "armonik.api.grpc.v1.sessions.StopSubmissionRequest"
-        => armonik::sessions::stop_submission::Request,
-    "armonik.api.grpc.v1.sessions.StopSubmissionResponse"
-        => armonik::sessions::stop_submission::Response,
-    "armonik.api.grpc.v1.tasks.TaskDetailed" => armonik::tasks::Raw,
-    "armonik.api.grpc.v1.tasks.TaskDetailed.Output" => armonik::tasks::Output,
-    "armonik.api.grpc.v1.tasks.TaskSummary" => armonik::tasks::Summary,
-    "armonik.api.grpc.v1.tasks.TaskField" => armonik::tasks::Field,
-    "armonik.api.grpc.v1.tasks.Filters" => armonik::tasks::filter::Or,
-    "armonik.api.grpc.v1.tasks.FiltersAnd" => armonik::tasks::filter::And,
-    "armonik.api.grpc.v1.tasks.FilterField" => armonik::tasks::filter::Field,
-    "armonik.api.grpc.v1.tasks.ListTasksRequest" => armonik::tasks::list::Request,
-    "armonik.api.grpc.v1.tasks.ListTasksRequest.Sort" => armonik::tasks::Sort,
-    "armonik.api.grpc.v1.tasks.ListTasksResponse" => armonik::tasks::list::Response,
-    "armonik.api.grpc.v1.tasks.ListTasksDetailedResponse" => armonik::tasks::list_detailed::Response,
-    "armonik.api.grpc.v1.tasks.GetTaskRequest" => armonik::tasks::get::Request,
-    "armonik.api.grpc.v1.tasks.GetTaskResponse" => armonik::tasks::get::Response,
-    "armonik.api.grpc.v1.tasks.CancelTasksRequest" => armonik::tasks::cancel::Request,
-    "armonik.api.grpc.v1.tasks.CancelTasksResponse" => armonik::tasks::cancel::Response,
-    "armonik.api.grpc.v1.tasks.GetResultIdsRequest" => armonik::tasks::get_result_ids::Request,
-    "armonik.api.grpc.v1.tasks.GetResultIdsResponse" => armonik::tasks::get_result_ids::Response,
-    "armonik.api.grpc.v1.tasks.CountTasksByStatusRequest" => armonik::tasks::count_status::Request,
-    "armonik.api.grpc.v1.tasks.CountTasksByStatusResponse"
-        => armonik::tasks::count_status::Response,
-    "armonik.api.grpc.v1.tasks.SubmitTasksRequest" => armonik::tasks::submit::Request,
-    "armonik.api.grpc.v1.tasks.SubmitTasksRequest.TaskCreation"
-        => armonik::tasks::submit::RequestItem,
-    "armonik.api.grpc.v1.tasks.SubmitTasksResponse" => armonik::tasks::submit::Response,
-    "armonik.api.grpc.v1.tasks.SubmitTasksResponse.TaskInfo"
-        => armonik::tasks::submit::ResponseItem,
-    "armonik.api.grpc.v1.results.ResultRaw" => armonik::results::Raw,
-    "armonik.api.grpc.v1.results.Filters" => armonik::results::filter::Or,
-    "armonik.api.grpc.v1.results.FiltersAnd" => armonik::results::filter::And,
-    "armonik.api.grpc.v1.results.FilterField" => armonik::results::filter::Field,
-    "armonik.api.grpc.v1.results.ListResultsRequest" => armonik::results::list::Request,
-    "armonik.api.grpc.v1.results.ListResultsRequest.Sort" => armonik::results::Sort,
-    "armonik.api.grpc.v1.results.ListResultsResponse" => armonik::results::list::Response,
-    "armonik.api.grpc.v1.results.GetResultRequest" => armonik::results::get::Request,
-    "armonik.api.grpc.v1.results.GetResultResponse" => armonik::results::get::Response,
-    "armonik.api.grpc.v1.results.GetOwnerTaskIdRequest"
-        => armonik::results::get_owner_task_id::Request,
-    "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse"
-        => armonik::results::get_owner_task_id::Response,
-    "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest"
-        => armonik::results::create_metadata::Request,
-    "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest.ResultCreate"
-        => armonik::results::create_metadata::RequestItem,
-    "armonik.api.grpc.v1.results.CreateResultsMetaDataResponse"
-        => armonik::results::create_metadata::Response,
-    "armonik.api.grpc.v1.results.CreateResultsRequest" => armonik::results::create::Request,
-    "armonik.api.grpc.v1.results.CreateResultsRequest.ResultCreate"
-        => armonik::results::create::RequestItem,
-    "armonik.api.grpc.v1.results.CreateResultsResponse" => armonik::results::create::Response,
-    "armonik.api.grpc.v1.results.ImportResultsDataRequest" => armonik::results::import::Request,
-    "armonik.api.grpc.v1.results.ImportResultsDataResponse" => armonik::results::import::Response,
-    "armonik.api.grpc.v1.results.DeleteResultsDataRequest"
-        => armonik::results::delete_data::Request,
-    "armonik.api.grpc.v1.results.DeleteResultsDataResponse"
-        => armonik::results::delete_data::Response,
-    "armonik.api.grpc.v1.results.UploadResultDataRequest" => armonik::results::upload::Request,
-    "armonik.api.grpc.v1.results.UploadResultDataResponse" => armonik::results::upload::Response,
-    "armonik.api.grpc.v1.results.DownloadResultDataRequest"
-        => armonik::results::download::Request,
-    "armonik.api.grpc.v1.results.DownloadResultDataResponse"
-        => armonik::results::download::Response,
-    "armonik.api.grpc.v1.results.ResultsServiceConfigurationResponse"
-        => armonik::results::get_service_configuration::Response,
-    "armonik.api.grpc.v1.events.EventSubscriptionRequest" => armonik::events::subscribe::Request,
-    "armonik.api.grpc.v1.events.EventSubscriptionResponse"
-        => armonik::events::subscribe::Response,
-    "armonik.api.grpc.v1.events.EventSubscriptionResponse.TaskStatusUpdate"
-        => armonik::events::TaskStatusUpdate,
-    "armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultStatusUpdate"
-        => armonik::events::ResultStatusUpdate,
-    "armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultOwnerUpdate"
-        => armonik::events::ResultOwnerUpdate,
-    "armonik.api.grpc.v1.events.EventSubscriptionResponse.NewTask" => armonik::events::NewTask,
-    "armonik.api.grpc.v1.events.EventSubscriptionResponse.NewResult" => armonik::events::NewResult,
-    "armonik.api.grpc.v1.auth.GetCurrentUserRequest" => armonik::auth::current_user::Request,
-    "armonik.api.grpc.v1.auth.GetCurrentUserResponse" => armonik::auth::current_user::Response,
-    "armonik.api.grpc.v1.auth.User" => armonik::auth::User,
-    "armonik.api.grpc.v1.health_checks.CheckHealthRequest"
-        => armonik::health_checks::check::Request,
-    "armonik.api.grpc.v1.health_checks.CheckHealthResponse"
-        => armonik::health_checks::check::Response,
-    "armonik.api.grpc.v1.health_checks.CheckHealthResponse.ServiceHealth"
-        => armonik::health_checks::ServiceHealth,
-    "armonik.api.grpc.v1.submitter.CreateSessionRequest"
-        => armonik::submitter::create_session::Request,
-    "armonik.api.grpc.v1.submitter.CreateSessionReply"
-        => armonik::submitter::create_session::Response,
-    "armonik.api.grpc.v1.submitter.CreateSmallTaskRequest"
-        => armonik::submitter::create_tasks::SmallRequest,
-    "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest"
-        => armonik::submitter::create_tasks::LargeRequest,
-    "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest"
-        => armonik::submitter::create_tasks::InitRequest,
-    "armonik.api.grpc.v1.submitter.CreateTaskReply" => armonik::submitter::create_tasks::Response,
-    "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus"
-        => armonik::submitter::create_tasks::Status,
-    "armonik.api.grpc.v1.submitter.TaskFilter" => armonik::submitter::TaskFilter,
-    "armonik.api.grpc.v1.submitter.SessionFilter" => armonik::submitter::SessionFilter,
-    "armonik.api.grpc.v1.submitter.SessionIdList" => armonik::submitter::list_sessions::Response,
-    "armonik.api.grpc.v1.submitter.GetTaskStatusRequest"
-        => armonik::submitter::task_status::Request,
-    "armonik.api.grpc.v1.submitter.GetTaskStatusReply"
-        => armonik::submitter::task_status::Response,
-    "armonik.api.grpc.v1.submitter.GetResultStatusRequest"
-        => armonik::submitter::result_status::Request,
-    "armonik.api.grpc.v1.submitter.GetResultStatusReply"
-        => armonik::submitter::result_status::Response,
-    "armonik.api.grpc.v1.submitter.ResultReply" => armonik::submitter::try_get_result::Response,
-    "armonik.api.grpc.v1.submitter.AvailabilityReply"
-        => armonik::submitter::wait_for_availability::Response,
-    "armonik.api.grpc.v1.submitter.WaitRequest" => armonik::submitter::wait_for_completion::Request,
-    "armonik.api.grpc.v1.worker.ProcessRequest" => armonik::worker::process::Request,
-    "armonik.api.grpc.v1.worker.ProcessReply" => armonik::worker::process::Response,
-    "armonik.api.grpc.v1.worker.HealthCheckReply" => armonik::worker::health_check::Response,
-    "armonik.api.grpc.v1.versions.ListVersionsRequest" => armonik::versions::list::Request,
-    "armonik.api.grpc.v1.versions.ListVersionsResponse" => armonik::versions::list::Response,
+}
+
+pub fn entries() -> impl Iterator<Item = &'static Entry> {
+    armonik::differential::REGISTRY
+        .iter()
+        .chain(GENERIC_INSTANTIATIONS)
 }
 
 /// Project a message (recursively) onto the equivalence classes of its

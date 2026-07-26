@@ -101,6 +101,20 @@ impl prost::Message for Output {
     }
 }
 
+#[cfg(feature = "_differential")]
+const _: () = {
+    #[linkme::distributed_slice(crate::differential::REGISTRY)]
+    static ENTRY: crate::differential::Entry = crate::differential::Entry {
+        proto: "armonik.api.grpc.v1.tasks.TaskDetailed.Output",
+        roundtrip: |bytes| {
+            Ok(prost::Message::encode_to_vec(
+                &<Output as prost::Message>::decode(bytes)?,
+            ))
+        },
+        default_encoding: || prost::Message::encode_to_vec(&Output::default()),
+    };
+};
+
 impl ProtoField for Output {
     const KIND: FieldKind = FieldKind::Message;
     const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.tasks.TaskDetailed.Output"];
