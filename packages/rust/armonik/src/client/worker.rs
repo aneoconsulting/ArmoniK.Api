@@ -54,7 +54,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .health_check(crate::Empty::from(request)),
+                    .health_check(request),
                 tracing::debug_span!("Worker::health_check")
             );
             Ok(call

@@ -253,7 +253,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .get_service_configuration(crate::Empty::from(request)),
+                    .get_service_configuration(request),
                 tracing::debug_span!("Submitter::get_service_configuration")
             );
             Ok(call
@@ -285,8 +285,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: create_tasks::SmallRequest) -> Result<create_tasks::Response> {
@@ -412,8 +411,7 @@ super::impl_call! {
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: task_status::Request) -> Result<task_status::Response> {

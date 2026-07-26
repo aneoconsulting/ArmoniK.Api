@@ -53,7 +53,29 @@ const PROTO_FILES: &[&str] = &[
 ///
 /// Flipped service by service during the direct-wire migration.
 const EXTERN_TYPES: &[(&str, &str)] = &[
-    (".armonik.api.grpc.v1.Empty", "crate::Empty"),
+    // Synthetic names injected by `prune_for_stubs`: `Empty` appears in
+    // five RPC signatures standing for five distinct (wire-compatible) API
+    // types, so the stub descriptor references one name per site.
+    (
+        ".armonik.api.grpc.v1.worker.HealthCheckRequest",
+        "crate::worker::health_check::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.results.GetServiceConfigurationRequest",
+        "crate::results::get_service_configuration::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.GetServiceConfigurationRequest",
+        "crate::submitter::get_service_configuration::Request",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CancelSessionResponse",
+        "crate::submitter::cancel_session::Response",
+    ),
+    (
+        ".armonik.api.grpc.v1.submitter.CancelTasksResponse",
+        "crate::submitter::cancel_tasks::Response",
+    ),
     (
         ".armonik.api.grpc.v1.agent.CreateTaskRequest",
         "crate::agent::create_tasks::Request",
@@ -671,12 +693,57 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
 const PRUNED_METHODS: &[(&str, &str)] =
     &[("Results", "WatchResults"), ("Submitter", "WatchResults")];
 
+/// Wire-compatible signature rewrites: the five RPC signatures using
+/// `Empty` stand for five distinct API types. Message type names never
+/// appear on the wire, so the stub descriptor references a distinct
+/// synthetic empty message per site (injected below and extern'd to the
+/// API type in `EXTERN_TYPES`).
+const EMPTY_SIGNATURES: &[(&str, &str, Direction, &str)] = &[
+    (
+        "Worker",
+        "HealthCheck",
+        Direction::Input,
+        "armonik.api.grpc.v1.worker.HealthCheckRequest",
+    ),
+    (
+        "Results",
+        "GetServiceConfiguration",
+        Direction::Input,
+        "armonik.api.grpc.v1.results.GetServiceConfigurationRequest",
+    ),
+    (
+        "Submitter",
+        "GetServiceConfiguration",
+        Direction::Input,
+        "armonik.api.grpc.v1.submitter.GetServiceConfigurationRequest",
+    ),
+    (
+        "Submitter",
+        "CancelSession",
+        Direction::Output,
+        "armonik.api.grpc.v1.submitter.CancelSessionResponse",
+    ),
+    (
+        "Submitter",
+        "CancelTasks",
+        Direction::Output,
+        "armonik.api.grpc.v1.submitter.CancelTasksResponse",
+    ),
+];
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Direction {
+    Input,
+    Output,
+}
+
 /// Messages excluded from the stub generation: nothing generated references
 /// them — they are field wrappers flattened into armonik enums, messages of
 /// the pruned RPCs, or unused legacy. Together with `EXTERN_TYPES` this
 /// leaves the generated module with the client/server stubs only.
 /// `descriptor.bin` keeps the full set for the derives and the harness.
 const PRUNED_MESSAGES: &[&str] = &[
+    "armonik.api.grpc.v1.Empty",
     "armonik.api.grpc.v1.applications.ApplicationField",
     "armonik.api.grpc.v1.applications.ApplicationRawField",
     "armonik.api.grpc.v1.partitions.PartitionField",
@@ -707,6 +774,7 @@ fn prune_for_stubs(
 ) -> Result<prost_types::FileDescriptorSet, Box<dyn Error>> {
     let mut methods: Vec<(&str, &str)> = PRUNED_METHODS.to_vec();
     let mut messages: Vec<&str> = PRUNED_MESSAGES.to_vec();
+    let mut rewrites: Vec<&(&str, &str, Direction, &str)> = EMPTY_SIGNATURES.iter().collect();
     for file in &mut fds.file {
         if !file.package().starts_with("armonik.") {
             continue;
@@ -726,6 +794,36 @@ fn prune_for_stubs(
                     None => true,
                 }
             });
+            for method in &mut service.method {
+                let position = rewrites.iter().position(|(service, method_name, _, _)| {
+                    *service == service_name && *method_name == method.name()
+                });
+                let Some(position) = position else { continue };
+                let (_, _, direction, new_name) = rewrites.swap_remove(position);
+                let method_name = method.name().to_owned();
+                let slot = match direction {
+                    Direction::Input => &mut method.input_type,
+                    Direction::Output => &mut method.output_type,
+                };
+                if slot.as_deref() != Some(".armonik.api.grpc.v1.Empty") {
+                    return Err(format!(
+                        "signature of {service_name}.{method_name} no longer uses Empty \
+                         ({slot:?})",
+                    )
+                    .into());
+                }
+                *slot = Some(format!(".{new_name}"));
+            }
+        }
+        // Inject the synthetic empty messages whose package is this file's.
+        for (_, _, _, new_name) in EMPTY_SIGNATURES {
+            let (message_package, name) = new_name.rsplit_once('.').expect("qualified name");
+            if message_package == package {
+                file.message_type.push(prost_types::DescriptorProto {
+                    name: Some(name.to_owned()),
+                    ..Default::default()
+                });
+            }
         }
         file.message_type.retain(|message| {
             let full_name = format!("{package}.{}", message.name());
@@ -739,9 +837,10 @@ fn prune_for_stubs(
         });
         file.enum_type.clear();
     }
-    if !methods.is_empty() || !messages.is_empty() {
+    if !methods.is_empty() || !messages.is_empty() || !rewrites.is_empty() {
         return Err(format!(
-            "stale prune entries (not found in the descriptor set): {methods:?} {messages:?}"
+            "stale prune/rewrite entries (not found in the descriptor set): \
+             {methods:?} {messages:?} {rewrites:?}",
         )
         .into());
     }
