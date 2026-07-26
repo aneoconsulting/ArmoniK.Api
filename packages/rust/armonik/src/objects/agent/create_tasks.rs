@@ -109,6 +109,18 @@ impl Request {
     }
 }
 
+// Hand-written rather than derived. Everything the derive emits (encode
+// fragments, merge arms, decode seeds, descriptor asserts) is generated from
+// a one-Rust-field-to-one-proto-field correspondence; `with` adapters can
+// change how a single field is encoded, but not that arity. Here one Rust
+// enum stands for the oneof AND its sibling token: every variant carries the
+// token, so both wire fields feed every variant, and merging needs
+// cross-field state (the token may precede the member on the wire). Teaching
+// the derive this shape would cost more grammar and codegen than the four
+// hand-written impls it would replace (this one, [`Response`],
+// `tasks::Output`, `agent::notify_result_data::Request`), each used exactly
+// once. The differential harness fuzzes them against `DynamicMessage` ground
+// truth exactly like the derived types.
 impl prost::Message for Request {
     fn encode_raw(&self, buf: &mut impl prost::bytes::BufMut) {
         let token = match self {
@@ -337,6 +349,9 @@ impl Response {
     }
 }
 
+// Hand-written for the same reason as [`Request`]: one Rust enum stands for
+// the oneof and its sibling token, which breaks the one-field-to-one-field
+// correspondence the derive is built on (see the comment there).
 impl prost::Message for Response {
     fn encode_raw(&self, buf: &mut impl prost::bytes::BufMut) {
         let token = match self {

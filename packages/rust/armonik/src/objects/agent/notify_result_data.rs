@@ -40,6 +40,15 @@ impl Request {
     }
 }
 
+// Hand-written rather than derived. The derive (and its `with` adapters)
+// maps one Rust field to one proto field, but `ids` splits into TWO Rust
+// fields: each encoded pair combines the shared `session_id` with one
+// element of `result_ids`, and each decoded pair updates both — the
+// first-non-empty-session rule reads the partially merged struct itself.
+// Teaching the derive this one-off shape would cost more than the impl
+// (see `agent::create_tasks::Request` for the full tradeoff); the
+// differential harness fuzzes it like any derived type, and by not
+// implementing `ProtoField` the type cannot be nested in other messages.
 impl prost::Message for Request {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         for result_id in &self.result_ids {
