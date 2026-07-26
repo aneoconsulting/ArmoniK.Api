@@ -150,6 +150,8 @@ const _: () = {
             ))
         },
         default_encoding: || prost::Message::encode_to_vec(&Request::default()),
+        bool_markers: &[],
+        wrapper_chain: false,
     };
 };
 

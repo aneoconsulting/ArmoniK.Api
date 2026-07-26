@@ -162,6 +162,15 @@ fn field_asserts_for(
 /// `armonik::differential`), one entry per proto name the type stands for.
 /// Compiled out unless the private `_differential` feature is on.
 fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
+    registrations_with(ident, names, &[], false)
+}
+
+fn registrations_with(
+    ident: &syn::Ident,
+    names: &[String],
+    bool_markers: &[String],
+    wrapper_chain: bool,
+) -> TokenStream {
     let mut out = TokenStream::new();
     for name in names {
         out.extend(quote! {
@@ -185,6 +194,8 @@ fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
                             &<#ident as ::core::default::Default>::default(),
                         )
                     },
+                    bool_markers: &[#(#bool_markers),*],
+                    wrapper_chain: #wrapper_chain,
                 };
             };
         });
@@ -454,7 +465,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             }
         },
         EnumMode::Transparent { names, path } => {
-            let registrations = registrations(ident, names);
+            let registrations = registrations_with(ident, names, &[], true);
             quote! {
                 #registrations
 
@@ -582,6 +593,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let mut len_arms = Vec::new();
     let mut merge_arms = Vec::new();
     let mut asserts = TokenStream::new();
+    let mut bool_markers = Vec::new();
 
     for variant in &plan.variants {
         let var = &variant.ident;
@@ -658,6 +670,13 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 });
             }
             OneofVariantShape::MarkerBool => {
+                let member = variant
+                    .proto_path
+                    .rsplit('.')
+                    .next()
+                    .expect("qualified member path")
+                    .to_owned();
+                bool_markers.push(member);
                 encode_arms.push(quote! {
                     Self::#var => {
                         <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
@@ -810,7 +829,12 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     });
 
     let whole_message = plan.whole_message.then(|| {
-        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
+        let registrations = registrations_with(
+            ident,
+            std::slice::from_ref(&plan.proto_name),
+            &bool_markers,
+            false,
+        );
         quote! {
             #registrations
 
