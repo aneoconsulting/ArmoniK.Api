@@ -77,7 +77,7 @@ super::impl_trait_methods! {
         fn create_results(crate::results::create::Request) -> crate::results::create::Response { create }
         fn import_results_data(crate::results::import::Request) -> crate::results::import::Response { import }
         fn delete_results_data(crate::results::delete_data::Request) -> crate::results::delete_data::Response { delete_data }
-        fn get_service_configuration(v3::Empty) -> crate::results::get_service_configuration::Response { get_service_configuration }
+        fn get_service_configuration(crate::Empty) -> crate::results::get_service_configuration::Response { get_service_configuration }
 
         ---
 
@@ -100,19 +100,6 @@ super::impl_trait_methods! {
             tonic::Status,
         > {
             super::impl_trait_methods!(stream server (self, request) {ResultsService::download})
-        }
-
-        type WatchResultsStream = crate::server::ServerStream<v3::results::WatchResultResponse>;
-        async fn watch_results(
-            self: std::sync::Arc<Self>,
-            _request: tonic::Request<tonic::Streaming<v3::results::WatchResultRequest>>,
-        ) -> std::result::Result<
-            tonic::Response<Self::WatchResultsStream>,
-            tonic::Status,
-        > {
-            let span = tracing::debug_span!("ResultsService::watch_results");
-            let _entered = span.enter();
-            Err(tonic::Status::unimplemented("Results::WatchResults is not implemented"))
         }
     }
 }

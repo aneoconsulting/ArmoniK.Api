@@ -64,6 +64,18 @@ not a supported public API.
 
 ### 3.2 Build pipeline (`build.rs`)
 
+> **Stubs-only generation.** The descriptor set is compiled once (protox)
+> and used twice: the full set becomes `descriptor.bin` for the derives and
+> the differential harness, while the tonic stub generation receives a
+> *pruned* copy — the never-exposed WatchResults methods are dropped
+> (tonic answers UNIMPLEMENTED for unrouted paths), and every message that
+> nothing generated references (field wrappers, watch messages, legacy) is
+> removed alongside all file-level enums. Combined with `EXTERN_TYPES`,
+> the generated module contains exactly the 12 client and 12 server stubs
+> and nothing else; the message-only packages produce no file at all, and
+> without the client/server features the module is not even compiled (the
+> crate then works as a pure-types dependency).
+
 1. `protox` compiles `protos/V1/*.proto` → `FileDescriptorSet`
    (pure Rust; `protoc` no longer required; `cargo:rerun-if-changed` per
    proto file).
@@ -335,9 +347,10 @@ even though the branch lands as one unit:
 ## 6. Public API changes (breaking, accepted)
 
 - `armonik::api::v3` removed from the public API (goal of the revamp). The
-  module still exists as `pub(crate)`: it holds the tonic client/server
-  stubs (whose server types remain reachable through the `*ServiceExt`
-  traits), the shared `Empty`, and a few unreferenced leftovers.
+  module still exists as `pub(crate)` and contains exactly the tonic
+  client/server stubs (whose server types remain reachable through the
+  `*ServiceExt` traits) — every message is an armonik type, including the
+  shared `armonik::Empty`, and the leftovers are pruned from generation.
 - Rust types sharing one wire message stay distinct and convert at the
   stub boundary (`tasks::list_detailed`, the agent data RPCs, the
   submitter request wrappers), so `client.call(...)` dispatch is

@@ -53,6 +53,7 @@ const PROTO_FILES: &[&str] = &[
 ///
 /// Flipped service by service during the direct-wire migration.
 const EXTERN_TYPES: &[(&str, &str)] = &[
+    (".armonik.api.grpc.v1.Empty", "crate::Empty"),
     (
         ".armonik.api.grpc.v1.agent.CreateTaskRequest",
         "crate::agent::create_tasks::Request",
@@ -663,6 +664,90 @@ const EXTERN_TYPES: &[(&str, &str)] = &[
     ),
 ];
 
+/// RPC methods excluded from the generated stubs: the crate does not expose
+/// them, and tonic answers UNIMPLEMENTED for unrouted paths, so pruning them
+/// is behaviorally identical to the unimplemented hand-written stubs it
+/// replaces.
+const PRUNED_METHODS: &[(&str, &str)] =
+    &[("Results", "WatchResults"), ("Submitter", "WatchResults")];
+
+/// Messages excluded from the stub generation: nothing generated references
+/// them — they are field wrappers flattened into armonik enums, messages of
+/// the pruned RPCs, or unused legacy. Together with `EXTERN_TYPES` this
+/// leaves the generated module with the client/server stubs only.
+/// `descriptor.bin` keeps the full set for the derives and the harness.
+const PRUNED_MESSAGES: &[&str] = &[
+    "armonik.api.grpc.v1.applications.ApplicationField",
+    "armonik.api.grpc.v1.applications.ApplicationRawField",
+    "armonik.api.grpc.v1.partitions.PartitionField",
+    "armonik.api.grpc.v1.partitions.PartitionRawField",
+    "armonik.api.grpc.v1.sessions.SessionField",
+    "armonik.api.grpc.v1.sessions.SessionRawField",
+    "armonik.api.grpc.v1.sessions.TaskOptionField",
+    "armonik.api.grpc.v1.sessions.TaskOptionGenericField",
+    "armonik.api.grpc.v1.tasks.TaskField",
+    "armonik.api.grpc.v1.tasks.TaskSummaryField",
+    "armonik.api.grpc.v1.tasks.TaskOptionField",
+    "armonik.api.grpc.v1.tasks.TaskOptionGenericField",
+    "armonik.api.grpc.v1.results.ResultField",
+    "armonik.api.grpc.v1.results.ResultRawField",
+    "armonik.api.grpc.v1.results.WatchResultRequest",
+    "armonik.api.grpc.v1.results.WatchResultResponse",
+    "armonik.api.grpc.v1.submitter.SessionList",
+    "armonik.api.grpc.v1.submitter.WatchResultRequest",
+    "armonik.api.grpc.v1.submitter.WatchResultStream",
+];
+
+/// Stub-generation copy of the descriptor set: without the pruned methods
+/// and messages, and without the file-level enums (every remaining message
+/// is extern'd, so no generated code can reference them). Unknown names in
+/// the prune lists are an error, so they cannot go stale silently.
+fn prune_for_stubs(
+    mut fds: prost_types::FileDescriptorSet,
+) -> Result<prost_types::FileDescriptorSet, Box<dyn Error>> {
+    let mut methods: Vec<(&str, &str)> = PRUNED_METHODS.to_vec();
+    let mut messages: Vec<&str> = PRUNED_MESSAGES.to_vec();
+    for file in &mut fds.file {
+        if !file.package().starts_with("armonik.") {
+            continue;
+        }
+        let package = file.package().to_owned();
+        for service in &mut file.service {
+            let service_name = service.name().to_owned();
+            service.method.retain(|method| {
+                let position = methods.iter().position(|(service, method_name)| {
+                    *service == service_name && *method_name == method.name()
+                });
+                match position {
+                    Some(position) => {
+                        methods.swap_remove(position);
+                        false
+                    }
+                    None => true,
+                }
+            });
+        }
+        file.message_type.retain(|message| {
+            let full_name = format!("{package}.{}", message.name());
+            match messages.iter().position(|name| *name == full_name) {
+                Some(position) => {
+                    messages.swap_remove(position);
+                    false
+                }
+                None => true,
+            }
+        });
+        file.enum_type.clear();
+    }
+    if !methods.is_empty() || !messages.is_empty() {
+        return Err(format!(
+            "stale prune entries (not found in the descriptor set): {methods:?} {messages:?}"
+        )
+        .into());
+    }
+    Ok(fds)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     for proto in PROTO_FILES {
         println!("cargo:rerun-if-changed={proto}");
@@ -688,8 +773,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             .as_bytes(),
     )?;
 
-    // Generate the tonic stubs (and, until the migration flips them, the
-    // message types) from the same descriptor set.
+    // Generate the tonic stubs from a pruned copy of the descriptor set:
+    // with every extern'd message resolved to its armonik type and the
+    // unreferenced ones pruned, the generated module contains nothing but
+    // the client/server stubs.
     let mut builder = tonic_prost_build::configure()
         .use_arc_self(true)
         .build_client(cfg!(feature = "_gen-client"))
@@ -697,7 +784,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     for (proto_path, rust_path) in EXTERN_TYPES {
         builder = builder.extern_path(*proto_path, *rust_path);
     }
-    builder.compile_fds(fds)?;
+    builder.compile_fds(prune_for_stubs(fds)?)?;
 
     Ok(())
 }
