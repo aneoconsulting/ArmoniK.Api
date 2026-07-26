@@ -2,7 +2,7 @@ use ::bytes::Bytes;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[armonik(message = "armonik.api.grpc.v1.DataChunk", oneof = "type")]
+#[armonik(message = "armonik.api.grpc.v1.DataChunk")]
 pub enum DataChunk {
     /// A chunk of data; decoding borrows the receive buffer.
     Data(Bytes),

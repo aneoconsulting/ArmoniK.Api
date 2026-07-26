@@ -56,7 +56,7 @@ pub enum SummaryField {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[armonik(message = "armonik.api.grpc.v1.tasks.TaskField", oneof = "field")]
+#[armonik(message = "armonik.api.grpc.v1.tasks.TaskField")]
 pub enum Field {
     /// The task summary field.
     #[armonik(rename = "task_summary_field")]

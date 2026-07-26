@@ -935,21 +935,42 @@ fn upper_camel(screaming_snake: &str) -> String {
         .collect()
 }
 
-/// Plan for a flattened oneof: a Rust enum standing for the oneof `oneof_name`
-/// of the proto message `proto_name`.
+/// Plan for a oneof-shaped enum: either a whole message whose fields are a
+/// single oneof plus optional sibling fields (`message = ...` alone), or
+/// just the oneof `oneof_name` of the message, to be embedded in a struct
+/// (`message = ...` + `oneof = ...`).
 pub(crate) struct OneofPlan {
     pub(crate) ident: syn::Ident,
     pub(crate) proto_name: String,
     /// All member tags, for routing by containers and the whole-message
     /// implementation.
     pub(crate) tags: Vec<u32>,
-    /// Whether the oneof covers every field of the message, in which case
-    /// the enum also gets `prost::Message` + `ProtoField` implementations.
+    /// Whether the enum stands for the whole message (annotation without
+    /// `oneof = ...`), in which case it gets `prost::Message` +
+    /// `ProtoField` implementations.
     pub(crate) whole_message: bool,
+    /// Non-oneof fields of the message, replicated in every variant
+    /// (whole-message enums only; empty when the oneof is the only field).
+    pub(crate) siblings: Vec<SiblingPlan>,
     pub(crate) variants: Vec<OneofVariant>,
-    /// The attribute-less unit variant standing for "no member set", if any.
+    /// The attribute-less variant standing for "no member set", if any: a
+    /// unit variant, or a struct variant carrying exactly the sibling
+    /// fields when there are siblings.
     pub(crate) default_variant: Option<syn::Ident>,
     pub(crate) fingerprint: u128,
+}
+
+/// A non-oneof field of a whole-message enum, present in every variant
+/// under the same name and type.
+pub(crate) struct SiblingPlan {
+    pub(crate) ident: syn::Ident,
+    pub(crate) ty: syn::Type,
+    pub(crate) span: Span,
+    pub(crate) tag: u32,
+    pub(crate) proto_path: String,
+    pub(crate) checks: FieldChecks,
+    /// Wire-absence seed rule, as in message fields.
+    pub(crate) keeps_api_default: bool,
 }
 
 pub(crate) struct OneofVariant {
@@ -972,6 +993,15 @@ pub(crate) enum OneofVariantShape {
         ty: Box<syn::Type>,
         adapter: Box<syn::Type>,
     },
+    /// `Variant { payload, ...siblings }` in a whole-message enum with
+    /// sibling fields: one member payload plus every non-oneof field.
+    SiblingPayload {
+        payload: syn::Ident,
+        ty: Box<syn::Type>,
+        /// `#[armonik(with = "...")]` on the payload field.
+        adapter: Option<Box<syn::Type>>,
+        checks: Box<FieldChecks>,
+    },
     /// `#[armonik(present)]` unit variant selected by a `bool` member.
     MarkerBool,
     /// `#[armonik(present)]` unit variant selected by an empty-message member.
@@ -989,6 +1019,131 @@ pub(crate) struct InlinePart {
     pub(crate) checks: FieldChecks,
     /// Wire-absence seed rule, as in message fields.
     pub(crate) keeps_api_default: bool,
+}
+
+/// Partition the named fields of a variant into the message's sibling
+/// fields (updating/checking the cross-variant bindings) and at most one
+/// remaining field, the member payload. Returns `Ok(None)` when every field
+/// is a sibling (the "no member set" shape), `Err(())` after pushing errors.
+#[allow(clippy::type_complexity)]
+fn sibling_variant_fields(
+    named: &syn::FieldsNamed,
+    sibling_metas: &[&FieldMeta],
+    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
+    errors: &mut Errors,
+    variant_span: Span,
+    proto_name: &str,
+) -> Result<Option<(syn::Ident, syn::Type, Option<syn::Type>)>, ()> {
+    let mut failed = false;
+    let mut seen = vec![false; sibling_metas.len()];
+    let mut payload: Option<(syn::Ident, syn::Type, Option<syn::Type>)> = None;
+    for field in &named.named {
+        let ident = field.ident.clone().expect("named fields have idents");
+        let field_entries = match attrs::parse(&field.attrs) {
+            Ok(entries) => entries,
+            Err(err) => {
+                errors.push(err);
+                failed = true;
+                continue;
+            }
+        };
+        let mut rename = None;
+        let mut with = None;
+        for entry in &field_entries {
+            match &entry.item {
+                AttrItem::Rename(lit) => rename = Some(lit.value()),
+                AttrItem::With(lit) => match syn::parse_str::<syn::Type>(&lit.value()) {
+                    Ok(ty) => with = Some((entry.span, ty)),
+                    Err(err) => {
+                        errors.push(syn::Error::new(
+                            entry.span,
+                            format!("invalid adapter type in with = ...: {err}"),
+                        ));
+                        failed = true;
+                    }
+                },
+                _ => {
+                    errors.push(syn::Error::new(
+                        entry.span,
+                        "this armonik attribute is not valid on a variant field",
+                    ));
+                    failed = true;
+                }
+            }
+        }
+
+        let name = rename.unwrap_or_else(|| unraw(&ident));
+        if let Some(position) = sibling_metas.iter().position(|meta| meta.name == name) {
+            if let Some((with_span, _)) = with {
+                errors.push(syn::Error::new(
+                    with_span,
+                    "with = ... is only valid on the member payload field, not on a \
+                     sibling field",
+                ));
+                failed = true;
+            }
+            seen[position] = true;
+            match &sibling_bindings[position] {
+                None => sibling_bindings[position] = Some((ident, field.ty.clone())),
+                Some((bound_ident, bound_ty)) => {
+                    if *bound_ident != ident {
+                        errors.push(syn::Error::new(
+                            ident.span(),
+                            format!(
+                                "sibling field `{name}` must use the same name in every \
+                                 variant (`{bound_ident}` elsewhere)"
+                            ),
+                        ));
+                        failed = true;
+                    }
+                    if quote::quote!(#bound_ty).to_string() != {
+                        let ty = &field.ty;
+                        quote::quote!(#ty).to_string()
+                    } {
+                        errors.push(syn::Error::new(
+                            field.ty.span(),
+                            format!(
+                                "sibling field `{name}` must use the same type in every \
+                                 variant"
+                            ),
+                        ));
+                        failed = true;
+                    }
+                }
+            }
+        } else if payload.is_some() {
+            errors.push(syn::Error::new(
+                ident.span(),
+                format!(
+                    "only one field of the variant may be the member payload; the others \
+                     must match the non-oneof fields of `{proto_name}` (use \
+                     #[armonik(rename = \"...\")] if the names differ)"
+                ),
+            ));
+            failed = true;
+        } else {
+            payload = Some((ident, field.ty.clone(), with.map(|(_, ty)| ty)));
+        }
+    }
+    for (position, field_seen) in seen.iter().enumerate() {
+        if !field_seen {
+            errors.push(syn::Error::new(
+                variant_span,
+                format!(
+                    "the variant must carry the sibling field `{}` of `{proto_name}` \
+                     (every variant of a whole-message enum declares all non-oneof \
+                     fields)",
+                    sibling_metas[position].name
+                ),
+            ));
+            failed = true;
+        }
+    }
+    if failed {
+        Err(())
+    } else {
+        Ok(payload)
+    }
 }
 
 pub(crate) fn oneof_plan(
@@ -1021,13 +1176,10 @@ pub(crate) fn oneof_plan(
             )),
         }
     }
-    let (Some((message_span, proto_name)), Some((oneof_span, oneof_name))) =
-        (proto_name, oneof_name)
-    else {
+    let Some((message_span, proto_name)) = proto_name else {
         errors.push(syn::Error::new(
             input.ident.span(),
-            "flattened oneofs need both #[armonik(message = \"...\")] and \
-             #[armonik(oneof = \"...\")]",
+            "oneof-shaped enums need #[armonik(message = \"...\")]",
         ));
         return Err(errors);
     };
@@ -1039,22 +1191,82 @@ pub(crate) fn oneof_plan(
         ));
         return Err(errors);
     };
-    let Some((oneof_index, oneof)) = meta.oneof(&oneof_name) else {
-        errors.push(syn::Error::new(
-            oneof_span,
-            format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
-        ));
-        return Err(errors);
+    // `message = ...` alone: the enum stands for the whole message, whose
+    // single oneof is inferred and whose non-oneof fields become siblings
+    // replicated in every variant. `oneof = ...` declares a partial enum
+    // embedded in a struct, and is rejected when the oneof is the whole
+    // message so the two shapes stay visually distinct.
+    let (oneof, whole_message) = match &oneof_name {
+        Some((oneof_span, oneof_name)) => {
+            let Some((oneof_index, oneof)) = meta.oneof(oneof_name) else {
+                errors.push(syn::Error::new(
+                    *oneof_span,
+                    format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
+                ));
+                return Err(errors);
+            };
+            if meta
+                .fields
+                .iter()
+                .all(|field| field.oneof == Some(oneof_index))
+            {
+                errors.push(syn::Error::new(
+                    *oneof_span,
+                    format!(
+                        "the oneof `{oneof_name}` covers the whole message `{proto_name}`; \
+                         drop the oneof attribute: #[armonik(message = ...)] alone declares \
+                         a whole-message enum"
+                    ),
+                ));
+                return Err(errors);
+            }
+            (oneof, false)
+        }
+        None => match meta.oneofs.len() {
+            1 => (&meta.oneofs[0], true),
+            0 => {
+                errors.push(syn::Error::new(
+                    input.ident.span(),
+                    format!(
+                        "proto message `{proto_name}` has no oneof; a message without a \
+                         oneof is derived on a struct"
+                    ),
+                ));
+                return Err(errors);
+            }
+            n => {
+                errors.push(syn::Error::new(
+                    input.ident.span(),
+                    format!(
+                        "proto message `{proto_name}` has {n} oneofs; an enum can stand \
+                         for the whole message only when there is exactly one — declare \
+                         one enum per oneof with #[armonik(oneof = \"...\")] and compose \
+                         them in a struct"
+                    ),
+                ));
+                return Err(errors);
+            }
+        },
     };
-    let whole_message = meta
-        .fields
-        .iter()
-        .all(|field| field.oneof == Some(oneof_index));
     let tags: Vec<u32> = oneof
         .fields
         .iter()
         .map(|&field| meta.fields[field].tag)
         .collect();
+
+    // Non-oneof fields of a whole-message enum, replicated in every variant.
+    let sibling_metas: Vec<&FieldMeta> = if whole_message {
+        meta.fields
+            .iter()
+            .filter(|field| field.oneof.is_none())
+            .collect()
+    } else {
+        Vec::new()
+    };
+    // Rust-side binding of each sibling (ident + type), fixed by the first
+    // variant that declares it and checked for consistency in the others.
+    let mut sibling_bindings: Vec<Option<(syn::Ident, syn::Type)>> =
+        (0..sibling_metas.len()).map(|_| None).collect();
 
     let syn::Data::Enum(data) = &input.data else {
         errors.push(syn::Error::new(
@@ -1097,8 +1309,14 @@ pub(crate) fn oneof_plan(
             }
         }
 
-        // The attribute-less unit variant is "no member set".
-        if matches!(variant.fields, syn::Fields::Unit) && !present && rename.is_none() {
+        // The attribute-less unit variant is "no member set"; with sibling
+        // fields, that case is a struct variant carrying exactly them and is
+        // detected below, after member-name matching fails.
+        if matches!(variant.fields, syn::Fields::Unit)
+            && !present
+            && rename.is_none()
+            && sibling_metas.is_empty()
+        {
             if default_variant.replace(variant.ident.clone()).is_some() {
                 errors.push(syn::Error::new(
                     span,
@@ -1109,7 +1327,9 @@ pub(crate) fn oneof_plan(
             continue;
         }
 
-        let member_name = rename.unwrap_or_else(|| snake_case(&unraw(&variant.ident)));
+        let member_name = rename
+            .clone()
+            .unwrap_or_else(|| snake_case(&unraw(&variant.ident)));
         let member = oneof
             .fields
             .iter()
@@ -1117,6 +1337,34 @@ pub(crate) fn oneof_plan(
             .find_map(|(position, &field)| {
                 (meta.fields[field].name == member_name).then_some((position, &meta.fields[field]))
             });
+        if member.is_none() && !sibling_metas.is_empty() && !present && rename.is_none() {
+            if let syn::Fields::Named(named) = &variant.fields {
+                match sibling_variant_fields(
+                    named,
+                    &sibling_metas,
+                    &mut sibling_bindings,
+                    &mut errors,
+                    span,
+                    &proto_name,
+                ) {
+                    // All fields are siblings: the "no member set" variant.
+                    Ok(None) => {
+                        if default_variant.replace(variant.ident.clone()).is_some() {
+                            errors.push(syn::Error::new(
+                                span,
+                                "at most one attribute-less variant (the \"no member \
+                                 set\" case) is allowed",
+                            ));
+                        }
+                        continue;
+                    }
+                    // A payload is present but the name matches no member:
+                    // fall through to the member error below.
+                    Ok(Some(_)) => {}
+                    Err(()) => continue,
+                }
+            }
+        }
         let Some((position, field_meta)) = member else {
             let mut available: Vec<&str> = oneof
                 .fields
@@ -1127,8 +1375,9 @@ pub(crate) fn oneof_plan(
             errors.push(syn::Error::new(
                 span,
                 format!(
-                    "no member named `{member_name}` in oneof `{proto_name}.{oneof_name}` \
+                    "no member named `{member_name}` in oneof `{proto_name}.{}` \
                      (available: {}); use #[armonik(rename = \"...\")] if the names differ",
+                    oneof.name,
                     available.join(", ")
                 ),
             ));
@@ -1137,7 +1386,64 @@ pub(crate) fn oneof_plan(
         covered[position] = true;
         let proto_path = format!("{proto_name}.{}", field_meta.name);
 
-        let shape = if let Some((with_span, adapter)) = with {
+        let shape = if !sibling_metas.is_empty() {
+            if present {
+                errors.push(syn::Error::new(
+                    span,
+                    "#[armonik(present)] markers are not supported in whole-message \
+                     enums with sibling fields",
+                ));
+                continue;
+            }
+            if let Some((with_span, _)) = &with {
+                errors.push(syn::Error::new(
+                    *with_span,
+                    "in whole-message enums with sibling fields, put with = ... on the \
+                     member payload field",
+                ));
+                continue;
+            }
+            let syn::Fields::Named(named) = &variant.fields else {
+                errors.push(syn::Error::new(
+                    span,
+                    "variants of a whole-message enum with sibling fields must be \
+                     struct variants carrying the sibling fields",
+                ));
+                continue;
+            };
+            let (payload, ty, adapter) = match sibling_variant_fields(
+                named,
+                &sibling_metas,
+                &mut sibling_bindings,
+                &mut errors,
+                span,
+                &proto_name,
+            ) {
+                Ok(Some(payload)) => payload,
+                Ok(None) => {
+                    errors.push(syn::Error::new(
+                        span,
+                        format!(
+                            "the variant needs a payload field for the member \
+                             `{member_name}`"
+                        ),
+                    ));
+                    continue;
+                }
+                Err(()) => continue,
+            };
+            let checks = if adapter.is_some() {
+                FieldChecks::none()
+            } else {
+                expected_checks(field_meta)
+            };
+            OneofVariantShape::SiblingPayload {
+                payload,
+                ty: Box::new(ty),
+                adapter: adapter.map(Box::new),
+                checks: Box::new(checks),
+            }
+        } else if let Some((with_span, adapter)) = with {
             if present {
                 errors.push(syn::Error::new(
                     with_span,
@@ -1318,12 +1624,31 @@ pub(crate) fn oneof_plan(
 
     errors.into_result()?;
 
+    let mut siblings = Vec::new();
+    for (meta_field, binding) in sibling_metas.iter().zip(&sibling_bindings) {
+        // Missing bindings are only possible when every variant errored;
+        // those errors were reported above.
+        let Some((ident, ty)) = binding else { continue };
+        siblings.push(SiblingPlan {
+            span: ident.span(),
+            ident: ident.clone(),
+            ty: ty.clone(),
+            tag: meta_field.tag,
+            proto_path: format!("{proto_name}.{}", meta_field.name),
+            checks: expected_checks(meta_field),
+            keeps_api_default: matches!(meta_field.kind, FieldKind::Message(_))
+                && matches!(meta_field.cardinality, Cardinality::Singular),
+        });
+    }
+    siblings.sort_by_key(|sibling| sibling.tag);
+
     variants.sort_by_key(|variant| variant.tag);
     Ok(OneofPlan {
         ident: input.ident.clone(),
         proto_name,
         tags,
         whole_message,
+        siblings,
         variants,
         default_variant,
         fingerprint: index.fingerprint,

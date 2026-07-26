@@ -8,10 +8,7 @@ use super::Raw;
 /// Data chunk cannot exceed the size returned by the GetServiceConfiguration rpc method
 #[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[armonik(
-    message = "armonik.api.grpc.v1.results.UploadResultDataRequest",
-    oneof = "type"
-)]
+#[armonik(message = "armonik.api.grpc.v1.results.UploadResultDataRequest")]
 pub enum Request {
     /// The identifier of the result to which add data.
     #[armonik(rename = "id")]

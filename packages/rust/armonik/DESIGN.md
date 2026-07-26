@@ -85,8 +85,15 @@ not a supported public API.
 
 ### 3.3 The derive
 
-`#[derive(armonik::Message)]` on structs and flattened-oneof enums,
-`#[derive(armonik::Enum)]` on proto enums. At expansion time the macro:
+`#[derive(armonik::Message)]` on structs and oneof-shaped enums,
+`#[derive(armonik::Enum)]` on proto enums. An enum with `message = ...`
+alone stands for the *whole* message: its single oneof is inferred, and any
+non-oneof field of the message is a *sibling*, declared in every variant
+(including the attribute-less "no member set" one) so the per-field merge
+stays stateless and order-independent. `oneof = "..."` declares an enum for
+one oneof of a larger message, embedded in a struct — and is rejected when
+the oneof covers the whole message, keeping the two shapes visually
+distinct. At expansion time the macro:
 
 1. reads `$OUT_DIR/descriptor.bin` (env `OUT_DIR`; one prost decode, cached
    in a `OnceLock` for the whole rustc/rust-analyzer process; clear error if
@@ -139,7 +146,7 @@ Everything not listed here is inferred from the descriptor.
 | `message = "full.proto.Name"` | type | proto message to validate/encode against; repeatable for unified types (`TaskOptionField` validates against both `sessions.` and `tasks.` variants) |
 | `enum = "full.proto.Name"` | type | proto enum for `derive(Enum)`; variants matched by name (prefix-stripped PascalCase, as prost does) |
 | `rename = "id"` | field / variant | proto name differs from Rust name |
-| `oneof = "type"` | type (enum) | flattened single-oneof message; variants matched against oneof fields |
+| `oneof = "type"` | type (enum) | the enum stands for one oneof of a larger message, embedded in a struct (without it, an enum stands for the whole single-oneof message); variants matched against oneof members |
 | `present = …` | variant | oneof variant carried by a marker value (e.g. `DataChunk::Complete` ⇔ `dataComplete: true`) |
 | `transparent` | type | single-field message flattened into its field's type (message `TaskOptionField { field: enum }` ⇔ Rust enum) |
 | `with = "path::to::module"` | field | custom codec — see §3.5 |
@@ -230,9 +237,12 @@ and are covered by the differential harness instead.
 > `max_duration` ⇒ `INFINITE_DURATION`; marker oneof members forget their
 > payload (explicit `false` re-encodes as `true`); oneofs whose Rust default
 > is a member variant re-encode an absent oneof with that member present;
-> `agent.CreateTaskRequest` drops the token when no member is set; pair-map
-> fields lose entry order and collapse duplicate keys. All of these match the
-> historical conversion layer.
+> pair-map fields lose entry order and collapse duplicate keys. All of these match the
+> historical conversion layer — except `agent.CreateTaskRequest`, whose
+> `Invalid` variant now carries the sibling token like every other variant
+> (whole-message enums replicate the non-oneof fields), making the
+> memberless case lossless where the historical conversion dropped the
+> token.
 >
 > **Stage B/C additions.** Transparent wrapper enums are *always* emitted
 > (a zero value encodes as an empty wrapper), preserving the
