@@ -68,13 +68,16 @@ not a supported public API.
 > and used twice: the full set becomes `descriptor.bin` for the derives and
 > the differential harness, while the tonic stub generation receives a
 > *pruned* copy — the never-exposed WatchResults methods are dropped
-> (tonic answers UNIMPLEMENTED for unrouted paths), and every message that
+> (tonic answers UNIMPLEMENTED for unrouted paths), every message that
 > nothing generated references (field wrappers, watch messages, legacy) is
-> removed alongside all file-level enums. Combined with `EXTERN_TYPES`,
-> the generated module contains exactly the 12 client and 12 server stubs
-> and nothing else; the message-only packages produce no file at all, and
-> without the client/server features the module is not even compiled (the
-> crate then works as a pure-types dependency).
+> removed alongside all file-level enums, and the five RPC signatures
+> using `Empty` are rewritten to distinct synthetic empty messages, each
+> extern'd to its API type (message type names never appear on the wire,
+> so wire-compatible signature rewrites are free). Combined with
+> `EXTERN_TYPES`, the generated module contains exactly the 12 client and
+> 12 server stubs and nothing else; the message-only packages produce no
+> file at all, and without the client/server features the module is not
+> even compiled (the crate then works as a pure-types dependency).
 
 1. `protox` compiles `protos/V1/*.proto` → `FileDescriptorSet`
    (pure Rust; `protoc` no longer required; `cargo:rerun-if-changed` per
@@ -349,8 +352,9 @@ even though the branch lands as one unit:
 - `armonik::api::v3` removed from the public API (goal of the revamp). The
   module still exists as `pub(crate)` and contains exactly the tonic
   client/server stubs (whose server types remain reachable through the
-  `*ServiceExt` traits) — every message is an armonik type, including the
-  shared `armonik::Empty`, and the leftovers are pruned from generation.
+  `*ServiceExt` traits) — every message is an armonik type (the five
+  `Empty`-signature RPCs each speak their own wire-compatible `{}` type),
+  and the leftovers are pruned from generation.
 - Rust types sharing one wire message stay distinct and convert at the
   stub boundary (`tasks::list_detailed`, the agent data RPCs, the
   submitter request wrappers), so `client.call(...)` dispatch is

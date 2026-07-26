@@ -77,7 +77,7 @@ super::impl_trait_methods! {
         fn create_results(crate::results::create::Request) -> crate::results::create::Response { create }
         fn import_results_data(crate::results::import::Request) -> crate::results::import::Response { import }
         fn delete_results_data(crate::results::delete_data::Request) -> crate::results::delete_data::Response { delete_data }
-        fn get_service_configuration(crate::Empty) -> crate::results::get_service_configuration::Response { get_service_configuration }
+        fn get_service_configuration(crate::results::get_service_configuration::Request) -> crate::results::get_service_configuration::Response { get_service_configuration }
 
         ---
 

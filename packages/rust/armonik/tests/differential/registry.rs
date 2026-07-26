@@ -31,7 +31,8 @@ macro_rules! registry {
 }
 
 registry! {
-    "armonik.api.grpc.v1.Empty" => armonik::Empty,
+    // Five wire-compatible API types stand for `Empty`; one covers it.
+    "armonik.api.grpc.v1.Empty" => armonik::worker::health_check::Request,
     "armonik.api.grpc.v1.Configuration" => armonik::Configuration,
     "armonik.api.grpc.v1.Count" => armonik::Count,
     "armonik.api.grpc.v1.Error" => armonik::Error,

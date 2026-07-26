@@ -22,18 +22,7 @@ impl From<crate::Session> for Request {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.Empty")]
 pub struct Response {}
-
-impl From<Response> for crate::Empty {
-    fn from(_: Response) -> Self {
-        Self {}
-    }
-}
-
-impl From<crate::Empty> for Response {
-    fn from(_: crate::Empty) -> Self {
-        Self {}
-    }
-}
