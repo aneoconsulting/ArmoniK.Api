@@ -29,12 +29,7 @@ impl<T: ProtoField> ProtoField for Option<T> {
         buf: &mut impl Buf,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
-        T::merge_field(
-            wire_type,
-            value.get_or_insert_with(T::wire_default),
-            buf,
-            ctx,
-        )
+        T::merge_field(wire_type, value.get_or_insert_with(T::default), buf, ctx)
     }
 
     fn encoded_len_field(tag: u32, value: &Self) -> usize {

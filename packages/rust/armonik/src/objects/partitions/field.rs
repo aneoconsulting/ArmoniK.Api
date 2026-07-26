@@ -1,12 +1,9 @@
 /// Represents every available field in a partition.
-#[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(transparent, message = "armonik.api.grpc.v1.partitions.PartitionField")]
 pub enum Field {
     /// The partition ID.
-    #[default]
     Id,
     /// The parent partition IDs.
     ParentPartitionIds,

@@ -1,7 +1,5 @@
 /// Represents every available field in a Application.
-#[derive(
-    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(
     transparent,
@@ -9,7 +7,6 @@
 )]
 pub enum Field {
     /// Application name.
-    #[default]
     Name,
     /// Application version.
     Version,

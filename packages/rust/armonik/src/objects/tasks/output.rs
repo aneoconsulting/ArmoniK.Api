@@ -9,16 +9,22 @@ use crate::codec::{FieldKind, ProtoAdapter, ProtoField};
 /// Stands for the `TaskDetailed.Output` message, whose two plain fields
 /// (`bool success = 1`, `string error = 2`) do not form a proto oneof: the
 /// wire implementation is hand-written. `success = true` wins over any
-/// error message; a message without `success` is an error (possibly with
-/// an empty message), while an absent output defaults to success.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// error message; an absent or empty message is an error with an empty
+/// message — which is also the `Default` (the proto zero value, like every
+/// armonik type).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Output {
     /// To know if a task have failed or succeed.
-    #[default]
     Success,
     /// The error message. Only set if task have failed.
     Error(String),
+}
+
+impl Default for Output {
+    fn default() -> Self {
+        Self::Error(String::new())
+    }
 }
 
 const SUCCESS_TAG: u32 = 1;
@@ -91,27 +97,7 @@ impl prost::Message for Output {
     }
 
     fn clear(&mut self) {
-        *self = Output::Success;
-    }
-
-    // Seed from `wire_default`: an empty message is an empty error, only
-    // a truly absent output defaults to success.
-    fn decode(mut buf: impl Buf) -> Result<Self, DecodeError>
-    where
-        Self: Default,
-    {
-        let mut message = <Self as ProtoField>::wire_default();
-        prost::Message::merge(&mut message, &mut buf)?;
-        Ok(message)
-    }
-
-    fn decode_length_delimited(buf: impl Buf) -> Result<Self, DecodeError>
-    where
-        Self: Default,
-    {
-        let mut message = <Self as ProtoField>::wire_default();
-        prost::Message::merge_length_delimited(&mut message, buf)?;
-        Ok(message)
+        *self = Output::default();
     }
 }
 
@@ -136,15 +122,8 @@ impl ProtoField for Output {
         crate::codec::message::encoded_len(tag, value)
     }
 
-    /// Always emitted: `Error("")` encodes as an empty message, keeping it
-    /// distinct from an absent output (= success).
     fn is_default(value: &Self) -> bool {
-        let _ = value;
-        false
-    }
-
-    fn wire_default() -> Self {
-        Output::Error(String::new())
+        crate::codec::message::is_default(value)
     }
 
     fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {

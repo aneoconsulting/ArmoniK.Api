@@ -5,9 +5,9 @@
 #[armonik(enum = "armonik.api.grpc.v1.sort_direction.SortDirection")]
 pub enum SortDirection {
     /// Unspecified. Do not use.
+    #[default]
     Unspecified,
     /// Ascending.
-    #[default]
     Asc,
     /// Descending
     Desc,

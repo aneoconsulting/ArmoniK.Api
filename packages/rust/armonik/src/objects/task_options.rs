@@ -1,11 +1,13 @@
 use ::std::collections::HashMap;
 
-const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
+/// The largest duration the well-known `Duration` type can carry (about
+/// 10,000 years), standing for "no limit".
+pub const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
     seconds: 315576000000,
     nanos: 0,
 };
 
-#[derive(Debug, Clone, armonik_macros::Message)]
+#[derive(Debug, Clone, Default, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.TaskOptions")]
 pub struct TaskOptions {
@@ -39,19 +41,16 @@ impl std::cmp::PartialEq for TaskOptions {
 
 impl std::cmp::Eq for TaskOptions {}
 
-impl Default for TaskOptions {
-    fn default() -> Self {
+impl TaskOptions {
+    /// The options the conversion layer historically used as `Default`:
+    /// no time limit, one retry, priority 1. `Default::default()` is the
+    /// proto zero value, like every armonik type.
+    pub fn recommended() -> Self {
         Self {
-            options: Default::default(),
             max_duration: INFINITE_DURATION,
             max_retries: 1,
             priority: 1,
-            partition_id: Default::default(),
-            application_name: Default::default(),
-            application_version: Default::default(),
-            application_namespace: Default::default(),
-            application_service: Default::default(),
-            engine_type: Default::default(),
+            ..Default::default()
         }
     }
 }
@@ -144,28 +143,30 @@ mod tests {
         assert_eq!(back.options, ours.options);
     }
 
-    /// Absent max_duration decodes to INFINITE_DURATION (the seed), exactly
-    /// like the historical unwrap_or(INFINITE_DURATION) conversion; and it
-    /// re-encodes explicitly since it is not the proto zero value.
+    /// Absent fields decode to `Default::default()`, which is the proto
+    /// zero value for every field (the zero-default invariant); the
+    /// historical defaults live in [`TaskOptions::recommended`].
     #[test]
-    fn custom_default_survives_via_merge_seeding() {
+    fn absent_fields_decode_to_the_proto_zero() {
         let absent = RefOptions {
             max_duration: None,
             max_retries: 3,
             ..Default::default()
         };
         let ours = TaskOptions::decode(absent.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(ours.max_duration.seconds, INFINITE_DURATION.seconds);
-        assert_eq!(ours.max_duration.nanos, INFINITE_DURATION.nanos);
-        // Absent scalars decode to the proto zero, not the API default.
+        assert_eq!(ours.max_duration, prost_types::Duration::default());
         assert_eq!(ours.priority, 0);
 
         let reencoded = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(reencoded.max_duration, Some(INFINITE_DURATION));
+        assert_eq!(reencoded.max_duration, None);
+
+        assert_eq!(
+            TaskOptions::recommended().max_duration.seconds,
+            INFINITE_DURATION.seconds,
+        );
     }
 
-    /// A wire occurrence of `max_duration` must merge from the proto zero
-    /// value, not from the `INFINITE_DURATION` seed.
+    /// A wire occurrence of `max_duration` merges in place.
     #[test]
     fn present_duration_does_not_inherit_the_seed() {
         let partial = RefOptions {
