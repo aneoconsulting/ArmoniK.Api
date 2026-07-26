@@ -38,7 +38,7 @@ pub enum RawField {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[armonik(message = "armonik.api.grpc.v1.sessions.SessionField", oneof = "field")]
+#[armonik(message = "armonik.api.grpc.v1.sessions.SessionField")]
 pub enum Field {
     /// The session raw field.
     #[armonik(rename = "session_raw_field")]

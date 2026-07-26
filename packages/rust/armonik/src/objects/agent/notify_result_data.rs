@@ -46,9 +46,9 @@ impl Request {
 // element of `result_ids`, and each decoded pair updates both — the
 // first-non-empty-session rule reads the partially merged struct itself.
 // Teaching the derive this one-off shape would cost more than the impl
-// (see `agent::create_tasks::Request` for the full tradeoff); the
-// differential harness fuzzes it like any derived type, and by not
-// implementing `ProtoField` the type cannot be nested in other messages.
+// (see `tasks::Output` for the full tradeoff); the differential harness
+// fuzzes it like any derived type, and by not implementing `ProtoField`
+// the type cannot be nested in other messages.
 impl prost::Message for Request {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         for result_id in &self.result_ids {

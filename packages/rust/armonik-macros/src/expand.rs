@@ -15,10 +15,16 @@ use crate::{codegen, resolve};
 pub(crate) fn message(input: DeriveInput) -> syn::Result<TokenStream> {
     let index = load_index(&input)?;
     let entries = attrs::parse(&input.attrs)?;
-    if entries
+    let has_oneof = entries
         .iter()
-        .any(|entry| matches!(entry.item, AttrItem::Oneof(_)))
-    {
+        .any(|entry| matches!(entry.item, AttrItem::Oneof(_)));
+    let generic = entries
+        .iter()
+        .any(|entry| matches!(entry.item, AttrItem::Generic));
+    // Enums are oneof-shaped: `message = ...` alone stands for a whole
+    // message with a single (inferred) oneof, `oneof = ...` for one oneof
+    // of a message, embedded in a struct.
+    if has_oneof || (matches!(input.data, syn::Data::Enum(_)) && !generic) {
         let plan = resolve::oneof_plan(&input, &index).map_err(Errors::into_syn_error)?;
         Ok(codegen::oneof(&plan))
     } else {

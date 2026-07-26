@@ -327,14 +327,6 @@ fn apply_rules(message: &mut DynamicMessage, side: Side) {
         // Repeated pairs exposed as a map: order is lost and duplicate
         // statuses collapse (last wins).
         "armonik.api.grpc.v1.Count" => normalize_count(message),
-        // The historical conversion drops the token when no member is set
-        // (`Request::Invalid` has no slot for it).
-        "armonik.api.grpc.v1.agent.CreateTaskRequest" => {
-            if !any_member_set(message) {
-                let token = field(message, "communication_token");
-                message.clear_field(&token);
-            }
-        }
         // `Response`'s default is an empty `Error` carrying the token.
         "armonik.api.grpc.v1.agent.CreateTaskReply" => {
             normalize_default_member(message, "error");

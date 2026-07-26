@@ -321,7 +321,7 @@ mod tests {
 
         client
             .create_tasks(futures::stream::iter([
-                crate::agent::create_tasks::Request::Invalid,
+                crate::agent::create_tasks::Request::default(),
             ]))
             .await
             .unwrap();
@@ -448,7 +448,7 @@ mod tests {
 
         client
             .call(futures::stream::iter([
-                crate::agent::create_tasks::Request::Invalid,
+                crate::agent::create_tasks::Request::default(),
             ]))
             .await
             .unwrap();
