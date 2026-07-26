@@ -158,6 +158,40 @@ fn field_asserts_for(
     asserts
 }
 
+/// Test-only registration into the differential-harness registry (see
+/// `armonik::differential`), one entry per proto name the type stands for.
+/// Compiled out unless the private `_differential` feature is on.
+fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
+    let mut out = TokenStream::new();
+    for name in names {
+        out.extend(quote! {
+            #[cfg(feature = "_differential")]
+            const _: () = {
+                #[::linkme::distributed_slice(crate::differential::REGISTRY)]
+                static ENTRY: crate::differential::Entry = crate::differential::Entry {
+                    proto: #name,
+                    roundtrip: |bytes| {
+                        match <#ident as ::prost::Message>::decode(bytes) {
+                            ::core::result::Result::Ok(value) => ::core::result::Result::Ok(
+                                ::prost::Message::encode_to_vec(&value),
+                            ),
+                            ::core::result::Result::Err(err) => {
+                                ::core::result::Result::Err(err)
+                            }
+                        }
+                    },
+                    default_encoding: || {
+                        ::prost::Message::encode_to_vec(
+                            &<#ident as ::core::default::Default>::default(),
+                        )
+                    },
+                };
+            };
+        });
+    }
+    out
+}
+
 pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let ident = &plan.ident;
     let proto_names = &plan.proto_names;
@@ -247,6 +281,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         }
     }
 
+    let registrations = registrations(ident, proto_names);
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
     quote! {
@@ -257,6 +292,8 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             );
             #asserts
         };
+
+        #registrations
 
         impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
             fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
@@ -416,65 +453,70 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                 }
             }
         },
-        EnumMode::Transparent { names, path } => quote! {
-            // Transparent enums also ARE their outermost wrapper message,
-            // so they can stand for RPC messages in stub signatures.
-            impl ::prost::Message for #ident {
-                fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
-                    crate::codec::wrapper_enum::encode_raw(&[#(#path),*], self, buf);
+        EnumMode::Transparent { names, path } => {
+            let registrations = registrations(ident, names);
+            quote! {
+                #registrations
+
+                // Transparent enums also ARE their outermost wrapper message,
+                // so they can stand for RPC messages in stub signatures.
+                impl ::prost::Message for #ident {
+                    fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+                        crate::codec::wrapper_enum::encode_raw(&[#(#path),*], self, buf);
+                    }
+
+                    fn merge_field(
+                        &mut self,
+                        tag: u32,
+                        wire_type: ::prost::encoding::WireType,
+                        buf: &mut impl ::prost::bytes::Buf,
+                        ctx: ::prost::encoding::DecodeContext,
+                    ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                        crate::codec::wrapper_enum::merge_root_field(
+                            &[#(#path),*], tag, wire_type, self, buf, ctx,
+                        )
+                    }
+
+                    fn encoded_len(&self) -> usize {
+                        crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self)
+                    }
+
+                    fn clear(&mut self) {
+                        *self = Self::from(0);
+                    }
                 }
 
-                fn merge_field(
-                    &mut self,
-                    tag: u32,
-                    wire_type: ::prost::encoding::WireType,
-                    buf: &mut impl ::prost::bytes::Buf,
-                    ctx: ::prost::encoding::DecodeContext,
-                ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    crate::codec::wrapper_enum::merge_root_field(
-                        &[#(#path),*], tag, wire_type, self, buf, ctx,
-                    )
-                }
+                impl crate::codec::ProtoField for #ident {
+                    const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
+                    const NAMES: &'static [&'static str] = &[#(#names),*];
 
-                fn encoded_len(&self) -> usize {
-                    crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self)
-                }
+                    fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+                        crate::codec::wrapper_enum::encode(tag, &[#(#path),*], value, buf);
+                    }
 
-                fn clear(&mut self) {
-                    *self = Self::from(0);
+                    fn merge_field(
+                        wire_type: ::prost::encoding::WireType,
+                        value: &mut Self,
+                        buf: &mut impl ::prost::bytes::Buf,
+                        ctx: ::prost::encoding::DecodeContext,
+                    ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                        crate::codec::wrapper_enum::merge(&[#(#path),*], wire_type, value, buf, ctx)
+                    }
+
+                    fn encoded_len_field(tag: u32, value: &Self) -> usize {
+                        crate::codec::wrapper_enum::encoded_len(tag, &[#(#path),*], value)
+                    }
+
+                    fn is_default(value: &Self) -> bool {
+                        crate::codec::wrapper_enum::is_default(value)
+                    }
+
+                    fn clear_field(value: &mut Self) {
+                        *value = Self::from(0);
+                    }
                 }
             }
-
-            impl crate::codec::ProtoField for #ident {
-                const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
-                const NAMES: &'static [&'static str] = &[#(#names),*];
-
-                fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                    crate::codec::wrapper_enum::encode(tag, &[#(#path),*], value, buf);
-                }
-
-                fn merge_field(
-                    wire_type: ::prost::encoding::WireType,
-                    value: &mut Self,
-                    buf: &mut impl ::prost::bytes::Buf,
-                    ctx: ::prost::encoding::DecodeContext,
-                ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    crate::codec::wrapper_enum::merge(&[#(#path),*], wire_type, value, buf, ctx)
-                }
-
-                fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                    crate::codec::wrapper_enum::encoded_len(tag, &[#(#path),*], value)
-                }
-
-                fn is_default(value: &Self) -> bool {
-                    crate::codec::wrapper_enum::is_default(value)
-                }
-
-                fn clear_field(value: &mut Self) {
-                    *value = Self::from(0);
-                }
-            }
-        },
+        }
     };
 
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
@@ -768,7 +810,10 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     });
 
     let whole_message = plan.whole_message.then(|| {
+        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
         quote! {
+            #registrations
+
             impl ::prost::Message for #ident {
                 fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
                     crate::codec::ProtoOneof::encode_oneof(self, buf);
@@ -1076,6 +1121,7 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         }
     });
 
+    let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
     quote! {
@@ -1086,6 +1132,8 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
             );
             #asserts
         };
+
+        #registrations
 
         impl ::prost::Message for #ident {
             fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {

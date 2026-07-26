@@ -116,36 +116,22 @@ fn empty_message_decodes_to_default() {
 /// their parent's representation (wrappers, pair entries) and are covered
 /// through the parent's round-trips.
 const PERMANENT_UNMAPPED: &[&str] = &[
-    // Single-enum-field wrappers flattened into `TaskOptionField`; their wire
-    // form is unit-tested in `objects/task_options.rs` and exercised through
-    // every message embedding them.
-    "armonik.api.grpc.v1.sessions.TaskOptionField",
-    "armonik.api.grpc.v1.tasks.TaskOptionField",
     // Inlined into the `Output::Error` struct variant.
     "armonik.api.grpc.v1.Output.Error",
     // Inlined into the `agent::create_tasks::Status::TaskInfo` variant.
     "armonik.api.grpc.v1.agent.CreateTaskReply.TaskInfo",
     // Flattened into `agent::create_tasks::Response::Status.statuses`.
     "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatusList",
-    // Enum wrapper chain flattened into `applications::Field`.
-    "armonik.api.grpc.v1.applications.ApplicationField",
+    // Middles of enum wrapper chains; the chain roots register themselves
+    // as the transparent enums standing for them.
     "armonik.api.grpc.v1.applications.ApplicationRawField",
-    // Enum wrapper chain flattened into `partitions::Field`.
-    "armonik.api.grpc.v1.partitions.PartitionField",
     "armonik.api.grpc.v1.partitions.PartitionRawField",
-    // Enum wrapper flattened into `sessions::RawField`.
-    "armonik.api.grpc.v1.sessions.SessionRawField",
-    // String wrapper flattened into `sessions::Field::TaskOptionGeneric`.
+    "armonik.api.grpc.v1.results.ResultRawField",
+    // String wrappers flattened into the fields' `*Generic(String)` variants.
     "armonik.api.grpc.v1.sessions.TaskOptionGenericField",
-    // Enum wrapper flattened into `tasks::SummaryField`.
-    "armonik.api.grpc.v1.tasks.TaskSummaryField",
-    // String wrapper flattened into `tasks::Field::OptionGeneric`.
     "armonik.api.grpc.v1.tasks.TaskOptionGenericField",
     // Pair entries flattened into the `task_results` map.
     "armonik.api.grpc.v1.tasks.GetResultIdsResponse.MapTaskResult",
-    // Enum wrapper chain flattened into `results::Field`.
-    "armonik.api.grpc.v1.results.ResultField",
-    "armonik.api.grpc.v1.results.ResultRawField",
     // Pair entries flattened into the `result_task` and `results` maps.
     "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse.MapResultTask",
     "armonik.api.grpc.v1.results.ImportResultsDataRequest.ResultOpaqueId",
@@ -181,10 +167,7 @@ const TEMP_UNMAPPED: &[&str] = &[];
 #[test]
 fn descriptor_coverage_ratchet() {
     let pool = pool();
-    let registered: Vec<&str> = registry::entries()
-        .into_iter()
-        .map(|entry| entry.proto)
-        .collect();
+    let registered: Vec<&str> = registry::entries().map(|entry| entry.proto).collect();
 
     let mut missing = Vec::new();
     for message in pool.all_messages() {
