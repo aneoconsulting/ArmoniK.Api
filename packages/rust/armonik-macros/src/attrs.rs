@@ -2,10 +2,8 @@
 //!
 //! The grammar is parsed by hand (rather than through `parse_nested_meta`)
 //! because `enum` is a Rust keyword and must still be accepted as a key.
-
-// Parts of the grammar are not consumed yet; the allow goes away once the
-// wire-implementation codegen lands.
-#![allow(dead_code)]
+//! The user-facing documentation of the grammar lives on the two derive
+//! macros in `lib.rs` — keep it in sync.
 
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
@@ -32,8 +30,6 @@ pub(crate) enum AttrItem {
     /// `tag = N` — explicit field tag, cross-checked against the descriptor
     /// unless in `generic` mode where it is authoritative.
     Tag(LitInt),
-    /// `kind = "..."` — explicit wire kind, only in `generic` mode.
-    Kind(LitStr),
     /// `with = "path::to::Adapter"` — custom codec for a non-standard
     /// representation.
     With(LitStr),
@@ -81,10 +77,6 @@ impl Parse for AttrList {
                     input.parse::<Token![=]>()?;
                     AttrItem::Tag(input.parse()?)
                 }
-                "kind" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::Kind(input.parse()?)
-                }
                 "with" => {
                     input.parse::<Token![=]>()?;
                     AttrItem::With(input.parse()?)
@@ -97,7 +89,7 @@ impl Parse for AttrList {
                         span,
                         format!(
                             "unknown armonik attribute key `{other}` (expected one of: \
-                             message, enum, oneof, rename, tag, kind, with, generic, \
+                             message, enum, oneof, rename, tag, with, generic, \
                              transparent, present)"
                         ),
                     ));
@@ -124,4 +116,17 @@ pub(crate) fn parse(attrs: &[Attribute]) -> syn::Result<Vec<AttrEntry>> {
         }
     }
     Ok(entries)
+}
+
+/// Span of every key token of every `#[armonik(...)]` attribute in `attrs`,
+/// for the hover-documentation anchors (see `expand::doc_anchors`).
+/// Malformed attributes are skipped — the real parse reports them.
+pub(crate) fn key_spans(attrs: &[Attribute]) -> Vec<Span> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("armonik"))
+        .filter_map(|attr| attr.parse_args::<AttrList>().ok())
+        .flat_map(|list| list.0)
+        .map(|entry| entry.span)
+        .collect()
 }
