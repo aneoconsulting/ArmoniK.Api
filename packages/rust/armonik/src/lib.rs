@@ -25,35 +25,9 @@ pub use objects::*;
 
 mod utils;
 
-/// Registry of every message type for the differential harness: the derives
-/// register each descriptor-validated type here (hand-written impls register
-/// themselves), so the harness discovers the proto-to-type mapping instead
-/// of maintaining it. Test-only: the `_differential` feature is enabled
-/// through the self dev-dependency.
 #[cfg(feature = "_differential")]
 #[doc(hidden)]
-pub mod differential {
-    pub struct Entry {
-        pub proto: &'static str,
-        /// Decode the bytes as the armonik type and re-encode them.
-        pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, prost::DecodeError>,
-        /// Canonical encoding of the type's `Default`. Doubles as the
-        /// zero-default invariant (an empty message must decode to
-        /// `Default::default()`) and as the harness's quotient: it is
-        /// exactly what the type emits for "nothing", so any field present
-        /// here materializes on messages where it is absent.
-        pub default_encoding: fn() -> Vec<u8>,
-        /// Members carried by `#[armonik(present)]` bool markers: only
-        /// their presence survives (an explicit `false` reads as set).
-        pub bool_markers: &'static [&'static str],
-        /// Transparent wrapper (chain) enums: zero, absent and
-        /// present-but-empty carry no information at any depth.
-        pub wrapper_chain: bool,
-    }
-
-    #[linkme::distributed_slice]
-    pub static REGISTRY: [Entry];
-}
+pub mod differential;
 
 pub mod reexports {
     pub use bytes;

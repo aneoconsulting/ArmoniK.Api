@@ -99,6 +99,15 @@ where
     fn clear_field(value: &mut HashMap<K, V>) {
         value.clear();
     }
+
+    /// The `HashMap` loses entry order and collapses duplicate keys.
+    #[cfg(feature = "_differential")]
+    fn normalize_dynamic(
+        message: &mut crate::differential::prost_reflect::DynamicMessage,
+        tag: u32,
+    ) {
+        crate::differential::fold_pairs_by_tag(message, tag, KT);
+    }
 }
 
 /// `Wrapper { string inner = TAG }` exposed as a `String`.
