@@ -1,12 +1,15 @@
 //! Differential harness: randomized `DynamicMessage`s generated from the
 //! real protobuf descriptors are round-tripped through the armonik types
-//! (decode + re-encode) and compared semantically; a coverage test ratchets
-//! the whole descriptor pool into the registry as the migration proceeds.
+//! (decode + re-encode) and compared semantically. Two ratchets keep the
+//! quotient honest: every message of the descriptor pool must be registered
+//! or tracked, and every field of every registered message must stay
+//! information-bearing under the types' own `Normalize` projections.
 //!
-//! Every failure prints the seed needed to replay the exact case.
+//! Every randomized failure prints the seed needed to replay the exact case.
 
 mod arbitrary;
 mod compare;
+mod probe;
 mod registry;
 mod rng;
 
@@ -109,6 +112,83 @@ fn empty_message_decodes_to_default() {
             "`{}`: decoding an empty message must yield Default::default()",
             entry.proto,
         );
+    }
+}
+
+/// Fields that collapse to "nothing" under the quotient by design: their
+/// only representations are equivalent to the empty message (the default
+/// member of a oneof whose payload carries no data). Every other field must
+/// stay information-bearing — since the `Normalize` projections are
+/// generated from the same attributes as the codecs, this ratchet is what
+/// keeps a codec bug from hiding behind a matching projection bug: a field
+/// erased by both shows up here and must be justified by hand.
+const UNINFORMATIVE_FIELDS: &[&str] = &[
+    // The `Ok` member is the `Output` default and its payload is `Empty`:
+    // `{ ok: {} }` IS the zero value, indistinguishable from an absent
+    // message by the zero-default invariant.
+    "armonik.api.grpc.v1.Output.ok",
+];
+
+const PROBE_DEPTH: u32 = 3;
+
+#[test]
+fn field_information_ratchet() {
+    let pool = pool();
+    for entry in registry::entries() {
+        let desc = pool
+            .get_message_by_name(entry.proto)
+            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", entry.proto));
+        let mut empty = DynamicMessage::new(desc.clone());
+        registry::normalize(&mut empty);
+
+        for field in desc.fields() {
+            let qualified = format!("{}.{}", entry.proto, field.name());
+            let mut informative = false;
+            for candidate in probe::candidates(&field, PROBE_DEPTH) {
+                let mut probe = DynamicMessage::new(desc.clone());
+                probe.set_field(&field, candidate);
+                let bytes = probe.encode_to_vec();
+                let mut normalized = probe;
+                registry::normalize(&mut normalized);
+                if compare::messages(&normalized, &empty) {
+                    // This candidate collapses by design; try the others.
+                    continue;
+                }
+                informative = true;
+
+                // The candidate distinguishes, so it must survive the
+                // round-trip — deterministically, one field at a time.
+                let reencoded = (entry.roundtrip)(&bytes).unwrap_or_else(|err| {
+                    panic!("armonik type failed to decode a probe of `{qualified}`: {err}")
+                });
+                let mut back = DynamicMessage::decode(desc.clone(), reencoded.as_slice())
+                    .unwrap_or_else(|err| {
+                        panic!("re-encoded probe of `{qualified}` does not decode: {err}")
+                    });
+                registry::normalize(&mut back);
+                assert!(
+                    compare::messages(&normalized, &back),
+                    "probe of `{qualified}` does not survive the round-trip\n\
+                     probe:      {}\n\
+                     round-trip: {}",
+                    debug_fields(&normalized),
+                    debug_fields(&back),
+                );
+            }
+            if informative {
+                assert!(
+                    !UNINFORMATIVE_FIELDS.contains(&qualified.as_str()),
+                    "`{qualified}` is information-bearing; remove it from UNINFORMATIVE_FIELDS"
+                );
+            } else {
+                assert!(
+                    UNINFORMATIVE_FIELDS.contains(&qualified.as_str()),
+                    "`{qualified}` carries no information under the quotient: every probe \
+                     normalizes to the empty message. Fix the codec or its projection, or \
+                     add the field to UNINFORMATIVE_FIELDS with a justification."
+                );
+            }
+        }
     }
 }
 

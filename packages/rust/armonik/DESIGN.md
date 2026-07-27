@@ -327,6 +327,14 @@ Two independent layers:
    - a coverage test iterates *all* messages in the descriptor pool and
      fails on any message with no registered Rust type (explicit allowlist
      for intentionally flattened ones);
+   - because the projections are generated from the implementation's own
+     declarations, a **field-information ratchet** guards the quotient
+     itself: every field of every registered message must have a probe
+     value that survives normalization distinguishably (all declared enum
+     values are tried, plus an unknown one) and round-trips one field at a
+     time; a field the quotient erases entirely must be justified in an
+     explicit allowlist — one entry exists today (`v1.Output.ok`, the zero
+     value itself);
    - covers `with` adapters, generics (`FilterStatus<T>` instantiations
      checked against each service's concrete proto), and unified types.
 3. Existing integration tests (`tests/*.rs`, client vs in-process server)
