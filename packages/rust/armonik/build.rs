@@ -1,688 +1,72 @@
+use std::collections::BTreeSet;
 use std::error::Error;
-use std::path::{Path, PathBuf};
 
 use prost::Message;
 
-/// Proto files compiled into the descriptor set.
-const PROTO_FILES: &[&str] = &[
-    "protos/V1/agent_common.proto",
-    "protos/V1/agent_service.proto",
-    "protos/V1/applications_common.proto",
-    "protos/V1/applications_fields.proto",
-    "protos/V1/applications_filters.proto",
-    "protos/V1/applications_service.proto",
-    "protos/V1/auth_common.proto",
-    "protos/V1/auth_service.proto",
-    "protos/V1/events_common.proto",
-    "protos/V1/events_service.proto",
-    "protos/V1/filters_common.proto",
-    "protos/V1/objects.proto",
-    "protos/V1/health_checks_common.proto",
-    "protos/V1/health_checks_service.proto",
-    "protos/V1/partitions_common.proto",
-    "protos/V1/partitions_fields.proto",
-    "protos/V1/partitions_filters.proto",
-    "protos/V1/partitions_service.proto",
-    "protos/V1/result_status.proto",
-    "protos/V1/results_common.proto",
-    "protos/V1/results_fields.proto",
-    "protos/V1/results_filters.proto",
-    "protos/V1/results_service.proto",
-    "protos/V1/session_status.proto",
-    "protos/V1/sessions_common.proto",
-    "protos/V1/sessions_fields.proto",
-    "protos/V1/sessions_filters.proto",
-    "protos/V1/sessions_service.proto",
-    "protos/V1/sort_direction.proto",
-    "protos/V1/submitter_common.proto",
-    "protos/V1/submitter_service.proto",
-    "protos/V1/task_status.proto",
-    "protos/V1/tasks_common.proto",
-    "protos/V1/tasks_fields.proto",
-    "protos/V1/tasks_filters.proto",
-    "protos/V1/tasks_service.proto",
-    "protos/V1/versions_common.proto",
-    "protos/V1/versions_service.proto",
-    "protos/V1/worker_common.proto",
-    "protos/V1/worker_service.proto",
-];
-
-/// Proto messages implemented directly by armonik types instead of being
-/// generated: each entry suppresses the generation of the message and
-/// rewrites the signatures of the client/server stubs that reference it.
+/// Extern types that cannot be harvested from the `#[armonik(message = ...)]`
+/// annotations, so they are spelled out here:
 ///
-/// Flipped service by service during the direct-wire migration.
-const EXTERN_TYPES: &[(&str, &str)] = &[
-    // Synthetic names injected by `prune_for_stubs`: `Empty` appears in
-    // five RPC signatures standing for five distinct (wire-compatible) API
-    // types, so the stub descriptor references one name per site.
+/// - the five synthetic per-site empty messages injected by `prune_for_stubs`
+///   (see `EMPTY_SIGNATURES`): their real annotation is `Empty`, one name
+///   standing for five distinct API types, so the harvested map carries them
+///   ambiguously keyed under `Empty` and the build filters those out;
+/// - the generic sort / filter-status instantiations, which are type aliases
+///   of `SortMany<T>` / `FilterStatus<T>` and carry no annotation of their own
+///   (they are hand-registered in the differential harness the same way).
+///
+/// Everything else — ~150 messages — comes from `armonik_types::wire`.
+const EXTRA_EXTERN_TYPES: &[(&str, &str)] = &[
     (
         ".armonik.api.grpc.v1.worker.HealthCheckRequest",
-        "crate::worker::health_check::Request",
+        "::armonik_types::worker::health_check::Request",
     ),
     (
         ".armonik.api.grpc.v1.results.GetServiceConfigurationRequest",
-        "crate::results::get_service_configuration::Request",
+        "::armonik_types::results::get_service_configuration::Request",
     ),
     (
         ".armonik.api.grpc.v1.submitter.GetServiceConfigurationRequest",
-        "crate::submitter::get_service_configuration::Request",
+        "::armonik_types::submitter::get_service_configuration::Request",
     ),
     (
         ".armonik.api.grpc.v1.submitter.CancelSessionResponse",
-        "crate::submitter::cancel_session::Response",
+        "::armonik_types::submitter::cancel_session::Response",
     ),
     (
         ".armonik.api.grpc.v1.submitter.CancelTasksResponse",
-        "crate::submitter::cancel_tasks::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateTaskRequest",
-        "crate::agent::create_tasks::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateTaskReply",
-        "crate::agent::create_tasks::Response",
-    ),
-    (".armonik.api.grpc.v1.Configuration", "crate::Configuration"),
-    (".armonik.api.grpc.v1.Count", "crate::Count"),
-    (".armonik.api.grpc.v1.DataChunk", "crate::DataChunk"),
-    (".armonik.api.grpc.v1.Error", "crate::Error"),
-    (".armonik.api.grpc.v1.FilterArray", "crate::FilterArray"),
-    (".armonik.api.grpc.v1.FilterBoolean", "crate::FilterBoolean"),
-    (".armonik.api.grpc.v1.FilterDate", "crate::FilterDate"),
-    (
-        ".armonik.api.grpc.v1.FilterDuration",
-        "crate::FilterDuration",
-    ),
-    (".armonik.api.grpc.v1.FilterNumber", "crate::FilterNumber"),
-    (".armonik.api.grpc.v1.FilterString", "crate::FilterString"),
-    (
-        ".armonik.api.grpc.v1.InitKeyedDataStream",
-        "crate::InitKeyedDataStream",
-    ),
-    (
-        ".armonik.api.grpc.v1.InitTaskRequest",
-        "crate::InitTaskRequest",
-    ),
-    (".armonik.api.grpc.v1.Output", "crate::Output"),
-    (".armonik.api.grpc.v1.ResultRequest", "crate::ResultRequest"),
-    (".armonik.api.grpc.v1.Session", "crate::Session"),
-    (".armonik.api.grpc.v1.StatusCount", "crate::StatusCount"),
-    (".armonik.api.grpc.v1.TaskError", "crate::TaskError"),
-    (".armonik.api.grpc.v1.TaskId", "crate::TaskId"),
-    (".armonik.api.grpc.v1.TaskIdList", "crate::TaskIdList"),
-    (
-        ".armonik.api.grpc.v1.TaskIdWithStatus",
-        "crate::TaskIdWithStatus",
-    ),
-    (".armonik.api.grpc.v1.TaskList", "crate::TaskList"),
-    (".armonik.api.grpc.v1.TaskOptions", "crate::TaskOptions"),
-    (
-        ".armonik.api.grpc.v1.TaskOutputRequest",
-        "crate::TaskOutputRequest",
-    ),
-    (".armonik.api.grpc.v1.TaskRequest", "crate::TaskRequest"),
-    (
-        ".armonik.api.grpc.v1.TaskRequestHeader",
-        "crate::TaskRequestHeader",
-    ),
-    (
-        ".armonik.api.grpc.v1.versions.ListVersionsRequest",
-        "crate::versions::list::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.versions.ListVersionsResponse",
-        "crate::versions::list::Response",
-    ),
-    (".armonik.api.grpc.v1.auth.User", "crate::auth::User"),
-    (
-        ".armonik.api.grpc.v1.auth.GetCurrentUserRequest",
-        "crate::auth::current_user::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.auth.GetCurrentUserResponse",
-        "crate::auth::current_user::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.health_checks.CheckHealthRequest",
-        "crate::health_checks::check::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.health_checks.CheckHealthResponse",
-        "crate::health_checks::check::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.applications.ApplicationRaw",
-        "crate::applications::Raw",
-    ),
-    (
-        ".armonik.api.grpc.v1.applications.Filters",
-        "crate::applications::filter::Or",
-    ),
-    (
-        ".armonik.api.grpc.v1.applications.FiltersAnd",
-        "crate::applications::filter::And",
-    ),
-    (
-        ".armonik.api.grpc.v1.applications.FilterField",
-        "crate::applications::filter::Field",
-    ),
-    (
-        ".armonik.api.grpc.v1.applications.ListApplicationsRequest",
-        "crate::applications::list::Request",
+        "::armonik_types::submitter::cancel_tasks::Response",
     ),
     (
         ".armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort",
-        "crate::applications::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.applications.ListApplicationsResponse",
-        "crate::applications::list::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.PartitionRaw",
-        "crate::partitions::Raw",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.Filters",
-        "crate::partitions::filter::Or",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.FiltersAnd",
-        "crate::partitions::filter::And",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.FilterField",
-        "crate::partitions::filter::Field",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.GetPartitionRequest",
-        "crate::partitions::get::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.GetPartitionResponse",
-        "crate::partitions::get::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.ListPartitionsRequest",
-        "crate::partitions::list::Request",
+        "::armonik_types::applications::Sort",
     ),
     (
         ".armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort",
-        "crate::partitions::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.ListPartitionsResponse",
-        "crate::partitions::list::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.SessionRaw",
-        "crate::sessions::Raw",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.Filters",
-        "crate::sessions::filter::Or",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.FiltersAnd",
-        "crate::sessions::filter::And",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.FilterField",
-        "crate::sessions::filter::Field",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.FilterStatus",
-        "crate::sessions::filter::Status",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.ListSessionsRequest",
-        "crate::sessions::list::Request",
+        "::armonik_types::partitions::Sort",
     ),
     (
         ".armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort",
-        "crate::sessions::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.ListSessionsResponse",
-        "crate::sessions::list::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.GetSessionRequest",
-        "crate::sessions::get::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.GetSessionResponse",
-        "crate::sessions::get::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.CancelSessionRequest",
-        "crate::sessions::cancel::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.CancelSessionResponse",
-        "crate::sessions::cancel::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.CreateSessionRequest",
-        "crate::sessions::create::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.CreateSessionReply",
-        "crate::sessions::create::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.PauseSessionRequest",
-        "crate::sessions::pause::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.PauseSessionResponse",
-        "crate::sessions::pause::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.ResumeSessionRequest",
-        "crate::sessions::resume::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.ResumeSessionResponse",
-        "crate::sessions::resume::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.CloseSessionRequest",
-        "crate::sessions::close::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.CloseSessionResponse",
-        "crate::sessions::close::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.PurgeSessionRequest",
-        "crate::sessions::purge::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.PurgeSessionResponse",
-        "crate::sessions::purge::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.DeleteSessionRequest",
-        "crate::sessions::delete::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.DeleteSessionResponse",
-        "crate::sessions::delete::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.StopSubmissionRequest",
-        "crate::sessions::stop_submission::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.StopSubmissionResponse",
-        "crate::sessions::stop_submission::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.TaskDetailed",
-        "crate::tasks::Raw",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.TaskSummary",
-        "crate::tasks::Summary",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.Filters",
-        "crate::tasks::filter::Or",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.FiltersAnd",
-        "crate::tasks::filter::And",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.FilterField",
-        "crate::tasks::filter::Field",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.FilterStatus",
-        "crate::tasks::filter::Status",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.ListTasksRequest",
-        "crate::tasks::list::Request",
+        "::armonik_types::sessions::Sort",
     ),
     (
         ".armonik.api.grpc.v1.tasks.ListTasksRequest.Sort",
-        "crate::tasks::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.ListTasksResponse",
-        "crate::tasks::list::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.ListTasksDetailedResponse",
-        "crate::tasks::list_detailed::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.GetTaskRequest",
-        "crate::tasks::get::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.GetTaskResponse",
-        "crate::tasks::get::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.CancelTasksRequest",
-        "crate::tasks::cancel::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.CancelTasksResponse",
-        "crate::tasks::cancel::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.GetResultIdsRequest",
-        "crate::tasks::get_result_ids::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.GetResultIdsResponse",
-        "crate::tasks::get_result_ids::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.CountTasksByStatusRequest",
-        "crate::tasks::count_status::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.CountTasksByStatusResponse",
-        "crate::tasks::count_status::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.SubmitTasksRequest",
-        "crate::tasks::submit::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.SubmitTasksRequest.TaskCreation",
-        "crate::tasks::submit::RequestItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.SubmitTasksResponse",
-        "crate::tasks::submit::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.SubmitTasksResponse.TaskInfo",
-        "crate::tasks::submit::ResponseItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.ResultRaw",
-        "crate::results::Raw",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.Filters",
-        "crate::results::filter::Or",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.FiltersAnd",
-        "crate::results::filter::And",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.FilterField",
-        "crate::results::filter::Field",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.FilterStatus",
-        "crate::results::filter::Status",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.ListResultsRequest",
-        "crate::results::list::Request",
+        "::armonik_types::tasks::Sort",
     ),
     (
         ".armonik.api.grpc.v1.results.ListResultsRequest.Sort",
-        "crate::results::Sort",
+        "::armonik_types::results::Sort",
     ),
     (
-        ".armonik.api.grpc.v1.results.ListResultsResponse",
-        "crate::results::list::Response",
+        ".armonik.api.grpc.v1.sessions.FilterStatus",
+        "::armonik_types::sessions::filter::Status",
     ),
     (
-        ".armonik.api.grpc.v1.results.GetResultRequest",
-        "crate::results::get::Request",
+        ".armonik.api.grpc.v1.tasks.FilterStatus",
+        "::armonik_types::tasks::filter::Status",
     ),
     (
-        ".armonik.api.grpc.v1.results.GetResultResponse",
-        "crate::results::get::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.GetOwnerTaskIdRequest",
-        "crate::results::get_owner_task_id::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.GetOwnerTaskIdResponse",
-        "crate::results::get_owner_task_id::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.CreateResultsMetaDataRequest",
-        "crate::results::create_metadata::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.CreateResultsMetaDataRequest.ResultCreate",
-        "crate::results::create_metadata::RequestItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.CreateResultsMetaDataResponse",
-        "crate::results::create_metadata::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.CreateResultsRequest",
-        "crate::results::create::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.CreateResultsRequest.ResultCreate",
-        "crate::results::create::RequestItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.CreateResultsResponse",
-        "crate::results::create::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.ImportResultsDataRequest",
-        "crate::results::import::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.ImportResultsDataResponse",
-        "crate::results::import::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.DeleteResultsDataRequest",
-        "crate::results::delete_data::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.DeleteResultsDataResponse",
-        "crate::results::delete_data::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.UploadResultDataRequest",
-        "crate::results::upload::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.UploadResultDataResponse",
-        "crate::results::upload::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.DownloadResultDataRequest",
-        "crate::results::download::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.DownloadResultDataResponse",
-        "crate::results::download::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.ResultsServiceConfigurationResponse",
-        "crate::results::get_service_configuration::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.events.EventSubscriptionRequest",
-        "crate::events::subscribe::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.events.EventSubscriptionResponse",
-        "crate::events::subscribe::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.TaskStatusUpdate",
-        "crate::events::TaskStatusUpdate",
-    ),
-    (
-        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultStatusUpdate",
-        "crate::events::ResultStatusUpdate",
-    ),
-    (
-        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.ResultOwnerUpdate",
-        "crate::events::ResultOwnerUpdate",
-    ),
-    (
-        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.NewTask",
-        "crate::events::NewTask",
-    ),
-    (
-        ".armonik.api.grpc.v1.events.EventSubscriptionResponse.NewResult",
-        "crate::events::NewResult",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.ResultMetaData",
-        "crate::agent::ResultMetaData",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.DataRequest",
-        "crate::agent::get_common_data::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.DataResponse",
-        "crate::agent::get_common_data::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest",
-        "crate::agent::create_results_metadata::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate",
-        "crate::agent::create_results_metadata::RequestItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse",
-        "crate::agent::create_results_metadata::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateResultsRequest",
-        "crate::agent::create_results::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateResultsRequest.ResultCreate",
-        "crate::agent::create_results::RequestItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.CreateResultsResponse",
-        "crate::agent::create_results::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.SubmitTasksRequest",
-        "crate::agent::submit_tasks::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.SubmitTasksRequest.TaskCreation",
-        "crate::agent::submit_tasks::RequestItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.SubmitTasksResponse",
-        "crate::agent::submit_tasks::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.SubmitTasksResponse.TaskInfo",
-        "crate::agent::submit_tasks::ResponseItem",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.NotifyResultDataRequest",
-        "crate::agent::notify_result_data::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.agent.NotifyResultDataResponse",
-        "crate::agent::notify_result_data::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.worker.ProcessRequest",
-        "crate::worker::process::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.worker.ProcessReply",
-        "crate::worker::process::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.worker.HealthCheckReply",
-        "crate::worker::health_check::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CreateSessionRequest",
-        "crate::submitter::create_session::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CreateSessionReply",
-        "crate::submitter::create_session::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CreateSmallTaskRequest",
-        "crate::submitter::create_tasks::SmallRequest",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CreateLargeTaskRequest",
-        "crate::submitter::create_tasks::LargeRequest",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest",
-        "crate::submitter::create_tasks::InitRequest",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CreateTaskReply",
-        "crate::submitter::create_tasks::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus",
-        "crate::submitter::create_tasks::Status",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.TaskFilter",
-        "crate::submitter::TaskFilter",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.SessionFilter",
-        "crate::submitter::SessionFilter",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.SessionIdList",
-        "crate::submitter::list_sessions::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.GetTaskStatusRequest",
-        "crate::submitter::task_status::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.GetTaskStatusReply",
-        "crate::submitter::task_status::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.GetResultStatusRequest",
-        "crate::submitter::result_status::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.GetResultStatusReply",
-        "crate::submitter::result_status::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.ResultReply",
-        "crate::submitter::try_get_result::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.AvailabilityReply",
-        "crate::submitter::wait_for_availability::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.WaitRequest",
-        "crate::submitter::wait_for_completion::Request",
+        ".armonik.api.grpc.v1.results.FilterStatus",
+        "::armonik_types::results::filter::Status",
     ),
 ];
 
@@ -697,7 +81,7 @@ const PRUNED_METHODS: &[(&str, &str)] =
 /// `Empty` stand for five distinct API types. Message type names never
 /// appear on the wire, so the stub descriptor references a distinct
 /// synthetic empty message per site (injected below and extern'd to the
-/// API type in `EXTERN_TYPES`).
+/// API type in `EXTRA_EXTERN_TYPES`).
 const EMPTY_SIGNATURES: &[(&str, &str, Direction, &str)] = &[
     (
         "Worker",
@@ -739,9 +123,10 @@ enum Direction {
 
 /// Messages excluded from the stub generation: nothing generated references
 /// them — they are field wrappers flattened into armonik enums, messages of
-/// the pruned RPCs, or unused legacy. Together with `EXTERN_TYPES` this
+/// the pruned RPCs, or unused legacy. Together with the extern types this
 /// leaves the generated module with the client/server stubs only.
-/// `descriptor.bin` keeps the full set for the derives and the harness.
+/// `armonik_types`' `descriptor.bin` keeps the full set for the derives and
+/// the harness.
 const PRUNED_MESSAGES: &[&str] = &[
     "armonik.api.grpc.v1.Empty",
     "armonik.api.grpc.v1.applications.ApplicationField",
@@ -847,66 +232,78 @@ fn prune_for_stubs(
     Ok(fds)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    for proto in PROTO_FILES {
-        println!("cargo:rerun-if-changed={proto}");
+/// Every top-level message left in the pruned descriptor must be extern'd:
+/// externing a message suppresses its generation and that of its nested
+/// types, so if all top-level messages are extern'd the generated module
+/// carries the client/server stubs and nothing else. A message that is
+/// neither extern'd nor pruned would materialize as a generated struct — the
+/// ratchet that keeps the harvested map honest as the schema evolves.
+fn guard_all_messages_externed(
+    fds: &prost_types::FileDescriptorSet,
+    extern_types: &BTreeSet<&str>,
+) -> Result<(), Box<dyn Error>> {
+    let mut orphans = Vec::new();
+    for file in &fds.file {
+        if !file.package().starts_with("armonik.") {
+            continue;
+        }
+        for message in &file.message_type {
+            let full_name = format!(".{}.{}", file.package(), message.name());
+            if !extern_types.contains(full_name.as_str()) {
+                orphans.push(full_name);
+            }
+        }
     }
-    println!("cargo:rerun-if-changed=protos/V1");
+    if !orphans.is_empty() {
+        orphans.sort();
+        return Err(format!(
+            "these messages survive stub pruning but are not extern'd, so they would be \
+             generated as structs; annotate the type (it will be harvested automatically), \
+             add it to PRUNED_MESSAGES, or add it to EXTRA_EXTERN_TYPES:\n    {}",
+            orphans.join("\n    "),
+        )
+        .into());
+    }
+    Ok(())
+}
 
-    // Compile the descriptor set with protox (pure Rust, no protoc required).
-    let fds = protox::compile(PROTO_FILES, ["protos/V1"])?;
-    let bytes = fds.encode_to_vec();
+fn main() -> Result<(), Box<dyn Error>> {
+    // The descriptor and the annotation-harvested extern map are pulled from
+    // `armonik-types`, compiled first as a build-dependency; no proto files
+    // are compiled here.
+    let fds = prost_types::FileDescriptorSet::decode(armonik_types::wire::DESCRIPTOR)?;
 
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+    // Extern map: the harvested `(proto name, Rust path)` pairs, normalized to
+    // the fully-qualified `.proto.Name` / `::rust::Path` forms prost expects,
+    // with the ambiguous `Empty`-keyed synthetic entries dropped, plus the
+    // handful that cannot come from annotations.
+    let harvested: Vec<(String, String)> = armonik_types::wire::extern_mapping()
+        .into_iter()
+        .filter(|(proto, _)| *proto != "armonik.api.grpc.v1.Empty")
+        .map(|(proto, path)| (format!(".{proto}"), format!("::{path}")))
+        .collect();
+    let extern_types: Vec<(&str, &str)> = harvested
+        .iter()
+        .map(|(proto, path)| (proto.as_str(), path.as_str()))
+        .chain(EXTRA_EXTERN_TYPES.iter().copied())
+        .collect();
 
-    // Input of the armonik-macros derives.
-    write_if_changed(&out_dir.join("descriptor.bin"), &bytes)?;
+    let pruned = prune_for_stubs(fds)?;
 
-    // Staleness anchor: included in the crate through `include!` so that any
-    // descriptor change invalidates the crate in rustc's dep-info, and
-    // cross-checked by a const-assert emitted by every derive.
-    let fingerprint = fnv1a_128(&bytes);
-    write_if_changed(
-        &out_dir.join("schema_meta.rs"),
-        format!("pub(crate) const DESCRIPTOR_FINGERPRINT: u128 = {fingerprint:#034x};\n")
-            .as_bytes(),
-    )?;
+    let extern_names: BTreeSet<&str> = extern_types.iter().map(|(proto, _)| *proto).collect();
+    guard_all_messages_externed(&pruned, &extern_names)?;
 
-    // Generate the tonic stubs from a pruned copy of the descriptor set:
-    // with every extern'd message resolved to its armonik type and the
-    // unreferenced ones pruned, the generated module contains nothing but
-    // the client/server stubs.
+    // Generate the tonic stubs from the pruned descriptor set: with every
+    // extern'd message resolved to its armonik type and the unreferenced ones
+    // pruned, the generated module contains nothing but the stubs.
     let mut builder = tonic_prost_build::configure()
         .use_arc_self(true)
         .build_client(cfg!(feature = "_gen-client"))
         .build_server(cfg!(feature = "_gen-server"));
-    for (proto_path, rust_path) in EXTERN_TYPES {
+    for (proto_path, rust_path) in &extern_types {
         builder = builder.extern_path(*proto_path, *rust_path);
     }
-    builder.compile_fds(prune_for_stubs(fds)?)?;
+    builder.compile_fds(pruned)?;
 
     Ok(())
-}
-
-fn write_if_changed(path: &Path, contents: &[u8]) -> std::io::Result<()> {
-    if std::fs::read(path).is_ok_and(|existing| existing == contents) {
-        return Ok(());
-    }
-    std::fs::write(path, contents)
-}
-
-/// FNV-1a, 128-bit.
-///
-/// Keep in sync with `armonik-macros/src/descriptor.rs`: a mismatch makes the
-/// fingerprint const-assert emitted by every derive fail, so a divergence
-/// cannot go unnoticed.
-fn fnv1a_128(bytes: &[u8]) -> u128 {
-    const OFFSET_BASIS: u128 = 0x6c62272e07bb014262b821756295c58d;
-    const PRIME: u128 = 0x0000000001000000000000000000013b;
-    let mut hash = OFFSET_BASIS;
-    for &byte in bytes {
-        hash ^= byte as u128;
-        hash = hash.wrapping_mul(PRIME);
-    }
-    hash
 }

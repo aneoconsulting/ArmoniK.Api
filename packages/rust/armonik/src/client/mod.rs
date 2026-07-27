@@ -348,20 +348,6 @@ where
     async fn call(self, request: Stream) -> Result<Self::Response, Self::Error>;
 }
 
-impl<Stream, Request, T> GrpcCall<Stream> for T
-where
-    Stream: futures::Stream<Item = Request> + Send + 'static,
-    T: GrpcCallStream<Request, Stream>,
-{
-    type Response = <T as GrpcCallStream<Request, Stream>>::Response;
-    type Error = <T as GrpcCallStream<Request, Stream>>::Error;
-
-    /// Perform a gRPC call from a raw request.
-    async fn call(self, request: Stream) -> Result<Self::Response, Self::Error> {
-        <T as GrpcCallStream<Request, Stream>>::call(self, request).await
-    }
-}
-
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum RequestError {

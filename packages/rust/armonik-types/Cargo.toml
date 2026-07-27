@@ -1,0 +1,53 @@
+[package]
+authors = ["Florian Lemaitre <flemaitre@aneo.fr>"]
+description = "ArmoniK API message types: ergonomic Rust structs that implement prost::Message directly against the ArmoniK protobuf schema"
+edition = "2021"
+include = ["**/*.rs", "Cargo.toml", "LICENSE", "README.md", "protos/**"]
+license = "Apache-2.0"
+readme = "README.md"
+name = "armonik-types"
+repository = "https://github.com/aneoconsulting/ArmoniK.Api"
+version = "3.29.2-beta-0"
+rust-version = "1.88.0"
+
+[features]
+default = []
+serde = ["dep:serde", "bytes/serde"]
+# Internal: the derives register every message's `(proto name, Rust path)`
+# into a distributed slice read by the `armonik` crate's build script to
+# resolve its tonic stubs' extern types. Enabled through `armonik`'s
+# build-dependency on this crate, so downstream pure-types builds never pull
+# it (nor `linkme`).
+_extern-map = ["dep:linkme"]
+# Internal: the derives register every message type into a distributed slice
+# for the differential harness, along with its generated `Normalize`
+# projection over `prost_reflect::DynamicMessage`. Enabled through the self
+# dev-dependency, so tests always see it and downstream builds never do.
+_differential = ["dep:linkme", "dep:prost-reflect"]
+
+[dependencies]
+bytes = "1"
+linkme = { version = "0.3", optional = true }
+prost-reflect = { version = "0.16", optional = true }
+prost = "0.14"
+prost-types = "0.14"
+serde = { version = "1.0", features = [
+  "derive",
+  # `std` provides the container impls (HashMap members, e.g. `Count`).
+  "std",
+], default-features = false, optional = true }
+
+# Internal derive macros; version-locked with this crate.
+# The standalone `version` line below is updated by `scripts/update-versions.ts`.
+[dependencies.armonik-macros]
+path = "../armonik-macros"
+version = "=3.29.2-beta-0"
+
+[dev-dependencies]
+armonik-types = { path = ".", features = ["_differential"] }
+prost-reflect = "0.16"
+
+[build-dependencies]
+protox = "0.9"
+prost-types = "0.14"
+prost = "0.14"

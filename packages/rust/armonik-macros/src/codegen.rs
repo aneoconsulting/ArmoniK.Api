@@ -160,7 +160,10 @@ fn field_asserts_for(
 
 /// Test-only registration into the differential-harness registry (see
 /// `armonik::differential`), one entry per proto name the type stands for.
-/// Compiled out unless the private `_differential` feature is on.
+/// Two distributed-slice registrations per proto name, each compiled out
+/// unless its private feature is on: the differential harness `Entry`
+/// (`_differential`) and the `(proto name, Rust path)` extern-map entry
+/// (`_extern-map`, read by `armonik`'s build script).
 fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
     let mut out = TokenStream::new();
     for name in names {
@@ -187,6 +190,18 @@ fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
                     },
                     normalize: <#ident as crate::differential::Normalize>::normalize,
                 };
+            };
+            // Harvested by `armonik`'s build script (through the
+            // `armonik-types` build-dependency) to resolve its tonic stubs'
+            // extern types. The value is the type's definition path, so the
+            // object modules are `pub`. See `armonik_types::wire`.
+            #[cfg(feature = "_extern-map")]
+            const _: () = {
+                #[::linkme::distributed_slice(crate::wire::EXTERN_MAP)]
+                static WIRE: (&str, &str) = (
+                    #name,
+                    ::core::concat!(::core::module_path!(), "::", ::core::stringify!(#ident)),
+                );
             };
         });
     }

@@ -1,19 +1,15 @@
 //! Rust bindings for the ArmoniK API
 
-// Staleness anchor for the wire-representation derives: `include!` puts the
-// generated file in rustc's dep-info, so any descriptor change invalidates
-// the crate; every derive const-asserts against this fingerprint.
-mod __schema {
-    include!(concat!(env!("OUT_DIR"), "/schema_meta.rs"));
-}
+// The message types, codec, and derives live in `armonik-types`; re-export
+// its whole surface so `armonik::applications::Raw`, `armonik::TaskOptions`,
+// etc. keep resolving. This crate adds the tonic client/server stubs on top.
+pub use armonik_types::*;
 
 #[cfg(any(feature = "_gen-client", feature = "_gen-server"))]
 pub(crate) mod stubs;
 
 #[cfg(feature = "_gen-client")]
 pub mod client;
-pub(crate) mod codec;
-mod objects;
 #[cfg(feature = "_gen-server")]
 pub mod server;
 
@@ -22,13 +18,8 @@ pub mod server;
 pub use armonik_transport as transport;
 #[cfg(feature = "_gen-client")]
 pub use client::{Client, ClientConfig};
-pub use objects::*;
 
 mod utils;
-
-#[cfg(feature = "_differential")]
-#[doc(hidden)]
-pub mod differential;
 
 pub mod reexports {
     pub use bytes;
