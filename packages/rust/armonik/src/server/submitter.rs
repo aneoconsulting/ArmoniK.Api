@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::v3;
 use crate::submitter;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::submitter::submitter_server as stub;
 
 super::define_trait_methods! {
     trait SubmitterService {
@@ -52,19 +55,19 @@ super::define_trait_methods! {
 }
 
 pub trait SubmitterServiceExt {
-    fn submitter_server(self) -> v3::submitter::submitter_server::SubmitterServer<Self>
+    fn submitter_server(self) -> stub::SubmitterServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: SubmitterService + Send + Sync + 'static> SubmitterServiceExt for T {
-    fn submitter_server(self) -> v3::submitter::submitter_server::SubmitterServer<Self> {
-        v3::submitter::submitter_server::SubmitterServer::new(self)
+    fn submitter_server(self) -> stub::SubmitterServer<Self> {
+        stub::SubmitterServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::submitter::submitter_server::Submitter) for SubmitterService {
+    impl (stub::Submitter) for SubmitterService {
         fn get_service_configuration(crate::submitter::get_service_configuration::Request) -> crate::Configuration { get_service_configuration }
         fn create_session(crate::submitter::create_session::Request) -> crate::submitter::create_session::Response { create_session }
         fn cancel_session(crate::Session) -> crate::submitter::cancel_session::Response { cancel_session }

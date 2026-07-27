@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::v3;
 use crate::health_checks;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::health_checks::health_checks_service_server as stub;
 
 super::define_trait_methods! {
     trait HealthChecksService {
@@ -11,23 +14,19 @@ super::define_trait_methods! {
 }
 
 pub trait HealthChecksServiceExt {
-    fn health_checks_server(
-        self,
-    ) -> v3::health_checks::health_checks_service_server::HealthChecksServiceServer<Self>
+    fn health_checks_server(self) -> stub::HealthChecksServiceServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: HealthChecksService + Send + Sync + 'static> HealthChecksServiceExt for T {
-    fn health_checks_server(
-        self,
-    ) -> v3::health_checks::health_checks_service_server::HealthChecksServiceServer<Self> {
-        v3::health_checks::health_checks_service_server::HealthChecksServiceServer::new(self)
+    fn health_checks_server(self) -> stub::HealthChecksServiceServer<Self> {
+        stub::HealthChecksServiceServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::health_checks::health_checks_service_server::HealthChecksService) for HealthChecksService {
+    impl (stub::HealthChecksService) for HealthChecksService {
         fn check_health(crate::health_checks::check::Request) -> crate::health_checks::check::Response { check }
     }
 }

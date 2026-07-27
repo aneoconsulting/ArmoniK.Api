@@ -8,7 +8,8 @@ mod __schema {
 }
 
 #[cfg(any(feature = "_gen-client", feature = "_gen-server"))]
-pub(crate) mod api;
+pub(crate) mod stubs;
+
 #[cfg(feature = "_gen-client")]
 pub mod client;
 pub(crate) mod codec;

@@ -1,14 +1,16 @@
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::partitions::{get, list, Raw};
 use crate::utils::IntoCollection;
 
 use super::GrpcCall;
 
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::partitions::partitions_client as stub;
+
 #[derive(Clone)]
 pub struct Partitions<T> {
-    inner: v3::partitions::partitions_client::PartitionsClient<T>,
+    inner: stub::PartitionsClient<T>,
 }
 
 impl<T> Partitions<T>
@@ -21,7 +23,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::partitions::partitions_client::PartitionsClient::new(channel),
+            inner: stub::PartitionsClient::new(channel),
         }
     }
 

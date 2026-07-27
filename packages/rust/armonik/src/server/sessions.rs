@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::v3;
 use crate::sessions;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::sessions::sessions_server as stub;
 
 super::define_trait_methods! {
     trait SessionsService {
@@ -38,19 +41,19 @@ super::define_trait_methods! {
 }
 
 pub trait SessionsServiceExt {
-    fn sessions_server(self) -> v3::sessions::sessions_server::SessionsServer<Self>
+    fn sessions_server(self) -> stub::SessionsServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: SessionsService + Send + Sync + 'static> SessionsServiceExt for T {
-    fn sessions_server(self) -> v3::sessions::sessions_server::SessionsServer<Self> {
-        v3::sessions::sessions_server::SessionsServer::new(self)
+    fn sessions_server(self) -> stub::SessionsServer<Self> {
+        stub::SessionsServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::sessions::sessions_server::Sessions) for SessionsService {
+    impl (stub::Sessions) for SessionsService {
         fn list_sessions(crate::sessions::list::Request) -> crate::sessions::list::Response { list }
         fn get_session(crate::sessions::get::Request) -> crate::sessions::get::Response { get }
         fn cancel_session(crate::sessions::cancel::Request) -> crate::sessions::cancel::Response { cancel }

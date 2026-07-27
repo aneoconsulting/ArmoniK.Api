@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::tasks::{
     cancel, count_status, filter, get, get_result_ids, list, list_detailed, submit, Raw, Sort,
     Summary,
@@ -13,9 +12,12 @@ use crate::{StatusCount, TaskOptions};
 use super::GrpcCall;
 
 /// Service for handling tasks.
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::tasks::tasks_client as stub;
+
 #[derive(Clone)]
 pub struct Tasks<T> {
-    inner: v3::tasks::tasks_client::TasksClient<T>,
+    inner: stub::TasksClient<T>,
 }
 
 impl<T> Tasks<T>
@@ -28,7 +30,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::tasks::tasks_client::TasksClient::new(channel),
+            inner: stub::TasksClient::new(channel),
         }
     }
 

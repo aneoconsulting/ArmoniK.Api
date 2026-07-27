@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use futures::{Stream, StreamExt};
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::results::{
     create, create_metadata, delete_data, download, filter, get, get_owner_task_id,
     get_service_configuration, import, list, upload, Raw, Sort,
@@ -13,9 +12,12 @@ use crate::utils::IntoCollection;
 use super::{GrpcCall, GrpcCallStream};
 
 /// The ResultsService provides methods for interacting with results.
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::results::results_client as stub;
+
 #[derive(Clone)]
 pub struct Results<T> {
-    inner: v3::results::results_client::ResultsClient<T>,
+    inner: stub::ResultsClient<T>,
 }
 
 impl<T> Results<T>
@@ -28,7 +30,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::results::results_client::ResultsClient::new(channel),
+            inner: stub::ResultsClient::new(channel),
         }
     }
 

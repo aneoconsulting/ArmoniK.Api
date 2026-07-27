@@ -1,14 +1,16 @@
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::auth::{current_user, User};
 
 use super::GrpcCall;
 
 /// Service for authentication management.
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::auth::authentication_client as stub;
+
 #[derive(Clone)]
 pub struct Auth<T> {
-    inner: v3::auth::authentication_client::AuthenticationClient<T>,
+    inner: stub::AuthenticationClient<T>,
 }
 
 impl<T> Auth<T>
@@ -21,7 +23,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::auth::authentication_client::AuthenticationClient::new(channel),
+            inner: stub::AuthenticationClient::new(channel),
         }
     }
 

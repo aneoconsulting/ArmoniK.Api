@@ -1,28 +1,28 @@
 #[cfg(feature = "agent")]
-mod agent;
+pub mod agent;
 #[cfg(feature = "server")]
-mod applications;
+pub mod applications;
 #[cfg(feature = "server")]
-mod auth;
+pub mod auth;
 #[cfg(feature = "server")]
-mod events;
+pub mod events;
 #[cfg(feature = "server")]
-mod health_checks;
+pub mod health_checks;
 #[cfg(feature = "server")]
-mod partitions;
+pub mod partitions;
 mod request_context;
 #[cfg(feature = "server")]
-mod results;
+pub mod results;
 #[cfg(feature = "server")]
-mod sessions;
+pub mod sessions;
 #[cfg(feature = "server")]
-mod submitter;
+pub mod submitter;
 #[cfg(feature = "server")]
-mod tasks;
+pub mod tasks;
 #[cfg(feature = "server")]
-mod versions;
+pub mod versions;
 #[cfg(feature = "worker")]
-mod worker;
+pub mod worker;
 
 #[cfg(feature = "agent")]
 pub use agent::{AgentService, AgentServiceExt};

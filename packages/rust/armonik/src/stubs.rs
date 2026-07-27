@@ -2,6 +2,11 @@
 //! their signatures is implemented natively (`EXTERN_TYPES` in build.rs) and
 //! the unreferenced leftovers are pruned from the stub generation
 //! (`PRUNED_MESSAGES`), so the message-only proto packages produce no file.
+//!
+//! Each service's stub is re-exported as the public `stub` module of its
+//! client/server module (`crate::client::sessions::stub`,
+//! `crate::server::sessions::stub`); this tree only hosts the generated
+//! files.
 
 #![allow(non_snake_case)]
 

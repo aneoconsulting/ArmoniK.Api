@@ -1,16 +1,18 @@
 use futures::{Stream, StreamExt};
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::events::subscribe;
 use crate::utils::IntoCollection;
 
 use super::GrpcCall;
 
 /// Service for authentication management.
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::events::events_client as stub;
+
 #[derive(Clone)]
 pub struct Events<T> {
-    inner: v3::events::events_client::EventsClient<T>,
+    inner: stub::EventsClient<T>,
 }
 
 impl<T> Events<T>
@@ -23,7 +25,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::events::events_client::EventsClient::new(channel),
+            inner: stub::EventsClient::new(channel),
         }
     }
 

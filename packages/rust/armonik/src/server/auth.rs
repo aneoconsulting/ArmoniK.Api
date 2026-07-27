@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::v3;
 use crate::auth;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::auth::authentication_server as stub;
 
 super::define_trait_methods! {
     trait AuthService {
@@ -11,19 +14,19 @@ super::define_trait_methods! {
 }
 
 pub trait AuthServiceExt {
-    fn auth_server(self) -> v3::auth::authentication_server::AuthenticationServer<Self>
+    fn auth_server(self) -> stub::AuthenticationServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: AuthService + Send + Sync + 'static> AuthServiceExt for T {
-    fn auth_server(self) -> v3::auth::authentication_server::AuthenticationServer<Self> {
-        v3::auth::authentication_server::AuthenticationServer::new(self)
+    fn auth_server(self) -> stub::AuthenticationServer<Self> {
+        stub::AuthenticationServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::auth::authentication_server::Authentication) for AuthService {
+    impl (stub::Authentication) for AuthService {
         fn get_current_user(crate::auth::current_user::Request) -> crate::auth::current_user::Response { current_user }
     }
 }
