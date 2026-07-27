@@ -162,7 +162,7 @@ Everything not listed here is inferred from the descriptor.
 | `enum = "full.proto.Name"` | type | proto enum for `derive(Enum)`; variants matched by name (prefix-stripped PascalCase, as prost does) |
 | `rename = "id"` | field / variant | proto name differs from Rust name |
 | `oneof = "type"` | type (enum) | the enum stands for one oneof of a larger message, embedded in a struct (without it, an enum stands for the whole single-oneof message); variants matched against oneof members |
-| `present = …` | variant | oneof variant carried by a marker value (e.g. `DataChunk::Complete` ⇔ `dataComplete: true`) |
+| `present` | variant | oneof variant carried by presence alone (e.g. `DataChunk::Complete` ⇔ `dataComplete: true`) |
 | `transparent` | type | single-field message flattened into its field's type (message `TaskOptionField { field: enum }` ⇔ Rust enum) |
 | `with = "path::to::module"` | field | custom codec — see §3.5 |
 | `tag = N` | field | optional; validated against the descriptor rather than trusted |
