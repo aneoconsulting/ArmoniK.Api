@@ -225,6 +225,21 @@ where
     {
         <&mut Self as GrpcCall<Request>>::call(self, request).await
     }
+
+    /// Perform a client-streaming gRPC call from a raw request stream.
+    pub async fn call_streaming<S, Request>(
+        &mut self,
+        request: S,
+    ) -> Result<
+        <&mut Self as GrpcCallStream<Request, S>>::Response,
+        <&mut Self as GrpcCallStream<Request, S>>::Error,
+    >
+    where
+        S: Stream<Item = Request> + Send + 'static,
+        for<'a> &'a mut Self: GrpcCallStream<Request, S>,
+    {
+        <&mut Self as GrpcCallStream<Request, S>>::call(self, request).await
+    }
 }
 
 super::impl_call! {
@@ -672,7 +687,7 @@ mod tests {
         let before = Client::get_nb_request("Results", "UploadResultData").await;
         let mut client = Client::new().await.unwrap().into_results();
         client
-            .call(Box::pin(futures::stream::iter([
+            .call_streaming(Box::pin(futures::stream::iter([
                 crate::results::upload::Request::Identifier {
                     session_id: String::from("session-id"),
                     result_id: String::from("result-id"),

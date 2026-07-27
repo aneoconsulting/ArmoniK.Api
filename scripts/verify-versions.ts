@@ -10,6 +10,8 @@ import {
   javaPattern,
   jsFiles,
   jsPattern,
+  rustDependencyFiles,
+  rustDependencyPattern,
   rustFiles,
   rustMacrosPinFiles,
   rustMacrosPinPattern,
@@ -32,6 +34,8 @@ consola.info('Finding java projects versions')
 javaFiles.forEach(_readAndFind(javaPattern, versions))
 consola.info('Finding rust projects versions')
 rustFiles.forEach(_readAndFind(rustPattern, versions))
+consola.info('Finding the rust internal dependency versions')
+rustDependencyFiles.forEach(_readAndFind(rustDependencyPattern, versions, 'armonik-transport pin'))
 rustMacrosPinFiles.forEach(_readAndFind(rustMacrosPinPattern, versions, 'macros pin'))
 
 const versionsArray = [...versions.values()]

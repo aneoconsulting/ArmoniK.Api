@@ -569,7 +569,7 @@ async fn upload_wait_early() {
     )
     .into_results();
 
-    let future = client.call(async_stream::stream! {
+    let future = client.call_streaming(async_stream::stream! {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         yield results::upload::Request::Identifier {
             session_id: String::from("session-id"),
@@ -726,7 +726,7 @@ async fn upload_failure_early() {
     )
     .into_results();
 
-    let future = client.call(async_stream::stream! {
+    let future = client.call_streaming(async_stream::stream! {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         yield results::upload::Request::Identifier {
             session_id: String::from("session-id"),
@@ -759,7 +759,7 @@ async fn upload_failure_late() {
     )
     .into_results();
 
-    let future = client.call(async_stream::stream! {
+    let future = client.call_streaming(async_stream::stream! {
         yield results::upload::Request::Identifier {
             session_id: String::from("session-id"),
             result_id: String::from("result-id")
@@ -796,7 +796,7 @@ async fn upload_failure_end() {
     .into_results();
 
     match client
-        .call(futures::stream::iter::<[results::upload::Request; 0]>([]))
+        .call_streaming(futures::stream::iter::<[results::upload::Request; 0]>([]))
         .await
     {
         Ok(response) => panic!("Expected a failure, but got a response {response:?}"),

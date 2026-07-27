@@ -97,7 +97,7 @@ where
         &mut self,
         request: impl Stream<Item = create_tasks::LargeRequest> + Send + 'static,
     ) -> Result<Vec<create_tasks::Status>, super::RequestError> {
-        let response = self.call(request).await?;
+        let response = self.call_streaming(request).await?;
 
         match response {
             create_tasks::Response::Status(statuses) => Ok(statuses),
@@ -246,6 +246,21 @@ where
         for<'a> &'a mut Self: GrpcCall<Request>,
     {
         <&mut Self as GrpcCall<Request>>::call(self, request).await
+    }
+
+    /// Perform a client-streaming gRPC call from a raw request stream.
+    pub async fn call_streaming<S, Request>(
+        &mut self,
+        request: S,
+    ) -> Result<
+        <&mut Self as GrpcCallStream<Request, S>>::Response,
+        <&mut Self as GrpcCallStream<Request, S>>::Error,
+    >
+    where
+        S: Stream<Item = Request> + Send + 'static,
+        for<'a> &'a mut Self: GrpcCallStream<Request, S>,
+    {
+        <&mut Self as GrpcCallStream<Request, S>>::call(self, request).await
     }
 }
 
@@ -766,7 +781,7 @@ mod tests {
         let before = Client::get_nb_request("Submitter", "CreateLargeTasks").await;
         let mut client = Client::new().await.unwrap().into_submitter();
         match client
-            .call(futures::stream::iter([
+            .call_streaming(futures::stream::iter([
                 crate::submitter::create_tasks::LargeRequest::Invalid,
             ]))
             .await

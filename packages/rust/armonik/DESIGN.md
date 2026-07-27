@@ -51,16 +51,35 @@ the conversion layer, and the double decode/convert pass disappear.
 
 ```
 packages/rust/
-  armonik/            # unchanged name; loses api::v3, objects keep their paths
-  armonik-macros/     # NEW: proc-macro crate
-                      #   derive(Message), derive(Enum)
+  armonik/            # tonic client/server stubs + ergonomic client/server
+                      #   wrappers; re-exports armonik-types wholesale
+  armonik-types/      # the message types: ergonomic structs/enums implementing
+                      #   prost::Message directly (objects + codec + the
+                      #   differential harness); its build.rs compiles the
+                      #   descriptor. A pure-types dependency — no tonic graph.
+  armonik-macros/     # proc-macro crate: derive(Message), derive(Enum)
                       #   deps: syn, quote, prost (descriptor decode only)
 ```
 
-`armonik` depends on `armonik-macros` with a pinned `=version`; both are
-published together by the release pipeline. The derives are re-exported from
-`armonik` and marked `#[doc(hidden)]` internal-use: the attribute grammar is
-not a supported public API.
+The three crates are version-locked with `=` pins (`armonik` → `armonik-types`
+→ `armonik-macros`) and published in that order. The derives are internal-use
+— they emit `crate::codec::…` paths, so they only expand inside
+`armonik-types` — and `#[doc(hidden)]`: the attribute grammar is not a
+supported public API.
+
+`armonik-types` exists so downstream can depend on the wire types without the
+client/server stubs and their tonic/hyper/rustls graph, and — the reason the
+split earns its keep — so `armonik`'s build script can **harvest** the
+proto-name → Rust-path extern map from the `#[armonik(message = …)]`
+annotations instead of hand-maintaining a ~150-entry list. `armonik-types` is
+a build-dependency of `armonik`; every derive registers its
+`(proto name, module_path!)` pair into a `linkme` slice
+(`armonik_types::wire::EXTERN_MAP`, gated behind the `_extern-map` feature the
+build-dependency enables), and `armonik`'s `build.rs` reads
+`extern_mapping()`. The ~13 entries that cannot come from annotations (the
+five synthetic `Empty` sites and the generic sort/filter-status aliases) stay
+in `build.rs::EXTRA_EXTERN_TYPES`, and a drift-guard fails the build if any
+top-level message survives stub pruning without an extern entry.
 
 ### 3.2 Build pipeline (`build.rs`)
 
@@ -73,15 +92,17 @@ not a supported public API.
 > removed alongside all file-level enums, and the five RPC signatures
 > using `Empty` are rewritten to distinct synthetic empty messages, each
 > extern'd to its API type (message type names never appear on the wire,
-> so wire-compatible signature rewrites are free). Combined with
-> `EXTERN_TYPES`, the generated module (`crate::stubs`, private) contains
-> exactly the 12 client and 12 server stubs and nothing else; every
+> so wire-compatible signature rewrites are free). Combined with the
+> harvested extern map, the generated module (`crate::stubs`, private)
+> contains exactly the 12 client and 12 server stubs and nothing else; every
 > service's stub is re-exported as the public `stub` module of its
 > client/server module (`armonik::client::sessions::stub::SessionsClient`,
 > `armonik::server::sessions::stub::{Sessions, SessionsServer}`). The
 > message-only packages produce no file at all, and without the
 > client/server features the module is not even compiled (the crate then
 > works as a pure-types dependency).
+
+The pipeline is split across the two crates. **`armonik-types/build.rs`**:
 
 1. `protox` compiles `protos/V1/*.proto` → `FileDescriptorSet`
    (pure Rust; `protoc` no longer required; `cargo:rerun-if-changed` per
@@ -91,16 +112,25 @@ not a supported public API.
    `pub(crate) const DESCRIPTOR_FINGERPRINT: u128 = …;`
    (hash of the descriptor bytes). `lib.rs` pulls the latter in via
    `include!`, which puts it in rustc's dep-info — tracked by cargo, sccache,
-   and any hermetic build system.
-3. Feeds the same descriptor set to `tonic-prost-build` via `compile_fds`
-   (fallback if unavailable: `skip_protoc_run` +
-   `file_descriptor_set_path`) to generate **service stubs only**:
-   - every RPC request/response type has an `extern_path` entry mapping it to
-     the ergonomic type (`.armonik.api.grpc.v1.sessions.ListSessionsRequest`
-     → `crate::sessions::list::Request`);
+   and any hermetic build system. The descriptor bytes are also re-exported as
+   `armonik_types::wire::DESCRIPTOR`.
+
+**`armonik/build.rs`** (with `armonik-types` as a build-dependency, so it is
+compiled first and its derives have run):
+
+3. Decodes `armonik_types::wire::DESCRIPTOR` (no proto compilation here), prunes
+   it, and feeds it to `tonic-prost-build` via `compile_fds` to generate
+   **service stubs only**:
+   - the `extern_path` entries come from `armonik_types::wire::extern_mapping()`
+     — the annotations, harvested — plus `EXTRA_EXTERN_TYPES`, mapping each RPC
+     type to its ergonomic type
+     (`.armonik.api.grpc.v1.sessions.ListSessionsRequest`
+     → `::armonik_types::sessions::list::Request`);
    - extern'd messages are not generated at all, and since nested types never
-     appear in stub signatures, **only the ~100 top-level RPC types need
-     entries** — generics and unified types never touch prost-build.
+     appear in stub signatures, **only the top-level RPC types need entries**;
+   - `guard_all_messages_externed` fails the build if any top-level message
+     survives pruning without an extern entry — the ratchet that keeps the
+     harvested map honest as the schema evolves.
 
 ### 3.3 The derive
 
@@ -383,6 +413,20 @@ even though the branch lands as one unit:
   every message in their signatures is an armonik type (the five
   `Empty`-signature RPCs each speak their own wire-compatible `{}` type),
   and the leftovers are pruned from generation.
+- The message types moved to the new `armonik-types` crate (see §3.1), which
+  `armonik` re-exports wholesale: `armonik::applications::Raw`,
+  `armonik::TaskOptions`, etc. keep resolving, so this is source-compatible.
+  Downstream that wants only the types (no tonic graph) can depend on
+  `armonik-types` directly.
+- Client-streaming calls have their own entry point, `client.call_streaming(
+  stream)`, separate from the unary `client.call(request)`. They must be
+  separate methods: moving the request types to `armonik-types` made them
+  foreign to the client crate, so the compiler can no longer prove a unary
+  request type is not a `Stream`, and a single `call` accepting both would make
+  the streaming and unary `GrpcCall` impls overlap. `call_streaming` dispatches
+  to `GrpcCallStream` directly. The named methods (`Agent::create_tasks`,
+  `Results::upload`, `Submitter::create_large_tasks`) are unchanged — they
+  delegate to it.
 - Rust types sharing one wire message stay distinct and convert at the
   stub boundary (`tasks::list_detailed`, the agent data RPCs, the
   submitter request wrappers), so `client.call(...)` dispatch is
