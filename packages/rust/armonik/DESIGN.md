@@ -312,10 +312,13 @@ Two independent layers:
    - the equivalence classes are **computed, not restated**: each type's
      `default_encoding` (what it emits for "nothing") is folded into
      messages where those fields are absent, deriving the default-member
-     and always-emit projections from the implementation itself; the only
-     hand-written projections left are value-level (map order/duplicate
-     loss, the two cross-field impls) plus derive-declared metadata for
-     bool markers and wrapper chains;
+     and always-emit projections from the implementation itself; the
+     value-level projections live in a `Normalize` impl per type, generated
+     from the same constructs that shape the codec — each `with` adapter
+     declares its own loss (`PairMap` order/duplicates), `present` markers
+     and `transparent` chains emit theirs, and the two hand-written impls
+     write theirs next to their codecs (registration requires the impl, so
+     it cannot be forgotten);
    - the proto-to-type mapping is **self-registering**: each derive (and
      hand-written impl) pushes its entry into a `linkme` distributed slice
      under the private `_differential` feature, enabled only through the

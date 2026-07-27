@@ -102,6 +102,25 @@ impl prost::Message for Output {
 }
 
 #[cfg(feature = "_differential")]
+impl crate::differential::Normalize for Output {
+    /// `success = true` wins over any error message: the enum keeps one of
+    /// the two plain fields, so the losing `error` carries no information.
+    fn normalize(message: &mut crate::differential::prost_reflect::DynamicMessage) {
+        use crate::differential::prost_reflect::{ReflectMessage, Value};
+        let descriptor = message.descriptor();
+        let (Some(success), Some(error)) = (
+            descriptor.get_field(SUCCESS_TAG),
+            descriptor.get_field(ERROR_TAG),
+        ) else {
+            return;
+        };
+        if matches!(message.get_field(&success).as_ref(), Value::Bool(true)) {
+            message.clear_field(&error);
+        }
+    }
+}
+
+#[cfg(feature = "_differential")]
 const _: () = {
     #[linkme::distributed_slice(crate::differential::REGISTRY)]
     static ENTRY: crate::differential::Entry = crate::differential::Entry {
@@ -112,8 +131,7 @@ const _: () = {
             ))
         },
         default_encoding: || prost::Message::encode_to_vec(&Output::default()),
-        bool_markers: &[],
-        wrapper_chain: false,
+        normalize: <Output as crate::differential::Normalize>::normalize,
     };
 };
 

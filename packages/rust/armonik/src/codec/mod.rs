@@ -159,6 +159,19 @@ pub(crate) trait ProtoAdapter<T> {
     fn encoded_len_field(tag: u32, value: &T) -> usize;
     fn is_default(value: &T) -> bool;
     fn clear_field(value: &mut T);
+
+    /// Project the field at `tag` of a dynamic message onto the equivalence
+    /// classes this adapter's Rust representation defines (for the
+    /// differential harness; see `crate::differential::Normalize`). The
+    /// default is the identity: adapters that only restructure the wire
+    /// representation lose nothing.
+    #[cfg(feature = "_differential")]
+    fn normalize_dynamic(
+        message: &mut crate::differential::prost_reflect::DynamicMessage,
+        tag: u32,
+    ) {
+        let _ = (message, tag);
+    }
 }
 
 /// Const string equality, for derive-emitted assertions.

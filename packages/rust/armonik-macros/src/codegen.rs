@@ -162,15 +162,6 @@ fn field_asserts_for(
 /// `armonik::differential`), one entry per proto name the type stands for.
 /// Compiled out unless the private `_differential` feature is on.
 fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
-    registrations_with(ident, names, &[], false)
-}
-
-fn registrations_with(
-    ident: &syn::Ident,
-    names: &[String],
-    bool_markers: &[String],
-    wrapper_chain: bool,
-) -> TokenStream {
     let mut out = TokenStream::new();
     for name in names {
         out.extend(quote! {
@@ -194,13 +185,35 @@ fn registrations_with(
                             &<#ident as ::core::default::Default>::default(),
                         )
                     },
-                    bool_markers: &[#(#bool_markers),*],
-                    wrapper_chain: #wrapper_chain,
+                    normalize: <#ident as crate::differential::Normalize>::normalize,
                 };
             };
         });
     }
     out
+}
+
+/// Test-only `Normalize` impl: the type's value-level projection for the
+/// differential harness, stitched from the same constructs that shape the
+/// codec (adapters, presence markers, wrapper chains, oneof delegation).
+fn normalize_impl(
+    impl_generics: &syn::ImplGenerics,
+    ident: &syn::Ident,
+    ty_generics: &syn::TypeGenerics,
+    where_clause: Option<&syn::WhereClause>,
+    fragments: &[TokenStream],
+) -> TokenStream {
+    quote! {
+        #[cfg(feature = "_differential")]
+        impl #impl_generics crate::differential::Normalize for #ident #ty_generics #where_clause {
+            fn normalize(
+                message: &mut crate::differential::prost_reflect::DynamicMessage,
+            ) {
+                let _ = &message;
+                #(#fragments)*
+            }
+        }
+    }
 }
 
 pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
@@ -224,6 +237,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let mut merge_arms = Vec::new();
     let mut len_fragments = Vec::new();
     let mut clear_fragments = Vec::new();
+    let mut normalize_fragments = Vec::new();
     let mut asserts = TokenStream::new();
 
     for field in &plan.fields {
@@ -272,6 +286,9 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                 clear_fragments.push(quote! {
                     <#adapter as crate::codec::ProtoAdapter<_>>::clear_field(&mut self.#access);
                 });
+                normalize_fragments.push(quote! {
+                    <#adapter as crate::codec::ProtoAdapter<#ty>>::normalize_dynamic(message, #tag);
+                });
             }
             FieldCodec::OneofGroup { tags } => {
                 encode_fragments.push(quote! {
@@ -288,11 +305,21 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                 clear_fragments.push(quote! {
                     self.#access = ::core::default::Default::default();
                 });
+                normalize_fragments.push(quote! {
+                    <#ty as crate::differential::Normalize>::normalize(message);
+                });
             }
         }
     }
 
     let registrations = registrations(ident, proto_names);
+    let normalize = normalize_impl(
+        &impl_generics,
+        ident,
+        &ty_generics,
+        where_clause,
+        &normalize_fragments,
+    );
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
     quote! {
@@ -305,6 +332,8 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         };
 
         #registrations
+
+        #normalize
 
         impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
             fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
@@ -465,9 +494,20 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             }
         },
         EnumMode::Transparent { names, path } => {
-            let registrations = registrations_with(ident, names, &[], true);
+            let registrations = registrations(ident, names);
             quote! {
                 #registrations
+
+                // Zero, absent and present-but-empty carry no information
+                // at any depth of the wrapper chain.
+                #[cfg(feature = "_differential")]
+                impl crate::differential::Normalize for #ident {
+                    fn normalize(
+                        message: &mut crate::differential::prost_reflect::DynamicMessage,
+                    ) {
+                        crate::differential::wrapper_chain(message);
+                    }
+                }
 
                 // Transparent enums also ARE their outermost wrapper message,
                 // so they can stand for RPC messages in stub signatures.
@@ -593,7 +633,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let mut len_arms = Vec::new();
     let mut merge_arms = Vec::new();
     let mut asserts = TokenStream::new();
-    let mut bool_markers = Vec::new();
+    let mut normalize_fragments = Vec::new();
 
     for variant in &plan.variants {
         let var = &variant.ident;
@@ -638,6 +678,11 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 ));
             }
             OneofVariantShape::Adapter { ty, adapter } => {
+                normalize_fragments.push(quote! {
+                    <#adapter as crate::codec::ProtoAdapter<#ty>>::normalize_dynamic(
+                        message, #tag,
+                    );
+                });
                 // Oneof presence is significant: the member is always
                 // emitted; the adapter's is_default is not consulted.
                 encode_arms.push(quote! {
@@ -670,13 +715,11 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 });
             }
             OneofVariantShape::MarkerBool => {
-                let member = variant
-                    .proto_path
-                    .rsplit('.')
-                    .next()
-                    .expect("qualified member path")
-                    .to_owned();
-                bool_markers.push(member);
+                // Only the member's presence survives (an explicit `false`
+                // reads as set).
+                normalize_fragments.push(quote! {
+                    crate::differential::bool_marker(message, #tag);
+                });
                 encode_arms.push(quote! {
                     Self::#var => {
                         <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
@@ -829,12 +872,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     });
 
     let whole_message = plan.whole_message.then(|| {
-        let registrations = registrations_with(
-            ident,
-            std::slice::from_ref(&plan.proto_name),
-            &bool_markers,
-            false,
-        );
+        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
         quote! {
             #registrations
 
@@ -903,6 +941,18 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         }
     });
 
+    // Emitted for embedded oneofs too: the containing message's `Normalize`
+    // delegates to it (the members live on the parent's dynamic message).
+    let generics = syn::Generics::default();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let normalize = normalize_impl(
+        &impl_generics,
+        ident,
+        &ty_generics,
+        where_clause,
+        &normalize_fragments,
+    );
+
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
     quote! {
@@ -913,6 +963,8 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
             );
             #asserts
         };
+
+        #normalize
 
         impl crate::codec::ProtoOneof for #ident {
             fn encode_oneof(value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
@@ -1017,6 +1069,7 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let mut encode_arms = Vec::new();
     let mut len_arms = Vec::new();
     let mut merge_arms = Vec::new();
+    let mut normalize_fragments = Vec::new();
 
     for variant in &plan.variants {
         let var = &variant.ident;
@@ -1030,6 +1083,11 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         else {
             unreachable!("sibling-mode variants are always SiblingPayload");
         };
+        if let Some(adapter) = adapter {
+            normalize_fragments.push(quote! {
+                <#adapter as crate::codec::ProtoAdapter<#ty>>::normalize_dynamic(message, #tag);
+            });
+        }
         if adapter.is_none() {
             asserts.extend(field_asserts_for(
                 ty,
@@ -1146,6 +1204,15 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
     });
 
     let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
+    let generics = syn::Generics::default();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let normalize = normalize_impl(
+        &impl_generics,
+        ident,
+        &ty_generics,
+        where_clause,
+        &normalize_fragments,
+    );
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
     quote! {
@@ -1158,6 +1225,8 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         };
 
         #registrations
+
+        #normalize
 
         impl ::prost::Message for #ident {
             fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {

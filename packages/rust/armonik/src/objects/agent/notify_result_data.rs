@@ -140,6 +140,48 @@ impl prost::Message for Request {
 }
 
 #[cfg(feature = "_differential")]
+impl crate::differential::Normalize for Request {
+    /// The `ResultIdentifier` pairs are flattened into one shared session ID
+    /// (the first non-empty one) plus the result IDs: every pair's
+    /// `session_id` is equivalent to that shared one.
+    fn normalize(message: &mut crate::differential::prost_reflect::DynamicMessage) {
+        use crate::differential::prost_reflect::{ReflectMessage, Value};
+        let Some(ids) = message.descriptor().get_field(IDS_TAG) else {
+            return;
+        };
+        if !message.has_field(&ids) {
+            return;
+        }
+        let Value::List(mut entries) = message.get_field(&ids).into_owned() else {
+            return;
+        };
+        let session_id = entries
+            .iter()
+            .find_map(|entry| {
+                let Value::Message(pair) = entry else {
+                    return None;
+                };
+                let session = pair.descriptor().get_field(PAIR_SESSION_TAG)?;
+                match pair.get_field(&session).as_ref() {
+                    Value::String(session) if !session.is_empty() => Some(session.clone()),
+                    _ => None,
+                }
+            })
+            .unwrap_or_default();
+        for entry in &mut entries {
+            let Value::Message(pair) = entry else {
+                continue;
+            };
+            let Some(session) = pair.descriptor().get_field(PAIR_SESSION_TAG) else {
+                continue;
+            };
+            pair.set_field(&session, Value::String(session_id.clone()));
+        }
+        message.set_field(&ids, Value::List(entries));
+    }
+}
+
+#[cfg(feature = "_differential")]
 const _: () = {
     #[linkme::distributed_slice(crate::differential::REGISTRY)]
     static ENTRY: crate::differential::Entry = crate::differential::Entry {
@@ -150,8 +192,7 @@ const _: () = {
             ))
         },
         default_encoding: || prost::Message::encode_to_vec(&Request::default()),
-        bool_markers: &[],
-        wrapper_chain: false,
+        normalize: <Request as crate::differential::Normalize>::normalize,
     };
 };
 
