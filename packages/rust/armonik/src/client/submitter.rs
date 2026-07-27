@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use futures::{Stream, StreamExt};
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::submitter::{
     cancel_session, cancel_tasks, count_tasks, create_session, create_tasks,
     get_service_configuration, list_sessions, list_tasks, result_status, task_status,
@@ -17,10 +16,13 @@ use crate::{Configuration, Output, ResultStatus, TaskOptions, TaskRequest, TaskS
 
 use super::{GrpcCall, GrpcCallStream};
 
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::submitter::submitter_client as stub;
+
 #[derive(Clone)]
 #[deprecated]
 pub struct Submitter<T> {
-    inner: v3::submitter::submitter_client::SubmitterClient<T>,
+    inner: stub::SubmitterClient<T>,
 }
 
 #[allow(deprecated)]
@@ -34,7 +36,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::submitter::submitter_client::SubmitterClient::new(channel),
+            inner: stub::SubmitterClient::new(channel),
         }
     }
 

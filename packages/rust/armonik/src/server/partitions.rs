@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::v3;
 use crate::partitions;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::partitions::partitions_server as stub;
 
 super::define_trait_methods! {
     trait PartitionsService {
@@ -11,19 +14,19 @@ super::define_trait_methods! {
 }
 
 pub trait PartitionsServiceExt {
-    fn partitions_server(self) -> v3::partitions::partitions_server::PartitionsServer<Self>
+    fn partitions_server(self) -> stub::PartitionsServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: PartitionsService + Send + Sync + 'static> PartitionsServiceExt for T {
-    fn partitions_server(self) -> v3::partitions::partitions_server::PartitionsServer<Self> {
-        v3::partitions::partitions_server::PartitionsServer::new(self)
+    fn partitions_server(self) -> stub::PartitionsServer<Self> {
+        stub::PartitionsServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::partitions::partitions_server::Partitions) for PartitionsService {
+    impl (stub::Partitions) for PartitionsService {
         fn list_partitions(crate::partitions::list::Request) -> crate::partitions::list::Response { list }
         fn get_partition(crate::partitions::get::Request) -> crate::partitions::get::Response { get }
     }

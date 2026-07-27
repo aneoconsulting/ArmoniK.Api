@@ -1,14 +1,16 @@
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::worker::{health_check, process};
 use crate::Output;
 
 use super::GrpcCall;
 
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::worker::worker_client as stub;
+
 #[derive(Clone)]
 pub struct Worker<T> {
-    inner: v3::worker::worker_client::WorkerClient<T>,
+    inner: stub::WorkerClient<T>,
 }
 
 impl<T> Worker<T>
@@ -21,7 +23,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::worker::worker_client::WorkerClient::new(channel),
+            inner: stub::WorkerClient::new(channel),
         }
     }
 

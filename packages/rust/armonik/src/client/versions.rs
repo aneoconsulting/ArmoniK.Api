@@ -1,13 +1,15 @@
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::versions::list;
 
 use super::GrpcCall;
 
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::versions::versions_client as stub;
+
 #[derive(Clone)]
 pub struct Versions<T> {
-    inner: v3::versions::versions_client::VersionsClient<T>,
+    inner: stub::VersionsClient<T>,
 }
 
 impl<T> Versions<T>
@@ -20,7 +22,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::versions::versions_client::VersionsClient::new(channel),
+            inner: stub::VersionsClient::new(channel),
         }
     }
 

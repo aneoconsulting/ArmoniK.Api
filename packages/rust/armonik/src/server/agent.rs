@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use crate::agent;
-use crate::api::v3;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::agent::agent_server as stub;
 
 super::define_trait_methods! {
     trait AgentService {
@@ -47,19 +50,19 @@ super::define_trait_methods! {
 }
 
 pub trait AgentServiceExt {
-    fn agent_server(self) -> v3::agent::agent_server::AgentServer<Self>
+    fn agent_server(self) -> stub::AgentServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: AgentService + Send + Sync + 'static> AgentServiceExt for T {
-    fn agent_server(self) -> v3::agent::agent_server::AgentServer<Self> {
-        v3::agent::agent_server::AgentServer::new(self)
+    fn agent_server(self) -> stub::AgentServer<Self> {
+        stub::AgentServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::agent::agent_server::Agent) for AgentService {
+    impl (stub::Agent) for AgentService {
         fn create_results_meta_data(crate::agent::create_results_metadata::Request) -> crate::agent::create_results_metadata::Response { create_results_metadata }
         fn create_results(crate::agent::create_results::Request) -> crate::agent::create_results::Response { create_results }
         fn notify_result_data(crate::agent::notify_result_data::Request) -> crate::agent::notify_result_data::Response { notify_result_data }

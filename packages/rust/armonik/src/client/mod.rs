@@ -12,29 +12,29 @@ pub use armonik_transport::{
 };
 
 #[cfg(feature = "worker")]
-mod agent;
+pub mod agent;
 #[cfg(feature = "client")]
-mod applications;
+pub mod applications;
 #[cfg(feature = "client")]
-mod auth;
+pub mod auth;
 #[cfg(feature = "client")]
-mod events;
+pub mod events;
 #[cfg(feature = "client")]
-mod health_checks;
+pub mod health_checks;
 #[cfg(feature = "client")]
-mod partitions;
+pub mod partitions;
 #[cfg(feature = "client")]
-mod results;
+pub mod results;
 #[cfg(feature = "client")]
-mod sessions;
+pub mod sessions;
 #[cfg(feature = "client")]
-mod submitter;
+pub mod submitter;
 #[cfg(feature = "client")]
-mod tasks;
+pub mod tasks;
 #[cfg(feature = "client")]
-mod versions;
+pub mod versions;
 #[cfg(feature = "agent")]
-mod worker;
+pub mod worker;
 
 #[cfg(feature = "worker")]
 pub use agent::Agent;

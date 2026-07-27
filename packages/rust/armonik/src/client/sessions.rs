@@ -1,6 +1,5 @@
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::sessions::{
     cancel, close, create, delete, filter, get, list, pause, purge, resume, stop_submission, Raw,
     Sort,
@@ -11,9 +10,12 @@ use crate::TaskOptions;
 use super::GrpcCall;
 
 /// Service for handling sessions
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::sessions::sessions_client as stub;
+
 #[derive(Clone)]
 pub struct Sessions<T> {
-    inner: v3::sessions::sessions_client::SessionsClient<T>,
+    inner: stub::SessionsClient<T>,
 }
 
 impl<T> Sessions<T>
@@ -26,7 +28,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::sessions::sessions_client::SessionsClient::new(channel),
+            inner: stub::SessionsClient::new(channel),
         }
     }
 

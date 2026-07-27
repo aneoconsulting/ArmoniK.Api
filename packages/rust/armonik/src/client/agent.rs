@@ -5,16 +5,18 @@ use crate::agent::{
     create_results, create_results_metadata, create_tasks, get_common_data, get_direct_data,
     get_resource_data, notify_result_data, submit_tasks, ResultMetaData,
 };
-use crate::api::v3;
 use crate::utils::IntoCollection;
 use crate::TaskOptions;
 
 use super::{GrpcCall, GrpcCallStream};
 
 /// The ResultsService provides methods for interacting with results.
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::agent::agent_client as stub;
+
 #[derive(Clone)]
 pub struct Agent<T> {
-    inner: v3::agent::agent_client::AgentClient<T>,
+    inner: stub::AgentClient<T>,
 }
 
 impl<T> Agent<T>
@@ -27,7 +29,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::agent::agent_client::AgentClient::new(channel),
+            inner: stub::AgentClient::new(channel),
         }
     }
 

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::v3;
 use crate::tasks;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::tasks::tasks_server as stub;
 
 super::define_trait_methods! {
     trait TasksService {
@@ -29,19 +32,19 @@ super::define_trait_methods! {
 }
 
 pub trait TasksServiceExt {
-    fn tasks_server(self) -> v3::tasks::tasks_server::TasksServer<Self>
+    fn tasks_server(self) -> stub::TasksServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: TasksService + Send + Sync + 'static> TasksServiceExt for T {
-    fn tasks_server(self) -> v3::tasks::tasks_server::TasksServer<Self> {
-        v3::tasks::tasks_server::TasksServer::new(self)
+    fn tasks_server(self) -> stub::TasksServer<Self> {
+        stub::TasksServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::tasks::tasks_server::Tasks) for TasksService {
+    impl (stub::Tasks) for TasksService {
         fn list_tasks(crate::tasks::list::Request) -> crate::tasks::list::Response { list }
         fn list_tasks_detailed(crate::tasks::list::Request) -> crate::tasks::list_detailed::Response { list_detailed }
         fn get_task(crate::tasks::get::Request) -> crate::tasks::get::Response { get }

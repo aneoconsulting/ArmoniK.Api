@@ -1,14 +1,16 @@
 use snafu::ResultExt;
 
-use crate::api::v3;
 use crate::health_checks::check;
 
 use super::GrpcCall;
 
 /// Service for authentication management.
+/// The raw tonic client stub, speaking the armonik types natively.
+pub use crate::stubs::health_checks::health_checks_service_client as stub;
+
 #[derive(Clone)]
 pub struct HealthChecks<T> {
-    inner: v3::health_checks::health_checks_service_client::HealthChecksServiceClient<T>,
+    inner: stub::HealthChecksServiceClient<T>,
 }
 
 impl<T> HealthChecks<T>
@@ -21,9 +23,7 @@ where
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self {
-            inner: v3::health_checks::health_checks_service_client::HealthChecksServiceClient::new(
-                channel,
-            ),
+            inner: stub::HealthChecksServiceClient::new(channel),
         }
     }
 

@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use crate::api::v3;
 use crate::results;
+
+/// The raw tonic server stub — the service trait and the tower service
+/// wrapping an implementation of it — speaking the armonik types natively.
+pub use crate::stubs::results::results_server as stub;
 
 super::define_trait_methods! {
     trait ResultsService {
@@ -57,19 +60,19 @@ super::define_trait_methods! {
 }
 
 pub trait ResultsServiceExt {
-    fn results_server(self) -> v3::results::results_server::ResultsServer<Self>
+    fn results_server(self) -> stub::ResultsServer<Self>
     where
         Self: Sized;
 }
 
 impl<T: ResultsService + Send + Sync + 'static> ResultsServiceExt for T {
-    fn results_server(self) -> v3::results::results_server::ResultsServer<Self> {
-        v3::results::results_server::ResultsServer::new(self)
+    fn results_server(self) -> stub::ResultsServer<Self> {
+        stub::ResultsServer::new(self)
     }
 }
 
 super::impl_trait_methods! {
-    impl (v3::results::results_server::Results) for ResultsService {
+    impl (stub::Results) for ResultsService {
         fn list_results(crate::results::list::Request) -> crate::results::list::Response { list }
         fn get_result(crate::results::get::Request) -> crate::results::get::Response { get }
         fn get_owner_task_id(crate::results::get_owner_task_id::Request) -> crate::results::get_owner_task_id::Response { get_owner_task_id }

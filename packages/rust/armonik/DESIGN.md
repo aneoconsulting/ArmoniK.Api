@@ -74,10 +74,14 @@ not a supported public API.
 > using `Empty` are rewritten to distinct synthetic empty messages, each
 > extern'd to its API type (message type names never appear on the wire,
 > so wire-compatible signature rewrites are free). Combined with
-> `EXTERN_TYPES`, the generated module contains exactly the 12 client and
-> 12 server stubs and nothing else; the message-only packages produce no
-> file at all, and without the client/server features the module is not
-> even compiled (the crate then works as a pure-types dependency).
+> `EXTERN_TYPES`, the generated module (`crate::stubs`, private) contains
+> exactly the 12 client and 12 server stubs and nothing else; every
+> service's stub is re-exported as the public `stub` module of its
+> client/server module (`armonik::client::sessions::stub::SessionsClient`,
+> `armonik::server::sessions::stub::{Sessions, SessionsServer}`). The
+> message-only packages produce no file at all, and without the
+> client/server features the module is not even compiled (the crate then
+> works as a pure-types dependency).
 
 1. `protox` compiles `protos/V1/*.proto` → `FileDescriptorSet`
    (pure Rust; `protoc` no longer required; `cargo:rerun-if-changed` per
@@ -372,10 +376,11 @@ even though the branch lands as one unit:
 
 ## 6. Public API changes (breaking, accepted)
 
-- `armonik::api::v3` removed from the public API (goal of the revamp). The
-  module still exists as `pub(crate)` and contains exactly the tonic
-  client/server stubs (whose server types remain reachable through the
-  `*ServiceExt` traits) — every message is an armonik type (the five
+- `armonik::api::v3` removed entirely (goal of the revamp). What remains
+  of the generation is exactly the tonic client/server stubs, exposed per
+  service as `armonik::client::<service>::stub` and
+  `armonik::server::<service>::stub` — presentable as public API because
+  every message in their signatures is an armonik type (the five
   `Empty`-signature RPCs each speak their own wire-compatible `{}` type),
   and the leftovers are pruned from generation.
 - Rust types sharing one wire message stay distinct and convert at the
