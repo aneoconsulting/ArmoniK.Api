@@ -31,6 +31,25 @@ jobs:
       - name: Verify Versions
         run: nr verify-versions
 
+  check-symlinks:
+    name: Check symlinks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: The repository's symlinks must still be symlinks
+        run: |
+          # The script reports to stderr and answers with its exit status; the annotation is added here
+          # rather than by the script, so that the script stays useful to a contributor running it by hand
+          # as CONTRIBUTING.md suggests.
+          if ! ./scripts/check-symlinks.sh; then
+            echo "::error::a path that must be a symlink is not one; see the job log and the Windows section of CONTRIBUTING.md"
+            exit 1
+          fi
+
   format-csharp:
     name: Format C#
     runs-on: ubuntu-latest
