@@ -48,6 +48,7 @@ dependencies = [
 name = "armonik-transport"
 version = "3.29.2-beta-0"
 dependencies = [
+ "bytes",
  "humantime",
  "hyper",
  "hyper-rustls",
@@ -57,7 +58,9 @@ dependencies = [
  "serde_json",
  "serial_test",
  "snafu",
+ "tokio",
  "tonic",
+ "tower-service",
  "tracing",
 ]
 

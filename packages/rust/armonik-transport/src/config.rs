@@ -18,7 +18,7 @@ pub struct ClientConfig {
     pub cacert: Option<CertificateDer<'static>>,
     /// Override the endpoint name during SSL verification
     pub override_target: Option<Uri>,
-    /// Timeout for establishing a connection to the server, defaults to no timeout
+    /// Timeout for establishing a connection to the server, defaults to 60s
     pub connect_timeout: Option<Duration>,
     /// Timeout for each request, defaults to no timeout
     pub timeout: Option<Duration>,
@@ -287,8 +287,14 @@ impl ClientConfig {
             )
         };
 
+        // `None`, not `Some(60s)`, and deliberately: the field is documented as defaulting to no
+        // timeout, and until this release nothing applied it, so the 60s was never observable. Keeping
+        // it while starting to apply it would have imposed a one-minute deadline on every request of
+        // every existing caller — a silent behaviour change dressed up as a bug fix. `connect_timeout`
+        // above is the opposite case: its 60s has always been applied, so there the documentation is
+        // what was wrong.
         let timeout = if timeout.is_empty() {
-            Some(Duration::from_secs(60))
+            None
         } else {
             Some(
                 timeout
