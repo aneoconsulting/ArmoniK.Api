@@ -29,6 +29,18 @@ line-length = 100
 indent-width = 4
 
 [lint]
+# The rules to enforce, declared rather than left implicit.
+#
+# These four are exactly what ruff selected by default up to and including 0.15, and so the set this
+# project has been enforcing all along: `E4` import conventions, `E7`/`E9` pycodestyle errors, `F`
+# pyflakes. Ruff 0.16 widened its defaults, and because nothing here said otherwise, every pull request
+# went red without a line of Python changing. Naming the set makes the linter's behaviour a function of
+# this file instead of of whichever ruff version CI happened to install.
+#
+# Widening it is a deliberate decision rather than the side effect of a release: the rules 0.16 added by
+# default report 340 findings across `src/` and `tests/` as things stand.
+select = ["E4", "E7", "E9", "F"]
+
 # A list of file patterns to exclude from formatting and linting.
 exclude = ["*.pyi"]
 
@@ -36,6 +48,14 @@ exclude = ["*.pyi"]
 fixable = ["ALL"]
 
 [format]
+# What to format: this project's Python, and nothing else.
+#
+# Ruff 0.16 promoted Markdown formatting out of preview, so `ruff format .` started rewriting the code
+# blocks in `README.md` — a documentation file that has never been formatted by a Python formatter. Same
+# class of surprise as the rule selection above, and the same answer: say what is wanted rather than
+# inherit it.
+exclude = ["*.md"]
+
 # Like Black, indent with spaces, rather than tabs.
 indent-style = "space"
 
