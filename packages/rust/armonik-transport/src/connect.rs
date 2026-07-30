@@ -23,12 +23,21 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
     let http2_keep_alive_while_idle = config.http2_keep_alive_while_idle;
     let http2_max_header_list_size = config.http2_max_header_list_size;
     let user_agent = config.user_agent.clone();
+    let timeout = config.timeout;
+    let rate_limit = config.rate_limit;
 
     let https = https_connector(config).await?;
 
     let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
     if let Some(target) = override_target {
         transport_endpoint = transport_endpoint.origin(target);
+    }
+
+    if let Some(timeout) = timeout {
+        transport_endpoint = transport_endpoint.timeout(timeout);
+    }
+    if let Some((limit, duration)) = rate_limit {
+        transport_endpoint = transport_endpoint.rate_limit(limit, duration);
     }
 
     if let Some(interval) = http2_keep_alive_interval {
