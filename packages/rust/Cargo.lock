@@ -54,6 +54,8 @@ dependencies = [
  "hyper-util",
  "rustls",
  "serde",
+ "serde_json",
+ "serial_test",
  "snafu",
  "tonic",
  "tracing",
