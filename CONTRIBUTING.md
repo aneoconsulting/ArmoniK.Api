@@ -12,6 +12,48 @@ Hi! We are very happy that you are interested in contributing to ArmoniK.Api. Be
 4. Make sure you clearly define the changes in the description of the PR
 5. Make sure all tests pass
 
+## Building on Windows
+
+`packages/rust/armonik` reaches the shared `Protos` directory, `README.md` and `LICENSE` through symlinks.
+That is deliberate: it keeps one copy of each in the repository while letting `cargo package` vendor them
+into the published crate.
+
+Git only materialises a symlink when `core.symlinks` is enabled, and that is **not** the default on Windows.
+Creating one there needs `SeCreateSymbolicLinkPrivilege`, which is granted to administrators, or to ordinary
+users only when Developer Mode is on — so on a managed workstation, an unelevated account cannot do it at
+all. Git detects this when cloning and records `core.symlinks = false` in `.git/config`, after which each
+entry is checked out as an ordinary file containing its target, such as `../../../Protos`.
+
+The Rust crate then fails to build, because `protos/V1` is not a directory. Two ways forward:
+
+**Enable symlinks, if you can.** With Developer Mode on, or from an elevated shell:
+
+```sh
+git config --global core.symlinks true
+git config --unset core.symlinks   # drop the per-repository `false` recorded at clone time
+```
+
+then re-checkout the affected paths so Git creates the links:
+
+```sh
+git checkout -- packages/rust/armonik/protos packages/rust/armonik/README.md packages/rust/armonik/LICENSE
+```
+
+**Or work with a local copy.** Replace the placeholder file with a copy of what it points at:
+
+```sh
+rm packages/rust/armonik/protos
+cp -r Protos packages/rust/armonik/protos
+```
+
+If you do, **do not commit it**. A committed copy detaches the crate from the shared `Protos` and lets the
+two drift apart silently — and a crate packaged from such a checkout ships *no* protos at all, since
+`include = ["protos/**"]` finds nothing to match when `protos` is a file rather than a directory. CI refuses
+it: `scripts/check-symlinks.sh` runs on every pull request and fails if any of the three is no longer a
+symlink. You can run it yourself before pushing.
+
+Remember to restore the symlink, or to keep the copy out of your commits, when you are done.
+
 ## Release Process
 
 When necessary, maintainers can release a new version. This new version will publish packages to registries.
