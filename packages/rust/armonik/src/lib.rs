@@ -14,14 +14,13 @@ pub use objects::*;
 mod utils;
 
 pub mod reexports {
+    // Through `armonik-transport`, which owns these now, so that a downstream user of
+    // `armonik::reexports::rustls` cannot end up with a different `rustls` from the one the connection
+    // was actually built with.
     #[cfg(feature = "_gen-client")]
-    pub use hyper;
-    #[cfg(feature = "_gen-client")]
-    pub use hyper_rustls;
+    pub use armonik_transport::reexports::{hyper, hyper_rustls, rustls};
     pub use prost;
     pub use prost_types;
-    #[cfg(feature = "_gen-client")]
-    pub use rustls;
     #[cfg(feature = "serde")]
     pub use serde;
     #[cfg(feature = "_gen-server")]

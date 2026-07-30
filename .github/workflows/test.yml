@@ -59,13 +59,13 @@ jobs:
             env: {}
           - lang: Rust
             toolchain: stable
-            cmd: cargo test --locked
-            dir: rust/armonik
+            cmd: cargo test --locked --workspace
+            dir: rust
             env: {}
           - lang: Rust
             toolchain: nightly
-            cmd: cargo test --locked
-            dir: rust/armonik
+            cmd: cargo test --locked --workspace
+            dir: rust
             env: {}
         plateform:
           - os: ubuntu-latest

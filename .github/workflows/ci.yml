@@ -220,7 +220,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/rust/armonik
+        # The workspace root, so every `--workspace` below covers both members rather than just one.
+        working-directory: packages/rust
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -235,16 +236,16 @@ jobs:
           components: rust-src,rust-docs,rustfmt,clippy
       - name: Build
         run: |
-          cargo build --all --locked
+          cargo build --workspace --locked
       - name: Format
         run: |
           cargo fmt --all --check
       - name: Doc
         run: |
-          RUSTDOCFLAGS="-Dwarnings" cargo doc
+          RUSTDOCFLAGS="-Dwarnings" cargo doc --workspace --no-deps
       - name: Clippy
         run: |
-          cargo clippy --all --no-deps -- -Dwarnings -Dunused-crate-dependencies
+          cargo clippy --workspace --all-features --no-deps -- -Dwarnings -Dunused-crate-dependencies
 
   lint-js:
     name: Lint JS

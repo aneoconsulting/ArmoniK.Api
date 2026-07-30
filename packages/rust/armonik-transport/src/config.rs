@@ -132,7 +132,7 @@ pub struct ClientConfigArgs {
 }
 
 impl ClientConfigArgs {
-    pub fn from_env() -> Result<Self, super::ConfigError> {
+    pub fn from_env() -> Result<Self, ConfigError> {
         use crate::utils::{read_env, read_env_bool};
         let ctx = EnvSnafu {};
         Ok(Self {
