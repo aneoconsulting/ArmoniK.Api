@@ -104,3 +104,80 @@ impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A variable name of its own per test, so that a stray value cannot leak between them even though
+    /// they are serialised.
+    fn with_var<T>(name: &str, value: Option<&str>, body: impl FnOnce() -> T) -> T {
+        match value {
+            Some(value) => std::env::set_var(name, value),
+            None => std::env::remove_var(name),
+        }
+        let outcome = body();
+        std::env::remove_var(name);
+        outcome
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn every_accepted_spelling_is_accepted() {
+        // The vocabulary is wider than `true`/`false` and there is no other record of it: the list is the
+        // specification, so it is written out here rather than sampled.
+        for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
+            let read = with_var("ARMONIK_TEST_BOOL", Some(spelling), || {
+                read_env_bool("ARMONIK_TEST_BOOL")
+            });
+            assert!(read.expect(spelling), "`{spelling}` should read as true");
+        }
+
+        for spelling in ["0", "false", "no", "disable", "disallow", "forbid", ""] {
+            let read = with_var("ARMONIK_TEST_BOOL", Some(spelling), || {
+                read_env_bool("ARMONIK_TEST_BOOL")
+            });
+            assert!(!read.expect(spelling), "`{spelling}` should read as false");
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn an_unset_variable_reads_as_false() {
+        // Absent and empty are the same thing here, which is what lets every boolean option default to
+        // off without the caller having to set it.
+        let read = with_var("ARMONIK_TEST_BOOL", None, || {
+            read_env_bool("ARMONIK_TEST_BOOL")
+        });
+        assert!(!read.expect("an unset variable"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn an_unrecognised_value_is_reported_with_its_name_and_value() {
+        // The message has to carry both, or the reader is left guessing which of a dozen `GrpcClient__*`
+        // variables was the problem.
+        let read = with_var("ARMONIK_TEST_BOOL", Some("perhaps"), || {
+            read_env_bool("ARMONIK_TEST_BOOL")
+        });
+
+        let error = read.expect_err("`perhaps` is not a boolean");
+        let rendered = error.to_string();
+        assert!(rendered.contains("ARMONIK_TEST_BOOL"), "{rendered}");
+        assert!(rendered.contains("perhaps"), "{rendered}");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn reading_a_plain_string_passes_it_through_and_maps_absent_to_empty() {
+        let value = with_var("ARMONIK_TEST_STRING", Some(" spaced "), || {
+            read_env("ARMONIK_TEST_STRING")
+        });
+        assert_eq!(value.expect("set"), " spaced ", "no trimming, no rewriting");
+
+        let absent = with_var("ARMONIK_TEST_STRING", None, || {
+            read_env("ARMONIK_TEST_STRING")
+        });
+        assert_eq!(absent.expect("unset"), "", "absent reads as empty");
+    }
+}
