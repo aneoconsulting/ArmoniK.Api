@@ -29,10 +29,16 @@ hyper-rustls = { workspace = true, features = [
   "logging",
 ] }
 rustls = { workspace = true, features = ["ring", "logging", "std", "tls12"] }
+# `std` as well as `derive`: `default-features = false` drops it, and without it `String` implements
+# neither `Serialize` nor `Deserialize` — so the `serde` feature would not compile at all. It never did;
+# nothing built it, because CI's clippy pass did not enable any features.
 serde = { version = "1.0", features = [
   "derive",
+  "std",
 ], default-features = false, optional = true }
 humantime.workspace = true
+
+[dev-dependencies]
 # The boolean options are read straight from the environment, so testing which spellings they accept means
 # setting variables — process-global state, hence one test at a time.
 serial_test = "3.5"
