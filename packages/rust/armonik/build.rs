@@ -1,7 +1,7 @@
 /// The proto files to compile, relative to [`PROTO_ROOT`].
 ///
-/// A list rather than a glob, so that adding a proto stays a deliberate act — as it already was. The only
-/// change is that the `protos/V1/` prefix is no longer repeated forty times.
+/// A list rather than a glob, as it already was; the only change is that the `protos/V1/` prefix is no
+/// longer repeated forty times.
 const PROTO_FILES: &[&str] = &[
     "agent_common.proto",
     "agent_service.proto",
@@ -55,10 +55,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map(|file| format!("{PROTO_ROOT}/{file}"))
         .collect::<Vec<_>>();
 
-    // Without these, editing a `.proto` regenerates nothing. A build script that declares no dependencies
-    // gets cargo's fallback — watch the whole crate directory — and that only reaches the protos through
-    // the `protos` symlink, which cargo does not follow. So the generated code went stale silently, on
-    // every platform, until something unrelated happened to force a rebuild.
+    // With nothing declared, cargo watches the whole crate directory, so editing a test re-runs `protoc`
+    // over all forty protos. Declaring them replaces that fallback rather than adding to it, which is why
+    // this list now decides rebuilds as well as what gets compiled.
     for file in &proto_files {
         println!("cargo:rerun-if-changed={file}");
     }
