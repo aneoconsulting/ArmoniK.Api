@@ -11,6 +11,7 @@ impl_filter!(
     ]
 );
 
+#[armonik_macros::alias("armonik.api.grpc.v1.results.FilterStatus")]
 pub type Status = super::super::FilterStatus<ResultStatus>;
 
 #[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]

@@ -11,4 +11,5 @@ pub mod raw;
 pub use field::{Field, OtherField};
 pub use raw::Raw;
 
+#[armonik_macros::alias("armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort")]
 pub type Sort = super::SortMany<Field>;

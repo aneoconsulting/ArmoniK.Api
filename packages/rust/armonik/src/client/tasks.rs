@@ -170,7 +170,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .list_tasks_detailed(list::Request::from(request)),
+                    .list_tasks_detailed(request),
                 tracing::debug_span!("Tasks::list_detailed")
             );
             Ok(call

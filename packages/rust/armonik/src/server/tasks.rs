@@ -46,7 +46,7 @@ impl<T: TasksService + Send + Sync + 'static> TasksServiceExt for T {
 super::impl_trait_methods! {
     impl (stub::Tasks) for TasksService {
         fn list_tasks(crate::tasks::list::Request) -> crate::tasks::list::Response { list }
-        fn list_tasks_detailed(crate::tasks::list::Request) -> crate::tasks::list_detailed::Response { list_detailed }
+        fn list_tasks_detailed(crate::tasks::list_detailed::Request) -> crate::tasks::list_detailed::Response { list_detailed }
         fn get_task(crate::tasks::get::Request) -> crate::tasks::get::Response { get }
         fn cancel_tasks(crate::tasks::cancel::Request) -> crate::tasks::cancel::Response { cancel }
         fn get_result_ids(crate::tasks::get_result_ids::Request) -> crate::tasks::get_result_ids::Response { get_result_ids }

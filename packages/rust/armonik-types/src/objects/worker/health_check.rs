@@ -1,6 +1,12 @@
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.Empty")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.worker.HealthCheckRequest",
+    service = "Worker",
+    method = "HealthCheck",
+    input,
+))]
 pub struct Request {}
 
 /// Health status of the worker, standing for the whole `HealthCheckReply`

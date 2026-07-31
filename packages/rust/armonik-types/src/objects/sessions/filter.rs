@@ -14,6 +14,7 @@ impl_filter!(
     ]
 );
 
+#[armonik_macros::alias("armonik.api.grpc.v1.sessions.FilterStatus")]
 pub type Status = super::super::FilterStatus<SessionStatus>;
 
 #[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]

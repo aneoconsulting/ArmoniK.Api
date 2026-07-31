@@ -192,48 +192,14 @@ fn field_information_ratchet() {
     }
 }
 
-/// Messages that never get their own Rust type: they are flattened into
-/// their parent's representation (wrappers, pair entries) and are covered
-/// through the parent's round-trips.
+/// Messages of RPCs the crate does not expose. Unlike the many messages that
+/// are *flattened into a parent type* — which now self-register as absorbed
+/// through `wire::absorbed()` (a `with` adapter's `absorbs`, a transparent
+/// chain's middles, an inline struct variant) — these are not absorbed by any
+/// type, so they are tracked here.
 const PERMANENT_UNMAPPED: &[&str] = &[
-    // Inlined into the `Output::Error` struct variant.
-    "armonik.api.grpc.v1.Output.Error",
-    // Inlined into the `agent::create_tasks::Status::TaskInfo` variant.
-    "armonik.api.grpc.v1.agent.CreateTaskReply.TaskInfo",
-    // Flattened into `agent::create_tasks::Response::Status.statuses`.
-    "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatusList",
-    // Middles of enum wrapper chains; the chain roots register themselves
-    // as the transparent enums standing for them.
-    "armonik.api.grpc.v1.applications.ApplicationRawField",
-    "armonik.api.grpc.v1.partitions.PartitionRawField",
-    "armonik.api.grpc.v1.results.ResultRawField",
-    // String wrappers flattened into the fields' `*Generic(String)` variants.
-    "armonik.api.grpc.v1.sessions.TaskOptionGenericField",
-    "armonik.api.grpc.v1.tasks.TaskOptionGenericField",
-    // Pair entries flattened into the `task_results` map.
-    "armonik.api.grpc.v1.tasks.GetResultIdsResponse.MapTaskResult",
-    // Pair entries flattened into the `result_task` and `results` maps.
-    "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse.MapResultTask",
-    "armonik.api.grpc.v1.results.ImportResultsDataRequest.ResultOpaqueId",
-    // Inlined into the `upload::Request::Identifier` struct variant.
-    "armonik.api.grpc.v1.results.UploadResultDataRequest.ResultIdentifier",
-    // The WatchResults RPC is not exposed by the crate.
     "armonik.api.grpc.v1.results.WatchResultRequest",
     "armonik.api.grpc.v1.results.WatchResultResponse",
-    // Pair entries flattened into the shared session ID and result IDs.
-    "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier",
-    // Inlined into the `submitter::create_tasks::Status::TaskInfo` variant.
-    "armonik.api.grpc.v1.submitter.CreateTaskReply.TaskInfo",
-    // Flattened into `submitter::create_tasks::Response::Status`.
-    "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatusList",
-    // Flattened into the filter variants through `VecWrapper`.
-    "armonik.api.grpc.v1.submitter.TaskFilter.IdsRequest",
-    "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest",
-    "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest",
-    // Pair entries flattened into the `statuses` maps.
-    "armonik.api.grpc.v1.submitter.GetTaskStatusReply.IdStatus",
-    "armonik.api.grpc.v1.submitter.GetResultStatusReply.IdStatus",
-    // Not exposed by the crate.
     "armonik.api.grpc.v1.submitter.SessionList",
     "armonik.api.grpc.v1.submitter.WatchResultRequest",
     "armonik.api.grpc.v1.submitter.WatchResultStream",
@@ -248,6 +214,8 @@ const TEMP_UNMAPPED: &[&str] = &[];
 fn descriptor_coverage_ratchet() {
     let pool = pool();
     let registered: Vec<&str> = registry::entries().map(|entry| entry.proto).collect();
+    // Messages flattened into a parent type, harvested from the annotations.
+    let absorbed = armonik_types::wire::absorbed();
 
     let mut missing = Vec::new();
     for message in pool.all_messages() {
@@ -256,6 +224,7 @@ fn descriptor_coverage_ratchet() {
             continue;
         }
         if registered.contains(&name)
+            || absorbed.contains(&name)
             || PERMANENT_UNMAPPED.contains(&name)
             || TEMP_UNMAPPED.contains(&name)
         {
@@ -269,6 +238,27 @@ fn descriptor_coverage_ratchet() {
         "messages neither mapped nor tracked; add them to the registry or TEMP_UNMAPPED:\n    \"{}\"",
         missing.join("\",\n    \"")
     );
+
+    // A message with a Rust type cannot also be absorbed (an `absorbs`
+    // pointed at a real type).
+    let conflicts: Vec<&str> = absorbed
+        .iter()
+        .copied()
+        .filter(|name| registered.contains(name))
+        .collect();
+    assert!(
+        conflicts.is_empty(),
+        "these messages are both registered and absorbed:\n    {conflicts:?}"
+    );
+
+    // Every absorbed name must exist (a flattened message that was renamed or
+    // removed leaves a stale `absorbs`).
+    for name in &absorbed {
+        assert!(
+            pool.get_message_by_name(name).is_some(),
+            "absorbed entry `{name}` does not exist in the descriptor"
+        );
+    }
 
     // Ratchet: entries must leave TEMP_UNMAPPED when they become mapped,
     // and every tracked name must actually exist.

@@ -1,28 +1,18 @@
-/// Request for retrieving a task output, standing for the
-/// `TaskOutputRequest` message the stubs use.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Request for retrieving a task output; stands in for the
+/// `TaskOutputRequest` message at the Submitter.TryGetTaskOutput RPC.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.TaskOutputRequest")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.submitter.TryGetTaskOutputRequest",
+    service = "Submitter",
+    method = "TryGetTaskOutput",
+    input,
+))]
 pub struct Request {
+    #[armonik(rename = "session")]
     pub session_id: String,
     pub task_id: String,
-}
-
-impl From<Request> for crate::TaskOutputRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            session_id: value.session_id,
-            task_id: value.task_id,
-        }
-    }
-}
-
-impl From<crate::TaskOutputRequest> for Request {
-    fn from(value: crate::TaskOutputRequest) -> Self {
-        Self {
-            session_id: value.session_id,
-            task_id: value.task_id,
-        }
-    }
 }
 
 pub type Response = super::super::Output;

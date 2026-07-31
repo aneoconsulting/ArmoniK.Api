@@ -1,30 +1,20 @@
 use super::super::{DataChunk, TaskError};
 
-/// Request for retrieving a result, standing for the `ResultRequest`
-/// message the stubs use.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Request for retrieving a result; stands in for the `ResultRequest` message
+/// at the Submitter.TryGetResultStream RPC.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.ResultRequest")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.submitter.TryGetResultStreamRequest",
+    service = "Submitter",
+    method = "TryGetResultStream",
+    input,
+))]
 pub struct Request {
+    #[armonik(rename = "session")]
     pub session_id: String,
     pub result_id: String,
-}
-
-impl From<Request> for crate::ResultRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            session_id: value.session_id,
-            result_id: value.result_id,
-        }
-    }
-}
-
-impl From<crate::ResultRequest> for Request {
-    fn from(value: crate::ResultRequest) -> Self {
-        Self {
-            session_id: value.session_id,
-            result_id: value.result_id,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]

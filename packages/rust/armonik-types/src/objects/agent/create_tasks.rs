@@ -76,7 +76,10 @@ pub enum Response {
     #[armonik(rename = "creation_status_list")]
     Status {
         communication_token: String,
-        #[armonik(with = "crate::codec::adapters::VecWrapper<1>")]
+        #[armonik(
+            with = "crate::codec::adapters::VecWrapper<1>",
+            absorbs = "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatusList"
+        )]
         statuses: Vec<Status>,
     },
     Error {

@@ -1,43 +1,30 @@
-/// Request for listing tasks, standing for the `TaskFilter` message the
-/// stubs use.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Request for listing tasks; stands in for the `TaskFilter` message at the
+/// Submitter.ListTasks RPC.
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(transparent)]
+#[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.submitter.ListTasksRequest",
+    service = "Submitter",
+    method = "ListTasks",
+    input,
+))]
 pub struct Request {
     pub filter: super::TaskFilter,
 }
 
-impl From<Request> for super::TaskFilter {
-    fn from(value: Request) -> Self {
-        value.filter
-    }
-}
-
-impl From<super::TaskFilter> for Request {
-    fn from(value: super::TaskFilter) -> Self {
-        Self { filter: value }
-    }
-}
-
-/// Response for listing tasks, standing for the `TaskIdList` message the
-/// stubs use.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Response for listing tasks; stands in for the `TaskIdList` message at the
+/// Submitter.ListTasks RPC.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.TaskIdList")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.submitter.ListTasksResponse",
+    service = "Submitter",
+    method = "ListTasks",
+    output,
+))]
 pub struct Response {
     pub task_ids: Vec<String>,
-}
-
-impl From<Response> for crate::TaskIdList {
-    fn from(value: Response) -> Self {
-        Self {
-            task_ids: value.task_ids,
-        }
-    }
-}
-
-impl From<crate::TaskIdList> for Response {
-    fn from(value: crate::TaskIdList) -> Self {
-        Self {
-            task_ids: value.task_ids,
-        }
-    }
 }

@@ -23,4 +23,5 @@ pub use output::Output;
 pub use raw::{Raw, Raw as Task};
 pub use summary::Summary;
 
+#[armonik_macros::alias("armonik.api.grpc.v1.tasks.ListTasksRequest.Sort")]
 pub type Sort = super::Sort<Field>;

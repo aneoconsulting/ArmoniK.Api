@@ -4,11 +4,18 @@ use super::{filter, Raw, Sort};
 ///
 /// Use pagination, filtering and sorting.
 ///
-/// Shares its wire form with [`super::list::Request`], which the client
-/// and server stubs use for both RPCs; this type only exists so that the
-/// two calls stay distinguishable.
-#[derive(Debug, Clone, Default, PartialEq)]
+/// Shares its wire form (`ListTasksRequest`) with [`super::list::Request`];
+/// the build script gives this RPC a distinct synthetic stub message so the
+/// two calls stay fully distinct types.
+#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksRequest")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.tasks.ListTasksDetailedRequest",
+    service = "Tasks",
+    method = "ListTasksDetailed",
+    input,
+))]
 pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,
@@ -22,30 +29,6 @@ pub struct Request {
     pub sort: Sort,
     /// Request error message in case of error in task.
     pub with_errors: bool,
-}
-
-impl From<Request> for super::list::Request {
-    fn from(value: Request) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters,
-            sort: value.sort,
-            with_errors: value.with_errors,
-        }
-    }
-}
-
-impl From<super::list::Request> for Request {
-    fn from(value: super::list::Request) -> Self {
-        Self {
-            page: value.page,
-            page_size: value.page_size,
-            filters: value.filters,
-            sort: value.sort,
-            with_errors: value.with_errors,
-        }
-    }
 }
 
 /// Response to list tasks.

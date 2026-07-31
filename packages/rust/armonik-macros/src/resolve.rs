@@ -16,10 +16,18 @@ pub(crate) struct MessagePlan {
     pub(crate) ident: syn::Ident,
     /// Full proto names the type stands for (several for unified types).
     pub(crate) proto_names: Vec<String>,
-    /// Fields sorted by tag (canonical encode order).
+    /// Fields sorted by tag (canonical encode order). In `transparent` mode
+    /// this holds exactly the single delegate field.
     pub(crate) fields: Vec<FieldPlan>,
     pub(crate) generics: syn::Generics,
     pub(crate) fingerprint: u128,
+    /// `#[armonik(transparent)]` on a struct: the type delegates its whole
+    /// `prost::Message` impl to its single field.
+    pub(crate) transparent: bool,
+    /// `#[armonik(replace(...))]`: the type stands in for its message at one
+    /// RPC site. Registers a `REPLACE_MAP` entry instead of the plain
+    /// extern-map entry.
+    pub(crate) replace: Option<crate::attrs::ReplaceSpec>,
 }
 
 pub(crate) enum FieldAccess {
@@ -88,11 +96,23 @@ pub(crate) fn message_plan(
 
     let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut generic = false;
+    let mut transparent = false;
+    let mut replace: Option<crate::attrs::ReplaceSpec> = None;
     for entry in &entries {
         match &entry.item {
             AttrItem::Message(lit) => proto_names.push((entry.span, lit.value())),
             AttrItem::Generic => generic = true,
-            AttrItem::Oneof(_) | AttrItem::Transparent => {
+            AttrItem::Transparent => transparent = true,
+            AttrItem::Replace(spec) => {
+                if replace.replace(spec.clone()).is_some() {
+                    errors.push(syn::Error::new(
+                        entry.span,
+                        "a type stands in for a single RPC site: at most one \
+                         #[armonik(replace(...))]",
+                    ));
+                }
+            }
+            AttrItem::Oneof(_) => {
                 errors.push(syn::Error::new(
                     entry.span,
                     "this armonik attribute mode is not valid here",
@@ -113,7 +133,17 @@ pub(crate) fn message_plan(
             ));
             return Err(errors);
         }
+        if replace.is_some() {
+            errors.push(syn::Error::new(
+                input.ident.span(),
+                "#[armonik(generic)] types cannot also be #[armonik(replace(...))]",
+            ));
+            return Err(errors);
+        }
         return generic_plan(input, index, errors);
+    }
+    if transparent {
+        return transparent_plan(input, index, proto_names, replace, errors);
     }
     if proto_names.is_empty() {
         errors.push(syn::Error::new(
@@ -201,6 +231,8 @@ pub(crate) fn message_plan(
                         format!("invalid adapter type in with = ...: {err}"),
                     )),
                 },
+                // Collected separately in `expand::collect_absorbs`.
+                AttrItem::Absorbs(_) => {}
                 _ => errors.push(syn::Error::new(
                     entry.span,
                     "this armonik attribute is not valid on a message field",
@@ -403,6 +435,83 @@ pub(crate) fn message_plan(
         fields,
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
+        transparent: false,
+        replace,
+    })
+}
+
+/// Plan for a `#[armonik(transparent)]` struct: a single-field newtype that
+/// delegates its whole `prost::Message` impl to the field, so it is
+/// wire-identical to the inner message. The field is not matched against the
+/// descriptor (the inner type already validates itself); only the named proto
+/// message is checked to exist, and it is used for registration.
+fn transparent_plan(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+    proto_names: Vec<(Span, String)>,
+    replace: Option<crate::attrs::ReplaceSpec>,
+    mut errors: Errors,
+) -> Result<MessagePlan, Errors> {
+    if !input.generics.params.is_empty() {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "#[armonik(transparent)] structs cannot be generic",
+        ));
+    }
+    if proto_names.len() != 1 {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "#[armonik(transparent)] structs need exactly one \
+             #[armonik(message = \"full.proto.Name\")]",
+        ));
+    }
+    for (span, name) in &proto_names {
+        if !index.messages.contains_key(name) {
+            errors.push(syn::Error::new(
+                *span,
+                format!("proto message `{name}` not found in the compiled descriptor set"),
+            ));
+        }
+    }
+    let syn::Data::Struct(data) = &input.data else {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "#[armonik(transparent)] expects a struct",
+        ));
+        return Err(errors);
+    };
+    if data.fields.len() != 1 {
+        errors.push(syn::Error::new(
+            input.ident.span(),
+            "#[armonik(transparent)] structs must have exactly one field, delegated to",
+        ));
+        return Err(errors);
+    }
+    let field = data.fields.iter().next().expect("one field");
+    let access = match &field.ident {
+        Some(ident) => FieldAccess::Named(ident.clone()),
+        None => FieldAccess::Indexed(syn::Index::from(0usize)),
+    };
+    let delegate = FieldPlan {
+        access,
+        ty: field.ty.clone(),
+        span: field.ty.span(),
+        tag: 0,
+        codec: FieldCodec::Plain,
+        checks: FieldChecks::none(),
+        proto_path: String::new(),
+    };
+
+    errors.into_result()?;
+
+    Ok(MessagePlan {
+        ident: input.ident.clone(),
+        proto_names: proto_names.into_iter().map(|(_, name)| name).collect(),
+        fields: vec![delegate],
+        generics: input.generics.clone(),
+        fingerprint: index.fingerprint,
+        transparent: true,
+        replace,
     })
 }
 
@@ -502,6 +611,8 @@ fn generic_plan(
         fields,
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
+        transparent: false,
+        replace: None,
     })
 }
 
@@ -586,6 +697,9 @@ pub(crate) struct EnumPlan {
     pub(crate) has_std_default: bool,
     pub(crate) mode: EnumMode,
     pub(crate) fingerprint: u128,
+    /// Intermediate wrapper messages the transparent chain flattens away, so
+    /// they have no Rust type of their own (see [`crate::codegen`]).
+    pub(crate) absorbs: Vec<String>,
 }
 
 pub(crate) enum EnumMode {
@@ -626,6 +740,9 @@ pub(crate) fn enum_plan(
     // Resolve the proto enum(s) the variants are matched against, and the
     // wrapper tag in transparent mode.
     let mut proto_enums: Vec<(String, &crate::descriptor::EnumMeta)> = Vec::new();
+    // Intermediate wrapper messages walked through in transparent mode: they
+    // have no Rust type, so they are registered as absorbed.
+    let mut absorbs: Vec<String> = Vec::new();
     let mode = if transparent {
         if message_names.is_empty() {
             errors.push(syn::Error::new(
@@ -660,7 +777,12 @@ pub(crate) fn enum_plan(
                 path.push(field.tag);
                 match &field.kind {
                     FieldKind::Enum(inner) => break Some(inner.clone()),
-                    FieldKind::Message(inner) => current = inner.clone(),
+                    FieldKind::Message(inner) => {
+                        // A wrapper layer between the root message and the
+                        // enum: no Rust type stands for it.
+                        absorbs.push(inner.clone());
+                        current = inner.clone();
+                    }
                     other => {
                         errors.push(syn::Error::new(
                             *span,
@@ -880,6 +1002,7 @@ pub(crate) fn enum_plan(
         has_std_default,
         mode,
         fingerprint: index.fingerprint,
+        absorbs,
     })
 }
 
@@ -935,6 +1058,9 @@ pub(crate) struct OneofPlan {
     /// fields when there are siblings.
     pub(crate) default_variant: Option<syn::Ident>,
     pub(crate) fingerprint: u128,
+    /// Messages inlined into struct variants (their fields are spread into the
+    /// variant), so they have no Rust type of their own.
+    pub(crate) absorbs: Vec<String>,
 }
 
 /// A non-oneof field of a whole-message enum, present in every variant
@@ -1035,6 +1161,8 @@ fn sibling_variant_fields(
                         failed = true;
                     }
                 },
+                // Collected separately in `expand::collect_absorbs`.
+                AttrItem::Absorbs(_) => {}
                 _ => {
                     errors.push(syn::Error::new(
                         entry.span,
@@ -1252,6 +1380,8 @@ pub(crate) fn oneof_plan(
     let mut variants = Vec::new();
     let mut default_variant: Option<syn::Ident> = None;
     let mut covered = vec![false; oneof.fields.len()];
+    // Messages inlined into struct variants: no Rust type stands for them.
+    let mut absorbs: Vec<String> = Vec::new();
     for variant in &data.variants {
         let span = variant.ident.span();
         let variant_entries = match attrs::parse(&variant.attrs) {
@@ -1275,6 +1405,8 @@ pub(crate) fn oneof_plan(
                         format!("invalid adapter type in with = ...: {err}"),
                     )),
                 },
+                // Collected separately in `expand::collect_absorbs`.
+                AttrItem::Absorbs(_) => {}
                 _ => errors.push(syn::Error::new(
                     entry.span,
                     "this armonik attribute is not valid on a oneof variant",
@@ -1558,6 +1690,7 @@ pub(crate) fn oneof_plan(
                         }
                     }
                     parts.sort_by_key(|part| part.tag);
+                    absorbs.push(inner_name.clone());
                     OneofVariantShape::Inline { parts }
                 }
                 _ => {
@@ -1621,6 +1754,7 @@ pub(crate) fn oneof_plan(
         variants,
         default_variant,
         fingerprint: index.fingerprint,
+        absorbs,
     })
 }
 
