@@ -17,23 +17,16 @@ export const javaPattern = /<version>(?<version>.*)<\/version>/
 export const javaFiles = ['packages/java/pom.xml', 'packages/java/armonik-client-api/pom.xml', 'packages/java/armonik-worker-api/pom.xml']
 
 export const rustPattern = /^version\s*=\s*"(?<version>.*?)(?:-beta-\d+)?"$/m
-// The Rust crates form a Cargo workspace and take their version from `[workspace.package]`; each member
-// declares `version.workspace = true` and so carries no version of its own. Pointing this at a member
-// instead would silently match nothing, leaving `update-versions` to skip Rust entirely and
-// `verify-versions` with one fewer version to compare — a release that looks clean with a stale crate
-// version.
+// The crates take their version from `[workspace.package]` and carry none of their own, so pointing
+// this at a member would match nothing and skip Rust without saying so.
 export const rustFiles = ['packages/rust/Cargo.toml']
 
-// `armonik` depends on `armonik-transport` by path *and* by version, because a path dependency cannot be
-// published: `cargo publish` rewrites it into that version requirement, so it has to name the version
-// being released or the published crate points at the wrong one.
-//
-// Matched through lookaround, so only the version text is replaced: anchoring on the dependency name is
-// what keeps this from touching any of the third-party versions in the same file, and replacing just the
-// version keeps the rest of the dependency spec (`optional`, features, ...) out of the script entirely.
-// It lives in a different file from `rustFiles` on purpose — `verify-versions` keys its findings by
-// file, so a second pattern on `packages/rust/Cargo.toml` would silently overwrite the first instead of
-// checking both.
+// The workspace declares `armonik-transport` by version as well as by path, because a path dependency
+// cannot be published. Anchored on the dependency name so it cannot reach the third-party versions
+// beside it, and matched through lookaround so only the version text is replaced.
 export const rustDependencyPattern
-  = /(?<=^armonik-transport = \{ path = "\.\.\/armonik-transport", version = ")(?<version>.*?)(?:-beta-\d+)?(?=")/m
-export const rustDependencyFiles = ['packages/rust/armonik/Cargo.toml']
+  = /(?<=^armonik-transport = \{ path = "armonik-transport", version = ")(?<version>.*?)(?:-beta-\d+)?(?=")/m
+export const rustDependencyFiles = ['packages/rust/Cargo.toml']
+// Same file as `rustFiles`, so `verify-versions` has to key it separately: its map is keyed by file, and
+// a second entry for that path would overwrite the first instead of being compared with it.
+export const rustDependencyKey = 'packages/rust/Cargo.toml [armonik-transport]'

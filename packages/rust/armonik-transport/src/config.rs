@@ -705,9 +705,8 @@ mod tests {
 
     #[test]
     fn half_an_identity_is_rejected_and_names_both_variables() {
-        // A certificate without its key, or a key without its certificate, is the mistake worth catching
-        // early: it is silent on a plain-TLS endpoint and only shows up as a rejected handshake on an mTLS
-        // one. Neither path is read from disk before the check, so this needs no fixture.
+        // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
+        // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
         for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
             let error = ClientConfig::from_config_args(ClientConfigArgs {
                 cert_pem: String::from(cert),
@@ -820,9 +819,8 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
-        // `ClientConfigArgs` is the serialisable half of the pair, and every field but the endpoint carries
-        // `serde(default)` so that a configuration file need only name what it changes. Worth pinning: the
-        // feature is off by default, so nothing else here would notice it breaking.
+        // Every field but the endpoint carries `serde(default)`, so a configuration file need only name
+        // what it changes. The feature is off by default, so nothing else here would notice it breaking.
         let deserialised: ClientConfigArgs =
             serde_json::from_str(r#"{"endpoint":"http://localhost:5001","timeout":"30s"}"#)
                 .expect("absent fields should default");
