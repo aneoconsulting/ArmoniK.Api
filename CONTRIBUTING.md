@@ -18,28 +18,34 @@ Hi! We are very happy that you are interested in contributing to ArmoniK.Api. Be
 That is deliberate: it keeps one copy of each in the repository while letting `cargo package` vendor them
 into the published crate.
 
-Git only materialises a symlink when `core.symlinks` is enabled, and that is **not** the default on Windows.
-Creating one there needs `SeCreateSymbolicLinkPrivilege`, which is granted to administrators, or to ordinary
-users only when Developer Mode is on — so on a managed workstation, an unelevated account cannot do it at
-all. Git detects this when cloning and records `core.symlinks = false` in `.git/config`, after which each
-entry is checked out as an ordinary file containing its target, such as `../../../Protos`.
+Creating a symlink on Windows normally requires `SeCreateSymbolicLinkPrivilege`, which an ordinary
+unelevated account does not hold. Git checks for this while cloning and, finding it absent, records
+`core.symlinks = false` in the repository's own `.git/config` — after which each entry is checked out as an
+ordinary file containing its target, such as the fifteen bytes `../../../Protos`.
 
-The Rust crate then fails to build, because `protos/V1` is not a directory. Two ways forward:
+The Rust crate then fails to build, because `protos/V1` is not a directory.
 
-**Enable symlinks, if you can.** With Developer Mode on, or from an elevated shell:
-
-```sh
-git config --global core.symlinks true
-git config --unset core.symlinks   # drop the per-repository `false` recorded at clone time
-```
-
-then re-checkout the affected paths so Git creates the links:
+**Enable symlinks.** Turn on Developer Mode (Settings → System → For developers). No elevation is needed,
+now or later: Developer Mode does not grant the privilege, it allows `CreateSymbolicLink` to accept a flag
+that waives the check, and Git passes that flag. Then:
 
 ```sh
+git config --unset core.symlinks   # the per-repository `false`, recorded at clone time
+git config --global --get core.symlinks   # if this prints nothing, add: git config --global core.symlinks true
+rm packages/rust/armonik/protos packages/rust/armonik/README.md packages/rust/armonik/LICENSE
 git checkout -- packages/rust/armonik/protos packages/rust/armonik/README.md packages/rust/armonik/LICENSE
 ```
 
-**Or work with a local copy.** Replace the placeholder file with a copy of what it points at:
+The `--unset` is the step that is easy to miss and the one that matters: a repository-local `false` beats a
+global `true`, so setting the global alone appears to do nothing at all.
+
+Note that Developer Mode only helps programs that pass the flag. Git does; some others do not — PowerShell
+5.1's `New-Item -ItemType SymbolicLink`, for instance, still fails with "Administrator privilege required".
+That is a limitation of those tools, not a sign that Developer Mode is off.
+
+**Or, if you cannot enable it,** work with a local copy instead.
+
+Replace the placeholder file with a copy of what it points at:
 
 ```sh
 rm packages/rust/armonik/protos
