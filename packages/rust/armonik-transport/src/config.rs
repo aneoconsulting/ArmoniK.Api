@@ -287,12 +287,9 @@ impl ClientConfig {
             )
         };
 
-        // `None`, not `Some(60s)`, and deliberately: the field is documented as defaulting to no
-        // timeout, and until this release nothing applied it, so the 60s was never observable. Keeping
-        // it while starting to apply it would have imposed a one-minute deadline on every request of
-        // every existing caller — a silent behaviour change dressed up as a bug fix. `connect_timeout`
-        // above is the opposite case: its 60s has always been applied, so there the documentation is
-        // what was wrong.
+        // `None`, not `Some(60s)`: nothing applied this until now, so the 60s was never observable, and
+        // keeping it while starting to apply it would deadline every existing caller's requests at one
+        // minute. `connect_timeout` above is the opposite case, its 60s having always been applied.
         let timeout = if timeout.is_empty() {
             None
         } else {
