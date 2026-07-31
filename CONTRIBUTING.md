@@ -12,6 +12,54 @@ Hi! We are very happy that you are interested in contributing to ArmoniK.Api. Be
 4. Make sure you clearly define the changes in the description of the PR
 5. Make sure all tests pass
 
+## Building on Windows
+
+`packages/rust/armonik` reaches the shared `Protos` directory, `README.md` and `LICENSE` through symlinks.
+That is deliberate: it keeps one copy of each in the repository while letting `cargo package` vendor them
+into the published crate.
+
+Creating a symlink on Windows normally requires `SeCreateSymbolicLinkPrivilege`, which an ordinary
+unelevated account does not hold. Git checks for this while cloning and, finding it absent, records
+`core.symlinks = false` in the repository's own `.git/config`, after which each entry is checked out as an
+ordinary file containing its target, such as the fifteen bytes `../../../Protos`.
+
+The Rust crate then fails to build, because `protos/V1` is not a directory.
+
+**Enable symlinks.** Turn on Developer Mode (Settings > System > For developers). No elevation is needed,
+now or later: Developer Mode does not grant the privilege, it allows `CreateSymbolicLink` to accept a flag
+that waives the check, and Git passes that flag. Then:
+
+```sh
+git config --unset core.symlinks   # the per-repository `false`, recorded at clone time
+git config --global --get core.symlinks   # if this prints nothing, add: git config --global core.symlinks true
+rm packages/rust/armonik/protos packages/rust/armonik/README.md packages/rust/armonik/LICENSE
+git checkout -- packages/rust/armonik/protos packages/rust/armonik/README.md packages/rust/armonik/LICENSE
+```
+
+The `--unset` is the step that is easy to miss and the one that matters: a repository-local `false` beats a
+global `true`, so setting the global alone appears to do nothing at all.
+
+Note that Developer Mode only helps programs that pass the flag. Git does; some others do not. PowerShell
+5.1's `New-Item -ItemType SymbolicLink`, for instance, still fails with "Administrator privilege required".
+That is a limitation of those tools, not a sign that Developer Mode is off.
+
+**Or, if you cannot enable it,** work with a local copy instead.
+
+Replace the placeholder file with a copy of what it points at:
+
+```sh
+rm packages/rust/armonik/protos
+cp -r Protos packages/rust/armonik/protos
+```
+
+If you do, **do not commit it**. A committed copy detaches the crate from the shared `Protos` and lets the
+two drift apart silently, and a crate packaged from such a checkout ships *no* protos at all, since
+`include = ["protos/**"]` finds nothing to match when `protos` is a file rather than a directory. CI refuses
+it: `scripts/check-symlinks.sh` runs on every pull request and fails if any of the three is no longer a
+symlink. You can run it yourself before pushing.
+
+Remember to restore the symlink, or to keep the copy out of your commits, when you are done.
+
 ## Release Process
 
 When necessary, maintainers can release a new version. This new version will publish packages to registries.
