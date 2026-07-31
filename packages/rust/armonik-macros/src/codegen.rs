@@ -158,13 +158,19 @@ fn field_asserts_for(
     asserts
 }
 
-/// Test-only registration into the differential-harness registry (see
-/// `armonik::differential`), one entry per proto name the type stands for.
-/// Two distributed-slice registrations per proto name, each compiled out
-/// unless its private feature is on: the differential harness `Entry`
-/// (`_differential`) and the `(proto name, Rust path)` extern-map entry
-/// (`_extern-map`, read by `armonik`'s build script).
-fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
+/// Registration into the differential-harness registry (see
+/// `armonik::differential`) and the extern map (see `armonik_types::wire`),
+/// one entry per proto name the type stands for. Each registration is
+/// compiled out unless its private feature is on: the differential harness
+/// `Entry` (`_differential`) and, under `_extern-map` (read by `armonik`'s
+/// build script), either a `(proto name, Rust path)` extern-map entry or —
+/// when the type carries `#[armonik(replace(...))]` — a `REPLACE_MAP`
+/// `Replacement` instead, so the shared proto name stays unambiguous.
+pub(crate) fn registrations(
+    ident: &syn::Ident,
+    names: &[String],
+    replace: Option<&crate::attrs::ReplaceSpec>,
+) -> TokenStream {
     let mut out = TokenStream::new();
     for name in names {
         out.extend(quote! {
@@ -191,17 +197,68 @@ fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
                     normalize: <#ident as crate::differential::Normalize>::normalize,
                 };
             };
+        });
+        match replace {
             // Harvested by `armonik`'s build script (through the
             // `armonik-types` build-dependency) to resolve its tonic stubs'
             // extern types. The value is the type's definition path, so the
             // object modules are `pub`. See `armonik_types::wire`.
-            #[cfg(feature = "_extern-map")]
+            None => out.extend(quote! {
+                #[cfg(feature = "_extern-map")]
+                const _: () = {
+                    #[::linkme::distributed_slice(crate::wire::EXTERN_MAP)]
+                    static WIRE: (&str, &str) = (
+                        #name,
+                        ::core::concat!(::core::module_path!(), "::", ::core::stringify!(#ident)),
+                    );
+                };
+            }),
+            // The type stands in for `name` at one RPC site: register the
+            // substitution instead of claiming `name` in the extern map. See
+            // `armonik/build.rs`.
+            Some(spec) => {
+                let target = &spec.target;
+                let service = &spec.service;
+                let method = &spec.method;
+                let direction = match spec.direction {
+                    crate::attrs::Direction::Input => quote!(crate::wire::Direction::Input),
+                    crate::attrs::Direction::Output => quote!(crate::wire::Direction::Output),
+                };
+                out.extend(quote! {
+                    #[cfg(feature = "_extern-map")]
+                    const _: () = {
+                        #[::linkme::distributed_slice(crate::wire::REPLACE_MAP)]
+                        static REPLACE: crate::wire::Replacement = crate::wire::Replacement {
+                            service: #service,
+                            method: #method,
+                            direction: #direction,
+                            message: #name,
+                            target: #target,
+                            rust_path: ::core::concat!(
+                                ::core::module_path!(), "::", ::core::stringify!(#ident),
+                            ),
+                        };
+                    };
+                });
+            }
+        }
+    }
+    out
+}
+
+/// Register proto messages a flattening construct swallows into its parent
+/// (a `with` adapter's `absorbs`, a transparent chain's middle wrappers, an
+/// inline struct variant's message), so they have no Rust type of their own.
+/// `armonik`'s build script prunes them from the stubs and the differential
+/// harness counts them as covered; gated on either consumer's feature.
+pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
+    let mut out = TokenStream::new();
+    for name in names {
+        out.extend(quote! {
+            #[cfg(any(feature = "_extern-map", feature = "_differential"))]
             const _: () = {
-                #[::linkme::distributed_slice(crate::wire::EXTERN_MAP)]
-                static WIRE: (&str, &str) = (
-                    #name,
-                    ::core::concat!(::core::module_path!(), "::", ::core::stringify!(#ident)),
-                );
+                #[::linkme::distributed_slice(crate::wire::ABSORBED)]
+                static ABSORBED: &str = #name;
             };
         });
     }
@@ -247,6 +304,16 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         param.bounds.push(syn::parse_quote!(::core::marker::Sync));
     }
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    if plan.transparent {
+        return transparent_message(
+            plan,
+            &impl_generics,
+            &ty_generics,
+            where_clause,
+            fingerprint,
+        );
+    }
 
     let mut encode_fragments = Vec::new();
     let mut merge_arms = Vec::new();
@@ -327,7 +394,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         }
     }
 
-    let registrations = registrations(ident, proto_names);
+    let registrations = registrations(ident, proto_names, plan.replace.as_ref());
     let normalize = normalize_impl(
         &impl_generics,
         ident,
@@ -335,6 +402,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         where_clause,
         &normalize_fragments,
     );
+    let proto_field = message_proto_field(&impl_generics, ident, &ty_generics, where_clause, proto_names);
     let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
                             rebuild the crate";
     quote! {
@@ -380,6 +448,20 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             }
         }
 
+        #proto_field
+    }
+}
+
+/// The `ProtoField` impl for a message type, delegating to `codec::message`.
+/// Shared by the plain-struct and `transparent` codegen paths.
+fn message_proto_field(
+    impl_generics: &syn::ImplGenerics,
+    ident: &syn::Ident,
+    ty_generics: &syn::TypeGenerics,
+    where_clause: Option<&syn::WhereClause>,
+    proto_names: &[String],
+) -> TokenStream {
+    quote! {
         impl #impl_generics crate::codec::ProtoField for #ident #ty_generics #where_clause {
             const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
             const NAMES: &'static [&'static str] = &[#(#proto_names),*];
@@ -413,6 +495,72 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                 crate::codec::message::encoded_len_repeated(tag, values)
             }
         }
+    }
+}
+
+/// Codegen for a `#[armonik(transparent)]` struct: a single-field newtype
+/// whose `prost::Message` impl delegates entirely to the field, so it is
+/// wire-identical to the inner message and can stand for a whole RPC message
+/// in the stub signatures. The `Normalize` projection delegates likewise.
+fn transparent_message(
+    plan: &MessagePlan,
+    impl_generics: &syn::ImplGenerics,
+    ty_generics: &syn::TypeGenerics,
+    where_clause: Option<&syn::WhereClause>,
+    fingerprint: proc_macro2::Literal,
+) -> TokenStream {
+    let ident = &plan.ident;
+    let proto_names = &plan.proto_names;
+    let field = &plan.fields[0];
+    let access = &field.access;
+    let ty = &field.ty;
+
+    let registrations = registrations(ident, proto_names, plan.replace.as_ref());
+    let proto_field = message_proto_field(impl_generics, ident, ty_generics, where_clause, proto_names);
+    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
+                            rebuild the crate";
+    quote! {
+        const _: () = assert!(
+            crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
+            #tripwire_message
+        );
+
+        #registrations
+
+        #[cfg(feature = "_differential")]
+        impl #impl_generics crate::differential::Normalize for #ident #ty_generics #where_clause {
+            fn normalize(
+                message: &mut crate::differential::prost_reflect::DynamicMessage,
+            ) {
+                <#ty as crate::differential::Normalize>::normalize(message);
+            }
+        }
+
+        impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
+            fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
+                <#ty as ::prost::Message>::encode_raw(&self.#access, buf);
+            }
+
+            fn merge_field(
+                &mut self,
+                tag: u32,
+                wire_type: ::prost::encoding::WireType,
+                buf: &mut impl ::prost::bytes::Buf,
+                ctx: ::prost::encoding::DecodeContext,
+            ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                <#ty as ::prost::Message>::merge_field(&mut self.#access, tag, wire_type, buf, ctx)
+            }
+
+            fn encoded_len(&self) -> usize {
+                <#ty as ::prost::Message>::encoded_len(&self.#access)
+            }
+
+            fn clear(&mut self) {
+                <#ty as ::prost::Message>::clear(&mut self.#access);
+            }
+        }
+
+        #proto_field
     }
 }
 
@@ -509,7 +657,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             }
         },
         EnumMode::Transparent { names, path } => {
-            let registrations = registrations(ident, names);
+            let registrations = registrations(ident, names, None);
             quote! {
                 #registrations
 
@@ -887,7 +1035,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     });
 
     let whole_message = plan.whole_message.then(|| {
-        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
+        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name), None);
         quote! {
             #registrations
 
@@ -1218,7 +1366,7 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         }
     });
 
-    let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
+    let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name), None);
     let generics = syn::Generics::default();
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let normalize = normalize_impl(

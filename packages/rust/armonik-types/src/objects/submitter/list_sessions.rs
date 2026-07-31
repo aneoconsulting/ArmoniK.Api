@@ -1,21 +1,17 @@
-/// Request for listing sessions, standing for the `SessionFilter` message
-/// the stubs use.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// Request for listing sessions; stands in for the `SessionFilter` message at
+/// the Submitter.ListSessions RPC.
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(transparent)]
+#[armonik(message = "armonik.api.grpc.v1.submitter.SessionFilter")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.submitter.ListSessionsRequest",
+    service = "Submitter",
+    method = "ListSessions",
+    input,
+))]
 pub struct Request {
     pub filter: super::SessionFilter,
-}
-
-impl From<Request> for super::SessionFilter {
-    fn from(value: Request) -> Self {
-        value.filter
-    }
-}
-
-impl From<super::SessionFilter> for Request {
-    fn from(value: super::SessionFilter) -> Self {
-        Self { filter: value }
-    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]

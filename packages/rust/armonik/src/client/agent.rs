@@ -210,14 +210,13 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .get_resource_data(get_common_data::Request::from(request)),
+                    .get_resource_data(request),
                 tracing::debug_span!("Agent::get_resource_data")
             );
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: get_common_data::Request) -> Result<get_common_data::Response> {
@@ -237,14 +236,13 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .get_direct_data(get_common_data::Request::from(request)),
+                    .get_direct_data(request),
                 tracing::debug_span!("Agent::get_direct_data")
             );
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
     }
 }

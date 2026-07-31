@@ -67,9 +67,9 @@ super::impl_trait_methods! {
         fn create_results(crate::agent::create_results::Request) -> crate::agent::create_results::Response { create_results }
         fn notify_result_data(crate::agent::notify_result_data::Request) -> crate::agent::notify_result_data::Response { notify_result_data }
         fn submit_tasks(crate::agent::submit_tasks::Request) -> crate::agent::submit_tasks::Response { submit_tasks }
-        fn get_resource_data(crate::agent::get_common_data::Request) -> crate::agent::get_common_data::Response { get_resource_data }
+        fn get_resource_data(crate::agent::get_resource_data::Request) -> crate::agent::get_resource_data::Response { get_resource_data }
         fn get_common_data(crate::agent::get_common_data::Request) -> crate::agent::get_common_data::Response { get_common_data }
-        fn get_direct_data(crate::agent::get_common_data::Request) -> crate::agent::get_common_data::Response { get_direct_data }
+        fn get_direct_data(crate::agent::get_direct_data::Request) -> crate::agent::get_direct_data::Response { get_direct_data }
 
         ---
 

@@ -141,7 +141,7 @@ where
     > {
         let span = tracing::debug_span!("Submitter::try_get_result");
         let call = tracing_futures::Instrument::instrument(
-            self.inner.try_get_result_stream(crate::ResultRequest {
+            self.inner.try_get_result_stream(try_get_result::Request {
                 session_id: session_id.into(),
                 result_id: result_id.into(),
             }),
@@ -296,7 +296,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .cancel_session(crate::Session::from(request)),
+                    .cancel_session(request),
                 tracing::debug_span!("Submitter::cancel_session")
             );
             Ok(call
@@ -322,21 +322,20 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .list_tasks(super::super::submitter::TaskFilter::from(request)),
+                    .list_tasks(request),
                 tracing::debug_span!("Submitter::list_tasks")
             );
             Ok(call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
+                .into_inner())
         }
 
         async fn call(self, request: list_sessions::Request) -> Result<list_sessions::Response> {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .list_sessions(super::super::submitter::SessionFilter::from(request)),
+                    .list_sessions(request),
                 tracing::debug_span!("Submitter::list_sessions")
             );
             Ok(call
@@ -349,7 +348,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .count_tasks(super::super::submitter::TaskFilter::from(request)),
+                    .count_tasks(request),
                 tracing::debug_span!("Submitter::count_tasks")
             );
             Ok(call
@@ -363,7 +362,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .try_get_result_stream(crate::ResultRequest::from(request)),
+                    .try_get_result_stream(request),
                 tracing::trace_span!(parent: &span, "rpc")
             );
             let stream = call
@@ -383,7 +382,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .try_get_task_output(crate::TaskOutputRequest::from(request)),
+                    .try_get_task_output(request),
                 tracing::debug_span!("Submitter::try_get_task_output")
             );
             Ok(call
@@ -396,7 +395,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .wait_for_availability(crate::ResultRequest::from(request)),
+                    .wait_for_availability(request),
                 tracing::debug_span!("Submitter::wait_for_availability")
             );
             Ok(call
@@ -422,7 +421,7 @@ super::impl_call! {
             let call = tracing_futures::Instrument::instrument(
                 self
                     .inner
-                    .cancel_tasks(super::super::submitter::TaskFilter::from(request)),
+                    .cancel_tasks(request),
                 tracing::debug_span!("Submitter::cancel_tasks")
             );
             Ok(call

@@ -20,4 +20,5 @@ pub mod raw;
 pub use field::{Field, OtherRawField, RawField};
 pub use raw::Raw;
 
+#[armonik_macros::alias("armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort")]
 pub type Sort = super::Sort<Field>;

@@ -16,6 +16,9 @@ pub struct Request {
 #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 pub struct Response {
     /// The task results.
-    #[armonik(with = "crate::codec::adapters::PairMap<1, 2>")]
+    #[armonik(
+        with = "crate::codec::adapters::PairMap<1, 2>",
+        absorbs = "armonik.api.grpc.v1.tasks.GetResultIdsResponse.MapTaskResult"
+    )]
     pub task_results: HashMap<String, Vec<String>>,
 }

@@ -1,52 +1,25 @@
 //! Discovery of the proto-to-type mapping, and the projection of messages
 //! onto the armonik types' documented equivalence classes.
 //!
-//! The mapping is self-registering: every derived (and hand-written)
-//! message type pushes an [`Entry`] into `armonik_types::differential::REGISTRY`
-//! under the private `_differential` feature, so new messages are covered
-//! without touching the harness. Each entry carries the type's own
-//! `Normalize` projection, generated from the same constructs that shape
-//! its codec (adapters, markers, wrapper chains) or hand-written next to
-//! the hand-written impls. Only the generic instantiations below are
-//! hand-maintained — the derive has no proto name for them.
+//! The mapping is self-registering: every derived (and hand-written) message
+//! type pushes an [`Entry`] into `armonik_types::differential::REGISTRY` under
+//! the private `_differential` feature, so new messages are covered without
+//! touching the harness. Each entry carries the type's own `Normalize`
+//! projection, generated from the same constructs that shape its codec
+//! (adapters, markers, wrapper chains) or hand-written next to the
+//! hand-written impls. The generic instantiations (`Sort`, `FilterStatus`)
+//! self-register the same way through `#[armonik_macros::alias(...)]` at their
+//! alias sites.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use armonik_types::reexports::prost::Message;
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
 pub use armonik_types::differential::Entry;
 
-macro_rules! generic_instantiations {
-    ($($proto:literal => $ty:ty),* $(,)?) => {
-        static GENERIC_INSTANTIATIONS: &[Entry] = &[$(Entry {
-            proto: $proto,
-            roundtrip: |bytes| Ok(<$ty as Message>::decode(bytes)?.encode_to_vec()),
-            default_encoding: || <$ty as Default>::default().encode_to_vec(),
-            normalize: <$ty as armonik_types::differential::Normalize>::normalize,
-        }),*];
-    };
-}
-
-generic_instantiations! {
-    "armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort" => armonik_types::applications::Sort,
-    "armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort" => armonik_types::partitions::Sort,
-    "armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort" => armonik_types::sessions::Sort,
-    "armonik.api.grpc.v1.tasks.ListTasksRequest.Sort" => armonik_types::tasks::Sort,
-    "armonik.api.grpc.v1.results.ListResultsRequest.Sort" => armonik_types::results::Sort,
-    "armonik.api.grpc.v1.sessions.FilterStatus"
-        => armonik_types::FilterStatus<armonik_types::SessionStatus>,
-    "armonik.api.grpc.v1.tasks.FilterStatus"
-        => armonik_types::FilterStatus<armonik_types::TaskStatus>,
-    "armonik.api.grpc.v1.results.FilterStatus"
-        => armonik_types::FilterStatus<armonik_types::ResultStatus>,
-}
-
 pub fn entries() -> impl Iterator<Item = &'static Entry> {
-    armonik_types::differential::REGISTRY
-        .iter()
-        .chain(GENERIC_INSTANTIATIONS)
+    armonik_types::differential::REGISTRY.iter()
 }
 
 /// Project a message (recursively) onto the equivalence classes of its

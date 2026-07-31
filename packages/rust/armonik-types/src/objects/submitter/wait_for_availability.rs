@@ -1,30 +1,20 @@
 use super::super::TaskError;
 
-/// Request for waiting for a result, standing for the `ResultRequest`
-/// message the stubs use.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Request for waiting for a result; stands in for the `ResultRequest`
+/// message at the Submitter.WaitForAvailability RPC.
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik(message = "armonik.api.grpc.v1.ResultRequest")]
+#[armonik(replace(
+    target = "armonik.api.grpc.v1.submitter.WaitForAvailabilityRequest",
+    service = "Submitter",
+    method = "WaitForAvailability",
+    input,
+))]
 pub struct Request {
+    #[armonik(rename = "session")]
     pub session_id: String,
     pub result_id: String,
-}
-
-impl From<Request> for crate::ResultRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            session_id: value.session_id,
-            result_id: value.result_id,
-        }
-    }
-}
-
-impl From<crate::ResultRequest> for Request {
-    fn from(value: crate::ResultRequest) -> Self {
-        Self {
-            session_id: value.session_id,
-            result_id: value.result_id,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]

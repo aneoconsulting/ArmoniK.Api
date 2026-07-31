@@ -1,74 +1,8 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashSet};
 use std::error::Error;
 
+use armonik_types::wire::{Direction, Replacement};
 use prost::Message;
-
-/// Extern types that cannot be harvested from the `#[armonik(message = ...)]`
-/// annotations, so they are spelled out here:
-///
-/// - the five synthetic per-site empty messages injected by `prune_for_stubs`
-///   (see `EMPTY_SIGNATURES`): their real annotation is `Empty`, one name
-///   standing for five distinct API types, so the harvested map carries them
-///   ambiguously keyed under `Empty` and the build filters those out;
-/// - the generic sort / filter-status instantiations, which are type aliases
-///   of `SortMany<T>` / `FilterStatus<T>` and carry no annotation of their own
-///   (they are hand-registered in the differential harness the same way).
-///
-/// Everything else — ~150 messages — comes from `armonik_types::wire`.
-const EXTRA_EXTERN_TYPES: &[(&str, &str)] = &[
-    (
-        ".armonik.api.grpc.v1.worker.HealthCheckRequest",
-        "::armonik_types::worker::health_check::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.GetServiceConfigurationRequest",
-        "::armonik_types::results::get_service_configuration::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.GetServiceConfigurationRequest",
-        "::armonik_types::submitter::get_service_configuration::Request",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CancelSessionResponse",
-        "::armonik_types::submitter::cancel_session::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.submitter.CancelTasksResponse",
-        "::armonik_types::submitter::cancel_tasks::Response",
-    ),
-    (
-        ".armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort",
-        "::armonik_types::applications::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort",
-        "::armonik_types::partitions::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort",
-        "::armonik_types::sessions::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.ListTasksRequest.Sort",
-        "::armonik_types::tasks::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.ListResultsRequest.Sort",
-        "::armonik_types::results::Sort",
-    ),
-    (
-        ".armonik.api.grpc.v1.sessions.FilterStatus",
-        "::armonik_types::sessions::filter::Status",
-    ),
-    (
-        ".armonik.api.grpc.v1.tasks.FilterStatus",
-        "::armonik_types::tasks::filter::Status",
-    ),
-    (
-        ".armonik.api.grpc.v1.results.FilterStatus",
-        "::armonik_types::results::filter::Status",
-    ),
-];
 
 /// RPC methods excluded from the generated stubs: the crate does not expose
 /// them, and tonic answers UNIMPLEMENTED for unrouted paths, so pruning them
@@ -77,72 +11,18 @@ const EXTRA_EXTERN_TYPES: &[(&str, &str)] = &[
 const PRUNED_METHODS: &[(&str, &str)] =
     &[("Results", "WatchResults"), ("Submitter", "WatchResults")];
 
-/// Wire-compatible signature rewrites: the five RPC signatures using
-/// `Empty` stand for five distinct API types. Message type names never
-/// appear on the wire, so the stub descriptor references a distinct
-/// synthetic empty message per site (injected below and extern'd to the
-/// API type in `EXTRA_EXTERN_TYPES`).
-const EMPTY_SIGNATURES: &[(&str, &str, Direction, &str)] = &[
-    (
-        "Worker",
-        "HealthCheck",
-        Direction::Input,
-        "armonik.api.grpc.v1.worker.HealthCheckRequest",
-    ),
-    (
-        "Results",
-        "GetServiceConfiguration",
-        Direction::Input,
-        "armonik.api.grpc.v1.results.GetServiceConfigurationRequest",
-    ),
-    (
-        "Submitter",
-        "GetServiceConfiguration",
-        Direction::Input,
-        "armonik.api.grpc.v1.submitter.GetServiceConfigurationRequest",
-    ),
-    (
-        "Submitter",
-        "CancelSession",
-        Direction::Output,
-        "armonik.api.grpc.v1.submitter.CancelSessionResponse",
-    ),
-    (
-        "Submitter",
-        "CancelTasks",
-        Direction::Output,
-        "armonik.api.grpc.v1.submitter.CancelTasksResponse",
-    ),
-];
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Direction {
-    Input,
-    Output,
-}
-
-/// Messages excluded from the stub generation: nothing generated references
-/// them — they are field wrappers flattened into armonik enums, messages of
-/// the pruned RPCs, or unused legacy. Together with the extern types this
-/// leaves the generated module with the client/server stubs only.
-/// `armonik_types`' `descriptor.bin` keeps the full set for the derives and
-/// the harness.
+/// The messages of RPCs the crate does not expose (tonic answers
+/// UNIMPLEMENTED for the pruned paths): they have no Rust type and are not
+/// flattened into one, so they must be dropped explicitly.
+///
+/// Two other kinds of type-less message are pruned without an entry here:
+/// shared messages a `#[armonik(replace(...))]` type takes over (`Empty`,
+/// `TaskFilter`, …) are dropped once every use is rewritten to a synthetic,
+/// and messages a flattening construct absorbs (the `*Field` selectors, pair
+/// entries, …) are dropped through `armonik_types::wire::absorbed()` — both in
+/// `prune_for_stubs`. `armonik_types`' `descriptor.bin` keeps the full set for
+/// the derives and the harness.
 const PRUNED_MESSAGES: &[&str] = &[
-    "armonik.api.grpc.v1.Empty",
-    "armonik.api.grpc.v1.applications.ApplicationField",
-    "armonik.api.grpc.v1.applications.ApplicationRawField",
-    "armonik.api.grpc.v1.partitions.PartitionField",
-    "armonik.api.grpc.v1.partitions.PartitionRawField",
-    "armonik.api.grpc.v1.sessions.SessionField",
-    "armonik.api.grpc.v1.sessions.SessionRawField",
-    "armonik.api.grpc.v1.sessions.TaskOptionField",
-    "armonik.api.grpc.v1.sessions.TaskOptionGenericField",
-    "armonik.api.grpc.v1.tasks.TaskField",
-    "armonik.api.grpc.v1.tasks.TaskSummaryField",
-    "armonik.api.grpc.v1.tasks.TaskOptionField",
-    "armonik.api.grpc.v1.tasks.TaskOptionGenericField",
-    "armonik.api.grpc.v1.results.ResultField",
-    "armonik.api.grpc.v1.results.ResultRawField",
     "armonik.api.grpc.v1.results.WatchResultRequest",
     "armonik.api.grpc.v1.results.WatchResultResponse",
     "armonik.api.grpc.v1.submitter.SessionList",
@@ -150,16 +30,47 @@ const PRUNED_MESSAGES: &[&str] = &[
     "armonik.api.grpc.v1.submitter.WatchResultStream",
 ];
 
-/// Stub-generation copy of the descriptor set: without the pruned methods
-/// and messages, and without the file-level enums (every remaining message
-/// is extern'd, so no generated code can reference them). Unknown names in
-/// the prune lists are an error, so they cannot go stale silently.
+/// Every message name still used as an RPC input/output slot, fully qualified
+/// with a leading `.`. Message *fields* are deliberately ignored: every
+/// surviving message is extern'd (the guard enforces it), so tonic never
+/// generates one nor reads its fields — only an RPC slot forces a type to be
+/// present and extern'd. A replaced message no longer named by any slot can
+/// therefore be dropped even if some extern'd message still has a field of
+/// that type (e.g. `Output.ok: Empty`).
+fn referenced_by_rpc(fds: &prost_types::FileDescriptorSet) -> HashSet<String> {
+    let mut refs = HashSet::new();
+    for file in &fds.file {
+        for service in &file.service {
+            for method in &service.method {
+                if let Some(name) = &method.input_type {
+                    refs.insert(name.clone());
+                }
+                if let Some(name) = &method.output_type {
+                    refs.insert(name.clone());
+                }
+            }
+        }
+    }
+    refs
+}
+
+/// Stub-generation copy of the descriptor set: pruned methods and messages
+/// removed, per-RPC message substitutions applied, and file-level enums
+/// dropped (every remaining message is extern'd, so no generated code can
+/// reference them). Unknown names in the prune lists — and replacements whose
+/// RPC or expected message no longer match the descriptor — are errors, so
+/// they cannot go stale silently.
 fn prune_for_stubs(
     mut fds: prost_types::FileDescriptorSet,
+    replacements: &[&Replacement],
 ) -> Result<prost_types::FileDescriptorSet, Box<dyn Error>> {
     let mut methods: Vec<(&str, &str)> = PRUNED_METHODS.to_vec();
     let mut messages: Vec<&str> = PRUNED_MESSAGES.to_vec();
-    let mut rewrites: Vec<&(&str, &str, Direction, &str)> = EMPTY_SIGNATURES.iter().collect();
+    // Whether each replacement matched its RPC slot and got its synthetic
+    // message injected; a replacement that never matched is stale.
+    let mut applied = vec![false; replacements.len()];
+    let mut injected = vec![false; replacements.len()];
+
     for file in &mut fds.file {
         if !file.package().starts_with("armonik.") {
             continue;
@@ -180,35 +91,51 @@ fn prune_for_stubs(
                 }
             });
             for method in &mut service.method {
-                let position = rewrites.iter().position(|(service, method_name, _, _)| {
-                    *service == service_name && *method_name == method.name()
-                });
-                let Some(position) = position else { continue };
-                let (_, _, direction, new_name) = rewrites.swap_remove(position);
                 let method_name = method.name().to_owned();
-                let slot = match direction {
-                    Direction::Input => &mut method.input_type,
-                    Direction::Output => &mut method.output_type,
-                };
-                if slot.as_deref() != Some(".armonik.api.grpc.v1.Empty") {
-                    return Err(format!(
-                        "signature of {service_name}.{method_name} no longer uses Empty \
-                         ({slot:?})",
-                    )
-                    .into());
+                for (index, replacement) in replacements.iter().enumerate() {
+                    if replacement.service != service_name || replacement.method != method_name {
+                        continue;
+                    }
+                    let expected = format!(".{}", replacement.message);
+                    let slot = match replacement.direction {
+                        Direction::Input => &mut method.input_type,
+                        Direction::Output => &mut method.output_type,
+                    };
+                    // The consistency check: the RPC slot must still hold the
+                    // message the type declares it replaces.
+                    if slot.as_deref() != Some(expected.as_str()) {
+                        return Err(format!(
+                            "replace: {service_name}.{method_name} {direction:?} is {slot:?}, \
+                             but `{rust}` declares it replaces `{expected}`",
+                            direction = replacement.direction,
+                            rust = replacement.rust_path,
+                        )
+                        .into());
+                    }
+                    *slot = Some(format!(".{}", replacement.target));
+                    applied[index] = true;
                 }
-                *slot = Some(format!(".{new_name}"));
             }
         }
-        // Inject the synthetic empty messages whose package is this file's.
-        for (_, _, _, new_name) in EMPTY_SIGNATURES {
-            let (message_package, name) = new_name.rsplit_once('.').expect("qualified name");
-            if message_package == package {
-                file.message_type.push(prost_types::DescriptorProto {
-                    name: Some(name.to_owned()),
-                    ..Default::default()
-                });
+        // Inject the synthetic target messages whose package is this file's.
+        for (index, replacement) in replacements.iter().enumerate() {
+            let (target_package, name) =
+                replacement.target.rsplit_once('.').expect("qualified name");
+            if target_package != package {
+                continue;
             }
+            if file.message_type.iter().any(|message| message.name() == name) {
+                return Err(format!(
+                    "replace target `{}` collides with an existing message",
+                    replacement.target
+                )
+                .into());
+            }
+            file.message_type.push(prost_types::DescriptorProto {
+                name: Some(name.to_owned()),
+                ..Default::default()
+            });
+            injected[index] = true;
         }
         file.message_type.retain(|message| {
             let full_name = format!("{package}.{}", message.name());
@@ -222,12 +149,64 @@ fn prune_for_stubs(
         });
         file.enum_type.clear();
     }
-    if !methods.is_empty() || !messages.is_empty() || !rewrites.is_empty() {
+
+    // Drop the type-less messages the annotations account for:
+    // - the shared messages every replacement took over, once no surviving
+    //   field or RPC slot still references them (this removes `Empty` and the
+    //   legacy filters); a replaced message still used elsewhere (a field, or
+    //   an unreplaced RPC like `ListTasks` sharing `ListTasksRequest`) stays
+    //   and keeps its canonical extern mapping;
+    // - the messages a flattening construct absorbs (the `*Field` selectors),
+    //   harvested from `#[armonik(absorbs = ...)]`, transparent chains and
+    //   inline variants.
+    let referenced = referenced_by_rpc(&fds);
+    let replaced: HashSet<String> = replacements
+        .iter()
+        .map(|replacement| format!(".{}", replacement.message))
+        .collect();
+    let absorbed: HashSet<String> = armonik_types::wire::absorbed()
+        .into_iter()
+        .map(|name| format!(".{name}"))
+        .collect();
+    for file in &mut fds.file {
+        if !file.package().starts_with("armonik.") {
+            continue;
+        }
+        let package = file.package().to_owned();
+        file.message_type.retain(|message| {
+            let full_name = format!(".{package}.{}", message.name());
+            if absorbed.contains(&full_name) {
+                return false;
+            }
+            // Keep unless it is a replaced message no RPC slot names anymore.
+            !replaced.contains(&full_name) || referenced.contains(&full_name)
+        });
+    }
+
+    if !methods.is_empty() || !messages.is_empty() {
         return Err(format!(
-            "stale prune/rewrite entries (not found in the descriptor set): \
-             {methods:?} {messages:?} {rewrites:?}",
+            "stale prune entries (not found in the descriptor set): {methods:?} {messages:?}",
         )
         .into());
+    }
+    for (index, replacement) in replacements.iter().enumerate() {
+        if !applied[index] {
+            return Err(format!(
+                "stale replace on `{}`: no {:?} slot of {}.{} to rewrite",
+                replacement.rust_path,
+                replacement.direction,
+                replacement.service,
+                replacement.method,
+            )
+            .into());
+        }
+        if !injected[index] {
+            return Err(format!(
+                "replace target `{}` has no matching package file to inject into",
+                replacement.target,
+            )
+            .into());
+        }
     }
     Ok(fds)
 }
@@ -259,7 +238,7 @@ fn guard_all_messages_externed(
         return Err(format!(
             "these messages survive stub pruning but are not extern'd, so they would be \
              generated as structs; annotate the type (it will be harvested automatically), \
-             add it to PRUNED_MESSAGES, or add it to EXTRA_EXTERN_TYPES:\n    {}",
+             add it to PRUNED_MESSAGES, or give it a #[armonik(replace(...))]:\n    {}",
             orphans.join("\n    "),
         )
         .into());
@@ -268,27 +247,40 @@ fn guard_all_messages_externed(
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // The descriptor and the annotation-harvested extern map are pulled from
-    // `armonik-types`, compiled first as a build-dependency; no proto files
-    // are compiled here.
+    // The descriptor, the annotation-harvested extern map and the per-RPC
+    // replacements are pulled from `armonik-types`, compiled first as a
+    // build-dependency; no proto files are compiled here.
     let fds = prost_types::FileDescriptorSet::decode(armonik_types::wire::DESCRIPTOR)?;
+    let replacements = armonik_types::wire::replacements();
 
     // Extern map: the harvested `(proto name, Rust path)` pairs, normalized to
     // the fully-qualified `.proto.Name` / `::rust::Path` forms prost expects,
-    // with the ambiguous `Empty`-keyed synthetic entries dropped, plus the
-    // handful that cannot come from annotations.
+    // plus one entry per replacement mapping its synthetic target message to
+    // the standing-in type.
     let harvested: Vec<(String, String)> = armonik_types::wire::extern_mapping()
         .into_iter()
-        .filter(|(proto, _)| *proto != "armonik.api.grpc.v1.Empty")
         .map(|(proto, path)| (format!(".{proto}"), format!("::{path}")))
+        .collect();
+    let replacement_externs: Vec<(String, String)> = replacements
+        .iter()
+        .map(|replacement| {
+            (
+                format!(".{}", replacement.target),
+                format!("::{}", replacement.rust_path),
+            )
+        })
         .collect();
     let extern_types: Vec<(&str, &str)> = harvested
         .iter()
         .map(|(proto, path)| (proto.as_str(), path.as_str()))
-        .chain(EXTRA_EXTERN_TYPES.iter().copied())
+        .chain(
+            replacement_externs
+                .iter()
+                .map(|(proto, path)| (proto.as_str(), path.as_str())),
+        )
         .collect();
 
-    let pruned = prune_for_stubs(fds)?;
+    let pruned = prune_for_stubs(fds, &replacements)?;
 
     let extern_names: BTreeSet<&str> = extern_types.iter().map(|(proto, _)| *proto).collect();
     guard_all_messages_externed(&pruned, &extern_names)?;

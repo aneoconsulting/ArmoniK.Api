@@ -207,6 +207,15 @@ const _: () = {
     );
 };
 
+// The `ResultIdentifier` pair message is flattened into the request's shared
+// session ID and result IDs, so no Rust type stands for it — declared absorbed
+// the same way a `with` adapter would (see `wire::ABSORBED`).
+#[cfg(any(feature = "_extern-map", feature = "_differential"))]
+const _: () = {
+    #[linkme::distributed_slice(crate::wire::ABSORBED)]
+    static ABSORBED: &str = "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier";
+};
+
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

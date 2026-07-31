@@ -31,7 +31,9 @@ pub use objects::*;
 #[doc(hidden)]
 pub mod differential;
 
-#[cfg(feature = "_extern-map")]
+// Also enabled under `_differential`: the harness reads `wire::ABSORBED` to
+// count flattened-away messages as covered.
+#[cfg(any(feature = "_extern-map", feature = "_differential"))]
 #[doc(hidden)]
 pub mod wire;
 

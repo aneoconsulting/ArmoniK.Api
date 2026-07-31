@@ -172,12 +172,44 @@ mod resolve;
 /// differential harness covers the adapter, including its
 /// `normalize_dynamic` projection.
 ///
+/// ## absorbs
+///
+/// `absorbs = "full.proto.Name"`, on a field/variant carrying a
+/// [`with`](#with) adapter — the proto message the adapter flattens away
+/// (a pair-entry, `VecWrapper`, or `StringWrapper` message), which therefore
+/// has no Rust type of its own. Harvested into `armonik_types::wire::ABSORBED`
+/// so the build script prunes it from the stubs and the differential harness
+/// counts it as covered through this parent. Repeatable. The other flatteners
+/// — [`transparent`](macro@Enum#transparent) chains and inline struct variants
+/// — declare their absorbed messages automatically.
+///
 /// ## present
 ///
 /// `present`, on a unit variant — the oneof member is carried by presence
 /// only: a `bool` member encodes `true` (an explicit `false` still
 /// selects the variant), an empty-message member encodes an empty
 /// message.
+///
+/// ## transparent
+///
+/// `transparent`, on a single-field struct — the type delegates its whole
+/// `prost::Message` impl to that one field, so it is wire-identical to the
+/// field's message and can stand for a whole RPC message in the stub
+/// signatures (the struct sibling of the `derive(Enum)` wrapper mode). Name
+/// the inner message with [`message`](#message); the field is not matched
+/// against the descriptor. Typically paired with [`replace`](#replace) to
+/// wrap a shared message (e.g. `struct Request { filter: TaskFilter }`).
+///
+/// ## replace
+///
+/// `replace(target = "synthetic.Name", service = "Service", method =
+/// "Method", input | output)`, on the type — the type stands in for its
+/// [`message`](#message) at one RPC site. `armonik`'s build script checks the
+/// RPC's `input`/`output` slot still holds `message` (a drift guard against
+/// proto changes), then rewrites that slot to the synthetic `target` message
+/// (absent from the real schema) and extern-maps `target` to this type — so
+/// RPCs sharing one proto message get distinct stub signatures pointing at
+/// distinct Rust types, keeping `GrpcCall<Request>` unambiguous. Repeatable.
 #[proc_macro_derive(Message, attributes(armonik))]
 pub fn derive_message(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
@@ -271,6 +303,28 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 pub fn derive_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
     expand::enumeration(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Register a proto message name for a **type alias**, so the generic
+/// instantiations that carry no annotation of their own (e.g. the per-service
+/// `Sort = Sort<Field>` / `Status = FilterStatus<T>`) are auto-discovered by
+/// `armonik`'s build script and the differential harness — the same way a
+/// `#[derive(Message)]` type is.
+///
+/// The alias is re-emitted verbatim, plus the two feature-gated registrations
+/// a derive would emit for that proto name (the `_extern-map` entry and the
+/// `_differential` harness `Entry`). The aliased type must implement
+/// `prost::Message` (and, under `_differential`, `Normalize`).
+///
+/// ```ignore
+/// #[armonik_macros::alias("armonik.api.grpc.v1.tasks.ListTasksRequest.Sort")]
+/// pub type Sort = super::Sort<Field>;
+/// ```
+#[proc_macro_attribute]
+pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
+    expand::alias(attr.into(), item.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
