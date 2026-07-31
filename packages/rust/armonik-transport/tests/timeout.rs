@@ -1,8 +1,7 @@
 //! `GrpcClient__Timeout` and `GrpcClient__RateLimit`, now that they reach the channel.
 //!
-//! Both were parsed into `ClientConfig` and then dropped on the floor. A test that only asserted the
-//! parsing would have passed before this change as well, so these go through a real connection to a
-//! real server and measure what the caller actually gets.
+//! A test that only asserted the parsing would have passed before this change too, since both options
+//! were already parsed and then dropped. So these go through a real connection to a real server.
 
 mod common;
 
@@ -42,8 +41,8 @@ async fn a_request_timeout_ends_a_call_the_server_is_too_slow_to_answer() {
 
 #[tokio::test]
 async fn no_timeout_lets_a_slow_call_finish() {
-    // The other half: the timeout has to bound a call, not shorten one that was within its budget. Also
-    // the default path — an empty `Timeout` must not impose one.
+    // The timeout has to bound a call, not shorten one already within its budget. Also the default
+    // path: an empty `Timeout` must not impose one.
     let endpoint = serve(SlowService::new(Duration::from_millis(300))).await;
 
     let channel = armonik_transport::connect(config(&endpoint, |_| {}))
@@ -56,9 +55,8 @@ async fn no_timeout_lets_a_slow_call_finish() {
 
 #[tokio::test]
 async fn a_rate_limit_is_accepted_and_still_lets_calls_through() {
-    // `Endpoint::rate_limit` is `tower`'s, and testing that it throttles would be testing `tower`. What
-    // is worth pinning here is that passing it on does not break a call — the failure mode of wiring an
-    // option through incorrectly.
+    // Testing that `Endpoint::rate_limit` throttles would be testing `tower`. What is worth pinning is
+    // that passing the option on does not break the call, which is how wiring one through goes wrong.
     let endpoint = serve(SlowService::new(Duration::ZERO)).await;
 
     let channel = armonik_transport::connect(config(&endpoint, |args| {

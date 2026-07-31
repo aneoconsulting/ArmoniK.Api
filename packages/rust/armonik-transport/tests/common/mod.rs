@@ -1,8 +1,7 @@
 //! A gRPC service that answers slowly, and a raw client to call it with.
 //!
 //! Hand-rolled rather than generated: this crate has no protos and deliberately no `protoc` in its
-//! build, so the codec here moves opaque bytes and the "service" is one method that sleeps before
-//! replying. That is all a timeout test needs, and it keeps the fixture readable.
+//! build, so the codec moves opaque bytes and the service is one method that sleeps before replying.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -161,10 +160,9 @@ pub async fn call(
 
 /// Build a [`ClientConfig`] from the string form, applying `set` to the arguments first.
 ///
-/// Going through `ClientConfigArgs` rather than constructing a `ClientConfig` directly keeps the parsing
-/// inside what is under test. The field assignments are why this is a helper at all: both structs are
-/// `#[non_exhaustive]`, so a test outside the crate cannot write either as a struct expression, and
-/// `..Default::default()` is exactly the form that is forbidden.
+/// Going through `ClientConfigArgs` keeps the parsing inside what is under test. It is a helper at all
+/// because both structs are `#[non_exhaustive]`: a test outside the crate cannot write either as a
+/// struct expression, and `..Default::default()` is the form that is forbidden.
 #[allow(clippy::field_reassign_with_default)]
 pub fn config(
     endpoint: &str,
