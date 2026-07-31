@@ -41,14 +41,7 @@ jobs:
           fetch-depth: 0
 
       - name: The repository's symlinks must still be symlinks
-        run: |
-          # The script reports to stderr and answers with its exit status; the annotation is added here
-          # rather than by the script, so that the script stays useful to a contributor running it by hand
-          # as CONTRIBUTING.md suggests.
-          if ! ./scripts/check-symlinks.sh; then
-            echo "::error::a path that must be a symlink is not one; see the job log and the Windows section of CONTRIBUTING.md"
-            exit 1
-          fi
+        run: ./scripts/check-symlinks.sh
 
   format-csharp:
     name: Format C#
