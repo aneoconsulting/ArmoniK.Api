@@ -33,8 +33,8 @@ serde = { workspace = true, optional = true }
 humantime.workspace = true
 
 [dev-dependencies]
-# The boolean options are read straight from the environment, so testing which spellings they accept means
-# setting variables — process-global state, hence one test at a time.
+# The boolean options are read straight from the environment, so testing which spellings they accept
+# means setting variables: process-global state, hence one test at a time.
 serial_test.workspace = true
 # Only to round-trip `ClientConfigArgs` in the test that pins the `serde` feature.
 serde_json.workspace = true

@@ -1,8 +1,7 @@
 //! Turning a [`ClientConfig`] into a connected `tonic` channel.
 //!
-//! This is the whole point of the crate: TLS, mTLS and every timeout, keepalive and identity setting
-//! come together here. Moved verbatim out of `armonik`'s `Client::with_config`, which now calls
-//! [`connect`] and keeps only the part that is about a client rather than a connection.
+//! Moved out of `armonik`'s `Client::with_config`, which now calls [`connect`] and keeps only what is
+//! about a client rather than about a connection.
 
 use std::sync::Arc;
 
@@ -15,8 +14,8 @@ use snafu::{ResultExt, Snafu};
 use crate::config::ConfigError;
 use crate::ClientConfig;
 
-/// Connect to the endpoint described by `config`, eagerly — this resolves once the connection is
-/// actually established, not lazily on first request.
+/// Connect to the endpoint described by `config`, eagerly: this resolves once the connection is
+/// established, not lazily on the first request.
 pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, ConnectionError> {
     let endpoint = config.endpoint.clone();
     let override_target = config.override_target.clone();
@@ -56,14 +55,12 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
         .context(TransportSnafu { endpoint })
 }
 
-/// Build the connector stack — TCP, then TLS or mTLS — that [`connect`] wraps in a channel.
+/// Build the connector stack, TCP then TLS or mTLS, that [`connect`] wraps in a channel.
 ///
-/// Most callers want [`connect`] instead. This exists so that a caller can drive plain HTTP requests
-/// through the exact same connection configuration a [`connect`]ed channel would use: `armonik`'s test
-/// helper does that to reach the mock server's diagnostic `/calls.json` endpoint.
-///
-/// Hidden from the documented surface because its return type names this crate's dependencies rather
-/// than its own types; it is `pub` so the signature is expressible, not as an API to build against.
+/// Most callers want [`connect`]. This exists so a caller can drive plain HTTP through the same
+/// connection configuration a channel would use: `armonik`'s test helper reads the mock server's
+/// `/calls.json` that way. Hidden because its return type names this crate's dependencies rather than
+/// its own; `pub` only so the signature is expressible.
 #[doc(hidden)]
 pub async fn https_connector(
     config: ClientConfig,
@@ -143,9 +140,8 @@ pub async fn https_connector(
 /// Everything that can go wrong between a [`ClientConfig`] and a usable channel.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
-// snafu keeps its generated context selectors module-private by default. They are made public so that a
-// caller in another crate can build one of these errors itself, and have the location captured at its own
-// call site; `lib.rs` re-exports them as hidden.
+// snafu keeps its generated context selectors module-private by default. Public so that a caller in
+// another crate can build one of these errors with the location captured at its own call site.
 #[snafu(visibility(pub))]
 pub enum ConnectionError {
     #[snafu(display("Could not read the client config [{location}]"))]

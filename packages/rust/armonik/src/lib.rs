@@ -17,9 +17,8 @@ pub use objects::*;
 mod utils;
 
 pub mod reexports {
-    // Through `armonik-transport`, which owns these now, so that a downstream user of
-    // `armonik::reexports::rustls` cannot end up with a different `rustls` from the one the connection
-    // was actually built with.
+    // Through `armonik-transport`, which owns these now, so `armonik::reexports::rustls` cannot differ
+    // from the `rustls` the connection was built with.
     #[cfg(feature = "_gen-client")]
     pub use armonik_transport::reexports::{hyper, hyper_rustls, rustls};
     pub use prost;
