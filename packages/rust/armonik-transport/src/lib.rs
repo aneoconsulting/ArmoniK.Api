@@ -17,6 +17,11 @@ mod utils;
 
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
 pub use connect::{connect, https_connector, ConnectionError};
+// The context selectors snafu generates for `ConnectionError`, so a caller in another crate can build one
+// with `.context(ConfigSnafu {})` and have the location captured at its own call site rather than in here.
+// Hidden from the docs: they are how the error is built, not API to design against.
+#[doc(hidden)]
+pub use connect::{ConfigSnafu, IoSnafu, TlsSnafu, TransportSnafu};
 pub use utils::ReadEnvError;
 
 /// Re-exports of this crate's own dependencies, at the versions it was built with.
@@ -29,5 +34,7 @@ pub mod reexports {
     pub use hyper_rustls;
     pub use hyper_util;
     pub use rustls;
+    #[cfg(feature = "serde")]
+    pub use serde;
     pub use tonic;
 }

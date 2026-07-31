@@ -7,6 +7,9 @@ mod objects;
 #[cfg(feature = "_gen-server")]
 pub mod server;
 
+/// The transport layer: configuration parsing, TLS and the connection itself.
+#[cfg(feature = "_gen-client")]
+pub use armonik_transport as transport;
 #[cfg(feature = "_gen-client")]
 pub use client::{Client, ClientConfig};
 pub use objects::*;
