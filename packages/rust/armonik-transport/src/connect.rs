@@ -10,7 +10,7 @@ use hyper::Uri;
 use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver, HttpsConnector};
 use hyper_util::client::legacy::connect::HttpConnector;
 use rustls::pki_types::ServerName;
-use snafu::{IntoError, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu};
 
 use crate::config::ConfigError;
 use crate::ClientConfig;
@@ -143,6 +143,10 @@ pub async fn https_connector(
 /// Everything that can go wrong between a [`ClientConfig`] and a usable channel.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
+// snafu keeps its generated context selectors module-private by default. They are made public so that a
+// caller in another crate can build one of these errors itself, and have the location captured at its own
+// call site; `lib.rs` re-exports them as hidden.
+#[snafu(visibility(pub))]
 pub enum ConnectionError {
     #[snafu(display("Could not read the client config [{location}]"))]
     #[non_exhaustive]
@@ -178,14 +182,4 @@ pub enum ConnectionError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-}
-
-impl From<ConfigError> for ConnectionError {
-    /// So a caller can write `ClientConfig::from_env()?` and get a [`ConnectionError`].
-    ///
-    /// `armonik`'s `Client::new` did that with snafu's generated context selector, which is no longer
-    /// reachable from there now that this error lives in another crate.
-    fn from(source: ConfigError) -> Self {
-        ConfigSnafu {}.into_error(source)
-    }
 }

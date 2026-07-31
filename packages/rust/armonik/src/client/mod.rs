@@ -1,9 +1,11 @@
 //! ArmoniK clients for all the services
 
-use snafu::Snafu;
+use snafu::{ResultExt, Snafu};
 
 // Re-exported at the paths they have always had: the split moved where these are defined, not where
 // they are used from.
+#[cfg(feature = "_gen-client")]
+use armonik_transport::ConfigSnafu;
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
     ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ReadEnvError,
@@ -69,7 +71,7 @@ pub struct Client<T = tonic::transport::Channel> {
 impl Client<tonic::transport::Channel> {
     /// Create a new client using the configuration from the environment variables
     pub async fn new() -> Result<Self, ConnectionError> {
-        Self::with_config(ClientConfig::from_env()?).await
+        Self::with_config(ClientConfig::from_env().context(ConfigSnafu {})?).await
     }
 
     /// Create a new client with the specified client configuration
