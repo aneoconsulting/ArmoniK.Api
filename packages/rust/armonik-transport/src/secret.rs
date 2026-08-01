@@ -1,18 +1,15 @@
 //! A configuration value that must not be printed.
 
 use std::fmt;
-use std::ops::Deref;
 
-/// The text a redacted secret renders as.
+/// What a secret renders as instead of its value.
 const REDACTED: &str = "[redacted]";
 
 /// A string that redacts itself when printed or serialised.
 ///
-/// Redacted by construction rather than by a hand-written `Debug` on each holder: a struct grows
-/// fields, and a `Debug` listing them by hand goes stale the first time someone forgets one.
-///
-/// Serialising redacts as well, which is what output that might be logged needs. [`Secret::revealed`]
-/// opts out for one serialisation, and only for that one.
+/// The value is reachable only through [`Secret::expose_secret`], named so that reading it is a visible act.
+/// There is deliberately no `Deref` or `AsRef`, which would let it out silently; `rustls` guards a
+/// private key the same way, with `secret_der` as the only way in.
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 pub struct Secret(String);
 
@@ -23,32 +20,16 @@ impl Secret {
     }
 
     /// The value itself, for the code that has to use it.
-    pub fn expose(&self) -> &str {
+    ///
+    /// Named in full so that a call site reads as the deliberate act it is, following the convention
+    /// the `secrecy` crate set.
+    pub fn expose_secret(&self) -> &str {
         &self.0
     }
 
-    /// Borrow this secret for a single serialisation in clear.
-    ///
-    /// The borrow is what makes it safe: revealing is a property of one call site, not of the value,
-    /// so it cannot be carried along by a clone or outlive the expression that asked for it.
-    ///
-    /// For output that is itself protected and has to be read back. `Debug` still redacts, because a
-    /// log is never that output.
-    pub fn revealed(&self) -> Revealed<'_> {
-        Revealed(self)
-    }
-}
-
-/// A [`Secret`] borrowed for one serialisation in clear. See [`Secret::revealed`].
-///
-/// Deliberately not `Copy` or `Clone`: serialising takes it by reference, so nothing needs to
-/// duplicate it, and a handle that cannot be passed around keeps revealing where it was asked for.
-pub struct Revealed<'a>(&'a Secret);
-
-// Redacted here too: this type exists to widen serialisation, not printing.
-impl fmt::Debug for Revealed<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+    /// Whether no secret was given, which a caller may ask without reading one.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -59,14 +40,6 @@ impl fmt::Debug for Secret {
         } else {
             f.write_str(REDACTED)
         }
-    }
-}
-
-impl Deref for Secret {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -84,6 +57,7 @@ impl From<&str> for Secret {
 
 #[cfg(feature = "serde")]
 impl serde::Serialize for Secret {
+    /// Redacts, so that a configuration dumped for diagnosis carries no credential.
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         if self.0.is_empty() {
             serializer.serialize_str("")
@@ -94,23 +68,14 @@ impl serde::Serialize for Secret {
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for Revealed<'_> {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.0 .0)
-    }
-}
-
-#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Secret {
-    /// Refuses the redaction marker, so that reading back a redacted dump fails where it can be
-    /// understood rather than later, as an unexplained rejection by whatever the secret authenticates
-    /// against.
+    /// Refuses the redaction marker, so that reading back a dump fails where it can be understood
+    /// rather than later, as an unexplained rejection by whatever the secret authenticates against.
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let value = String::deserialize(deserializer)?;
         if value == REDACTED {
             return Err(serde::de::Error::custom(format!(
-                "`{REDACTED}` is what a secret serialises to unless `Secret::revealed` was used; \
-                 this input cannot be a secret"
+                "`{REDACTED}` is what a secret serialises to, so this input cannot be one"
             )));
         }
         Ok(Self::new(value))
@@ -124,8 +89,6 @@ mod tests {
     #[test]
     fn debug_never_shows_the_value() {
         assert_eq!(format!("{:?}", Secret::new("hunter2")), REDACTED);
-        // Including through the wrapper that widens serialisation.
-        assert_eq!(format!("{:?}", Secret::new("hunter2").revealed()), REDACTED);
     }
 
     #[test]
@@ -135,27 +98,18 @@ mod tests {
     }
 
     #[test]
-    fn the_value_is_available_to_the_code_that_needs_it() {
-        assert_eq!(Secret::new("hunter2").expose(), "hunter2");
-        assert_eq!(&*Secret::new("hunter2"), "hunter2");
+    fn the_value_is_available_only_to_the_code_that_asks_for_it() {
+        assert_eq!(Secret::new("hunter2").expose_secret(), "hunter2");
+        // Emptiness is answerable without reading the value.
+        assert!(Secret::default().is_empty());
+        assert!(!Secret::new("hunter2").is_empty());
     }
 
     #[cfg(feature = "serde")]
     #[test]
-    fn serialisation_redacts_unless_the_call_site_asks_otherwise() {
-        let secret = Secret::new("hunter2");
-
+    fn serialisation_redacts() {
         assert_eq!(
-            serde_json::to_string(&secret).expect("serialise"),
-            format!("\"{REDACTED}\"")
-        );
-        assert_eq!(
-            serde_json::to_string(&secret.revealed()).expect("serialise"),
-            "\"hunter2\""
-        );
-        // Revealing one call site leaves the secret itself untouched, which is the whole point.
-        assert_eq!(
-            serde_json::to_string(&secret).expect("serialise"),
+            serde_json::to_string(&Secret::new("hunter2")).expect("serialise"),
             format!("\"{REDACTED}\"")
         );
     }
@@ -167,8 +121,8 @@ mod tests {
             .expect_err("the marker must not be taken for a secret");
 
         assert!(
-            error.to_string().contains("revealed"),
-            "the message should say what to do: {error}"
+            error.to_string().contains("cannot be one"),
+            "the message should say why: {error}"
         );
     }
 }

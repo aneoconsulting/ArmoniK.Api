@@ -1,11 +1,8 @@
 //! Reaching the endpoint through an HTTP proxy.
 //!
 //! A `CONNECT` tunnel rather than an absolute-form request, so TLS stays end to end with the real
-//! server and the proxy only forwards opaque bytes. Terminating TLS at the proxy would defeat the
-//! point of this transport, which exists to control the TLS stack.
-//!
-//! [`ProxyConnector`] therefore sits below the TLS connector and hands back the same stream type a
-//! direct connection would.
+//! server: [`ProxyConnector`] sits below the TLS connector and hands back the stream a direct
+//! connection would.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -44,16 +41,11 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 pub struct ProxyConnector<S> {
     inner: S,
     proxy: ProxyConfig,
-    /// The environment's proxy rules, and only those: `Some` for [`ProxySource::System`] alone.
+    /// The environment's proxy rules: `Some` for [`ProxySource::System`] alone, since a matcher
+    /// answers `None` for a scheme other than `http`/`https` and would skip an explicit proxy.
     ///
-    /// `hyper_util`'s rather than ours, because it already implements the `*_PROXY` convention,
-    /// `NO_PROXY` on curl's rules, and taking credentials out of a proxy URL. An explicitly named proxy
-    /// does not go through it: a matcher answers `None` for a target with no host or a scheme other
-    /// than `http`/`https`, which would silently skip the proxy the caller asked for. Only the tunnel
-    /// below is ours as well, because theirs rejects a `CONNECT` response split across reads.
-    ///
-    /// Shared rather than cloned: a `tower` connector is cloned per connection, and `Matcher` is
-    /// neither `Clone` nor cheap to rebuild.
+    /// Behind an `Arc` because a `tower` connector is cloned per connection and `Matcher` is not
+    /// `Clone`.
     matcher: Option<std::sync::Arc<Matcher>>,
 }
 

@@ -12,15 +12,14 @@ use crate::secret::Secret;
 pub enum ProxySource {
     /// Connect directly, ignoring any proxy configured in the environment.
     ///
-    /// The default, so that adding proxy support changes nothing for a client that never asked for it.
+    /// The default: a client that asks for nothing connects directly.
     #[default]
     Disabled,
     /// Read the proxy from the environment, on `hyper_util`'s rules: `ALL_PROXY`, `HTTPS_PROXY`,
     /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
     ///
-    /// Read when `connect` builds the channel, not when this is built and not again afterwards: a
-    /// variable changed in between is the one that counts, and a channel that reconnects keeps the
-    /// values it started with. Every other option is read in [`ClientConfigArgs::from_env`].
+    /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
+    /// started with. Every other option is read in [`ClientConfigArgs::from_env`].
     System,
     /// Use this specific proxy.
     Explicit(Uri),
@@ -44,11 +43,8 @@ pub struct ProxyConfig {
 impl ProxyConfig {
     /// Use this specific proxy.
     ///
-    /// Credentials written into the URL are taken out of it and kept as the proxy's credentials, so
-    /// they are honoured without the URI carrying them anywhere it is rendered.
-    ///
-    /// The type is `#[non_exhaustive]`, so another crate cannot build it with a struct expression;
-    /// these constructors are the way in.
+    /// Credentials written into the URL are taken out of it and kept here, so the URI carries none
+    /// wherever it is rendered. The type is `#[non_exhaustive]`, so this is the way in.
     pub fn explicit(uri: Uri) -> Self {
         let (uri, credentials) = crate::proxy::split_credentials(uri);
         let (username, password) = credentials.unwrap_or_default();
@@ -83,7 +79,7 @@ impl ProxyConfig {
         if self.username.is_empty() && self.password.is_empty() {
             None
         } else {
-            Some((&self.username, self.password.expose()))
+            Some((&self.username, self.password.expose_secret()))
         }
     }
 }
@@ -230,8 +226,8 @@ pub struct ClientConfigArgs {
     /// Password for proxy authentication.
     ///
     /// Empty falls back to the password the `proxy` URL carried, independently of the username, so
-    /// setting this one alone still uses that URL's username. Redacted by `Debug` and by an ordinary
-    /// serialisation; see [`Secret`].
+    /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
+    /// [`Secret`].
     #[cfg_attr(feature = "serde", serde(default))]
     pub proxy_password: Secret,
 }
@@ -1236,22 +1232,6 @@ mod tests {
 
         let json = serde_json::to_string(&args).expect("serialise");
         assert!(!json.contains("s3cr3t"), "password written out: {json}");
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn a_secret_is_written_in_clear_only_where_the_call_site_asks() {
-        let args = ClientConfigArgs {
-            proxy_password: "s3cr3t".into(),
-            ..args()
-        };
-
-        let revealed = serde_json::to_string(&args.proxy_password.revealed()).expect("serialise");
-        assert_eq!(revealed, "\"s3cr3t\"");
-        // The value is untouched by having been revealed once.
-        assert!(!serde_json::to_string(&args)
-            .expect("serialise")
-            .contains("s3cr3t"));
     }
 
     #[test]

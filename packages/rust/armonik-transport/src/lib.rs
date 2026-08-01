@@ -13,7 +13,7 @@ mod utils;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError, ProxyConfig, ProxySource};
 pub use connect::{connect, https_connector, ConnectionError};
 pub use proxy::ProxyError;
-pub use secret::{Revealed, Secret};
+pub use secret::Secret;
 // Snafu's context selectors, so a caller in another crate can build the error with the location
 // captured at its own call site. Hidden: this is how the error is built, not API to design against.
 #[doc(hidden)]
