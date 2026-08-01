@@ -287,9 +287,6 @@ impl ClientConfig {
             )
         };
 
-        // `None`, not `Some(60s)`: nothing applied this until now, so the 60s was never observable, and
-        // keeping it while starting to apply it would deadline every existing caller's requests at one
-        // minute. `connect_timeout` above is the opposite case, its 60s having always been applied.
         let timeout = if timeout.is_empty() {
             None
         } else {
@@ -677,8 +674,8 @@ mod tests {
 
     #[test]
     fn a_zero_rate_limit_is_rejected_rather_than_left_to_panic() {
-        // `tower`'s `Rate::new` asserts both halves are above zero, and this is the change that starts
-        // handing them to it: without this, `0/1s` panics inside `connect` instead of being reported.
+        // `tower`'s `Rate::new` asserts both halves are above zero, so a zero has to be refused here
+        // rather than reaching it: a panic inside `connect` tells the caller nothing.
         for value in ["0/1s", "1/0s", "0/0s"] {
             let error = ClientConfig::from_config_args(ClientConfigArgs {
                 rate_limit: String::from(value),
