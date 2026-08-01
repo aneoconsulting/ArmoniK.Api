@@ -315,10 +315,23 @@ impl ClientConfig {
                 .context(InvalidRateLimitCountSnafu {
                     value: parts[0].to_string(),
                 })?;
-            let duration = parts[1]
+            let duration: Duration = parts[1]
                 .parse::<humantime::Duration>()
-                .context(InvalidDurationSnafu { value: rate_limit })?
+                .context(InvalidDurationSnafu {
+                    value: rate_limit.clone(),
+                })?
                 .into();
+            // `tower`'s rate limiter asserts both are non-zero, so leaving these to it turns a mistyped
+            // option into a panic inside `connect` rather than an error the caller can read.
+            if limit == 0 || duration.is_zero() {
+                return IncompatibleOptionsSnafu {
+                    msg: format!(
+                        "`GrpcClient__RateLimit={rate_limit}` has a zero count or duration. Both have \
+                         to be above zero, as in `100/1s`; leave it empty for no rate limit"
+                    ),
+                }
+                .fail();
+            }
             Some((limit, duration))
         };
 
@@ -660,6 +673,26 @@ mod tests {
         .expect("valid");
 
         assert_eq!(config.rate_limit, Some((100, Duration::from_secs(1))));
+    }
+
+    #[test]
+    fn a_zero_rate_limit_is_rejected_rather_than_left_to_panic() {
+        // `tower`'s `Rate::new` asserts both halves are above zero, and this is the change that starts
+        // handing them to it: without this, `0/1s` panics inside `connect` instead of being reported.
+        for value in ["0/1s", "1/0s", "0/0s"] {
+            let error = ClientConfig::from_config_args(ClientConfigArgs {
+                rate_limit: String::from(value),
+                ..args()
+            })
+            .expect_err("a zero rate limit must be rejected")
+            .to_string();
+
+            assert!(error.contains("zero count or duration"), "{value}: {error}");
+            assert!(
+                error.contains(value),
+                "the message should quote it: {error}"
+            );
+        }
     }
 
     #[test]
