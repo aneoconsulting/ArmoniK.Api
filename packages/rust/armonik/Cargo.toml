@@ -70,7 +70,7 @@ tokio-util.workspace = true
 # The descriptor and the registry (extern map / replacements / absorbed) are harvested from
 # `armonik-types` at build time (the base `_registry` feature enables the slice read here — not
 # `_differential`, so `prost-reflect` stays out of this build-script graph); no proto compilation.
-armonik-types = { path = "../armonik-types", features = ["_extern-map"] }
+armonik-types = { path = "../armonik-types", features = ["_registry"] }
 tonic-prost-build.workspace = true
 prost-types.workspace = true
 prost.workspace = true

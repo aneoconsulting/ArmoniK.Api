@@ -175,40 +175,14 @@ impl crate::differential::Normalize for Request {
     }
 }
 
-#[cfg(feature = "_differential")]
-const _: () = {
-    #[linkme::distributed_slice(crate::differential::REGISTRY)]
-    static ENTRY: crate::differential::Entry = crate::differential::Entry {
-        proto: "armonik.api.grpc.v1.agent.NotifyResultDataRequest",
-        roundtrip: |bytes| {
-            Ok(prost::Message::encode_to_vec(
-                &<Request as prost::Message>::decode(bytes)?,
-            ))
-        },
-        default_encoding: || prost::Message::encode_to_vec(&Request::default()),
-        normalize: <Request as crate::differential::Normalize>::normalize,
-    };
-};
-
-// Hand-written `Message` impls carry no `#[armonik(message = ...)]`, so they
-// register their extern-map entry the same way the derive would.
-#[cfg(feature = "_extern-map")]
-const _: () = {
-    #[linkme::distributed_slice(crate::wire::EXTERN_MAP)]
-    static WIRE: (&str, &str) = (
-        "armonik.api.grpc.v1.agent.NotifyResultDataRequest",
-        concat!(module_path!(), "::Request"),
-    );
-};
+// Hand-written `Message` impls register through the same `register!` macro the
+// derive emits (round-trip/`Normalize` hooks + extern-map entry).
+crate::register!(message: Request, "armonik.api.grpc.v1.agent.NotifyResultDataRequest");
 
 // The `ResultIdentifier` pair message is flattened into the request's shared
 // session ID and result IDs, so no Rust type stands for it — declared absorbed
-// the same way a `with` adapter would (see `wire::ABSORBED`).
-#[cfg(any(feature = "_extern-map", feature = "_differential"))]
-const _: () = {
-    #[linkme::distributed_slice(crate::wire::ABSORBED)]
-    static ABSORBED: &str = "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier";
-};
+// the same way a `with` adapter would.
+crate::register!(absorbed: "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier");
 
 /// Response for creating results without data.
 #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]

@@ -13,17 +13,18 @@ rust-version = "1.88.0"
 [features]
 default = []
 serde = ["dep:serde", "bytes/serde"]
-# Internal: the derives register every message's `(proto name, Rust path)`
-# into a distributed slice read by the `armonik` crate's build script to
-# resolve its tonic stubs' extern types. Enabled through `armonik`'s
-# build-dependency on this crate, so downstream pure-types builds never pull
-# it (nor `linkme`).
-_extern-map = ["dep:linkme"]
-# Internal: the derives register every message type into a distributed slice
-# for the differential harness, along with its generated `Normalize`
-# projection over `prost_reflect::DynamicMessage`. Enabled through the self
-# dev-dependency, so tests always see it and downstream builds never do.
-_differential = ["dep:linkme", "dep:prost-reflect"]
+# Internal (base): every message type registers its entry — `(proto name, Rust
+# path)`, replacement, or absorbed name — into the single `wire::REGISTRY`
+# distributed slice, read by the `armonik` crate's build script to resolve its
+# tonic stubs' extern types. Enabled through `armonik`'s build-dependency on
+# this crate, so downstream pure-types builds never pull it (nor `linkme`).
+_registry = ["dep:linkme"]
+# Internal (extends `_registry`): adds the differential harness — each type's
+# round-trip and `Normalize` projection over `prost_reflect::DynamicMessage`,
+# carried in the same slice behind this feature so the base build never names
+# `prost-reflect`. Enabled through the self dev-dependency, so tests always see
+# it and downstream builds never do.
+_differential = ["_registry", "dep:prost-reflect"]
 
 [dependencies]
 bytes = "1"

@@ -120,34 +120,12 @@ impl crate::differential::Normalize for Output {
     }
 }
 
-#[cfg(feature = "_differential")]
-const _: () = {
-    #[linkme::distributed_slice(crate::differential::REGISTRY)]
-    static ENTRY: crate::differential::Entry = crate::differential::Entry {
-        proto: "armonik.api.grpc.v1.tasks.TaskDetailed.Output",
-        roundtrip: |bytes| {
-            Ok(prost::Message::encode_to_vec(
-                &<Output as prost::Message>::decode(bytes)?,
-            ))
-        },
-        default_encoding: || prost::Message::encode_to_vec(&Output::default()),
-        normalize: <Output as crate::differential::Normalize>::normalize,
-    };
-};
-
-// Hand-written `Message` impls carry no `#[armonik(message = ...)]`, so they
-// register their extern-map entry the same way the derive would. `armonik`
-// only externs top-level messages (this one is nested in the extern'd
-// `TaskDetailed`), but keeping it in the map holds the "every impl is
-// harvested" invariant.
-#[cfg(feature = "_extern-map")]
-const _: () = {
-    #[linkme::distributed_slice(crate::wire::EXTERN_MAP)]
-    static WIRE: (&str, &str) = (
-        "armonik.api.grpc.v1.tasks.TaskDetailed.Output",
-        concat!(module_path!(), "::Output"),
-    );
-};
+// Hand-written `Message` impls register through the same `register!` macro the
+// derive emits, so they carry their round-trip/`Normalize` hooks and their
+// extern-map entry. `armonik` only externs top-level messages (this one is
+// nested in the extern'd `TaskDetailed`), but keeping it in the registry holds
+// the "every impl is harvested" invariant.
+crate::register!(message: Output, "armonik.api.grpc.v1.tasks.TaskDetailed.Output");
 
 impl ProtoField for Output {
     const KIND: FieldKind = FieldKind::Message;

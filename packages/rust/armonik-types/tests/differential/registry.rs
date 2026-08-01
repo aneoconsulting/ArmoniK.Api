@@ -18,8 +18,8 @@ use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
 pub use armonik_types::differential::Entry;
 
-pub fn entries() -> impl Iterator<Item = &'static Entry> {
-    armonik_types::differential::REGISTRY.iter()
+pub fn entries() -> impl Iterator<Item = Entry> {
+    armonik_types::differential::entries()
 }
 
 /// Project a message (recursively) onto the equivalence classes of its
@@ -68,8 +68,8 @@ fn normalize_value(value: &mut Value) -> bool {
 /// only own contribution to the quotient, derived from the implementation
 /// itself instead of restated: whatever a type emits for "nothing" is what
 /// an absent field or member is equivalent to.
-fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, &'static Entry)> {
-    static CANONICALS: OnceLock<HashMap<&'static str, (DynamicMessage, &'static Entry)>> =
+fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, Entry)> {
+    static CANONICALS: OnceLock<HashMap<&'static str, (DynamicMessage, Entry)>> =
         OnceLock::new();
     CANONICALS.get_or_init(|| {
         let pool = crate::pool();

@@ -158,111 +158,60 @@ fn field_asserts_for(
     asserts
 }
 
-/// Registration into the differential-harness registry (see
-/// `armonik::differential`) and the extern map (see `armonik_types::wire`),
-/// one entry per proto name the type stands for. Each registration is
-/// compiled out unless its private feature is on: the differential harness
-/// `Entry` (`_differential`) and, under `_extern-map` (read by `armonik`'s
-/// build script), either a `(proto name, Rust path)` extern-map entry or —
-/// when the type carries `#[armonik(replace(...))]` — a `REPLACE_MAP`
-/// `Replacement` instead, so the shared proto name stays unambiguous.
+/// Register the type's proto name(s) via `armonik-types`' `register!` macro —
+/// the single home of the registry's layout (the `linkme` slice, the feature
+/// gates, and the `_differential` round-trip/`Normalize` hooks). A plain type
+/// registers `message:`; a `#[armonik(replace(...))]` type registers `replace:`
+/// so the shared proto name stays unambiguous. Empty `names` (generic types,
+/// covered through their aliases) register nothing.
 pub(crate) fn registrations(
     ident: &syn::Ident,
     names: &[String],
     replace: Option<&crate::attrs::ReplaceSpec>,
 ) -> TokenStream {
-    let mut out = TokenStream::new();
-    for name in names {
-        out.extend(quote! {
-            #[cfg(feature = "_differential")]
-            const _: () = {
-                #[::linkme::distributed_slice(crate::differential::REGISTRY)]
-                static ENTRY: crate::differential::Entry = crate::differential::Entry {
-                    proto: #name,
-                    roundtrip: |bytes| {
-                        match <#ident as ::prost::Message>::decode(bytes) {
-                            ::core::result::Result::Ok(value) => ::core::result::Result::Ok(
-                                ::prost::Message::encode_to_vec(&value),
-                            ),
-                            ::core::result::Result::Err(err) => {
-                                ::core::result::Result::Err(err)
-                            }
-                        }
-                    },
-                    default_encoding: || {
-                        ::prost::Message::encode_to_vec(
-                            &<#ident as ::core::default::Default>::default(),
-                        )
-                    },
-                    normalize: <#ident as crate::differential::Normalize>::normalize,
-                };
+    if names.is_empty() {
+        return TokenStream::new();
+    }
+    match replace {
+        None => quote! {
+            crate::register!(message: #ident, #(#names),*);
+        },
+        Some(spec) => {
+            let service = &spec.service;
+            let method = &spec.method;
+            let target = &spec.target;
+            let direction = match spec.direction {
+                crate::attrs::Direction::Input => quote!(input),
+                crate::attrs::Direction::Output => quote!(output),
             };
-        });
-        match replace {
-            // Harvested by `armonik`'s build script (through the
-            // `armonik-types` build-dependency) to resolve its tonic stubs'
-            // extern types. The value is the type's definition path, so the
-            // object modules are `pub`. See `armonik_types::wire`.
-            None => out.extend(quote! {
-                #[cfg(feature = "_extern-map")]
-                const _: () = {
-                    #[::linkme::distributed_slice(crate::wire::EXTERN_MAP)]
-                    static WIRE: (&str, &str) = (
-                        #name,
-                        ::core::concat!(::core::module_path!(), "::", ::core::stringify!(#ident)),
-                    );
-                };
-            }),
-            // The type stands in for `name` at one RPC site: register the
-            // substitution instead of claiming `name` in the extern map. See
-            // `armonik/build.rs`.
-            Some(spec) => {
-                let target = &spec.target;
-                let service = &spec.service;
-                let method = &spec.method;
-                let direction = match spec.direction {
-                    crate::attrs::Direction::Input => quote!(crate::wire::Direction::Input),
-                    crate::attrs::Direction::Output => quote!(crate::wire::Direction::Output),
-                };
+            let mut out = TokenStream::new();
+            for name in names {
                 out.extend(quote! {
-                    #[cfg(feature = "_extern-map")]
-                    const _: () = {
-                        #[::linkme::distributed_slice(crate::wire::REPLACE_MAP)]
-                        static REPLACE: crate::wire::Replacement = crate::wire::Replacement {
-                            service: #service,
-                            method: #method,
-                            direction: #direction,
-                            message: #name,
-                            target: #target,
-                            rust_path: ::core::concat!(
-                                ::core::module_path!(), "::", ::core::stringify!(#ident),
-                            ),
-                        };
-                    };
+                    crate::register!(replace: #ident,
+                        message = #name,
+                        service = #service,
+                        method = #method,
+                        #direction,
+                        target = #target);
                 });
             }
+            out
         }
     }
-    out
 }
 
 /// Register proto messages a flattening construct swallows into its parent
 /// (a `with` adapter's `absorbs`, a transparent chain's middle wrappers, an
 /// inline struct variant's message), so they have no Rust type of their own.
 /// `armonik`'s build script prunes them from the stubs and the differential
-/// harness counts them as covered; gated on either consumer's feature.
+/// harness counts them as covered.
 pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
-    let mut out = TokenStream::new();
-    for name in names {
-        out.extend(quote! {
-            #[cfg(any(feature = "_extern-map", feature = "_differential"))]
-            const _: () = {
-                #[::linkme::distributed_slice(crate::wire::ABSORBED)]
-                static ABSORBED: &str = #name;
-            };
-        });
+    if names.is_empty() {
+        return TokenStream::new();
     }
-    out
+    quote! {
+        crate::register!(absorbed: #(#names),*);
+    }
 }
 
 /// Test-only `Normalize` impl: the type's value-level projection for the
