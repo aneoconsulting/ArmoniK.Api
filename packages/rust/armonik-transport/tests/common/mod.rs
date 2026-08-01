@@ -165,8 +165,8 @@ pub async fn call(
 /// Build a [`ClientConfig`] from the string form, applying `set` to the arguments first.
 ///
 /// Going through `ClientConfigArgs` keeps the parsing inside what is under test. It is a helper at all
-/// because both structs are `#[non_exhaustive]`: a test outside the crate cannot write either as a
-/// struct expression, and `..Default::default()` is the form that is forbidden.
+/// because `ClientConfig` is `#[non_exhaustive]`: a test outside the crate cannot write it as a struct
+/// expression, and `..Default::default()` is the form that is forbidden.
 #[allow(clippy::field_reassign_with_default)]
 pub fn config(
     endpoint: &str,

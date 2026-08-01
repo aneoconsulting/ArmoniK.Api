@@ -3,23 +3,22 @@
 //! Configuration parsing, TLS and mTLS: what it takes to turn an endpoint into a connected channel.
 //! Depending on this alone leaves protobuf codegen, and the `protoc` a build script would need, out of
 //! the build.
+//!
+//! A caller hands over a [`ClientConfigArgs`], filled in from wherever it keeps its settings. Nothing
+//! here reads an environment variable or a file of options: where the values come from is the business
+//! of whoever knows what the deployment looks like. The exception is `ProxySource::System`, which is
+//! the `*_PROXY` convention every HTTP client obeys rather than a setting of ArmoniK's.
 
 mod config;
 mod connect;
 mod proxy;
 mod secret;
 mod tcp;
-mod utils;
 
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError, ProxyConfig, ProxySource};
 pub use connect::{connect, https_connector, ConnectionError};
 pub use proxy::ProxyError;
 pub use secret::Secret;
-// Snafu's context selectors, so a caller in another crate can build the error with the location
-// captured at its own call site. Hidden: this is how the error is built, not API to design against.
-#[doc(hidden)]
-pub use connect::{ConfigSnafu, IoSnafu, TlsSnafu, TransportSnafu};
-pub use utils::ReadEnvError;
 
 /// Re-exports of this crate's own dependencies, at the versions it was built with.
 ///

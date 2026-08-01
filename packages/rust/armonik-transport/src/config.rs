@@ -19,7 +19,7 @@ pub enum ProxySource {
     /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
     ///
     /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
-    /// started with. Every other option is read in [`ClientConfigArgs::from_env`].
+    /// started with. This is the one value this crate goes looking for; every other is handed to it.
     System,
     /// Use this specific proxy.
     Explicit(Uri),
@@ -189,10 +189,11 @@ impl Clone for ClientConfig {
     }
 }
 
-/// Options for creating a gRPC Client (as given in the environment)
+/// Options for creating a gRPC Client, in the string form a caller supplies them in
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[non_exhaustive]
+// Deliberately exhaustive, unlike the configuration it becomes: this is what a caller fills in, and a
+// caller that cannot name every field cannot be told by the compiler when a new one appears.
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
     pub endpoint: String,
@@ -271,45 +272,7 @@ pub struct ClientConfigArgs {
     pub reuse_ports: Option<bool>,
 }
 
-impl ClientConfigArgs {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        use crate::utils::{read_env, read_env_bool};
-        let ctx = EnvSnafu {};
-        Ok(Self {
-            endpoint: read_env("GrpcClient__Endpoint").context(ctx)?,
-            cert_pem: read_env("GrpcClient__CertPem").context(ctx)?,
-            key_pem: read_env("GrpcClient__KeyPem").context(ctx)?,
-            ca_cert: read_env("GrpcClient__CaCert").context(ctx)?,
-            allow_unsafe_connection: read_env_bool("GrpcClient__AllowUnsafeConnection")
-                .context(ctx)?,
-            override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
-            connect_timeout: read_env("GrpcClient__ConnectTimeout").context(ctx)?,
-            timeout: read_env("GrpcClient__Timeout").context(ctx)?,
-            rate_limit: read_env("GrpcClient__RateLimit").context(ctx)?,
-            tcp_keepalive: read_env("GrpcClient__TcpKeepalive").context(ctx)?,
-            tcp_keepalive_interval: read_env("GrpcClient__TcpKeepaliveInterval").context(ctx)?,
-            tcp_keepalive_retries: read_env("GrpcClient__TcpKeepaliveRetries").context(ctx)?,
-            tcp_nagle_algorithm: read_env_bool("GrpcClient__TcpNagleAlgorithm").context(ctx)?,
-            http2_keep_alive_interval: read_env("GrpcClient__Http2KeepAliveInterval")
-                .context(ctx)?,
-            http2_keep_alive_timeout: read_env("GrpcClient__Http2KeepAliveTimeout").context(ctx)?,
-            http2_keep_alive_while_idle: read_env_bool("GrpcClient__Http2KeepAliveWhileIdle")
-                .context(ctx)?,
-            http2_max_header_list_size: read_env("GrpcClient__Http2MaxHeaderListSize")
-                .context(ctx)?,
-            user_agent: read_env("GrpcClient__UserAgent").context(ctx)?,
-            proxy: read_env("GrpcClient__Proxy").context(ctx)?,
-            proxy_username: read_env("GrpcClient__ProxyUsername").context(ctx)?,
-            proxy_password: read_env("GrpcClient__ProxyPassword").context(ctx)?.into(),
-            reuse_ports: crate::utils::read_env_bool_opt("GrpcClient__ReusePorts").context(ctx)?,
-        })
-    }
-}
-
 impl ClientConfig {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_config_args(ClientConfigArgs::from_env()?)
-    }
     pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
         let _span = tracing::debug_span!(
             "ClientConfig",
@@ -376,7 +339,7 @@ impl ClientConfig {
         // Read client cert and key files
         let identity = match (cert_path.as_str(), key_path.as_str()) {
             ("", "") => None,
-            ("", _) | (_, "") => return IncompatibleOptionsSnafu{msg: format!("`GrpcClient__CertPem={cert_path}` and `GrpcClient__KeyPem={key_path}` must be either both empty or both set")}.fail(),
+            ("", _) | (_, "") => return IncompatibleOptionsSnafu{msg: format!("`cert_pem={cert_path}` and `key_pem={key_path}` must be either both empty or both set")}.fail(),
             (cert_path, key_path) => {
                 let cert_pem =
                     std::fs::read_to_string(cert_path).context(IoSnafu { path: cert_path })?;
@@ -435,6 +398,7 @@ impl ClientConfig {
                 connect_timeout
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "connect_timeout",
                         value: connect_timeout,
                     })?
                     .into(),
@@ -447,7 +411,10 @@ impl ClientConfig {
             Some(
                 timeout
                     .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu { value: timeout })?
+                    .context(InvalidDurationSnafu {
+                        option: "timeout",
+                        value: timeout,
+                    })?
                     .into(),
             )
         };
@@ -469,6 +436,7 @@ impl ClientConfig {
             let duration: Duration = parts[1]
                 .parse::<humantime::Duration>()
                 .context(InvalidDurationSnafu {
+                    option: "rate_limit",
                     value: rate_limit.clone(),
                 })?
                 .into();
@@ -477,7 +445,7 @@ impl ClientConfig {
             if limit == 0 || duration.is_zero() {
                 return IncompatibleOptionsSnafu {
                     msg: format!(
-                        "`GrpcClient__RateLimit={rate_limit}` has a zero count or duration. Both have \
+                        "`rate_limit={rate_limit}` has a zero count or duration. Both have \
                          to be above zero, as in `100/1s`; leave it empty for no rate limit"
                     ),
                 }
@@ -493,6 +461,7 @@ impl ClientConfig {
                 tcp_keepalive
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "tcp_keepalive",
                         value: tcp_keepalive,
                     })?
                     .into(),
@@ -506,6 +475,7 @@ impl ClientConfig {
                 tcp_keepalive_interval
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "tcp_keepalive_interval",
                         value: tcp_keepalive_interval,
                     })?
                     .into(),
@@ -531,6 +501,7 @@ impl ClientConfig {
                 http2_keep_alive_interval
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "http2_keep_alive_interval",
                         value: http2_keep_alive_interval,
                     })?
                     .into(),
@@ -544,6 +515,7 @@ impl ClientConfig {
                 http2_keep_alive_timeout
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "http2_keep_alive_timeout",
                         value: http2_keep_alive_timeout,
                     })?
                     .into(),
@@ -616,7 +588,7 @@ impl ClientConfig {
     }
 }
 
-/// Interpret the `GrpcClient__Proxy` value.
+/// Interpret the `proxy` value.
 ///
 /// As ArmoniK's other clients spell it: empty is a direct connection, `none` disables proxying,
 /// `system` reads the environment, anything else is a proxy URL, defaulting to the `http` scheme.
@@ -644,7 +616,7 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
                     IncompatibleOptionsSnafu {
                         msg: format!(
                             "The `CONNECT` handshake is written in the clear, so only an `http` \
-                             proxy can be reached, and `GrpcClient__Proxy={}` names another scheme",
+                             proxy can be reached, and `proxy={}` names another scheme",
                             crate::proxy::elide_userinfo(proxy)
                         ),
                     }
@@ -654,7 +626,7 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
                 None => IncompatibleOptionsSnafu {
                     // Elided: a URL rejected for having no host can still have carried a password.
                     msg: format!(
-                        "`GrpcClient__Proxy={}` is not a valid proxy URL. Expected `none`, \
+                        "`proxy={}` is not a valid proxy URL. Expected `none`, \
                          `system`, or a URL such as `http://proxy.example.com:3128`",
                         crate::proxy::elide_userinfo(proxy)
                     ),
@@ -676,14 +648,6 @@ impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum ConfigError {
-    #[snafu(display("Could not read environment variable [{location}]"))]
-    #[non_exhaustive]
-    Env {
-        #[snafu(source(from(crate::utils::ReadEnvError, Box::new)))]
-        source: Box<crate::utils::ReadEnvError>,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
     #[snafu(display("Invalid TLS configuration [{location}]"))]
     #[non_exhaustive]
     Tls {
@@ -727,10 +691,13 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("`GrpcClient__ConnectTimeout={value}` is not a valid duration (e.g. `30s` or `1m`) [{location}]"))]
+    #[snafu(display(
+        "`{option}={value}` is not a valid duration (e.g. `30s` or `1m`) [{location}]"
+    ))]
     #[non_exhaustive]
     InvalidDuration {
         source: humantime::DurationError,
+        option: &'static str,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -980,8 +947,8 @@ mod tests {
                 "{error:?}"
             );
             let rendered = chain(&error);
-            assert!(rendered.contains("GrpcClient__CertPem"), "{rendered}");
-            assert!(rendered.contains("GrpcClient__KeyPem"), "{rendered}");
+            assert!(rendered.contains("cert_pem"), "{rendered}");
+            assert!(rendered.contains("key_pem"), "{rendered}");
         }
     }
 

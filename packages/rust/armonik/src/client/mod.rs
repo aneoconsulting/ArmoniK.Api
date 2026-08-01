@@ -5,12 +5,16 @@ use snafu::{ResultExt, Snafu};
 // Re-exported here, so a caller reaches them through the client rather than through the transport
 // crate.
 #[cfg(feature = "_gen-client")]
-use armonik_transport::ConfigSnafu;
-#[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
     ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ProxyConfig, ProxyError,
-    ProxySource, ReadEnvError, Secret,
+    ProxySource, Secret,
 };
+
+/// Reading the `GrpcClient__*` variables, which is this crate's business rather than the transport's.
+#[cfg(feature = "_gen-client")]
+mod env;
+#[cfg(feature = "_gen-client")]
+pub use env::{EnvConfigError, FromEnv, NewClientError, ReadEnvError};
 
 #[cfg(feature = "worker")]
 mod agent;
@@ -71,8 +75,11 @@ pub struct Client<T = tonic::transport::Channel> {
 
 impl Client<tonic::transport::Channel> {
     /// Create a new client using the configuration from the environment variables
-    pub async fn new() -> Result<Self, ConnectionError> {
-        Self::with_config(ClientConfig::from_env().context(ConfigSnafu {})?).await
+    pub async fn new() -> Result<Self, NewClientError> {
+        let config = ClientConfig::from_env().context(env::ConfigSnafu {})?;
+        Self::with_config(config)
+            .await
+            .context(env::ConnectSnafu {})
     }
 
     /// Create a new client with the specified client configuration
@@ -96,7 +103,7 @@ impl Client<tonic::transport::Channel> {
         use http_body_util::BodyExt;
         use hyper_util::rt::TokioExecutor;
 
-        let mut config = ClientConfig::from_env().unwrap();
+        let mut config = <ClientConfig as FromEnv>::from_env().unwrap();
 
         match std::env::var("Http__Endpoint") {
             Ok(value) if !value.is_empty() => {
