@@ -83,8 +83,8 @@ fn an_empty_timeout_means_no_timeout_rather_than_a_minute() {
 
 #[test]
 fn an_empty_connect_timeout_still_means_a_minute() {
-    // The mirror image, and the reason the two are treated differently: this 60s *has* always been
-    // applied, so it is observable behaviour and changing it would be a regression rather than a fix.
+    // The mirror image of the test above: an absent `ConnectTimeout` bounds the connection at a
+    // minute, which is what a caller who sets nothing gets.
     let config = config("http://localhost:5001", |_| {});
 
     assert_eq!(config.connect_timeout, Some(Duration::from_secs(60)));
