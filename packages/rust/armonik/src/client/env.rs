@@ -171,16 +171,33 @@ pub enum ReadEnvError {
 mod tests {
     use super::*;
 
-    /// A variable name of its own per test, so that a stray value cannot leak between them even though
-    /// they are serialised.
+    /// Puts back what the variable held, rather than removing it: these tests run in a process whose
+    /// environment may already carry a `GrpcClient__*` that other tests need. On drop, so that a
+    /// failing test does not take it away from them either.
+    struct Restore {
+        name: String,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            match self.previous.take() {
+                Some(previous) => std::env::set_var(&self.name, previous),
+                None => std::env::remove_var(&self.name),
+            }
+        }
+    }
+
     fn with_var<T>(name: &str, value: Option<&str>, body: impl FnOnce() -> T) -> T {
+        let _restore = Restore {
+            name: name.to_owned(),
+            previous: std::env::var_os(name),
+        };
         match value {
             Some(value) => std::env::set_var(name, value),
             None => std::env::remove_var(name),
         }
-        let outcome = body();
-        std::env::remove_var(name);
-        outcome
+        body()
     }
 
     #[test]
@@ -271,16 +288,18 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
-    fn the_endpoint_reaches_the_configuration() {
-        // The one test that the whole chain is wired: a variable set here comes out of
-        // `from_config_args` as a parsed endpoint.
-        let config = with_var(
-            "GrpcClient__Endpoint",
-            Some("http://localhost:5001"),
-            ClientConfig::from_env,
+    fn a_variable_reaches_the_field_that_carries_it() {
+        // The drift-prone half of this module is the mapping from name to field, so that is what is
+        // checked. `UserAgent` on purpose: the tests that build a real client share this process and
+        // are not serialised against this one, so borrowing a variable any of them depends on, the
+        // endpoint above all, would send them somewhere else while this runs.
+        let args = with_var(
+            "GrpcClient__UserAgent",
+            Some("armonik-test/1"),
+            ClientConfigArgs::from_env,
         )
-        .expect("a lone endpoint is a valid configuration");
+        .expect("reading the environment must not fail");
 
-        assert_eq!(config.endpoint.to_string(), "http://localhost:5001/");
+        assert_eq!(args.user_agent, "armonik-test/1");
     }
 }
