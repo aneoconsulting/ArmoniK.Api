@@ -1,7 +1,61 @@
-//! Reading configuration from the environment, and the one deliberately-insecure certificate
-//! verifier that `allow_unsafe_connection` selects.
+//! Building a client configuration out of the `GrpcClient__*` environment variables.
+//!
+//! This is integration with a deployment, not transport: `armonik-transport` takes the configuration
+//! it is handed and never goes looking for one, so the vocabulary of ArmoniK's options and the reading
+//! of them live here, in the crate that knows what a deployment looks like.
 
-use snafu::Snafu;
+use snafu::{ResultExt, Snafu};
+
+use super::{ClientConfig, ClientConfigArgs, ConfigError, ConnectionError};
+
+/// Loading a value from the environment.
+///
+/// An extension trait because the types belong to `armonik-transport`, where an inherent method would
+/// have to live and does not belong.
+pub trait FromEnv: Sized {
+    /// Read every `GrpcClient__*` variable this type understands.
+    fn from_env() -> Result<Self, EnvConfigError>;
+}
+
+impl FromEnv for ClientConfigArgs {
+    fn from_env() -> Result<Self, EnvConfigError> {
+        let ctx = ReadSnafu {};
+        Ok(Self {
+            endpoint: read_env("GrpcClient__Endpoint").context(ctx)?,
+            cert_pem: read_env("GrpcClient__CertPem").context(ctx)?,
+            key_pem: read_env("GrpcClient__KeyPem").context(ctx)?,
+            ca_cert: read_env("GrpcClient__CaCert").context(ctx)?,
+            allow_unsafe_connection: read_env_bool("GrpcClient__AllowUnsafeConnection")
+                .context(ctx)?,
+            override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
+            connect_timeout: read_env("GrpcClient__ConnectTimeout").context(ctx)?,
+            timeout: read_env("GrpcClient__Timeout").context(ctx)?,
+            rate_limit: read_env("GrpcClient__RateLimit").context(ctx)?,
+            tcp_keepalive: read_env("GrpcClient__TcpKeepalive").context(ctx)?,
+            tcp_keepalive_interval: read_env("GrpcClient__TcpKeepaliveInterval").context(ctx)?,
+            tcp_keepalive_retries: read_env("GrpcClient__TcpKeepaliveRetries").context(ctx)?,
+            tcp_nagle_algorithm: read_env_bool("GrpcClient__TcpNagleAlgorithm").context(ctx)?,
+            http2_keep_alive_interval: read_env("GrpcClient__Http2KeepAliveInterval")
+                .context(ctx)?,
+            http2_keep_alive_timeout: read_env("GrpcClient__Http2KeepAliveTimeout").context(ctx)?,
+            http2_keep_alive_while_idle: read_env_bool("GrpcClient__Http2KeepAliveWhileIdle")
+                .context(ctx)?,
+            http2_max_header_list_size: read_env("GrpcClient__Http2MaxHeaderListSize")
+                .context(ctx)?,
+            user_agent: read_env("GrpcClient__UserAgent").context(ctx)?,
+            proxy: read_env("GrpcClient__Proxy").context(ctx)?,
+            proxy_username: read_env("GrpcClient__ProxyUsername").context(ctx)?,
+            proxy_password: read_env("GrpcClient__ProxyPassword").context(ctx)?.into(),
+            reuse_ports: read_env_bool_opt("GrpcClient__ReusePorts").context(ctx)?,
+        })
+    }
+}
+
+impl FromEnv for ClientConfig {
+    fn from_env() -> Result<Self, EnvConfigError> {
+        Self::from_config_args(ClientConfigArgs::from_env()?).context(InvalidSnafu {})
+    }
+}
 
 pub(crate) fn read_env(name: &str) -> Result<String, ReadEnvError> {
     match std::env::var(name) {
@@ -40,6 +94,54 @@ pub(crate) fn read_env_bool_opt(name: &str) -> Result<Option<bool>, ReadEnvError
     }
 }
 
+/// Turning the environment into a client configuration.
+#[derive(Debug, Snafu)]
+#[non_exhaustive]
+#[snafu(visibility(pub))]
+pub enum EnvConfigError {
+    #[snafu(display("Could not read a `GrpcClient__*` environment variable [{location}]"))]
+    #[non_exhaustive]
+    Read {
+        #[snafu(source(from(ReadEnvError, Box::new)))]
+        source: Box<ReadEnvError>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "The environment does not describe a valid client configuration [{location}]"
+    ))]
+    #[non_exhaustive]
+    Invalid {
+        #[snafu(source(from(ConfigError, Box::new)))]
+        source: Box<ConfigError>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+}
+
+/// Creating a client from the environment.
+#[derive(Debug, Snafu)]
+#[non_exhaustive]
+#[snafu(visibility(pub))]
+pub enum NewClientError {
+    #[snafu(display("Could not read the client configuration [{location}]"))]
+    #[non_exhaustive]
+    Config {
+        #[snafu(source(from(EnvConfigError, Box::new)))]
+        source: Box<EnvConfigError>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("Could not connect with that configuration [{location}]"))]
+    #[non_exhaustive]
+    Connect {
+        #[snafu(source(from(ConnectionError, Box::new)))]
+        source: Box<ConnectionError>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+}
+
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum ReadEnvError {
@@ -63,58 +165,6 @@ pub enum ReadEnvError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-}
-
-#[derive(Debug)]
-pub(crate) struct InsecureCertVerifier;
-
-impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
-    fn verify_server_cert(
-        &self,
-        _end_entity: &rustls::pki_types::CertificateDer<'_>,
-        _intermediates: &[rustls::pki_types::CertificateDer<'_>],
-        _server_name: &rustls::pki_types::ServerName<'_>,
-        _ocsp_response: &[u8],
-        _now: rustls::pki_types::UnixTime,
-    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
-        Ok(rustls::client::danger::ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        _message: &[u8],
-        _cert: &rustls::pki_types::CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        _message: &[u8],
-        _cert: &rustls::pki_types::CertificateDer<'_>,
-        _dss: &rustls::DigitallySignedStruct,
-    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
-        Ok(rustls::client::danger::HandshakeSignatureValid::assertion())
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
-        vec![
-            rustls::SignatureScheme::RSA_PKCS1_SHA1,
-            rustls::SignatureScheme::ECDSA_SHA1_Legacy,
-            rustls::SignatureScheme::RSA_PKCS1_SHA256,
-            rustls::SignatureScheme::ECDSA_NISTP256_SHA256,
-            rustls::SignatureScheme::RSA_PKCS1_SHA384,
-            rustls::SignatureScheme::ECDSA_NISTP384_SHA384,
-            rustls::SignatureScheme::RSA_PKCS1_SHA512,
-            rustls::SignatureScheme::ECDSA_NISTP521_SHA512,
-            rustls::SignatureScheme::RSA_PSS_SHA256,
-            rustls::SignatureScheme::RSA_PSS_SHA384,
-            rustls::SignatureScheme::RSA_PSS_SHA512,
-            rustls::SignatureScheme::ED25519,
-            rustls::SignatureScheme::ED448,
-        ]
-    }
 }
 
 #[cfg(test)]
@@ -217,5 +267,20 @@ mod tests {
             read_env("ARMONIK_TEST_STRING")
         });
         assert_eq!(absent.expect("unset"), "", "absent reads as empty");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn the_endpoint_reaches_the_configuration() {
+        // The one test that the whole chain is wired: a variable set here comes out of
+        // `from_config_args` as a parsed endpoint.
+        let config = with_var(
+            "GrpcClient__Endpoint",
+            Some("http://localhost:5001"),
+            ClientConfig::from_env,
+        )
+        .expect("a lone endpoint is a valid configuration");
+
+        assert_eq!(config.endpoint.to_string(), "http://localhost:5001/");
     }
 }

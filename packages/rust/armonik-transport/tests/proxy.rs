@@ -249,16 +249,16 @@ async fn a_missing_credential_is_reported_as_such() {
         .await
         .expect_err("the proxy should have refused the tunnel");
 
-    // The message has to name the options to set, otherwise a 407 is a dead end for whoever hits
-    // it.
+    // The message has to say what is missing, otherwise a 407 is a dead end for whoever hits it.
+    // Which option supplies it is the caller's vocabulary, not this crate's.
     let rendered = error_chain(error.as_ref());
     assert!(
         rendered.contains("requires authentication"),
         "unexpected error: {rendered}"
     );
     assert!(
-        rendered.contains("GrpcClient__ProxyUsername"),
-        "the error should say which options to set: {rendered}"
+        rendered.contains("no credentials"),
+        "the error should say what is missing: {rendered}"
     );
     assert_eq!(stats.rejected.load(Ordering::SeqCst), 1);
     assert_eq!(stats.tunnels.load(Ordering::SeqCst), 0);
@@ -335,8 +335,8 @@ async fn system_mode_takes_the_proxy_from_the_environment() {
     let (proxy, stats) = spawn_proxy(ProxyAuth::None).await;
 
     // The variable has to still be set when `connect` runs, not merely when the configuration is
-    // built: `system` resolves the environment as the connection is made. Every other option is read
-    // once, in `ClientConfigArgs::from_env`.
+    // built: `system` resolves the environment as the connection is made. Every other option is
+    // fixed once the configuration is built.
     std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system")
