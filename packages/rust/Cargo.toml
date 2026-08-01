@@ -21,6 +21,7 @@ version = "3.29.2-beta-0"
 # `nr update-versions` keeps it in step.
 armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
 async-stream = "0.3"
+bytes = "1"
 eyre = "0.6"
 futures = "0.3"
 http-body-util = "0.1"
@@ -42,6 +43,7 @@ tokio-util = "0.7"
 tonic = { version = "0.14", default-features = false }
 tonic-prost = "0.14"
 tonic-prost-build = "0.14"
+tower-service = "0.3"
 tracing = "0.1"
 tracing-futures = "0.2"
 tracing-subscriber = "0.3"

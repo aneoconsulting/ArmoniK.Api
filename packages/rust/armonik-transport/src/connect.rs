@@ -1,7 +1,6 @@
 //! Turning a [`ClientConfig`] into a connected `tonic` channel.
 //!
-//! Moved out of `armonik`'s `Client::with_config`, which now calls [`connect`] and keeps only what is
-//! about a client rather than about a connection.
+//! TLS, mTLS, and every timeout, keepalive and identity setting come together here.
 
 use std::sync::Arc;
 
@@ -24,12 +23,21 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
     let http2_keep_alive_while_idle = config.http2_keep_alive_while_idle;
     let http2_max_header_list_size = config.http2_max_header_list_size;
     let user_agent = config.user_agent.clone();
+    let timeout = config.timeout;
+    let rate_limit = config.rate_limit;
 
     let https = https_connector(config).await?;
 
     let mut transport_endpoint = tonic::transport::Endpoint::from(endpoint.clone());
     if let Some(target) = override_target {
         transport_endpoint = transport_endpoint.origin(target);
+    }
+
+    if let Some(timeout) = timeout {
+        transport_endpoint = transport_endpoint.timeout(timeout);
+    }
+    if let Some((limit, duration)) = rate_limit {
+        transport_endpoint = transport_endpoint.rate_limit(limit, duration);
     }
 
     if let Some(interval) = http2_keep_alive_interval {
@@ -58,9 +66,9 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
 /// Build the connector stack, TCP then TLS or mTLS, that [`connect`] wraps in a channel.
 ///
 /// Most callers want [`connect`]. This exists so a caller can drive plain HTTP through the same
-/// connection configuration a channel would use: `armonik`'s test helper reads the mock server's
-/// `/calls.json` that way. Hidden because its return type names this crate's dependencies rather than
-/// its own; `pub` only so the signature is expressible.
+/// connection configuration a channel would use, which is what it takes to reach a mock server's
+/// diagnostic endpoint from a test. Hidden because its return type names this crate's dependencies
+/// rather than its own; `pub` only so the signature is expressible.
 #[doc(hidden)]
 pub async fn https_connector(
     config: ClientConfig,
