@@ -561,7 +561,7 @@ mod tests {
                 "http://***@proxy.corp/path",
             ),
             // A `/` inside the password is malformed, which is how such a value reaches this function
-            // at all. Cutting the authority at the first `/` used to render the password in full.
+            // at all, and is why the split is on the last `@` rather than on the authority.
             (
                 "http://user:my/pass@proxy.corp:3128",
                 "http://***@proxy.corp:3128",
