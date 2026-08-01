@@ -132,7 +132,7 @@ pub struct ClientConfigArgs {
 }
 
 impl ClientConfigArgs {
-    pub fn from_env() -> Result<Self, super::ConfigError> {
+    pub fn from_env() -> Result<Self, ConfigError> {
         use crate::utils::{read_env, read_env_bool};
         let ctx = EnvSnafu {};
         Ok(Self {
@@ -519,4 +519,320 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The minimum viable arguments: an endpoint, and nothing else set.
+    fn args() -> ClientConfigArgs {
+        ClientConfigArgs {
+            endpoint: String::from("http://localhost:5001"),
+            ..Default::default()
+        }
+    }
+
+    /// Every message in the chain, joined. snafu keeps the detail in the source, so asserting on the
+    /// outermost `Display` alone would pass whatever the cause turned out to be.
+    fn chain(error: &ConfigError) -> String {
+        let mut rendered = error.to_string();
+        let mut source = std::error::Error::source(error);
+        while let Some(cause) = source {
+            rendered.push_str(" | ");
+            rendered.push_str(&cause.to_string());
+            source = cause.source();
+        }
+        rendered
+    }
+
+    #[test]
+    fn the_minimum_is_an_endpoint() {
+        let config = ClientConfig::from_config_args(args()).expect("an endpoint is enough");
+
+        assert_eq!(config.endpoint.to_string(), "http://localhost:5001/");
+        assert!(config.identity.is_none());
+        assert!(config.cacert.is_none());
+        assert_eq!(config.override_target, None);
+        assert_eq!(config.rate_limit, None);
+    }
+
+    #[test]
+    fn an_endpoint_that_is_not_a_uri_is_reported() {
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            endpoint: String::new(),
+            ..args()
+        })
+        .expect_err("an empty endpoint is not a URI");
+
+        assert!(matches!(error, ConfigError::Uri { .. }), "{error:?}");
+    }
+
+    // --- durations and numbers ---
+
+    #[test]
+    fn durations_are_read_in_the_units_they_are_written_in() {
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            connect_timeout: String::from("500ms"),
+            tcp_keepalive: String::from("30s"),
+            tcp_keepalive_interval: String::from("2m"),
+            http2_keep_alive_interval: String::from("1h"),
+            ..args()
+        })
+        .expect("valid durations");
+
+        assert_eq!(config.connect_timeout, Some(Duration::from_millis(500)));
+        assert_eq!(config.tcp_keepalive, Some(Duration::from_secs(30)));
+        assert_eq!(
+            config.tcp_keepalive_interval,
+            Some(Duration::from_secs(120))
+        );
+        assert_eq!(
+            config.http2_keep_alive_interval,
+            Some(Duration::from_secs(3600))
+        );
+    }
+
+    #[test]
+    fn a_duration_that_cannot_be_parsed_names_the_value() {
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            tcp_keepalive: String::from("soon"),
+            ..args()
+        })
+        .expect_err("`soon` is not a duration");
+
+        assert!(
+            matches!(error, ConfigError::InvalidDuration { .. }),
+            "{error:?}"
+        );
+        assert!(chain(&error).contains("soon"), "{}", chain(&error));
+    }
+
+    #[test]
+    fn integers_are_read_and_a_bad_one_names_the_value() {
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            tcp_keepalive_retries: String::from("3"),
+            http2_max_header_list_size: String::from("16384"),
+            ..args()
+        })
+        .expect("valid integers");
+        assert_eq!(config.tcp_keepalive_retries, Some(3));
+        assert_eq!(config.http2_max_header_list_size, Some(16384));
+
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            tcp_keepalive_retries: String::from("many"),
+            ..args()
+        })
+        .expect_err("`many` is not an integer");
+        assert!(
+            matches!(error, ConfigError::InvalidInteger { .. }),
+            "{error:?}"
+        );
+        assert!(chain(&error).contains("many"), "{}", chain(&error));
+    }
+
+    #[test]
+    fn an_integer_that_does_not_fit_is_rejected_rather_than_wrapped() {
+        // These are `u32`; a value past the top must fail rather than silently become something else.
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            http2_max_header_list_size: String::from("4294967296"),
+            ..args()
+        })
+        .expect_err("2^32 does not fit in a u32");
+
+        assert!(
+            matches!(error, ConfigError::InvalidInteger { .. }),
+            "{error:?}"
+        );
+    }
+
+    // --- rate limit ---
+
+    #[test]
+    fn a_rate_limit_is_a_count_and_a_duration() {
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            rate_limit: String::from("100/1s"),
+            ..args()
+        })
+        .expect("valid");
+
+        assert_eq!(config.rate_limit, Some((100, Duration::from_secs(1))));
+    }
+
+    #[test]
+    fn a_rate_limit_missing_its_duration_is_reported_with_the_expected_shape() {
+        // The message has to show the format, since `100` on its own looks perfectly reasonable to whoever
+        // wrote it.
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            rate_limit: String::from("100"),
+            ..args()
+        })
+        .expect_err("a rate limit needs both halves");
+
+        assert!(
+            matches!(error, ConfigError::IncompatibleOptions { .. }),
+            "{error:?}"
+        );
+        let rendered = chain(&error);
+        assert!(rendered.contains("number/duration"), "{rendered}");
+        assert!(rendered.contains("100"), "{rendered}");
+    }
+
+    #[test]
+    fn each_half_of_a_rate_limit_is_validated_separately() {
+        let count = ClientConfig::from_config_args(ClientConfigArgs {
+            rate_limit: String::from("plenty/1s"),
+            ..args()
+        })
+        .expect_err("`plenty` is not a count");
+        assert!(
+            matches!(count, ConfigError::InvalidRateLimitCount { .. }),
+            "{count:?}"
+        );
+
+        let duration = ClientConfig::from_config_args(ClientConfigArgs {
+            rate_limit: String::from("100/soon"),
+            ..args()
+        })
+        .expect_err("`soon` is not a duration");
+        assert!(
+            matches!(duration, ConfigError::InvalidDuration { .. }),
+            "{duration:?}"
+        );
+    }
+
+    // --- certificates ---
+
+    #[test]
+    fn half_an_identity_is_rejected_and_names_both_variables() {
+        // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
+        // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
+        for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
+            let error = ClientConfig::from_config_args(ClientConfigArgs {
+                cert_pem: String::from(cert),
+                key_pem: String::from(key),
+                ..args()
+            })
+            .expect_err("half an identity must be rejected");
+
+            assert!(
+                matches!(error, ConfigError::IncompatibleOptions { .. }),
+                "{error:?}"
+            );
+            let rendered = chain(&error);
+            assert!(rendered.contains("GrpcClient__CertPem"), "{rendered}");
+            assert!(rendered.contains("GrpcClient__KeyPem"), "{rendered}");
+        }
+    }
+
+    #[test]
+    fn neither_half_is_no_identity_rather_than_an_error() {
+        let config = ClientConfig::from_config_args(args()).expect("valid");
+        assert!(config.identity.is_none());
+    }
+
+    #[test]
+    fn a_certificate_path_that_does_not_exist_is_reported_with_the_path() {
+        // These options are paths, not contents. A typo in one has to name the file rather than surface
+        // later as a TLS failure.
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            cert_pem: String::from("no/such/cert.pem"),
+            key_pem: String::from("no/such/key.pem"),
+            ..args()
+        })
+        .expect_err("a missing file must be reported");
+
+        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
+        assert!(
+            chain(&error).contains("no/such/cert.pem"),
+            "{}",
+            chain(&error)
+        );
+    }
+
+    #[test]
+    fn a_missing_ca_certificate_is_reported_with_the_path() {
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            ca_cert: String::from("no/such/ca.pem"),
+            ..args()
+        })
+        .expect_err("a missing file must be reported");
+
+        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
+        assert!(
+            chain(&error).contains("no/such/ca.pem"),
+            "{}",
+            chain(&error)
+        );
+    }
+
+    // --- override target ---
+
+    #[test]
+    fn an_override_target_given_as_a_host_keeps_the_endpoints_scheme_and_path() {
+        // The common case: the certificate names one host, the endpoint is reached at another. Only the
+        // authority is being overridden, so everything else has to come from the endpoint.
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            endpoint: String::from("https://10.0.0.1:5003/base"),
+            override_target_name: String::from("server.example.com"),
+            ..args()
+        })
+        .expect("valid");
+
+        let override_target = config.override_target.expect("an override target");
+        assert_eq!(override_target.scheme_str(), Some("https"));
+        assert_eq!(
+            override_target.authority().map(|a| a.as_str()),
+            Some("server.example.com")
+        );
+        assert_eq!(override_target.path(), "/base");
+    }
+
+    #[test]
+    fn an_override_target_given_as_a_uri_replaces_the_authority_and_the_path() {
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            endpoint: String::from("https://10.0.0.1:5003/base"),
+            override_target_name: String::from("https://server.example.com/other"),
+            ..args()
+        })
+        .expect("valid");
+
+        let override_target = config.override_target.expect("an override target");
+        assert_eq!(
+            override_target.authority().map(|a| a.as_str()),
+            Some("server.example.com")
+        );
+        assert_eq!(override_target.path(), "/other");
+        // The scheme still comes from the endpoint: the connection is made to the endpoint, and this only
+        // changes the name it is verified against.
+        assert_eq!(override_target.scheme_str(), Some("https"));
+    }
+
+    #[test]
+    fn no_override_target_leaves_it_unset() {
+        let config = ClientConfig::from_config_args(args()).expect("valid");
+        assert_eq!(config.override_target, None);
+    }
+
+    // --- the serde feature ---
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
+        // Every field but the endpoint carries `serde(default)`, so a configuration file need only name
+        // what it changes. The feature is off by default, so nothing else here would notice it breaking.
+        let deserialised: ClientConfigArgs =
+            serde_json::from_str(r#"{"endpoint":"http://localhost:5001","timeout":"30s"}"#)
+                .expect("absent fields should default");
+
+        assert_eq!(deserialised.endpoint, "http://localhost:5001");
+        assert_eq!(deserialised.timeout, "30s");
+        assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
+        assert!(!deserialised.allow_unsafe_connection);
+
+        let round_tripped: ClientConfigArgs =
+            serde_json::from_str(&serde_json::to_string(&deserialised).expect("serialise"))
+                .expect("deserialise");
+        assert_eq!(round_tripped, deserialised);
+    }
 }

@@ -10,6 +10,9 @@ import {
   javaPattern,
   jsFiles,
   jsPattern,
+  rustDependencyFiles,
+  rustDependencyKey,
+  rustDependencyPattern,
   rustFiles,
   rustPattern,
 } from './versions/_contants'
@@ -30,6 +33,8 @@ consola.info('Finding java projects versions')
 javaFiles.forEach(_readAndFind(javaPattern, versions))
 consola.info('Finding rust projects versions')
 rustFiles.forEach(_readAndFind(rustPattern, versions))
+consola.info('Finding the rust internal dependency version')
+rustDependencyFiles.forEach(_readAndFind(rustDependencyPattern, versions, rustDependencyKey))
 
 const versionsArray = [...versions.values()]
 const uniqueVersions = [...new Set(versionsArray)]
