@@ -21,6 +21,7 @@ version = "3.29.2-beta-0"
 # `nr update-versions` keeps it in step.
 armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
 async-stream = "0.3"
+base64 = "0.22"
 bytes = "1"
 eyre = "0.6"
 futures = "0.3"
