@@ -6,12 +6,12 @@ use std::sync::Arc;
 
 use hyper::Uri;
 use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver, HttpsConnector};
-use hyper_util::client::legacy::connect::HttpConnector;
 use rustls::pki_types::ServerName;
 use snafu::{ResultExt, Snafu};
 
 use crate::config::ConfigError;
 use crate::proxy::ProxyConnector;
+use crate::tcp::TcpConnector;
 use crate::ClientConfig;
 
 /// Connect to the endpoint described by `config`, eagerly: this resolves once the connection is
@@ -73,7 +73,10 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
 #[doc(hidden)]
 pub async fn https_connector(
     config: ClientConfig,
-) -> Result<HttpsConnector<ProxyConnector<HttpConnector>>, ConnectionError> {
+) -> Result<HttpsConnector<ProxyConnector<TcpConnector>>, ConnectionError> {
+    // Built first, while `config` is whole: the fields below are moved out of it.
+    let tcp = TcpConnector::new(&config);
+
     let endpoint = config.endpoint;
 
     // Get the default crypto provider or fallback to the ring crypto provider
@@ -133,19 +136,9 @@ pub async fn https_connector(
         https = https.with_server_name_resolver(FixedServerNameResolver::new(server_name));
     };
 
-    let mut http = HttpConnector::new();
-    http.enforce_http(false); // required for hyper-rustls to switch schemes
-    http.set_nodelay(!config.tcp_nagle_algorithm);
-    http.set_keepalive(config.tcp_keepalive);
-    http.set_keepalive_interval(config.tcp_keepalive_interval);
-    http.set_keepalive_retries(config.tcp_keepalive_retries);
-    if let Some(timeout) = config.connect_timeout {
-        http.set_connect_timeout(Some(timeout));
-    }
-
     // Tunnelling sits below TLS, so the handshake above still targets the real server. With no proxy
     // configured this delegates straight to the connector it wraps, settings and all.
-    let http = ProxyConnector::new(http, config.proxy);
+    let http = ProxyConnector::new(tcp, config.proxy);
 
     Ok(https.enable_http1().enable_http2().wrap_connector(http))
 }

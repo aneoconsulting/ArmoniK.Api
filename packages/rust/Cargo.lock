@@ -50,6 +50,7 @@ version = "3.29.2-beta-0"
 dependencies = [
  "base64",
  "bytes",
+ "futures-util",
  "humantime",
  "hyper",
  "hyper-rustls",
@@ -59,10 +60,12 @@ dependencies = [
  "serde_json",
  "serial_test",
  "snafu",
+ "socket2",
  "tokio",
  "tonic",
  "tower-service",
  "tracing",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

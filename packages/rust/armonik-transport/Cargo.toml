@@ -43,10 +43,21 @@ humantime.workspace = true
 # `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
 # nothing to the build.
 base64.workspace = true
-# The CONNECT handshake writes and reads the socket directly, and bounds itself in time.
-tokio = { workspace = true, features = ["io-util", "net", "time"] }
+# The CONNECT handshake writes and reads the socket directly and bounds itself in time; `macros` is
+# for the `select!` that races connection attempts, and belongs here rather than in the dev
+# dependencies: without it the library does not build, only its tests do.
+tokio = { workspace = true, features = ["io-util", "macros", "net", "time"] }
 # The proxy connector is a `tower` service, so that it composes with the connectors around it.
 tower-service.workspace = true
+# Keepalive on a socket this crate opened itself, which `TcpSocket` does not expose.
+socket2.workspace = true
+# `FuturesUnordered`, to hold several connection attempts in flight at once.
+futures-util.workspace = true
+
+# `SO_REUSE_UNICASTPORT` is the only Windows-specific thing here, and the only `unsafe`. Through
+# `windows-sys` so that the signature and the constants come from the SDK rather than from us.
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
 
 [dev-dependencies]
 # The boolean options are read straight from the environment, so testing which spellings they accept
@@ -54,7 +65,13 @@ tower-service.workspace = true
 serial_test.workspace = true
 # Only to round-trip `ClientConfigArgs` in the test that pins the `serde` feature.
 serde_json.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+tokio = { workspace = true, features = [
+  "rt-multi-thread",
+  "macros",
+  "time",
+  # A paused clock, so the racing tests assert on scheduling rather than on wall-clock timing.
+  "test-util",
+] }
 # The integration tests serve a gRPC service to call, which the regular build never does; these features
 # union with the `channel`/`codegen` above for test builds only.
 tonic = { workspace = true, features = ["server", "router"] }

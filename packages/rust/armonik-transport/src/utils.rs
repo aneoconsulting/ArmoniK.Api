@@ -28,6 +28,18 @@ pub(crate) fn read_env_bool(name: &str) -> Result<bool, ReadEnvError> {
     }
 }
 
+/// Like [`read_env_bool`], but for an option whose default is not `false`.
+///
+/// Only a variable that is absent takes `unset`. Set but empty stays what it is for every other
+/// boolean here, namely `false`: `read_env` maps both to the empty string, so this has to ask the
+/// environment itself rather than go through it.
+pub(crate) fn read_env_bool_or(name: &str, unset: bool) -> Result<bool, ReadEnvError> {
+    match std::env::var(name) {
+        Err(std::env::VarError::NotPresent) => Ok(unset),
+        _ => read_env_bool(name),
+    }
+}
+
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum ReadEnvError {
@@ -139,6 +151,28 @@ mod tests {
             });
             assert!(!read.expect(spelling), "`{spelling}` should read as false");
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn an_absent_variable_takes_the_given_default_but_an_empty_one_does_not() {
+        // The option that defaults to on has to tell absent from empty, which `read_env_bool` cannot:
+        // it maps both to `false`. Empty stays `false` here, so it means the same thing as it does for
+        // every other boolean.
+        let absent = with_var("ARMONIK_TEST_BOOL_OR", None, || {
+            read_env_bool_or("ARMONIK_TEST_BOOL_OR", true)
+        });
+        assert!(absent.expect("unset"), "absent should take the default");
+
+        let empty = with_var("ARMONIK_TEST_BOOL_OR", Some(""), || {
+            read_env_bool_or("ARMONIK_TEST_BOOL_OR", true)
+        });
+        assert!(!empty.expect("empty"), "set but empty should read as false");
+
+        let explicit = with_var("ARMONIK_TEST_BOOL_OR", Some("true"), || {
+            read_env_bool_or("ARMONIK_TEST_BOOL_OR", false)
+        });
+        assert!(explicit.expect("explicit"), "an explicit value wins");
     }
 
     #[test]

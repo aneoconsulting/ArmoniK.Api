@@ -4,6 +4,7 @@ use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
+use crate::reuse_ports::ReusePorts;
 use crate::secret::Secret;
 
 /// Where to find the HTTP proxy used to reach the endpoint.
@@ -124,6 +125,12 @@ pub struct ClientConfig {
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
     pub proxy: ProxyConfig,
+    /// Let the OS reuse local ports for outgoing connections, defaults to true.
+    ///
+    /// Windows only, where it sets `SO_REUSE_UNICASTPORT` so that opening many connections in a short
+    /// window does not exhaust the ephemeral port range. On any other platform it is ignored, down to
+    /// which connector is used.
+    pub reuse_ports: ReusePorts,
 }
 
 impl Clone for ClientConfig {
@@ -150,6 +157,7 @@ impl Clone for ClientConfig {
             http2_max_header_list_size: self.http2_max_header_list_size,
             user_agent: self.user_agent.clone(),
             proxy: self.proxy.clone(),
+            reuse_ports: self.reuse_ports,
         }
     }
 }
@@ -231,6 +239,9 @@ pub struct ClientConfigArgs {
     /// [`Secret`].
     #[cfg_attr(feature = "serde", serde(default))]
     pub proxy_password: Secret,
+    /// Let the OS reuse local ports for outgoing connections, defaults to true
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub reuse_ports: ReusePorts,
 }
 
 impl ClientConfigArgs {
@@ -263,6 +274,11 @@ impl ClientConfigArgs {
             proxy: read_env("GrpcClient__Proxy").context(ctx)?,
             proxy_username: read_env("GrpcClient__ProxyUsername").context(ctx)?,
             proxy_password: read_env("GrpcClient__ProxyPassword").context(ctx)?.into(),
+            // Unset means on, as it does for the other clients, so an explicit `false` is the only
+            // way to turn it off.
+            reuse_ports: crate::utils::read_env_bool_or("GrpcClient__ReusePorts", true)
+                .context(ctx)?
+                .into(),
         })
     }
 }
@@ -297,6 +313,7 @@ impl ClientConfig {
             // the list.
             proxy = %crate::proxy::elide_userinfo(&args.proxy),
             args.proxy_username,
+            reuse_ports = args.reuse_ports.is_enabled(),
         );
 
         let ClientConfigArgs {
@@ -321,6 +338,7 @@ impl ClientConfig {
             proxy,
             proxy_username,
             proxy_password,
+            reuse_ports,
         } = args;
 
         // Read CAcert file
@@ -568,6 +586,7 @@ impl ClientConfig {
             http2_max_header_list_size,
             user_agent,
             proxy,
+            reuse_ports,
         })
     }
 }
