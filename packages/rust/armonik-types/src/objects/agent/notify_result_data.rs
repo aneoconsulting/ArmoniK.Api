@@ -77,13 +77,7 @@ impl prost::Message for Request {
         match tag {
             IDS_TAG => {
                 encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-                let len = encoding::decode_varint(buf)? as usize;
-                if buf.remaining() < len {
-                    // prost offers no other public constructor.
-                    #[allow(deprecated)]
-                    return Err(DecodeError::new("buffer underflow"));
-                }
-                let mut pair = buf.take(len);
+                let mut pair = crate::codec::read_delimited(buf)?;
                 let mut session_id = String::new();
                 let mut result_id = String::new();
                 while pair.has_remaining() {
@@ -124,7 +118,7 @@ impl prost::Message for Request {
         let mut len = 0;
         for result_id in &self.result_ids {
             let pair_len = self.pair_len(result_id);
-            len += encoding::encoded_len_varint(u64::from(IDS_TAG) << 3)
+            len += crate::codec::key_len(IDS_TAG)
                 + encoding::encoded_len_varint(pair_len as u64)
                 + pair_len;
         }

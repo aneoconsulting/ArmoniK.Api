@@ -120,6 +120,13 @@ pub(crate) struct AttrEntry {
     pub(crate) item: AttrItem,
 }
 
+/// Parse the `= <value>` tail shared by every `key = value` entry; the value
+/// type (`LitStr`/`LitInt`) is inferred from the `AttrItem` constructor.
+fn eq_then<T: Parse>(input: ParseStream) -> syn::Result<T> {
+    input.parse::<Token![=]>()?;
+    input.parse()
+}
+
 struct AttrList(Vec<AttrEntry>);
 
 impl Parse for AttrList {
@@ -135,34 +142,13 @@ impl Parse for AttrList {
             };
 
             let item = match key.as_str() {
-                "message" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::Message(input.parse()?)
-                }
-                "enum" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::Enum(input.parse()?)
-                }
-                "oneof" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::Oneof(input.parse()?)
-                }
-                "rename" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::Rename(input.parse()?)
-                }
-                "tag" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::Tag(input.parse()?)
-                }
-                "with" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::With(input.parse()?)
-                }
-                "absorbs" => {
-                    input.parse::<Token![=]>()?;
-                    AttrItem::Absorbs(input.parse()?)
-                }
+                "message" => AttrItem::Message(eq_then(input)?),
+                "enum" => AttrItem::Enum(eq_then(input)?),
+                "oneof" => AttrItem::Oneof(eq_then(input)?),
+                "rename" => AttrItem::Rename(eq_then(input)?),
+                "tag" => AttrItem::Tag(eq_then(input)?),
+                "with" => AttrItem::With(eq_then(input)?),
+                "absorbs" => AttrItem::Absorbs(eq_then(input)?),
                 "generic" => AttrItem::Generic,
                 "transparent" => AttrItem::Transparent,
                 "present" => AttrItem::Present,

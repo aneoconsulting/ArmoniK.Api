@@ -45,10 +45,33 @@ pub(crate) fn enumeration(input: DeriveInput) -> syn::Result<TokenStream> {
     Ok(out)
 }
 
+/// Visit the attribute list of the type itself and of every field, variant,
+/// and variant field — the common traversal for whole-input attribute scans.
+fn for_each_attr_site(input: &DeriveInput, mut visit: impl FnMut(&[syn::Attribute])) {
+    visit(&input.attrs);
+    match &input.data {
+        syn::Data::Struct(data) => {
+            for field in &data.fields {
+                visit(&field.attrs);
+            }
+        }
+        syn::Data::Enum(data) => {
+            for variant in &data.variants {
+                visit(&variant.attrs);
+                for field in &variant.fields {
+                    visit(&field.attrs);
+                }
+            }
+        }
+        syn::Data::Union(_) => {}
+    }
+}
+
 /// The explicit `#[armonik(absorbs = "...")]` names on any field/variant of
 /// the input (auto-collected transparent/inline ones come from the plan).
 fn collect_absorbs(input: &DeriveInput) -> Vec<String> {
-    fn push(attrs: &[syn::Attribute], out: &mut Vec<String>) {
+    let mut out = Vec::new();
+    for_each_attr_site(input, |attrs| {
         if let Ok(entries) = attrs::parse(attrs) {
             for entry in entries {
                 if let AttrItem::Absorbs(lit) = entry.item {
@@ -56,25 +79,7 @@ fn collect_absorbs(input: &DeriveInput) -> Vec<String> {
                 }
             }
         }
-    }
-    let mut out = Vec::new();
-    push(&input.attrs, &mut out);
-    match &input.data {
-        syn::Data::Struct(data) => {
-            for field in &data.fields {
-                push(&field.attrs, &mut out);
-            }
-        }
-        syn::Data::Enum(data) => {
-            for variant in &data.variants {
-                push(&variant.attrs, &mut out);
-                for field in &variant.fields {
-                    push(&field.attrs, &mut out);
-                }
-            }
-        }
-        syn::Data::Union(_) => {}
-    }
+    });
     out
 }
 
@@ -111,23 +116,8 @@ pub(crate) fn alias(attr: TokenStream, item: TokenStream) -> syn::Result<TokenSt
 /// then resolves to this crate's derive — the single home of the grammar
 /// documentation. The anonymous `const` compiles to nothing.
 fn doc_anchors(input: &DeriveInput, derive: &str) -> TokenStream {
-    let mut spans = attrs::key_spans(&input.attrs);
-    match &input.data {
-        syn::Data::Struct(data) => {
-            for field in &data.fields {
-                spans.extend(attrs::key_spans(&field.attrs));
-            }
-        }
-        syn::Data::Enum(data) => {
-            for variant in &data.variants {
-                spans.extend(attrs::key_spans(&variant.attrs));
-                for field in &variant.fields {
-                    spans.extend(attrs::key_spans(&field.attrs));
-                }
-            }
-        }
-        syn::Data::Union(_) => {}
-    }
+    let mut spans = Vec::new();
+    for_each_attr_site(input, |attrs| spans.extend(attrs::key_spans(attrs)));
     if spans.is_empty() {
         return TokenStream::new();
     }

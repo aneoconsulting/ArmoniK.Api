@@ -174,6 +174,27 @@ pub(crate) trait ProtoAdapter<T> {
     }
 }
 
+/// Read a length-delimited sub-buffer: decode the length varint, guard
+/// against a truncated buffer, and return a `Take` limited to the body.
+pub(crate) fn read_delimited<B: Buf + ?Sized>(
+    buf: &mut B,
+) -> Result<prost::bytes::buf::Take<&mut B>, DecodeError> {
+    let len = prost::encoding::decode_varint(&mut &mut *buf)? as usize;
+    if buf.remaining() < len {
+        // prost offers no other public constructor; pinned to prost 0.14.
+        #[allow(deprecated)]
+        return Err(DecodeError::new("buffer underflow"));
+    }
+    Ok(buf.take(len))
+}
+
+/// Encoded length of a length-delimited field key (`tag << 3 | wire_type`).
+/// The wire-type bits never change the varint length, so the tag alone
+/// determines it.
+pub(crate) fn key_len(tag: u32) -> usize {
+    prost::encoding::encoded_len_varint(u64::from(tag) << 3)
+}
+
 /// Const string equality, for derive-emitted assertions.
 pub(crate) const fn str_eq(a: &str, b: &str) -> bool {
     let (a, b) = (a.as_bytes(), b.as_bytes());

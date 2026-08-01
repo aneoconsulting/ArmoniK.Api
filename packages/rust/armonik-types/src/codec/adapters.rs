@@ -9,11 +9,7 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
-use super::{ProtoAdapter, ProtoField};
-
-fn key_len(tag: u32) -> usize {
-    encoding::encoded_len_varint(u64::from(tag) << 3)
-}
+use super::{key_len, ProtoAdapter, ProtoField};
 
 /// `repeated Pair { key = KT; value = VT }` exposed as a `HashMap`.
 ///
@@ -53,13 +49,7 @@ where
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
         encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let len = encoding::decode_varint(buf)? as usize;
-        if buf.remaining() < len {
-            // prost offers no other public constructor; pinned to prost 0.14.
-            #[allow(deprecated)]
-            return Err(DecodeError::new("buffer underflow"));
-        }
-        let mut entry = buf.take(len);
+        let mut entry = super::read_delimited(buf)?;
         let mut key = K::default();
         let mut entry_value = V::default();
         while entry.has_remaining() {
@@ -134,13 +124,7 @@ impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
         encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let len = encoding::decode_varint(buf)? as usize;
-        if buf.remaining() < len {
-            // prost offers no other public constructor; pinned to prost 0.14.
-            #[allow(deprecated)]
-            return Err(DecodeError::new("buffer underflow"));
-        }
-        let mut wrapper = buf.take(len);
+        let mut wrapper = super::read_delimited(buf)?;
         while wrapper.has_remaining() {
             let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
             if tag == TAG {
@@ -191,13 +175,7 @@ impl<T: ProtoField, const TAG: u32> ProtoAdapter<Vec<T>> for VecWrapper<TAG> {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
         encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let len = encoding::decode_varint(buf)? as usize;
-        if buf.remaining() < len {
-            // prost offers no other public constructor; pinned to prost 0.14.
-            #[allow(deprecated)]
-            return Err(DecodeError::new("buffer underflow"));
-        }
-        let mut wrapper = buf.take(len);
+        let mut wrapper = super::read_delimited(buf)?;
         while wrapper.has_remaining() {
             let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
             if tag == TAG {
