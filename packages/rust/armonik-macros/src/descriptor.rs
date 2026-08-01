@@ -64,7 +64,7 @@ pub(crate) struct EnumMeta {
 /// Index of every message and enum in the descriptor set, keyed by full name
 /// without leading dot (e.g. `armonik.api.grpc.v1.TaskOptions`).
 pub(crate) struct DescriptorIndex {
-    pub(crate) fingerprint: u128,
+    pub(crate) fingerprint: u64,
     pub(crate) messages: HashMap<String, MessageMeta>,
     pub(crate) enums: HashMap<String, EnumMeta>,
 }
@@ -114,7 +114,13 @@ pub(crate) fn index() -> Result<Arc<DescriptorIndex>, String> {
         .map_err(|err| format!("failed to read `{}`: {err}", path.display()))?;
     let fds = FileDescriptorSet::decode(bytes.as_slice())
         .map_err(|err| format!("failed to decode `{}`: {err}", path.display()))?;
-    let index = Arc::new(build_index(fnv1a_128(&bytes), &fds)?);
+    let fingerprint = {
+        use std::hash::Hasher as _;
+        let mut hasher = fnv::FnvHasher::default();
+        hasher.write(&bytes);
+        hasher.finish()
+    };
+    let index = Arc::new(build_index(fingerprint, &fds)?);
 
     *cache = Some(Cached {
         mtime,
@@ -124,7 +130,7 @@ pub(crate) fn index() -> Result<Arc<DescriptorIndex>, String> {
     Ok(index)
 }
 
-fn build_index(fingerprint: u128, fds: &FileDescriptorSet) -> Result<DescriptorIndex, String> {
+fn build_index(fingerprint: u64, fds: &FileDescriptorSet) -> Result<DescriptorIndex, String> {
     // First pass: collect the synthetic map-entry messages so that map fields
     // can be folded into `Cardinality::Map` in the second pass.
     let mut map_entries = HashMap::new();
@@ -308,18 +314,3 @@ fn field_kind(field: &FieldDescriptorProto) -> Result<FieldKind, String> {
     })
 }
 
-/// FNV-1a, 128-bit.
-///
-/// Keep in sync with `armonik/build.rs`: a mismatch makes the fingerprint
-/// const-assert emitted by every derive fail, so a divergence cannot go
-/// unnoticed.
-fn fnv1a_128(bytes: &[u8]) -> u128 {
-    const OFFSET_BASIS: u128 = 0x6c62272e07bb014262b821756295c58d;
-    const PRIME: u128 = 0x0000000001000000000000000000013b;
-    let mut hash = OFFSET_BASIS;
-    for &byte in bytes {
-        hash ^= byte as u128;
-        hash = hash.wrapping_mul(PRIME);
-    }
-    hash
-}

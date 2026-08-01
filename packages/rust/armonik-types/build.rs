@@ -67,11 +67,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Staleness anchor: included in the crate through `include!` so that any
     // descriptor change invalidates the crate in rustc's dep-info, and
     // cross-checked by a const-assert emitted by every derive.
-    let fingerprint = fnv1a_128(&bytes);
+    let fingerprint = {
+        use std::hash::Hasher as _;
+        let mut hasher = fnv::FnvHasher::default();
+        hasher.write(&bytes);
+        hasher.finish()
+    };
     write_if_changed(
         &out_dir.join("schema_meta.rs"),
-        format!("pub(crate) const DESCRIPTOR_FINGERPRINT: u128 = {fingerprint:#034x};\n")
-            .as_bytes(),
+        format!("pub(crate) const DESCRIPTOR_FINGERPRINT: u64 = {fingerprint:#018x};\n").as_bytes(),
     )?;
 
     Ok(())
@@ -82,20 +86,4 @@ fn write_if_changed(path: &Path, contents: &[u8]) -> std::io::Result<()> {
         return Ok(());
     }
     std::fs::write(path, contents)
-}
-
-/// FNV-1a, 128-bit.
-///
-/// Keep in sync with `armonik-macros/src/descriptor.rs`: a mismatch makes the
-/// fingerprint const-assert emitted by every derive fail, so a divergence
-/// cannot go unnoticed.
-fn fnv1a_128(bytes: &[u8]) -> u128 {
-    const OFFSET_BASIS: u128 = 0x6c62272e07bb014262b821756295c58d;
-    const PRIME: u128 = 0x0000000001000000000000000000013b;
-    let mut hash = OFFSET_BASIS;
-    for &byte in bytes {
-        hash ^= byte as u128;
-        hash = hash.wrapping_mul(PRIME);
-    }
-    hash
 }

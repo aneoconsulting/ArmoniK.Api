@@ -20,7 +20,7 @@ pub(crate) struct MessagePlan {
     /// this holds exactly the single delegate field.
     pub(crate) fields: Vec<FieldPlan>,
     pub(crate) generics: syn::Generics,
-    pub(crate) fingerprint: u128,
+    pub(crate) fingerprint: u64,
     /// `#[armonik(transparent)]` on a struct: the type delegates its whole
     /// `prost::Message` impl to its single field.
     pub(crate) transparent: bool,
@@ -758,7 +758,7 @@ pub(crate) struct EnumPlan {
     /// which case the user derives `Default` and the macro must not.
     pub(crate) has_std_default: bool,
     pub(crate) mode: EnumMode,
-    pub(crate) fingerprint: u128,
+    pub(crate) fingerprint: u64,
     /// Intermediate wrapper messages the transparent chain flattens away, so
     /// they have no Rust type of their own (see [`crate::codegen`]).
     pub(crate) absorbs: Vec<String>,
@@ -1118,7 +1118,7 @@ pub(crate) struct OneofPlan {
     /// unit variant, or a struct variant carrying exactly the sibling
     /// fields when there are siblings.
     pub(crate) default_variant: Option<syn::Ident>,
-    pub(crate) fingerprint: u128,
+    pub(crate) fingerprint: u64,
     /// Messages inlined into struct variants (their fields are spread into the
     /// variant), so they have no Rust type of their own.
     pub(crate) absorbs: Vec<String>,

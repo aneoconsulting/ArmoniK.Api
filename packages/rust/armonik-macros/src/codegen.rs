@@ -278,7 +278,7 @@ fn tripwire(fingerprint: &proc_macro2::Literal) -> TokenStream {
 pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let ident = &plan.ident;
     let proto_names = &plan.proto_names;
-    let fingerprint = proc_macro2::Literal::u128_suffixed(plan.fingerprint);
+    let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
     let mut generics = plan.generics.clone();
     for param in generics.type_params_mut() {
@@ -547,7 +547,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
     let ident = &plan.ident;
     let other = &plan.other_variant;
     let payload = &plan.payload;
-    let fingerprint = proc_macro2::Literal::u128_suffixed(plan.fingerprint);
+    let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
     let payload_doc = format!(
         "Raw value of an `{ident}` not known to this crate version (or the \
@@ -765,7 +765,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let ident = &plan.ident;
     let proto_name = &plan.proto_name;
     let tags = &plan.tags;
-    let fingerprint = proc_macro2::Literal::u128_suffixed(plan.fingerprint);
+    let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
     let mut encode_arms = Vec::new();
     let mut len_arms = Vec::new();
@@ -1114,7 +1114,7 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
 
     let ident = &plan.ident;
     let proto_name = &plan.proto_name;
-    let fingerprint = proc_macro2::Literal::u128_suffixed(plan.fingerprint);
+    let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
     // Every variant ident (members + default), for patterns spanning all of
     // them; `pats` builds one pattern per variant binding a subset of the

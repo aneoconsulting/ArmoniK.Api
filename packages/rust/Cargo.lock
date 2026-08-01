@@ -63,6 +63,7 @@ dependencies = [
 name = "armonik-macros"
 version = "3.29.2-beta-0"
 dependencies = [
+ "fnv",
  "proc-macro2",
  "prost",
  "prost-types",
@@ -97,6 +98,7 @@ dependencies = [
  "armonik-macros",
  "armonik-types",
  "bytes",
+ "fnv",
  "linkme",
  "prost",
  "prost-reflect",
