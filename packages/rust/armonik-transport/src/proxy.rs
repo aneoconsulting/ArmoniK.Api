@@ -104,6 +104,14 @@ where
             return Box::pin(async move { future.await.map_err(Into::into) });
         };
 
+        if proxy_uri.scheme() != Some(&Scheme::HTTP) {
+            let error = UnsupportedProxySnafu {
+                proxy: proxy_uri.clone(),
+            }
+            .build();
+            return Box::pin(std::future::ready(Err(error.into())));
+        }
+
         let authority = match target_authority(&target) {
             Ok(authority) => authority,
             Err(error) => return Box::pin(std::future::ready(Err(error.into()))),
@@ -228,7 +236,8 @@ async fn tunnel(
     }
 
     match status_code(&head) {
-        Some(200) => Ok(()),
+        // Any 2xx switches the connection to tunnel mode, not 200 alone.
+        Some(status) if (200..300).contains(&status) => Ok(()),
         Some(407) => AuthenticationRequiredSnafu {}.fail(),
         Some(status) => RejectedSnafu { status }.fail(),
         None => MalformedResponseSnafu {}.fail(),
@@ -411,6 +420,16 @@ pub enum ProxyError {
     #[non_exhaustive]
     Rejected {
         status: u16,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "The `CONNECT` handshake is written in the clear, so only an `http` proxy can be reached, \
+         not {proxy} [{location}]"
+    ))]
+    #[non_exhaustive]
+    UnsupportedProxy {
+        proxy: Uri,
         #[snafu(implicit)]
         location: snafu::Location,
     },

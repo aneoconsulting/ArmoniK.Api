@@ -39,8 +39,13 @@ struct ProxyStats {
     rejected: AtomicUsize,
 }
 
-/// A minimal HTTP proxy that only implements `CONNECT`.
+/// A minimal HTTP proxy that only implements `CONNECT`, answering 200.
 async fn spawn_proxy(auth: ProxyAuth) -> (SocketAddr, Arc<ProxyStats>) {
+    spawn_proxy_answering(auth, 200).await
+}
+
+/// The same, answering `success` to a `CONNECT` it accepts.
+async fn spawn_proxy_answering(auth: ProxyAuth, success: u16) -> (SocketAddr, Arc<ProxyStats>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy");
     let address = listener.local_addr().expect("proxy address");
     let stats = Arc::new(ProxyStats::default());
@@ -54,7 +59,7 @@ async fn spawn_proxy(auth: ProxyAuth) -> (SocketAddr, Arc<ProxyStats>) {
             let stats = Arc::clone(&accepted);
             tokio::spawn(async move {
                 // A failing tunnel is a normal outcome in these tests; the client asserts on it.
-                let _ = serve_tunnel(client, auth, stats).await;
+                let _ = serve_tunnel(client, auth, success, stats).await;
             });
         }
     });
@@ -65,6 +70,7 @@ async fn spawn_proxy(auth: ProxyAuth) -> (SocketAddr, Arc<ProxyStats>) {
 async fn serve_tunnel(
     mut client: TcpStream,
     auth: ProxyAuth,
+    success: u16,
     stats: Arc<ProxyStats>,
 ) -> std::io::Result<()> {
     let head = read_head(&mut client).await?;
@@ -93,7 +99,7 @@ async fn serve_tunnel(
 
     let mut upstream = TcpStream::connect(&target).await?;
     client
-        .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
+        .write_all(format!("HTTP/1.1 {success} Connection established\r\n\r\n").as_bytes())
         .await?;
     client.flush().await?;
     stats.tunnels.fetch_add(1, Ordering::SeqCst);
@@ -386,4 +392,43 @@ async fn no_proxy_does_not_apply_to_an_explicitly_configured_proxy() {
         common::REPLY
     );
     assert_eq!(stats.tunnels.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn a_success_other_than_200_still_opens_the_tunnel() {
+    // RFC 9110: any 2xx switches the connection to tunnel mode. Requiring exactly 200 drops a working
+    // tunnel from a proxy that answers 201 or 204.
+    for success in [201u16, 204] {
+        let server = spawn_server().await;
+        let (proxy, stats) = spawn_proxy_answering(ProxyAuth::None, success).await;
+
+        let answer = call_through(through_proxy(&server, proxy, None))
+            .await
+            .unwrap_or_else(|error| panic!("{success} should open the tunnel: {error}"));
+
+        assert_eq!(answer, common::REPLY);
+        assert_eq!(stats.tunnels.load(Ordering::SeqCst), 1);
+    }
+}
+
+#[tokio::test]
+#[serial_test::serial(env)]
+async fn an_https_proxy_from_the_environment_is_refused_before_dialling() {
+    // `system` resolves at connect time, so that is the only place its scheme can be checked. Dialling
+    // it would write the handshake in the clear to a proxy expecting TLS.
+    let server = spawn_server().await;
+
+    std::env::set_var("HTTP_PROXY", "https://proxy.corp:3128");
+    let outcome = call_through(common::config(&server, |args| {
+        args.proxy = String::from("system")
+    }))
+    .await;
+    std::env::remove_var("HTTP_PROXY");
+
+    let error = error_chain(
+        outcome
+            .expect_err("an https proxy cannot be reached")
+            .as_ref(),
+    );
+    assert!(error.contains("only an `http` proxy"), "{error}");
 }

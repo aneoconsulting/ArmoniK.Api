@@ -215,7 +215,8 @@ pub struct ClientConfigArgs {
     /// HTTP proxy to reach the endpoint through.
     ///
     /// Empty for a direct connection, `none` to disable proxying explicitly, `system` to read the
-    /// environment (see [`ProxySource::System`]), otherwise the proxy URL.
+    /// environment (see [`ProxySource::System`]), otherwise the proxy URL, whose scheme has to be
+    /// `http`: the `CONNECT` handshake is written in the clear.
     #[cfg_attr(feature = "serde", serde(default))]
     pub proxy: String,
     /// Username for proxy authentication.
@@ -593,6 +594,18 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
                     .is_some_and(|authority| !authority.host().is_empty())
             });
             match uri {
+                // Caught here rather than at connect time, so a mistyped option fails while the
+                // configuration is being read and names itself.
+                Some(uri) if uri.scheme_str().is_some_and(|scheme| scheme != "http") => {
+                    IncompatibleOptionsSnafu {
+                        msg: format!(
+                            "The `CONNECT` handshake is written in the clear, so only an `http` \
+                             proxy can be reached, and `GrpcClient__Proxy={}` names another scheme",
+                            crate::proxy::elide_userinfo(proxy)
+                        ),
+                    }
+                    .fail()
+                }
                 Some(uri) => Ok(ProxySource::Explicit(uri)),
                 None => IncompatibleOptionsSnafu {
                     // Elided: a URL rejected for having no host can still have carried a password.
@@ -1232,6 +1245,22 @@ mod tests {
 
         let json = serde_json::to_string(&args).expect("serialise");
         assert!(!json.contains("s3cr3t"), "password written out: {json}");
+    }
+
+    #[test]
+    fn a_proxy_that_is_not_http_is_rejected_rather_than_reached_in_the_clear() {
+        // The `CONNECT` handshake goes out unencrypted, so a proxy expecting TLS would see gibberish.
+        // Accepting the URL and failing at connect time would report it as an unreachable proxy.
+        for value in ["https://proxy.corp:3128", "socks5://proxy.corp:1080"] {
+            let error = ClientConfig::from_config_args(ClientConfigArgs {
+                proxy: String::from(value),
+                ..args()
+            })
+            .expect_err("only an http proxy can be reached")
+            .to_string();
+
+            assert!(error.contains("only an `http` proxy"), "{value}: {error}");
+        }
     }
 
     #[test]
