@@ -192,3 +192,58 @@ pub struct Response {
     /// The list of ResultMetaData results that were created.
     pub result_ids: Vec<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+
+    use super::Request;
+
+    /// prost-derived reference of `NotifyResultDataRequest` and its
+    /// `ResultIdentifier` pairs (both absorbed, so no generated type exists).
+    /// An independent codec: the multi-pair fixture is encoded through it and
+    /// decoded through our hand-written flattening `Request`, exercising the
+    /// cross-pair session-collapse the field-information ratchet cannot probe.
+    #[derive(Clone, PartialEq, Message)]
+    struct RefIdentifier {
+        #[prost(string, tag = "1")]
+        session_id: String,
+        #[prost(string, tag = "2")]
+        result_id: String,
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefRequest {
+        #[prost(message, repeated, tag = "1")]
+        ids: Vec<RefIdentifier>,
+        #[prost(string, tag = "4")]
+        communication_token: String,
+    }
+
+    #[test]
+    fn pairs_collapse_to_the_first_nonempty_session() {
+        let reference = RefRequest {
+            ids: vec![
+                RefIdentifier {
+                    session_id: String::new(),
+                    result_id: "r0".to_owned(),
+                },
+                RefIdentifier {
+                    session_id: "s1".to_owned(),
+                    result_id: "r1".to_owned(),
+                },
+                RefIdentifier {
+                    // A differing session on a later pair is dropped — the
+                    // request carries one shared session id.
+                    session_id: "s2".to_owned(),
+                    result_id: "r2".to_owned(),
+                },
+            ],
+            communication_token: "tok".to_owned(),
+        };
+        let request = Request::decode(reference.encode_to_vec().as_slice()).expect("decodes");
+        assert_eq!(request.session_id, "s1");
+        assert_eq!(request.result_ids, ["r0", "r1", "r2"]);
+        assert_eq!(request.communication_token, "tok");
+    }
+}

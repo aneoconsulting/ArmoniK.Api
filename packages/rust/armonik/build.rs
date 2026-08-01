@@ -11,24 +11,14 @@ use prost::Message;
 const PRUNED_METHODS: &[(&str, &str)] =
     &[("Results", "WatchResults"), ("Submitter", "WatchResults")];
 
-/// The messages of RPCs the crate does not expose (tonic answers
-/// UNIMPLEMENTED for the pruned paths): they have no Rust type and are not
-/// flattened into one, so they must be dropped explicitly.
-///
-/// Two other kinds of type-less message are pruned without an entry here:
-/// shared messages a `#[armonik(replace(...))]` type takes over (`Empty`,
-/// `TaskFilter`, …) are dropped once every use is rewritten to a synthetic,
-/// and messages a flattening construct absorbs (the `*Field` selectors, pair
-/// entries, …) are dropped through `armonik_types::wire::absorbed()` — both in
-/// `prune_for_stubs`. `armonik_types`' `descriptor.bin` keeps the full set for
-/// the derives and the harness.
-const PRUNED_MESSAGES: &[&str] = &[
-    "armonik.api.grpc.v1.results.WatchResultRequest",
-    "armonik.api.grpc.v1.results.WatchResultResponse",
-    "armonik.api.grpc.v1.submitter.SessionList",
-    "armonik.api.grpc.v1.submitter.WatchResultRequest",
-    "armonik.api.grpc.v1.submitter.WatchResultStream",
-];
+// The type-less messages of RPCs the crate does not expose are pruned from one
+// shared list, `armonik_types::wire::UNEXPOSED_RPC_MESSAGES` (also the
+// differential coverage ratchet's allowlist, so the two cannot drift). The
+// other type-less messages are pruned without a list entry in `prune_for_stubs`:
+// shared messages a `#[armonik(replace(...))]` takes over (`Empty`, `TaskFilter`,
+// …) once every use is rewritten to a synthetic, and messages a flattening
+// construct absorbs (the `*Field` selectors, pair entries, …) through
+// `armonik_types::wire::absorbed()`.
 
 /// Every message name still used as an RPC input/output slot, fully qualified
 /// with a leading `.`. Message *fields* are deliberately ignored: every
@@ -65,7 +55,7 @@ fn prune_for_stubs(
     replacements: &[&Replacement],
 ) -> Result<prost_types::FileDescriptorSet, Box<dyn Error>> {
     let mut methods: Vec<(&str, &str)> = PRUNED_METHODS.to_vec();
-    let mut messages: Vec<&str> = PRUNED_MESSAGES.to_vec();
+    let mut messages: Vec<&str> = armonik_types::wire::UNEXPOSED_RPC_MESSAGES.to_vec();
     // Whether each replacement matched its RPC slot and got its synthetic
     // message injected; a replacement that never matched is stale.
     let mut applied = vec![false; replacements.len()];
@@ -246,6 +236,29 @@ fn guard_all_messages_externed(
     Ok(())
 }
 
+/// Exactly one Rust type may stand for each proto message. Two distinct types
+/// claiming one proto name (two shared-message siblings that both forgot to
+/// carry `#[armonik(replace(...))]`) would each `extern_path` the same name and
+/// tonic would silently keep the last — a misbinding no other check catches,
+/// because `extern_mapping()` only collapses *identical* pairs. See the 1-of-N
+/// convention on `armonik_types::wire::Role::Replace`.
+fn guard_unique_extern(extern_types: &[(&str, &str)]) -> Result<(), Box<dyn Error>> {
+    let mut by_proto: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+    for &(proto, rust) in extern_types {
+        if let Some(previous) = by_proto.insert(proto, rust) {
+            if previous != rust {
+                return Err(format!(
+                    "proto message `{proto}` is extern-mapped to two Rust types \
+                     (`{previous}` and `{rust}`); exactly one type may stand for a shared \
+                     wire message — give the others a #[armonik(replace(...))]"
+                )
+                .into());
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     // The descriptor, the annotation-harvested extern map and the per-RPC
     // replacements are pulled from `armonik-types`, compiled first as a
@@ -279,6 +292,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .map(|(proto, path)| (proto.as_str(), path.as_str())),
         )
         .collect();
+    guard_unique_extern(&extern_types)?;
 
     let pruned = prune_for_stubs(fds, &replacements)?;
 

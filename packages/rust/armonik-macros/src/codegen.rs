@@ -938,15 +938,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                         } else {
                             (#(#part_seeds),*)
                         };
-                        let len = ::prost::encoding::decode_varint(buf)? as usize;
-                        if ::prost::bytes::Buf::remaining(buf) < len {
-                            // prost offers no other public constructor.
-                            #[allow(deprecated)]
-                            return ::core::result::Result::Err(
-                                ::prost::DecodeError::new("buffer underflow"),
-                            );
-                        }
-                        let mut body = ::prost::bytes::Buf::take(buf, len);
+                        let mut body = crate::codec::read_delimited(buf)?;
                         while ::prost::bytes::Buf::has_remaining(&body) {
                             let (tag, wire_type) = ::prost::encoding::decode_key(&mut body)?;
                             match tag {
