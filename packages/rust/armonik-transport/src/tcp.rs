@@ -93,14 +93,14 @@ where
     }
 }
 
-/// Await `body`, bounded by an absolute `deadline` when one is set. [`None`] means it expired.
+/// Await `body`, bounded by an absolute `deadline` when one is set.
 async fn with_optional_deadline<T>(
     deadline: Option<tokio::time::Instant>,
     body: impl std::future::Future<Output = T>,
-) -> Option<T> {
+) -> Result<T, tokio::time::error::Elapsed> {
     match deadline {
-        Some(deadline) => tokio::time::timeout_at(deadline, body).await.ok(),
-        None => Some(body.await),
+        Some(deadline) => tokio::time::timeout_at(deadline, body).await,
+        None => Ok(body.await),
     }
 }
 
@@ -129,7 +129,7 @@ impl TcpConnector {
         // Also standard where the option does not exist: the connector below is only worth taking for
         // the socket option it can set, so elsewhere `reuse_ports` really is the no-op it documents,
         // rather than a different connector with the same effect.
-        if !config.reuse_ports.is_enabled() || !cfg!(windows) {
+        if !config.reuse_ports || !cfg!(windows) {
             return Self::Standard(http);
         }
 
@@ -220,7 +220,7 @@ impl ReusePortsConnector {
 
         let addresses = with_optional_deadline(deadline, tokio::net::lookup_host((host, port)))
             .await
-            .ok_or_else(|| BoxError::from(format!("resolving `{host}` timed out")))?
+            .map_err(|_| BoxError::from(format!("resolving `{host}` timed out")))?
             .map_err(|source| BoxError::from(format!("could not resolve `{host}`: {source}")))?
             .collect::<Vec<_>>();
 
@@ -233,9 +233,9 @@ impl ReusePortsConnector {
         });
 
         match with_optional_deadline(deadline, attempts).await {
-            Some(Ok(stream)) => Ok(TokioIo::new(stream)),
-            Some(Err(error)) => Err(error),
-            None => Err(BoxError::from(format!("connecting to `{host}` timed out"))),
+            Ok(Ok(stream)) => Ok(TokioIo::new(stream)),
+            Ok(Err(error)) => Err(error),
+            Err(_) => Err(BoxError::from(format!("connecting to `{host}` timed out"))),
         }
     }
 
@@ -344,7 +344,7 @@ mod tests {
 
     fn config(reuse_ports: bool) -> ClientConfig {
         ClientConfig {
-            reuse_ports: reuse_ports.into(),
+            reuse_ports,
             ..ClientConfig::default()
         }
     }

@@ -28,15 +28,15 @@ pub(crate) fn read_env_bool(name: &str) -> Result<bool, ReadEnvError> {
     }
 }
 
-/// Like [`read_env_bool`], but for an option whose default is not `false`.
+/// Like [`read_env_bool`], but for an option whose default is not `false`, so that the caller can
+/// tell an absent variable from one set to `false`.
 ///
-/// Only a variable that is absent takes `unset`. Set but empty stays what it is for every other
-/// boolean here, namely `false`: `read_env` maps both to the empty string, so this has to ask the
-/// environment itself rather than go through it.
-pub(crate) fn read_env_bool_or(name: &str, unset: bool) -> Result<bool, ReadEnvError> {
+/// Set but empty stays what it is for every other boolean here, namely `false`: `read_env` maps both
+/// to the empty string, so this has to ask the environment itself rather than go through it.
+pub(crate) fn read_env_bool_opt(name: &str) -> Result<Option<bool>, ReadEnvError> {
     match std::env::var(name) {
-        Err(std::env::VarError::NotPresent) => Ok(unset),
-        _ => read_env_bool(name),
+        Err(std::env::VarError::NotPresent) => Ok(None),
+        _ => read_env_bool(name).map(Some),
     }
 }
 
@@ -155,24 +155,28 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
-    fn an_absent_variable_takes_the_given_default_but_an_empty_one_does_not() {
+    fn an_absent_variable_reads_as_none_but_an_empty_one_does_not() {
         // The option that defaults to on has to tell absent from empty, which `read_env_bool` cannot:
         // it maps both to `false`. Empty stays `false` here, so it means the same thing as it does for
         // every other boolean.
-        let absent = with_var("ARMONIK_TEST_BOOL_OR", None, || {
-            read_env_bool_or("ARMONIK_TEST_BOOL_OR", true)
+        let absent = with_var("ARMONIK_TEST_BOOL_OPT", None, || {
+            read_env_bool_opt("ARMONIK_TEST_BOOL_OPT")
         });
-        assert!(absent.expect("unset"), "absent should take the default");
+        assert_eq!(absent.expect("unset"), None, "absent means unset");
 
-        let empty = with_var("ARMONIK_TEST_BOOL_OR", Some(""), || {
-            read_env_bool_or("ARMONIK_TEST_BOOL_OR", true)
+        let empty = with_var("ARMONIK_TEST_BOOL_OPT", Some(""), || {
+            read_env_bool_opt("ARMONIK_TEST_BOOL_OPT")
         });
-        assert!(!empty.expect("empty"), "set but empty should read as false");
+        assert_eq!(
+            empty.expect("empty"),
+            Some(false),
+            "set but empty should read as false"
+        );
 
-        let explicit = with_var("ARMONIK_TEST_BOOL_OR", Some("true"), || {
-            read_env_bool_or("ARMONIK_TEST_BOOL_OR", false)
+        let explicit = with_var("ARMONIK_TEST_BOOL_OPT", Some("true"), || {
+            read_env_bool_opt("ARMONIK_TEST_BOOL_OPT")
         });
-        assert!(explicit.expect("explicit"), "an explicit value wins");
+        assert_eq!(explicit.expect("explicit"), Some(true));
     }
 
     #[test]

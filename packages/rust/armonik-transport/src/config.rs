@@ -4,7 +4,6 @@ use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
-use crate::reuse_ports::ReusePorts;
 use crate::secret::Secret;
 
 /// Where to find the HTTP proxy used to reach the endpoint.
@@ -86,7 +85,7 @@ impl ProxyConfig {
 }
 
 /// Options for creating a gRPC Client
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[non_exhaustive]
 pub struct ClientConfig {
     /// Endpoint for sending requests
@@ -130,7 +129,35 @@ pub struct ClientConfig {
     /// Windows only, where it sets `SO_REUSE_UNICASTPORT` so that opening many connections in a short
     /// window does not exhaust the ephemeral port range. On any other platform it is ignored, down to
     /// which connector is used.
-    pub reuse_ports: ReusePorts,
+    pub reuse_ports: bool,
+}
+
+impl Default for ClientConfig {
+    /// Written out rather than derived because `reuse_ports` defaults to on, which the zero value
+    /// cannot say. Adding a field to the struct without adding it here does not compile.
+    fn default() -> Self {
+        Self {
+            reuse_ports: true,
+            endpoint: Uri::default(),
+            allow_unsafe_connection: false,
+            identity: None,
+            cacert: None,
+            override_target: None,
+            connect_timeout: None,
+            timeout: None,
+            rate_limit: None,
+            tcp_keepalive: None,
+            tcp_keepalive_interval: None,
+            tcp_keepalive_retries: None,
+            tcp_nagle_algorithm: false,
+            http2_keep_alive_interval: None,
+            http2_keep_alive_timeout: None,
+            http2_keep_alive_while_idle: false,
+            http2_max_header_list_size: None,
+            user_agent: None,
+            proxy: ProxyConfig::default(),
+        }
+    }
 }
 
 impl Clone for ClientConfig {
@@ -239,9 +266,9 @@ pub struct ClientConfigArgs {
     /// [`Secret`].
     #[cfg_attr(feature = "serde", serde(default))]
     pub proxy_password: Secret,
-    /// Let the OS reuse local ports for outgoing connections, defaults to true
+    /// Let the OS reuse local ports for outgoing connections, [`None`] for the default, which is true
     #[cfg_attr(feature = "serde", serde(default))]
-    pub reuse_ports: ReusePorts,
+    pub reuse_ports: Option<bool>,
 }
 
 impl ClientConfigArgs {
@@ -274,11 +301,7 @@ impl ClientConfigArgs {
             proxy: read_env("GrpcClient__Proxy").context(ctx)?,
             proxy_username: read_env("GrpcClient__ProxyUsername").context(ctx)?,
             proxy_password: read_env("GrpcClient__ProxyPassword").context(ctx)?.into(),
-            // Unset means on, as it does for the other clients, so an explicit `false` is the only
-            // way to turn it off.
-            reuse_ports: crate::utils::read_env_bool_or("GrpcClient__ReusePorts", true)
-                .context(ctx)?
-                .into(),
+            reuse_ports: crate::utils::read_env_bool_opt("GrpcClient__ReusePorts").context(ctx)?,
         })
     }
 }
@@ -313,7 +336,7 @@ impl ClientConfig {
             // the list.
             proxy = %crate::proxy::elide_userinfo(&args.proxy),
             args.proxy_username,
-            reuse_ports = args.reuse_ports.is_enabled(),
+            reuse_ports = ?args.reuse_ports,
         );
 
         let ClientConfigArgs {
@@ -586,7 +609,9 @@ impl ClientConfig {
             http2_max_header_list_size,
             user_agent,
             proxy,
-            reuse_ports,
+            // Unset means on, as it does for the other clients, so an explicit `false` is the only
+            // way to turn it off.
+            reuse_ports: reuse_ports.unwrap_or(true),
         })
     }
 }
@@ -1297,6 +1322,23 @@ mod tests {
                 error.contains("is not a valid proxy URL"),
                 "unexpected error for {value:?}: {error}"
             );
+        }
+    }
+
+    #[test]
+    fn port_reuse_is_on_unless_it_is_turned_off() {
+        // The one option whose default is not the zero value, checked in both places that decide it:
+        // a configuration built by hand, and one converted from arguments.
+        assert!(ClientConfig::default().reuse_ports);
+
+        for (given, expected) in [(None, true), (Some(true), true), (Some(false), false)] {
+            let config = ClientConfig::from_config_args(ClientConfigArgs {
+                reuse_ports: given,
+                ..args()
+            })
+            .expect("configuration");
+
+            assert_eq!(config.reuse_ports, expected, "given {given:?}");
         }
     }
 }

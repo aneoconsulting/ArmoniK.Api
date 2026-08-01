@@ -17,7 +17,7 @@ async fn spawn_server() -> String {
 }
 
 fn config(endpoint: &str, reuse_ports: bool) -> ClientConfig {
-    common::config(endpoint, |args| args.reuse_ports = reuse_ports.into())
+    common::config(endpoint, |args| args.reuse_ports = Some(reuse_ports))
 }
 
 /// Build `count` independent channels at once and call through every one of them.
