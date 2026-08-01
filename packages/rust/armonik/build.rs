@@ -1,7 +1,6 @@
 /// The proto files to compile, relative to [`PROTO_ROOT`].
 ///
-/// A list rather than a glob, as it already was; the only change is that the `protos/V1/` prefix is no
-/// longer repeated forty times.
+/// A list rather than a glob, so that each file can be named to `cargo:rerun-if-changed` below.
 const PROTO_FILES: &[&str] = &[
     "agent_common.proto",
     "agent_service.proto",

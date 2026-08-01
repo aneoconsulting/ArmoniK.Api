@@ -2,8 +2,8 @@
 
 use snafu::{ResultExt, Snafu};
 
-// Re-exported at the paths they have always had: the split moved where these are defined, not where
-// they are used from.
+// Re-exported here, so a caller reaches them through the client rather than through the transport
+// crate.
 #[cfg(feature = "_gen-client")]
 use armonik_transport::ConfigSnafu;
 #[cfg(feature = "_gen-client")]
