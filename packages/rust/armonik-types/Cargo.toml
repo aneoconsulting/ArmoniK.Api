@@ -52,3 +52,6 @@ prost-reflect = "0.16"
 protox = "0.9"
 prost-types = "0.14"
 prost = "0.14"
+# Descriptor-fingerprint hash; armonik-macros hashes it with the same crate at
+# expansion time, so the two sides cannot diverge (see build.rs).
+fnv = "1"

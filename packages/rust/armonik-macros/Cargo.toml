@@ -19,3 +19,6 @@ quote = "1"
 syn = { version = "2", features = ["full"] }
 prost = "0.14"
 prost-types = "0.14"
+# Descriptor-fingerprint hash; the same crate hashes it in armonik-types' build
+# script, so the two sides cannot diverge (see `descriptor::index`).
+fnv = "1"
