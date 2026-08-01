@@ -1,0 +1,40 @@
+[package]
+name = "armonik-transport"
+description = "Transport layer (configuration, TLS/mTLS) for the ArmoniK Rust client"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+include = ["**/*.rs", "Cargo.toml", "README.md"]
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+# `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
+# `http`/`tokio_stream` re-exports `armonik` reaches through this crate.
+tonic = { workspace = true, features = ["channel", "codegen"] }
+snafu.workspace = true
+tracing.workspace = true
+hyper = { workspace = true, features = ["client", "http1", "http2"] }
+hyper-util = { workspace = true, features = ["client", "http1"] }
+hyper-rustls = { workspace = true, features = [
+  "http1",
+  "http2",
+  "native-tokio",
+  "tls12",
+  "logging",
+] }
+rustls = { workspace = true, features = ["ring", "logging", "std", "tls12"] }
+serde = { workspace = true, optional = true }
+humantime.workspace = true
+
+[dev-dependencies]
+# The boolean options are read straight from the environment, so testing which spellings they accept
+# means setting variables: process-global state, hence one test at a time.
+serial_test.workspace = true
+# Only to round-trip `ClientConfigArgs` in the test that pins the `serde` feature.
+serde_json.workspace = true
