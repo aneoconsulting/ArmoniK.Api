@@ -20,22 +20,31 @@ pub use prost_reflect;
 
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
+/// A registered type's round-trip and projection hooks, as the harness
+/// consumes them. Projected from the `_differential`-gated
+/// [`crate::wire::Diff`] on each [`crate::wire::Registration`] (see
+/// [`entries`]); the `default_encoding` doubles as the zero-default invariant
+/// and the harness's canonical-absence fold.
+#[derive(Clone, Copy)]
 pub struct Entry {
     pub proto: &'static str,
-    /// Decode the bytes as the armonik type and re-encode them.
     pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, prost::DecodeError>,
-    /// Canonical encoding of the type's `Default`. Doubles as the
-    /// zero-default invariant (an empty message must decode to
-    /// `Default::default()`) and as part of the harness's quotient: it is
-    /// exactly what the type emits for "nothing", so any field present
-    /// here materializes on messages where it is absent.
     pub default_encoding: fn() -> Vec<u8>,
-    /// The type's value-level projection, from its [`Normalize`] impl.
     pub normalize: fn(&mut DynamicMessage),
 }
 
-#[linkme::distributed_slice]
-pub static REGISTRY: [Entry];
+/// Every registered type that carries harness hooks — all but the absorbed,
+/// type-less entries — projected from the single [`crate::wire::REGISTRY`].
+pub fn entries() -> impl Iterator<Item = Entry> {
+    crate::wire::REGISTRY.iter().filter_map(|registration| {
+        registration.diff.as_ref().map(|diff| Entry {
+            proto: registration.proto,
+            roundtrip: diff.roundtrip,
+            default_encoding: diff.default_encoding,
+            normalize: diff.normalize,
+        })
+    })
+}
 
 /// Projection of a dynamic message onto the equivalence classes this type's
 /// wire implementation defines: two messages are the same value exactly when
