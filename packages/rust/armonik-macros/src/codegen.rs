@@ -15,8 +15,12 @@ impl quote::ToTokens for FieldAccess {
     }
 }
 
-/// Runtime path of a descriptor kind, for const-assert patterns.
-fn kind_pattern(kind: &FieldKind) -> TokenStream {
+/// Runtime path of a descriptor kind, for const-assert patterns. `None` for
+/// the sint/fixed wire kinds the codec does not implement (no ArmoniK field
+/// uses them); the caller turns that into a clear "unsupported wire kind"
+/// compile error rather than referencing a `codec::FieldKind` variant that no
+/// longer exists.
+fn kind_pattern(kind: &FieldKind) -> Option<TokenStream> {
     let variant = match kind {
         FieldKind::Double => quote!(Double),
         FieldKind::Float => quote!(Float),
@@ -24,19 +28,19 @@ fn kind_pattern(kind: &FieldKind) -> TokenStream {
         FieldKind::Int64 => quote!(Int64),
         FieldKind::UInt32 => quote!(UInt32),
         FieldKind::UInt64 => quote!(UInt64),
-        FieldKind::SInt32 => quote!(SInt32),
-        FieldKind::SInt64 => quote!(SInt64),
-        FieldKind::Fixed32 => quote!(Fixed32),
-        FieldKind::Fixed64 => quote!(Fixed64),
-        FieldKind::SFixed32 => quote!(SFixed32),
-        FieldKind::SFixed64 => quote!(SFixed64),
         FieldKind::Bool => quote!(Bool),
         FieldKind::String => quote!(String),
         FieldKind::Bytes => quote!(Bytes),
         FieldKind::Message(_) => quote!(Message),
         FieldKind::Enum(_) => quote!(Enum),
+        FieldKind::SInt32
+        | FieldKind::SInt64
+        | FieldKind::Fixed32
+        | FieldKind::Fixed64
+        | FieldKind::SFixed32
+        | FieldKind::SFixed64 => return None,
     };
-    quote!(crate::codec::FieldKind::#variant)
+    Some(quote!(crate::codec::FieldKind::#variant))
 }
 
 fn kind_description(kind: &FieldKind) -> String {
@@ -86,18 +90,22 @@ fn field_asserts_for(
     let mut asserts = TokenStream::new();
 
     if let Some(kind) = &checks.kind {
-        let pattern = kind_pattern(kind);
-        let message = format!(
-            "armonik: field of `{type_ident}` maps to proto field `{proto_path}` of kind {}, \
-             but the Rust type has a different wire kind",
-            kind_description(kind),
-        );
-        asserts.extend(quote_spanned! {span=>
-            assert!(
-                matches!(<#ty as crate::codec::ProtoField>::KIND, #pattern),
-                #message
-            );
-        });
+        match kind_pattern(kind) {
+            Some(pattern) => {
+                let message = format!(
+                    "armonik: field of `{type_ident}` maps to proto field `{proto_path}` of kind {}, \
+                     but the Rust type has a different wire kind",
+                    kind_description(kind),
+                );
+                asserts.extend(quote_spanned! {span=>
+                    assert!(
+                        matches!(<#ty as crate::codec::ProtoField>::KIND, #pattern),
+                        #message
+                    );
+                });
+            }
+            None => asserts.extend(unsupported_kind_error(kind, proto_path, span)),
+        }
     }
 
     if !checks.cardinalities.is_empty() {
@@ -138,24 +146,41 @@ fn field_asserts_for(
     }
 
     if let Some((key, value)) = &checks.map_kinds {
-        let key_pattern = kind_pattern(key);
-        let value_pattern = kind_pattern(value);
-        let message = format!(
-            "armonik: proto map field `{proto_path}` is a map<{}, {}>, but the Rust map type \
-             of the corresponding field of `{type_ident}` has different key/value kinds",
-            kind_description(key),
-            kind_description(value),
-        );
-        asserts.extend(quote_spanned! {span=>
-            assert!(
-                matches!(<#ty as crate::codec::ProtoField>::MAP_KEY_KIND, #key_pattern)
-                    && matches!(<#ty as crate::codec::ProtoField>::MAP_VALUE_KIND, #value_pattern),
-                #message
-            );
-        });
+        match (kind_pattern(key), kind_pattern(value)) {
+            (Some(key_pattern), Some(value_pattern)) => {
+                let message = format!(
+                    "armonik: proto map field `{proto_path}` is a map<{}, {}>, but the Rust map type \
+                     of the corresponding field of `{type_ident}` has different key/value kinds",
+                    kind_description(key),
+                    kind_description(value),
+                );
+                asserts.extend(quote_spanned! {span=>
+                    assert!(
+                        matches!(<#ty as crate::codec::ProtoField>::MAP_KEY_KIND, #key_pattern)
+                            && matches!(<#ty as crate::codec::ProtoField>::MAP_VALUE_KIND, #value_pattern),
+                        #message
+                    );
+                });
+            }
+            (key_pattern, _) => {
+                let unsupported = if key_pattern.is_none() { key } else { value };
+                asserts.extend(unsupported_kind_error(unsupported, proto_path, span));
+            }
+        }
     }
 
     asserts
+}
+
+/// A spanned compile error for a proto field whose wire kind the codec does
+/// not implement (the sint/fixed kinds — no ArmoniK field uses them, so the
+/// `codec::FieldKind` enum omits them).
+fn unsupported_kind_error(kind: &FieldKind, proto_path: &str, span: proc_macro2::Span) -> TokenStream {
+    let message = format!(
+        "armonik: proto field `{proto_path}` uses wire kind {}, which the codec does not implement",
+        kind_description(kind),
+    );
+    quote_spanned! {span=> ::core::compile_error!(#message); }
 }
 
 /// Register the type's proto name(s) via `armonik-types`' `register!` macro —

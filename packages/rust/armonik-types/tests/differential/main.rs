@@ -200,11 +200,6 @@ fn field_information_ratchet() {
 /// list, `wire::UNEXPOSED_RPC_MESSAGES`) so the two allowlists cannot drift.
 const PERMANENT_UNMAPPED: &[&str] = armonik_types::wire::UNEXPOSED_RPC_MESSAGES;
 
-/// Messages not yet migrated to a direct wire implementation. This list
-/// only shrinks: annotating a type moves it to the registry, and the test
-/// fails on stale entries. It must be empty by the end of the migration.
-const TEMP_UNMAPPED: &[&str] = &[];
-
 #[test]
 fn descriptor_coverage_ratchet() {
     let pool = pool();
@@ -221,7 +216,6 @@ fn descriptor_coverage_ratchet() {
         if registered.contains(&name)
             || absorbed.contains(&name)
             || PERMANENT_UNMAPPED.contains(&name)
-            || TEMP_UNMAPPED.contains(&name)
         {
             continue;
         }
@@ -230,7 +224,7 @@ fn descriptor_coverage_ratchet() {
     missing.sort();
     assert!(
         missing.is_empty(),
-        "messages neither mapped nor tracked; add them to the registry or TEMP_UNMAPPED:\n    \"{}\"",
+        "messages neither mapped nor tracked; add them to the registry:\n    \"{}\"",
         missing.join("\",\n    \"")
     );
 
@@ -255,18 +249,8 @@ fn descriptor_coverage_ratchet() {
         );
     }
 
-    // Ratchet: entries must leave TEMP_UNMAPPED when they become mapped,
-    // and every tracked name must actually exist.
-    for name in TEMP_UNMAPPED {
-        assert!(
-            pool.get_message_by_name(name).is_some(),
-            "TEMP_UNMAPPED entry `{name}` does not exist in the descriptor"
-        );
-        assert!(
-            !registered.contains(name),
-            "`{name}` is registered; remove it from TEMP_UNMAPPED"
-        );
-    }
+    // Every tracked name must actually exist (a renamed or removed message
+    // leaves a stale allowlist entry).
     for name in PERMANENT_UNMAPPED {
         assert!(
             pool.get_message_by_name(name).is_some(),

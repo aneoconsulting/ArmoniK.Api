@@ -30,6 +30,26 @@ directly and become the only representation.** The generated message structs,
 the conversion layer, and the double decode/convert pass disappear.
 `api::v3` is removed from the public API entirely.
 
+### 1.1 Complexity ledger (honest accounting)
+
+Total system complexity did not shrink — it **relocated**, and this section
+says so plainly so the trade is reviewed on its merits. The ~6,700-line
+hand-written mirror plus its `From` conversions are gone, but hand-maintained
+*production* code across the three crates is now larger in aggregate (the
+descriptor-reading proc-macro, the codec, the build pipeline, and the annotated
+`objects/`), and it moved from local `From` impls a maintainer edits *next to
+the type* into three places that carry complexity less locally: a proc-macro
+that reads `descriptor.bin` at expansion, a two-crate build pipeline that
+rewrites a `FileDescriptorSet`, and a `linkme` slice harvested across a
+build-dependency edge with three `=`-pinned crates released in lockstep.
+
+This is the usual, and here the correct, infra-vs-boilerplate trade: the old
+lines were *O(messages)* and drifted silently with no automated net, while the
+new machinery is fixed-cost and the marginal message is near-free (the derive
+self-registers; a plain field's `Normalize` is the identity). But the payoff is
+"complexity amortized and made drift-proof", not "complexity removed" — approve
+the beta break on that basis, not on a per-message line count.
+
 ## 2. Decisions (settled)
 
 | Topic | Decision |
@@ -70,16 +90,29 @@ supported public API.
 `armonik-types` exists so downstream can depend on the wire types without the
 client/server stubs and their tonic/hyper/rustls graph, and — the reason the
 split earns its keep — so `armonik`'s build script can **harvest** the
-proto-name → Rust-path extern map from the `#[armonik(message = …)]`
-annotations instead of hand-maintaining a ~150-entry list. `armonik-types` is
-a build-dependency of `armonik`; every derive registers its
-`(proto name, module_path!)` pair into a `linkme` slice
-(`armonik_types::wire::EXTERN_MAP`, gated behind the `_extern-map` feature the
-build-dependency enables), and `armonik`'s `build.rs` reads
-`extern_mapping()`. The ~13 entries that cannot come from annotations (the
-five synthetic `Empty` sites and the generic sort/filter-status aliases) stay
-in `build.rs::EXTRA_EXTERN_TYPES`, and a drift-guard fails the build if any
-top-level message survives stub pruning without an extern entry.
+proto-name → Rust-path extern map, the per-RPC substitutions and the absorbed
+(flattened-away) messages from the `#[armonik(...)]` annotations instead of
+hand-maintaining them. `armonik-types` is a build-dependency of `armonik`;
+every derive and the two hand-written impls register — through one `register!`
+macro (the single home of the registry's layout) — one `Registration` per
+proto name into a single `linkme` slice (`armonik_types::wire::REGISTRY`, gated
+behind the base `_registry` feature the build-dependency enables). Each entry's
+`Role` is `Message { rust_path }`, `Replace(Replacement)`, or `Absorbed`;
+`armonik`'s `build.rs` reads `extern_mapping()`, `replacements()` and
+`absorbed()`, which filter the one slice. The map is fully harvested — no
+hand-maintained residue: entries that cannot be a plain extern mapping (the
+shared `Empty`, `TaskFilter`, … sites) carry `#[armonik(replace(...))]` and
+register a `Replacement` instead. Two build-time guards keep it honest:
+`guard_all_messages_externed` fails the build if any top-level message survives
+stub pruning without an extern entry, and `guard_unique_extern` fails it if two
+Rust types claim one proto name (see the 1-of-N convention on `wire::Role`).
+
+The `_registry` feature is the base; the differential harness's
+`_differential` feature *extends* it (`_differential = ["_registry",
+"dep:prost-reflect"]`), adding the round-trip/`Normalize` hooks as a
+feature-gated field of `Registration`. So `armonik`'s build-dependency, which
+enables only `_registry`, pulls `linkme` but never `prost-reflect`, and a
+downstream pure-types build of `armonik-types` pulls neither.
 
 ### 3.2 Build pipeline (`build.rs`)
 
@@ -89,8 +122,9 @@ top-level message survives stub pruning without an extern entry.
 > *pruned* copy — the never-exposed WatchResults methods are dropped
 > (tonic answers UNIMPLEMENTED for unrouted paths), every message that
 > nothing generated references (field wrappers, watch messages, legacy) is
-> removed alongside all file-level enums, and the five RPC signatures
-> using `Empty` are rewritten to distinct synthetic empty messages, each
+> removed alongside all file-level enums, and every RPC slot carrying a
+> `#[armonik(replace(...))]` type (the `Empty` sites, the shared `TaskFilter`
+> / request wrappers, …) is rewritten to a distinct synthetic message
 > extern'd to its API type (message type names never appear on the wire,
 > so wire-compatible signature rewrites are free). Combined with the
 > harvested extern map, the generated module (`crate::stubs`, private)
@@ -122,14 +156,16 @@ compiled first and its derives have run):
    it, and feeds it to `tonic-prost-build` via `compile_fds` to generate
    **service stubs only**:
    - the `extern_path` entries come from `armonik_types::wire::extern_mapping()`
-     — the annotations, harvested — plus `EXTRA_EXTERN_TYPES`, mapping each RPC
-     type to its ergonomic type
+     — the annotations, harvested — mapping each RPC type to its ergonomic type
      (`.armonik.api.grpc.v1.sessions.ListSessionsRequest`
-     → `::armonik_types::sessions::list::Request`);
+     → `::armonik_types::sessions::list::Request`), plus one entry per
+     `replacements()` substitution mapping its synthetic target message to the
+     standing-in type; there is no hand-maintained extern list;
    - extern'd messages are not generated at all, and since nested types never
      appear in stub signatures, **only the top-level RPC types need entries**;
    - `guard_all_messages_externed` fails the build if any top-level message
-     survives pruning without an extern entry — the ratchet that keeps the
+     survives pruning without an extern entry, and `guard_unique_extern` fails
+     it if two Rust types claim one proto name — the ratchets that keep the
      harvested map honest as the schema evolves.
 
 ### 3.3 The derive
@@ -300,9 +336,13 @@ and are covered by the differential harness instead.
 
 - Non-`Option` message field ("absent = default"): decode merges in place,
   absence leaves the default; encode **skips the field when the nested
-  `encoded_len() == 0`**. The length is computed anyway for the varint
-  prefix, so the check is free, and an all-default message encodes to zero
-  bytes, making "empty encoding" ⇔ "default value". These fields were chosen
+  `encoded_len() == 0`**. This presence gate costs one extra `encoded_len()`
+  walk of the nested message on encode (the field is written only when
+  non-empty; when written, prost recomputes the length for the varint prefix).
+  The gated fields are shallow top-level wrappers, so the cost is a handful of
+  extra traversals per call, not an asymptotic one. An all-default message
+  encodes to zero bytes, making "empty encoding" ⇔ "default value". These
+  fields were chosen
   precisely because absent and default are semantically indistinguishable.
 - `Option<T>` fields (presence-meaningful, e.g. `TaskOptions` on task
   submission where `None` inherits session defaults): `None` omits,
@@ -331,7 +371,8 @@ and are covered by the differential harness instead.
 
 ## 4. Validation & testing
 
-Two independent layers:
+Two layers — independent for the derived majority, with one caveat called out
+below for the two hand-written cross-field impls:
 
 1. **Compile time** (derive vs descriptor): wrong/missing/extra fields, kind
    mismatches, presence-rule violations, enum variant name/value mismatches —
@@ -350,9 +391,17 @@ Two independent layers:
      value-level projections live in a `Normalize` impl per type, generated
      from the same constructs that shape the codec — each `with` adapter
      declares its own loss (`PairMap` order/duplicates), `present` markers
-     and `transparent` chains emit theirs, and the two hand-written impls
-     write theirs next to their codecs (registration requires the impl, so
-     it cannot be forgotten);
+     and `transparent` chains emit theirs. For the two hand-written
+     cross-field impls (`tasks::Output`, `agent::notify_result_data`) the
+     `Normalize` projection is co-authored with the codec, so the harness is
+     **not** an independent oracle there: a shared wrong belief about the wire
+     contract would pass both sides. Those two are pinned instead by
+     checked-in unit fixtures built and encoded through prost-derived
+     reference messages (an independent codec), covering the cross-field
+     combinations the field-information ratchet cannot reach probing one
+     field at a time — `{ success, error }` both set, multi-pair differing
+     session ids. Registration still requires the impl, so a projection is
+     never forgotten;
    - the proto-to-type mapping is **self-registering**: each derive (and
      hand-written impl) pushes its entry into a `linkme` distributed slice
      under the private `_differential` feature, enabled only through the

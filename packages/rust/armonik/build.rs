@@ -44,20 +44,60 @@ fn referenced_by_rpc(fds: &prost_types::FileDescriptorSet) -> HashSet<String> {
     refs
 }
 
-/// Stub-generation copy of the descriptor set: pruned methods and messages
-/// removed, per-RPC message substitutions applied, and file-level enums
-/// dropped (every remaining message is extern'd, so no generated code can
-/// reference them). Unknown names in the prune lists — and replacements whose
-/// RPC or expected message no longer match the descriptor — are errors, so
-/// they cannot go stale silently.
+/// Stub-generation copy of the descriptor set: never-exposed methods and
+/// messages removed, per-RPC message substitutions applied, and file-level
+/// enums dropped (every remaining message is extern'd, so no generated code can
+/// reference them). Runs three sequenced passes; pass order is call order.
+/// Unknown names in the prune lists — and replacements whose RPC or expected
+/// message no longer match the descriptor — are errors, so they cannot go stale
+/// silently.
 fn prune_for_stubs(
     mut fds: prost_types::FileDescriptorSet,
     replacements: &[&Replacement],
 ) -> Result<prost_types::FileDescriptorSet, Box<dyn Error>> {
+    prune_methods(&mut fds)?;
+    apply_replacements(&mut fds, replacements)?;
+    prune_messages(&mut fds, replacements)?;
+    Ok(fds)
+}
+
+/// Pass 1: drop the never-exposed RPC methods (`PRUNED_METHODS`).
+fn prune_methods(fds: &mut prost_types::FileDescriptorSet) -> Result<(), Box<dyn Error>> {
     let mut methods: Vec<(&str, &str)> = PRUNED_METHODS.to_vec();
-    let mut messages: Vec<&str> = armonik_types::wire::UNEXPOSED_RPC_MESSAGES.to_vec();
-    // Whether each replacement matched its RPC slot and got its synthetic
-    // message injected; a replacement that never matched is stale.
+    for file in &mut fds.file {
+        if !file.package().starts_with("armonik.") {
+            continue;
+        }
+        for service in &mut file.service {
+            let service_name = service.name().to_owned();
+            service.method.retain(|method| {
+                match methods
+                    .iter()
+                    .position(|(service, name)| *service == service_name && *name == method.name())
+                {
+                    Some(position) => {
+                        methods.swap_remove(position);
+                        false
+                    }
+                    None => true,
+                }
+            });
+        }
+    }
+    if !methods.is_empty() {
+        return Err(format!("stale PRUNED_METHODS (not in the descriptor set): {methods:?}").into());
+    }
+    Ok(())
+}
+
+/// Pass 2: rewrite each `#[armonik(replace(...))]` RPC slot to its synthetic
+/// target message and inject that (empty) message, drift-checking the slot
+/// against the live descriptor first. A replacement that never matched a slot,
+/// or whose target has no package file, is stale.
+fn apply_replacements(
+    fds: &mut prost_types::FileDescriptorSet,
+    replacements: &[&Replacement],
+) -> Result<(), Box<dyn Error>> {
     let mut applied = vec![false; replacements.len()];
     let mut injected = vec![false; replacements.len()];
 
@@ -68,18 +108,6 @@ fn prune_for_stubs(
         let package = file.package().to_owned();
         for service in &mut file.service {
             let service_name = service.name().to_owned();
-            service.method.retain(|method| {
-                let position = methods.iter().position(|(service, method_name)| {
-                    *service == service_name && *method_name == method.name()
-                });
-                match position {
-                    Some(position) => {
-                        methods.swap_remove(position);
-                        false
-                    }
-                    None => true,
-                }
-            });
             for method in &mut service.method {
                 let method_name = method.name().to_owned();
                 for (index, replacement) in replacements.iter().enumerate() {
@@ -127,58 +155,8 @@ fn prune_for_stubs(
             });
             injected[index] = true;
         }
-        file.message_type.retain(|message| {
-            let full_name = format!("{package}.{}", message.name());
-            match messages.iter().position(|name| *name == full_name) {
-                Some(position) => {
-                    messages.swap_remove(position);
-                    false
-                }
-                None => true,
-            }
-        });
-        file.enum_type.clear();
     }
 
-    // Drop the type-less messages the annotations account for:
-    // - the shared messages every replacement took over, once no surviving
-    //   field or RPC slot still references them (this removes `Empty` and the
-    //   legacy filters); a replaced message still used elsewhere (a field, or
-    //   an unreplaced RPC like `ListTasks` sharing `ListTasksRequest`) stays
-    //   and keeps its canonical extern mapping;
-    // - the messages a flattening construct absorbs (the `*Field` selectors),
-    //   harvested from `#[armonik(absorbs = ...)]`, transparent chains and
-    //   inline variants.
-    let referenced = referenced_by_rpc(&fds);
-    let replaced: HashSet<String> = replacements
-        .iter()
-        .map(|replacement| format!(".{}", replacement.message))
-        .collect();
-    let absorbed: HashSet<String> = armonik_types::wire::absorbed()
-        .into_iter()
-        .map(|name| format!(".{name}"))
-        .collect();
-    for file in &mut fds.file {
-        if !file.package().starts_with("armonik.") {
-            continue;
-        }
-        let package = file.package().to_owned();
-        file.message_type.retain(|message| {
-            let full_name = format!(".{package}.{}", message.name());
-            if absorbed.contains(&full_name) {
-                return false;
-            }
-            // Keep unless it is a replaced message no RPC slot names anymore.
-            !replaced.contains(&full_name) || referenced.contains(&full_name)
-        });
-    }
-
-    if !methods.is_empty() || !messages.is_empty() {
-        return Err(format!(
-            "stale prune entries (not found in the descriptor set): {methods:?} {messages:?}",
-        )
-        .into());
-    }
     for (index, replacement) in replacements.iter().enumerate() {
         if !applied[index] {
             return Err(format!(
@@ -198,7 +176,58 @@ fn prune_for_stubs(
             .into());
         }
     }
-    Ok(fds)
+    Ok(())
+}
+
+/// Pass 3: drop the type-less messages and clear file-level enums. A message is
+/// dropped when it is a never-exposed RPC message (`UNEXPOSED_RPC_MESSAGES`), a
+/// flattening construct absorbs it (`wire::absorbed()`), or it is a replaced
+/// shared message no surviving RPC slot names anymore (`Empty`, the legacy
+/// filters); a replaced message still used elsewhere (a field, or an unreplaced
+/// RPC sharing the type) stays and keeps its canonical extern mapping.
+/// `referenced_by_rpc` is computed here, after pass 2 rewrote the slots.
+fn prune_messages(
+    fds: &mut prost_types::FileDescriptorSet,
+    replacements: &[&Replacement],
+) -> Result<(), Box<dyn Error>> {
+    let mut messages: Vec<&str> = armonik_types::wire::UNEXPOSED_RPC_MESSAGES.to_vec();
+    let referenced = referenced_by_rpc(fds);
+    let replaced: HashSet<String> = replacements
+        .iter()
+        .map(|replacement| format!(".{}", replacement.message))
+        .collect();
+    let absorbed: HashSet<String> = armonik_types::wire::absorbed()
+        .into_iter()
+        .map(|name| format!(".{name}"))
+        .collect();
+
+    for file in &mut fds.file {
+        if !file.package().starts_with("armonik.") {
+            continue;
+        }
+        let package = file.package().to_owned();
+        file.message_type.retain(|message| {
+            let full_name = format!("{package}.{}", message.name());
+            if let Some(position) = messages.iter().position(|name| *name == full_name) {
+                messages.swap_remove(position);
+                return false;
+            }
+            let dotted = format!(".{full_name}");
+            if absorbed.contains(&dotted) {
+                return false;
+            }
+            // Keep unless it is a replaced message no RPC slot names anymore.
+            !replaced.contains(&dotted) || referenced.contains(&dotted)
+        });
+        file.enum_type.clear();
+    }
+
+    if !messages.is_empty() {
+        return Err(
+            format!("stale UNEXPOSED_RPC_MESSAGES (not in the descriptor set): {messages:?}").into(),
+        );
+    }
+    Ok(())
 }
 
 /// Every top-level message left in the pruned descriptor must be extern'd:

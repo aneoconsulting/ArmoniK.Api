@@ -78,12 +78,8 @@ pub(crate) mod serde_option_duration {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// struct Foo();
-/// struct Bar(Vec<Foo>);
-///
-/// crate::utils::impl_vec_wrapper!(Bar(Foo));
-/// ```
+/// The `{field: Type}` form (a named-field wrapper) implements everything,
+/// including `FromIterator`:
 ///
 /// ```ignore
 /// struct Foo();
@@ -92,14 +88,8 @@ pub(crate) mod serde_option_duration {
 /// crate::utils::impl_vec_wrapper!(Bar{bar: Foo});
 /// ```
 ///
-/// # Examples without FromIterator
-///
-/// ```ignore
-/// struct Foo();
-/// struct Bar(Vec<Foo>, i64);
-///
-/// crate::utils::impl_vec_wrapper!(Bar[0: Foo]);
-/// ```
+/// The `[field: Type]` form skips `FromIterator` (for a wrapper that carries
+/// other fields too):
 ///
 /// ```ignore
 /// struct Foo();
@@ -114,15 +104,6 @@ macro_rules! impl_vec_wrapper {
         impl FromIterator<$inner_type> for $wrapper {
             fn from_iter<T: IntoIterator<Item = $inner_type>>(iter: T) -> Self {
                 Self{$inner: iter.into_iter().collect()}
-            }
-        }
-    };
-    ($wrapper:ident($inner_type:ty)) => {
-        crate::utils::impl_vec_wrapper!($wrapper[0: $inner_type]);
-
-        impl FromIterator<$inner_type> for $wrapper {
-            fn from_iter<T: IntoIterator<Item = $inner_type>>(iter: T) -> Self {
-                Self(iter.into_iter().collect())
             }
         }
     };
