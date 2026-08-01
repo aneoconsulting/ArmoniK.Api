@@ -93,6 +93,32 @@ where
     }
 }
 
+/// Order the resolved addresses so the families alternate, keeping the resolver's preference first.
+///
+/// Racing them as they come would reach the second family only after every address of the first: three
+/// records as `[v6, v6, v4]` put the IPv4 attempt two fallback delays in, long enough for a
+/// `connect_timeout` shorter than that to expire while a reachable address was never tried.
+/// `hyper_util` splits the two families and races the halves; interleaving is what RFC 8305 asks for
+/// and gives the same first-alternate-at-one-delay guarantee.
+fn interleave_families(addresses: Vec<std::net::SocketAddr>) -> Vec<std::net::SocketAddr> {
+    let total = addresses.len();
+    let preferred_is_ipv6 = matches!(addresses.first(), Some(address) if address.is_ipv6());
+    let (mut preferred, mut other): (Vec<_>, Vec<_>) = addresses
+        .into_iter()
+        .partition(|address| address.is_ipv6() == preferred_is_ipv6);
+
+    // Reversed so that popping walks each family in the order it was resolved in.
+    preferred.reverse();
+    other.reverse();
+
+    let mut interleaved = Vec::with_capacity(total);
+    while interleaved.len() < total {
+        interleaved.extend(preferred.pop());
+        interleaved.extend(other.pop());
+    }
+    interleaved
+}
+
 /// Await `body`, bounded by an absolute `deadline` when one is set.
 async fn with_optional_deadline<T>(
     deadline: Option<tokio::time::Instant>,
@@ -228,7 +254,7 @@ impl ReusePortsConnector {
             return Err(BoxError::from(format!("`{host}` resolved to no address")));
         }
 
-        let attempts = race(addresses, FALLBACK_DELAY, |address| {
+        let attempts = race(interleave_families(addresses), FALLBACK_DELAY, |address| {
             self.connect_to(address)
         });
 
@@ -592,6 +618,84 @@ mod tests {
         .expect("the slow address answers");
 
         assert_eq!(winner, 1);
+    }
+
+    /// One address per family, distinguishable by their last octet.
+    fn dual_stack(families: &str) -> Vec<std::net::SocketAddr> {
+        families
+            .bytes()
+            .enumerate()
+            .map(|(index, family)| {
+                let last = index as u8 + 1;
+                match family {
+                    b'4' => std::net::SocketAddr::from((
+                        std::net::Ipv4Addr::new(203, 0, 113, last),
+                        443,
+                    )),
+                    b'6' => std::net::SocketAddr::from((
+                        std::net::Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, last as u16),
+                        443,
+                    )),
+                    other => unreachable!("`{other}` is not a family"),
+                }
+            })
+            .collect()
+    }
+
+    /// How the ordering reads, one character per address.
+    fn families_of(addresses: &[std::net::SocketAddr]) -> String {
+        addresses
+            .iter()
+            .map(|address| if address.is_ipv6() { '6' } else { '4' })
+            .collect()
+    }
+
+    #[test]
+    fn the_other_family_comes_second_however_the_resolver_ordered_them() {
+        // The regression: raw order puts the lone IPv4 address two fallback delays in, so a
+        // `connect_timeout` of 500ms expires before it is ever tried.
+        for (resolved, expected) in [
+            ("664", "646"),
+            ("446", "464"),
+            ("6644", "6464"),
+            ("66644", "64646"),
+        ] {
+            let ordered = interleave_families(dual_stack(resolved));
+            assert_eq!(families_of(&ordered), expected, "resolved as {resolved}");
+        }
+    }
+
+    #[test]
+    fn one_family_keeps_its_order_and_no_address_is_no_work() {
+        let resolved = dual_stack("666");
+        assert_eq!(interleave_families(resolved.clone()), resolved);
+        assert!(interleave_families(Vec::new()).is_empty());
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_other_family_is_reached_one_fallback_in_not_two() {
+        // Two records of the preferred family that hang, then a reachable one of the other.
+        let start = tokio::time::Instant::now();
+
+        let winner = race(
+            interleave_families(dual_stack("664")),
+            FALLBACK_DELAY,
+            |address| async move {
+                if address.is_ipv6() {
+                    std::future::pending::<()>().await;
+                }
+                Ok::<_, BoxError>(address)
+            },
+        )
+        .await
+        .expect("the IPv4 address answers");
+
+        assert!(winner.is_ipv4());
+        assert_eq!(
+            start.elapsed(),
+            FALLBACK_DELAY,
+            "the other family should not wait out every address of the first"
+        );
     }
 
     #[tokio::test(start_paused = true)]
