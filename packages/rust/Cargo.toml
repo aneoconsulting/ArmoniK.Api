@@ -25,6 +25,7 @@ base64 = "0.22"
 bytes = "1"
 eyre = "0.6"
 futures = "0.3"
+futures-util = { version = "0.3", default-features = false }
 http-body-util = "0.1"
 humantime = "2.3.0"
 hyper = "1.10"
@@ -38,6 +39,7 @@ rustls = { version = "0.23", default-features = false }
 serde = { version = "1.0", features = ["derive", "std"], default-features = false }
 serde_json = "1"
 serial_test = "3.5"
+socket2 = "0.6"
 snafu = "0.9"
 tokio = { version = "1.52", default-features = false }
 tokio-util = "0.7"
@@ -48,3 +50,5 @@ tower-service = "0.3"
 tracing = "0.1"
 tracing-futures = "0.2"
 tracing-subscriber = "0.3"
+# Only the Winsock corner of it, for the one socket option this crate sets.
+windows-sys = { version = "0.61", features = ["Win32_Networking_WinSock"] }
