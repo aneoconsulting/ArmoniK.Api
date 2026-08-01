@@ -1,7 +1,7 @@
-//! `GrpcClient__Timeout` and `GrpcClient__RateLimit`, now that they reach the channel.
+//! `GrpcClient__Timeout` and `GrpcClient__RateLimit` reaching the channel.
 //!
-//! A test that only asserted the parsing would have passed before this change too, since both options
-//! were already parsed and then dropped. So these go through a real connection to a real server.
+//! Through a real connection to a real server, measuring what the caller gets: asserting on the parsing
+//! alone would say nothing about whether either option reaches the channel.
 
 mod common;
 
@@ -11,8 +11,7 @@ use common::{call, config, serve, SlowService};
 
 #[tokio::test]
 async fn a_request_timeout_ends_a_call_the_server_is_too_slow_to_answer() {
-    // The server takes ten seconds; the caller allows 300ms. Before this change the option was parsed
-    // and ignored, so the call waited for the full ten.
+    // A server that takes ten seconds against a caller that allows 300ms.
     let endpoint = serve(SlowService::new(Duration::from_secs(10))).await;
 
     let channel = armonik_transport::connect(config(&endpoint, |args| {
@@ -76,9 +75,7 @@ async fn a_rate_limit_is_accepted_and_still_lets_calls_through() {
 
 #[test]
 fn an_empty_timeout_means_no_timeout_rather_than_a_minute() {
-    // The field is documented as defaulting to no timeout, and nothing applied it until now, so the
-    // `Some(60s)` it used to parse to was never observable. This is the assertion that keeps a
-    // one-minute deadline from appearing on every request of every caller.
+    // What keeps a one-minute deadline off every request of every caller who set nothing.
     let config = config("http://localhost:5001", |_| {});
 
     assert_eq!(config.timeout, None);
