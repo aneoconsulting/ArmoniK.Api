@@ -206,3 +206,67 @@ impl ProtoAdapter<Output> for ErrorAdapter {
         *value = Output::Success;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+
+    use super::Output;
+
+    /// prost-derived reference of `TaskDetailed.Output` (extern'd, so no
+    /// generated type exists). An independent codec — the fixtures are built
+    /// and encoded through it, then decoded through our hand-written `Output`,
+    /// so a bug in `merge_field`'s cross-field rule cannot hide behind a
+    /// matching `Normalize` (the field-information ratchet, which probes one
+    /// field at a time, never produces the `{ success, error }` combination).
+    #[derive(Clone, PartialEq, Message)]
+    struct RefOutput {
+        #[prost(bool, tag = "1")]
+        success: bool,
+        #[prost(string, tag = "2")]
+        error: String,
+    }
+
+    fn decode(reference: RefOutput) -> Output {
+        Output::decode(reference.encode_to_vec().as_slice()).expect("decodes")
+    }
+
+    #[test]
+    fn success_wins_over_a_set_error() {
+        // Both fields set on the wire — the adversarial case the ratchet can't
+        // reach. `TaskDetailed.Output` collapses to success.
+        assert_eq!(
+            decode(RefOutput {
+                success: true,
+                error: "boom".to_owned(),
+            }),
+            Output::Success,
+        );
+    }
+
+    #[test]
+    fn error_is_kept_when_not_successful() {
+        assert_eq!(
+            decode(RefOutput {
+                success: false,
+                error: "boom".to_owned(),
+            }),
+            Output::Error("boom".to_owned()),
+        );
+    }
+
+    #[test]
+    fn absent_output_is_the_empty_error() {
+        // Both a `{ success: false, error: "" }` message and a wholly empty
+        // one decode to the zero-default, an empty error.
+        assert_eq!(
+            decode(RefOutput {
+                success: false,
+                error: String::new(),
+            }),
+            Output::Error(String::new()),
+        );
+        assert_eq!(Output::decode([].as_slice()).expect("decodes"), Output::default());
+        assert_eq!(Output::default(), Output::Error(String::new()));
+    }
+}

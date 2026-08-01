@@ -193,17 +193,12 @@ fn field_information_ratchet() {
 }
 
 /// Messages of RPCs the crate does not expose. Unlike the many messages that
-/// are *flattened into a parent type* — which now self-register as absorbed
-/// through `wire::absorbed()` (a `with` adapter's `absorbs`, a transparent
-/// chain's middles, an inline struct variant) — these are not absorbed by any
-/// type, so they are tracked here.
-const PERMANENT_UNMAPPED: &[&str] = &[
-    "armonik.api.grpc.v1.results.WatchResultRequest",
-    "armonik.api.grpc.v1.results.WatchResultResponse",
-    "armonik.api.grpc.v1.submitter.SessionList",
-    "armonik.api.grpc.v1.submitter.WatchResultRequest",
-    "armonik.api.grpc.v1.submitter.WatchResultStream",
-];
+/// are *flattened into a parent type* — which self-register as absorbed through
+/// `wire::absorbed()` (a `with` adapter's `absorbs`, a transparent chain's
+/// middles, an inline struct variant) — these are not absorbed by any type, so
+/// they are tracked here. Shared with the build script's stub pruning (one
+/// list, `wire::UNEXPOSED_RPC_MESSAGES`) so the two allowlists cannot drift.
+const PERMANENT_UNMAPPED: &[&str] = armonik_types::wire::UNEXPOSED_RPC_MESSAGES;
 
 /// Messages not yet migrated to a direct wire implementation. This list
 /// only shrinks: annotating a type moves it to the registry, and the test

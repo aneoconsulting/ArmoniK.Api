@@ -23,6 +23,19 @@
 /// prunes it, and feeds it to `tonic-prost-build`.
 pub const DESCRIPTOR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptor.bin"));
 
+/// Messages of RPCs the crate deliberately does not expose (tonic answers
+/// UNIMPLEMENTED for the pruned paths). They have no Rust type and no
+/// flattening parent, so both consumers must account for them from one list:
+/// `armonik`'s build script prunes them from the stubs, and the differential
+/// coverage ratchet allows them — so the two cannot silently drift apart.
+pub const UNEXPOSED_RPC_MESSAGES: &[&str] = &[
+    "armonik.api.grpc.v1.results.WatchResultRequest",
+    "armonik.api.grpc.v1.results.WatchResultResponse",
+    "armonik.api.grpc.v1.submitter.SessionList",
+    "armonik.api.grpc.v1.submitter.WatchResultRequest",
+    "armonik.api.grpc.v1.submitter.WatchResultStream",
+];
+
 /// Direction of an RPC message slot, as seen from the service definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -64,6 +77,12 @@ pub enum Role {
         rust_path: &'static str,
     },
     /// This RPC site substitutes the (shared) proto message; see [`Replacement`].
+    ///
+    /// A shared wire message keeps exactly one canonical [`Role::Message`]
+    /// claimant; every *other* RPC that uses it must `replace(...)` (or, like
+    /// `Empty`, all of its sites replace and it keeps none). Two canonical
+    /// claimants for one proto name is a build error — `guard_unique_extern` in
+    /// `armonik/build.rs` catches it.
     Replace(Replacement),
     /// No Rust type stands for this message — a flattening construct absorbs it
     /// into a parent. `armonik`'s build script prunes it from the stubs and the
