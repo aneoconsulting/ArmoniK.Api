@@ -459,7 +459,7 @@ async fn upload() {
 
 // Cancellations
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn get_wait() {
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let mut client = armonik::Client::with_channel(
@@ -490,7 +490,7 @@ async fn get_wait() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn download_wait_early() {
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let mut client = armonik::Client::with_channel(
@@ -523,7 +523,7 @@ async fn download_wait_early() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn download_wait_late() {
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let mut client = armonik::Client::with_channel(
@@ -555,7 +555,7 @@ async fn download_wait_late() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn upload_wait_early() {
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let mut client = armonik::Client::with_channel(
@@ -591,7 +591,7 @@ async fn upload_wait_early() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn upload_wait_late() {
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let mut client = armonik::Client::with_channel(

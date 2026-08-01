@@ -53,6 +53,8 @@ tokio = { workspace = true, features = [
   "macros",
   "sync",
   "time",
+  # `test-util` for the paused clock the cancellation tests run on.
+  "test-util",
 ] }
 tokio-util.workspace = true
 
