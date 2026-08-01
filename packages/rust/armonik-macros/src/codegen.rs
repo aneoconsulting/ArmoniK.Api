@@ -288,6 +288,19 @@ fn normalize_impl(
     }
 }
 
+/// The compile-time tripwire: a const-assert that the descriptor fingerprint
+/// the derive was expanded against still matches the schema baked into the
+/// crate. Emitted (in a `const _: () = { ... };` block) by every derive.
+fn tripwire(fingerprint: &proc_macro2::Literal) -> TokenStream {
+    quote! {
+        assert!(
+            crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
+            "armonik: a derive was expanded against a stale protobuf descriptor; \
+             rebuild the crate"
+        );
+    }
+}
+
 pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let ident = &plan.ident;
     let proto_names = &plan.proto_names;
@@ -403,14 +416,10 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         &normalize_fragments,
     );
     let proto_field = message_proto_field(&impl_generics, ident, &ty_generics, where_clause, proto_names);
-    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
-                            rebuild the crate";
+    let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {
-            assert!(
-                crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
-                #tripwire_message
-            );
+            #tripwire
             #asserts
         };
 
@@ -517,13 +526,9 @@ fn transparent_message(
 
     let registrations = registrations(ident, proto_names, plan.replace.as_ref());
     let proto_field = message_proto_field(impl_generics, ident, ty_generics, where_clause, proto_names);
-    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
-                            rebuild the crate";
+    let tripwire = tripwire(&fingerprint);
     quote! {
-        const _: () = assert!(
-            crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
-            #tripwire_message
-        );
+        const _: () = { #tripwire };
 
         #registrations
 
@@ -733,13 +738,9 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
         }
     };
 
-    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
-                            rebuild the crate";
+    let tripwire = tripwire(&fingerprint);
     quote! {
-        const _: () = assert!(
-            crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
-            #tripwire_message
-        );
+        const _: () = { #tripwire };
 
         #[doc = #payload_doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1036,6 +1037,15 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
 
     let whole_message = plan.whole_message.then(|| {
         let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name), None);
+        let generics = syn::Generics::default();
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+        let proto_field = message_proto_field(
+            &impl_generics,
+            ident,
+            &ty_generics,
+            where_clause,
+            std::slice::from_ref(proto_name),
+        );
         quote! {
             #registrations
 
@@ -1068,39 +1078,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 }
             }
 
-            impl crate::codec::ProtoField for #ident {
-                const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
-                const NAMES: &'static [&'static str] = &[#proto_name];
-
-                fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                    crate::codec::message::encode(tag, value, buf);
-                }
-
-                fn merge_field(
-                    wire_type: ::prost::encoding::WireType,
-                    value: &mut Self,
-                    buf: &mut impl ::prost::bytes::Buf,
-                    ctx: ::prost::encoding::DecodeContext,
-                ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    crate::codec::message::merge(wire_type, value, buf, ctx)
-                }
-
-                fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                    crate::codec::message::encoded_len(tag, value)
-                }
-
-                fn is_default(value: &Self) -> bool {
-                    crate::codec::message::is_default(value)
-                }
-
-                fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
-                    crate::codec::message::encode_repeated(tag, values, buf);
-                }
-
-                fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-                    crate::codec::message::encoded_len_repeated(tag, values)
-                }
-            }
+            #proto_field
         }
     });
 
@@ -1116,14 +1094,10 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         &normalize_fragments,
     );
 
-    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
-                            rebuild the crate";
+    let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {
-            assert!(
-                crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
-                #tripwire_message
-            );
+            #tripwire
             #asserts
         };
 
@@ -1376,14 +1350,17 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         where_clause,
         &normalize_fragments,
     );
-    let tripwire_message = "armonik: a derive was expanded against a stale protobuf descriptor; \
-                            rebuild the crate";
+    let proto_field = message_proto_field(
+        &impl_generics,
+        ident,
+        &ty_generics,
+        where_clause,
+        std::slice::from_ref(proto_name),
+    );
+    let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {
-            assert!(
-                crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
-                #tripwire_message
-            );
+            #tripwire
             #asserts
         };
 
@@ -1424,39 +1401,6 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
             }
         }
 
-        impl crate::codec::ProtoField for #ident {
-            const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
-            const NAMES: &'static [&'static str] = &[#proto_name];
-
-            fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                crate::codec::message::encode(tag, value, buf);
-            }
-
-            fn merge_field(
-                wire_type: ::prost::encoding::WireType,
-                value: &mut Self,
-                buf: &mut impl ::prost::bytes::Buf,
-                ctx: ::prost::encoding::DecodeContext,
-            ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                crate::codec::message::merge(wire_type, value, buf, ctx)
-            }
-
-            fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                crate::codec::message::encoded_len(tag, value)
-            }
-
-            fn is_default(value: &Self) -> bool {
-                crate::codec::message::is_default(value)
-            }
-
-
-            fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
-                crate::codec::message::encode_repeated(tag, values, buf);
-            }
-
-            fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-                crate::codec::message::encoded_len_repeated(tag, values)
-            }
-        }
+        #proto_field
     }
 }

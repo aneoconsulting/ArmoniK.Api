@@ -9,9 +9,7 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
-fn key_len(tag: u32) -> usize {
-    encoding::encoded_len_varint(u64::from(tag) << 3)
-}
+use super::key_len;
 
 fn body_len<T: Copy + Into<i32>>(path: &[u32], value: &T) -> usize {
     let raw: i32 = (*value).into();
@@ -36,16 +34,7 @@ pub(crate) fn encode<T: Copy + Into<i32>>(
     let len = body_len(path, value);
     encoding::encode_key(tag, WireType::LengthDelimited, buf);
     encoding::encode_varint(len as u64, buf);
-    let raw: i32 = (*value).into();
-    if raw == 0 {
-        return;
-    }
-    let (&inner_tag, rest) = path.split_first().expect("non-empty wrapper path");
-    if rest.is_empty() {
-        encoding::int32::encode(inner_tag, &raw, buf);
-    } else {
-        encode(inner_tag, rest, value, buf);
-    }
+    encode_raw(path, value, buf);
 }
 
 pub(crate) fn encoded_len<T: Copy + Into<i32>>(tag: u32, path: &[u32], value: &T) -> usize {
@@ -73,14 +62,8 @@ fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
     ctx: DecodeContext,
 ) -> Result<(), DecodeError> {
     encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-    let len = encoding::decode_varint(&mut &mut *buf)? as usize;
-    if buf.remaining() < len {
-        // prost offers no other public constructor; pinned to prost 0.14.
-        #[allow(deprecated)]
-        return Err(DecodeError::new("buffer underflow"));
-    }
     let (&inner_tag, rest) = path.split_first().expect("non-empty wrapper path");
-    let mut wrapper = buf.take(len);
+    let mut wrapper = super::read_delimited(buf)?;
     while wrapper.has_remaining() {
         let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
         if tag != inner_tag {

@@ -6,10 +6,6 @@
 //! descriptor changes without a restart, while plain builds decode the file
 //! only once.
 
-// Parts of the index are not consumed yet; the allow goes away once the
-// wire-implementation codegen lands.
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};

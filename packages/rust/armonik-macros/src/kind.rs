@@ -2,10 +2,6 @@
 //! descriptor. The `armonik::codec` module keeps an equivalent runtime
 //! classification that emitted const-asserts are checked against.
 
-// Parts of the classification are not consumed yet; the allow goes away once
-// the wire-implementation codegen lands.
-#![allow(dead_code)]
-
 /// Scalar/wire kind of a protobuf field.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FieldKind {

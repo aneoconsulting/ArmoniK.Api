@@ -214,31 +214,19 @@ pub(crate) fn message_plan(
                 continue;
             }
         };
-        let mut rename = None;
-        let mut explicit_tag = None;
-        let mut with = None;
-        for entry in &field_entries {
-            match &entry.item {
-                AttrItem::Rename(lit) => rename = Some(lit.value()),
-                AttrItem::Tag(lit) => match lit.base10_parse::<u32>() {
-                    Ok(tag) => explicit_tag = Some((entry.span, tag)),
-                    Err(err) => errors.push(syn::Error::new(entry.span, err)),
-                },
-                AttrItem::With(lit) => match syn::parse_str::<syn::Type>(&lit.value()) {
-                    Ok(ty) => with = Some(ty),
-                    Err(err) => errors.push(syn::Error::new(
-                        entry.span,
-                        format!("invalid adapter type in with = ...: {err}"),
-                    )),
-                },
-                // Collected separately in `expand::collect_absorbs`.
-                AttrItem::Absorbs(_) => {}
-                _ => errors.push(syn::Error::new(
-                    entry.span,
-                    "this armonik attribute is not valid on a message field",
-                )),
-            }
-        }
+        let (FieldAttrs { rename, tag: explicit_tag, with, .. }, _) = scan_field_attrs(
+            &field_entries,
+            Allowed {
+                rename: true,
+                tag: true,
+                with: true,
+                absorbs: true,
+                ..Allowed::default()
+            },
+            "this armonik attribute is not valid on a message field",
+            &mut errors,
+        );
+        let with = with.map(|(_, ty)| ty);
 
         let proto_name = match (&rename, &field.ident) {
             (Some(name), _) => name.clone(),
@@ -549,27 +537,18 @@ fn generic_plan(
                 continue;
             }
         };
-        let mut tag = None;
-        let mut with = None;
-        for entry in &field_entries {
-            match &entry.item {
-                AttrItem::Tag(lit) => match lit.base10_parse::<u32>() {
-                    Ok(value) => tag = Some(value),
-                    Err(err) => errors.push(syn::Error::new(entry.span, err)),
-                },
-                AttrItem::With(lit) => match syn::parse_str::<syn::Type>(&lit.value()) {
-                    Ok(ty) => with = Some(ty),
-                    Err(err) => errors.push(syn::Error::new(
-                        entry.span,
-                        format!("invalid adapter type in with = ...: {err}"),
-                    )),
-                },
-                _ => errors.push(syn::Error::new(
-                    entry.span,
-                    "generic-mode fields only take tag = ... and with = ...",
-                )),
-            }
-        }
+        let (FieldAttrs { tag, with, .. }, _) = scan_field_attrs(
+            &field_entries,
+            Allowed {
+                tag: true,
+                with: true,
+                ..Allowed::default()
+            },
+            "generic-mode fields only take tag = ... and with = ...",
+            &mut errors,
+        );
+        let tag = tag.map(|(_, tag)| tag);
+        let with = with.map(|(_, ty)| ty);
         let Some(tag) = tag else {
             errors.push(syn::Error::new(
                 span,
@@ -619,41 +598,30 @@ fn generic_plan(
 /// Compile-time checks for a plain field, derived from the descriptor.
 fn expected_checks(field: &FieldMeta) -> FieldChecks {
     let mut checks = FieldChecks::none();
-    match &field.cardinality {
+    // The Map arm is the outlier: it leaves `kind` unset, checks the
+    // key/value kinds, and names the value type.
+    let cardinalities = match &field.cardinality {
         Cardinality::Map { key, value } => {
             checks.cardinalities = vec![Cardinality::map_marker()];
             checks.map_kinds = Some((key.clone(), value.clone()));
             if let Some(name) = type_name(value) {
                 checks.names.push(name.to_owned());
             }
+            return checks;
         }
-        Cardinality::Repeated { .. } => {
-            checks.cardinalities = vec![Cardinality::Repeated { packed: false }];
-            checks.kind = Some(field.kind.clone());
-            if let Some(name) = type_name(&field.kind) {
-                checks.names.push(name.to_owned());
-            }
+        Cardinality::Repeated { .. } => vec![Cardinality::Repeated { packed: false }],
+        Cardinality::Optional => vec![Cardinality::Optional],
+        // Singular message fields may be either plain ("absent = default")
+        // or `Option` (presence-significant) in Rust.
+        Cardinality::Singular if matches!(field.kind, FieldKind::Message(_)) => {
+            vec![Cardinality::Singular, Cardinality::Optional]
         }
-        Cardinality::Optional => {
-            checks.cardinalities = vec![Cardinality::Optional];
-            checks.kind = Some(field.kind.clone());
-            if let Some(name) = type_name(&field.kind) {
-                checks.names.push(name.to_owned());
-            }
-        }
-        Cardinality::Singular => {
-            // Singular message fields may be either plain ("absent =
-            // default") or `Option` (presence-significant) in Rust.
-            checks.cardinalities = if matches!(field.kind, FieldKind::Message(_)) {
-                vec![Cardinality::Singular, Cardinality::Optional]
-            } else {
-                vec![Cardinality::Singular]
-            };
-            checks.kind = Some(field.kind.clone());
-            if let Some(name) = type_name(&field.kind) {
-                checks.names.push(name.to_owned());
-            }
-        }
+        Cardinality::Singular => vec![Cardinality::Singular],
+    };
+    checks.cardinalities = cardinalities;
+    checks.kind = Some(field.kind.clone());
+    if let Some(name) = type_name(&field.kind) {
+        checks.names.push(name.to_owned());
     }
     checks
 }
@@ -678,6 +646,100 @@ impl Cardinality {
 
 fn unraw(ident: &syn::Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
+}
+
+/// Parse the adapter type in `#[armonik(with = "path::To::Adapter")]`,
+/// pushing a spanned error (and returning `None`) when it does not parse.
+fn parse_adapter_type(lit: &syn::LitStr, span: Span, errors: &mut Errors) -> Option<syn::Type> {
+    match syn::parse_str::<syn::Type>(&lit.value()) {
+        Ok(ty) => Some(ty),
+        Err(err) => {
+            errors.push(syn::Error::new(
+                span,
+                format!("invalid adapter type in with = ...: {err}"),
+            ));
+            None
+        }
+    }
+}
+
+/// The field/variant-level `#[armonik(...)]` keys collected by
+/// [`scan_field_attrs`]. Each site reads only the keys it opted into through
+/// [`Allowed`]; the rest stay at their defaults.
+#[derive(Default)]
+struct FieldAttrs {
+    rename: Option<String>,
+    tag: Option<(Span, u32)>,
+    with: Option<(Span, syn::Type)>,
+    present: bool,
+}
+
+/// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a
+/// spanned `reject` error, so each site keeps rejecting exactly what it did
+/// before — in particular `absorbs`, which is merely *tolerated* (it is
+/// harvested separately by [`crate::expand`]) at the sites that enable it and
+/// rejected like any stray key everywhere else.
+#[derive(Clone, Copy, Default)]
+struct Allowed {
+    rename: bool,
+    tag: bool,
+    with: bool,
+    present: bool,
+    absorbs: bool,
+}
+
+/// Scan one field's or variant's `#[armonik(...)]` entries into a
+/// [`FieldAttrs`], pushing `reject` (spanned) for any key outside `allowed`
+/// and for a malformed `tag`/`with`. Returns the collected attributes and
+/// whether every entry was accepted — callers that abandon a malformed field
+/// gate on the bool; the rest rely on the pushed errors alone and ignore it.
+fn scan_field_attrs(
+    entries: &[attrs::AttrEntry],
+    allowed: Allowed,
+    reject: &str,
+    errors: &mut Errors,
+) -> (FieldAttrs, bool) {
+    let mut collected = FieldAttrs::default();
+    let mut ok = true;
+    for entry in entries {
+        let accepted = match &entry.item {
+            AttrItem::Rename(lit) if allowed.rename => {
+                collected.rename = Some(lit.value());
+                true
+            }
+            AttrItem::Tag(lit) if allowed.tag => match lit.base10_parse::<u32>() {
+                Ok(tag) => {
+                    collected.tag = Some((entry.span, tag));
+                    true
+                }
+                Err(err) => {
+                    errors.push(syn::Error::new(entry.span, err));
+                    false
+                }
+            },
+            AttrItem::With(lit) if allowed.with => {
+                match parse_adapter_type(lit, entry.span, errors) {
+                    Some(ty) => {
+                        collected.with = Some((entry.span, ty));
+                        true
+                    }
+                    None => false,
+                }
+            }
+            AttrItem::Present if allowed.present => {
+                collected.present = true;
+                true
+            }
+            // Harvested by `expand::collect_absorbs`; only tolerated here.
+            AttrItem::Absorbs(_) if allowed.absorbs => true,
+            _ => {
+                errors.push(syn::Error::new(entry.span, reject));
+                false
+            }
+        };
+        ok &= accepted;
+    }
+    (collected, ok)
 }
 
 /// Plan for a protobuf enum (or a transparent single-enum-field wrapper).
@@ -873,16 +935,15 @@ pub(crate) fn enum_plan(
                 continue;
             }
         };
-        let mut rename = None;
-        for entry in &variant_entries {
-            match &entry.item {
-                AttrItem::Rename(lit) => rename = Some(lit.value()),
-                _ => errors.push(syn::Error::new(
-                    entry.span,
-                    "this armonik attribute is not valid on a derive(Enum) variant",
-                )),
-            }
-        }
+        let (FieldAttrs { rename, .. }, _) = scan_field_attrs(
+            &variant_entries,
+            Allowed {
+                rename: true,
+                ..Allowed::default()
+            },
+            "this armonik attribute is not valid on a derive(Enum) variant",
+            &mut errors,
+        );
 
         match &variant.fields {
             syn::Fields::Unit => {
@@ -1120,11 +1181,22 @@ pub(crate) struct InlinePart {
     pub(crate) checks: FieldChecks,
 }
 
+/// Outcome of matching a struct variant's named fields against the
+/// whole-message enum's sibling fields (see [`sibling_variant_fields`]).
+enum SiblingSplit {
+    /// Every field is a sibling: the attribute-less "no member set" variant.
+    NoMemberSet,
+    /// One field is the member payload: its ident, type, and optional
+    /// `#[armonik(with = ...)]` adapter. Boxed: `syn::Type` dwarfs the other
+    /// variants.
+    Payload(Box<(syn::Ident, syn::Type, Option<syn::Type>)>),
+    /// The variant is malformed; errors were already pushed.
+    Failed,
+}
+
 /// Partition the named fields of a variant into the message's sibling
 /// fields (updating/checking the cross-variant bindings) and at most one
-/// remaining field, the member payload. Returns `Ok(None)` when every field
-/// is a sibling (the "no member set" shape), `Err(())` after pushing errors.
-#[allow(clippy::type_complexity)]
+/// remaining field, the member payload.
 fn sibling_variant_fields(
     named: &syn::FieldsNamed,
     sibling_metas: &[&FieldMeta],
@@ -1132,7 +1204,7 @@ fn sibling_variant_fields(
     errors: &mut Errors,
     variant_span: Span,
     proto_name: &str,
-) -> Result<Option<(syn::Ident, syn::Type, Option<syn::Type>)>, ()> {
+) -> SiblingSplit {
     let mut failed = false;
     let mut seen = vec![false; sibling_metas.len()];
     let mut payload: Option<(syn::Ident, syn::Type, Option<syn::Type>)> = None;
@@ -1146,31 +1218,19 @@ fn sibling_variant_fields(
                 continue;
             }
         };
-        let mut rename = None;
-        let mut with = None;
-        for entry in &field_entries {
-            match &entry.item {
-                AttrItem::Rename(lit) => rename = Some(lit.value()),
-                AttrItem::With(lit) => match syn::parse_str::<syn::Type>(&lit.value()) {
-                    Ok(ty) => with = Some((entry.span, ty)),
-                    Err(err) => {
-                        errors.push(syn::Error::new(
-                            entry.span,
-                            format!("invalid adapter type in with = ...: {err}"),
-                        ));
-                        failed = true;
-                    }
-                },
-                // Collected separately in `expand::collect_absorbs`.
-                AttrItem::Absorbs(_) => {}
-                _ => {
-                    errors.push(syn::Error::new(
-                        entry.span,
-                        "this armonik attribute is not valid on a variant field",
-                    ));
-                    failed = true;
-                }
-            }
+        let (FieldAttrs { rename, with, .. }, entries_ok) = scan_field_attrs(
+            &field_entries,
+            Allowed {
+                rename: true,
+                with: true,
+                absorbs: true,
+                ..Allowed::default()
+            },
+            "this armonik attribute is not valid on a variant field",
+            errors,
+        );
+        if !entries_ok {
+            failed = true;
         }
 
         let name = rename.unwrap_or_else(|| unraw(&ident));
@@ -1241,9 +1301,275 @@ fn sibling_variant_fields(
         }
     }
     if failed {
-        Err(())
+        SiblingSplit::Failed
     } else {
-        Ok(payload)
+        match payload {
+            Some(payload) => SiblingSplit::Payload(Box::new(payload)),
+            None => SiblingSplit::NoMemberSet,
+        }
+    }
+}
+
+/// Read-only context shared by the per-shape variant resolvers below: the
+/// variant being resolved and everything already known about the oneof member
+/// it maps to. The mutable state each resolver touches (`errors`, and the
+/// `absorbs`/`sibling_bindings` a particular shape feeds) is passed alongside.
+struct VariantCtx<'a> {
+    variant: &'a syn::Variant,
+    field_meta: &'a FieldMeta,
+    index: &'a DescriptorIndex,
+    span: Span,
+    proto_name: &'a str,
+    proto_path: &'a str,
+    member_name: &'a str,
+    /// `#[armonik(present)]` was set on the variant.
+    present: bool,
+}
+
+/// A resolver returns the variant's shape, or `Err(())` after pushing the
+/// error(s) that make this variant unresolvable (the caller skips it).
+type ResolvedShape = Result<OneofVariantShape, ()>;
+
+/// Whole-message enum with sibling fields: a struct variant carrying one
+/// member payload plus every non-oneof field.
+fn resolve_sibling_variant(
+    ctx: &VariantCtx,
+    sibling_metas: &[&FieldMeta],
+    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
+    with: &Option<(Span, syn::Type)>,
+    errors: &mut Errors,
+) -> ResolvedShape {
+    if ctx.present {
+        errors.push(syn::Error::new(
+            ctx.span,
+            "#[armonik(present)] markers are not supported in whole-message \
+             enums with sibling fields",
+        ));
+        return Err(());
+    }
+    if let Some((with_span, _)) = with {
+        errors.push(syn::Error::new(
+            *with_span,
+            "in whole-message enums with sibling fields, put with = ... on the \
+             member payload field",
+        ));
+        return Err(());
+    }
+    let syn::Fields::Named(named) = &ctx.variant.fields else {
+        errors.push(syn::Error::new(
+            ctx.span,
+            "variants of a whole-message enum with sibling fields must be \
+             struct variants carrying the sibling fields",
+        ));
+        return Err(());
+    };
+    let (payload, ty, adapter) = match sibling_variant_fields(
+        named,
+        sibling_metas,
+        sibling_bindings,
+        errors,
+        ctx.span,
+        ctx.proto_name,
+    ) {
+        SiblingSplit::Payload(payload) => *payload,
+        SiblingSplit::NoMemberSet => {
+            errors.push(syn::Error::new(
+                ctx.span,
+                format!(
+                    "the variant needs a payload field for the member \
+                     `{}`",
+                    ctx.member_name
+                ),
+            ));
+            return Err(());
+        }
+        SiblingSplit::Failed => return Err(()),
+    };
+    let checks = if adapter.is_some() {
+        FieldChecks::none()
+    } else {
+        expected_checks(ctx.field_meta)
+    };
+    Ok(OneofVariantShape::SiblingPayload {
+        payload,
+        ty: Box::new(ty),
+        adapter: adapter.map(Box::new),
+        checks: Box::new(checks),
+    })
+}
+
+/// `Variant(T)` encoded through a `#[armonik(with = "...")]` adapter.
+fn resolve_adapter_variant(
+    ctx: &VariantCtx,
+    with_span: Span,
+    adapter: syn::Type,
+    errors: &mut Errors,
+) -> ResolvedShape {
+    if ctx.present {
+        errors.push(syn::Error::new(
+            with_span,
+            "with = ... and present cannot be combined on a oneof variant",
+        ));
+        return Err(());
+    }
+    match &ctx.variant.fields {
+        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+            Ok(OneofVariantShape::Adapter {
+                ty: Box::new(fields.unnamed[0].ty.clone()),
+                adapter: Box::new(adapter),
+            })
+        }
+        _ => {
+            errors.push(syn::Error::new(
+                with_span,
+                "with = ... needs a single-payload tuple variant",
+            ));
+            Err(())
+        }
+    }
+}
+
+/// `#[armonik(present)]` unit variant selected by a `bool` or empty-message
+/// member.
+fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShape {
+    if !matches!(ctx.variant.fields, syn::Fields::Unit) {
+        errors.push(syn::Error::new(
+            ctx.span,
+            "#[armonik(present)] variants must be unit variants",
+        ));
+        return Err(());
+    }
+    match &ctx.field_meta.kind {
+        FieldKind::Bool => Ok(OneofVariantShape::MarkerBool),
+        FieldKind::Message(_) => Ok(OneofVariantShape::MarkerMessage),
+        other => {
+            errors.push(syn::Error::new(
+                ctx.span,
+                format!(
+                    "#[armonik(present)] needs a bool or message member, but \
+                     `{}` is {other:?}",
+                    ctx.proto_path
+                ),
+            ));
+            Err(())
+        }
+    }
+}
+
+/// The attribute-less shapes: `Variant(T)` (a single-payload member) or
+/// `Variant { .. }` (a struct variant inlining the fields of a message
+/// member, whose message is therefore absorbed).
+fn resolve_plain_variant(
+    ctx: &VariantCtx,
+    absorbs: &mut Vec<String>,
+    errors: &mut Errors,
+) -> ResolvedShape {
+    match &ctx.variant.fields {
+        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+            Ok(OneofVariantShape::Payload {
+                ty: Box::new(fields.unnamed[0].ty.clone()),
+                checks: Box::new(expected_checks(ctx.field_meta)),
+            })
+        }
+        syn::Fields::Named(named) => {
+            let FieldKind::Message(inner_name) = &ctx.field_meta.kind else {
+                errors.push(syn::Error::new(
+                    ctx.span,
+                    format!(
+                        "struct variants inline a message member, but `{}` \
+                         is not a message",
+                        ctx.proto_path
+                    ),
+                ));
+                return Err(());
+            };
+            let Some(inner) = ctx.index.messages.get(inner_name) else {
+                errors.push(syn::Error::new(
+                    ctx.span,
+                    format!("proto message `{inner_name}` not found"),
+                ));
+                return Err(());
+            };
+            if !inner.oneofs.is_empty() {
+                errors.push(syn::Error::new(
+                    ctx.span,
+                    format!(
+                        "`{inner_name}` contains a oneof; it cannot be inlined into \
+                         a struct variant"
+                    ),
+                ));
+                return Err(());
+            }
+            let mut parts = Vec::new();
+            let mut inner_covered = vec![false; inner.fields.len()];
+            for part in &named.named {
+                let part_ident = part.ident.clone().expect("named fields have idents");
+                let part_entries = match attrs::parse(&part.attrs) {
+                    Ok(entries) => entries,
+                    Err(err) => {
+                        errors.push(err);
+                        continue;
+                    }
+                };
+                let (FieldAttrs { rename: part_rename, .. }, _) = scan_field_attrs(
+                    &part_entries,
+                    Allowed {
+                        rename: true,
+                        ..Allowed::default()
+                    },
+                    "this armonik attribute is not valid on a struct variant field",
+                    errors,
+                );
+                let part_name = part_rename.unwrap_or_else(|| unraw(&part_ident));
+                let Some(part_position) = inner
+                    .fields
+                    .iter()
+                    .position(|field| field.name == part_name)
+                else {
+                    errors.push(syn::Error::new(
+                        part_ident.span(),
+                        format!(
+                            "no field named `{part_name}` in proto message \
+                             `{inner_name}`"
+                        ),
+                    ));
+                    continue;
+                };
+                inner_covered[part_position] = true;
+                let part_meta = &inner.fields[part_position];
+                parts.push(InlinePart {
+                    span: part_ident.span(),
+                    ident: part_ident,
+                    ty: part.ty.clone(),
+                    tag: part_meta.tag,
+                    proto_path: format!("{inner_name}.{}", part_meta.name),
+                    checks: expected_checks(part_meta),
+                });
+            }
+            for (position, part_covered) in inner_covered.iter().enumerate() {
+                if !part_covered {
+                    errors.push(syn::Error::new(
+                        ctx.span,
+                        format!(
+                            "proto field `{inner_name}.{}` (tag {}) is not covered \
+                             by the struct variant",
+                            inner.fields[position].name, inner.fields[position].tag
+                        ),
+                    ));
+                }
+            }
+            parts.sort_by_key(|part| part.tag);
+            absorbs.push(inner_name.clone());
+            Ok(OneofVariantShape::Inline { parts })
+        }
+        _ => {
+            errors.push(syn::Error::new(
+                ctx.span,
+                "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
+                 #[armonik(present)] marker, or the attribute-less default",
+            ));
+            Err(())
+        }
     }
 }
 
@@ -1391,28 +1717,18 @@ pub(crate) fn oneof_plan(
                 continue;
             }
         };
-        let mut rename = None;
-        let mut present = false;
-        let mut with = None;
-        for entry in &variant_entries {
-            match &entry.item {
-                AttrItem::Rename(lit) => rename = Some(lit.value()),
-                AttrItem::Present => present = true,
-                AttrItem::With(lit) => match syn::parse_str::<syn::Type>(&lit.value()) {
-                    Ok(ty) => with = Some((entry.span, ty)),
-                    Err(err) => errors.push(syn::Error::new(
-                        entry.span,
-                        format!("invalid adapter type in with = ...: {err}"),
-                    )),
-                },
-                // Collected separately in `expand::collect_absorbs`.
-                AttrItem::Absorbs(_) => {}
-                _ => errors.push(syn::Error::new(
-                    entry.span,
-                    "this armonik attribute is not valid on a oneof variant",
-                )),
-            }
-        }
+        let (FieldAttrs { rename, with, present, .. }, _) = scan_field_attrs(
+            &variant_entries,
+            Allowed {
+                rename: true,
+                with: true,
+                present: true,
+                absorbs: true,
+                ..Allowed::default()
+            },
+            "this armonik attribute is not valid on a oneof variant",
+            &mut errors,
+        );
 
         // The attribute-less unit variant is "no member set"; with sibling
         // fields, that case is a struct variant carrying exactly them and is
@@ -1453,7 +1769,7 @@ pub(crate) fn oneof_plan(
                     &proto_name,
                 ) {
                     // All fields are siblings: the "no member set" variant.
-                    Ok(None) => {
+                    SiblingSplit::NoMemberSet => {
                         if default_variant.replace(variant.ident.clone()).is_some() {
                             errors.push(syn::Error::new(
                                 span,
@@ -1465,8 +1781,8 @@ pub(crate) fn oneof_plan(
                     }
                     // A payload is present but the name matches no member:
                     // fall through to the member error below.
-                    Ok(Some(_)) => {}
-                    Err(()) => continue,
+                    SiblingSplit::Payload(..) => {}
+                    SiblingSplit::Failed => continue,
                 }
             }
         }
@@ -1491,217 +1807,28 @@ pub(crate) fn oneof_plan(
         covered[position] = true;
         let proto_path = format!("{proto_name}.{}", field_meta.name);
 
-        let shape = if !sibling_metas.is_empty() {
-            if present {
-                errors.push(syn::Error::new(
-                    span,
-                    "#[armonik(present)] markers are not supported in whole-message \
-                     enums with sibling fields",
-                ));
-                continue;
-            }
-            if let Some((with_span, _)) = &with {
-                errors.push(syn::Error::new(
-                    *with_span,
-                    "in whole-message enums with sibling fields, put with = ... on the \
-                     member payload field",
-                ));
-                continue;
-            }
-            let syn::Fields::Named(named) = &variant.fields else {
-                errors.push(syn::Error::new(
-                    span,
-                    "variants of a whole-message enum with sibling fields must be \
-                     struct variants carrying the sibling fields",
-                ));
-                continue;
-            };
-            let (payload, ty, adapter) = match sibling_variant_fields(
-                named,
-                &sibling_metas,
-                &mut sibling_bindings,
-                &mut errors,
-                span,
-                &proto_name,
-            ) {
-                Ok(Some(payload)) => payload,
-                Ok(None) => {
-                    errors.push(syn::Error::new(
-                        span,
-                        format!(
-                            "the variant needs a payload field for the member \
-                             `{member_name}`"
-                        ),
-                    ));
-                    continue;
-                }
-                Err(()) => continue,
-            };
-            let checks = if adapter.is_some() {
-                FieldChecks::none()
-            } else {
-                expected_checks(field_meta)
-            };
-            OneofVariantShape::SiblingPayload {
-                payload,
-                ty: Box::new(ty),
-                adapter: adapter.map(Box::new),
-                checks: Box::new(checks),
-            }
+        let ctx = VariantCtx {
+            variant,
+            field_meta,
+            index,
+            span,
+            proto_name: &proto_name,
+            proto_path: &proto_path,
+            member_name: &member_name,
+            present,
+        };
+        let resolved = if !sibling_metas.is_empty() {
+            resolve_sibling_variant(&ctx, &sibling_metas, &mut sibling_bindings, &with, &mut errors)
         } else if let Some((with_span, adapter)) = with {
-            if present {
-                errors.push(syn::Error::new(
-                    with_span,
-                    "with = ... and present cannot be combined on a oneof variant",
-                ));
-                continue;
-            }
-            match &variant.fields {
-                syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                    OneofVariantShape::Adapter {
-                        ty: Box::new(fields.unnamed[0].ty.clone()),
-                        adapter: Box::new(adapter),
-                    }
-                }
-                _ => {
-                    errors.push(syn::Error::new(
-                        with_span,
-                        "with = ... needs a single-payload tuple variant",
-                    ));
-                    continue;
-                }
-            }
+            resolve_adapter_variant(&ctx, with_span, adapter, &mut errors)
         } else if present {
-            if !matches!(variant.fields, syn::Fields::Unit) {
-                errors.push(syn::Error::new(
-                    span,
-                    "#[armonik(present)] variants must be unit variants",
-                ));
-                continue;
-            }
-            match &field_meta.kind {
-                FieldKind::Bool => OneofVariantShape::MarkerBool,
-                FieldKind::Message(_) => OneofVariantShape::MarkerMessage,
-                other => {
-                    errors.push(syn::Error::new(
-                        span,
-                        format!(
-                            "#[armonik(present)] needs a bool or message member, but \
-                             `{proto_path}` is {other:?}"
-                        ),
-                    ));
-                    continue;
-                }
-            }
+            resolve_marker_variant(&ctx, &mut errors)
         } else {
-            match &variant.fields {
-                syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                    OneofVariantShape::Payload {
-                        ty: Box::new(fields.unnamed[0].ty.clone()),
-                        checks: Box::new(expected_checks(field_meta)),
-                    }
-                }
-                syn::Fields::Named(named) => {
-                    let FieldKind::Message(inner_name) = &field_meta.kind else {
-                        errors.push(syn::Error::new(
-                            span,
-                            format!(
-                                "struct variants inline a message member, but `{proto_path}` \
-                                 is not a message"
-                            ),
-                        ));
-                        continue;
-                    };
-                    let Some(inner) = index.messages.get(inner_name) else {
-                        errors.push(syn::Error::new(
-                            span,
-                            format!("proto message `{inner_name}` not found"),
-                        ));
-                        continue;
-                    };
-                    if !inner.oneofs.is_empty() {
-                        errors.push(syn::Error::new(
-                            span,
-                            format!(
-                                "`{inner_name}` contains a oneof; it cannot be inlined into \
-                                 a struct variant"
-                            ),
-                        ));
-                        continue;
-                    }
-                    let mut parts = Vec::new();
-                    let mut inner_covered = vec![false; inner.fields.len()];
-                    for part in &named.named {
-                        let part_ident = part.ident.clone().expect("named fields have idents");
-                        let part_entries = match attrs::parse(&part.attrs) {
-                            Ok(entries) => entries,
-                            Err(err) => {
-                                errors.push(err);
-                                continue;
-                            }
-                        };
-                        let mut part_rename = None;
-                        for entry in &part_entries {
-                            match &entry.item {
-                                AttrItem::Rename(lit) => part_rename = Some(lit.value()),
-                                _ => errors.push(syn::Error::new(
-                                    entry.span,
-                                    "this armonik attribute is not valid on a struct \
-                                     variant field",
-                                )),
-                            }
-                        }
-                        let part_name = part_rename.unwrap_or_else(|| unraw(&part_ident));
-                        let Some(part_position) = inner
-                            .fields
-                            .iter()
-                            .position(|field| field.name == part_name)
-                        else {
-                            errors.push(syn::Error::new(
-                                part_ident.span(),
-                                format!(
-                                    "no field named `{part_name}` in proto message \
-                                     `{inner_name}`"
-                                ),
-                            ));
-                            continue;
-                        };
-                        inner_covered[part_position] = true;
-                        let part_meta = &inner.fields[part_position];
-                        parts.push(InlinePart {
-                            span: part_ident.span(),
-                            ident: part_ident,
-                            ty: part.ty.clone(),
-                            tag: part_meta.tag,
-                            proto_path: format!("{inner_name}.{}", part_meta.name),
-                            checks: expected_checks(part_meta),
-                        });
-                    }
-                    for (position, part_covered) in inner_covered.iter().enumerate() {
-                        if !part_covered {
-                            errors.push(syn::Error::new(
-                                span,
-                                format!(
-                                    "proto field `{inner_name}.{}` (tag {}) is not covered \
-                                     by the struct variant",
-                                    inner.fields[position].name, inner.fields[position].tag
-                                ),
-                            ));
-                        }
-                    }
-                    parts.sort_by_key(|part| part.tag);
-                    absorbs.push(inner_name.clone());
-                    OneofVariantShape::Inline { parts }
-                }
-                _ => {
-                    errors.push(syn::Error::new(
-                        span,
-                        "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
-                         #[armonik(present)] marker, or the attribute-less default",
-                    ));
-                    continue;
-                }
-            }
+            resolve_plain_variant(&ctx, &mut absorbs, &mut errors)
+        };
+        let shape = match resolved {
+            Ok(shape) => shape,
+            Err(()) => continue,
         };
 
         variants.push(OneofVariant {
@@ -1771,4 +1898,89 @@ fn snake_case(camel: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    //! Guards for [`scan_field_attrs`], the one place that decides which
+    //! `#[armonik(...)]` keys each field/variant site accepts. The full
+    //! derives can only be exercised inside the `armonik` crate (they read the
+    //! build-script descriptor), and the differential harness only fuzzes
+    //! *valid* input — so the per-site *rejection* rules, which the shared
+    //! collector could silently weaken, are pinned here instead.
+
+    use proc_macro2::Span;
+
+    use super::*;
+
+    fn entry(item: AttrItem) -> attrs::AttrEntry {
+        attrs::AttrEntry {
+            span: Span::call_site(),
+            item,
+        }
+    }
+
+    fn lit(value: &str) -> syn::LitStr {
+        syn::LitStr::new(value, Span::call_site())
+    }
+
+    fn scan(entries: &[attrs::AttrEntry], allowed: Allowed) -> (FieldAttrs, bool, bool) {
+        let mut errors = Errors::new();
+        let (collected, ok) = scan_field_attrs(entries, allowed, "reject", &mut errors);
+        (collected, ok, errors.into_result().is_ok())
+    }
+
+    /// `absorbs` must stay rejected where a site does not opt in, and be
+    /// tolerated (no error — it is harvested by `expand::collect_absorbs`)
+    /// where it does. This is the exact rule a naive shared collector would
+    /// drop, and there is no other test that would catch it.
+    #[test]
+    fn absorbs_is_gated_per_site() {
+        let (_, ok, clean) = scan(
+            &[entry(AttrItem::Absorbs(lit("some.Msg")))],
+            Allowed {
+                absorbs: true,
+                ..Allowed::default()
+            },
+        );
+        assert!(ok && clean, "absorbs tolerated where opted in");
+
+        let (_, ok, clean) = scan(
+            &[entry(AttrItem::Absorbs(lit("some.Msg")))],
+            Allowed::default(),
+        );
+        assert!(!ok && !clean, "absorbs rejected where not opted in");
+    }
+
+    #[test]
+    fn collects_only_enabled_keys() {
+        let (collected, ok, clean) = scan(
+            &[
+                entry(AttrItem::Rename(lit("proto_name"))),
+                entry(AttrItem::Present),
+            ],
+            Allowed {
+                rename: true,
+                present: true,
+                ..Allowed::default()
+            },
+        );
+        assert!(ok && clean);
+        assert_eq!(collected.rename.as_deref(), Some("proto_name"));
+        assert!(collected.present);
+    }
+
+    #[test]
+    fn disallowed_key_is_rejected_and_not_collected() {
+        // `present` at a site that only accepts `rename`.
+        let (collected, ok, clean) = scan(
+            &[entry(AttrItem::Present)],
+            Allowed {
+                rename: true,
+                ..Allowed::default()
+            },
+        );
+        assert!(!ok && !clean);
+        assert!(!collected.present);
+    }
 }
