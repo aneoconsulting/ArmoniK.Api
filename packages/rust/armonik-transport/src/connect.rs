@@ -11,6 +11,7 @@ use rustls::pki_types::ServerName;
 use snafu::{ResultExt, Snafu};
 
 use crate::config::ConfigError;
+use crate::proxy::ProxyConnector;
 use crate::ClientConfig;
 
 /// Connect to the endpoint described by `config`, eagerly: this resolves once the connection is
@@ -72,7 +73,7 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
 #[doc(hidden)]
 pub async fn https_connector(
     config: ClientConfig,
-) -> Result<HttpsConnector<HttpConnector>, ConnectionError> {
+) -> Result<HttpsConnector<ProxyConnector<HttpConnector>>, ConnectionError> {
     let endpoint = config.endpoint;
 
     // Get the default crypto provider or fallback to the ring crypto provider
@@ -141,6 +142,10 @@ pub async fn https_connector(
     if let Some(timeout) = config.connect_timeout {
         http.set_connect_timeout(Some(timeout));
     }
+
+    // Tunnelling sits below TLS, so the handshake above still targets the real server. With no proxy
+    // configured this delegates straight to the connector it wraps, settings and all.
+    let http = ProxyConnector::new(http, config.proxy);
 
     Ok(https.enable_http1().enable_http2().wrap_connector(http))
 }
