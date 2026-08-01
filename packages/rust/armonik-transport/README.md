@@ -3,10 +3,9 @@
 Transport layer for the [ArmoniK](https://github.com/aneoconsulting/ArmoniK) Rust client:
 configuration parsing, and TLS/mTLS connection setup.
 
-This crate is factored out of [`armonik`](../armonik), which re-exports everything here at the same
-paths it always used (`armonik::ClientConfig`, `armonik::client::ConfigError`, ...), so depending on
-`armonik` directly is unaffected by the split. Depend on `armonik-transport` instead when you need the
-connection layer without generated protobuf types or a `protoc`/`tonic-prost-build` build step.
+Depend on it when you need the connection layer without generated protobuf types or a
+`protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
+wants the services as well needs only that one.
 
 ## Publishing
 
