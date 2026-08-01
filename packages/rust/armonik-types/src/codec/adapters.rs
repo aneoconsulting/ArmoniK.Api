@@ -15,7 +15,7 @@ use super::{key_len, ProtoAdapter, ProtoField};
 ///
 /// Entry order is not preserved and duplicate keys collapse (last wins),
 /// exactly like the historical conversions.
-pub(crate) struct PairMap<const KT: u32 = 1, const VT: u32 = 2>;
+pub(crate) struct PairMap<const KT: u32, const VT: u32>;
 
 impl<K, V, const KT: u32, const VT: u32> ProtoAdapter<HashMap<K, V>> for PairMap<KT, VT>
 where
@@ -101,7 +101,7 @@ where
 }
 
 /// `Wrapper { string inner = TAG }` exposed as a `String`.
-pub(crate) struct StringWrapper<const TAG: u32 = 1>;
+pub(crate) struct StringWrapper<const TAG: u32>;
 
 impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
     fn encode_field(tag: u32, value: &String, buf: &mut impl BufMut) {
@@ -158,7 +158,7 @@ impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
 }
 
 /// `Wrapper { repeated T inner = TAG }` exposed as a `Vec<T>`.
-pub(crate) struct VecWrapper<const TAG: u32 = 1>;
+pub(crate) struct VecWrapper<const TAG: u32>;
 
 impl<T: ProtoField, const TAG: u32> ProtoAdapter<Vec<T>> for VecWrapper<TAG> {
     fn encode_field(tag: u32, value: &Vec<T>, buf: &mut impl BufMut) {

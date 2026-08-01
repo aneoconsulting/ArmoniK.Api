@@ -33,10 +33,11 @@ mod well_known;
 pub(crate) mod wrapper_enum;
 
 /// Wire-level kind of a protobuf field, checked by derive-emitted
-/// const-asserts against the descriptor.
-// The full scalar vocabulary is mirrored from the descriptor even though the
-// ArmoniK protos do not use every kind (sint*/*fixed* currently unused).
-#[allow(dead_code)]
+/// const-asserts against the descriptor. Only the kinds with a [`ProtoField`]
+/// impl are listed, so every variant is live; a proto field of any other wire
+/// kind (`sint*`/`fixed*`/`sfixed*`, which no ArmoniK field uses) is a spanned
+/// "unsupported wire kind" compile error from the derive rather than a
+/// silently-unmatchable pattern.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FieldKind {
     Double,
@@ -45,12 +46,6 @@ pub(crate) enum FieldKind {
     Int64,
     UInt32,
     UInt64,
-    SInt32,
-    SInt64,
-    Fixed32,
-    Fixed64,
-    SFixed32,
-    SFixed64,
     Bool,
     String,
     Bytes,
