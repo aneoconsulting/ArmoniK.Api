@@ -15,7 +15,7 @@ serde = ["dep:serde"]
 
 [dependencies]
 # `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
-# `http`/`tokio_stream` re-exports `armonik` reaches through this crate.
+# `http`/`tokio_stream` re-exports a dependent reaches through this crate.
 tonic = { workspace = true, features = ["channel", "codegen"] }
 snafu.workspace = true
 tracing.workspace = true

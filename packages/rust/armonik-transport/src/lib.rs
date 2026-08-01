@@ -1,10 +1,8 @@
 //! Transport layer for the ArmoniK Rust client.
 //!
 //! Configuration parsing, TLS and mTLS: what it takes to turn an endpoint into a connected channel.
-//! Split out of [`armonik`](https://docs.rs/armonik) so that a consumer needing only a channel does
-//! not also need protobuf codegen and a `protoc` build step.
-//!
-//! `armonik` re-exports all of this at the paths it always had, so the split breaks nothing for it.
+//! Depending on this alone leaves protobuf codegen, and the `protoc` a build script would need, out of
+//! the build.
 
 mod config;
 mod connect;
@@ -20,8 +18,8 @@ pub use utils::ReadEnvError;
 
 /// Re-exports of this crate's own dependencies, at the versions it was built with.
 ///
-/// `armonik` re-exports these rather than declaring its own requirements for the same crates, so
-/// nothing can end up with a `rustls` other than the one the connection was built with.
+/// A dependent should take these rather than declare its own requirement for the same crates, so it
+/// cannot end up with a `rustls` other than the one the connection was built with.
 pub mod reexports {
     pub use hyper;
     pub use hyper_rustls;
