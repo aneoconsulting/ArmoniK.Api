@@ -43,10 +43,6 @@ pub(crate) struct MessageMeta {
 }
 
 impl MessageMeta {
-    pub(crate) fn field(&self, name: &str) -> Option<&FieldMeta> {
-        self.fields.iter().find(|field| field.name == name)
-    }
-
     pub(crate) fn oneof(&self, name: &str) -> Option<(usize, &OneofMeta)> {
         self.oneofs
             .iter()
