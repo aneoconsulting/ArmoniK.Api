@@ -125,6 +125,51 @@ pub(crate) trait ProtoField: Default + PartialEq {
     }
 }
 
+/// Marker: this Rust type IS the protobuf message(s) in [`Msg::NAMES`]. The
+/// blanket impl below is the single [`ProtoField`] impl for every
+/// message-shaped type — derived messages, transparent wrapper enums,
+/// well-known types — so the derives emit a one-line `Msg` impl instead of a
+/// full `ProtoField` one.
+///
+/// A type implements `Msg` XOR a concrete `ProtoField`: only message-kind
+/// types belong here. Plain proto enums keep concrete impls — a second
+/// blanket would overlap this one (E0119).
+pub(crate) trait Msg: prost::Message + Default + PartialEq {
+    /// See [`ProtoField::NAMES`].
+    const NAMES: &'static [&'static str];
+    /// Transparent wrapper enums encode their zero as a non-empty wrapper, so
+    /// they are always emitted as a field (presence-significant).
+    const ALWAYS_PRESENT: bool = false;
+}
+
+impl<T: Msg> ProtoField for T {
+    const KIND: FieldKind = FieldKind::Message;
+    const NAMES: &'static [&'static str] = <T as Msg>::NAMES;
+
+    fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
+        prost::encoding::message::encode(tag, value, buf);
+    }
+
+    fn merge_field(
+        wire_type: WireType,
+        value: &mut Self,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        prost::encoding::message::merge(wire_type, value, buf, ctx)
+    }
+
+    fn encoded_len_field(tag: u32, value: &Self) -> usize {
+        prost::encoding::message::encoded_len(tag, value)
+    }
+
+    fn is_default(value: &Self) -> bool {
+        !Self::ALWAYS_PRESENT && message_is_default(value)
+    }
+
+    // Repeated forms: the trait's unpacked defaults (messages never pack).
+}
+
 /// A flattened-oneof enum: the value encodes its own variant tag, and the
 /// containing message routes the oneof's whole tag set to `merge_oneof`.
 pub(crate) trait ProtoOneof: Sized {

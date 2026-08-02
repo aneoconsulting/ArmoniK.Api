@@ -379,7 +379,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         where_clause,
         &normalize_fragments,
     );
-    let proto_field = message_proto_field(&impl_generics, ident, &ty_generics, where_clause, proto_names);
+    let proto_field = msg_impl(&impl_generics, ident, &ty_generics, where_clause, proto_names, false);
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {
@@ -425,42 +425,23 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     }
 }
 
-/// The `ProtoField` impl for a message type, delegating to `prost::encoding::message`.
-/// Shared by the plain-struct and `transparent` codegen paths.
-fn message_proto_field(
+/// The one-line `Msg` implementation for a message-shaped type: the blanket
+/// `ProtoField` impl in `codec` picks it up, so the type composes as a field
+/// of other derived messages. `always_present` is the wrapper-enum override
+/// (a zero value still encodes as a non-empty wrapper).
+fn msg_impl(
     impl_generics: &syn::ImplGenerics,
     ident: &syn::Ident,
     ty_generics: &syn::TypeGenerics,
     where_clause: Option<&syn::WhereClause>,
     proto_names: &[String],
+    always_present: bool,
 ) -> TokenStream {
+    let always = always_present.then(|| quote!(const ALWAYS_PRESENT: bool = true;));
     quote! {
-        impl #impl_generics crate::codec::ProtoField for #ident #ty_generics #where_clause {
-            const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
+        impl #impl_generics crate::codec::Msg for #ident #ty_generics #where_clause {
             const NAMES: &'static [&'static str] = &[#(#proto_names),*];
-
-            fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                ::prost::encoding::message::encode(tag, value, buf);
-            }
-
-            fn merge_field(
-                wire_type: ::prost::encoding::WireType,
-                value: &mut Self,
-                buf: &mut impl ::prost::bytes::Buf,
-                ctx: ::prost::encoding::DecodeContext,
-            ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                ::prost::encoding::message::merge(wire_type, value, buf, ctx)
-            }
-
-            fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                ::prost::encoding::message::encoded_len(tag, value)
-            }
-
-            fn is_default(value: &Self) -> bool {
-                crate::codec::message_is_default(value)
-            }
-
-            // Repeated forms: the trait's unpacked defaults (messages never pack).
+            #always
         }
     }
 }
@@ -483,7 +464,7 @@ fn transparent_message(
     let ty = &field.ty;
 
     let registrations = registrations(ident, proto_names, plan.replace.as_ref());
-    let proto_field = message_proto_field(impl_generics, ident, ty_generics, where_clause, proto_names);
+    let proto_field = msg_impl(impl_generics, ident, ty_generics, where_clause, proto_names, false);
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = { #tripwire };
@@ -655,30 +636,13 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                     }
                 }
 
-                impl crate::codec::ProtoField for #ident {
-                    const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Message;
+                // As a field, the enum is its wrapper message: the blanket
+                // `ProtoField` impl frames the `prost::Message` impl above.
+                // ALWAYS_PRESENT: a zero value still encodes (as an empty
+                // wrapper), preserving absent-vs-explicit-zero.
+                impl crate::codec::Msg for #ident {
                     const NAMES: &'static [&'static str] = &[#(#names),*];
-
-                    fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                        crate::codec::wrapper_enum::encode(tag, &[#(#path),*], value, buf);
-                    }
-
-                    fn merge_field(
-                        wire_type: ::prost::encoding::WireType,
-                        value: &mut Self,
-                        buf: &mut impl ::prost::bytes::Buf,
-                        ctx: ::prost::encoding::DecodeContext,
-                    ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                        crate::codec::wrapper_enum::merge(&[#(#path),*], wire_type, value, buf, ctx)
-                    }
-
-                    fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                        crate::codec::wrapper_enum::encoded_len(tag, &[#(#path),*], value)
-                    }
-
-                    fn is_default(value: &Self) -> bool {
-                        crate::codec::wrapper_enum::is_default(value)
-                    }
+                    const ALWAYS_PRESENT: bool = true;
                 }
             }
         }
@@ -977,12 +941,13 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name), None);
         let generics = syn::Generics::default();
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-        let proto_field = message_proto_field(
+        let proto_field = msg_impl(
             &impl_generics,
             ident,
             &ty_generics,
             where_clause,
             std::slice::from_ref(proto_name),
+            false,
         );
         quote! {
             #registrations
@@ -1288,12 +1253,13 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         where_clause,
         &normalize_fragments,
     );
-    let proto_field = message_proto_field(
+    let proto_field = msg_impl(
         &impl_generics,
         ident,
         &ty_generics,
         where_clause,
         std::slice::from_ref(proto_name),
+        false,
     );
     let tripwire = tripwire(&fingerprint);
     quote! {
