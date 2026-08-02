@@ -34,23 +34,25 @@ use syn::DeriveInput;
 /// Derive `prost::Message` for an ArmoniK API type, validated against the
 /// protobuf descriptors compiled by the `armonik` build script.
 ///
-/// Tags, wire kinds, cardinalities and packedness are read from the
-/// descriptor at expansion time — nothing is restated in the source — and
+/// Tags, wire kinds and cardinalities are read from the descriptor at
+/// expansion time — nothing is restated in the source — and
 /// every disagreement between the Rust type and the proto message (unknown
 /// field, uncovered proto field or oneof, kind or cardinality mismatch) is
 /// a spanned compile error naming both sides. Proto enums are derived
 /// separately with [`Enum`](macro@Enum).
 ///
 /// Besides `prost::Message`, the derive emits:
-/// - a `ProtoField` implementation, so the type composes as a field of
-///   other derived messages (field types dispatch through that trait:
-///   scalars, `String`, `bytes::Bytes`, `Vec<T>`, `Option<T>` for proto3
-///   explicit presence, `prost_types::{Timestamp, Duration}`, and every
+/// - a `Msg` implementation (picked up by the codec's blanket `ProtoField`
+///   impl), so the type composes as a field of other derived messages
+///   (field types dispatch through `ProtoField`: scalars, `String`,
+///   `bytes::Bytes`, `Vec<T>`, `Option<T>` for proto3 explicit presence,
+///   `HashMap<K, V>`, `prost_types::{Timestamp, Duration}`, and every
 ///   derived type);
 /// - a fingerprint const-assert that fails the build if the expansion ever
 ///   goes stale against a newer descriptor;
-/// - under the private `_differential` feature, the type's registration
-///   into the differential-harness registry and its `Normalize` projection.
+/// - under the private `_registry` feature, the type's registration into
+///   `armonik_types::wire::REGISTRY`, and under `_differential` its
+///   `Normalize` projection and harness hooks.
 ///
 /// Every derived type must uphold the crate's zero-default invariant:
 /// `Default::default()` **is** the proto zero value, so decoding an empty
@@ -315,9 +317,9 @@ pub fn derive_enum(input: TokenStream) -> TokenStream {
 /// `armonik`'s build script and the differential harness — the same way a
 /// `#[derive(Message)]` type is.
 ///
-/// The alias is re-emitted verbatim, plus the two feature-gated registrations
-/// a derive would emit for that proto name (the `_extern-map` entry and the
-/// `_differential` harness `Entry`). The aliased type must implement
+/// The alias is re-emitted verbatim, plus the `crate::register!` entry a
+/// derive would emit for that proto name (into `armonik_types::wire::REGISTRY`,
+/// with its `_differential` harness hooks). The aliased type must implement
 /// `prost::Message` (and, under `_differential`, `Normalize`).
 ///
 /// ```ignore

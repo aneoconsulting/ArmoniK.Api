@@ -60,7 +60,7 @@ pub enum Response {
     /// The creation statuses, one per task creation request.
     #[armonik(
         rename = "creation_status_list",
-        with = "crate::codec::adapters::VecWrapper<1>",
+        with = "crate::codec::adapters::Wrapper<1>",
         absorbs = "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatusList"
     )]
     Status(Vec<Status>),

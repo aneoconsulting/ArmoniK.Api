@@ -13,13 +13,13 @@ use super::super::SessionStatus;
 pub enum SessionFilterStatuses {
     #[armonik(
         rename = "excluded",
-        with = "crate::codec::adapters::VecWrapper<1>",
+        with = "crate::codec::adapters::Wrapper<1>",
         absorbs = "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest"
     )]
     Include(Vec<SessionStatus>),
     #[armonik(
         rename = "included",
-        with = "crate::codec::adapters::VecWrapper<1>",
+        with = "crate::codec::adapters::Wrapper<1>",
         absorbs = "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest"
     )]
     Exclude(Vec<SessionStatus>),

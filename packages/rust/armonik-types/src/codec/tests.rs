@@ -97,36 +97,16 @@ struct TestOptions {
 
 impl Message for TestOptions {
     fn encode_raw(&self, buf: &mut impl BufMut) {
-        if !ProtoField::is_default(&self.options) {
-            ProtoField::encode_field(1, &self.options, buf);
-        }
-        if !ProtoField::is_default(&self.max_duration) {
-            ProtoField::encode_field(2, &self.max_duration, buf);
-        }
-        if !ProtoField::is_default(&self.max_retries) {
-            ProtoField::encode_field(3, &self.max_retries, buf);
-        }
-        if !ProtoField::is_default(&self.priority) {
-            ProtoField::encode_field(4, &self.priority, buf);
-        }
-        if !ProtoField::is_default(&self.partition_id) {
-            ProtoField::encode_field(5, &self.partition_id, buf);
-        }
-        if !ProtoField::is_default(&self.application_name) {
-            ProtoField::encode_field(6, &self.application_name, buf);
-        }
-        if !ProtoField::is_default(&self.application_version) {
-            ProtoField::encode_field(7, &self.application_version, buf);
-        }
-        if !ProtoField::is_default(&self.application_namespace) {
-            ProtoField::encode_field(8, &self.application_namespace, buf);
-        }
-        if !ProtoField::is_default(&self.application_service) {
-            ProtoField::encode_field(9, &self.application_service, buf);
-        }
-        if !ProtoField::is_default(&self.engine_type) {
-            ProtoField::encode_field(10, &self.engine_type, buf);
-        }
+        ProtoField::encode_nondefault(1, &self.options, buf);
+        ProtoField::encode_nondefault(2, &self.max_duration, buf);
+        ProtoField::encode_nondefault(3, &self.max_retries, buf);
+        ProtoField::encode_nondefault(4, &self.priority, buf);
+        ProtoField::encode_nondefault(5, &self.partition_id, buf);
+        ProtoField::encode_nondefault(6, &self.application_name, buf);
+        ProtoField::encode_nondefault(7, &self.application_version, buf);
+        ProtoField::encode_nondefault(8, &self.application_namespace, buf);
+        ProtoField::encode_nondefault(9, &self.application_service, buf);
+        ProtoField::encode_nondefault(10, &self.engine_type, buf);
     }
 
     fn merge_field(
@@ -153,36 +133,16 @@ impl Message for TestOptions {
 
     fn encoded_len(&self) -> usize {
         let mut len = 0;
-        if !ProtoField::is_default(&self.options) {
-            len += ProtoField::encoded_len_field(1, &self.options);
-        }
-        if !ProtoField::is_default(&self.max_duration) {
-            len += ProtoField::encoded_len_field(2, &self.max_duration);
-        }
-        if !ProtoField::is_default(&self.max_retries) {
-            len += ProtoField::encoded_len_field(3, &self.max_retries);
-        }
-        if !ProtoField::is_default(&self.priority) {
-            len += ProtoField::encoded_len_field(4, &self.priority);
-        }
-        if !ProtoField::is_default(&self.partition_id) {
-            len += ProtoField::encoded_len_field(5, &self.partition_id);
-        }
-        if !ProtoField::is_default(&self.application_name) {
-            len += ProtoField::encoded_len_field(6, &self.application_name);
-        }
-        if !ProtoField::is_default(&self.application_version) {
-            len += ProtoField::encoded_len_field(7, &self.application_version);
-        }
-        if !ProtoField::is_default(&self.application_namespace) {
-            len += ProtoField::encoded_len_field(8, &self.application_namespace);
-        }
-        if !ProtoField::is_default(&self.application_service) {
-            len += ProtoField::encoded_len_field(9, &self.application_service);
-        }
-        if !ProtoField::is_default(&self.engine_type) {
-            len += ProtoField::encoded_len_field(10, &self.engine_type);
-        }
+        len += ProtoField::encoded_len_nondefault(1, &self.options);
+        len += ProtoField::encoded_len_nondefault(2, &self.max_duration);
+        len += ProtoField::encoded_len_nondefault(3, &self.max_retries);
+        len += ProtoField::encoded_len_nondefault(4, &self.priority);
+        len += ProtoField::encoded_len_nondefault(5, &self.partition_id);
+        len += ProtoField::encoded_len_nondefault(6, &self.application_name);
+        len += ProtoField::encoded_len_nondefault(7, &self.application_version);
+        len += ProtoField::encoded_len_nondefault(8, &self.application_namespace);
+        len += ProtoField::encoded_len_nondefault(9, &self.application_service);
+        len += ProtoField::encoded_len_nondefault(10, &self.engine_type);
         len
     }
 
@@ -230,33 +190,15 @@ struct OurShapes {
 
 impl Message for OurShapes {
     fn encode_raw(&self, buf: &mut impl BufMut) {
-        if !ProtoField::is_default(&self.numbers) {
-            ProtoField::encode_field(1, &self.numbers, buf);
-        }
-        if !ProtoField::is_default(&self.name) {
-            ProtoField::encode_field(2, &self.name, buf);
-        }
-        if !ProtoField::is_default(&self.blob) {
-            ProtoField::encode_field(3, &self.blob, buf);
-        }
-        if !ProtoField::is_default(&self.names) {
-            ProtoField::encode_field(4, &self.names, buf);
-        }
-        if !ProtoField::is_default(&self.durations) {
-            ProtoField::encode_field(5, &self.durations, buf);
-        }
-        if !ProtoField::is_default(&self.enums) {
-            ProtoField::encode_field(6, &self.enums, buf);
-        }
-        if !ProtoField::is_default(&self.real) {
-            ProtoField::encode_field(7, &self.real, buf);
-        }
-        if !ProtoField::is_default(&self.big) {
-            ProtoField::encode_field(8, &self.big, buf);
-        }
-        if !ProtoField::is_default(&self.flag) {
-            ProtoField::encode_field(9, &self.flag, buf);
-        }
+        ProtoField::encode_nondefault(1, &self.numbers, buf);
+        ProtoField::encode_nondefault(2, &self.name, buf);
+        ProtoField::encode_nondefault(3, &self.blob, buf);
+        ProtoField::encode_nondefault(4, &self.names, buf);
+        ProtoField::encode_nondefault(5, &self.durations, buf);
+        ProtoField::encode_nondefault(6, &self.enums, buf);
+        ProtoField::encode_nondefault(7, &self.real, buf);
+        ProtoField::encode_nondefault(8, &self.big, buf);
+        ProtoField::encode_nondefault(9, &self.flag, buf);
     }
 
     fn merge_field(
@@ -282,33 +224,15 @@ impl Message for OurShapes {
 
     fn encoded_len(&self) -> usize {
         let mut len = 0;
-        if !ProtoField::is_default(&self.numbers) {
-            len += ProtoField::encoded_len_field(1, &self.numbers);
-        }
-        if !ProtoField::is_default(&self.name) {
-            len += ProtoField::encoded_len_field(2, &self.name);
-        }
-        if !ProtoField::is_default(&self.blob) {
-            len += ProtoField::encoded_len_field(3, &self.blob);
-        }
-        if !ProtoField::is_default(&self.names) {
-            len += ProtoField::encoded_len_field(4, &self.names);
-        }
-        if !ProtoField::is_default(&self.durations) {
-            len += ProtoField::encoded_len_field(5, &self.durations);
-        }
-        if !ProtoField::is_default(&self.enums) {
-            len += ProtoField::encoded_len_field(6, &self.enums);
-        }
-        if !ProtoField::is_default(&self.real) {
-            len += ProtoField::encoded_len_field(7, &self.real);
-        }
-        if !ProtoField::is_default(&self.big) {
-            len += ProtoField::encoded_len_field(8, &self.big);
-        }
-        if !ProtoField::is_default(&self.flag) {
-            len += ProtoField::encoded_len_field(9, &self.flag);
-        }
+        len += ProtoField::encoded_len_nondefault(1, &self.numbers);
+        len += ProtoField::encoded_len_nondefault(2, &self.name);
+        len += ProtoField::encoded_len_nondefault(3, &self.blob);
+        len += ProtoField::encoded_len_nondefault(4, &self.names);
+        len += ProtoField::encoded_len_nondefault(5, &self.durations);
+        len += ProtoField::encoded_len_nondefault(6, &self.enums);
+        len += ProtoField::encoded_len_nondefault(7, &self.real);
+        len += ProtoField::encoded_len_nondefault(8, &self.big);
+        len += ProtoField::encoded_len_nondefault(9, &self.flag);
         len
     }
 
@@ -498,13 +422,11 @@ fn message_clear_resets_to_default() {
 }
 
 // ---------------------------------------------------------------------------
-// Prototypes of the two hard shapes: a whole-message oneof flattened into an
-// enum (template for the `oneof` derive mode), and a oneof with a sibling
-// field flattened into enum variants (template for the hand-written
-// `agent::create_tasks` types). Ground truth: the real generated agent types.
+// Prototypes of the whole-message-oneof shape (template for the `oneof`
+// derive mode). Ground truth: the derive-emitted `crate::InitTaskRequest` /
+// `crate::DataChunk` — an independent expansion of the same proto messages.
 // ---------------------------------------------------------------------------
 
-use ::prost::encoding::message as message_codec;
 use super::ProtoOneof;
 
 /// Mirror of `armonik.api.grpc.v1.DataChunk`: whole-message oneof
@@ -594,6 +516,12 @@ impl Message for TestDataChunk {
     }
 }
 
+// Like the emitter: the message-kind `ProtoField` impl comes from the `Msg`
+// blanket.
+impl super::Msg for TestHeader {
+    const NAMES: &'static [&'static str] = &[];
+}
+
 /// Mirror of `armonik.api.grpc.v1.InitTaskRequest`: whole-message oneof
 /// { TaskRequestHeader header = 1; bool last_task = 2; } with a message
 /// payload and a marker variant.
@@ -614,12 +542,8 @@ struct TestHeader {
 
 impl Message for TestHeader {
     fn encode_raw(&self, buf: &mut impl BufMut) {
-        if !ProtoField::is_default(&self.expected_output_keys) {
-            ProtoField::encode_field(1, &self.expected_output_keys, buf);
-        }
-        if !ProtoField::is_default(&self.data_dependencies) {
-            ProtoField::encode_field(2, &self.data_dependencies, buf);
-        }
+        ProtoField::encode_nondefault(1, &self.expected_output_keys, buf);
+        ProtoField::encode_nondefault(2, &self.data_dependencies, buf);
     }
 
     fn merge_field(
@@ -638,12 +562,8 @@ impl Message for TestHeader {
 
     fn encoded_len(&self) -> usize {
         let mut len = 0;
-        if !ProtoField::is_default(&self.expected_output_keys) {
-            len += ProtoField::encoded_len_field(1, &self.expected_output_keys);
-        }
-        if !ProtoField::is_default(&self.data_dependencies) {
-            len += ProtoField::encoded_len_field(2, &self.data_dependencies);
-        }
+        len += ProtoField::encoded_len_nondefault(1, &self.expected_output_keys);
+        len += ProtoField::encoded_len_nondefault(2, &self.data_dependencies);
         len
     }
 
@@ -656,7 +576,7 @@ impl ProtoOneof for TestInitTask {
     fn encode_oneof(value: &Self, buf: &mut impl BufMut) {
         match value {
             Self::Invalid => {}
-            Self::Header(header) => message_codec::encode(1, header, buf),
+            Self::Header(header) => <TestHeader as ProtoField>::encode_field(1, header, buf),
             Self::LastTask => ProtoField::encode_field(2, &true, buf),
         }
     }
@@ -676,7 +596,7 @@ impl ProtoOneof for TestInitTask {
                 } else {
                     TestHeader::default()
                 };
-                message_codec::merge(wire_type, &mut header, buf, ctx)?;
+                <TestHeader as ProtoField>::merge_field(wire_type, &mut header, buf, ctx)?;
                 *value = Self::Header(header);
                 Ok(())
             }
@@ -693,7 +613,7 @@ impl ProtoOneof for TestInitTask {
     fn encoded_len_oneof(value: &Self) -> usize {
         match value {
             Self::Invalid => 0,
-            Self::Header(header) => message_codec::encoded_len(1, header),
+            Self::Header(header) => <TestHeader as ProtoField>::encoded_len_field(1, header),
             Self::LastTask => ProtoField::encoded_len_field(2, &true),
         }
     }
@@ -767,4 +687,22 @@ fn whole_message_oneof_roundtrips() {
     let theirs = crate::DataChunk::Data(Bytes::new());
     assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
     assert!(!ours.encode_to_vec().is_empty());
+}
+
+/// The PairMap delegation must keep rejecting a mis-typed field key: the
+/// wire-type check lives in the `HashMap` `ProtoField` impl it delegates to.
+#[test]
+fn pair_map_rejects_non_delimited_wire_type() {
+    use super::adapters::PairMap;
+    use super::ProtoAdapter;
+
+    let mut map = HashMap::<String, String>::new();
+    let err = <PairMap<1, 2> as ProtoAdapter<HashMap<String, String>>>::merge_field(
+        WireType::Varint,
+        &mut map,
+        &mut [0x08u8].as_slice(),
+        DecodeContext::default(),
+    );
+    assert!(err.is_err(), "a varint-typed pair field must not decode");
+    assert!(map.is_empty());
 }
