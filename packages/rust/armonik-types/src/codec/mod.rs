@@ -15,20 +15,18 @@
 //!   representation differs structurally from the proto (e.g. a repeated
 //!   pair message exposed as a `HashMap`).
 //!
-//! The associated consts ([`ProtoField::KIND`], [`ProtoField::CARDINALITY`],
-//! [`ProtoField::NAMES`], …) exist so that derive-emitted `const` assertions
-//! can check the Rust type against the descriptor at compile time.
+//! [`ProtoField::SHAPE`] exists so that one derive-emitted `const` assertion
+//! per field can check the Rust type against the descriptor at compile time
+//! (see [`shape_matches`]).
 
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{DecodeContext, WireType};
 use prost::DecodeError;
 
 pub(crate) mod adapters;
-mod bytes;
 mod containers;
 pub(crate) mod enumeration;
-mod scalars;
-mod well_known;
+mod leaves;
 pub(crate) mod wrapper_enum;
 
 /// Wire-level kind of a protobuf field, checked by derive-emitted

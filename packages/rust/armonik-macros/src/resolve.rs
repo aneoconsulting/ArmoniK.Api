@@ -8,8 +8,8 @@ use syn::spanned::Spanned;
 
 use crate::attrs::{self, AttrItem};
 use crate::descriptor::{DescriptorIndex, FieldMeta, MessageMeta};
-use crate::errors::Errors;
-use crate::kind::{Card, Cardinality, FieldKind};
+use crate::attrs::Errors;
+use crate::descriptor::{Card, Cardinality, FieldKind};
 
 /// Plan for a plain (non-oneof) message struct.
 pub(crate) struct MessagePlan {
@@ -635,7 +635,7 @@ fn expected_checks(field: &FieldMeta) -> FieldChecks {
             checks.name = type_name(value).map(str::to_owned);
             vec![Card::Map]
         }
-        Cardinality::Repeated { .. } => vec![Card::Repeated],
+        Cardinality::Repeated => vec![Card::Repeated],
         Cardinality::Optional => vec![Card::Optional],
         // Singular message fields may be either plain ("absent = default")
         // or `Option` (presence-significant) in Rust.
