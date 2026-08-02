@@ -166,6 +166,16 @@ fn unsupported_kind_error(kind: &FieldKind, proto_path: &str, span: proc_macro2:
     quote_spanned! {span=> ::core::compile_error!(#message); }
 }
 
+/// Qualified dispatch prefix for a field's codec: `ProtoField` and
+/// `ProtoAdapter` share their method names, so every fragment is written
+/// once and prefixed with whichever the field encodes through.
+fn dispatch(ty: &syn::Type, adapter: Option<&syn::Type>) -> TokenStream {
+    match adapter {
+        Some(adapter) => quote!(<#adapter as crate::codec::ProtoAdapter<#ty>>),
+        None => quote!(<#ty as crate::codec::ProtoField>),
+    }
+}
+
 /// Register the type's proto name(s) via `armonik-types`' `register!` macro —
 /// the single home of the registry's layout (the `linkme` slice, the feature
 /// gates, and the `_differential` round-trip/`Normalize` hooks). A plain type
@@ -297,43 +307,28 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         let tag = field.tag;
 
         match &field.codec {
-            FieldCodec::Plain => {
+            FieldCodec::Field { adapter } => {
+                let d = dispatch(ty, adapter.as_deref());
                 encode_fragments.push(quote! {
-                    if !<#ty as crate::codec::ProtoField>::is_default(&self.#access) {
-                        <#ty as crate::codec::ProtoField>::encode_field(#tag, &self.#access, buf);
+                    if !#d::is_default(&self.#access) {
+                        #d::encode_field(#tag, &self.#access, buf);
                     }
                 });
                 merge_arms.push(quote! {
-                    #tag => <#ty as crate::codec::ProtoField>::merge_field(
-                        wire_type, &mut self.#access, buf, ctx,
-                    )
+                    #tag => #d::merge_field(wire_type, &mut self.#access, buf, ctx)
                 });
                 len_fragments.push(quote! {
-                    if !<#ty as crate::codec::ProtoField>::is_default(&self.#access) {
-                        len += <#ty as crate::codec::ProtoField>::encoded_len_field(#tag, &self.#access);
+                    if !#d::is_default(&self.#access) {
+                        len += #d::encoded_len_field(#tag, &self.#access);
                     }
                 });
-                asserts.extend(field_asserts(field, ident));
-            }
-            FieldCodec::Adapter(adapter) => {
-                encode_fragments.push(quote! {
-                    if !<#adapter as crate::codec::ProtoAdapter<_>>::is_default(&self.#access) {
-                        <#adapter as crate::codec::ProtoAdapter<_>>::encode_field(#tag, &self.#access, buf);
-                    }
-                });
-                merge_arms.push(quote! {
-                    #tag => <#adapter as crate::codec::ProtoAdapter<_>>::merge_field(
-                        wire_type, &mut self.#access, buf, ctx,
-                    )
-                });
-                len_fragments.push(quote! {
-                    if !<#adapter as crate::codec::ProtoAdapter<_>>::is_default(&self.#access) {
-                        len += <#adapter as crate::codec::ProtoAdapter<_>>::encoded_len_field(#tag, &self.#access);
-                    }
-                });
-                normalize_fragments.push(quote! {
-                    <#adapter as crate::codec::ProtoAdapter<#ty>>::normalize_dynamic(message, #tag);
-                });
+                if adapter.is_some() {
+                    normalize_fragments.push(quote! {
+                        #d::normalize_dynamic(message, #tag);
+                    });
+                } else {
+                    asserts.extend(field_asserts(field, ident));
+                }
             }
             FieldCodec::OneofGroup { tags } => {
                 encode_fragments.push(quote! {
@@ -699,17 +694,19 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
             OneofVariantShape::SiblingPayload { .. } => {
                 unreachable!("sibling variants are emitted by oneof_with_siblings")
             }
-            OneofVariantShape::Payload { ty, checks } => {
+            OneofVariantShape::Payload { ty, adapter, checks } => {
+                let d = dispatch(ty, adapter.as_deref());
                 // Oneof presence is significant: the member is always
-                // emitted, even with a default payload.
+                // emitted, even with a default payload (is_default is not
+                // consulted).
                 encode_arms.push(quote! {
                     Self::#var(payload) => {
-                        <#ty as crate::codec::ProtoField>::encode_field(#tag, payload, buf);
+                        #d::encode_field(#tag, payload, buf);
                     }
                 });
                 len_arms.push(quote! {
                     Self::#var(payload) => {
-                        <#ty as crate::codec::ProtoField>::encoded_len_field(#tag, payload)
+                        #d::encoded_len_field(#tag, payload)
                     }
                 });
                 merge_arms.push(quote! {
@@ -719,57 +716,24 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                         } else {
                             ::core::default::Default::default()
                         };
-                        <#ty as crate::codec::ProtoField>::merge_field(
-                            wire_type, &mut payload, buf, ctx,
-                        )?;
+                        #d::merge_field(wire_type, &mut payload, buf, ctx)?;
                         *value = Self::#var(payload);
                         ::core::result::Result::Ok(())
                     }
                 });
-                asserts.extend(field_asserts_for(
-                    ty,
-                    variant.span,
-                    &variant.proto_path,
-                    checks,
-                    ident,
-                ));
-            }
-            OneofVariantShape::Adapter { ty, adapter } => {
-                normalize_fragments.push(quote! {
-                    <#adapter as crate::codec::ProtoAdapter<#ty>>::normalize_dynamic(
-                        message, #tag,
-                    );
-                });
-                // Oneof presence is significant: the member is always
-                // emitted; the adapter's is_default is not consulted.
-                encode_arms.push(quote! {
-                    Self::#var(payload) => {
-                        <#adapter as crate::codec::ProtoAdapter<#ty>>::encode_field(
-                            #tag, payload, buf,
-                        );
-                    }
-                });
-                len_arms.push(quote! {
-                    Self::#var(payload) => {
-                        <#adapter as crate::codec::ProtoAdapter<#ty>>::encoded_len_field(
-                            #tag, payload,
-                        )
-                    }
-                });
-                merge_arms.push(quote! {
-                    #tag => {
-                        let mut payload = if let Self::#var(payload) = value {
-                            ::std::mem::take(payload)
-                        } else {
-                            ::core::default::Default::default()
-                        };
-                        <#adapter as crate::codec::ProtoAdapter<#ty>>::merge_field(
-                            wire_type, &mut payload, buf, ctx,
-                        )?;
-                        *value = Self::#var(payload);
-                        ::core::result::Result::Ok(())
-                    }
-                });
+                if adapter.is_some() {
+                    normalize_fragments.push(quote! {
+                        #d::normalize_dynamic(message, #tag);
+                    });
+                } else {
+                    asserts.extend(field_asserts_for(
+                        ty,
+                        variant.span,
+                        &variant.proto_path,
+                        checks,
+                        ident,
+                    ));
+                }
             }
             OneofVariantShape::MarkerBool => {
                 // Only the member's presence survives (an explicit `false`
@@ -1106,12 +1070,12 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         else {
             unreachable!("sibling-mode variants are always SiblingPayload");
         };
-        if let Some(adapter) = adapter {
+        let d = dispatch(ty, adapter.as_deref());
+        if adapter.is_some() {
             normalize_fragments.push(quote! {
-                <#adapter as crate::codec::ProtoAdapter<#ty>>::normalize_dynamic(message, #tag);
+                #d::normalize_dynamic(message, #tag);
             });
-        }
-        if adapter.is_none() {
+        } else {
             asserts.extend(field_asserts_for(
                 ty,
                 variant.span,
@@ -1122,23 +1086,11 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
         }
 
         // Oneof presence is significant: the member is always emitted.
-        let encode_payload = match adapter {
-            Some(adapter) => quote! {
-                <#adapter as crate::codec::ProtoAdapter<#ty>>::encode_field(#tag, #payload, buf);
-            },
-            None => quote! {
-                <#ty as crate::codec::ProtoField>::encode_field(#tag, #payload, buf);
-            },
+        let encode_payload = quote! {
+            #d::encode_field(#tag, #payload, buf);
         };
-        let len_payload = match adapter {
-            Some(adapter) => quote! {
-                len += <#adapter as crate::codec::ProtoAdapter<#ty>>::encoded_len_field(
-                    #tag, #payload,
-                );
-            },
-            None => quote! {
-                len += <#ty as crate::codec::ProtoField>::encoded_len_field(#tag, #payload);
-            },
+        let len_payload = quote! {
+            len += #d::encoded_len_field(#tag, #payload);
         };
         let mut entries = sibling_entries.clone();
         entries.push((tag, encode_payload, len_payload));
@@ -1159,17 +1111,8 @@ fn oneof_with_siblings(plan: &crate::resolve::OneofPlan) -> TokenStream {
             }
         });
 
-        let merge_payload = match adapter {
-            Some(adapter) => quote! {
-                <#adapter as crate::codec::ProtoAdapter<#ty>>::merge_field(
-                    wire_type, &mut payload, buf, ctx,
-                )?;
-            },
-            None => quote! {
-                <#ty as crate::codec::ProtoField>::merge_field(
-                    wire_type, &mut payload, buf, ctx,
-                )?;
-            },
+        let merge_payload = quote! {
+            #d::merge_field(wire_type, &mut payload, buf, ctx)?;
         };
         let take_pats = pats(&sib_idents);
         merge_arms.push(quote! {
