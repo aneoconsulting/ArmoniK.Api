@@ -21,9 +21,10 @@ snafu.workspace = true
 tracing.workspace = true
 hyper = { workspace = true, features = ["client", "http1", "http2"] }
 # `client-legacy` for `HttpConnector`, which this crate names: `hyper-rustls` happens to turn it on, and
-# depending on that would break the day it stops. `client-proxy` for the proxy matcher: the `*_PROXY`
-# convention, `NO_PROXY` on curl's rules, and taking credentials out of a proxy URL, none of which is
-# worth writing again here.
+# depending on that would break the day it stops. Also `client-legacy` for the `Tunnel` connector that
+# performs the `CONNECT` handshake. `client-proxy` for the proxy matcher: the `*_PROXY` convention,
+# `NO_PROXY` on curl's rules, and taking credentials out of a proxy URL, none of which is worth writing
+# again here.
 hyper-util = { workspace = true, features = [
   "client",
   "client-legacy",

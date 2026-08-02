@@ -2,7 +2,8 @@
 //!
 //! A `CONNECT` tunnel rather than an absolute-form request, so TLS stays end to end with the real
 //! server: [`ProxyConnector`] sits below the TLS connector and hands back the stream a direct
-//! connection would.
+//! connection would. The handshake itself is `hyper_util`'s own [`Tunnel`], not one written here.
+//! See the crate README's "Known issues" for what that currently costs.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -10,12 +11,13 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use base64::Engine;
-use hyper::http::uri::{Authority, Scheme};
+use hyper::http::uri::Scheme;
+use hyper::http::HeaderValue;
 use hyper::Uri;
+use hyper_util::client::legacy::connect::proxy::Tunnel;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::TokioIo;
-use snafu::{IntoError, ResultExt, Snafu};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use snafu::{IntoError, Snafu};
 use tokio::net::TcpStream;
 use tower_service::Service;
 
@@ -24,12 +26,8 @@ use super::{ProxyConfig, ProxySource};
 /// What a connector reports when it fails, which every layer here has to be able to carry.
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
-/// Upper bound on the response head a proxy may send, to stop a hostile or broken proxy from
-/// making us buffer without end.
-const MAX_RESPONSE_HEAD: usize = 8 * 1024;
-
 /// Upper bound on the whole tunnel handshake, so a proxy that accepts the connection and then goes
-/// quiet fails instead of hanging.
+/// quiet fails instead of hanging. `Tunnel` has no timeout of its own.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Wraps a TCP connector so that it tunnels through an HTTP proxy when one is configured.
@@ -65,8 +63,8 @@ impl<S> ProxyConnector<S> {
 
 impl<S> Service<Uri> for ProxyConnector<S>
 where
-    S: Service<Uri, Response = TokioIo<TcpStream>> + Send + 'static,
-    S::Error: Into<BoxError>,
+    S: Service<Uri, Response = TokioIo<TcpStream>> + Clone + Send + 'static,
+    S::Error: Into<BoxError> + Send + Sync + 'static,
     S::Future: Send + 'static,
 {
     type Response = TokioIo<TcpStream>;
@@ -89,13 +87,7 @@ where
                 .matcher
                 .as_ref()
                 .and_then(|matcher| matcher.intercept(&target))
-                .map(|intercept| {
-                    let from_url = intercept
-                        .basic_auth()
-                        .and_then(|value| value.to_str().ok())
-                        .map(String::from);
-                    (intercept.uri().clone(), from_url)
-                }),
+                .map(|intercept| (intercept.uri().clone(), intercept.basic_auth().cloned())),
         };
 
         // Nothing to tunnel through: keep the original behaviour untouched.
@@ -112,31 +104,22 @@ where
             return Box::pin(std::future::ready(Err(error.into())));
         }
 
-        let authority = match target_authority(&target) {
-            Ok(authority) => authority,
-            Err(error) => return Box::pin(std::future::ready(Err(error.into()))),
-        };
         // The configured options first; whatever the proxy URL carried is the fallback, already encoded
         // by the matcher.
         let credentials = self
             .proxy
             .credentials()
-            .map(|(user, password)| basic_auth(user, password))
+            .map(|(user, password)| basic_auth_header(user, password))
             .or(from_url);
 
-        let connect_to_proxy = self.inner.call(proxy_uri.clone());
+        let mut tunnel = Tunnel::new(proxy_uri.clone(), self.inner.clone());
+        if let Some(credentials) = credentials {
+            tunnel = tunnel.with_auth(credentials);
+        }
 
         Box::pin(async move {
-            let stream = connect_to_proxy.await.map_err(|source| {
-                ConnectSnafu {
-                    proxy: proxy_uri.clone(),
-                }
-                .into_error(source.into())
-            })?;
-            let mut stream = stream.into_inner();
-
-            let handshake = tunnel(&mut stream, &authority, credentials.as_deref());
-            tokio::time::timeout(HANDSHAKE_TIMEOUT, handshake)
+            let handshake = tunnel.call(target.clone());
+            let stream = tokio::time::timeout(HANDSHAKE_TIMEOUT, handshake)
                 .await
                 .map_err(|_| {
                     HandshakeTimeoutSnafu {
@@ -144,118 +127,46 @@ where
                         timeout: HANDSHAKE_TIMEOUT,
                     }
                     .build()
-                })??;
+                })?
+                .map_err(|error| translate(proxy_uri.clone(), error))?;
 
-            tracing::debug!(proxy = %proxy_uri, target = %authority, "Established proxy tunnel");
+            tracing::debug!(proxy = %proxy_uri, %target, "Established proxy tunnel");
 
-            Ok(TokioIo::new(stream))
+            Ok(stream)
         })
     }
 }
 
-/// The `host:port` the tunnel should be opened to, defaulting the port from the scheme.
-fn target_authority(target: &Uri) -> Result<Authority, ProxyError> {
-    let host = target.host().ok_or_else(|| {
-        UnsupportedTargetSnafu {
-            target: target.clone(),
-            reason: String::from("no host"),
-        }
-        .build()
-    })?;
-
-    let port = target.port_u16().unwrap_or_else(|| {
-        if target.scheme() == Some(&Scheme::HTTPS) {
-            443
-        } else {
-            80
-        }
-    });
-
-    // Bracket IPv6 literals so the authority stays parseable.
-    let authority = if host.contains(':') && !host.starts_with('[') {
-        format!("[{host}]:{port}")
-    } else {
-        format!("{host}:{port}")
-    };
-
-    Authority::try_from(authority.as_str()).ok().ok_or_else(|| {
-        UnsupportedTargetSnafu {
-            target: target.clone(),
-            reason: format!("`{authority}` is not a valid authority"),
-        }
-        .build()
-    })
+/// Turn what `Tunnel` reports into an error naming the proxy.
+///
+/// Generic rather than naming `hyper_util`'s `TunnelError` directly: that type lives in a private
+/// module of that crate and has no public path, only trait bounds reach it, so nothing here can match
+/// on its variants. Two cases still get a better message than "did not open the tunnel", detected by
+/// text rather than matched by variant. Brittle in principle; each is pinned by an integration test,
+/// so a wording change upstream breaks loudly instead of silently losing the hint.
+fn translate(proxy: Uri, error: impl std::error::Error + Send + Sync + 'static) -> ProxyError {
+    let message = error.to_string();
+    if message.contains("proxy authorization required") {
+        return AuthenticationRequiredSnafu {}.build();
+    }
+    if message.contains("failed to create underlying connection") {
+        return ConnectSnafu { proxy }.into_error(BoxError::from(error));
+    }
+    TunnelFailedSnafu { proxy }.into_error(BoxError::from(error))
 }
 
-/// Perform the `CONNECT` handshake on an already-open connection to the proxy.
-async fn tunnel(
-    stream: &mut TcpStream,
-    target: &Authority,
-    authorization: Option<&str>,
-) -> Result<(), ProxyError> {
-    let mut request = format!("CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n");
-    // The whole header value, scheme included, so that what the matcher hands back and what
-    // `basic_auth` builds are interchangeable here.
-    if let Some(authorization) = authorization {
-        request.push_str("Proxy-Authorization: ");
-        request.push_str(authorization);
-        request.push_str("\r\n");
-    }
-    request.push_str("\r\n");
-
-    stream
-        .write_all(request.as_bytes())
-        .await
-        .context(HandshakeIoSnafu {})?;
-    stream.flush().await.context(HandshakeIoSnafu {})?;
-
-    // One byte at a time, stopping on the blank line that ends the head: a buffered read could
-    // swallow bytes belonging to the tunnel. Once per connection, over about a hundred bytes.
-    let mut head = Vec::with_capacity(128);
-    loop {
-        let mut byte = [0u8; 1];
-        if stream
-            .read_exact(&mut byte)
-            .await
-            .context(HandshakeIoSnafu {})
-            .is_err()
-        {
-            return TruncatedResponseSnafu {}.fail();
-        }
-        head.push(byte[0]);
-
-        if head.ends_with(b"\r\n\r\n") {
-            break;
-        }
-        if head.len() >= MAX_RESPONSE_HEAD {
-            return ResponseTooLargeSnafu {
-                limit: MAX_RESPONSE_HEAD,
-            }
-            .fail();
-        }
-    }
-
-    match status_code(&head) {
-        // Any 2xx switches the connection to tunnel mode, not 200 alone.
-        Some(status) if (200..300).contains(&status) => Ok(()),
-        Some(407) => AuthenticationRequiredSnafu {}.fail(),
-        Some(status) => RejectedSnafu { status }.fail(),
-        None => MalformedResponseSnafu {}.fail(),
-    }
-}
-
-/// Extract the status code from an HTTP response head.
-fn status_code(head: &[u8]) -> Option<u16> {
-    let line = head.split(|byte| *byte == b'\n').next()?;
-    let line = std::str::from_utf8(line).ok()?;
-    let mut parts = line.split_whitespace();
-
-    let version = parts.next()?;
-    if !version.starts_with("HTTP/") {
-        return None;
-    }
-
-    parts.next()?.parse().ok()
+/// A whole `Proxy-Authorization` value for the `Basic` scheme, marked sensitive so it is never
+/// logged.
+///
+/// The output of base64 encoding is always valid header-value bytes, so building the `HeaderValue`
+/// cannot fail on any input this crate constructs it from.
+fn basic_auth_header(username: &str, password: &str) -> HeaderValue {
+    let encoded =
+        base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"));
+    let mut value = HeaderValue::from_str(&format!("Basic {encoded}"))
+        .expect("base64 output is always a valid header value");
+    value.set_sensitive(true);
+    value
 }
 
 /// Split any `user:password@` prefix out of a proxy URI, returning the URI without it.
@@ -346,17 +257,6 @@ fn percent_decode(value: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// A whole `Proxy-Authorization` value for the `Basic` scheme.
-///
-/// The scheme is included so that this and [`Matcher`]'s own encoding are interchangeable at the call
-/// site.
-fn basic_auth(username: &str, password: &str) -> String {
-    format!(
-        "Basic {}",
-        base64::engine::general_purpose::STANDARD.encode(format!("{username}:{password}"))
-    )
-}
-
 /// Failure to reach the endpoint through the proxy.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
@@ -379,34 +279,6 @@ pub enum ProxyError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Could not exchange the CONNECT handshake with the proxy [{location}]"))]
-    #[non_exhaustive]
-    HandshakeIo {
-        source: std::io::Error,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-    #[snafu(display("The proxy closed the connection during the CONNECT handshake [{location}]"))]
-    #[non_exhaustive]
-    TruncatedResponse {
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-    #[snafu(display(
-        "The proxy sent more than {limit} bytes of response head to CONNECT [{location}]"
-    ))]
-    #[non_exhaustive]
-    ResponseTooLarge {
-        limit: usize,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-    #[snafu(display("The proxy sent a malformed response to CONNECT [{location}]"))]
-    #[non_exhaustive]
-    MalformedResponse {
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
     #[snafu(display(
         "The proxy requires authentication; set `GrpcClient__ProxyUsername` and \
          `GrpcClient__ProxyPassword` [{location}]"
@@ -416,10 +288,11 @@ pub enum ProxyError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("The proxy refused to open the tunnel, HTTP status {status} [{location}]"))]
+    #[snafu(display("The proxy {proxy} did not open the tunnel [{location}]"))]
     #[non_exhaustive]
-    Rejected {
-        status: u16,
+    TunnelFailed {
+        proxy: Uri,
+        source: BoxError,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -433,79 +306,11 @@ pub enum ProxyError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Cannot tunnel to {target}: {reason} [{location}]"))]
-    #[non_exhaustive]
-    UnsupportedTarget {
-        target: Uri,
-        reason: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn basic_auth_encodes_user_and_password() {
-        // The canonical example from RFC 7617.
-        assert_eq!(
-            basic_auth("Aladdin", "open sesame"),
-            "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ=="
-        );
-    }
-
-    #[test]
-    fn status_code_is_read_from_the_first_line() {
-        assert_eq!(
-            status_code(b"HTTP/1.1 200 Connection established\r\n\r\n"),
-            Some(200)
-        );
-        assert_eq!(
-            status_code(b"HTTP/1.0 407 Proxy Authentication Required\r\n\r\n"),
-            Some(407)
-        );
-        // No reason phrase is still valid.
-        assert_eq!(status_code(b"HTTP/1.1 502\r\n\r\n"), Some(502));
-    }
-
-    #[test]
-    fn status_code_rejects_non_http_responses() {
-        assert_eq!(status_code(b"\r\n\r\n"), None);
-        assert_eq!(status_code(b"NOTHTTP 200 OK\r\n\r\n"), None);
-        assert_eq!(status_code(b"HTTP/1.1 nonsense\r\n\r\n"), None);
-        // A raw TLS record must not be mistaken for a response.
-        assert_eq!(status_code(&[0x16, 0x03, 0x01, 0x00, 0x05]), None);
-    }
-
-    #[test]
-    fn target_authority_defaults_the_port_from_the_scheme() {
-        let authority = |uri: &str| {
-            target_authority(&Uri::try_from(uri).unwrap())
-                .unwrap()
-                .to_string()
-        };
-
-        assert_eq!(
-            authority("https://armonik.example.com/"),
-            "armonik.example.com:443"
-        );
-        assert_eq!(
-            authority("http://armonik.example.com/"),
-            "armonik.example.com:80"
-        );
-        assert_eq!(
-            authority("https://armonik.example.com:5001/"),
-            "armonik.example.com:5001"
-        );
-    }
-
-    #[test]
-    fn target_authority_brackets_ipv6_literals() {
-        let uri = Uri::try_from("https://[::1]:5001/").unwrap();
-        assert_eq!(target_authority(&uri).unwrap().to_string(), "[::1]:5001");
-    }
 
     #[test]
     fn a_url_without_credentials_is_left_alone() {
@@ -602,6 +407,14 @@ mod tests {
         for (written, expected) in [("100%", "100%"), ("9%ZZ", "9%ZZ"), ("%2", "%2")] {
             assert_eq!(percent_decode(written), expected, "{written}");
         }
+    }
+
+    #[test]
+    fn basic_auth_header_encodes_user_and_password() {
+        // The canonical example from RFC 7617.
+        let value = basic_auth_header("Aladdin", "open sesame");
+        assert_eq!(value, "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==");
+        assert!(value.is_sensitive(), "must not be logged");
     }
 
     // --- an explicitly named proxy is not subject to the matcher ---
