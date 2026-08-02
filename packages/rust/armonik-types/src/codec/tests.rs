@@ -187,16 +187,7 @@ impl Message for TestOptions {
     }
 
     fn clear(&mut self) {
-        ProtoField::clear_field(&mut self.options);
-        ProtoField::clear_field(&mut self.max_duration);
-        ProtoField::clear_field(&mut self.max_retries);
-        ProtoField::clear_field(&mut self.priority);
-        ProtoField::clear_field(&mut self.partition_id);
-        ProtoField::clear_field(&mut self.application_name);
-        ProtoField::clear_field(&mut self.application_version);
-        ProtoField::clear_field(&mut self.application_namespace);
-        ProtoField::clear_field(&mut self.application_service);
-        ProtoField::clear_field(&mut self.engine_type);
+        *self = ::core::default::Default::default();
     }
 }
 
@@ -322,15 +313,7 @@ impl Message for OurShapes {
     }
 
     fn clear(&mut self) {
-        ProtoField::clear_field(&mut self.numbers);
-        ProtoField::clear_field(&mut self.name);
-        ProtoField::clear_field(&mut self.blob);
-        ProtoField::clear_field(&mut self.names);
-        ProtoField::clear_field(&mut self.durations);
-        ProtoField::clear_field(&mut self.enums);
-        ProtoField::clear_field(&mut self.real);
-        ProtoField::clear_field(&mut self.big);
-        ProtoField::clear_field(&mut self.flag);
+        *self = ::core::default::Default::default();
     }
 }
 
@@ -665,8 +648,7 @@ impl Message for TestHeader {
     }
 
     fn clear(&mut self) {
-        ProtoField::clear_field(&mut self.expected_output_keys);
-        ProtoField::clear_field(&mut self.data_dependencies);
+        *self = ::core::default::Default::default();
     }
 }
 

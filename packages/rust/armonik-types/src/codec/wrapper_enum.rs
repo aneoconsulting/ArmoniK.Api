@@ -6,10 +6,8 @@
 //! the enum field.
 
 use prost::bytes::{Buf, BufMut};
-use prost::encoding::{self, DecodeContext, WireType};
+use prost::encoding::{self, key_len, DecodeContext, WireType};
 use prost::DecodeError;
-
-use super::key_len;
 
 fn body_len<T: Copy + Into<i32>>(path: &[u32], value: &T) -> usize {
     let raw: i32 = (*value).into();

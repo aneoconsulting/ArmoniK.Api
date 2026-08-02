@@ -305,7 +305,6 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let mut encode_fragments = Vec::new();
     let mut merge_arms = Vec::new();
     let mut len_fragments = Vec::new();
-    let mut clear_fragments = Vec::new();
     let mut normalize_fragments = Vec::new();
     let mut asserts = TokenStream::new();
 
@@ -331,9 +330,6 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                         len += <#ty as crate::codec::ProtoField>::encoded_len_field(#tag, &self.#access);
                     }
                 });
-                clear_fragments.push(quote! {
-                    <#ty as crate::codec::ProtoField>::clear_field(&mut self.#access);
-                });
                 asserts.extend(field_asserts(field, ident));
             }
             FieldCodec::Adapter(adapter) => {
@@ -352,9 +348,6 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                         len += <#adapter as crate::codec::ProtoAdapter<_>>::encoded_len_field(#tag, &self.#access);
                     }
                 });
-                clear_fragments.push(quote! {
-                    <#adapter as crate::codec::ProtoAdapter<_>>::clear_field(&mut self.#access);
-                });
                 normalize_fragments.push(quote! {
                     <#adapter as crate::codec::ProtoAdapter<#ty>>::normalize_dynamic(message, #tag);
                 });
@@ -370,9 +363,6 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                 });
                 len_fragments.push(quote! {
                     len += <#ty as crate::codec::ProtoOneof>::encoded_len_oneof(&self.#access);
-                });
-                clear_fragments.push(quote! {
-                    self.#access = ::core::default::Default::default();
                 });
                 normalize_fragments.push(quote! {
                     <#ty as crate::differential::Normalize>::normalize(message);
@@ -427,7 +417,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             }
 
             fn clear(&mut self) {
-                #(#clear_fragments)*
+                *self = ::core::default::Default::default();
             }
         }
 
@@ -470,13 +460,7 @@ fn message_proto_field(
                 crate::codec::message_is_default(value)
             }
 
-            fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
-                ::prost::encoding::message::encode_repeated(tag, values, buf);
-            }
-
-            fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-                ::prost::encoding::message::encoded_len_repeated(tag, values)
-            }
+            // Repeated forms: the trait's unpacked defaults (messages never pack).
         }
     }
 }
@@ -609,10 +593,6 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                     crate::codec::enumeration::encoded_len(tag, value)
                 }
 
-                fn clear_field(value: &mut Self) {
-                    *value = Self::from(0);
-                }
-
                 fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
                     crate::codec::enumeration::encode_repeated(tag, values, buf);
                 }
@@ -698,10 +678,6 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
                     fn is_default(value: &Self) -> bool {
                         crate::codec::wrapper_enum::is_default(value)
-                    }
-
-                    fn clear_field(value: &mut Self) {
-                        *value = Self::from(0);
                     }
                 }
             }

@@ -33,22 +33,7 @@ macro_rules! well_known_message {
                 message_is_default(value)
             }
 
-            fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
-                message::encode_repeated(tag, values, buf);
-            }
-
-            fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-                message::encoded_len_repeated(tag, values)
-            }
-
-            fn merge_repeated(
-                wire_type: WireType,
-                values: &mut Vec<Self>,
-                buf: &mut impl Buf,
-                ctx: DecodeContext,
-            ) -> Result<(), DecodeError> {
-                message::merge_repeated(wire_type, values, buf, ctx)
-            }
+            // Repeated forms: the trait's unpacked defaults (messages never pack).
         }
     };
 }

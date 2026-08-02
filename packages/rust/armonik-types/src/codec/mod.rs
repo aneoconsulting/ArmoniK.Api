@@ -96,10 +96,6 @@ pub(crate) trait ProtoField: Default + PartialEq {
         value == &Self::default()
     }
 
-    fn clear_field(value: &mut Self) {
-        *value = Self::default();
-    }
-
     // Repeated forms, used by `Vec<Self>`. Packable kinds override them with
     // their packed encodings; the defaults implement the unpacked form.
 
@@ -156,7 +152,6 @@ pub(crate) trait ProtoAdapter<T> {
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &T) -> usize;
     fn is_default(value: &T) -> bool;
-    fn clear_field(value: &mut T);
 
     /// Project the field at `tag` of a dynamic message onto the equivalence
     /// classes this adapter's Rust representation defines (for the
@@ -184,13 +179,6 @@ pub(crate) fn read_delimited<B: Buf + ?Sized>(
         return Err(DecodeError::new("buffer underflow"));
     }
     Ok(buf.take(len))
-}
-
-/// Encoded length of a length-delimited field key (`tag << 3 | wire_type`).
-/// The wire-type bits never change the varint length, so the tag alone
-/// determines it.
-pub(crate) fn key_len(tag: u32) -> usize {
-    prost::encoding::encoded_len_varint(u64::from(tag) << 3)
 }
 
 /// A message-kind field is absent (proto3 default) exactly when it encodes to

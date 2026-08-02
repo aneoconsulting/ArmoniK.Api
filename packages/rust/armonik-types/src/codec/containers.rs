@@ -60,10 +60,6 @@ impl<T: ProtoField> ProtoField for Vec<T> {
     fn encoded_len_field(tag: u32, value: &Self) -> usize {
         T::encoded_len_repeated(tag, value)
     }
-
-    fn clear_field(value: &mut Self) {
-        value.clear();
-    }
 }
 
 impl<K, V> ProtoField for HashMap<K, V>
@@ -112,9 +108,5 @@ where
             tag,
             value,
         )
-    }
-
-    fn clear_field(value: &mut Self) {
-        value.clear();
     }
 }

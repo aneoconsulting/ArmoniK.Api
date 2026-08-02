@@ -58,7 +58,7 @@ pub(crate) fn encoded_len_repeated<T: Copy + Into<i32>>(tag: u32, values: &[T]) 
         return 0;
     }
     let body = packed_body_len(values);
-    super::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
+    encoding::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
 }
 
 pub(crate) fn merge_repeated<T: Copy + Into<i32> + From<i32>>(

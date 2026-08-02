@@ -69,10 +69,6 @@ impl ProtoAdapter<HashMap<String, Raw>> for RawByName {
         value.is_empty()
     }
 
-    fn clear_field(value: &mut HashMap<String, Raw>) {
-        value.clear();
-    }
-
     /// The `HashMap` loses entry order and collapses duplicate names.
     #[cfg(feature = "_differential")]
     fn normalize_dynamic(
