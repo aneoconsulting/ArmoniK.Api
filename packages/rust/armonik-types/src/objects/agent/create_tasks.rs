@@ -222,7 +222,7 @@ mod tests {
     fn request_token_before_member_is_kept() {
         let mut buf = Vec::new();
         prost::encoding::string::encode(4, &"early".to_owned(), &mut buf);
-        crate::codec::message::encode(
+        ::prost::encoding::message::encode(
             2,
             &InitTaskRequest::Header(TaskRequestHeader::default()),
             &mut buf,

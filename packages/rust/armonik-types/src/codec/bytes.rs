@@ -32,10 +32,6 @@ impl ProtoField for Bytes {
         encoding::bytes::encoded_len(tag, value)
     }
 
-    fn is_default(value: &Self) -> bool {
-        value.is_empty()
-    }
-
     fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
         encoding::bytes::encode_repeated(tag, values, buf);
     }

@@ -132,7 +132,7 @@ impl ProtoField for Output {
     const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.tasks.TaskDetailed.Output"];
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
-        crate::codec::message::encode(tag, value, buf);
+        ::prost::encoding::message::encode(tag, value, buf);
     }
 
     fn merge_field(
@@ -141,23 +141,23 @@ impl ProtoField for Output {
         buf: &mut impl Buf,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
-        crate::codec::message::merge(wire_type, value, buf, ctx)
+        ::prost::encoding::message::merge(wire_type, value, buf, ctx)
     }
 
     fn encoded_len_field(tag: u32, value: &Self) -> usize {
-        crate::codec::message::encoded_len(tag, value)
+        ::prost::encoding::message::encoded_len(tag, value)
     }
 
     fn is_default(value: &Self) -> bool {
-        crate::codec::message::is_default(value)
+        crate::codec::message_is_default(value)
     }
 
     fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
-        crate::codec::message::encode_repeated(tag, values, buf);
+        ::prost::encoding::message::encode_repeated(tag, values, buf);
     }
 
     fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-        crate::codec::message::encoded_len_repeated(tag, values)
+        ::prost::encoding::message::encoded_len_repeated(tag, values)
     }
 }
 

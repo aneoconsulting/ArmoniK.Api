@@ -37,10 +37,6 @@ impl<T: ProtoField> ProtoField for Option<T> {
             .as_ref()
             .map_or(0, |value| T::encoded_len_field(tag, value))
     }
-
-    fn is_default(value: &Self) -> bool {
-        value.is_none()
-    }
 }
 
 impl<T: ProtoField> ProtoField for Vec<T> {
@@ -63,10 +59,6 @@ impl<T: ProtoField> ProtoField for Vec<T> {
 
     fn encoded_len_field(tag: u32, value: &Self) -> usize {
         T::encoded_len_repeated(tag, value)
-    }
-
-    fn is_default(value: &Self) -> bool {
-        value.is_empty()
     }
 
     fn clear_field(value: &mut Self) {
@@ -120,10 +112,6 @@ where
             tag,
             value,
         )
-    }
-
-    fn is_default(value: &Self) -> bool {
-        value.is_empty()
     }
 
     fn clear_field(value: &mut Self) {
