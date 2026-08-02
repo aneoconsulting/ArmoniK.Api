@@ -22,9 +22,11 @@ impl FromEnv for ClientConfigArgs {
         let ctx = ReadSnafu {};
         Ok(Self {
             endpoint: read_env("GrpcClient__Endpoint").context(ctx)?,
-            cert_pem: read_env("GrpcClient__CertPem").context(ctx)?,
-            key_pem: read_env("GrpcClient__KeyPem").context(ctx)?,
-            ca_cert: read_env("GrpcClient__CaCert").context(ctx)?,
+            // These name files. Opening them is this crate's business, not the transport's, which is
+            // handed the material.
+            cert_pem: read_pem_file("GrpcClient__CertPem")?,
+            key_pem: read_pem_file("GrpcClient__KeyPem")?.into(),
+            ca_cert: read_pem_file("GrpcClient__CaCert")?,
             allow_unsafe_connection: read_env_bool("GrpcClient__AllowUnsafeConnection")
                 .context(ctx)?,
             override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
@@ -55,6 +57,15 @@ impl FromEnv for ClientConfig {
     fn from_env() -> Result<Self, EnvConfigError> {
         Self::from_config_args(ClientConfigArgs::from_env()?).context(InvalidSnafu {})
     }
+}
+
+/// Read the file the variable `name` points at, or nothing when it points nowhere.
+fn read_pem_file(name: &str) -> Result<String, EnvConfigError> {
+    let path = read_env(name).context(ReadSnafu {})?;
+    if path.is_empty() {
+        return Ok(String::new());
+    }
+    std::fs::read_to_string(&path).context(FileSnafu { name, path })
 }
 
 pub(crate) fn read_env(name: &str) -> Result<String, ReadEnvError> {
@@ -104,6 +115,16 @@ pub enum EnvConfigError {
     Read {
         #[snafu(source(from(ReadEnvError, Box::new)))]
         source: Box<ReadEnvError>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("`{name}={path}` could not be read [{location}]"))]
+    #[non_exhaustive]
+    File {
+        #[snafu(source(from(std::io::Error, Box::new)))]
+        source: Box<std::io::Error>,
+        name: String,
+        path: String,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -284,6 +305,33 @@ mod tests {
             read_env("ARMONIK_TEST_STRING")
         });
         assert_eq!(absent.expect("unset"), "", "absent reads as empty");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn a_certificate_path_that_leads_nowhere_names_the_variable_and_the_path() {
+        // The transport is handed the material, so a typo in a path has to be caught here or it
+        // surfaces much later as a rejected handshake. `read_pem_file` takes the variable name, so
+        // this borrows one of its own rather than a `GrpcClient__*` the client tests depend on.
+        let error = with_var("ARMONIK_TEST_PEM", Some("no/such/cert.pem"), || {
+            read_pem_file("ARMONIK_TEST_PEM")
+        })
+        .expect_err("a missing file must be reported");
+
+        let rendered = format!("{error}");
+        assert!(rendered.contains("ARMONIK_TEST_PEM"), "{rendered}");
+        assert!(rendered.contains("no/such/cert.pem"), "{rendered}");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn an_unset_certificate_variable_is_no_certificate_rather_than_an_error() {
+        let loaded = with_var("ARMONIK_TEST_PEM", None, || {
+            read_pem_file("ARMONIK_TEST_PEM")
+        })
+        .expect("an unset variable names no file");
+
+        assert_eq!(loaded, "");
     }
 
     #[test]

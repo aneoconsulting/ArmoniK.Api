@@ -197,13 +197,13 @@ impl Clone for ClientConfig {
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
     pub endpoint: String,
-    /// Path to the certificate file in pem format
+    /// The client certificate itself, in PEM. Not a path: opening files is the caller's business.
     #[cfg_attr(feature = "serde", serde(default))]
     pub cert_pem: String,
-    /// Path to the key file in pem format
+    /// The client key itself, in PEM. Redacted wherever it is written; see [`Secret`].
     #[cfg_attr(feature = "serde", serde(default))]
-    pub key_pem: String,
-    /// Path to the Certificate Authority file in pem format
+    pub key_pem: Secret,
+    /// The Certificate Authority itself, in PEM.
     #[cfg_attr(feature = "serde", serde(default))]
     pub ca_cert: String,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
@@ -277,9 +277,11 @@ impl ClientConfig {
         let _span = tracing::debug_span!(
             "ClientConfig",
             args.endpoint,
-            args.cert_pem,
-            args.key_pem,
-            args.ca_cert,
+            // The material itself now, not a path, so only its presence is recorded: a private key
+            // must never reach a log, and a certificate would bury the span in PEM.
+            cert_pem_set = !args.cert_pem.is_empty(),
+            key_pem_set = !args.key_pem.is_empty(),
+            ca_cert_set = !args.ca_cert.is_empty(),
             args.allow_unsafe_connection,
             args.override_target_name,
             args.connect_timeout,
@@ -304,9 +306,9 @@ impl ClientConfig {
 
         let ClientConfigArgs {
             endpoint,
-            cert_pem: cert_path,
-            key_pem: key_path,
-            ca_cert: cacert_path,
+            cert_pem,
+            key_pem,
+            ca_cert,
             allow_unsafe_connection,
             override_target_name,
             connect_timeout,
@@ -327,25 +329,27 @@ impl ClientConfig {
             reuse_ports,
         } = args;
 
-        // Read CAcert file
-        let cacert = if !cacert_path.is_empty() {
-            let cacert_pem = std::fs::read_to_string(cacert_path.clone())
-                .context(IoSnafu { path: cacert_path })?;
-            Some(CertificateDer::from_pem_slice(cacert_pem.as_bytes()).context(TlsSnafu {})?)
-        } else {
+        let cacert = if ca_cert.is_empty() {
             None
+        } else {
+            Some(CertificateDer::from_pem_slice(ca_cert.as_bytes()).context(TlsSnafu {})?)
         };
 
-        // Read client cert and key files
-        let identity = match (cert_path.as_str(), key_path.as_str()) {
-            ("", "") => None,
-            ("", _) | (_, "") => return IncompatibleOptionsSnafu{msg: format!("`cert_pem={cert_path}` and `key_pem={key_path}` must be either both empty or both set")}.fail(),
-            (cert_path, key_path) => {
-                let cert_pem =
-                    std::fs::read_to_string(cert_path).context(IoSnafu { path: cert_path })?;
-                let key_pem = std::fs::read(key_path).context(IoSnafu { path: key_path })?;
-                let cert = CertificateDer::from_pem_slice(cert_pem.as_bytes()).context(TlsSnafu {})?;
-                let key = PrivateKeyDer::from_pem_slice(key_pem.as_slice()).context(TlsSnafu{})?;
+        let identity = match (cert_pem.is_empty(), key_pem.is_empty()) {
+            (true, true) => None,
+            (true, false) | (false, true) => {
+                return IncompatibleOptionsSnafu {
+                    msg: String::from(
+                        "`cert_pem` and `key_pem` must be either both empty or both set",
+                    ),
+                }
+                .fail()
+            }
+            (false, false) => {
+                let cert =
+                    CertificateDer::from_pem_slice(cert_pem.as_bytes()).context(TlsSnafu {})?;
+                let key = PrivateKeyDer::from_pem_slice(key_pem.expose_secret().as_bytes())
+                    .context(TlsSnafu {})?;
 
                 Some((cert, key))
             }
@@ -674,15 +678,6 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Could not read file `{path}` [{location}]"))]
-    #[non_exhaustive]
-    Io {
-        #[snafu(source(from(std::io::Error, Box::new)))]
-        source: Box<std::io::Error>,
-        path: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
     #[snafu(display("{msg} [{location}]"))]
     #[non_exhaustive]
     IncompatibleOptions {
@@ -933,11 +928,11 @@ mod tests {
     #[test]
     fn half_an_identity_is_rejected_and_names_both_variables() {
         // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
-        // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
-        for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
+        // on an mTLS one, so it is caught before either half is parsed.
+        for (cert, key) in [("a certificate", ""), ("", "a key")] {
             let error = ClientConfig::from_config_args(ClientConfigArgs {
                 cert_pem: String::from(cert),
-                key_pem: String::from(key),
+                key_pem: key.into(),
                 ..args()
             })
             .expect_err("half an identity must be rejected");
@@ -959,38 +954,25 @@ mod tests {
     }
 
     #[test]
-    fn a_certificate_path_that_does_not_exist_is_reported_with_the_path() {
-        // These options are paths, not contents. A typo in one has to name the file rather than surface
-        // later as a TLS failure.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
-            cert_pem: String::from("no/such/cert.pem"),
-            key_pem: String::from("no/such/key.pem"),
-            ..args()
-        })
-        .expect_err("a missing file must be reported");
+    fn a_path_where_the_material_is_expected_fails_as_pem() {
+        // These options carry the certificate itself. Someone still passing a path gets a PEM error
+        // naming what was wrong, rather than this crate quietly opening whatever it points at.
+        for args in [
+            ClientConfigArgs {
+                cert_pem: String::from("/etc/ssl/certs/client.pem"),
+                key_pem: "/etc/ssl/private/client.key".into(),
+                ..args()
+            },
+            ClientConfigArgs {
+                ca_cert: String::from("/etc/ssl/certs/ca.pem"),
+                ..args()
+            },
+        ] {
+            let error =
+                ClientConfig::from_config_args(args).expect_err("a path is not a certificate");
 
-        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
-        assert!(
-            chain(&error).contains("no/such/cert.pem"),
-            "{}",
-            chain(&error)
-        );
-    }
-
-    #[test]
-    fn a_missing_ca_certificate_is_reported_with_the_path() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
-            ca_cert: String::from("no/such/ca.pem"),
-            ..args()
-        })
-        .expect_err("a missing file must be reported");
-
-        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
-        assert!(
-            chain(&error).contains("no/such/ca.pem"),
-            "{}",
-            chain(&error)
-        );
+            assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
+        }
     }
 
     // --- override target ---
