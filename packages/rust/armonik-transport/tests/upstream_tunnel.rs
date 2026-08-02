@@ -1,9 +1,9 @@
-//! Why this crate tunnels `CONNECT` itself instead of using `hyper_util`'s `Tunnel`.
+//! What `hyper_util`'s `Tunnel`, which [`crate::proxy`] drives, still gets wrong.
 //!
-//! These tests assert that `Tunnel` still gets two cases wrong. They are meant to fail: when a
-//! `hyper-util` release fixes either, the failure is the notice that this crate's own tunnel can go,
-//! and `tunnel_through` below is the shape it would be replaced by. Deleting ours is tracked by #699,
-//! fixing them upstream by #702.
+//! These tests assert that `Tunnel` gets two cases wrong. They are meant to fail: when a
+//! `hyper-util` release fixes either, the failure is the notice that the crate README's
+//! "Known issues" section, and the matching tripwire in `tests/proxy.rs`, are out of date.
+//! Fixing them upstream is tracked by #702.
 //!
 //! A dependency bump turning CI red is the point. Read the failure before assuming it is a regression.
 
@@ -103,8 +103,8 @@ async fn hyper_util_still_refuses_a_2xx_that_is_not_200() {
     let error = tunnel_through(proxy).await.err().unwrap_or_else(|| {
         panic!(
             "hyper-util now opens the tunnel on a 2xx other than 200. \
-             Good news: check the split-status-line case too, and if that is fixed as well, \
-             delete this crate's `tunnel` and use `hyper_util`'s. See #699."
+             Check the split-status-line case too, and if that is fixed as well, drop this test, \
+             the matching one in tests/proxy.rs, and the README's \"Known issues\" section."
         )
     });
 
@@ -126,7 +126,8 @@ async fn hyper_util_still_refuses_a_status_line_split_across_reads() {
             "hyper-util now reads a split status line correctly, or the two writes reached it as \
              one read. Rule the second out before believing the first: the halves are 50ms apart \
              on a socket with Nagle off. If it really is fixed, check the 2xx case too, and if that \
-             is fixed as well, delete this crate's `tunnel` and use `hyper_util`'s. See #699."
+             is fixed as well, drop this test, the matching one in tests/proxy.rs, and the README's \
+             \"Known issues\" section."
         )
     });
 

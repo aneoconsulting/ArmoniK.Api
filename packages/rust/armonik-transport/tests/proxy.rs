@@ -395,20 +395,111 @@ async fn no_proxy_does_not_apply_to_an_explicitly_configured_proxy() {
 }
 
 #[tokio::test]
-async fn a_success_other_than_200_still_opens_the_tunnel() {
-    // RFC 9110: any 2xx switches the connection to tunnel mode. Requiring exactly 200 drops a working
-    // tunnel from a proxy that answers 201 or 204.
+async fn known_issue_a_success_other_than_200_does_not_open_the_tunnel() {
+    // RFC 9110: any 2xx switches the connection to tunnel mode. `hyper_util`'s `Tunnel`, which this
+    // crate delegates the handshake to, checks for exactly `200`, so a proxy answering 201 or 204 is a
+    // tunnel that should open and does not. See the crate README's "Known issues".
+    //
+    // A tripwire, not a preference: the day `hyper_util` accepts any 2xx, this starts failing, which
+    // is the signal to loosen it back to asserting success and to update the README.
+    //
+    // Not asserted on `ProxyStats::tunnels`: the fake proxy counts a tunnel as soon as it has written
+    // its own response, before learning whether the client accepted it, so that counter answers a
+    // different question from the one this test asks.
     for success in [201u16, 204] {
         let server = spawn_server().await;
-        let (proxy, stats) = spawn_proxy_answering(ProxyAuth::None, success).await;
+        let (proxy, _stats) = spawn_proxy_answering(ProxyAuth::None, success).await;
 
-        let answer = call_through(through_proxy(&server, proxy, None))
+        let error = call_through(through_proxy(&server, proxy, None))
             .await
-            .unwrap_or_else(|error| panic!("{success} should open the tunnel: {error}"));
+            .expect_err(&format!("{success} unexpectedly opened the tunnel"));
 
-        assert_eq!(answer, common::REPLY);
-        assert_eq!(stats.tunnels.load(Ordering::SeqCst), 1);
+        assert!(
+            error_chain(error.as_ref()).contains("did not open the tunnel"),
+            "unexpected error for {success}: {}",
+            error_chain(error.as_ref())
+        );
     }
+}
+
+#[tokio::test]
+async fn known_issue_an_http_1_0_407_is_not_recognised_as_authentication_required() {
+    // `hyper_util`'s `Tunnel` only special-cases `HTTP/1.1 407`, so a proxy that answers in `HTTP/1.0`
+    // (legal, and how an old or minimal proxy might reply) falls into its generic refusal, and this
+    // crate's `translate` never sees the "proxy authorization required" text it looks for. A tripwire:
+    // the day the check widens to either version, the message assertion below starts failing.
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy");
+    let proxy = listener.local_addr().expect("proxy address");
+    tokio::spawn(async move {
+        let Ok((mut client, _)) = listener.accept().await else {
+            return;
+        };
+        let _ = read_head(&mut client).await;
+        let _ = client
+            .write_all(b"HTTP/1.0 407 Proxy Authentication Required\r\n\r\n")
+            .await;
+        let _ = client.flush().await;
+    });
+
+    let server = spawn_server().await;
+    let error = call_through(through_proxy(&server, proxy, None))
+        .await
+        .expect_err("the proxy should have refused the tunnel");
+
+    let rendered = error_chain(error.as_ref());
+    assert!(
+        !rendered.contains("requires authentication"),
+        "hyper_util now recognises an HTTP/1.0 407 too: update `translate` and this test. \
+         Got: {rendered}"
+    );
+    assert!(
+        rendered.contains("did not open the tunnel"),
+        "unexpected error: {rendered}"
+    );
+}
+
+#[tokio::test]
+async fn known_issue_a_portless_http_target_is_dialled_on_443_not_80() {
+    // `hyper_util`'s `Tunnel::call` defaults to 443 unconditionally when the target carries no port,
+    // regardless of scheme, rather than the scheme deciding between 80 and 443. ArmoniK deployments
+    // always name a port, so this is unlikely to bite in practice; still worth a tripwire; see the
+    // crate README's "Known issues".
+    //
+    // Not through `spawn_proxy`/`serve_tunnel`: those dial the named target for real once the tunnel
+    // is accepted, and a documentation-space address such as this one does not refuse a connection so
+    // much as go quiet, which is a real wait rather than a fast local failure. This listener records
+    // the `CONNECT` authority and closes without ever trying to reach it.
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy");
+    let proxy = listener.local_addr().expect("proxy address");
+    let requested_target = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let captured = std::sync::Arc::clone(&requested_target);
+    tokio::spawn(async move {
+        let Ok((mut client, _)) = listener.accept().await else {
+            return;
+        };
+        let Ok(head) = read_head(&mut client).await else {
+            return;
+        };
+        let target = head
+            .lines()
+            .next()
+            .and_then(|line| line.split_whitespace().nth(1))
+            .unwrap_or_default()
+            .to_owned();
+        *captured.lock().expect("lock") = Some(target);
+        // No response: the client only needs to have sent the request to be observed here, and this
+        // address would never answer regardless.
+    });
+
+    // Not a real server either, and not dialled: 192.0.2.0/24 is reserved for documentation by
+    // RFC 5737, so it needs no resolver and this test asserts on the request, not on a connection.
+    let _ = call_through(through_proxy("http://192.0.2.1", proxy, None)).await;
+
+    assert_eq!(
+        requested_target.lock().expect("lock").as_deref(),
+        Some("192.0.2.1:443"),
+        "if this now reads :80, hyper_util has fixed its default: update this test and the README"
+    );
 }
 
 #[tokio::test]
