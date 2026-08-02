@@ -2,6 +2,7 @@
 //!
 //! The grammar is parsed by hand (rather than through `parse_nested_meta`)
 //! because `enum` is a Rust keyword and must still be accepted as a key.
+//! Also hosts the multi-error accumulator ([`Errors`]) the resolvers fill.
 //! The user-facing documentation of the grammar lives on the two derive
 //! macros in `lib.rs` — keep it in sync.
 
@@ -20,7 +21,7 @@ pub(crate) enum AttrItem {
     /// `oneof = "name"` — the type is the flattened oneof of that name.
     Oneof(LitStr),
     /// `generic` — no descriptor validation; fields carry explicit
-    /// `tag`/`kind` attributes.
+    /// `tag` attributes.
     Generic,
     /// `transparent` — single-field wrapper message flattened into its field.
     Transparent,
@@ -192,7 +193,7 @@ pub(crate) fn parse(attrs: &[Attribute]) -> syn::Result<Vec<AttrEntry>> {
 }
 
 /// Span of every key token of every `#[armonik(...)]` attribute in `attrs`,
-/// for the hover-documentation anchors (see `expand::doc_anchors`).
+/// for the hover-documentation anchors (see `doc_anchors` in lib.rs).
 /// Malformed attributes are skipped — the real parse reports them.
 pub(crate) fn key_spans(attrs: &[Attribute]) -> Vec<Span> {
     attrs

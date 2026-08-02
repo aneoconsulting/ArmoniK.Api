@@ -67,7 +67,7 @@ impl<T: ProtoField> ProtoField for Vec<T> {
 impl<K, V> ProtoField for HashMap<K, V>
 where
     K: ProtoField + Eq + Hash + Ord,
-    V: ProtoField + PartialEq,
+    V: ProtoField,
 {
     const SHAPE: Shape = Shape {
         kind: FieldKind::Message,

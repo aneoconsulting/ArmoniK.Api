@@ -183,6 +183,22 @@ pub(crate) trait ProtoField: Default + PartialEq {
         value == &Self::default()
     }
 
+    // The proto3 singular-field forms the derives emit: skip the default.
+
+    fn encode_nondefault(tag: u32, value: &Self, buf: &mut impl BufMut) {
+        if !Self::is_default(value) {
+            Self::encode_field(tag, value, buf);
+        }
+    }
+
+    fn encoded_len_nondefault(tag: u32, value: &Self) -> usize {
+        if Self::is_default(value) {
+            0
+        } else {
+            Self::encoded_len_field(tag, value)
+        }
+    }
+
     // Repeated forms, used by `Vec<Self>`. Packable kinds override them with
     // their packed encodings; the defaults implement the unpacked form.
 
@@ -222,7 +238,7 @@ pub(crate) trait ProtoField: Default + PartialEq {
 /// types belong here. Plain proto enums keep concrete impls — a second
 /// blanket would overlap this one (E0119).
 pub(crate) trait Msg: prost::Message + Default + PartialEq {
-    /// See [`ProtoField::NAMES`].
+    /// See [`Shape::names`].
     const NAMES: &'static [&'static str];
     /// Transparent wrapper enums encode their zero as a non-empty wrapper, so
     /// they are always emitted as a field (presence-significant).
@@ -288,6 +304,20 @@ pub(crate) trait ProtoAdapter<T> {
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &T) -> usize;
     fn is_default(value: &T) -> bool;
+
+    fn encode_nondefault(tag: u32, value: &T, buf: &mut impl BufMut) {
+        if !Self::is_default(value) {
+            Self::encode_field(tag, value, buf);
+        }
+    }
+
+    fn encoded_len_nondefault(tag: u32, value: &T) -> usize {
+        if Self::is_default(value) {
+            0
+        } else {
+            Self::encoded_len_field(tag, value)
+        }
+    }
 
     /// Project the field at `tag` of a dynamic message onto the equivalence
     /// classes this adapter's Rust representation defines (for the

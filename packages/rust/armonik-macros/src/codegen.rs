@@ -3,8 +3,8 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
-use crate::descriptor::{Card, FieldKind};
-use crate::resolve::{EnumMode, EnumPlan, FieldAccess, FieldCodec, FieldPlan, MessagePlan};
+use crate::descriptor::FieldKind;
+use crate::resolve::{Card, EnumMode, EnumPlan, FieldAccess, FieldCodec, MessagePlan};
 
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -33,12 +33,7 @@ fn kind_pattern(kind: &FieldKind) -> Option<TokenStream> {
         FieldKind::Bytes => quote!(Bytes),
         FieldKind::Message(_) => quote!(Message),
         FieldKind::Enum(_) => quote!(Enum),
-        FieldKind::SInt32
-        | FieldKind::SInt64
-        | FieldKind::Fixed32
-        | FieldKind::Fixed64
-        | FieldKind::SFixed32
-        | FieldKind::SFixed64 => return None,
+        FieldKind::Unsupported(_) => return None,
     };
     Some(quote!(crate::codec::FieldKind::#variant))
 }
@@ -47,6 +42,7 @@ fn kind_description(kind: &FieldKind) -> String {
     match kind {
         FieldKind::Message(name) => format!("message {name}"),
         FieldKind::Enum(name) => format!("enum {name}"),
+        FieldKind::Unsupported(name) => (*name).to_owned(),
         other => format!("{other:?}").to_lowercase(),
     }
 }
@@ -84,17 +80,6 @@ fn describe(checks: &crate::resolve::FieldChecks) -> String {
         Some(kind) => format!("{cards} {}", kind_description(kind)),
         None => cards,
     }
-}
-
-/// Const-asserts checking the Rust field type against the descriptor.
-fn field_asserts(plan: &FieldPlan, type_ident: &syn::Ident) -> TokenStream {
-    field_asserts_for(
-        &plan.ty,
-        plan.span,
-        &plan.proto_path,
-        &plan.checks,
-        type_ident,
-    )
 }
 
 /// One spanned shape assert per checked field: the field type's `SHAPE`
@@ -310,24 +295,26 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             FieldCodec::Field { adapter } => {
                 let d = dispatch(ty, adapter.as_deref());
                 encode_fragments.push(quote! {
-                    if !#d::is_default(&self.#access) {
-                        #d::encode_field(#tag, &self.#access, buf);
-                    }
+                    #d::encode_nondefault(#tag, &self.#access, buf);
                 });
                 merge_arms.push(quote! {
                     #tag => #d::merge_field(wire_type, &mut self.#access, buf, ctx)
                 });
                 len_fragments.push(quote! {
-                    if !#d::is_default(&self.#access) {
-                        len += #d::encoded_len_field(#tag, &self.#access);
-                    }
+                    len += #d::encoded_len_nondefault(#tag, &self.#access);
                 });
                 if adapter.is_some() {
                     normalize_fragments.push(quote! {
                         #d::normalize_dynamic(message, #tag);
                     });
                 } else {
-                    asserts.extend(field_asserts(field, ident));
+                    asserts.extend(field_asserts_for(
+                        ty,
+                        field.span,
+                        &field.proto_path,
+                        &field.checks,
+                        ident,
+                    ));
                 }
             }
             FieldCodec::OneofGroup { tags } => {
@@ -616,6 +603,11 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                 },
                 quote! { crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self) },
             );
+            // As a field, the enum is its wrapper message: the blanket
+            // `ProtoField` impl frames the `prost::Message` impl above.
+            // ALWAYS_PRESENT: a zero value still encodes (as an empty
+            // wrapper), preserving absent-vs-explicit-zero.
+            let msg = msg_impl(&impl_generics, ident, &ty_generics, where_clause, names, true);
             quote! {
                 #registrations
 
@@ -623,14 +615,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
                 #message
 
-                // As a field, the enum is its wrapper message: the blanket
-                // `ProtoField` impl frames the `prost::Message` impl above.
-                // ALWAYS_PRESENT: a zero value still encodes (as an empty
-                // wrapper), preserving absent-vs-explicit-zero.
-                impl crate::codec::Msg for #ident {
-                    const NAMES: &'static [&'static str] = &[#(#names),*];
-                    const ALWAYS_PRESENT: bool = true;
-                }
+                #msg
             }
         }
     };
@@ -719,14 +704,10 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
             (
                 stag,
                 quote! {
-                    if !<#sty as crate::codec::ProtoField>::is_default(#sid) {
-                        <#sty as crate::codec::ProtoField>::encode_field(#stag, #sid, buf);
-                    }
+                    <#sty as crate::codec::ProtoField>::encode_nondefault(#stag, #sid, buf);
                 },
                 quote! {
-                    if !<#sty as crate::codec::ProtoField>::is_default(#sid) {
-                        len += <#sty as crate::codec::ProtoField>::encoded_len_field(#stag, #sid);
-                    }
+                    len += <#sty as crate::codec::ProtoField>::encoded_len_nondefault(#stag, #sid);
                 },
             )
         })
@@ -891,9 +872,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                     #[allow(unused_mut)]
                     let mut body_len = 0;
                     #(
-                        if !<#part_tys as crate::codec::ProtoField>::is_default(#part_idents) {
-                            body_len += <#part_tys as crate::codec::ProtoField>::encoded_len_field(#part_tags, #part_idents);
-                        }
+                        body_len += <#part_tys as crate::codec::ProtoField>::encoded_len_nondefault(#part_tags, #part_idents);
                     )*
                 };
 
@@ -907,9 +886,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                         );
                         ::prost::encoding::encode_varint(body_len as u64, buf);
                         #(
-                            if !<#part_tys as crate::codec::ProtoField>::is_default(#part_idents) {
-                                <#part_tys as crate::codec::ProtoField>::encode_field(#part_tags, #part_idents, buf);
-                            }
+                            <#part_tys as crate::codec::ProtoField>::encode_nondefault(#part_tags, #part_idents, buf);
                         )*
                     }
                 });

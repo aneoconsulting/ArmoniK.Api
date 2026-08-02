@@ -62,26 +62,21 @@ where
     }
 }
 
-/// `Wrapper { string inner = TAG }` exposed as a `String`.
-pub(crate) struct StringWrapper<const TAG: u32>;
+/// `Wrapper { V inner = TAG }` exposed as the bare `V` (a `String` or a
+/// `Vec<T>`): the single-field wrapper message is flattened away.
+pub(crate) struct Wrapper<const TAG: u32>;
 
-impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
-    fn encode_field(tag: u32, value: &String, buf: &mut impl BufMut) {
-        let body = if <String as ProtoField>::is_default(value) {
-            0
-        } else {
-            String::encoded_len_field(TAG, value)
-        };
+impl<V: ProtoField, const TAG: u32> ProtoAdapter<V> for Wrapper<TAG> {
+    fn encode_field(tag: u32, value: &V, buf: &mut impl BufMut) {
+        let body = V::encoded_len_nondefault(TAG, value);
         encoding::encode_key(tag, WireType::LengthDelimited, buf);
         encoding::encode_varint(body as u64, buf);
-        if body != 0 {
-            String::encode_field(TAG, value, buf);
-        }
+        V::encode_nondefault(TAG, value, buf);
     }
 
     fn merge_field(
         wire_type: WireType,
-        value: &mut String,
+        value: &mut V,
         buf: &mut impl Buf,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
@@ -90,7 +85,7 @@ impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
         while wrapper.has_remaining() {
             let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
             if tag == TAG {
-                String::merge_field(wire_type, value, &mut wrapper, ctx.clone())?;
+                V::merge_field(wire_type, value, &mut wrapper, ctx.clone())?;
             } else {
                 encoding::skip_field(wire_type, tag, &mut wrapper, ctx.clone())?;
             }
@@ -98,61 +93,14 @@ impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
         Ok(())
     }
 
-    fn encoded_len_field(tag: u32, value: &String) -> usize {
-        let body = if <String as ProtoField>::is_default(value) {
-            0
-        } else {
-            String::encoded_len_field(TAG, value)
-        };
+    fn encoded_len_field(tag: u32, value: &V) -> usize {
+        let body = V::encoded_len_nondefault(TAG, value);
         encoding::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
     }
 
     /// The wrapper itself carries oneof presence in its uses; an empty one
     /// still encodes (as an empty message).
-    fn is_default(value: &String) -> bool {
-        let _ = value;
-        false
-    }
-}
-
-/// `Wrapper { repeated T inner = TAG }` exposed as a `Vec<T>`.
-pub(crate) struct VecWrapper<const TAG: u32>;
-
-impl<T: ProtoField, const TAG: u32> ProtoAdapter<Vec<T>> for VecWrapper<TAG> {
-    fn encode_field(tag: u32, value: &Vec<T>, buf: &mut impl BufMut) {
-        let body = T::encoded_len_repeated(TAG, value);
-        encoding::encode_key(tag, WireType::LengthDelimited, buf);
-        encoding::encode_varint(body as u64, buf);
-        T::encode_repeated(TAG, value, buf);
-    }
-
-    fn merge_field(
-        wire_type: WireType,
-        value: &mut Vec<T>,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), DecodeError> {
-        encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let mut wrapper = super::read_delimited(buf)?;
-        while wrapper.has_remaining() {
-            let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
-            if tag == TAG {
-                T::merge_repeated(wire_type, value, &mut wrapper, ctx.clone())?;
-            } else {
-                encoding::skip_field(wire_type, tag, &mut wrapper, ctx.clone())?;
-            }
-        }
-        Ok(())
-    }
-
-    fn encoded_len_field(tag: u32, value: &Vec<T>) -> usize {
-        let body = T::encoded_len_repeated(TAG, value);
-        encoding::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
-    }
-
-    /// The wrapper itself carries oneof presence in its uses; an empty one
-    /// still encodes (as an empty message).
-    fn is_default(value: &Vec<T>) -> bool {
+    fn is_default(value: &V) -> bool {
         let _ = value;
         false
     }

@@ -38,18 +38,8 @@ fn encoded_len<T: Copy + Into<i32>>(tag: u32, path: &[u32], value: &T) -> usize 
     key_len(tag) + encoding::encoded_len_varint(len as u64) + len
 }
 
-fn merge<T: Copy + Into<i32> + From<i32>>(
-    path: &[u32],
-    wire_type: WireType,
-    value: &mut T,
-    buf: &mut impl Buf,
-    ctx: DecodeContext,
-) -> Result<(), DecodeError> {
-    // The recursion is dynamic over `dyn Buf`: a generic recursion would
-    // monomorphize an unbounded tower of `Take<&mut Take<...>>` types.
-    merge_dyn(path, wire_type, value, buf, ctx)
-}
-
+// The recursion is dynamic over `dyn Buf`: a generic recursion would
+// monomorphize an unbounded tower of `Take<&mut Take<...>>` types.
 fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
     path: &[u32],
     wire_type: WireType,
@@ -114,6 +104,6 @@ pub(crate) fn merge_root_field<T: Copy + Into<i32> + From<i32>>(
         *value = T::from(raw);
         Ok(())
     } else {
-        merge(rest, wire_type, value, buf, ctx)
+        merge_dyn(rest, wire_type, value, buf, ctx)
     }
 }

@@ -6,10 +6,8 @@
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 
-use crate::attrs::{self, AttrItem};
-use crate::descriptor::{DescriptorIndex, FieldMeta, MessageMeta};
-use crate::attrs::Errors;
-use crate::descriptor::{Card, Cardinality, FieldKind};
+use crate::attrs::{self, AttrItem, Errors};
+use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta, MessageMeta};
 
 /// Plan for a plain (non-oneof) message struct.
 pub(crate) struct MessagePlan {
@@ -42,6 +40,16 @@ pub(crate) enum FieldCodec {
     /// The field covers a whole oneof of the message and is encoded through
     /// `ProtoOneof`; `tags` are the member field tags routed to it.
     OneofGroup { tags: Vec<u32> },
+}
+
+/// Fieldless mirror of the codec-side `Cardinality`, tokenized into the
+/// emitted shape asserts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Card {
+    Singular,
+    Optional,
+    Repeated,
+    Map,
 }
 
 /// Compile-time checks emitted alongside the implementation, mirroring the
@@ -142,22 +150,20 @@ impl<'a> Matcher<'a> {
                 .collect();
             return Some(Found::Oneof { tags });
         }
-        let mut available: Vec<&str> = self
+        let available = self
             .meta
             .fields
             .iter()
-            .map(|field| field.name.as_str())
-            .chain(self.meta.oneofs.iter().map(|oneof| oneof.name.as_str()))
+            .map(|field| field.name.clone())
+            .chain(self.meta.oneofs.iter().map(|oneof| oneof.name.clone()))
             .collect();
-        available.sort_unstable();
-        errors.push(syn::Error::new(
+        errors.push(unknown_name(
             span,
-            format!(
-                "no field or oneof named `{proto_name}` in proto message `{}` \
-                 (available: {}); use #[armonik(rename = \"...\")] if the names differ",
-                self.message_name,
-                available.join(", ")
-            ),
+            "field or oneof",
+            proto_name,
+            &format!("proto message `{}`", self.message_name),
+            available,
+            "use #[armonik(rename = \"...\")] if the names differ",
         ));
         None
     }
@@ -280,10 +286,7 @@ pub(crate) fn message_plan(
     for (span, name) in &proto_names {
         match index.messages.get(name) {
             Some(meta) => messages.push((name, meta)),
-            None => errors.push(syn::Error::new(
-                *span,
-                format!("proto message `{name}` not found in the compiled descriptor set"),
-            )),
+            None => errors.push(not_found(*span, "message", name)),
         }
     }
     if messages.is_empty() {
@@ -306,25 +309,9 @@ pub(crate) fn message_plan(
         .collect();
 
     for (field_index, field) in data.fields.iter().enumerate() {
-        let span = field
-            .ident
-            .as_ref()
-            .map(|ident| ident.span())
-            .unwrap_or_else(|| field.ty.span());
-        let access = match &field.ident {
-            Some(ident) => FieldAccess::Named(ident.clone()),
-            None => FieldAccess::Indexed(syn::Index::from(field_index)),
-        };
-
-        let field_entries = match attrs::parse(&field.attrs) {
-            Ok(entries) => entries,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let (FieldAttrs { rename, tag: explicit_tag, with, .. }, _) = scan_field_attrs(
-            &field_entries,
+        let (span, access) = field_access(field, field_index);
+        let Some((FieldAttrs { rename, tag: explicit_tag, with, .. }, _)) = scan_attrs(
+            &field.attrs,
             Allowed {
                 rename: true,
                 tag: true,
@@ -334,7 +321,9 @@ pub(crate) fn message_plan(
             },
             "this armonik attribute is not valid on a message field",
             &mut errors,
-        );
+        ) else {
+            continue;
+        };
         let with = with.map(|(_, ty)| ty);
 
         let proto_name = match (&rename, &field.ident) {
@@ -488,10 +477,7 @@ fn transparent_plan(
     }
     for (span, name) in &proto_names {
         if !index.messages.contains_key(name) {
-            errors.push(syn::Error::new(
-                *span,
-                format!("proto message `{name}` not found in the compiled descriptor set"),
-            ));
+            errors.push(not_found(*span, "message", name));
         }
     }
     let syn::Data::Struct(data) = &input.data else {
@@ -509,10 +495,7 @@ fn transparent_plan(
         return Err(errors);
     }
     let field = data.fields.iter().next().expect("one field");
-    let access = match &field.ident {
-        Some(ident) => FieldAccess::Named(ident.clone()),
-        None => FieldAccess::Indexed(syn::Index::from(0usize)),
-    };
+    let (_, access) = field_access(field, 0);
     let delegate = FieldPlan {
         access,
         ty: field.ty.clone(),
@@ -553,25 +536,9 @@ fn generic_plan(
 
     let mut fields = Vec::new();
     for (field_index, field) in data.fields.iter().enumerate() {
-        let span = field
-            .ident
-            .as_ref()
-            .map(|ident| ident.span())
-            .unwrap_or_else(|| field.ty.span());
-        let access = match &field.ident {
-            Some(ident) => FieldAccess::Named(ident.clone()),
-            None => FieldAccess::Indexed(syn::Index::from(field_index)),
-        };
-
-        let field_entries = match attrs::parse(&field.attrs) {
-            Ok(entries) => entries,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let (FieldAttrs { tag, with, .. }, _) = scan_field_attrs(
-            &field_entries,
+        let (span, access) = field_access(field, field_index);
+        let Some((FieldAttrs { tag, with, .. }, _)) = scan_attrs(
+            &field.attrs,
             Allowed {
                 tag: true,
                 with: true,
@@ -579,7 +546,9 @@ fn generic_plan(
             },
             "generic-mode fields only take tag = ... and with = ...",
             &mut errors,
-        );
+        ) else {
+            continue;
+        };
         let tag = tag.map(|(_, tag)| tag);
         let with = with.map(|(_, ty)| ty);
         let Some(tag) = tag else {
@@ -660,6 +629,66 @@ fn type_name(kind: &FieldKind) -> Option<&str> {
 
 fn unraw(ident: &syn::Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
+}
+
+/// Parse + scan one field/variant's attributes per the site's [`Allowed`]
+/// set; `None` (with the error pushed) when the attribute list itself does
+/// not parse.
+fn scan_attrs(
+    attrs: &[syn::Attribute],
+    allowed: Allowed,
+    reject: &str,
+    errors: &mut Errors,
+) -> Option<(FieldAttrs, bool)> {
+    match attrs::parse(attrs) {
+        Ok(entries) => Some(scan_field_attrs(&entries, allowed, reject, errors)),
+        Err(err) => {
+            errors.push(err);
+            None
+        }
+    }
+}
+
+/// Span and access path of a struct field (named, or by position).
+fn field_access(field: &syn::Field, index: usize) -> (Span, FieldAccess) {
+    let span = field
+        .ident
+        .as_ref()
+        .map(|ident| ident.span())
+        .unwrap_or_else(|| field.ty.span());
+    let access = match &field.ident {
+        Some(ident) => FieldAccess::Named(ident.clone()),
+        None => FieldAccess::Indexed(syn::Index::from(index)),
+    };
+    (span, access)
+}
+
+/// "proto message/enum `name` not found in the compiled descriptor set".
+fn not_found(span: Span, what: &str, name: &str) -> syn::Error {
+    syn::Error::new(
+        span,
+        format!("proto {what} `{name}` not found in the compiled descriptor set"),
+    )
+}
+
+/// "no <what> named `name` in <container> (available: ...); <hint>" — the
+/// shared shape of every name-lookup miss.
+fn unknown_name(
+    span: Span,
+    what: &str,
+    name: &str,
+    container: &str,
+    mut available: Vec<String>,
+    hint: &str,
+) -> syn::Error {
+    available.sort_unstable();
+    syn::Error::new(
+        span,
+        format!(
+            "no {what} named `{name}` in {container} (available: {}); {hint}",
+            available.join(", ")
+        ),
+    )
 }
 
 /// Parse the adapter type in `#[armonik(with = "path::To::Adapter")]`,
@@ -744,7 +773,7 @@ fn scan_field_attrs(
                 collected.present = true;
                 true
             }
-            // Harvested by `expand::collect_absorbs`; only tolerated here.
+            // Harvested by `collect_absorbs` in lib.rs; only tolerated here.
             AttrItem::Absorbs(_) if allowed.absorbs => true,
             _ => {
                 errors.push(syn::Error::new(entry.span, reject));
@@ -835,12 +864,7 @@ pub(crate) fn enum_plan(
             let mut path = Vec::new();
             let enum_name = loop {
                 let Some(meta) = index.messages.get(&current) else {
-                    errors.push(syn::Error::new(
-                        *span,
-                        format!(
-                            "proto message `{current}` not found in the compiled descriptor set"
-                        ),
-                    ));
+                    errors.push(not_found(*span, "message", &current));
                     break None;
                 };
                 let [field] = meta.fields.as_slice() else {
@@ -886,10 +910,7 @@ pub(crate) fn enum_plan(
             }
             match index.enums.get(&enum_name) {
                 Some(enum_meta) => proto_enums.push((enum_name.clone(), enum_meta)),
-                None => errors.push(syn::Error::new(
-                    *span,
-                    format!("proto enum `{enum_name}` not found in the compiled descriptor set"),
-                )),
+                None => errors.push(not_found(*span, "enum", &enum_name)),
             }
         }
         let Some(path) = wrapper_path else {
@@ -910,10 +931,7 @@ pub(crate) fn enum_plan(
         for (span, name) in &enum_names {
             match index.enums.get(name) {
                 Some(meta) => proto_enums.push((name.clone(), meta)),
-                None => errors.push(syn::Error::new(
-                    *span,
-                    format!("proto enum `{name}` not found in the compiled descriptor set"),
-                )),
+                None => errors.push(not_found(*span, "enum", name)),
             }
         }
         EnumMode::Plain {
@@ -942,22 +960,17 @@ pub(crate) fn enum_plan(
             .attrs
             .iter()
             .any(|attr| attr.path().is_ident("default"));
-        let variant_entries = match attrs::parse(&variant.attrs) {
-            Ok(entries) => entries,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let (FieldAttrs { rename, .. }, _) = scan_field_attrs(
-            &variant_entries,
+        let Some((FieldAttrs { rename, .. }, _)) = scan_attrs(
+            &variant.attrs,
             Allowed {
                 rename: true,
                 ..Allowed::default()
             },
             "this armonik attribute is not valid on a derive(Enum) variant",
             &mut errors,
-        );
+        ) else {
+            continue;
+        };
 
         match &variant.fields {
             syn::Fields::Unit => {
@@ -1019,20 +1032,18 @@ pub(crate) fn enum_plan(
                     }
                 }
                 None => {
-                    let mut available: Vec<String> = meta
+                    let available = meta
                         .values
                         .iter()
                         .map(|(value_name, _)| variant_name(simple, value_name))
                         .collect();
-                    available.sort_unstable();
-                    errors.push(syn::Error::new(
+                    errors.push(unknown_name(
                         ident.span(),
-                        format!(
-                            "no value named `{proto_name}` in proto enum `{enum_name}` \
-                             (available: {}); use #[armonik(rename = \"...\")] with the full \
-                             proto value name if needed",
-                            available.join(", ")
-                        ),
+                        "value",
+                        proto_name,
+                        &format!("proto enum `{enum_name}`"),
+                        available,
+                        "use #[armonik(rename = \"...\")] with the full proto value name if needed",
                     ));
                 }
             }
@@ -1215,16 +1226,8 @@ fn sibling_variant_fields(
     let mut payload: Option<(syn::Ident, syn::Type, Option<syn::Type>)> = None;
     for field in &named.named {
         let ident = field.ident.clone().expect("named fields have idents");
-        let field_entries = match attrs::parse(&field.attrs) {
-            Ok(entries) => entries,
-            Err(err) => {
-                errors.push(err);
-                failed = true;
-                continue;
-            }
-        };
-        let (FieldAttrs { rename, with, .. }, entries_ok) = scan_field_attrs(
-            &field_entries,
+        let Some((FieldAttrs { rename, with, .. }, entries_ok)) = scan_attrs(
+            &field.attrs,
             Allowed {
                 rename: true,
                 with: true,
@@ -1233,7 +1236,10 @@ fn sibling_variant_fields(
             },
             "this armonik attribute is not valid on a variant field",
             errors,
-        );
+        ) else {
+            failed = true;
+            continue;
+        };
         if !entries_ok {
             failed = true;
         }
@@ -1403,42 +1409,20 @@ fn resolve_sibling_variant(
     })
 }
 
-/// `Variant(T)` encoded through a `#[armonik(with = "...")]` adapter.
-fn resolve_adapter_variant(
+/// `#[armonik(present)]` unit variant selected by a `bool` or empty-message
+/// member.
+fn resolve_marker_variant(
     ctx: &VariantCtx,
-    with_span: Span,
-    adapter: syn::Type,
+    with: &Option<(Span, syn::Type)>,
     errors: &mut Errors,
 ) -> ResolvedShape {
-    if ctx.present {
+    if let Some((with_span, _)) = with {
         errors.push(syn::Error::new(
-            with_span,
+            *with_span,
             "with = ... and present cannot be combined on a oneof variant",
         ));
         return Err(());
     }
-    match &ctx.variant.fields {
-        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            Ok(OneofVariantShape::Payload {
-                ty: Box::new(fields.unnamed[0].ty.clone()),
-                adapter: Some(Box::new(adapter)),
-                checks: Box::new(FieldChecks::none()),
-                binding: None,
-            })
-        }
-        _ => {
-            errors.push(syn::Error::new(
-                with_span,
-                "with = ... needs a single-payload tuple variant",
-            ));
-            Err(())
-        }
-    }
-}
-
-/// `#[armonik(present)]` unit variant selected by a `bool` or empty-message
-/// member.
-fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShape {
     if !matches!(ctx.variant.fields, syn::Fields::Unit) {
         errors.push(syn::Error::new(
             ctx.span,
@@ -1463,22 +1447,37 @@ fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShap
     }
 }
 
-/// The attribute-less shapes: `Variant(T)` (a single-payload member) or
-/// `Variant { .. }` (a struct variant inlining the fields of a message
-/// member, whose message is therefore absorbed).
+/// The payload shapes: `Variant(T)` (a single-payload member, optionally
+/// through a `with = "..."` adapter) or `Variant { .. }` (a struct variant
+/// inlining the fields of a message member, whose message is therefore
+/// absorbed).
 fn resolve_plain_variant(
     ctx: &VariantCtx,
+    with: Option<(Span, syn::Type)>,
     absorbs: &mut Vec<String>,
     errors: &mut Errors,
 ) -> ResolvedShape {
     match &ctx.variant.fields {
         syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+            let adapter = with.map(|(_, adapter)| Box::new(adapter));
+            let checks = match &adapter {
+                Some(_) => FieldChecks::none(),
+                None => expected_checks(ctx.field_meta),
+            };
             Ok(OneofVariantShape::Payload {
                 ty: Box::new(fields.unnamed[0].ty.clone()),
-                adapter: None,
-                checks: Box::new(expected_checks(ctx.field_meta)),
+                adapter,
+                checks: Box::new(checks),
                 binding: None,
             })
+        }
+        _ if with.is_some() => {
+            let (with_span, _) = with.expect("checked above");
+            errors.push(syn::Error::new(
+                with_span,
+                "with = ... needs a single-payload tuple variant",
+            ));
+            Err(())
         }
         syn::Fields::Named(named) => {
             let FieldKind::Message(inner_name) = &ctx.field_meta.kind else {
@@ -1513,22 +1512,17 @@ fn resolve_plain_variant(
             let mut parts = Vec::new();
             for part in &named.named {
                 let part_ident = part.ident.clone().expect("named fields have idents");
-                let part_entries = match attrs::parse(&part.attrs) {
-                    Ok(entries) => entries,
-                    Err(err) => {
-                        errors.push(err);
-                        continue;
-                    }
-                };
-                let (FieldAttrs { rename: part_rename, .. }, _) = scan_field_attrs(
-                    &part_entries,
+                let Some((FieldAttrs { rename: part_rename, .. }, _)) = scan_attrs(
+                    &part.attrs,
                     Allowed {
                         rename: true,
                         ..Allowed::default()
                     },
                     "this armonik attribute is not valid on a struct variant field",
                     errors,
-                );
+                ) else {
+                    continue;
+                };
                 let part_name = part_rename.unwrap_or_else(|| unraw(&part_ident));
                 // The message has no oneofs, so a hit is always a field.
                 let Some(Found::Field(part_meta)) =
@@ -1600,10 +1594,7 @@ pub(crate) fn oneof_plan(
     };
 
     let Some(meta) = index.messages.get(&proto_name) else {
-        errors.push(syn::Error::new(
-            message_span,
-            format!("proto message `{proto_name}` not found in the compiled descriptor set"),
-        ));
+        errors.push(not_found(message_span, "message", &proto_name));
         return Err(errors);
     };
     // `message = ...` alone: the enum stands for the whole message, whose
@@ -1698,15 +1689,8 @@ pub(crate) fn oneof_plan(
     let mut absorbs: Vec<String> = Vec::new();
     for variant in &data.variants {
         let span = variant.ident.span();
-        let variant_entries = match attrs::parse(&variant.attrs) {
-            Ok(entries) => entries,
-            Err(err) => {
-                errors.push(err);
-                continue;
-            }
-        };
-        let (FieldAttrs { rename, with, present, .. }, _) = scan_field_attrs(
-            &variant_entries,
+        let Some((FieldAttrs { rename, with, present, .. }, _)) = scan_attrs(
+            &variant.attrs,
             Allowed {
                 rename: true,
                 with: true,
@@ -1716,7 +1700,9 @@ pub(crate) fn oneof_plan(
             },
             "this armonik attribute is not valid on a oneof variant",
             &mut errors,
-        );
+        ) else {
+            continue;
+        };
 
         // The attribute-less unit variant is "no member set"; with sibling
         // fields, that case is a struct variant carrying exactly them and is
@@ -1775,20 +1761,18 @@ pub(crate) fn oneof_plan(
             }
         }
         let Some((position, field_meta)) = member else {
-            let mut available: Vec<&str> = oneof
+            let available = oneof
                 .fields
                 .iter()
-                .map(|&field| meta.fields[field].name.as_str())
+                .map(|&field| meta.fields[field].name.clone())
                 .collect();
-            available.sort_unstable();
-            errors.push(syn::Error::new(
+            errors.push(unknown_name(
                 span,
-                format!(
-                    "no member named `{member_name}` in oneof `{proto_name}.{}` \
-                     (available: {}); use #[armonik(rename = \"...\")] if the names differ",
-                    oneof.name,
-                    available.join(", ")
-                ),
+                "member",
+                &member_name,
+                &format!("oneof `{proto_name}.{}`", oneof.name),
+                available,
+                "use #[armonik(rename = \"...\")] if the names differ",
             ));
             continue;
         };
@@ -1807,12 +1791,10 @@ pub(crate) fn oneof_plan(
         };
         let resolved = if !sibling_metas.is_empty() {
             resolve_sibling_variant(&ctx, &sibling_metas, &mut sibling_bindings, &with, &mut errors)
-        } else if let Some((with_span, adapter)) = with {
-            resolve_adapter_variant(&ctx, with_span, adapter, &mut errors)
         } else if present {
-            resolve_marker_variant(&ctx, &mut errors)
+            resolve_marker_variant(&ctx, &with, &mut errors)
         } else {
-            resolve_plain_variant(&ctx, &mut absorbs, &mut errors)
+            resolve_plain_variant(&ctx, with, &mut absorbs, &mut errors)
         };
         let shape = match resolved {
             Ok(shape) => shape,
@@ -1919,7 +1901,7 @@ mod tests {
     }
 
     /// `absorbs` must stay rejected where a site does not opt in, and be
-    /// tolerated (no error — it is harvested by `expand::collect_absorbs`)
+    /// tolerated (no error — it is harvested by `collect_absorbs` in lib.rs)
     /// where it does. This is the exact rule a naive shared collector would
     /// drop, and there is no other test that would catch it.
     #[test]

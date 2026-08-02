@@ -18,8 +18,6 @@ use prost_types::{DescriptorProto, EnumDescriptorProto, FieldDescriptorProto, Fi
 /// Scalar/wire kind of a protobuf field, mirrored from the descriptor. The
 /// `armonik-types` codec keeps an equivalent runtime classification that the
 /// emitted shape asserts are checked against.
-
-/// Scalar/wire kind of a protobuf field.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FieldKind {
     Double,
@@ -28,12 +26,6 @@ pub(crate) enum FieldKind {
     Int64,
     UInt32,
     UInt64,
-    SInt32,
-    SInt64,
-    Fixed32,
-    Fixed64,
-    SFixed32,
-    SFixed64,
     Bool,
     String,
     Bytes,
@@ -41,6 +33,10 @@ pub(crate) enum FieldKind {
     Message(String),
     /// Full name of the enum type, without leading dot.
     Enum(String),
+    /// A wire kind the codec does not implement (`sint*`/`fixed*`/`sfixed*`
+    /// — no ArmoniK field uses them); resolving a field of this kind is a
+    /// spanned compile error naming it.
+    Unsupported(&'static str),
 }
 
 /// Cardinality of a protobuf field.
@@ -55,16 +51,6 @@ pub(crate) enum Cardinality {
     Repeated,
     /// Map field, folded from its synthetic `*Entry` message.
     Map { key: FieldKind, value: FieldKind },
-}
-
-/// Fieldless mirror of the codec-side `Cardinality`, tokenized into the
-/// emitted shape asserts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Card {
-    Singular,
-    Optional,
-    Repeated,
-    Map,
 }
 
 /// A field of a protobuf message, as seen by the derives.
@@ -338,12 +324,12 @@ fn field_kind(field: &FieldDescriptorProto) -> Result<FieldKind, String> {
         Type::Int64 => FieldKind::Int64,
         Type::Uint32 => FieldKind::UInt32,
         Type::Uint64 => FieldKind::UInt64,
-        Type::Sint32 => FieldKind::SInt32,
-        Type::Sint64 => FieldKind::SInt64,
-        Type::Fixed32 => FieldKind::Fixed32,
-        Type::Fixed64 => FieldKind::Fixed64,
-        Type::Sfixed32 => FieldKind::SFixed32,
-        Type::Sfixed64 => FieldKind::SFixed64,
+        Type::Sint32 => FieldKind::Unsupported("sint32"),
+        Type::Sint64 => FieldKind::Unsupported("sint64"),
+        Type::Fixed32 => FieldKind::Unsupported("fixed32"),
+        Type::Fixed64 => FieldKind::Unsupported("fixed64"),
+        Type::Sfixed32 => FieldKind::Unsupported("sfixed32"),
+        Type::Sfixed64 => FieldKind::Unsupported("sfixed64"),
         Type::Bool => FieldKind::Bool,
         Type::String => FieldKind::String,
         Type::Bytes => FieldKind::Bytes,
