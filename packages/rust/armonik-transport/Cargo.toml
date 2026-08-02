@@ -20,9 +20,16 @@ tonic = { workspace = true, features = ["channel", "codegen"] }
 snafu.workspace = true
 tracing.workspace = true
 hyper = { workspace = true, features = ["client", "http1", "http2"] }
-# `client-proxy` for the proxy matcher: the `*_PROXY` convention, `NO_PROXY` on curl's rules, and
-# taking credentials out of a proxy URL, none of which is worth writing again here.
-hyper-util = { workspace = true, features = ["client", "client-proxy", "http1"] }
+# `client-legacy` for `HttpConnector`, which this crate names: `hyper-rustls` happens to turn it on, and
+# depending on that would break the day it stops. `client-proxy` for the proxy matcher: the `*_PROXY`
+# convention, `NO_PROXY` on curl's rules, and taking credentials out of a proxy URL, none of which is
+# worth writing again here.
+hyper-util = { workspace = true, features = [
+  "client",
+  "client-legacy",
+  "client-proxy",
+  "http1",
+] }
 hyper-rustls = { workspace = true, features = [
   "http1",
   "http2",
