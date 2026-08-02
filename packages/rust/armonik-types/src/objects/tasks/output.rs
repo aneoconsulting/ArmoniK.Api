@@ -201,10 +201,6 @@ impl ProtoAdapter<Output> for ErrorAdapter {
             Output::Error(message) => message.is_empty(),
         }
     }
-
-    fn clear_field(value: &mut Output) {
-        *value = Output::Success;
-    }
 }
 
 #[cfg(test)]

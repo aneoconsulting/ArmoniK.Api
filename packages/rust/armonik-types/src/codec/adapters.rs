@@ -9,37 +9,30 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
-use super::{key_len, ProtoAdapter, ProtoField};
+use super::{ProtoAdapter, ProtoField};
 
 /// `repeated Pair { key = KT; value = VT }` exposed as a `HashMap`.
 ///
 /// Entry order is not preserved and duplicate keys collapse (last wins),
 /// exactly like the historical conversions.
+///
+/// The wire methods delegate to the [`HashMap`] `ProtoField` implementation
+/// (prost's real-map codec), which hardcodes entry tags 1/2 and skips
+/// `== default` key/value subfields — the same bytes the pair messages use.
+/// The implementation therefore only exists for `PairMap<1, 2>` (every use);
+/// other tag pairs would need the hand-rolled framing back. Delegation also
+/// assumes `is_default(v) ⟺ v == default` for the key/value types (true for
+/// scalars, strings, bytes, enums and containers; a message-typed value with
+/// an `is_default` override would diverge — the differential harness guards).
 pub(crate) struct PairMap<const KT: u32, const VT: u32>;
 
-impl<K, V, const KT: u32, const VT: u32> ProtoAdapter<HashMap<K, V>> for PairMap<KT, VT>
+impl<K, V> ProtoAdapter<HashMap<K, V>> for PairMap<1, 2>
 where
-    K: ProtoField + Eq + Hash,
+    K: ProtoField + Eq + Hash + Ord,
     V: ProtoField,
 {
     fn encode_field(tag: u32, value: &HashMap<K, V>, buf: &mut impl BufMut) {
-        for (key, entry_value) in value {
-            let mut entry_len = 0;
-            if !K::is_default(key) {
-                entry_len += K::encoded_len_field(KT, key);
-            }
-            if !V::is_default(entry_value) {
-                entry_len += V::encoded_len_field(VT, entry_value);
-            }
-            encoding::encode_key(tag, WireType::LengthDelimited, buf);
-            encoding::encode_varint(entry_len as u64, buf);
-            if !K::is_default(key) {
-                K::encode_field(KT, key, buf);
-            }
-            if !V::is_default(entry_value) {
-                V::encode_field(VT, entry_value, buf);
-            }
-        }
+        <HashMap<K, V> as ProtoField>::encode_field(tag, value, buf);
     }
 
     fn merge_field(
@@ -48,46 +41,15 @@ where
         buf: &mut impl Buf,
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
-        encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let mut entry = super::read_delimited(buf)?;
-        let mut key = K::default();
-        let mut entry_value = V::default();
-        while entry.has_remaining() {
-            let (tag, wire_type) = encoding::decode_key(&mut entry)?;
-            if tag == KT {
-                K::merge_field(wire_type, &mut key, &mut entry, ctx.clone())?;
-            } else if tag == VT {
-                V::merge_field(wire_type, &mut entry_value, &mut entry, ctx.clone())?;
-            } else {
-                encoding::skip_field(wire_type, tag, &mut entry, ctx.clone())?;
-            }
-        }
-        value.insert(key, entry_value);
-        Ok(())
+        <HashMap<K, V> as ProtoField>::merge_field(wire_type, value, buf, ctx)
     }
 
     fn encoded_len_field(tag: u32, value: &HashMap<K, V>) -> usize {
-        value
-            .iter()
-            .map(|(key, entry_value)| {
-                let mut entry_len = 0;
-                if !K::is_default(key) {
-                    entry_len += K::encoded_len_field(KT, key);
-                }
-                if !V::is_default(entry_value) {
-                    entry_len += V::encoded_len_field(VT, entry_value);
-                }
-                key_len(tag) + encoding::encoded_len_varint(entry_len as u64) + entry_len
-            })
-            .sum()
+        <HashMap<K, V> as ProtoField>::encoded_len_field(tag, value)
     }
 
     fn is_default(value: &HashMap<K, V>) -> bool {
         value.is_empty()
-    }
-
-    fn clear_field(value: &mut HashMap<K, V>) {
-        value.clear();
     }
 
     /// The `HashMap` loses entry order and collapses duplicate keys.
@@ -96,7 +58,7 @@ where
         message: &mut crate::differential::prost_reflect::DynamicMessage,
         tag: u32,
     ) {
-        crate::differential::fold_pairs_by_tag(message, tag, KT);
+        crate::differential::fold_pairs_by_tag(message, tag, 1);
     }
 }
 
@@ -142,7 +104,7 @@ impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
         } else {
             String::encoded_len_field(TAG, value)
         };
-        key_len(tag) + encoding::encoded_len_varint(body as u64) + body
+        encoding::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
     }
 
     /// The wrapper itself carries oneof presence in its uses; an empty one
@@ -150,10 +112,6 @@ impl<const TAG: u32> ProtoAdapter<String> for StringWrapper<TAG> {
     fn is_default(value: &String) -> bool {
         let _ = value;
         false
-    }
-
-    fn clear_field(value: &mut String) {
-        value.clear();
     }
 }
 
@@ -189,7 +147,7 @@ impl<T: ProtoField, const TAG: u32> ProtoAdapter<Vec<T>> for VecWrapper<TAG> {
 
     fn encoded_len_field(tag: u32, value: &Vec<T>) -> usize {
         let body = T::encoded_len_repeated(TAG, value);
-        key_len(tag) + encoding::encoded_len_varint(body as u64) + body
+        encoding::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
     }
 
     /// The wrapper itself carries oneof presence in its uses; an empty one
@@ -197,9 +155,5 @@ impl<T: ProtoField, const TAG: u32> ProtoAdapter<Vec<T>> for VecWrapper<TAG> {
     fn is_default(value: &Vec<T>) -> bool {
         let _ = value;
         false
-    }
-
-    fn clear_field(value: &mut Vec<T>) {
-        value.clear();
     }
 }

@@ -118,7 +118,7 @@ impl prost::Message for Request {
         let mut len = 0;
         for result_id in &self.result_ids {
             let pair_len = self.pair_len(result_id);
-            len += crate::codec::key_len(IDS_TAG)
+            len += encoding::key_len(IDS_TAG)
                 + encoding::encoded_len_varint(pair_len as u64)
                 + pair_len;
         }
