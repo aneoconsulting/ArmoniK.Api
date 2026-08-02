@@ -27,7 +27,6 @@ pub(crate) mod adapters;
 mod bytes;
 mod containers;
 pub(crate) mod enumeration;
-pub(crate) mod message;
 mod scalars;
 mod well_known;
 pub(crate) mod wrapper_enum;
@@ -68,7 +67,7 @@ pub(crate) enum Cardinality {
 }
 
 /// A type that can be encoded and decoded as a single protobuf field.
-pub(crate) trait ProtoField: Default {
+pub(crate) trait ProtoField: Default + PartialEq {
     const KIND: FieldKind;
     const CARDINALITY: Cardinality = Cardinality::Singular;
     /// Full proto type names this Rust type can stand for; empty means
@@ -88,10 +87,14 @@ pub(crate) trait ProtoField: Default {
     fn encoded_len_field(tag: u32, value: &Self) -> usize;
 
     /// proto3 implicit presence: when `true`, a singular field is skipped on
-    /// encode. For message-kind types this is "encodes to zero bytes", which
-    /// is indistinguishable from absence for the fields where a non-`Option`
-    /// message type is used.
-    fn is_default(value: &Self) -> bool;
+    /// encode. The default is "equal to the type's default value", which is
+    /// right for scalars, enums, strings and containers. Message-kind types
+    /// override it with [`message_is_default`] ("encodes to zero bytes", which
+    /// differs once a nested field is always emitted), and wrapper enums
+    /// override it to `false` (always emitted).
+    fn is_default(value: &Self) -> bool {
+        value == &Self::default()
+    }
 
     fn clear_field(value: &mut Self) {
         *value = Self::default();
@@ -188,6 +191,16 @@ pub(crate) fn read_delimited<B: Buf + ?Sized>(
 /// determines it.
 pub(crate) fn key_len(tag: u32) -> usize {
     prost::encoding::encoded_len_varint(u64::from(tag) << 3)
+}
+
+/// A message-kind field is absent (proto3 default) exactly when it encodes to
+/// zero bytes. This is deliberately *not* `value == M::default()`: a message
+/// can hold only default sub-values yet still encode to a non-empty buffer when
+/// one of them is always emitted — a wrapper enum encodes its zero as an empty
+/// wrapper — and such a field must survive the round-trip. This is why
+/// message-kind types override the [`ProtoField::is_default`] trait default.
+pub(crate) fn message_is_default<M: prost::Message>(value: &M) -> bool {
+    value.encoded_len() == 0
 }
 
 /// Const string equality, for derive-emitted assertions.

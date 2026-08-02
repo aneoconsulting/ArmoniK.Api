@@ -1,10 +1,10 @@
 //! [`ProtoField`] implementations for the well-known types used by the API.
 
 use prost::bytes::{Buf, BufMut};
-use prost::encoding::{DecodeContext, WireType};
+use prost::encoding::{message, DecodeContext, WireType};
 use prost::DecodeError;
 
-use super::{message, FieldKind, ProtoField};
+use super::{message_is_default, FieldKind, ProtoField};
 
 macro_rules! well_known_message {
     ($ty:ty, $name:literal) => {
@@ -30,7 +30,7 @@ macro_rules! well_known_message {
             }
 
             fn is_default(value: &Self) -> bool {
-                message::is_default(value)
+                message_is_default(value)
             }
 
             fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {

@@ -435,7 +435,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     }
 }
 
-/// The `ProtoField` impl for a message type, delegating to `codec::message`.
+/// The `ProtoField` impl for a message type, delegating to `prost::encoding::message`.
 /// Shared by the plain-struct and `transparent` codegen paths.
 fn message_proto_field(
     impl_generics: &syn::ImplGenerics,
@@ -450,7 +450,7 @@ fn message_proto_field(
             const NAMES: &'static [&'static str] = &[#(#proto_names),*];
 
             fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                crate::codec::message::encode(tag, value, buf);
+                ::prost::encoding::message::encode(tag, value, buf);
             }
 
             fn merge_field(
@@ -459,23 +459,23 @@ fn message_proto_field(
                 buf: &mut impl ::prost::bytes::Buf,
                 ctx: ::prost::encoding::DecodeContext,
             ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                crate::codec::message::merge(wire_type, value, buf, ctx)
+                ::prost::encoding::message::merge(wire_type, value, buf, ctx)
             }
 
             fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                crate::codec::message::encoded_len(tag, value)
+                ::prost::encoding::message::encoded_len(tag, value)
             }
 
             fn is_default(value: &Self) -> bool {
-                crate::codec::message::is_default(value)
+                crate::codec::message_is_default(value)
             }
 
             fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
-                crate::codec::message::encode_repeated(tag, values, buf);
+                ::prost::encoding::message::encode_repeated(tag, values, buf);
             }
 
             fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-                crate::codec::message::encoded_len_repeated(tag, values)
+                ::prost::encoding::message::encoded_len_repeated(tag, values)
             }
         }
     }
@@ -607,10 +607,6 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
 
                 fn encoded_len_field(tag: u32, value: &Self) -> usize {
                     crate::codec::enumeration::encoded_len(tag, value)
-                }
-
-                fn is_default(value: &Self) -> bool {
-                    crate::codec::enumeration::is_default(value)
                 }
 
                 fn clear_field(value: &mut Self) {

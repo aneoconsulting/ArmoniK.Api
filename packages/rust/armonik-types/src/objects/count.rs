@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::TaskStatus;
 
-#[derive(Debug, Clone, Default, armonik_macros::Message)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.Count")]
 pub struct Count {

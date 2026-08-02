@@ -35,10 +35,6 @@ pub(crate) fn encoded_len<T: Copy + Into<i32>>(tag: u32, value: &T) -> usize {
     encoding::int32::encoded_len(tag, &raw)
 }
 
-pub(crate) fn is_default<T: Copy + Into<i32>>(value: &T) -> bool {
-    (*value).into() == 0
-}
-
 fn packed_body_len<T: Copy + Into<i32>>(values: &[T]) -> usize {
     values
         .iter()

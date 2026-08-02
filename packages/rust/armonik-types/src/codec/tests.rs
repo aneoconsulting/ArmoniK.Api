@@ -60,10 +60,6 @@ impl ProtoField for TestEnum {
         enumeration::encoded_len(tag, value)
     }
 
-    fn is_default(value: &Self) -> bool {
-        enumeration::is_default(value)
-    }
-
     fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
         enumeration::encode_repeated(tag, values, buf);
     }
@@ -525,7 +521,7 @@ fn message_clear_resets_to_default() {
 // `agent::create_tasks` types). Ground truth: the real generated agent types.
 // ---------------------------------------------------------------------------
 
-use super::message as message_codec;
+use ::prost::encoding::message as message_codec;
 use super::ProtoOneof;
 
 /// Mirror of `armonik.api.grpc.v1.DataChunk`: whole-message oneof
@@ -772,7 +768,7 @@ impl ProtoField for TestOptions {
     }
 
     fn is_default(value: &Self) -> bool {
-        message_codec::is_default(value)
+        super::message_is_default(value)
     }
 
     fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {

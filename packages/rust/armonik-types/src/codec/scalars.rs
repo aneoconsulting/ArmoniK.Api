@@ -10,7 +10,7 @@ use super::{FieldKind, ProtoField};
 
 /// Scalar whose repeated form is packed (proto3 default for numeric kinds).
 macro_rules! packed_scalar {
-    ($ty:ty, $kind:ident, $module:ident, $default:expr) => {
+    ($ty:ty, $kind:ident, $module:ident) => {
         impl ProtoField for $ty {
             const KIND: FieldKind = FieldKind::$kind;
 
@@ -29,10 +29,6 @@ macro_rules! packed_scalar {
 
             fn encoded_len_field(tag: u32, value: &Self) -> usize {
                 encoding::$module::encoded_len(tag, value)
-            }
-
-            fn is_default(value: &Self) -> bool {
-                *value == $default
             }
 
             fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
@@ -55,13 +51,13 @@ macro_rules! packed_scalar {
     };
 }
 
-packed_scalar!(f64, Double, double, 0.0);
-packed_scalar!(f32, Float, float, 0.0);
-packed_scalar!(i32, Int32, int32, 0);
-packed_scalar!(i64, Int64, int64, 0);
-packed_scalar!(u32, UInt32, uint32, 0);
-packed_scalar!(u64, UInt64, uint64, 0);
-packed_scalar!(bool, Bool, bool, false);
+packed_scalar!(f64, Double, double);
+packed_scalar!(f32, Float, float);
+packed_scalar!(i32, Int32, int32);
+packed_scalar!(i64, Int64, int64);
+packed_scalar!(u32, UInt32, uint32);
+packed_scalar!(u64, UInt64, uint64);
+packed_scalar!(bool, Bool, bool);
 
 impl ProtoField for String {
     const KIND: FieldKind = FieldKind::String;
@@ -81,10 +77,6 @@ impl ProtoField for String {
 
     fn encoded_len_field(tag: u32, value: &Self) -> usize {
         encoding::string::encoded_len(tag, value)
-    }
-
-    fn is_default(value: &Self) -> bool {
-        value.is_empty()
     }
 
     fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
