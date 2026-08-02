@@ -1122,22 +1122,16 @@ pub(crate) struct OneofVariant {
 }
 
 pub(crate) enum OneofVariantShape {
-    /// `Variant(T)` carrying the member value, through its `ProtoField` impl
-    /// or a `ProtoAdapter` (`#[armonik(with = "...")]`, which skips the
-    /// shape checks by design).
+    /// The member value, carried by `Variant(T)` — or, in a whole-message
+    /// enum with sibling fields, by the `binding` field of
+    /// `Variant { payload, ...siblings }`. Encoded through the type's
+    /// `ProtoField` impl or a `ProtoAdapter` (`#[armonik(with = "...")]`,
+    /// which skips the shape checks by design).
     Payload {
         ty: Box<syn::Type>,
         adapter: Option<Box<syn::Type>>,
         checks: Box<FieldChecks>,
-    },
-    /// `Variant { payload, ...siblings }` in a whole-message enum with
-    /// sibling fields: one member payload plus every non-oneof field.
-    SiblingPayload {
-        payload: syn::Ident,
-        ty: Box<syn::Type>,
-        /// `#[armonik(with = "...")]` on the payload field.
-        adapter: Option<Box<syn::Type>>,
-        checks: Box<FieldChecks>,
+        binding: Option<syn::Ident>,
     },
     /// `#[armonik(present)]` unit variant selected by a `bool` member.
     MarkerBool,
@@ -1365,11 +1359,11 @@ fn resolve_sibling_variant(
     } else {
         expected_checks(ctx.field_meta)
     };
-    Ok(OneofVariantShape::SiblingPayload {
-        payload,
+    Ok(OneofVariantShape::Payload {
         ty: Box::new(ty),
         adapter: adapter.map(Box::new),
         checks: Box::new(checks),
+        binding: Some(payload),
     })
 }
 
@@ -1393,6 +1387,7 @@ fn resolve_adapter_variant(
                 ty: Box::new(fields.unnamed[0].ty.clone()),
                 adapter: Some(Box::new(adapter)),
                 checks: Box::new(FieldChecks::none()),
+                binding: None,
             })
         }
         _ => {
@@ -1446,6 +1441,7 @@ fn resolve_plain_variant(
                 ty: Box::new(fields.unnamed[0].ty.clone()),
                 adapter: None,
                 checks: Box::new(expected_checks(ctx.field_meta)),
+                binding: None,
             })
         }
         syn::Fields::Named(named) => {

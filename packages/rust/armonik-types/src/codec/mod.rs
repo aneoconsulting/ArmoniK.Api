@@ -305,6 +305,22 @@ pub(crate) trait ProtoAdapter<T> {
     }
 }
 
+/// An empty length-delimited body: what a `#[armonik(present)]` message
+/// marker encodes.
+pub(crate) mod empty_body {
+    use prost::bytes::BufMut;
+    use prost::encoding::{self, WireType};
+
+    pub(crate) fn encode(tag: u32, buf: &mut impl BufMut) {
+        encoding::encode_key(tag, WireType::LengthDelimited, buf);
+        encoding::encode_varint(0, buf);
+    }
+
+    pub(crate) fn encoded_len(tag: u32) -> usize {
+        encoding::key_len(tag) + 1
+    }
+}
+
 /// Read a length-delimited sub-buffer: decode the length varint, guard
 /// against a truncated buffer, and return a `Take` limited to the body.
 pub(crate) fn read_delimited<B: Buf + ?Sized>(
