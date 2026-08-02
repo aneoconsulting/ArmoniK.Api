@@ -3,7 +3,7 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
-use crate::kind::{Card, FieldKind};
+use crate::descriptor::{Card, FieldKind};
 use crate::resolve::{EnumMode, EnumPlan, FieldAccess, FieldCodec, FieldPlan, MessagePlan};
 
 impl quote::ToTokens for FieldAccess {

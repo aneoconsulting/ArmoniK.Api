@@ -15,7 +15,57 @@ use prost::Message;
 use prost_types::field_descriptor_proto::{Label, Type};
 use prost_types::{DescriptorProto, EnumDescriptorProto, FieldDescriptorProto, FileDescriptorSet};
 
-use crate::kind::{Cardinality, FieldKind};
+/// Scalar/wire kind of a protobuf field, mirrored from the descriptor. The
+/// `armonik-types` codec keeps an equivalent runtime classification that the
+/// emitted shape asserts are checked against.
+
+/// Scalar/wire kind of a protobuf field.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum FieldKind {
+    Double,
+    Float,
+    Int32,
+    Int64,
+    UInt32,
+    UInt64,
+    SInt32,
+    SInt64,
+    Fixed32,
+    Fixed64,
+    SFixed32,
+    SFixed64,
+    Bool,
+    String,
+    Bytes,
+    /// Full name of the message type, without leading dot.
+    Message(String),
+    /// Full name of the enum type, without leading dot.
+    Enum(String),
+}
+
+/// Cardinality of a protobuf field.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Cardinality {
+    /// Singular proto3 field: implicit presence.
+    Singular,
+    /// `optional` proto3 field: explicit presence.
+    Optional,
+    /// Repeated field (packedness is decided by the Rust element type's
+    /// `ProtoField` impl, not restated from the descriptor).
+    Repeated,
+    /// Map field, folded from its synthetic `*Entry` message.
+    Map { key: FieldKind, value: FieldKind },
+}
+
+/// Fieldless mirror of the codec-side `Cardinality`, tokenized into the
+/// emitted shape asserts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Card {
+    Singular,
+    Optional,
+    Repeated,
+    Map,
+}
 
 /// A field of a protobuf message, as seen by the derives.
 pub(crate) struct FieldMeta {
@@ -144,9 +194,8 @@ fn build_index(fingerprint: u64, fds: &FileDescriptorSet) -> Result<DescriptorIn
     };
     for file in &fds.file {
         let prefix = file.package();
-        let packed_default = file.syntax() != "proto2";
         for message in &file.message_type {
-            add_message(prefix, message, packed_default, &map_entries, &mut index)?;
+            add_message(prefix, message, &map_entries, &mut index)?;
         }
         for enumeration in &file.enum_type {
             add_enum(prefix, enumeration, &mut index);
@@ -192,7 +241,6 @@ fn collect_map_entries(
 fn add_message(
     prefix: &str,
     message: &DescriptorProto,
-    packed_default: bool,
     map_entries: &HashMap<String, (FieldKind, FieldKind)>,
     index: &mut DescriptorIndex,
 ) -> Result<(), String> {
@@ -203,7 +251,7 @@ fn add_message(
     }
 
     for nested in &message.nested_type {
-        add_message(&full, nested, packed_default, map_entries, index)?;
+        add_message(&full, nested, map_entries, index)?;
     }
     for enumeration in &message.enum_type {
         add_enum(&full, enumeration, index);
@@ -238,15 +286,10 @@ fn add_message(
                         None,
                     )
                 } else {
-                    (Cardinality::Repeated { packed: false }, None)
+                    (Cardinality::Repeated, None)
                 }
             } else {
-                let packed = field
-                    .options
-                    .as_ref()
-                    .and_then(|options| options.packed)
-                    .unwrap_or(packed_default && kind.packable());
-                (Cardinality::Repeated { packed }, None)
+                (Cardinality::Repeated, None)
             }
         } else {
             let oneof = field.oneof_index.map(|idx| idx as usize);
