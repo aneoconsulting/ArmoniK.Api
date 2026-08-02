@@ -52,6 +52,12 @@ pub(crate) enum FieldKind {
     Enum,
 }
 
+impl FieldKind {
+    pub(crate) const fn same(self, other: Self) -> bool {
+        self as u8 == other as u8
+    }
+}
+
 /// Cardinality of a protobuf field, checked by derive-emitted const-asserts
 /// against the descriptor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -66,16 +72,99 @@ pub(crate) enum Cardinality {
     Map,
 }
 
-/// A type that can be encoded and decoded as a single protobuf field.
-pub(crate) trait ProtoField: Default + PartialEq {
-    const KIND: FieldKind;
-    const CARDINALITY: Cardinality = Cardinality::Singular;
+impl Cardinality {
+    pub(crate) const fn same(self, other: Self) -> bool {
+        self as u8 == other as u8
+    }
+}
+
+/// Compile-time shape of a [`ProtoField`] impl. The derive emits one const
+/// assert per descriptor-checked field, comparing the field type's `SHAPE`
+/// against an [`Expect`] built from the descriptor.
+#[derive(Clone, Copy)]
+pub(crate) struct Shape {
+    pub(crate) kind: FieldKind,
+    pub(crate) cardinality: Cardinality,
     /// Full proto type names this Rust type can stand for; empty means
     /// unchecked. Containers propagate the names of their element type.
-    const NAMES: &'static [&'static str] = &[];
-    /// Key/value kinds; only meaningful when `CARDINALITY` is `Map`.
-    const MAP_KEY_KIND: FieldKind = FieldKind::Message;
-    const MAP_VALUE_KIND: FieldKind = FieldKind::Message;
+    pub(crate) names: &'static [&'static str],
+    /// Key/value kinds when `cardinality` is [`Cardinality::Map`].
+    pub(crate) map: Option<(FieldKind, FieldKind)>,
+}
+
+impl Shape {
+    pub(crate) const fn scalar(kind: FieldKind) -> Self {
+        Shape {
+            kind,
+            cardinality: Cardinality::Singular,
+            names: &[],
+            map: None,
+        }
+    }
+
+    pub(crate) const fn enumeration(names: &'static [&'static str]) -> Self {
+        Shape {
+            names,
+            ..Shape::scalar(FieldKind::Enum)
+        }
+    }
+}
+
+/// What the descriptor expects of one field, tokenized as a const literal by
+/// the derive.
+pub(crate) struct Expect {
+    /// `None` for map fields (their kinds live in `map`).
+    pub(crate) kind: Option<FieldKind>,
+    /// Acceptable cardinalities (e.g. a singular message field may be either
+    /// `Singular` or `Optional` in Rust).
+    pub(crate) cardinalities: &'static [Cardinality],
+    /// Expected proto type name for message/enum (element) kinds; a `SHAPE`
+    /// with empty `names` is unchecked (scalars, adapters, generics).
+    pub(crate) name: Option<&'static str>,
+    pub(crate) map: Option<(FieldKind, FieldKind)>,
+}
+
+/// Whether a field type's [`Shape`] satisfies the descriptor's [`Expect`].
+pub(crate) const fn shape_matches(shape: &Shape, expect: &Expect) -> bool {
+    if let Some(kind) = expect.kind {
+        if !shape.kind.same(kind) {
+            return false;
+        }
+    }
+    let mut card_ok = false;
+    let mut i = 0;
+    while i < expect.cardinalities.len() {
+        card_ok |= shape.cardinality.same(expect.cardinalities[i]);
+        i += 1;
+    }
+    if !card_ok {
+        return false;
+    }
+    if let (Some(name), false) = (expect.name, shape.names.is_empty()) {
+        let mut found = false;
+        let mut i = 0;
+        while i < shape.names.len() {
+            found |= str_eq(shape.names[i], name);
+            i += 1;
+        }
+        if !found {
+            return false;
+        }
+    }
+    if let Some((key, value)) = expect.map {
+        let Some((shape_key, shape_value)) = shape.map else {
+            return false;
+        };
+        if !(shape_key.same(key) && shape_value.same(value)) {
+            return false;
+        }
+    }
+    true
+}
+
+/// A type that can be encoded and decoded as a single protobuf field.
+pub(crate) trait ProtoField: Default + PartialEq {
+    const SHAPE: Shape;
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut);
     fn merge_field(
@@ -143,8 +232,12 @@ pub(crate) trait Msg: prost::Message + Default + PartialEq {
 }
 
 impl<T: Msg> ProtoField for T {
-    const KIND: FieldKind = FieldKind::Message;
-    const NAMES: &'static [&'static str] = <T as Msg>::NAMES;
+    const SHAPE: Shape = Shape {
+        kind: FieldKind::Message,
+        cardinality: Cardinality::Singular,
+        names: <T as Msg>::NAMES,
+        map: None,
+    };
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
         prost::encoding::message::encode(tag, value, buf);
@@ -250,22 +343,6 @@ pub(crate) const fn str_eq(a: &str, b: &str) -> bool {
         i += 1;
     }
     true
-}
-
-/// Whether `names` covers the proto type `expected`. An empty list means the
-/// type is unchecked (scalars, adapters, generic instantiations).
-pub(crate) const fn names_match(names: &'static [&'static str], expected: &str) -> bool {
-    if names.is_empty() {
-        return true;
-    }
-    let mut i = 0;
-    while i < names.len() {
-        if str_eq(names[i], expected) {
-            return true;
-        }
-        i += 1;
-    }
-    false
 }
 
 #[cfg(test)]

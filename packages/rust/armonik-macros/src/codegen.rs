@@ -3,7 +3,7 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
-use crate::kind::{Cardinality, FieldKind};
+use crate::kind::{Card, FieldKind};
 use crate::resolve::{EnumMode, EnumPlan, FieldAccess, FieldCodec, FieldPlan, MessagePlan};
 
 impl quote::ToTokens for FieldAccess {
@@ -51,21 +51,38 @@ fn kind_description(kind: &FieldKind) -> String {
     }
 }
 
-fn cardinality_pattern(cardinality: &Cardinality) -> TokenStream {
-    match cardinality {
-        Cardinality::Singular => quote!(crate::codec::Cardinality::Singular),
-        Cardinality::Optional => quote!(crate::codec::Cardinality::Optional),
-        Cardinality::Repeated { .. } => quote!(crate::codec::Cardinality::Repeated),
-        Cardinality::Map { .. } => quote!(crate::codec::Cardinality::Map),
+fn card_token(card: Card) -> TokenStream {
+    match card {
+        Card::Singular => quote!(crate::codec::Cardinality::Singular),
+        Card::Optional => quote!(crate::codec::Cardinality::Optional),
+        Card::Repeated => quote!(crate::codec::Cardinality::Repeated),
+        Card::Map => quote!(crate::codec::Cardinality::Map),
     }
 }
 
-fn cardinality_description(cardinality: &Cardinality) -> &'static str {
-    match cardinality {
-        Cardinality::Singular => "singular",
-        Cardinality::Optional => "optional (explicit presence)",
-        Cardinality::Repeated { .. } => "repeated",
-        Cardinality::Map { .. } => "map",
+fn card_description(card: Card) -> &'static str {
+    match card {
+        Card::Singular => "singular",
+        Card::Optional => "optional (explicit presence)",
+        Card::Repeated => "repeated",
+        Card::Map => "map",
+    }
+}
+
+/// Human form of the expected shape, for the assert message.
+fn describe(checks: &crate::resolve::FieldChecks) -> String {
+    if let Some((key, value)) = &checks.map_kinds {
+        return format!("a map<{}, {}>", kind_description(key), kind_description(value));
+    }
+    let cards = checks
+        .cardinalities
+        .iter()
+        .map(|card| card_description(*card))
+        .collect::<Vec<_>>()
+        .join(" or ");
+    match &checks.kind {
+        Some(kind) => format!("{cards} {}", kind_description(kind)),
+        None => cards,
     }
 }
 
@@ -80,6 +97,8 @@ fn field_asserts(plan: &FieldPlan, type_ident: &syn::Ident) -> TokenStream {
     )
 }
 
+/// One spanned shape assert per checked field: the field type's `SHAPE`
+/// against the descriptor's `Expect`.
 fn field_asserts_for(
     ty: &syn::Type,
     span: proc_macro2::Span,
@@ -87,89 +106,53 @@ fn field_asserts_for(
     checks: &crate::resolve::FieldChecks,
     type_ident: &syn::Ident,
 ) -> TokenStream {
-    let mut asserts = TokenStream::new();
-
-    if let Some(kind) = &checks.kind {
-        match kind_pattern(kind) {
-            Some(pattern) => {
-                let message = format!(
-                    "armonik: field of `{type_ident}` maps to proto field `{proto_path}` of kind {}, \
-                     but the Rust type has a different wire kind",
-                    kind_description(kind),
-                );
-                asserts.extend(quote_spanned! {span=>
-                    assert!(
-                        matches!(<#ty as crate::codec::ProtoField>::KIND, #pattern),
-                        #message
-                    );
-                });
-            }
-            None => asserts.extend(unsupported_kind_error(kind, proto_path, span)),
-        }
+    if checks.cardinalities.is_empty() {
+        // `FieldChecks::none()`: adapters, oneof groups, generic fields.
+        return TokenStream::new();
     }
-
-    if !checks.cardinalities.is_empty() {
-        let patterns = checks
-            .cardinalities
-            .iter()
-            .map(cardinality_pattern)
-            .collect::<Vec<_>>();
-        let expected = checks
-            .cardinalities
-            .iter()
-            .map(cardinality_description)
-            .collect::<Vec<_>>()
-            .join(" or ");
-        let message = format!(
-            "armonik: proto field `{proto_path}` is {expected}, but the Rust type of the \
-             corresponding field of `{type_ident}` has a different cardinality",
+    let kind_expr = match &checks.kind {
+        None => quote!(::core::option::Option::None),
+        Some(kind) => match kind_pattern(kind) {
+            Some(token) => quote!(::core::option::Option::Some(#token)),
+            None => return unsupported_kind_error(kind, proto_path, span),
+        },
+    };
+    let map_expr = match &checks.map_kinds {
+        None => quote!(::core::option::Option::None),
+        Some((key, value)) => match (kind_pattern(key), kind_pattern(value)) {
+            (Some(key_token), Some(value_token)) => {
+                quote!(::core::option::Option::Some((#key_token, #value_token)))
+            }
+            (key_token, _) => {
+                let unsupported = if key_token.is_none() { key } else { value };
+                return unsupported_kind_error(unsupported, proto_path, span);
+            }
+        },
+    };
+    let name_expr = match &checks.name {
+        None => quote!(::core::option::Option::None),
+        Some(name) => quote!(::core::option::Option::Some(#name)),
+    };
+    let cards = checks.cardinalities.iter().copied().map(card_token);
+    let message = format!(
+        "armonik: the Rust type of the field of `{type_ident}` mapping to proto field \
+         `{proto_path}` does not have the expected shape ({})",
+        describe(checks),
+    );
+    quote_spanned! {span=>
+        assert!(
+            crate::codec::shape_matches(
+                &<#ty as crate::codec::ProtoField>::SHAPE,
+                &crate::codec::Expect {
+                    kind: #kind_expr,
+                    cardinalities: &[#(#cards),*],
+                    name: #name_expr,
+                    map: #map_expr,
+                },
+            ),
+            #message
         );
-        asserts.extend(quote_spanned! {span=>
-            assert!(
-                matches!(<#ty as crate::codec::ProtoField>::CARDINALITY, #(#patterns)|*),
-                #message
-            );
-        });
     }
-
-    for name in &checks.names {
-        let message = format!(
-            "armonik: proto field `{proto_path}` has type `{name}`, which the Rust type of \
-             the corresponding field of `{type_ident}` does not stand for",
-        );
-        asserts.extend(quote_spanned! {span=>
-            assert!(
-                crate::codec::names_match(<#ty as crate::codec::ProtoField>::NAMES, #name),
-                #message
-            );
-        });
-    }
-
-    if let Some((key, value)) = &checks.map_kinds {
-        match (kind_pattern(key), kind_pattern(value)) {
-            (Some(key_pattern), Some(value_pattern)) => {
-                let message = format!(
-                    "armonik: proto map field `{proto_path}` is a map<{}, {}>, but the Rust map type \
-                     of the corresponding field of `{type_ident}` has different key/value kinds",
-                    kind_description(key),
-                    kind_description(value),
-                );
-                asserts.extend(quote_spanned! {span=>
-                    assert!(
-                        matches!(<#ty as crate::codec::ProtoField>::MAP_KEY_KIND, #key_pattern)
-                            && matches!(<#ty as crate::codec::ProtoField>::MAP_VALUE_KIND, #value_pattern),
-                        #message
-                    );
-                });
-            }
-            (key_pattern, _) => {
-                let unsupported = if key_pattern.is_none() { key } else { value };
-                asserts.extend(unsupported_kind_error(unsupported, proto_path, span));
-            }
-        }
-    }
-
-    asserts
 }
 
 /// A spanned compile error for a proto field whose wire kind the codec does
@@ -554,8 +537,8 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
     let proto_field = match &plan.mode {
         EnumMode::Plain { names } => quote! {
             impl crate::codec::ProtoField for #ident {
-                const KIND: crate::codec::FieldKind = crate::codec::FieldKind::Enum;
-                const NAMES: &'static [&'static str] = &[#(#names),*];
+                const SHAPE: crate::codec::Shape =
+                    crate::codec::Shape::enumeration(&[#(#names),*]);
 
                 fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
                     crate::codec::enumeration::encode(tag, value, buf);

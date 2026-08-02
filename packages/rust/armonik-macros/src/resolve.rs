@@ -9,7 +9,7 @@ use syn::spanned::Spanned;
 use crate::attrs::{self, AttrItem};
 use crate::descriptor::{DescriptorIndex, FieldMeta, MessageMeta};
 use crate::errors::Errors;
-use crate::kind::{Cardinality, FieldKind};
+use crate::kind::{Card, Cardinality, FieldKind};
 
 /// Plan for a plain (non-oneof) message struct.
 pub(crate) struct MessagePlan {
@@ -46,15 +46,16 @@ pub(crate) enum FieldCodec {
     OneofGroup { tags: Vec<u32> },
 }
 
-/// Compile-time checks emitted alongside the implementation.
+/// Compile-time checks emitted alongside the implementation, mirroring the
+/// codec-side `Expect` (one shape assert per checked field).
 pub(crate) struct FieldChecks {
+    /// `None` for map fields (their kinds live in `map_kinds`).
     pub(crate) kind: Option<FieldKind>,
     /// Acceptable runtime cardinalities (e.g. a singular message field may
     /// be either `Singular` or `Optional` in Rust).
-    pub(crate) cardinalities: Vec<Cardinality>,
-    /// Expected proto type names for message/enum (element) kinds; the
-    /// field type's `NAMES` must cover each.
-    pub(crate) names: Vec<String>,
+    pub(crate) cardinalities: Vec<Card>,
+    /// Expected proto type name for message/enum (element) kinds.
+    pub(crate) name: Option<String>,
     /// Expected map key/value kinds.
     pub(crate) map_kinds: Option<(FieldKind, FieldKind)>,
 }
@@ -64,7 +65,7 @@ impl FieldChecks {
         Self {
             kind: None,
             cardinalities: Vec::new(),
-            names: Vec::new(),
+            name: None,
             map_kinds: None,
         }
     }
@@ -600,28 +601,24 @@ fn expected_checks(field: &FieldMeta) -> FieldChecks {
     let mut checks = FieldChecks::none();
     // The Map arm is the outlier: it leaves `kind` unset, checks the
     // key/value kinds, and names the value type.
-    let cardinalities = match &field.cardinality {
+    checks.cardinalities = match &field.cardinality {
         Cardinality::Map { key, value } => {
-            checks.cardinalities = vec![Cardinality::map_marker()];
             checks.map_kinds = Some((key.clone(), value.clone()));
-            if let Some(name) = type_name(value) {
-                checks.names.push(name.to_owned());
-            }
-            return checks;
+            checks.name = type_name(value).map(str::to_owned);
+            vec![Card::Map]
         }
-        Cardinality::Repeated { .. } => vec![Cardinality::Repeated { packed: false }],
-        Cardinality::Optional => vec![Cardinality::Optional],
+        Cardinality::Repeated { .. } => vec![Card::Repeated],
+        Cardinality::Optional => vec![Card::Optional],
         // Singular message fields may be either plain ("absent = default")
         // or `Option` (presence-significant) in Rust.
         Cardinality::Singular if matches!(field.kind, FieldKind::Message(_)) => {
-            vec![Cardinality::Singular, Cardinality::Optional]
+            vec![Card::Singular, Card::Optional]
         }
-        Cardinality::Singular => vec![Cardinality::Singular],
+        Cardinality::Singular => vec![Card::Singular],
     };
-    checks.cardinalities = cardinalities;
-    checks.kind = Some(field.kind.clone());
-    if let Some(name) = type_name(&field.kind) {
-        checks.names.push(name.to_owned());
+    if checks.map_kinds.is_none() {
+        checks.kind = Some(field.kind.clone());
+        checks.name = type_name(&field.kind).map(str::to_owned);
     }
     checks
 }
@@ -630,17 +627,6 @@ fn type_name(kind: &FieldKind) -> Option<&str> {
     match kind {
         FieldKind::Message(name) | FieldKind::Enum(name) => Some(name),
         _ => None,
-    }
-}
-
-impl Cardinality {
-    /// Marker used by [`expected_checks`]; the payload is irrelevant for
-    /// runtime cardinality patterns.
-    fn map_marker() -> Self {
-        Cardinality::Map {
-            key: FieldKind::String,
-            value: FieldKind::String,
-        }
     }
 }
 
