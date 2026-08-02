@@ -36,11 +36,9 @@ pub(crate) enum FieldAccess {
 }
 
 pub(crate) enum FieldCodec {
-    /// Encoded through `ProtoField`.
-    Plain,
-    /// Encoded through `ProtoAdapter` (`#[armonik(with = "...")]`); skips
-    /// kind checks by design.
-    Adapter(Box<syn::Type>),
+    /// An ordinary field; `adapter` is the `#[armonik(with = "...")]` type
+    /// when present (which skips the shape checks by design).
+    Field { adapter: Option<Box<syn::Type>> },
     /// The field covers a whole oneof of the message and is encoded through
     /// `ProtoOneof`; `tags` are the member field tags routed to it.
     OneofGroup { tags: Vec<u32> },
@@ -363,18 +361,16 @@ pub(crate) fn message_plan(
             }
         }
 
-        let (codec, checks) = if let Some(adapter) = with {
-            (FieldCodec::Adapter(Box::new(adapter)), FieldChecks::none())
-        } else {
-            (FieldCodec::Plain, expected_checks(field_meta))
+        let checks = match &with {
+            Some(_) => FieldChecks::none(),
+            None => expected_checks(field_meta),
         };
-
         fields.push(FieldPlan {
             access,
             ty: field.ty.clone(),
             span,
             tag,
-            codec,
+            codec: FieldCodec::Field { adapter: with.map(Box::new) },
             checks,
             proto_path,
         });
@@ -486,7 +482,7 @@ fn transparent_plan(
         ty: field.ty.clone(),
         span: field.ty.span(),
         tag: 0,
-        codec: FieldCodec::Plain,
+        codec: FieldCodec::Field { adapter: None },
         checks: FieldChecks::none(),
         proto_path: String::new(),
     };
@@ -558,10 +554,6 @@ fn generic_plan(
             continue;
         };
 
-        let codec = match with {
-            Some(adapter) => FieldCodec::Adapter(Box::new(adapter)),
-            None => FieldCodec::Plain,
-        };
         let proto_path = format!(
             "{}.{}",
             input.ident,
@@ -576,7 +568,7 @@ fn generic_plan(
             ty: field.ty.clone(),
             span,
             tag,
-            codec,
+            codec: FieldCodec::Field { adapter: with.map(Box::new) },
             checks: FieldChecks::none(),
             proto_path,
         });
@@ -1130,16 +1122,13 @@ pub(crate) struct OneofVariant {
 }
 
 pub(crate) enum OneofVariantShape {
-    /// `Variant(T)` where `T: ProtoField` carries the member value.
+    /// `Variant(T)` carrying the member value, through its `ProtoField` impl
+    /// or a `ProtoAdapter` (`#[armonik(with = "...")]`, which skips the
+    /// shape checks by design).
     Payload {
         ty: Box<syn::Type>,
+        adapter: Option<Box<syn::Type>>,
         checks: Box<FieldChecks>,
-    },
-    /// `Variant(T)` encoded through a `ProtoAdapter`
-    /// (`#[armonik(with = "...")]`); skips kind checks by design.
-    Adapter {
-        ty: Box<syn::Type>,
-        adapter: Box<syn::Type>,
     },
     /// `Variant { payload, ...siblings }` in a whole-message enum with
     /// sibling fields: one member payload plus every non-oneof field.
@@ -1400,9 +1389,10 @@ fn resolve_adapter_variant(
     }
     match &ctx.variant.fields {
         syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            Ok(OneofVariantShape::Adapter {
+            Ok(OneofVariantShape::Payload {
                 ty: Box::new(fields.unnamed[0].ty.clone()),
-                adapter: Box::new(adapter),
+                adapter: Some(Box::new(adapter)),
+                checks: Box::new(FieldChecks::none()),
             })
         }
         _ => {
@@ -1454,6 +1444,7 @@ fn resolve_plain_variant(
         syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
             Ok(OneofVariantShape::Payload {
                 ty: Box::new(fields.unnamed[0].ty.clone()),
+                adapter: None,
                 checks: Box::new(expected_checks(ctx.field_meta)),
             })
         }
