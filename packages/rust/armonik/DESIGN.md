@@ -185,14 +185,16 @@ distinct. At expansion time the macro:
    the file is missing, i.e. build scripts have not run);
 2. resolves the message named by `#[armonik(message = "…")]` and matches Rust
    fields against proto fields **by name** (renames via attribute);
-3. pulls tag, wire kind, cardinality, packedness from the descriptor —
-   nothing is duplicated in the source;
+3. pulls tag, wire kind and cardinality from the descriptor — nothing is
+   duplicated in the source (packedness is decided by the Rust element
+   type's `ProtoField` impl);
 4. validates: unknown field, type/kind mismatch, missing proto field
    (completeness), proto3 explicit-`optional` scalar not mapped to `Option` —
    all **spanned compile errors** naming both sides;
 5. emits the `prost::Message` impl (`encode_raw`, `merge_field`,
    `encoded_len`, `clear`) built from `prost::encoding::*` helpers, plus a
-   `ProtoField` impl so the type composes as a field of other messages;
+   one-line `Msg` impl — picked up by the codec's blanket message-kind
+   `ProtoField` impl — so the type composes as a field of other messages;
 6. emits the staleness tripwire:
    `const _: () = assert!(crate::__schema::DESCRIPTOR_FINGERPRINT == <seen>);`
    — if any caching layer ever replays an expansion against a newer
@@ -208,19 +210,29 @@ fingerprint proves the two agree.
 Wire representation is chosen by the type system, not guessed from syntax:
 
 ```rust
-pub trait ProtoField {
-    const KIND: FieldKind;                       // checked against descriptor
-    fn encode(tag: u32, value: &Self, buf: &mut impl BufMut);
-    fn merge(wire: WireType, value: &mut Self, buf: &mut impl Buf, ctx: DecodeContext) -> Result<…>;
-    fn encoded_len(tag: u32, value: &Self) -> usize;
+pub(crate) trait ProtoField: Default + PartialEq {
+    const SHAPE: Shape;                          // kind/cardinality/names/map — one
+                                                 // derive-emitted assert per field
+                                                 // checks it against the descriptor
+    fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut);
+    fn merge_field(wire: WireType, value: &mut Self, buf: &mut impl Buf, ctx: DecodeContext) -> Result<…>;
+    fn encoded_len_field(tag: u32, value: &Self) -> usize;
+    fn is_default(value: &Self) -> bool;         // proto3 implicit presence
+    // + nondefault/repeated forms with unpacked defaults
 }
 ```
 
-Implementations: scalars, `String`, `bytes::Bytes`, `Vec<T>` (repeated,
-packed where the proto says so), `HashMap<K, V>`, `Option<T>` (presence),
-`prost_types::{Timestamp, Duration}` (message fields, kept as public API
-types), and — emitted by the derives themselves — every armonik message and
-enum type. No blanket impls, so no coherence hazards.
+Concrete implementations: scalars, `String`, `bytes::Bytes`, `Vec<T>`
+(repeated, packed for the numeric kinds), `HashMap<K, V>`, `Option<T>`
+(presence), and plain proto enums (emitted by `derive(Enum)`). Every
+message-shaped type — derived messages, transparent wrapper enums, the
+well-known types — instead carries a one-line `Msg` marker impl
+(`NAMES` + `ALWAYS_PRESENT`), and a single blanket
+`impl<T: Msg> ProtoField for T` frames it through `prost::encoding::message`.
+The blanket is coherence-safe because `Msg` is crate-local: rustc knows the
+concrete impls on foreign types can never overlap it. A type implements
+`Msg` XOR a concrete `ProtoField` (a second blanket for enums would be
+E0119, which is why plain enums keep concrete impls).
 
 #### Attribute vocabulary
 
@@ -294,17 +306,22 @@ proto shape. Concrete case: `GetOwnerTaskIdResponse.result_task` is
 #[derive(armonik::Message)]
 #[armonik(message = "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse")]
 pub struct Response {
-    #[armonik(with = "adapters::pair_map")]
+    #[armonik(with = "crate::codec::adapters::PairMap<1, 2>")]
     pub result_task: HashMap<String, String>,
     pub session_id: String,
 }
 ```
 
-The module provides `encode`/`merge`/`encoded_len` (tag still supplied from
-the descriptor). The crate ships generic building blocks (`pair_map` over
-key-tag/value-tag) so a new adapter is a few lines. `with` fields skip the
-kind check — the adapter is asserting a non-standard mapping on purpose —
-and are covered by the differential harness instead.
+The named type implements `ProtoAdapter<T>` (`encode_field`/`merge_field`/
+`encoded_len_field`/`is_default`, tag still supplied from the descriptor;
+`ProtoField` and `ProtoAdapter` share method names, so the emitter only
+switches the dispatch prefix). The crate ships generic building blocks —
+`PairMap` (delegating to prost's real-map codec) and `Wrapper<TAG>` (a
+single-field wrapper message flattened to its `String`/`Vec` payload) — so
+a new adapter is a few lines. `with` fields skip the shape check — the
+adapter is asserting a non-standard mapping on purpose — and are covered by
+the differential harness instead (each adapter also declares its value-level
+loss through `normalize_dynamic`).
 
 ### 3.6 Presence semantics
 
