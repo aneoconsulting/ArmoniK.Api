@@ -23,24 +23,22 @@ fn body_len<T: Copy + Into<i32>>(path: &[u32], value: &T) -> usize {
     }
 }
 
-pub(crate) fn encode<T: Copy + Into<i32>>(
-    tag: u32,
-    path: &[u32],
-    value: &T,
-    buf: &mut impl BufMut,
-) {
+// Field forms of an inner wrapper (key + delimited body), used by the
+// recursion below; the OUTERMOST wrapper is framed by the blanket
+// message-kind `ProtoField` impl over the type's `prost::Message` impl.
+fn encode<T: Copy + Into<i32>>(tag: u32, path: &[u32], value: &T, buf: &mut impl BufMut) {
     let len = body_len(path, value);
     encoding::encode_key(tag, WireType::LengthDelimited, buf);
     encoding::encode_varint(len as u64, buf);
     encode_raw(path, value, buf);
 }
 
-pub(crate) fn encoded_len<T: Copy + Into<i32>>(tag: u32, path: &[u32], value: &T) -> usize {
+fn encoded_len<T: Copy + Into<i32>>(tag: u32, path: &[u32], value: &T) -> usize {
     let len = body_len(path, value);
     key_len(tag) + encoding::encoded_len_varint(len as u64) + len
 }
 
-pub(crate) fn merge<T: Copy + Into<i32> + From<i32>>(
+fn merge<T: Copy + Into<i32> + From<i32>>(
     path: &[u32],
     wire_type: WireType,
     value: &mut T,
@@ -76,15 +74,6 @@ fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
         }
     }
     Ok(())
-}
-
-/// Wrapper enums are always emitted (a zero value encodes as an empty
-/// wrapper), preserving the absent-vs-explicit-zero distinction that fields
-/// with a non-zero API default rely on — exactly like the historical
-/// `Some(wrapper)` conversions.
-pub(crate) fn is_default<T: Copy + Into<i32>>(value: &T) -> bool {
-    let _ = value;
-    false
 }
 
 // Body forms of the outermost wrapper (no containing field key), for the

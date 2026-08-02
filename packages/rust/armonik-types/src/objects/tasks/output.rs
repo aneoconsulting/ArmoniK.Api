@@ -2,7 +2,7 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
-use crate::codec::{FieldKind, ProtoAdapter, ProtoField};
+use crate::codec::{ProtoAdapter, ProtoField};
 
 /// Represents the task output.
 ///
@@ -127,38 +127,10 @@ impl crate::differential::Normalize for Output {
 // the "every impl is harvested" invariant.
 crate::register!(message: Output, "armonik.api.grpc.v1.tasks.TaskDetailed.Output");
 
-impl ProtoField for Output {
-    const KIND: FieldKind = FieldKind::Message;
+// As a field, `Output` is an ordinary message: the blanket message-kind
+// `ProtoField` impl frames the hand-written `prost::Message` impl above.
+impl crate::codec::Msg for Output {
     const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.tasks.TaskDetailed.Output"];
-
-    fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
-        ::prost::encoding::message::encode(tag, value, buf);
-    }
-
-    fn merge_field(
-        wire_type: WireType,
-        value: &mut Self,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), DecodeError> {
-        ::prost::encoding::message::merge(wire_type, value, buf, ctx)
-    }
-
-    fn encoded_len_field(tag: u32, value: &Self) -> usize {
-        ::prost::encoding::message::encoded_len(tag, value)
-    }
-
-    fn is_default(value: &Self) -> bool {
-        crate::codec::message_is_default(value)
-    }
-
-    fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
-        ::prost::encoding::message::encode_repeated(tag, values, buf);
-    }
-
-    fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-        ::prost::encoding::message::encoded_len_repeated(tag, values)
-    }
 }
 
 /// `TaskSummary.error` (a plain string field) exposed as an [`Output`]: an

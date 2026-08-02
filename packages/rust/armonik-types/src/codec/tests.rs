@@ -726,49 +726,11 @@ impl Message for TestInitTask {
     }
 }
 
-/// The derives also emit a [`ProtoField`] impl for every message type so it
+/// The derives also emit a [`Msg`](super::Msg) impl for every message type —
+/// the blanket message-kind [`ProtoField`] impl picks it up so the type
 /// composes as a field of other messages; this is its template.
-impl ProtoField for TestOptions {
-    const KIND: FieldKind = FieldKind::Message;
+impl super::Msg for TestOptions {
     const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.TaskOptions"];
-
-    fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
-        message_codec::encode(tag, value, buf);
-    }
-
-    fn merge_field(
-        wire_type: WireType,
-        value: &mut Self,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        message_codec::merge(wire_type, value, buf, ctx)
-    }
-
-    fn encoded_len_field(tag: u32, value: &Self) -> usize {
-        message_codec::encoded_len(tag, value)
-    }
-
-    fn is_default(value: &Self) -> bool {
-        super::message_is_default(value)
-    }
-
-    fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
-        message_codec::encode_repeated(tag, values, buf);
-    }
-
-    fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-        message_codec::encoded_len_repeated(tag, values)
-    }
-
-    fn merge_repeated(
-        wire_type: WireType,
-        values: &mut Vec<Self>,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        message_codec::merge_repeated(wire_type, values, buf, ctx)
-    }
 }
 
 #[test]
