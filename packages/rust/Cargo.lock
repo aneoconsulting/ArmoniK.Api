@@ -85,6 +85,7 @@ version = "3.29.2-beta-0"
 dependencies = [
  "base64",
  "bytes",
+ "fastrand",
  "humantime",
  "hyper",
  "hyper-rustls",

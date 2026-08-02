@@ -21,6 +21,7 @@ env = ["serde"]
 # `http`/`tokio_stream` re-exports a dependent reaches through this crate.
 tonic = { workspace = true, features = ["channel", "codegen"] }
 snafu.workspace = true
+fastrand.workspace = true
 tracing.workspace = true
 hyper = { workspace = true, features = ["client", "http1", "http2"] }
 # `client-legacy` for `HttpConnector`, which this crate names: `hyper-rustls` happens to turn it on, and

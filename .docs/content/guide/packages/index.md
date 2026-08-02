@@ -20,6 +20,11 @@ The ArmoniK Team provides a set of packages generated on top the ArmoniK Api to 
 
 - [armonik](https://pypi.org/project/armonik/)
 
+## Rust packages
+
+- [armonik](https://crates.io/crates/armonik)
+- [armonik-transport](https://crates.io/crates/armonik-transport)
+
 ## JavaScript packages
 
 - [@aneoconsultingfr/armonik.api](https://www.npmjs.com/package/@aneoconsultingfr/armonik.api)

@@ -4,6 +4,7 @@ use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use snafu::{OptionExt, ResultExt, Snafu};
 
+use crate::retry::RetryPolicy;
 use crate::secret::Secret;
 
 /// Where to find the HTTP proxy used to reach the endpoint.
@@ -126,6 +127,13 @@ pub struct HttpConfig {
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
     pub proxy: ProxyConfig,
+    /// When a failed request is worth sending again, defaulting to what the other clients do.
+    ///
+    /// `connect` does not read this: a channel has no notion of a call, so replaying is the business
+    /// of whoever makes one. It travels here so that every caller configures it the same way, taking
+    /// effect only where the [`crate::retry!`] macro is used explicitly. `max_attempts` of 1 never
+    /// replays.
+    pub retry: RetryPolicy,
 }
 
 impl Clone for HttpConfig {
@@ -152,6 +160,7 @@ impl Clone for HttpConfig {
             http2_max_header_list_size: self.http2_max_header_list_size,
             user_agent: self.user_agent.clone(),
             proxy: self.proxy.clone(),
+            retry: self.retry.clone(),
         }
     }
 }
@@ -222,6 +231,27 @@ pub struct ClientConfigArgs {
     /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
     /// [`Secret`].
     pub proxy_password: Secret,
+    /// Attempts in all for one request, first try included. Empty for the default, `1` never replays
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub max_attempts: String,
+    /// Wait before the second attempt (e.g. `1s`), empty for the default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub initial_backoff: String,
+    /// Ceiling the wait grows to (e.g. `5s`), empty for the default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub max_backoff: String,
+    /// What each wait is multiplied by, empty for the default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub backoff_multiplier: String,
+    /// Status codes worth sending a request again for, comma separated, empty for the default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub retryable_status_codes: String,
+    /// Bytes of a streamed request that may be held so it can be sent again, empty for the default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub max_retry_buffer_per_call: String,
+    /// Largest single request still worth sending again, in bytes, empty for the default
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub max_retry_unary_size: String,
 }
 
 /// Reads `path` and parses it as one PEM-encoded certificate.
@@ -325,7 +355,16 @@ impl HttpConfig {
             proxy,
             proxy_username,
             proxy_password,
+            max_attempts,
+            initial_backoff,
+            max_backoff,
+            backoff_multiplier,
+            retryable_status_codes,
+            max_retry_buffer_per_call,
+            max_retry_unary_size,
         } = args;
+
+        let defaults = RetryPolicy::default();
 
         let cacert = if ca_cert.is_empty() {
             None
@@ -602,8 +641,126 @@ impl HttpConfig {
             http2_max_header_list_size,
             user_agent,
             proxy,
+            retry: RetryPolicy {
+                max_attempts: parse_or("MaxAttempts", &max_attempts, defaults.max_attempts)?,
+                initial_backoff: parse_duration_or(
+                    "InitialBackoff",
+                    &initial_backoff,
+                    defaults.initial_backoff,
+                )?,
+                max_backoff: parse_duration_or("MaxBackoff", &max_backoff, defaults.max_backoff)?,
+                backoff_multiplier: parse_or(
+                    "BackoffMultiplier",
+                    &backoff_multiplier,
+                    defaults.backoff_multiplier,
+                )?,
+                retryable_status_codes: parse_codes(
+                    &retryable_status_codes,
+                    defaults.retryable_status_codes,
+                )?,
+                max_buffer_per_call: parse_or(
+                    "MaxRetryBufferPerCall",
+                    &max_retry_buffer_per_call,
+                    defaults.max_buffer_per_call,
+                )?,
+                max_unary_size: parse_or(
+                    "MaxRetryUnarySize",
+                    &max_retry_unary_size,
+                    defaults.max_unary_size,
+                )?,
+            },
         })
     }
+}
+
+/// Read a retry option that parses itself, or keep the default when it says nothing.
+fn parse_or<T>(option: &str, value: &str, default: T) -> Result<T, ConfigError>
+where
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    if value.is_empty() {
+        return Ok(default);
+    }
+    value.parse().map_err(|error: T::Err| {
+        InvalidRetryOptionSnafu {
+            option: option.to_owned(),
+            value: value.to_owned(),
+            reason: error.to_string(),
+        }
+        .build()
+    })
+}
+
+fn parse_duration_or(
+    option: &str,
+    value: &str,
+    default: Duration,
+) -> Result<Duration, ConfigError> {
+    if value.is_empty() {
+        return Ok(default);
+    }
+    value
+        .parse::<humantime::Duration>()
+        .map(Into::into)
+        .map_err(|error| {
+            InvalidRetryOptionSnafu {
+                option: option.to_owned(),
+                value: value.to_owned(),
+                reason: format!("{error}, expected something like `1s` or `500ms`"),
+            }
+            .build()
+        })
+}
+
+/// The status codes worth a replay, by name, as the other clients spell them.
+///
+/// Written out because `tonic::Code` parses none: matching on its `Debug` output would tie the
+/// vocabulary to a formatting detail.
+fn parse_codes(value: &str, default: Vec<tonic::Code>) -> Result<Vec<tonic::Code>, ConfigError> {
+    if value.is_empty() {
+        return Ok(default);
+    }
+
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(|name| {
+            parse_code(name).ok_or_else(|| {
+                InvalidRetryOptionSnafu {
+                    option: String::from("RetryableStatusCodes"),
+                    value: value.to_owned(),
+                    reason: format!("`{name}` is not a gRPC status code"),
+                }
+                .build()
+            })
+        })
+        .collect()
+}
+
+fn parse_code(name: &str) -> Option<tonic::Code> {
+    let code = match name.to_ascii_lowercase().as_str() {
+        "ok" => tonic::Code::Ok,
+        "cancelled" | "canceled" => tonic::Code::Cancelled,
+        "unknown" => tonic::Code::Unknown,
+        "invalidargument" => tonic::Code::InvalidArgument,
+        "deadlineexceeded" => tonic::Code::DeadlineExceeded,
+        "notfound" => tonic::Code::NotFound,
+        "alreadyexists" => tonic::Code::AlreadyExists,
+        "permissiondenied" => tonic::Code::PermissionDenied,
+        "resourceexhausted" => tonic::Code::ResourceExhausted,
+        "failedprecondition" => tonic::Code::FailedPrecondition,
+        "aborted" => tonic::Code::Aborted,
+        "outofrange" => tonic::Code::OutOfRange,
+        "unimplemented" => tonic::Code::Unimplemented,
+        "internal" => tonic::Code::Internal,
+        "unavailable" => tonic::Code::Unavailable,
+        "dataloss" => tonic::Code::DataLoss,
+        "unauthenticated" => tonic::Code::Unauthenticated,
+        _ => return None,
+    };
+    Some(code)
 }
 
 /// As ArmoniK's other clients spell it: empty is a direct connection, `none` disables proxying,
@@ -751,6 +908,15 @@ pub enum ConfigError {
         source: std::num::ParseIntError,
         option: &'static str,
         value: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("`{option}={value}` is not valid: {reason} [{location}]"))]
+    #[non_exhaustive]
+    InvalidRetryOption {
+        option: String,
+        value: String,
+        reason: String,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -1465,6 +1631,92 @@ mod tests {
                 error.contains("is not a valid proxy URL"),
                 "unexpected error for {value:?}: {error}"
             );
+        }
+    }
+
+    // --- retry ---
+
+    #[test]
+    fn the_retry_options_default_to_what_the_other_clients_do() {
+        let config = ClientConfig::from_config_args(args()).expect("configuration");
+
+        assert_eq!(config.retry, RetryPolicy::default());
+    }
+
+    #[test]
+    fn each_retry_option_is_read() {
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            max_attempts: String::from("3"),
+            initial_backoff: String::from("250ms"),
+            max_backoff: String::from("2s"),
+            backoff_multiplier: String::from("3"),
+            retryable_status_codes: String::from("Unavailable, deadlineexceeded"),
+            max_retry_buffer_per_call: String::from("4096"),
+            max_retry_unary_size: String::from("2048"),
+            ..args()
+        })
+        .expect("configuration");
+
+        assert_eq!(config.retry.max_attempts, 3);
+        assert_eq!(config.retry.initial_backoff, Duration::from_millis(250));
+        assert_eq!(config.retry.max_backoff, Duration::from_secs(2));
+        assert_eq!(config.retry.backoff_multiplier, 3.0);
+        assert_eq!(
+            config.retry.retryable_status_codes,
+            [tonic::Code::Unavailable, tonic::Code::DeadlineExceeded],
+            "spacing and case are the caller's, not ours"
+        );
+        assert_eq!(config.retry.max_buffer_per_call, 4096);
+        assert_eq!(config.retry.max_unary_size, 2048);
+    }
+
+    #[test]
+    fn one_attempt_is_a_client_that_never_replays() {
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            max_attempts: String::from("1"),
+            ..args()
+        })
+        .expect("configuration");
+
+        assert_eq!(config.retry.bounds().count(), 0);
+    }
+
+    #[test]
+    fn a_retry_option_that_does_not_parse_names_itself() {
+        // A dozen options go through the same three parsers, so the message has to say which one was
+        // wrong, and with what.
+        for (args, option, value) in [
+            (
+                ClientConfigArgs {
+                    max_attempts: String::from("many"),
+                    ..args()
+                },
+                "MaxAttempts",
+                "many",
+            ),
+            (
+                ClientConfigArgs {
+                    initial_backoff: String::from("a while"),
+                    ..args()
+                },
+                "InitialBackoff",
+                "a while",
+            ),
+            (
+                ClientConfigArgs {
+                    retryable_status_codes: String::from("Unavailable,Nonsense"),
+                    ..args()
+                },
+                "RetryableStatusCodes",
+                "Nonsense",
+            ),
+        ] {
+            let error = ClientConfig::from_config_args(args)
+                .expect_err("an unparseable option must be rejected")
+                .to_string();
+
+            assert!(error.contains(option), "{error}");
+            assert!(error.contains(value), "{error}");
         }
     }
 }

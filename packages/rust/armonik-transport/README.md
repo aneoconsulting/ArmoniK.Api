@@ -7,6 +7,44 @@ Depend on it when you need the connection layer without generated protobuf types
 `protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
 wants the services as well needs only that one.
 
+## What it does, and what it leaves to you
+
+It turns a set of options into a connected `tonic::transport::Channel`. That is the whole job.
+
+It does **not** go looking for those options on its own. Nothing here reads an environment variable
+unless asked to: `ClientConfigArgs::from_env`, behind the `env` feature, is offered because a variable
+per option is the common case, not because `connect` calls it itself. `armonik` configures that
+reading with its own `GrpcClient__` prefix; a host application binding through a C ABI hands over a
+JSON document instead. The one exception is `ProxySource::System`, which reads `HTTPS_PROXY` and
+`NO_PROXY` because that is a convention every HTTP client obeys rather than a setting of ArmoniK's.
+
+It also has no notion of a *call*. A channel carries requests; deadlines, cancellation and replay are
+properties of a call, so they belong to the layer that makes one. What this crate offers there is
+inert material, described under [Replaying a failed request](#replaying-a-failed-request).
+
+## Connecting
+
+`ClientConfigArgs` is the string form of every option, the shape a caller fills in.
+`ClientConfig::from_config_args` parses it, and `connect` opens the channel.
+
+```rust,no_run
+use armonik_transport::{ClientConfig, ClientConfigArgs};
+
+# async fn example() -> Result<(), Box<dyn std::error::Error>> {
+let config = ClientConfig::from_config_args(ClientConfigArgs {
+    endpoint: String::from("https://localhost:5001"),
+    ca_cert: String::from("ca.pem"),
+    ..Default::default()
+})?;
+
+let channel = armonik_transport::connect(config).await?;
+# Ok(())
+# }
+```
+
+With the `serde` feature, `ClientConfigArgs` deserialises from any format serde supports, which is how
+a caller that is not written in Rust supplies its options.
+
 ## TLS and mutual TLS
 
 `ca_cert` authenticates the server; `cert_pem` and `key_pem` together are the client's own identity
@@ -56,6 +94,59 @@ each is pinned by a test named `known_issue_*`, in `tests/proxy.rs` or `tests/up
 Track fixing the first two upstream through
 [hyperium/hyper-util#300](https://github.com/hyperium/hyper-util/pull/300) and the ArmoniK.Api issue
 tracker.
+
+## Replaying a failed request
+
+The policy lives here; the loop runs in your code.
+
+`RetryPolicy` carries what the other ArmoniK clients use by default: five attempts, one second growing
+by 1.5 to a five-second ceiling, replaying on `Unavailable`, `Aborted` and `Unknown`. The waits follow
+the gRPC specification, `random(0, min(initial * multiplier^n, max))`, drawn uniformly *below* the
+computed delay rather than added to it.
+
+Driving it is the `retry!` macro, which expands in your own function so that each attempt can borrow
+the client it is made on:
+
+```
+use armonik_transport::{GrpcStatus, RetryPolicy};
+use armonik_transport::reexports::tonic;
+
+# let runtime = armonik_transport::reexports::tokio::runtime::Builder::new_current_thread()
+#     .enable_time()
+#     .build()
+#     .unwrap();
+# runtime.block_on(async {
+// Waits of zero, so the example does not sleep. Left alone the policy waits about a second.
+let mut policy = RetryPolicy::default();
+policy.initial_backoff = std::time::Duration::ZERO;
+policy.max_backoff = std::time::Duration::ZERO;
+
+let mut attempts = 0;
+
+let outcome: Result<u32, tonic::Status> = armonik_transport::retry! {
+    policy = Some(policy),
+    code = GrpcStatus::grpc_code,
+    // Evaluated afresh each turn: sending consumes a request, so make a new one.
+    attempt = {
+        attempts += 1;
+        if attempts < 3 {
+            Err(tonic::Status::unavailable("not yet"))
+        } else {
+            Ok(attempts)
+        }
+    }
+};
+
+assert_eq!(outcome.unwrap(), 3);
+# });
+```
+
+You decide what may be replayed at all, because only you know it: whether the method is unary, whether
+anything has already reached your own caller, and whether the request can still be reproduced. A
+`policy` of `None` runs the attempt once.
+
+The wait is a plain `.await`, so dropping the future abandons it immediately. Wrap the whole expansion
+in a deadline rather than checking between attempts, or the deadline will not cut a backoff short.
 
 ## Publishing
 
