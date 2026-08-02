@@ -82,6 +82,122 @@ pub(crate) struct FieldPlan {
     pub(crate) proto_path: String,
 }
 
+/// Field-or-oneof lookup with coverage over one proto message: resolves
+/// names, records what was consumed, reports misses with the sorted
+/// "available:" list, and turns leftovers into completeness errors. One per
+/// unified message in [`message_plan`]; also drives inline struct variants.
+struct Matcher<'a> {
+    message_name: &'a str,
+    meta: &'a MessageMeta,
+    consumed: Vec<bool>,
+    consumed_oneofs: Vec<bool>,
+}
+
+enum Found<'a> {
+    Field(&'a FieldMeta),
+    Oneof { tags: Vec<u32> },
+}
+
+impl<'a> Matcher<'a> {
+    fn new(message_name: &'a str, meta: &'a MessageMeta) -> Self {
+        Self {
+            message_name,
+            meta,
+            consumed: vec![false; meta.fields.len()],
+            consumed_oneofs: vec![false; meta.oneofs.len()],
+        }
+    }
+
+    /// Look `proto_name` up among the message's fields and oneofs, marking
+    /// it consumed. `None` (with a spanned error) when nothing matches or
+    /// the field can only be mapped through its oneof.
+    fn find(&mut self, proto_name: &str, span: Span, errors: &mut Errors) -> Option<Found<'a>> {
+        if let Some(position) = self
+            .meta
+            .fields
+            .iter()
+            .position(|field| field.name == proto_name)
+        {
+            self.consumed[position] = true;
+            let field = &self.meta.fields[position];
+            if field.oneof.is_some() {
+                errors.push(syn::Error::new(
+                    span,
+                    format!(
+                        "proto field `{}.{proto_name}` belongs to a oneof; \
+                         map the whole oneof to one field named after it",
+                        self.message_name
+                    ),
+                ));
+                return None;
+            }
+            return Some(Found::Field(field));
+        }
+        if let Some((index, oneof)) = self.meta.oneof(proto_name) {
+            self.consumed_oneofs[index] = true;
+            let tags = oneof
+                .fields
+                .iter()
+                .map(|&field| self.meta.fields[field].tag)
+                .collect();
+            return Some(Found::Oneof { tags });
+        }
+        let mut available: Vec<&str> = self
+            .meta
+            .fields
+            .iter()
+            .map(|field| field.name.as_str())
+            .chain(self.meta.oneofs.iter().map(|oneof| oneof.name.as_str()))
+            .collect();
+        available.sort_unstable();
+        errors.push(syn::Error::new(
+            span,
+            format!(
+                "no field or oneof named `{proto_name}` in proto message `{}` \
+                 (available: {}); use #[armonik(rename = \"...\")] if the names differ",
+                self.message_name,
+                available.join(", ")
+            ),
+        ));
+        None
+    }
+
+    /// Completeness: every uncovered proto field and oneof is an error at
+    /// `at`. A field is covered through its oneof when the oneof was mapped
+    /// whole; a oneof is covered when every member was mapped individually.
+    fn check_complete(&self, at: Span, errors: &mut Errors) {
+        for (position, field) in self.meta.fields.iter().enumerate() {
+            let in_oneof_group = field
+                .oneof
+                .is_some_and(|oneof| self.consumed_oneofs[oneof]);
+            if !self.consumed[position] && !in_oneof_group {
+                errors.push(syn::Error::new(
+                    at,
+                    format!(
+                        "proto field `{}.{}` (tag {}) is not covered by any Rust field",
+                        self.message_name, field.name, field.tag
+                    ),
+                ));
+            }
+        }
+        for (index, oneof) in self.meta.oneofs.iter().enumerate() {
+            let members_covered = oneof
+                .fields
+                .iter()
+                .all(|&field| self.consumed[field]);
+            if !self.consumed_oneofs[index] && !members_covered {
+                errors.push(syn::Error::new(
+                    at,
+                    format!(
+                        "proto oneof `{}.{}` is not covered by any Rust field",
+                        self.message_name, oneof.name
+                    ),
+                ));
+            }
+        }
+    }
+}
+
 pub(crate) fn message_plan(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
@@ -184,15 +300,9 @@ pub(crate) fn message_plan(
     };
 
     let mut fields = Vec::new();
-    // Proto fields consumed per message, for the completeness check
-    // (indices into `MessageMeta::fields`).
-    let mut consumed: Vec<Vec<bool>> = messages
+    let mut matchers: Vec<Matcher> = messages
         .iter()
-        .map(|(_, meta)| vec![false; meta.fields.len()])
-        .collect();
-    let mut consumed_oneofs: Vec<Vec<bool>> = messages
-        .iter()
-        .map(|(_, meta)| vec![false; meta.oneofs.len()])
+        .map(|(name, meta)| Matcher::new(name, meta))
         .collect();
 
     for (field_index, field) in data.fields.iter().enumerate() {
@@ -241,129 +351,84 @@ pub(crate) fn message_plan(
 
         // Resolve against every proto message the type stands for; all of
         // them must agree on the wire contract.
-        let mut resolved: Option<(u32, &FieldMeta)> = None;
-        let mut oneof_group: Option<Vec<u32>> = None;
+        let mut resolved: Option<Found> = None;
         let mut failed = false;
-        for (message_index, (message_name, meta)) in messages.iter().enumerate() {
-            if let Some(field_meta) = meta.field(&proto_name) {
-                let position = meta
-                    .fields
-                    .iter()
-                    .position(|candidate| candidate.name == proto_name)
-                    .expect("field was found by name");
-                consumed[message_index][position] = true;
-
-                if field_meta.oneof.is_some() {
-                    errors.push(syn::Error::new(
-                        span,
-                        format!(
-                            "proto field `{message_name}.{proto_name}` belongs to a oneof; \
-                             map the whole oneof to one field named after it"
-                        ),
-                    ));
-                    failed = true;
-                } else if let Some((_, previous)) = &resolved {
-                    if previous.tag != field_meta.tag
-                        || previous.kind != field_meta.kind
-                        || previous.cardinality != field_meta.cardinality
-                    {
+        for matcher in &mut matchers {
+            let Some(found) = matcher.find(&proto_name, span, &mut errors) else {
+                failed = true;
+                continue;
+            };
+            match &resolved {
+                None => resolved = Some(found),
+                Some(previous) => {
+                    let agree = match (previous, &found) {
+                        (Found::Field(a), Found::Field(b)) => {
+                            a.tag == b.tag && a.kind == b.kind && a.cardinality == b.cardinality
+                        }
+                        (Found::Oneof { tags: a }, Found::Oneof { tags: b }) => a == b,
+                        _ => false,
+                    };
+                    if !agree {
                         errors.push(syn::Error::new(
                             span,
                             format!(
-                                "unified messages disagree on field `{proto_name}` \
+                                "unified messages disagree on `{proto_name}` \
                                  (tag/kind/cardinality differ); it cannot be derived"
                             ),
                         ));
                         failed = true;
                     }
-                } else {
-                    resolved = Some((field_meta.tag, field_meta));
                 }
-            } else if let Some((oneof_index, oneof)) = meta.oneof(&proto_name) {
-                consumed_oneofs[message_index][oneof_index] = true;
-                let tags: Vec<u32> = oneof
-                    .fields
-                    .iter()
-                    .map(|&field| meta.fields[field].tag)
-                    .collect();
-                if let Some(previous) = &oneof_group {
-                    if *previous != tags {
-                        errors.push(syn::Error::new(
-                            span,
-                            format!(
-                                "unified messages disagree on oneof `{proto_name}`; \
-                                 it cannot be derived"
-                            ),
-                        ));
-                        failed = true;
-                    }
-                } else {
-                    oneof_group = Some(tags);
-                }
-            } else {
-                let mut available: Vec<&str> = meta
-                    .fields
-                    .iter()
-                    .map(|field| field.name.as_str())
-                    .chain(meta.oneofs.iter().map(|oneof| oneof.name.as_str()))
-                    .collect();
-                available.sort_unstable();
-                errors.push(syn::Error::new(
-                    span,
-                    format!(
-                        "no field or oneof named `{proto_name}` in proto message \
-                         `{message_name}` (available: {}); use \
-                         #[armonik(rename = \"...\")] if the names differ",
-                        available.join(", ")
-                    ),
-                ));
-                failed = true;
             }
         }
+        let Some(resolved) = resolved else { continue };
         if failed {
             continue;
         }
 
         let proto_path = format!("{}.{proto_name}", messages[0].0);
 
-        if let Some(tags) = oneof_group {
-            if with.is_some() || explicit_tag.is_some() {
-                errors.push(syn::Error::new(
+        let (tag, checks) = match resolved {
+            Found::Oneof { tags } => {
+                if with.is_some() || explicit_tag.is_some() {
+                    errors.push(syn::Error::new(
+                        span,
+                        "with/tag attributes are not supported on oneof fields",
+                    ));
+                    continue;
+                }
+                let min_tag = tags.iter().copied().min().unwrap_or_default();
+                fields.push(FieldPlan {
+                    access,
+                    ty: field.ty.clone(),
                     span,
-                    "with/tag attributes are not supported on oneof fields",
-                ));
+                    tag: min_tag,
+                    codec: FieldCodec::OneofGroup { tags },
+                    checks: FieldChecks::none(),
+                    proto_path,
+                });
                 continue;
             }
-            let min_tag = tags.iter().copied().min().unwrap_or_default();
-            fields.push(FieldPlan {
-                access,
-                ty: field.ty.clone(),
-                span,
-                tag: min_tag,
-                codec: FieldCodec::OneofGroup { tags },
-                checks: FieldChecks::none(),
-                proto_path,
-            });
-            continue;
-        }
-
-        let Some((tag, field_meta)) = resolved else {
-            continue;
-        };
-
-        if let Some((tag_span, tag_value)) = explicit_tag {
-            if tag_value != tag {
-                errors.push(syn::Error::new(
-                    tag_span,
-                    format!("tag {tag_value} does not match proto field `{proto_path}` (= {tag})"),
-                ));
-                continue;
+            Found::Field(field_meta) => {
+                if let Some((tag_span, tag_value)) = explicit_tag {
+                    if tag_value != field_meta.tag {
+                        errors.push(syn::Error::new(
+                            tag_span,
+                            format!(
+                                "tag {tag_value} does not match proto field \
+                                 `{proto_path}` (= {})",
+                                field_meta.tag
+                            ),
+                        ));
+                        continue;
+                    }
+                }
+                let checks = match &with {
+                    Some(_) => FieldChecks::none(),
+                    None => expected_checks(field_meta),
+                };
+                (field_meta.tag, checks)
             }
-        }
-
-        let checks = match &with {
-            Some(_) => FieldChecks::none(),
-            None => expected_checks(field_meta),
         };
         fields.push(FieldPlan {
             access,
@@ -378,37 +443,8 @@ pub(crate) fn message_plan(
 
     // Completeness: every proto field and oneof of every unified message
     // must be covered by a Rust field.
-    for (message_index, (message_name, meta)) in messages.iter().enumerate() {
-        for (position, field_meta) in meta.fields.iter().enumerate() {
-            let in_oneof_group = field_meta
-                .oneof
-                .is_some_and(|oneof| consumed_oneofs[message_index][oneof]);
-            if !consumed[message_index][position] && !in_oneof_group {
-                errors.push(syn::Error::new(
-                    input.ident.span(),
-                    format!(
-                        "proto field `{message_name}.{}` (tag {}) is not covered by any \
-                         Rust field",
-                        field_meta.name, field_meta.tag
-                    ),
-                ));
-            }
-        }
-        for (oneof_index, oneof) in meta.oneofs.iter().enumerate() {
-            let members_covered = oneof
-                .fields
-                .iter()
-                .all(|&field| consumed[message_index][field]);
-            if !consumed_oneofs[message_index][oneof_index] && !members_covered {
-                errors.push(syn::Error::new(
-                    input.ident.span(),
-                    format!(
-                        "proto oneof `{message_name}.{}` is not covered by any Rust field",
-                        oneof.name
-                    ),
-                ));
-            }
-        }
+    for matcher in &matchers {
+        matcher.check_complete(input.ident.span(), &mut errors);
     }
 
     errors.into_result()?;
@@ -1473,8 +1509,8 @@ fn resolve_plain_variant(
                 ));
                 return Err(());
             }
+            let mut matcher = Matcher::new(inner_name, inner);
             let mut parts = Vec::new();
-            let mut inner_covered = vec![false; inner.fields.len()];
             for part in &named.named {
                 let part_ident = part.ident.clone().expect("named fields have idents");
                 let part_entries = match attrs::parse(&part.attrs) {
@@ -1494,22 +1530,12 @@ fn resolve_plain_variant(
                     errors,
                 );
                 let part_name = part_rename.unwrap_or_else(|| unraw(&part_ident));
-                let Some(part_position) = inner
-                    .fields
-                    .iter()
-                    .position(|field| field.name == part_name)
+                // The message has no oneofs, so a hit is always a field.
+                let Some(Found::Field(part_meta)) =
+                    matcher.find(&part_name, part_ident.span(), errors)
                 else {
-                    errors.push(syn::Error::new(
-                        part_ident.span(),
-                        format!(
-                            "no field named `{part_name}` in proto message \
-                             `{inner_name}`"
-                        ),
-                    ));
                     continue;
                 };
-                inner_covered[part_position] = true;
-                let part_meta = &inner.fields[part_position];
                 parts.push(InlinePart {
                     span: part_ident.span(),
                     ident: part_ident,
@@ -1519,18 +1545,7 @@ fn resolve_plain_variant(
                     checks: expected_checks(part_meta),
                 });
             }
-            for (position, part_covered) in inner_covered.iter().enumerate() {
-                if !part_covered {
-                    errors.push(syn::Error::new(
-                        ctx.span,
-                        format!(
-                            "proto field `{inner_name}.{}` (tag {}) is not covered \
-                             by the struct variant",
-                            inner.fields[position].name, inner.fields[position].tag
-                        ),
-                    ));
-                }
-            }
+            matcher.check_complete(ctx.span, errors);
             parts.sort_by_key(|part| part.tag);
             absorbs.push(inner_name.clone());
             Ok(OneofVariantShape::Inline { parts })
