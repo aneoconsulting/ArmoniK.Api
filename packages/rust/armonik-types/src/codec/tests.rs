@@ -41,7 +41,7 @@ impl From<TestEnum> for i32 {
 }
 
 impl ProtoField for TestEnum {
-    const KIND: FieldKind = FieldKind::Enum;
+    const SHAPE: super::Shape = super::Shape::enumeration(&[]);
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
         enumeration::encode(tag, value, buf);

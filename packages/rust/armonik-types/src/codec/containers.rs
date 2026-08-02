@@ -8,14 +8,15 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
-use super::{Cardinality, FieldKind, ProtoField};
+use super::{Cardinality, FieldKind, ProtoField, Shape};
 
 /// Explicit presence: `None` is absent, `Some` is encoded unconditionally
 /// (even when equal to the default).
 impl<T: ProtoField> ProtoField for Option<T> {
-    const KIND: FieldKind = T::KIND;
-    const CARDINALITY: Cardinality = Cardinality::Optional;
-    const NAMES: &'static [&'static str] = T::NAMES;
+    const SHAPE: Shape = Shape {
+        cardinality: Cardinality::Optional,
+        ..T::SHAPE
+    };
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
         if let Some(value) = value {
@@ -40,9 +41,10 @@ impl<T: ProtoField> ProtoField for Option<T> {
 }
 
 impl<T: ProtoField> ProtoField for Vec<T> {
-    const KIND: FieldKind = T::KIND;
-    const CARDINALITY: Cardinality = Cardinality::Repeated;
-    const NAMES: &'static [&'static str] = T::NAMES;
+    const SHAPE: Shape = Shape {
+        cardinality: Cardinality::Repeated,
+        ..T::SHAPE
+    };
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
         T::encode_repeated(tag, value, buf);
@@ -67,11 +69,12 @@ where
     K: ProtoField + Eq + Hash + Ord,
     V: ProtoField + PartialEq,
 {
-    const KIND: FieldKind = FieldKind::Message;
-    const CARDINALITY: Cardinality = Cardinality::Map;
-    const NAMES: &'static [&'static str] = V::NAMES;
-    const MAP_KEY_KIND: FieldKind = K::KIND;
-    const MAP_VALUE_KIND: FieldKind = V::KIND;
+    const SHAPE: Shape = Shape {
+        kind: FieldKind::Message,
+        cardinality: Cardinality::Map,
+        names: V::SHAPE.names,
+        map: Some((K::SHAPE.kind, V::SHAPE.kind)),
+    };
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
         encoding::hash_map::encode(

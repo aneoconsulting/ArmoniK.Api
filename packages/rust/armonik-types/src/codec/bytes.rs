@@ -10,10 +10,10 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
-use super::{FieldKind, ProtoField};
+use super::{FieldKind, ProtoField, Shape};
 
 impl ProtoField for Bytes {
-    const KIND: FieldKind = FieldKind::Bytes;
+    const SHAPE: Shape = Shape::scalar(FieldKind::Bytes);
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
         encoding::bytes::encode(tag, value, buf);

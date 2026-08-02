@@ -6,13 +6,13 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
-use super::{FieldKind, ProtoField};
+use super::{FieldKind, ProtoField, Shape};
 
 /// Scalar whose repeated form is packed (proto3 default for numeric kinds).
 macro_rules! packed_scalar {
     ($ty:ty, $kind:ident, $module:ident) => {
         impl ProtoField for $ty {
-            const KIND: FieldKind = FieldKind::$kind;
+            const SHAPE: Shape = Shape::scalar(FieldKind::$kind);
 
             fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
                 encoding::$module::encode(tag, value, buf);
@@ -60,7 +60,7 @@ packed_scalar!(u64, UInt64, uint64);
 packed_scalar!(bool, Bool, bool);
 
 impl ProtoField for String {
-    const KIND: FieldKind = FieldKind::String;
+    const SHAPE: Shape = Shape::scalar(FieldKind::String);
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
         encoding::string::encode(tag, value, buf);

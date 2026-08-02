@@ -49,3 +49,13 @@ pub(crate) enum Cardinality {
     /// Map field, folded from its synthetic `*Entry` message.
     Map { key: FieldKind, value: FieldKind },
 }
+
+/// Fieldless mirror of the codec-side `Cardinality`, tokenized into the
+/// emitted shape asserts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Card {
+    Singular,
+    Optional,
+    Repeated,
+    Map,
+}
