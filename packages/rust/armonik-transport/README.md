@@ -1,26 +1,37 @@
 # armonik-transport
 
-Transport layer for the [ArmoniK](https://github.com/aneoconsulting/ArmoniK) Rust client:
-configuration parsing, and TLS/mTLS connection setup.
+Transport layer for the [ArmoniK](https://github.com/aneoconsulting/ArmoniK) Rust client: turning a
+set of options into a connected `tonic::transport::Channel`. That is the whole job.
 
 Depend on it when you need the connection layer without generated protobuf types or a
-`protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
-wants the services as well needs only that one.
+`protoc`/`tonic-prost-build` build step: reaching ArmoniK from your own generated code, from another
+language through a C ABI, or from anything that is not the `armonik` client crate.
+[`armonik`](../armonik) re-exports all of it, so a client that wants the services as well needs only
+that one.
 
-## What it does, and what it leaves to you
+## What is implemented
 
-It turns a set of options into a connected `tonic::transport::Channel`. That is the whole job.
+- **TLS and mutual TLS**, certificates read from files you name.
+- **An HTTP `CONNECT` proxy**, explicit or read from the environment, with optional authentication.
+  TLS is negotiated end to end through it.
+- **TCP and HTTP/2 keepalive**, connection and request timeouts, a request rate limit, a maximum
+  HTTP/2 header list size, a custom `User-Agent`, and overriding the name checked during TLS
+  verification.
+- **The material a request-replay policy needs**: how long to wait, which failures qualify, how much
+  of a request may be held, without deciding for you when to use it. See
+  [Replaying a failed request](#replaying-a-failed-request).
 
-It does **not** go looking for those options on its own. Nothing here reads an environment variable
-unless asked to: `ClientConfigArgs::from_env`, behind the `env` feature, is offered because a variable
-per option is the common case, not because `connect` calls it itself. `armonik` configures that
-reading with its own `GrpcClient__` prefix; a host application binding through a C ABI hands over a
-JSON document instead. The one exception is `ProxySource::System`, which reads `HTTPS_PROXY` and
+## What it leaves to you
+
+Nothing here reads an environment variable unless asked to, or knows what a deployment looks like:
+`ClientConfigArgs::from_env`, behind the `env` feature, is offered because a variable per option is the
+common case, not because `connect` calls it itself. `armonik` configures that reading with its own
+`GrpcClient__` prefix; a host application binding through a C ABI hands over a JSON document instead.
+The one exception is `ProxySource::System`, which reads `ALL_PROXY`, `HTTPS_PROXY`, `HTTP_PROXY` and
 `NO_PROXY` because that is a convention every HTTP client obeys rather than a setting of ArmoniK's.
 
 It also has no notion of a *call*. A channel carries requests; deadlines, cancellation and replay are
-properties of a call, so they belong to the layer that makes one. What this crate offers there is
-inert material, described under [Replaying a failed request](#replaying-a-failed-request).
+properties of a call, so they belong to the layer that makes one.
 
 ## Connecting
 
@@ -31,16 +42,19 @@ inert material, described under [Replaying a failed request](#replaying-a-failed
 use armonik_transport::{ClientConfig, ClientConfigArgs};
 
 # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-let config = ClientConfig::from_config_args(ClientConfigArgs {
-    endpoint: String::from("https://localhost:5001"),
-    ca_cert: String::from("ca.pem"),
-    ..Default::default()
-})?;
+let mut args = ClientConfigArgs::default();
+args.endpoint = String::from("https://localhost:5001");
+args.ca_cert = String::from("ca.pem");
 
+let config = ClientConfig::from_config_args(args)?;
 let channel = armonik_transport::connect(config).await?;
 # Ok(())
 # }
 ```
+
+`ClientConfigArgs` is `#[non_exhaustive]`, so a struct expression naming it can only be written inside
+this crate; build it from `ClientConfigArgs::default()` and assign only the fields that differ, as
+above.
 
 With the `serde` feature, `ClientConfigArgs` deserialises from any format serde supports, which is how
 a caller that is not written in Rust supplies its options.
@@ -102,7 +116,10 @@ The policy lives here; the loop runs in your code.
 `RetryPolicy` carries what the other ArmoniK clients use by default: five attempts, one second growing
 by 1.5 to a five-second ceiling, replaying on `Unavailable`, `Aborted` and `Unknown`. The waits follow
 the gRPC specification, `random(0, min(initial * multiplier^n, max))`, drawn uniformly *below* the
-computed delay rather than added to it.
+computed delay rather than added to it. Two independent bounds cap how much of a request may still be
+held for a replay: `max_buffer_per_call` for a streamed request, whose messages add up, and
+`max_unary_size` for a single one, where nothing accumulates and what is bounded is the cost of
+sending it twice.
 
 Driving it is the `retry!` macro, which expands in your own function so that each attempt can borrow
 the client it is made on:
@@ -143,10 +160,14 @@ assert_eq!(outcome.unwrap(), 3);
 
 You decide what may be replayed at all, because only you know it: whether the method is unary, whether
 anything has already reached your own caller, and whether the request can still be reproduced. A
-`policy` of `None` runs the attempt once.
+`policy` of `None` runs the attempt once. `GrpcStatus` is how the macro reads a gRPC code out of
+whatever error type your attempt produces; it is already implemented for `tonic::Status`.
 
 The wait is a plain `.await`, so dropping the future abandons it immediately. Wrap the whole expansion
 in a deadline rather than checking between attempts, or the deadline will not cut a backoff short.
+
+Setting the retry options by themselves changes nothing: they take effect only where a caller
+invokes the `retry!` macro.
 
 ## Publishing
 

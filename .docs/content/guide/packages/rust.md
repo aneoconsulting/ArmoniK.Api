@@ -21,25 +21,27 @@ Take it when you speak to ArmoniK over an ABI, from another language, or with yo
 Every option is a `GrpcClient__*` environment variable, spelled as it is for the C# and C++ clients:
 `GrpcClient__Endpoint`, `GrpcClient__CaCert`, `GrpcClient__Proxy`, and the rest.
 
-They are read by `armonik`, not by the transport. That is deliberate: the transport is handed its
-options and never goes looking for them, so a host application that keeps its settings elsewhere, in a
-JSON document or a command line, can use the same connection layer without inheriting a convention
-that does not apply to it.
+Reading them is the transport's own mechanism, `ClientConfigArgs::from_env`, generic over the prefix
+only: the `PascalCase` naming is fixed at compile time. `armonik` configures it with its own
+`GrpcClient__` prefix, in one line, rather than reading each variable itself. A host application that
+keeps its settings elsewhere, in a JSON document or a command line, deserialises a `ClientConfigArgs`
+directly instead.
 
-The same rule covers certificates. `GrpcClient__CertPem` names a file, `armonik` opens it, and what
-crosses into the transport is the PEM itself. A caller that holds material taken from a PKCS#12 file
-or from an operating system's certificate store therefore never has to write a private key to disk.
+Certificates are files this crate reads itself. `GrpcClient__CertPem` and `GrpcClient__KeyPem` name
+the client's own certificate and key; `GrpcClient__CaCert` names the Certificate Authority.
+`GrpcClient__CertP12`, with `GrpcClient__CertP12Password`, is an alternative for a certificate and key
+bundled together in one PKCS#12 file, the form Windows and most certificate authorities hand out.
 
 ## Connecting
 
 ```rust
-let config = armonik::ClientConfig::from_env()?;
-let mut client = armonik::Client::with_config(config).await?;
+let mut client = armonik::Client::new().await?;
 let versions = client.versions().list().await?;
 ```
 
-`Client::new()` does the same in one step. To build a configuration by hand rather than from the
-environment, fill in a `ClientConfigArgs` and pass it to `ClientConfig::from_config_args`.
+`Client::new()` reads every `GrpcClient__*` variable and connects in one step. To build a
+configuration by hand rather than from the environment, fill in a `ClientConfigArgs` and pass it to
+`ClientConfig::from_config_args`, then `Client::with_config`.
 
 ## Reaching the endpoint through a proxy
 
@@ -67,9 +69,3 @@ What the transport does **not** decide is whether a given request may be sent tw
 notion of a call, so that judgement belongs to whoever makes one: only they know whether the method is
 unary, whether anything has already been handed to their own caller, and whether the request can still
 be reproduced. The `armonik_transport::retry!` macro carries the loop into that layer.
-
-## Ports on Windows
-
-`GrpcClient__ReusePorts` is on by default and only does something on Windows, where opening many
-connections in a short window exhausts the ephemeral port range. It sets `SO_REUSE_UNICASTPORT`, which
-lets outgoing connections share a local port when their remote endpoints differ.
