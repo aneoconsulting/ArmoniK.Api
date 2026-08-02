@@ -44,10 +44,10 @@ humantime.workspace = true
 # `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
 # nothing to the build.
 base64.workspace = true
-# The CONNECT handshake writes and reads the socket directly and bounds itself in time; `macros` is
-# for the `select!` that races connection attempts, and belongs here rather than in the dev
-# dependencies: without it the library does not build, only its tests do.
-tokio = { workspace = true, features = ["io-util", "macros", "net", "time"] }
+# `macros` is for the `select!` that races connection attempts, and `time` bounds both that and the
+# CONNECT handshake. Declared here rather than in the dev dependencies: without them the library does
+# not build, only its tests do.
+tokio = { workspace = true, features = ["macros", "net", "time"] }
 # The proxy connector is a `tower` service, so that it composes with the connectors around it.
 tower-service.workspace = true
 # Keepalive on a socket this crate opened itself, which `TcpSocket` does not expose.
@@ -72,6 +72,8 @@ tokio = { workspace = true, features = [
   "time",
   # A paused clock, so the racing tests assert on scheduling rather than on wall-clock timing.
   "test-util",
+  # The fake proxies in tests/proxy.rs and tests/upstream_tunnel.rs read and write a raw socket.
+  "io-util",
 ] }
 # The integration tests serve a gRPC service to call, which the regular build never does; these features
 # union with the `channel`/`codegen` above for test builds only.
