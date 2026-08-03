@@ -642,15 +642,15 @@ impl HttpConfig {
             user_agent,
             proxy,
             retry: RetryPolicy {
-                max_attempts: parse_or("MaxAttempts", &max_attempts, defaults.max_attempts)?,
+                max_attempts: parse_or("max_attempts", &max_attempts, defaults.max_attempts)?,
                 initial_backoff: parse_duration_or(
-                    "InitialBackoff",
+                    "initial_backoff",
                     &initial_backoff,
                     defaults.initial_backoff,
                 )?,
-                max_backoff: parse_duration_or("MaxBackoff", &max_backoff, defaults.max_backoff)?,
+                max_backoff: parse_duration_or("max_backoff", &max_backoff, defaults.max_backoff)?,
                 backoff_multiplier: parse_or(
-                    "BackoffMultiplier",
+                    "backoff_multiplier",
                     &backoff_multiplier,
                     defaults.backoff_multiplier,
                 )?,
@@ -659,12 +659,12 @@ impl HttpConfig {
                     defaults.retryable_status_codes,
                 )?,
                 max_buffer_per_call: parse_or(
-                    "MaxRetryBufferPerCall",
+                    "max_retry_buffer_per_call",
                     &max_retry_buffer_per_call,
                     defaults.max_buffer_per_call,
                 )?,
                 max_unary_size: parse_or(
-                    "MaxRetryUnarySize",
+                    "max_retry_unary_size",
                     &max_retry_unary_size,
                     defaults.max_unary_size,
                 )?,
@@ -729,7 +729,7 @@ fn parse_codes(value: &str, default: Vec<tonic::Code>) -> Result<Vec<tonic::Code
         .map(|name| {
             parse_code(name).ok_or_else(|| {
                 InvalidRetryOptionSnafu {
-                    option: String::from("RetryableStatusCodes"),
+                    option: String::from("retryable_status_codes"),
                     value: value.to_owned(),
                     reason: format!("`{name}` is not a gRPC status code"),
                 }
@@ -1691,7 +1691,7 @@ mod tests {
                     max_attempts: String::from("many"),
                     ..args()
                 },
-                "MaxAttempts",
+                "max_attempts",
                 "many",
             ),
             (
@@ -1699,7 +1699,7 @@ mod tests {
                     initial_backoff: String::from("a while"),
                     ..args()
                 },
-                "InitialBackoff",
+                "initial_backoff",
                 "a while",
             ),
             (
@@ -1707,7 +1707,7 @@ mod tests {
                     retryable_status_codes: String::from("Unavailable,Nonsense"),
                     ..args()
                 },
-                "RetryableStatusCodes",
+                "retryable_status_codes",
                 "Nonsense",
             ),
         ] {
