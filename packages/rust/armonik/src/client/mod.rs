@@ -11,6 +11,9 @@ pub use armonik_transport::{
     ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ReadEnvError,
 };
 
+mod service_client;
+pub use service_client::{Channel, Dispatch, ServiceClient};
+
 #[cfg(feature = "worker")]
 pub mod agent;
 #[cfg(feature = "client")]

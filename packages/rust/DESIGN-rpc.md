@@ -5,11 +5,11 @@ decisions settled in review, 2026-08-03)
 Target: same big-bang beta branch (`rust/direct-message-impls`).
 Prerequisite: the direct-message revamp (`DESIGN.md`) landed.
 
-> **Nothing in this document has been compiled yet.** It is the outcome of a
-> design discussion, not of a spike. The genuinely new pieces of code — the
-> table-driven router (§3.6) and the client dispatch machinery (§3.5) — are
-> built and tested against `tests/results.rs` first (§8 step 0) before the rest
-> is committed to. Everything else is deletion.
+> **The spike (§8 step 0) has landed.** The table-driven router (§3.6) and the
+> client dispatch machinery (§3.5) are implemented for `Results` and pass the
+> full `tests/results.rs` scenario matrix in all three old/new combinations
+> (`tests/results_spike.rs`), plus three calls against the dotnet mock over a
+> real HTTP/2 connection. Everything that remains is subtraction.
 
 ## 1. Motivation
 
@@ -286,11 +286,11 @@ pub struct ServerStream;
 pub struct ClientStream;
 
 /// A request type that identifies exactly one RPC.
-pub trait Rpc: prost::Message + Default {
+pub trait Rpc: prost::Message + Default + std::fmt::Debug + 'static {
     type Service: Service;
     type Kind;
     /// The response message, or the stream *item* for server-streaming RPCs.
-    type Response: prost::Message + Default;
+    type Response: prost::Message + Default + std::fmt::Debug + 'static;
 
     const METHOD: &'static str;
     /// `concat!("/", package, ".", Service, "/", Method)`.
@@ -298,6 +298,12 @@ pub trait Rpc: prost::Message + Default {
     /// Telemetry label, e.g. `"Results::list"`.
     const LABEL: &'static str;
 }
+```
+
+(`Debug` is spelled out because `prost::Message` no longer implies it in
+prost 0.14; the request/response tracing needs it.)
+
+```rust
 ```
 
 Everything here is `concat!` or `stringify!` over the invocation, so no
@@ -311,12 +317,20 @@ signature downstream (the four-line `where` block appears 30+ times today):
 
 ```rust
 pub trait Channel:
-    tonic::client::GrpcService<tonic::body::Body, ResponseBody = Self::Body> + Clone
+    tonic::client::GrpcService<
+        tonic::body::Body,
+        Error: Into<StdError>,
+        ResponseBody: Body<Data = Bytes, Error: Into<StdError> + Send> + Send + 'static,
+    >
 {
-    type Body: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static;
 }
-impl<T> Channel for T where /* the current four bounds */ { type Body = T::ResponseBody; }
+impl<T> Channel for T where /* the same bounds */ {}
 ```
+
+Associated-type bounds (stable since 1.79) express all four constraints in the
+supertrait, so no helper associated type is needed. Note there is no `Clone`
+supertrait: the borrowed `&mut Client<T>` channels are not `Clone` and never
+were required to be.
 
 One client struct, twelve aliases:
 
@@ -670,7 +684,10 @@ if `feat-implements-rest-json` or `wk/feat/rust-proxy` becomes real.
   `call_streaming` stays separate: the coherence argument for the split
   (`DESIGN.md` §6, request types foreign to the client crate) is moot after the
   merge, but a client-streaming call takes a `Stream<Item = R>` rather than an
-  `R`, which no single signature expresses well.
+  `R`, which no single signature expresses well. One inference wart: passing a
+  bare message infers `R`, but passing a pre-built `tonic::Request` needs a
+  turbofish (`call::<R>(request)`) because tonic's two blanket `IntoRequest`
+  impls leave `R` ambiguous.
 - `Sessions<T>` and friends become type aliases for `ServiceClient<Svc, T>`.
   `with_channel` and the convenience methods resolve unchanged; diagnostics
   mention the underlying type. `#[deprecated]` moves to the `Submitter` alias

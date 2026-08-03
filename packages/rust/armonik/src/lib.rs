@@ -8,6 +8,8 @@ pub use armonik_types::*;
 #[cfg(any(feature = "_gen-client", feature = "_gen-server"))]
 pub(crate) mod stubs;
 
+pub mod rpc;
+
 #[cfg(feature = "_gen-client")]
 pub mod client;
 #[cfg(feature = "_gen-server")]
