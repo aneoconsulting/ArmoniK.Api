@@ -1,12 +1,12 @@
 //! ArmoniK's own environment vocabulary: `GrpcClient__*`.
 //!
 //! `armonik-transport` reads any prefix, `PascalCase` always; `ARMONIK_PREFIX` is what tells it
-//! which, passed directly to `from_env_with` at the call site rather than read by this crate
+//! which, passed directly to `from_env` at the call site rather than read by this crate
 //! variable by variable.
 
 #[cfg(test)]
 use super::ClientConfigArgs;
-use super::{ConnectionError, EnvConfigError};
+use super::{ConfigError, ConnectionError, EnvFieldError};
 
 /// The prefix every `GrpcClient` option is read under.
 pub const ARMONIK_PREFIX: &str = "GrpcClient__";
@@ -16,11 +16,21 @@ pub const ARMONIK_PREFIX: &str = "GrpcClient__";
 #[non_exhaustive]
 #[snafu(visibility(pub))]
 pub enum NewClientError {
-    #[snafu(display("Could not read the client configuration [{location}]"))]
+    #[snafu(display("Could not read the client configuration from the environment [{location}]"))]
+    #[non_exhaustive]
+    Env {
+        #[snafu(source(from(EnvFieldError, Box::new)))]
+        source: Box<EnvFieldError>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "The environment does not describe a valid client configuration [{location}]"
+    ))]
     #[non_exhaustive]
     Config {
-        #[snafu(source(from(EnvConfigError, Box::new)))]
-        source: Box<EnvConfigError>,
+        #[snafu(source(from(ConfigError, Box::new)))]
+        source: Box<ConfigError>,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -80,7 +90,7 @@ mod tests {
             Some("http://localhost:5001"),
             || {
                 with_var("GrpcClient__UserAgent", Some("armonik-test/1"), || {
-                    ClientConfigArgs::from_env_with(ARMONIK_PREFIX)
+                    ClientConfigArgs::from_env(ARMONIK_PREFIX)
                 })
             },
         )

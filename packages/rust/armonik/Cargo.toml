@@ -19,7 +19,7 @@ client = ["_gen-client"]
 server = ["_gen-server"]
 agent = ["_gen-client", "_gen-server"]
 worker = ["_gen-client", "_gen-server"]
-# `armonik-transport/env` for `ClientConfigArgs::from_env_with`, which `Client::new` needs
+# `armonik-transport/env` for `ClientConfigArgs::from_env`, which `Client::new` needs
 # unconditionally: reading `GrpcClient__*` is not an opt-in extra for this crate the way it is for
 # `armonik-transport` itself.
 _gen-client = ["tonic/channel", "dep:armonik-transport", "armonik-transport/env"]

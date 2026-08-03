@@ -19,7 +19,7 @@ pub enum ProxySource {
     /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
     ///
     /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
-    /// started with. Every other option is read in [`ClientConfigArgs::from_env_with`].
+    /// started with. Every other option is read in [`ClientConfigArgs::from_env`].
     System,
     /// Use this specific proxy.
     Explicit(Uri),
@@ -156,15 +156,10 @@ impl Clone for ClientConfig {
 }
 
 /// Options for creating a gRPC Client, in the string form a caller supplies them in
-///
-/// `PascalCase`, ArmoniK's own convention for the C# and C++ clients too, chosen for both `serde`
-/// and environment reading: every caller this crate has, in this repository or outside it, already
-/// uses that one, so keeping the field naming generic bought genericity nobody spent.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
-// Deliberately exhaustive, unlike the configuration it becomes: this is what a caller fills in, and a
-// caller that cannot name every field cannot be told by the compiler when a new one appears.
+#[non_exhaustive]
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
     #[cfg_attr(feature = "serde", serde(default))]

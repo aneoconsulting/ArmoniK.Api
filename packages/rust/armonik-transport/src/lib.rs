@@ -8,10 +8,9 @@
 //! `connect` itself reads neither an environment variable nor a file of options: where the values
 //! come from is the business of whoever knows what the deployment looks like. Two exceptions, both
 //! opt-in rather than something `connect` does on its own: `ProxySource::System`, the `*_PROXY`
-//! convention every HTTP client obeys, and [`ClientConfigArgs::from_env_with`]/
-//! [`ClientConfig::from_env_with`] (behind the `env` feature), for the common case where a
-//! deployment's settings really are one environment variable per option, spelled in `PascalCase`
-//! under a prefix of the caller's choosing.
+//! convention every HTTP client obeys, and [`ClientConfigArgs::from_env`] (behind the `env`
+//! feature), for the common case where a deployment's settings really are one environment variable
+//! per option, spelled in `PascalCase` under a prefix of the caller's choosing.
 
 mod config;
 mod connect;
@@ -24,7 +23,7 @@ mod utils;
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError, ProxyConfig, ProxySource};
 pub use connect::{connect, https_connector, ConnectionError};
 #[cfg(feature = "env")]
-pub use env::{EnvConfigError, EnvFieldError};
+pub use env::EnvFieldError;
 pub use proxy::ProxyError;
 pub use secret::Secret;
 // Snafu's context selectors, so a caller in another crate can build the error with the location

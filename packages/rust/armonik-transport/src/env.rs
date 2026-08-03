@@ -1,7 +1,7 @@
 //! Building a [`ClientConfigArgs`] from the environment.
 //!
 //! Reading the environment at all is still integration work, not transport, so nothing here decides
-//! *that* a caller should do it: [`ClientConfigArgs::from_env_with`] is offered because a variable per
+//! *that* a caller should do it: [`ClientConfigArgs::from_env`] is offered because a variable per
 //! option is by far the most common way a deployment supplies one, not because this crate goes looking
 //! for one on its own. `connect` never calls it.
 //!
@@ -16,31 +16,14 @@ use std::ffi::OsString;
 
 use serde::de::{Error as _, IntoDeserializer, Visitor};
 use serde::Deserialize;
-use snafu::{ResultExt, Snafu};
+use snafu::Snafu;
 
-use crate::{ClientConfig, ClientConfigArgs, ConfigError};
+use crate::ClientConfigArgs;
 
 impl ClientConfigArgs {
-    /// Read every option from the environment, with no prefix.
-    pub fn from_env() -> Result<Self, EnvConfigError> {
-        Self::from_env_with("")
-    }
-
     /// Read every option from the environment, under a prefix of the caller's choosing.
-    pub fn from_env_with(prefix: &str) -> Result<Self, EnvConfigError> {
-        Self::deserialize(EnvSource { prefix }).context(FieldSnafu {})
-    }
-}
-
-impl ClientConfig {
-    /// Read every option from the environment and resolve it, with no prefix.
-    pub fn from_env() -> Result<Self, EnvConfigError> {
-        Self::from_config_args(ClientConfigArgs::from_env()?).context(InvalidSnafu {})
-    }
-
-    /// Read every option from the environment and resolve it, under a prefix of the caller's choosing.
-    pub fn from_env_with(prefix: &str) -> Result<Self, EnvConfigError> {
-        Self::from_config_args(ClientConfigArgs::from_env_with(prefix)?).context(InvalidSnafu {})
+    pub fn from_env(prefix: &str) -> Result<Self, EnvFieldError> {
+        Self::deserialize(EnvSource { prefix })
     }
 }
 
@@ -194,36 +177,12 @@ impl serde::de::Error for EnvFieldError {
     }
 }
 
-/// Turning the environment into a client configuration.
-#[derive(Debug, Snafu)]
-#[non_exhaustive]
-#[snafu(visibility(pub))]
-pub enum EnvConfigError {
-    #[snafu(display("Could not read the environment [{location}]"))]
-    #[non_exhaustive]
-    Field {
-        #[snafu(source(from(EnvFieldError, Box::new)))]
-        source: Box<EnvFieldError>,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-    #[snafu(display(
-        "The environment does not describe a valid client configuration [{location}]"
-    ))]
-    #[non_exhaustive]
-    Invalid {
-        #[snafu(source(from(ConfigError, Box::new)))]
-        source: Box<ConfigError>,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-}
-
 #[cfg(test)]
 mod tests {
     use std::ffi::OsString;
 
     use super::*;
+    use crate::ClientConfig;
 
     /// Puts back what the variable held, rather than removing it: these tests run in a process whose
     /// environment may already carry a variable another test needs. On drop, so that a failing test
@@ -265,7 +224,7 @@ mod tests {
             Some("http://localhost:5001"),
             || {
                 with_var("ARMONIK_TEST__UserAgent", Some("armonik-test/1"), || {
-                    ClientConfigArgs::from_env_with("ARMONIK_TEST__")
+                    ClientConfigArgs::from_env("ARMONIK_TEST__")
                 })
             },
         )
@@ -281,7 +240,7 @@ mod tests {
         // Matches every other field, and what this crate did before it grew its own environment
         // reading: a missing option is this crate's problem to reject with a named error
         // (`ConfigError::Uri` for an empty endpoint), not this module's to refuse up front.
-        let args = ClientConfigArgs::from_env_with("ARMONIK_TEST_ABSENT__")
+        let args = ClientConfigArgs::from_env("ARMONIK_TEST_ABSENT__")
             .expect("an absent variable must not fail the read");
 
         assert_eq!(args.endpoint, "");
@@ -296,7 +255,7 @@ mod tests {
             let args = with_var(
                 "ARMONIK_TEST_BOOL__AllowUnsafeConnection",
                 Some(spelling),
-                || ClientConfigArgs::from_env_with("ARMONIK_TEST_BOOL__"),
+                || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
             )
             .expect(spelling);
             assert!(
@@ -309,7 +268,7 @@ mod tests {
             let args = with_var(
                 "ARMONIK_TEST_BOOL__AllowUnsafeConnection",
                 Some(spelling),
-                || ClientConfigArgs::from_env_with("ARMONIK_TEST_BOOL__"),
+                || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
             )
             .expect(spelling);
             assert!(
@@ -321,13 +280,10 @@ mod tests {
         let unrecognised = with_var(
             "ARMONIK_TEST_BOOL__AllowUnsafeConnection",
             Some("perhaps"),
-            || ClientConfigArgs::from_env_with("ARMONIK_TEST_BOOL__"),
+            || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
         );
         let error = unrecognised.expect_err("`perhaps` is not a boolean");
-        // snafu keeps the detail in the source rather than repeating it in the outer display.
-        let rendered = std::error::Error::source(&error)
-            .expect("the field error is the source")
-            .to_string();
+        let rendered = error.to_string();
         assert!(rendered.contains("perhaps"), "{rendered}");
         assert!(
             rendered.contains("ARMONIK_TEST_BOOL__AllowUnsafeConnection"),
@@ -347,7 +303,7 @@ mod tests {
                 with_var(
                     "ARMONIK_TEST_CERT__CertPem",
                     Some("no/such/cert.pem"),
-                    || ClientConfigArgs::from_env_with("ARMONIK_TEST_CERT__"),
+                    || ClientConfigArgs::from_env("ARMONIK_TEST_CERT__"),
                 )
             },
         )
@@ -359,7 +315,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn an_unset_certificate_variable_is_no_certificate_rather_than_an_error() {
-        let args = ClientConfigArgs::from_env_with("ARMONIK_TEST_NOCERT__")
+        let args = ClientConfigArgs::from_env("ARMONIK_TEST_NOCERT__")
             .expect("an unset variable names no path");
 
         assert_eq!(args.cert_pem, "");
@@ -367,12 +323,30 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn a_certificate_variable_present_but_empty_is_no_certificate_either() {
+        // A deployment that declares the variable with an empty default must not be told to open an
+        // empty path: a plain `String` has only one absent representation, the empty string, so
+        // there is no separate empty-but-present case to collapse into by mistake.
+        let args = with_var("ARMONIK_TEST_EMPTYCERT__CertPem", Some(""), || {
+            ClientConfigArgs::from_env("ARMONIK_TEST_EMPTYCERT__")
+        })
+        .expect("an empty variable must not fail the read");
+
+        assert_eq!(args.cert_pem, "");
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            endpoint: String::from("http://localhost:5001"),
+            ..args
+        })
+        .expect("an empty cert_pem must not be treated as half an identity");
+        assert!(config.identity.is_none());
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn the_empty_prefix_still_reads_pascal_case() {
-        let args = with_var(
-            "Endpoint",
-            Some("http://localhost:5001"),
-            ClientConfigArgs::from_env,
-        )
+        let args = with_var("Endpoint", Some("http://localhost:5001"), || {
+            ClientConfigArgs::from_env("")
+        })
         .expect("reading the environment must not fail");
 
         assert_eq!(args.endpoint, "http://localhost:5001");
