@@ -10,12 +10,6 @@ use super::{filter, Raw, Sort};
 #[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksRequest")]
-#[armonik(replace(
-    target = "armonik.api.grpc.v1.tasks.ListTasksDetailedRequest",
-    service = "Tasks",
-    method = "ListTasksDetailed",
-    input,
-))]
 pub struct Request {
     /// The page number. Start at 0.
     pub page: i32,

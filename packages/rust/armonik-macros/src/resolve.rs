@@ -22,10 +22,6 @@ pub(crate) struct MessagePlan {
     /// `#[armonik(transparent)]` on a struct: the type delegates its whole
     /// `prost::Message` impl to its single field.
     pub(crate) transparent: bool,
-    /// `#[armonik(replace(...))]`: the type stands in for its message at one
-    /// RPC site. Registers a `REPLACE_MAP` entry instead of the plain
-    /// extern-map entry.
-    pub(crate) replace: Option<crate::attrs::ReplaceSpec>,
 }
 
 pub(crate) enum FieldAccess {
@@ -218,21 +214,11 @@ pub(crate) fn message_plan(
     let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut generic = false;
     let mut transparent = false;
-    let mut replace: Option<crate::attrs::ReplaceSpec> = None;
     for entry in &entries {
         match &entry.item {
             AttrItem::Message(lit) => proto_names.push((entry.span, lit.value())),
             AttrItem::Generic => generic = true,
             AttrItem::Transparent => transparent = true,
-            AttrItem::Replace(spec) => {
-                if replace.replace(spec.clone()).is_some() {
-                    errors.push(syn::Error::new(
-                        entry.span,
-                        "a type stands in for a single RPC site: at most one \
-                         #[armonik(replace(...))]",
-                    ));
-                }
-            }
             AttrItem::Oneof(_) => {
                 errors.push(syn::Error::new(
                     entry.span,
@@ -254,17 +240,10 @@ pub(crate) fn message_plan(
             ));
             return Err(errors);
         }
-        if replace.is_some() {
-            errors.push(syn::Error::new(
-                input.ident.span(),
-                "#[armonik(generic)] types cannot also be #[armonik(replace(...))]",
-            ));
-            return Err(errors);
-        }
         return generic_plan(input, index, errors);
     }
     if transparent {
-        return transparent_plan(input, index, proto_names, replace, errors);
+        return transparent_plan(input, index, proto_names, errors);
     }
     if proto_names.is_empty() {
         errors.push(syn::Error::new(
@@ -446,7 +425,6 @@ pub(crate) fn message_plan(
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
         transparent: false,
-        replace,
     })
 }
 
@@ -459,7 +437,6 @@ fn transparent_plan(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
     proto_names: Vec<(Span, String)>,
-    replace: Option<crate::attrs::ReplaceSpec>,
     mut errors: Errors,
 ) -> Result<MessagePlan, Errors> {
     if !input.generics.params.is_empty() {
@@ -515,7 +492,6 @@ fn transparent_plan(
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
         transparent: true,
-        replace,
     })
 }
 
@@ -589,7 +565,6 @@ fn generic_plan(
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
         transparent: false,
-        replace: None,
     })
 }
 

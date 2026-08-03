@@ -4,12 +4,6 @@
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(transparent)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.SessionFilter")]
-#[armonik(replace(
-    target = "armonik.api.grpc.v1.submitter.ListSessionsRequest",
-    service = "Submitter",
-    method = "ListSessions",
-    input,
-))]
 pub struct Request {
     pub filter: super::SessionFilter,
 }

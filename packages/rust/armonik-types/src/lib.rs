@@ -29,25 +29,12 @@ pub(crate) mod utils;
 /// hand-written impls call it directly, so neither restates the slice's layout.
 ///
 /// - `message: Ty, "proto.Name", ...` — a Rust type implementing the message(s);
-/// - `replace: Ty, message = "...", service = "...", method = "...", input|output,
-///   target = "..."` — a per-RPC substitution (see [`wire::Replacement`]);
 /// - `absorbed: "proto.Name", ...` — a message flattened into a parent (no type).
 macro_rules! register {
     (message: $ty:ident, $($proto:literal),+ $(,)?) => {
         $($crate::register!(@type $proto, $crate::wire::Role::Message {
             rust_path: ::core::concat!(::core::module_path!(), "::", ::core::stringify!($ty)),
         }, $ty);)+
-    };
-    (replace: $ty:ident, message = $proto:literal, service = $service:literal,
-        method = $method:literal, $direction:ident, target = $target:literal $(,)?) => {
-        $crate::register!(@type $proto, $crate::wire::Role::Replace($crate::wire::Replacement {
-            service: $service,
-            method: $method,
-            direction: $crate::register!(@dir $direction),
-            message: $proto,
-            target: $target,
-            rust_path: ::core::concat!(::core::module_path!(), "::", ::core::stringify!($ty)),
-        }), $ty);
     };
     (absorbed: $($proto:literal),+ $(,)?) => {
         $(
@@ -63,9 +50,6 @@ macro_rules! register {
             };
         )+
     };
-
-    (@dir input) => { $crate::wire::Direction::Input };
-    (@dir output) => { $crate::wire::Direction::Output };
 
     // One registration for a real Rust type: its role, plus (under
     // `_differential`) the harness round-trip/projection hooks.

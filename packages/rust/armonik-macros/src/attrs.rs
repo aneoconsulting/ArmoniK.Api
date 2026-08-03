@@ -41,79 +41,6 @@ pub(crate) enum AttrItem {
     /// has no Rust type of its own. Harvested so the build script prunes it
     /// and the differential harness counts it as covered.
     Absorbs(LitStr),
-    /// `replace(target = "...", service = "...", method = "...", input|output)`
-    /// — the type stands in for its `message` at one RPC site; the build
-    /// script rewrites that slot to the synthetic `target` message.
-    Replace(ReplaceSpec),
-}
-
-/// Which slot of an RPC a `replace(...)` type occupies.
-#[derive(Clone, Copy)]
-pub(crate) enum Direction {
-    Input,
-    Output,
-}
-
-/// Parsed body of `replace( ... )`.
-#[derive(Clone)]
-pub(crate) struct ReplaceSpec {
-    /// Synthetic proto message name to give the RPC slot in the stubs.
-    pub(crate) target: LitStr,
-    /// Proto service name.
-    pub(crate) service: LitStr,
-    /// Proto method name.
-    pub(crate) method: LitStr,
-    /// Which slot (`input`/`output`) the type occupies.
-    pub(crate) direction: Direction,
-}
-
-impl Parse for ReplaceSpec {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let head = input.span();
-        let mut target = None;
-        let mut service = None;
-        let mut method = None;
-        let mut direction = None;
-        while !input.is_empty() {
-            let ident: syn::Ident = input.parse()?;
-            match ident.to_string().as_str() {
-                "target" => {
-                    input.parse::<Token![=]>()?;
-                    target = Some(input.parse()?);
-                }
-                "service" => {
-                    input.parse::<Token![=]>()?;
-                    service = Some(input.parse()?);
-                }
-                "method" => {
-                    input.parse::<Token![=]>()?;
-                    method = Some(input.parse()?);
-                }
-                "input" => direction = Some(Direction::Input),
-                "output" => direction = Some(Direction::Output),
-                other => {
-                    return Err(syn::Error::new(
-                        ident.span(),
-                        format!(
-                            "unknown replace(...) key `{other}` (expected one of: \
-                             target, service, method, input, output)"
-                        ),
-                    ))
-                }
-            }
-            if input.is_empty() {
-                break;
-            }
-            input.parse::<Token![,]>()?;
-        }
-        let missing = |what: &str| syn::Error::new(head, format!("replace(...) requires `{what}`"));
-        Ok(ReplaceSpec {
-            target: target.ok_or_else(|| missing("target = \"...\""))?,
-            service: service.ok_or_else(|| missing("service = \"...\""))?,
-            method: method.ok_or_else(|| missing("method = \"...\""))?,
-            direction: direction.ok_or_else(|| missing("`input` or `output`"))?,
-        })
-    }
 }
 
 pub(crate) struct AttrEntry {
@@ -153,18 +80,13 @@ impl Parse for AttrList {
                 "generic" => AttrItem::Generic,
                 "transparent" => AttrItem::Transparent,
                 "present" => AttrItem::Present,
-                "replace" => {
-                    let content;
-                    syn::parenthesized!(content in input);
-                    AttrItem::Replace(content.parse()?)
-                }
                 other => {
                     return Err(syn::Error::new(
                         span,
                         format!(
                             "unknown armonik attribute key `{other}` (expected one of: \
                              message, enum, oneof, rename, tag, with, absorbs, generic, \
-                             transparent, present, replace)"
+                             transparent, present)"
                         ),
                     ));
                 }

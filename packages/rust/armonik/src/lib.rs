@@ -5,9 +5,6 @@
 // etc. keep resolving. This crate adds the tonic client/server stubs on top.
 pub use armonik_types::*;
 
-#[cfg(any(feature = "_gen-client", feature = "_gen-server"))]
-pub(crate) mod stubs;
-
 // Transition glue (deleted at the crate merge): the fingerprint anchor for
 // the `service!` tripwires, copied into this crate's OUT_DIR by build.rs.
 mod __schema {

@@ -73,14 +73,10 @@ tokio = { workspace = true, features = [
 tokio-util.workspace = true
 
 [build-dependencies]
-# The descriptor and the registry (extern map / replacements / absorbed) are harvested from
-# `armonik-types` at build time (the base `_registry` feature enables the slice read here — not
-# `_differential`, so `prost-reflect` stays out of this build-script graph); no proto compilation.
+# Transition glue (deleted at the crate merge): the build script copies the descriptor compiled
+# by `armonik-types` (exposed through `wire::DESCRIPTOR`, behind `_registry`) and its fingerprint
+# into this crate's OUT_DIR for the `service!` invocations.
 armonik-types = { path = "../armonik-types", features = ["_registry"] }
-tonic-prost-build.workspace = true
-prost-types.workspace = true
-prost.workspace = true
-# Transition glue (deleted at the crate merge): fingerprint of the descriptor copy for `service!`.
 fnv = "1"
 
 [[test]]
