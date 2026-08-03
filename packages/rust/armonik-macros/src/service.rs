@@ -41,6 +41,8 @@ mod kw {
     syn::custom_keyword!(rpc);
     syn::custom_keyword!(unexposed);
     syn::custom_keyword!(stream);
+    syn::custom_keyword!(manual);
+    syn::custom_keyword!(deprecated);
 }
 
 pub(crate) struct ServiceDef {
@@ -48,6 +50,7 @@ pub(crate) struct ServiceDef {
     module: Path,
     name: LitStr,
     unexposed: Vec<Ident>,
+    deprecated: bool,
     rpcs: Vec<RpcDef>,
 }
 
@@ -58,6 +61,18 @@ struct RpcDef {
     server_stream: Option<kw::stream>,
     response: Path,
     ergonomic: Option<Ident>,
+    project: Project,
+    manual: bool,
+}
+
+/// What the generated convenience method returns: decided from the response
+/// type's field count (`Auto`), or overridden on the rpc line (`=> *` whole,
+/// `=> field`, `=> ()` discard).
+enum Project {
+    Auto,
+    Whole,
+    Discard,
+    Field(Ident),
 }
 
 impl Parse for ServiceDef {
@@ -77,6 +92,13 @@ impl Parse for ServiceDef {
             unexposed.extend(Punctuated::<Ident, Token![,]>::parse_terminated(&content)?);
             input.parse::<Token![;]>()?;
         }
+        let deprecated = if input.peek(kw::deprecated) {
+            input.parse::<kw::deprecated>()?;
+            input.parse::<Token![;]>()?;
+            true
+        } else {
+            false
+        };
 
         let mut rpcs = Vec::new();
         while !input.is_empty() {
@@ -98,6 +120,30 @@ impl Parse for ServiceDef {
             } else {
                 None
             };
+            let project = if input.peek(Token![=>]) {
+                input.parse::<Token![=>]>()?;
+                if input.peek(Token![*]) {
+                    input.parse::<Token![*]>()?;
+                    Project::Whole
+                } else if input.peek(syn::token::Paren) {
+                    let unit;
+                    syn::parenthesized!(unit in input);
+                    if !unit.is_empty() {
+                        return Err(unit.error("expected `()` (discard the response)"));
+                    }
+                    Project::Discard
+                } else {
+                    Project::Field(input.parse()?)
+                }
+            } else {
+                Project::Auto
+            };
+            let manual = if input.peek(kw::manual) {
+                input.parse::<kw::manual>()?;
+                true
+            } else {
+                false
+            };
             input.parse::<Token![;]>()?;
             rpcs.push(RpcDef {
                 method,
@@ -106,6 +152,8 @@ impl Parse for ServiceDef {
                 server_stream,
                 response,
                 ergonomic,
+                project,
+                manual,
             });
         }
 
@@ -114,6 +162,7 @@ impl Parse for ServiceDef {
             module,
             name,
             unexposed,
+            deprecated,
             rpcs,
         })
     }
@@ -169,6 +218,10 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         .map(|entry| expand_rpc(&def, entry, &full_name))
         .collect::<Vec<_>>();
     let server = expand_server(&def, &resolved, service_docs);
+    let conveniences = resolved
+        .iter()
+        .map(|entry| expand_convenience(&def, entry))
+        .collect::<syn::Result<Vec<_>>>()?;
 
     // The unexposed RPCs' messages have no Rust type; register them for the
     // differential harness's coverage ratchet, so the message allowlist is
@@ -209,7 +262,65 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
 
         #unexposed
 
+        #(#conveniences)*
+
         #server
+    })
+}
+
+/// The client convenience method of one RPC: an invocation of the request
+/// type's field-reflection callback, continued into `__emit_convenience`,
+/// which builds the method from the fields (see `convenience.rs`).
+/// Client-streaming RPCs and `manual` lines emit nothing — the opt-out for
+/// custom wiring or a wrong sugar default.
+fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<TokenStream> {
+    if entry.kind == CallKind::ClientStream || entry.rpc.manual {
+        return Ok(TokenStream::new());
+    }
+
+    let module = &def.module;
+    let marker = &def.marker;
+    let method = &entry.ergonomic;
+    let docs = &entry.meta.docs;
+    let deprecated = def.deprecated;
+
+    let request = &entry.rpc.request;
+    let response = &entry.rpc.response;
+    if request.segments.len() < 2 {
+        return Err(syn::Error::new_spanned(
+            request,
+            "convenience emission needs a `module::Type` request path; use `manual` to opt out",
+        ));
+    }
+    let parents = request.segments.iter().take(request.segments.len() - 1);
+    let req_parent = quote!(#(#parents)::*);
+    let req_stem = snake(&request.segments.last().expect("checked").ident.to_string());
+    let callback = quote::format_ident!("__armonik_fields_{req_stem}");
+
+    let kind = match entry.kind {
+        CallKind::Unary => quote!(unary),
+        CallKind::ServerStream => quote!(server_stream),
+        CallKind::ClientStream => unreachable!("filtered above"),
+    };
+    let project = match &entry.rpc.project {
+        Project::Auto => quote!(auto),
+        Project::Whole => quote!(whole),
+        Project::Discard => quote!(discard),
+        Project::Field(field) => quote!(field #field),
+    };
+
+    Ok(quote! {
+        #[cfg(feature = "_gen-client")]
+        #module::#req_parent::#callback! { armonik_macros::__emit_convenience! {
+            marker { #marker }
+            method { #method }
+            request { #module::#request }
+            response { #module::#response }
+            kind { #kind }
+            project { #project }
+            deprecated { #deprecated }
+            docs { #(#docs)* }
+        } }
     })
 }
 
@@ -393,7 +504,7 @@ fn expand_server(
 }
 
 /// `HealthChecks` -> `health_checks`.
-fn snake(name: &str) -> String {
+pub(crate) fn snake(name: &str) -> String {
     let mut out = String::new();
     for (i, ch) in name.chars().enumerate() {
         if ch.is_uppercase() {

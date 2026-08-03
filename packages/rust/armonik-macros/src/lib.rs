@@ -23,6 +23,7 @@ use syn::parse_macro_input;
 
 mod attrs;
 mod codegen;
+mod convenience;
 mod descriptor;
 mod resolve;
 mod service;
@@ -326,7 +327,9 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Declare the RPCs of one proto service, validated against the protobuf
-/// descriptor at expansion time.
+/// descriptor at expansion time. One invocation per service owns that
+/// service end to end: RPC identity, the server trait and router table, and
+/// the client convenience methods.
 ///
 /// ```ignore
 /// crate::rpc::service! {
@@ -334,29 +337,103 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     unexposed(WatchResults);
 ///
 ///     rpc ListResults(list::Request) -> list::Response;
+///     rpc GetOwnerTaskId(get_owner_task_id::Request) -> get_owner_task_id::Response => result_task;
 ///     rpc DownloadResultData(download::Request) -> stream download::Response;
 ///     rpc UploadResultData(stream upload::Request) -> upload::Response;
+///     rpc GetServiceConfiguration(get_service_configuration::Request)
+///         -> get_service_configuration::Response => *;
 /// }
 /// ```
 ///
-/// The header names the service marker type to emit, the module the request
-/// and response paths are relative to, and the full proto service name.
-/// `stream` sits where the proto puts it; an `as name` suffix overrides the
-/// ergonomic method name when the request path's module segment collides.
+/// # Grammar
 ///
-/// One invocation emits the `#[doc]`-harvested service marker, its
-/// `crate::rpc::Service` impl, and one `crate::rpc::Rpc` impl per line, plus
-/// const asserts that every named type implements the method's input or
-/// output message. Expansion validates the schema facts: the service and
-/// every method exist, the `stream` keywords agree with the descriptor's
-/// streaming flags, no method is declared twice, and every method of the
-/// service is declared or listed in `unexposed(...)`.
+/// The header names the marker type to emit, the module the request and
+/// response paths are relative to, and the **full proto service name** (the
+/// marker is the Rust-facing name; the two differ for `Auth`/`Authentication`
+/// and `HealthChecks`/`HealthChecksService`). Two optional header lines
+/// follow: `unexposed(Method, ...);` lists RPCs the crate deliberately does
+/// not expose (the router answers UNIMPLEMENTED for their paths), and
+/// `deprecated;` marks every generated convenience method `#[deprecated]`
+/// (the `Submitter` service).
+///
+/// Each rpc line is:
+///
+/// ```text
+/// rpc Method([stream] req::Request) -> [stream] req::Response [as name] [=> …] [manual];
+/// ```
+///
+/// - `stream` sits where the proto puts it — it is schema syntax, validated
+///   against the descriptor's streaming flags, not a config field.
+/// - The ergonomic name (server trait method, convenience method, telemetry
+///   label) is the module segment of the request path; `as name` overrides it
+///   when several RPCs share a module (`create_tasks::{Small,Large}Request`).
+/// - `=> …` controls what the convenience method returns; see
+///   [Projection](#projection).
+/// - `manual` emits no convenience method — the opt-out for custom wiring or
+///   a wrong mechanical default (e.g. `worker::Process`, whose request would
+///   explode into nine parameters). Client-streaming RPCs are always manual:
+///   their entry point is `call_streaming`.
+///
+/// # What one invocation emits
+///
+/// - **ungated**: the service marker (docs harvested from the proto) with its
+///   `Service` impl; one `Rpc` impl per line, with const asserts that the
+///   request and response types implement the method's input and output
+///   messages, and a fingerprint tripwire against stale expansions.
+/// - **`_differential`**: the unexposed RPCs' message names, registered for
+///   the coverage ratchet — derived from `unexposed(...)`, so the two
+///   allowlists cannot drift.
+/// - **`_gen-server`**: the `<Marker>Service` trait (one method per RPC, docs
+///   harvested, streaming shapes from the descriptor), the
+///   `<Marker>ServiceExt::<marker>_server` wrapper, and the `Routes` table
+///   the generic `Router` dispatches through.
+/// - **`_gen-client`**: one convenience method per non-manual rpc line, built
+///   by [`__emit_convenience`] from the *request struct's fields* through the
+///   field-reflection callbacks the derives emit: parameters mirror the
+///   fields in declaration order (reorder the struct to change the parameter
+///   order), widened per sugar class (`String`/`Bytes` → `impl Into`,
+///   `Vec<T>` → `impl IntoIterator<Item = impl Into<T>>`, `HashMap<K, V>` →
+///   pair iterators, `filter::Or` → nested iterators), docs harvested.
+///
+/// # Projection
+///
+/// What the convenience method returns:
+///
+/// - *(default)* the response's fields decide: exactly one field → that
+///   field, several → the whole response;
+/// - `=> field` — that field of the response (on a server-streaming RPC:
+///   mapped over the stream items, e.g. `download` yielding `Bytes`);
+/// - `=> *` — the whole response, always (required when the response type is
+///   an alias or an enum, which carry no field reflection);
+/// - `=> ()` — discard it and return `()`.
+///
+/// # Validation
+///
+/// Expansion validates the schema facts as spanned errors: the service and
+/// every method exist in the descriptor, the `stream` keywords agree with its
+/// streaming flags, no method is declared twice, no two methods share an
+/// ergonomic name, and every method of the service is declared or listed in
+/// `unexposed(...)`. The type facts — that the named Rust types implement the
+/// RPC's messages — are const-asserted over the codec's `NAMES`, and a wrong
+/// sugar inference in a convenience method is an ordinary type error in the
+/// generated code.
 #[proc_macro]
 pub fn service(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as service::ServiceDef);
     descriptor::index()
         .map_err(|message| syn::Error::new(proc_macro2::Span::call_site(), message))
         .and_then(|index| service::expand(def, &index))
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Internal continuation of the field-reflection callbacks: builds one client
+/// convenience method per RPC from the request struct's fields. Only ever
+/// invoked by `service!`-emitted code; see `convenience.rs`.
+#[doc(hidden)]
+#[proc_macro]
+pub fn __emit_convenience(input: TokenStream) -> TokenStream {
+    convenience::expand(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -384,9 +461,131 @@ fn expand_message(input: DeriveInput) -> syn::Result<TokenStream2> {
     } else {
         let plan = resolve::message_plan(&input, &index).map_err(Errors::into_syn_error)?;
         out.extend(codegen::message(&plan));
+        out.extend(reflection(&input));
     }
     out.extend(absorbed(absorbs));
     Ok(out)
+}
+
+/// Field reflection for the `service!` convenience emission: a callback macro
+/// forwarding each field's name and sugar class (declaration order — the
+/// generated methods' parameter order), plus flat per-field type aliases so
+/// the consuming proc macro can name field and element types from another
+/// module (the aliases resolve the field's type tokens *here*, where they
+/// mean the right thing). See `__emit_convenience` for the consuming side.
+fn reflection(input: &DeriveInput) -> TokenStream2 {
+    let syn::Data::Struct(data) = &input.data else {
+        return TokenStream2::new();
+    };
+    let syn::Fields::Named(fields) = &data.fields else {
+        return TokenStream2::new();
+    };
+    if !input.generics.params.is_empty() {
+        return TokenStream2::new();
+    }
+
+    let snake = service::snake(&input.ident.to_string());
+    let fields_macro = quote::format_ident!("__armonik_fields_{snake}");
+
+    let mut units = Vec::new();
+    let mut aliases = Vec::new();
+    let mut alias = |suffix: &String, ty: &dyn quote::ToTokens| {
+        let name = quote::format_ident!("__armonik_ty_{snake}_{suffix}");
+        aliases.push(quote::quote! {
+            #[doc(hidden)]
+            #[allow(non_camel_case_types, dead_code)]
+            pub(crate) type #name = #ty;
+        });
+    };
+    for field in &fields.named {
+        let name = field.ident.as_ref().expect("named");
+        let ty = &field.ty;
+        let class = sugar(ty);
+        alias(&name.to_string(), &ty);
+        match &class {
+            Sugar::Iter(elem) => alias(&format!("{name}_elem"), elem),
+            Sugar::Filters(elem) => alias(&format!("{name}_elem"), elem),
+            Sugar::Pairs(key, value) => {
+                alias(&format!("{name}_key"), key);
+                alias(&format!("{name}_value"), value);
+            }
+            Sugar::Plain | Sugar::Into => {}
+        }
+        let class = match class {
+            Sugar::Plain => quote::quote!(plain),
+            Sugar::Into => quote::quote!(into),
+            Sugar::Iter(_) => quote::quote!(iter),
+            Sugar::Pairs(..) => quote::quote!(pairs),
+            Sugar::Filters(_) => quote::quote!(filters),
+        };
+        units.push(quote::quote!([#name #class]));
+    }
+
+    quote::quote! {
+        #[doc(hidden)]
+        macro_rules! #fields_macro {
+            ($($cont:tt)::* ! { $($ctx:tt)* }) => {
+                $($cont)::* ! { $($ctx)* fields { #(#units)* } }
+            };
+        }
+        #[doc(hidden)]
+        pub(crate) use #fields_macro;
+
+        #(#aliases)*
+    }
+}
+
+/// The sugar class of a convenience-method parameter, from the request
+/// field's Rust type: how the generated signature widens it and how the body
+/// converts it back. Conservative: anything unrecognized is passed through
+/// unchanged, and a whole method can opt out with `manual` on its rpc line.
+#[allow(clippy::large_enum_variant)] // transient parse-time value, a handful per struct
+enum Sugar {
+    Plain,
+    Into,
+    Iter(syn::Type),
+    Pairs(syn::Type, syn::Type),
+    Filters(syn::Path),
+}
+
+fn sugar(ty: &syn::Type) -> Sugar {
+    let syn::Type::Path(path) = ty else {
+        return Sugar::Plain;
+    };
+    let Some(segment) = path.path.segments.last() else {
+        return Sugar::Plain;
+    };
+    let arg = |index: usize| match &segment.arguments {
+        syn::PathArguments::AngleBracketed(args) => {
+            args.args.iter().nth(index).and_then(|arg| match arg {
+                syn::GenericArgument::Type(ty) => Some(ty.clone()),
+                _ => None,
+            })
+        }
+        _ => None,
+    };
+    match segment.ident.to_string().as_str() {
+        "String" | "Bytes" => Sugar::Into,
+        "Vec" => match arg(0) {
+            // `Vec<u8>` is a payload, not a collection of convertibles.
+            Some(syn::Type::Path(elem)) if elem.path.is_ident("u8") => Sugar::Into,
+            Some(elem) => Sugar::Iter(elem),
+            None => Sugar::Plain,
+        },
+        "HashMap" => match (arg(0), arg(1)) {
+            (Some(key), Some(value)) => Sugar::Pairs(key, value),
+            _ => Sugar::Plain,
+        },
+        // The per-service filter type: `filter::Or`, whose sibling `Field` is
+        // the element type of the nested-iterator sugar.
+        "Or" => {
+            let mut field = path.path.clone();
+            field.segments.last_mut().expect("segment").ident =
+                syn::Ident::new("Field", segment.ident.span());
+            Sugar::Filters(field)
+        }
+        _ => Sugar::Plain,
+    }
 }
 
 fn expand_enumeration(input: DeriveInput) -> syn::Result<TokenStream2> {

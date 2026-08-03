@@ -1,109 +1,12 @@
-use std::collections::HashMap;
+use futures::StreamExt;
 
-use futures::{StreamExt, TryStreamExt};
-
-use crate::results::{
-    create, create_metadata, delete_data, download, filter, get, get_owner_task_id,
-    get_service_configuration, import, list, upload, Raw, Sort,
-};
+use crate::results::{upload, Raw};
 use crate::rpc::services;
-use crate::utils::IntoCollection;
 
 /// The ResultsService provides methods for interacting with results.
 pub type Results<T = tonic::transport::Channel> = super::ServiceClient<services::Results, T>;
 
 impl<T: super::Channel> super::ServiceClient<services::Results, T> {
-    /// Get a results list using pagination, filters and sorting.
-    pub async fn list(
-        &mut self,
-        filters: impl IntoIterator<Item = impl IntoIterator<Item = filter::Field>>,
-        sort: Sort,
-        page: i32,
-        page_size: i32,
-    ) -> Result<list::Response, super::RequestError> {
-        self.call(list::Request {
-            filters: crate::utils::into_filters(filters),
-            sort,
-            page,
-            page_size,
-        })
-        .await
-    }
-
-    /// Get the id of the task that should produce the result.
-    pub async fn get(&mut self, result_id: impl Into<String>) -> Result<Raw, super::RequestError> {
-        Ok(self
-            .call(get::Request {
-                id: result_id.into(),
-            })
-            .await?
-            .result)
-    }
-
-    /// Get the id of the task that should produce the result.
-    pub async fn get_owner_task_id(
-        &mut self,
-        session_id: impl Into<String>,
-        result_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<HashMap<String, String>, super::RequestError> {
-        Ok(self
-            .call(get_owner_task_id::Request {
-                session_id: session_id.into(),
-                result_ids: result_ids.into_collect(),
-            })
-            .await?
-            .result_task)
-    }
-
-    /// Create the metadata of multiple results at once.
-    /// Data have to be uploaded separately.
-    pub async fn create_metadata(
-        &mut self,
-        session_id: impl Into<String>,
-        results: impl IntoIterator<Item = create_metadata::RequestItem>,
-    ) -> Result<Vec<Raw>, super::RequestError> {
-        Ok(self
-            .call(create_metadata::Request {
-                results: results.into_collect(),
-                session_id: session_id.into(),
-            })
-            .await?
-            .results)
-    }
-
-    /// Create one result with data included in the request.
-    pub async fn create(
-        &mut self,
-        session_id: impl Into<String>,
-        results: impl IntoIterator<Item = create::RequestItem>,
-    ) -> Result<Vec<Raw>, super::RequestError> {
-        Ok(self
-            .call(create::Request {
-                results: results.into_collect(),
-                session_id: session_id.into(),
-            })
-            .await?
-            .results)
-    }
-
-    /// Import existing data from the object storage into existing results
-    pub async fn import(
-        &mut self,
-        session_id: impl Into<String>,
-        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<bytes::Bytes>)>,
-    ) -> Result<HashMap<String, Raw>, super::RequestError> {
-        Ok(self
-            .call(import::Request {
-                results: results
-                    .into_iter()
-                    .map(|(result_id, opaque_id)| (result_id.into(), opaque_id.into()))
-                    .collect(),
-                session_id: session_id.into(),
-            })
-            .await?
-            .results)
-    }
-
     /// Upload data for result with stream.
     pub async fn upload<S>(
         &mut self,
@@ -124,45 +27,6 @@ impl<T: super::Channel> super::ServiceClient<services::Results, T> {
         Ok(self.call_streaming(request).await?.result)
     }
 
-    /// Retrieve data.
-    pub async fn download(
-        &mut self,
-        session_id: impl Into<String>,
-        result_id: impl Into<String>,
-    ) -> Result<
-        impl futures::Stream<Item = Result<bytes::Bytes, super::RequestError>> + 'static,
-        super::RequestError,
-    > {
-        Ok(self
-            .call(download::Request {
-                session_id: session_id.into(),
-                result_id: result_id.into(),
-            })
-            .await?
-            .map_ok(|response| response.data_chunk))
-    }
-
-    /// Delete data from multiple results.
-    pub async fn delete_data(
-        &mut self,
-        session_id: impl Into<String>,
-        result_ids: impl IntoIterator<Item = impl Into<String>>,
-    ) -> Result<Vec<String>, super::RequestError> {
-        Ok(self
-            .call(delete_data::Request {
-                session_id: session_id.into(),
-                result_ids: result_ids.into_collect(),
-            })
-            .await?
-            .result_ids)
-    }
-
-    /// Get the configuration of the service.
-    pub async fn get_service_configuration(
-        &mut self,
-    ) -> Result<get_service_configuration::Response, super::RequestError> {
-        self.call(get_service_configuration::Request {}).await
-    }
 }
 
 #[cfg(test)]

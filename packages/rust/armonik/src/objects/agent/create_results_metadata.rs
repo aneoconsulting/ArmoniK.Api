@@ -22,10 +22,10 @@ impl<T: Into<String>> From<T> for RequestItem {
 pub struct Request {
     /// Communication token received by the worker during task processing.
     pub communication_token: String,
-    /// The list of names for the results to create.
-    pub results: Vec<RequestItem>,
     /// The session in which create results.
     pub session_id: String,
+    /// The list of names for the results to create.
+    pub results: Vec<RequestItem>,
 }
 
 /// Response for creating results without data.

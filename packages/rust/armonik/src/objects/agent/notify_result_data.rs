@@ -178,6 +178,32 @@ impl crate::differential::Normalize for Request {
 // derive emits (round-trip/`Normalize` hooks + extern-map entry).
 crate::register!(message: Request, "armonik.api.grpc.v1.agent.NotifyResultDataRequest");
 
+// The field reflection a derive would emit (the `prost::Message` impl above
+// is hand-written), consumed by the `service!` convenience emission.
+#[doc(hidden)]
+macro_rules! __armonik_fields_request {
+    ($($cont:tt)::* ! { $($ctx:tt)* }) => {
+        $($cont)::* ! { $($ctx)*
+            fields { [communication_token into] [session_id into] [result_ids iter] }
+        }
+    };
+}
+#[doc(hidden)]
+pub(crate) use __armonik_fields_request;
+
+#[doc(hidden)]
+#[allow(non_camel_case_types, dead_code)]
+pub(crate) type __armonik_ty_request_communication_token = String;
+#[doc(hidden)]
+#[allow(non_camel_case_types, dead_code)]
+pub(crate) type __armonik_ty_request_session_id = String;
+#[doc(hidden)]
+#[allow(non_camel_case_types, dead_code)]
+pub(crate) type __armonik_ty_request_result_ids = Vec<String>;
+#[doc(hidden)]
+#[allow(non_camel_case_types, dead_code)]
+pub(crate) type __armonik_ty_request_result_ids_elem = String;
+
 // The one-line `Msg` marker every message-shaped type carries: `service!`'s
 // const asserts read `NAMES` from it. It also grants the blanket `ProtoField`
 // (nesting as a field), which is moot: no proto message has a field of this

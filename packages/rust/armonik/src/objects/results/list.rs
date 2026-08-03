@@ -7,16 +7,16 @@ use super::{filter, Raw, Sort};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.ListResultsRequest")]
 pub struct Request {
-    /// The page number. Start at 0.
-    pub page: i32,
-    /// The page size.
-    pub page_size: i32,
     /// The filters.
     pub filters: filter::Or,
     /// The sort.
     ///
     /// Must be set for every request.
     pub sort: Sort,
+    /// The page number. Start at 0.
+    pub page: i32,
+    /// The page size.
+    pub page_size: i32,
 }
 
 /// Response to list results.

@@ -25,10 +25,10 @@ impl<T: Into<String>> From<T> for RequestItem {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest")]
 pub struct Request {
-    /// Results to create.
-    pub results: Vec<RequestItem>,
     /// The session in which create results.
     pub session_id: String,
+    /// Results to create.
+    pub results: Vec<RequestItem>,
 }
 
 /// Response for creating results without data.

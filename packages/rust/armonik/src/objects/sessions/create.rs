@@ -5,11 +5,11 @@ use super::super::TaskOptions;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.sessions.CreateSessionRequest")]
 pub struct Request {
+    /// List of partitions allowed during the session.
+    pub partition_ids: Vec<String>,
     /// Default tasks options for tasks in the session.
     #[armonik(rename = "default_task_option")]
     pub default_task_options: TaskOptions,
-    /// List of partitions allowed during the session.
-    pub partition_ids: Vec<String>,
 }
 
 /// Reply after session creation.
