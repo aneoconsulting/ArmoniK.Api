@@ -33,9 +33,9 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "armonik"
 version = "3.29.2-beta-0"
 dependencies = [
+ "armonik",
  "armonik-macros",
  "armonik-transport",
- "armonik-types",
  "async-stream",
  "bytes",
  "criterion",
@@ -45,8 +45,11 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "linkme",
  "prost",
+ "prost-reflect",
  "prost-types",
+ "protox",
  "serde",
  "serde_json",
  "serial_test",
@@ -90,22 +93,6 @@ dependencies = [
  "tonic",
  "tower-service",
  "tracing",
-]
-
-[[package]]
-name = "armonik-types"
-version = "3.29.2-beta-0"
-dependencies = [
- "armonik-macros",
- "armonik-types",
- "bytes",
- "fnv",
- "linkme",
- "prost",
- "prost-reflect",
- "prost-types",
- "protox",
- "serde",
 ]
 
 [[package]]

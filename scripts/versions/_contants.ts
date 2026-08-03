@@ -17,9 +17,9 @@ export const javaPattern = /<version>(?<version>.*)<\/version>/
 export const javaFiles = ['packages/java/pom.xml', 'packages/java/armonik-client-api/pom.xml', 'packages/java/armonik-worker-api/pom.xml']
 
 export const rustPattern = /^version\s*=\s*"(?<version>.*?)(?:-beta-\d+)?"$/m
-// armonik + armonik-transport take their version from `[workspace.package]`; armonik-types and
-// armonik-macros carry their own (they are pinned with `=`), so all three files are updated.
-export const rustFiles = ['packages/rust/Cargo.toml', 'packages/rust/armonik-types/Cargo.toml', 'packages/rust/armonik-macros/Cargo.toml']
+// armonik + armonik-transport take their version from `[workspace.package]`; armonik-macros
+// carries its own (it is pinned with `=`), so both files are updated.
+export const rustFiles = ['packages/rust/Cargo.toml', 'packages/rust/armonik-macros/Cargo.toml']
 
 // The workspace declares `armonik-transport` by version as well as by path (a path dependency cannot
 // be published). Anchored on the dependency name so it cannot reach third-party versions beside it.
@@ -27,7 +27,7 @@ export const rustDependencyPattern
   = /(?<=^armonik-transport = \{ path = "armonik-transport", version = ")(?<version>.*?)(?:-beta-\d+)?(?=")/m
 export const rustDependencyFiles = ['packages/rust/Cargo.toml']
 
-// The `=` pins that version-lock the internal crates: armonik pins armonik-types, armonik-types pins
-// armonik-macros. One line-start `version = "=..."` pin per file.
+// The `=` pin that version-locks the internal crates: armonik pins armonik-macros.
+// One line-start `version = "=..."` pin per file.
 export const rustMacrosPinPattern = /^version\s*=\s*"=(?<version>.*?)(?:-beta-\d+)?"$/m
-export const rustMacrosPinFiles = ['packages/rust/armonik/Cargo.toml', 'packages/rust/armonik-types/Cargo.toml']
+export const rustMacrosPinFiles = ['packages/rust/armonik/Cargo.toml']

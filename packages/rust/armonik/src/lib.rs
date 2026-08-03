@@ -1,15 +1,94 @@
 //! Rust bindings for the ArmoniK API
+//!
+//! Ergonomic Rust structs and enums that implement [`prost::Message`]
+//! directly against the ArmoniK protobuf schema — no generated intermediate
+//! representation, no conversion layer — plus the gRPC clients and servers
+//! speaking them natively.
 
-// The message types, codec, and derives live in `armonik-types`; re-export
-// its whole surface so `armonik::applications::Raw`, `armonik::TaskOptions`,
-// etc. keep resolving. This crate adds the tonic client/server stubs on top.
-pub use armonik_types::*;
-
-// Transition glue (deleted at the crate merge): the fingerprint anchor for
-// the `service!` tripwires, copied into this crate's OUT_DIR by build.rs.
+// Staleness anchor for the wire-representation derives and the `service!`
+// invocations: `include!` puts the generated file in rustc's dep-info, so any
+// descriptor change invalidates the crate; every expansion const-asserts
+// against this fingerprint.
 mod __schema {
     include!(concat!(env!("OUT_DIR"), "/schema_meta.rs"));
 }
+
+pub(crate) mod codec;
+pub(crate) mod utils;
+
+/// Register a type's proto name(s) into [`wire::REGISTRY`]. The single place
+/// the registration shape (the `linkme` slice, the feature gates, the `Diff`
+/// hooks) is written — the derives and `service!` emit `crate::register!(...)`
+/// and the two hand-written impls call it directly, so none restates the
+/// slice's layout.
+///
+/// - `message: Ty, "proto.Name", ...` — a Rust type implementing the message(s);
+/// - `absorbed: "proto.Name", ...` — a message flattened into a parent (no type);
+/// - `unexposed: "proto.Name", ...` — a message of an RPC the crate does not
+///   expose (no type either), emitted by `service!` from `unexposed(...)`.
+macro_rules! register {
+    (message: $ty:ident, $($proto:literal),+ $(,)?) => {
+        $($crate::register!(@type $proto, $ty);)+
+    };
+    (absorbed: $($proto:literal),+ $(,)?) => {
+        $($crate::register!(@untyped $proto, Absorbed);)+
+    };
+    (unexposed: $($proto:literal),+ $(,)?) => {
+        $($crate::register!(@untyped $proto, Unexposed);)+
+    };
+
+    // One registration for a proto name with no Rust type of its own.
+    (@untyped $proto:literal, $role:ident) => {
+        #[cfg(feature = "_differential")]
+        const _: () = {
+            #[::linkme::distributed_slice($crate::wire::REGISTRY)]
+            static R: $crate::wire::Registration = $crate::wire::Registration {
+                proto: $proto,
+                role: $crate::wire::Role::$role,
+                diff: ::core::option::Option::None,
+            };
+        };
+    };
+
+    // One registration for a real Rust type, with the harness
+    // round-trip/projection hooks.
+    (@type $proto:literal, $ty:ident) => {
+        #[cfg(feature = "_differential")]
+        const _: () = {
+            #[::linkme::distributed_slice($crate::wire::REGISTRY)]
+            static R: $crate::wire::Registration = $crate::wire::Registration {
+                proto: $proto,
+                role: $crate::wire::Role::Message,
+                diff: ::core::option::Option::Some($crate::wire::Diff {
+                    roundtrip: |bytes| ::core::result::Result::Ok(
+                        ::prost::Message::encode_to_vec(&<$ty as ::prost::Message>::decode(bytes)?),
+                    ),
+                    default_encoding: || ::prost::Message::encode_to_vec(
+                        &<$ty as ::core::default::Default>::default(),
+                    ),
+                    normalize: <$ty as $crate::differential::Normalize>::normalize,
+                }),
+            };
+        };
+    };
+}
+pub(crate) use register;
+
+// The object tree carries the ergonomic types; they are re-exported flat
+// below, the only supported surface.
+mod objects;
+pub use objects::*;
+
+// The differential harness (test-only). Enabled only through the self
+// dev-dependency, so tests always see it and downstream builds never do.
+#[cfg(feature = "_differential")]
+#[doc(hidden)]
+pub mod differential;
+
+// The self-registering type registry, consumed by the differential harness.
+#[cfg(feature = "_differential")]
+#[doc(hidden)]
+pub mod wire;
 
 pub mod rpc;
 
@@ -23,8 +102,6 @@ pub mod server;
 pub use armonik_transport as transport;
 #[cfg(feature = "_gen-client")]
 pub use client::{Client, ClientConfig};
-
-mod utils;
 
 pub mod reexports {
     pub use bytes;

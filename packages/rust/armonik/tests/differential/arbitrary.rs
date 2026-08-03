@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use armonik_types::reexports::bytes::Bytes;
+use armonik::reexports::bytes::Bytes;
 use prost_reflect::{DynamicMessage, Kind, MapKey, MessageDescriptor, Value};
 
 use crate::rng::SplitMix64;

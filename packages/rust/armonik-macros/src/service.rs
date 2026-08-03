@@ -170,6 +170,27 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         .collect::<Vec<_>>();
     let server = expand_server(&def, &resolved, service_docs);
 
+    // The unexposed RPCs' messages have no Rust type; register them for the
+    // differential harness's coverage ratchet, so the message allowlist is
+    // derived from the same declaration as the RPC one.
+    let unexposed_messages = def
+        .unexposed
+        .iter()
+        .flat_map(|ident| {
+            let meta = service
+                .methods
+                .iter()
+                .find(|meta| ident == &meta.name)
+                .expect("validated");
+            [meta.input.clone(), meta.output.clone()]
+        })
+        .collect::<Vec<_>>();
+    let unexposed = (!unexposed_messages.is_empty()).then(|| {
+        quote! {
+            crate::register!(unexposed: #(#unexposed_messages),*);
+        }
+    });
+
     Ok(quote! {
         #(#[doc = #service_docs])*
         pub struct #marker;
@@ -185,6 +206,8 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         );
 
         #(#rpcs)*
+
+        #unexposed
 
         #server
     })

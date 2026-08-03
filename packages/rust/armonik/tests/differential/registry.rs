@@ -2,7 +2,7 @@
 //! onto the armonik types' documented equivalence classes.
 //!
 //! The mapping is self-registering: every derived (and hand-written) message
-//! type pushes an [`Entry`] into `armonik_types::differential::REGISTRY` under
+//! type pushes an [`Entry`] into `armonik::differential::REGISTRY` under
 //! the private `_differential` feature, so new messages are covered without
 //! touching the harness. Each entry carries the type's own `Normalize`
 //! projection, generated from the same constructs that shape its codec
@@ -16,10 +16,10 @@ use std::sync::OnceLock;
 
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
-pub use armonik_types::differential::Entry;
+pub use armonik::differential::Entry;
 
 pub fn entries() -> impl Iterator<Item = Entry> {
-    armonik_types::differential::entries()
+    armonik::differential::entries()
 }
 
 /// Project a message (recursively) onto the equivalence classes of its
