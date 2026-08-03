@@ -132,6 +132,25 @@ impl Client<tonic::transport::Channel> {
     }
 }
 
+/// One borrowed + one owned accessor per service on [`Client`].
+macro_rules! services {
+    ($($(#[$attr:meta])* $borrow:ident, $into:ident => $Service:ident;)*) => {
+        $(
+            $(#[$attr])*
+            #[doc = concat!("Create a borrowed [`", stringify!($Service), "`]")]
+            pub fn $borrow(&mut self) -> $Service<&mut Self> {
+                $Service::with_channel(self)
+            }
+
+            $(#[$attr])*
+            #[doc = concat!("Create an owned [`", stringify!($Service), "`]")]
+            pub fn $into(self) -> $Service<Self> {
+                $Service::with_channel(self)
+            }
+        )*
+    };
+}
+
 impl<T> Client<T>
 where
     T: Clone,
@@ -142,140 +161,19 @@ where
         Self { channel }
     }
 
-    #[cfg(feature = "worker")]
-    /// Create a borrowed [`Agent`]
-    pub fn agent(&mut self) -> Agent<&mut Self> {
-        Agent::with_channel(self)
-    }
-    #[cfg(feature = "worker")]
-    /// Create an owned [`Agent`]
-    pub fn into_agent(self) -> Agent<Self> {
-        Agent::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Applications`]
-    pub fn applications(&mut self) -> Applications<&mut Self> {
-        Applications::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Applications`]
-    pub fn into_applications(self) -> Applications<Self> {
-        Applications::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Auth`]
-    pub fn auth(&mut self) -> Auth<&mut Self> {
-        Auth::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Auth`]
-    pub fn into_auth(self) -> Auth<Self> {
-        Auth::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Events`]
-    pub fn events(&mut self) -> Events<&mut Self> {
-        Events::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Events`]
-    pub fn into_events(self) -> Events<Self> {
-        Events::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`HealthChecks`]
-    pub fn health_checks(&mut self) -> HealthChecks<&mut Self> {
-        HealthChecks::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`HealthChecks`]
-    pub fn into_health_checks(self) -> HealthChecks<Self> {
-        HealthChecks::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Partitions`]
-    pub fn partitions(&mut self) -> Partitions<&mut Self> {
-        Partitions::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Partitions`]
-    pub fn into_partitions(self) -> Partitions<Self> {
-        Partitions::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Results`]
-    pub fn results(&mut self) -> Results<&mut Self> {
-        Results::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Results`]
-    pub fn into_results(self) -> Results<Self> {
-        Results::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Sessions`]
-    pub fn sessions(&mut self) -> Sessions<&mut Self> {
-        Sessions::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Sessions`]
-    pub fn into_sessions(self) -> Sessions<Self> {
-        Sessions::with_channel(self)
-    }
-
-    /// Create a borrowed [`Submitter`]
-    #[cfg(feature = "client")]
-    #[deprecated]
-    #[allow(deprecated)]
-    pub fn submitter(&mut self) -> Submitter<&mut Self> {
-        Submitter::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    #[deprecated]
-    #[allow(deprecated)]
-    /// Create an owned [`Submitter`]
-    pub fn into_submitter(self) -> Submitter<Self> {
-        Submitter::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Tasks`]
-    pub fn tasks(&mut self) -> Tasks<&mut Self> {
-        Tasks::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Tasks`]
-    pub fn into_tasks(self) -> Tasks<Self> {
-        Tasks::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Versions`]
-    pub fn versions(&mut self) -> Versions<&mut Self> {
-        Versions::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Versions`]
-    pub fn into_versions(self) -> Versions<Self> {
-        Versions::with_channel(self)
-    }
-
-    #[cfg(feature = "agent")]
-    /// Create a borrowed [`Worker`]
-    pub fn worker(&mut self) -> Worker<&mut Self> {
-        Worker::with_channel(self)
-    }
-    #[cfg(feature = "agent")]
-    /// Create an owned [`Worker`]
-    pub fn into_worker(self) -> Worker<Self> {
-        Worker::with_channel(self)
+    services! {
+        #[cfg(feature = "worker")] agent, into_agent => Agent;
+        #[cfg(feature = "client")] applications, into_applications => Applications;
+        #[cfg(feature = "client")] auth, into_auth => Auth;
+        #[cfg(feature = "client")] events, into_events => Events;
+        #[cfg(feature = "client")] health_checks, into_health_checks => HealthChecks;
+        #[cfg(feature = "client")] partitions, into_partitions => Partitions;
+        #[cfg(feature = "client")] results, into_results => Results;
+        #[cfg(feature = "client")] sessions, into_sessions => Sessions;
+        #[cfg(feature = "client")] #[deprecated] #[allow(deprecated)] submitter, into_submitter => Submitter;
+        #[cfg(feature = "client")] tasks, into_tasks => Tasks;
+        #[cfg(feature = "client")] versions, into_versions => Versions;
+        #[cfg(feature = "agent")] worker, into_worker => Worker;
     }
 }
 
@@ -319,29 +217,6 @@ where
     }
 }
 
-/// Perform a gRPC call from a raw request.
-#[allow(async_fn_in_trait)]
-pub trait GrpcCall<Request> {
-    type Response;
-    type Error;
-
-    /// Perform a gRPC call from a raw request.
-    async fn call(self, request: Request) -> Result<Self::Response, Self::Error>;
-}
-
-/// Perform a gRPC call from a raw request.
-#[allow(async_fn_in_trait)]
-pub trait GrpcCallStream<Request, Stream>
-where
-    Stream: futures::Stream<Item = Request> + Send + 'static,
-{
-    type Response;
-    type Error;
-
-    /// Perform a gRPC call from a raw request.
-    async fn call(self, request: Stream) -> Result<Self::Response, Self::Error>;
-}
-
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum RequestError {
@@ -354,31 +229,3 @@ pub enum RequestError {
         location: snafu::Location,
     },
 }
-
-macro_rules! impl_call {
-    (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty> $block:block) => {
-        crate::client::impl_call! {
-            @one $Client($self, $request: $Request) -> Result<$Response, crate::client::RequestError> $block
-        }
-    };
-    (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty, $Error:ty> $block:block) => {
-        impl<T> $crate::client::GrpcCall<$Request> for &'_ mut $Client<T>
-        where
-            T: crate::client::Channel,
-        {
-            type Response = $Response;
-            type Error = $Error;
-
-            async fn call($self, $request: $Request) -> Result<Self::Response, Self::Error> $block
-        }
-    };
-    ($Client:ident {$(async fn call($self:ident, $request:ident: $Request:ty) -> Result<$($Result:ty),*> $block:block)*}) => {
-        $(
-            crate::client::impl_call! {
-                @one $Client($self, $request: $Request) -> Result<$($Result),*> $block
-            }
-        )*
-    };
-}
-
-pub(crate) use impl_call;
