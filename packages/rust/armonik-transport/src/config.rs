@@ -158,91 +158,68 @@ impl Clone for ClientConfig {
 /// Options for creating a gRPC Client, in the string form a caller supplies them in
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
+#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
 #[non_exhaustive]
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
-    #[cfg_attr(feature = "serde", serde(default))]
     pub endpoint: String,
     /// A file this crate reads: the client's own certificate, matching `key_pem`. Mutually exclusive
     /// with `cert_p12`.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub cert_pem: String,
     /// A file this crate reads: the client's own key, matching `cert_pem`. Mutually exclusive with
     /// `cert_p12`.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub key_pem: String,
     /// A file this crate reads: the Certificate Authority.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub ca_cert: String,
     /// A file this crate reads: the client's own certificate and key bundled together, the form
     /// Windows and most certificate authorities hand out. Mutually exclusive with `cert_pem`/`key_pem`.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub cert_p12: String,
     /// The password protecting `cert_p12`, empty for none. Meaningless, and rejected, without
     /// `cert_p12`.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub cert_p12_password: Secret,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
-    #[cfg_attr(feature = "serde", serde(default))]
     pub allow_unsafe_connection: bool,
     /// Override the endpoint name during SSL verification
-    #[cfg_attr(feature = "serde", serde(default))]
     pub override_target_name: String,
     /// Timeout for establishing a connection to the server, defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(default))]
     pub connect_timeout: String,
     /// Timeout for each request, defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(default))]
     pub timeout: String,
     /// Rate limit for requests, defaults to no rate limit
-    #[cfg_attr(feature = "serde", serde(default))]
     pub rate_limit: String,
     /// TCP keepalive duration (e.g. `30s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(default))]
     pub tcp_keepalive: String,
     /// Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub tcp_keepalive_interval: String,
     /// Number of TCP keepalive retries, defaults to OS default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub tcp_keepalive_retries: String,
     /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false
-    #[cfg_attr(feature = "serde", serde(default))]
     pub tcp_nagle_algorithm: bool,
     /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(default))]
     pub http2_keep_alive_interval: String,
     /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(default))]
     pub http2_keep_alive_timeout: String,
     /// Send HTTP/2 keepalive PINGs even when idle, defaults to false
-    #[cfg_attr(feature = "serde", serde(default))]
     pub http2_keep_alive_while_idle: bool,
     /// HTTP/2 max header list size in bytes, defaults to no limit
-    #[cfg_attr(feature = "serde", serde(default))]
     pub http2_max_header_list_size: String,
     /// User-Agent header value sent with each request
-    #[cfg_attr(feature = "serde", serde(default))]
     pub user_agent: String,
     /// HTTP proxy to reach the endpoint through.
     ///
     /// Empty for a direct connection, `none` to disable proxying explicitly, `system` to read the
     /// environment (see [`ProxySource::System`]), otherwise the proxy URL, whose scheme has to be
     /// `http`: the `CONNECT` handshake is written in the clear.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub proxy: String,
     /// Username for proxy authentication.
     ///
     /// Empty falls back to the username the `proxy` URL carried, if any.
-    #[cfg_attr(feature = "serde", serde(default))]
     pub proxy_username: String,
     /// Password for proxy authentication.
     ///
     /// Empty falls back to the password the `proxy` URL carried, independently of the username, so
     /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
     /// [`Secret`].
-    #[cfg_attr(feature = "serde", serde(default))]
     pub proxy_password: Secret,
 }
 
@@ -296,12 +273,12 @@ impl ClientConfig {
         let _span = tracing::debug_span!(
             "ClientConfig",
             args.endpoint,
-            // Only presence is recorded: a private key must never reach a log, and a certificate's
-            // content would bury the span in PEM.
-            cert_pem_set = !args.cert_pem.is_empty(),
-            key_pem_set = !args.key_pem.is_empty(),
-            ca_cert_set = !args.ca_cert.is_empty(),
-            cert_p12_set = !args.cert_p12.is_empty(),
+            args.cert_pem,
+            args.key_pem,
+            args.ca_cert,
+            args.cert_p12,
+            // `cert_p12_password` left out entirely, the same as `proxy_password` below: a path
+            // names no secret, but a password does.
             args.allow_unsafe_connection,
             args.override_target_name,
             args.connect_timeout,
@@ -1158,7 +1135,11 @@ mod tests {
         let PrivateKeyDer::Pkcs8(key) = key else {
             panic!("expected the PKCS#8 variant, since that is what the bundle carried");
         };
-        assert_eq!(key.secret_pkcs8_der(), key_der.as_slice(), "the key round-trips");
+        assert_eq!(
+            key.secret_pkcs8_der(),
+            key_der.as_slice(),
+            "the key round-trips"
+        );
     }
 
     #[test]
@@ -1240,7 +1221,7 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
-        // Every field carries `serde(default)`, so a configuration file need only name what it
+        // The struct carries `serde(default)`, so a configuration file need only name what it
         // changes; an absent `endpoint` fails later, as `ConfigError::Uri`, not here. The feature is
         // off by default, so nothing else here would notice it breaking.
         let deserialised: ClientConfigArgs =
