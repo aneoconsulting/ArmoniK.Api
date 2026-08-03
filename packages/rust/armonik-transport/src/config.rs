@@ -84,6 +84,45 @@ impl ProxyConfig {
     }
 }
 
+/// Where a certificate, a key or a Certificate Authority comes from.
+///
+/// A caller that already has the material in hand supplies `Content`; a caller that only knows a path,
+/// such as `armonik`'s own `GrpcClient__*` variables, supplies `Path` and lets this crate read it.
+/// Exactly one of the two, by construction: there is no state where both, or neither, are set, which a
+/// pair of plain string fields cannot say.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "env", derive(crate::env::FromEnv))]
+pub enum Certificate<T = String> {
+    /// A file this crate reads itself.
+    #[cfg_attr(feature = "env", env(bare))]
+    Path(String),
+    /// The material itself, already in hand.
+    Content(T),
+}
+
+impl Certificate<String> {
+    /// The PEM text this describes, reading the file when it names one.
+    fn resolve(self, option: &'static str) -> Result<String, ConfigError> {
+        match self {
+            Self::Path(path) => std::fs::read_to_string(&path).context(IoSnafu { option, path }),
+            Self::Content(content) => Ok(content),
+        }
+    }
+}
+
+impl Certificate<Secret> {
+    /// The key's PEM text, reading the file when it names one. A `Secret` either way.
+    fn resolve(self, option: &'static str) -> Result<Secret, ConfigError> {
+        match self {
+            Self::Path(path) => std::fs::read_to_string(&path)
+                .map(Secret::from)
+                .context(IoSnafu { option, path }),
+            Self::Content(content) => Ok(content),
+        }
+    }
+}
+
 /// Options for creating a gRPC Client
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -154,22 +193,25 @@ impl Clone for ClientConfig {
     }
 }
 
-/// Options for creating a gRPC Client (as given in the environment)
+/// Options for creating a gRPC Client, in the string form a caller supplies them in
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[non_exhaustive]
+#[cfg_attr(feature = "env", derive(crate::env::FromEnv))]
+// Deliberately exhaustive, unlike the configuration it becomes: this is what a caller fills in, and a
+// caller that cannot name every field cannot be told by the compiler when a new one appears.
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
     pub endpoint: String,
-    /// Path to the certificate file in pem format
+    /// The client certificate: a path this crate reads, or the PEM itself, already in hand.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub cert_pem: String,
-    /// Path to the key file in pem format
+    pub cert_pem: Option<Certificate>,
+    /// The client key, matching `cert_pem`. Redacted wherever it is written when given as content; see
+    /// [`Secret`].
     #[cfg_attr(feature = "serde", serde(default))]
-    pub key_pem: String,
-    /// Path to the Certificate Authority file in pem format
+    pub key_pem: Option<Certificate<Secret>>,
+    /// The Certificate Authority: a path this crate reads, or the PEM itself, already in hand.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub ca_cert: String,
+    pub ca_cert: Option<Certificate>,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
     #[cfg_attr(feature = "serde", serde(default))]
     pub allow_unsafe_connection: bool,
@@ -233,51 +275,16 @@ pub struct ClientConfigArgs {
     pub proxy_password: Secret,
 }
 
-impl ClientConfigArgs {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        use crate::utils::{read_env, read_env_bool};
-        let ctx = EnvSnafu {};
-        Ok(Self {
-            endpoint: read_env("GrpcClient__Endpoint").context(ctx)?,
-            cert_pem: read_env("GrpcClient__CertPem").context(ctx)?,
-            key_pem: read_env("GrpcClient__KeyPem").context(ctx)?,
-            ca_cert: read_env("GrpcClient__CaCert").context(ctx)?,
-            allow_unsafe_connection: read_env_bool("GrpcClient__AllowUnsafeConnection")
-                .context(ctx)?,
-            override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
-            connect_timeout: read_env("GrpcClient__ConnectTimeout").context(ctx)?,
-            timeout: read_env("GrpcClient__Timeout").context(ctx)?,
-            rate_limit: read_env("GrpcClient__RateLimit").context(ctx)?,
-            tcp_keepalive: read_env("GrpcClient__TcpKeepalive").context(ctx)?,
-            tcp_keepalive_interval: read_env("GrpcClient__TcpKeepaliveInterval").context(ctx)?,
-            tcp_keepalive_retries: read_env("GrpcClient__TcpKeepaliveRetries").context(ctx)?,
-            tcp_nagle_algorithm: read_env_bool("GrpcClient__TcpNagleAlgorithm").context(ctx)?,
-            http2_keep_alive_interval: read_env("GrpcClient__Http2KeepAliveInterval")
-                .context(ctx)?,
-            http2_keep_alive_timeout: read_env("GrpcClient__Http2KeepAliveTimeout").context(ctx)?,
-            http2_keep_alive_while_idle: read_env_bool("GrpcClient__Http2KeepAliveWhileIdle")
-                .context(ctx)?,
-            http2_max_header_list_size: read_env("GrpcClient__Http2MaxHeaderListSize")
-                .context(ctx)?,
-            user_agent: read_env("GrpcClient__UserAgent").context(ctx)?,
-            proxy: read_env("GrpcClient__Proxy").context(ctx)?,
-            proxy_username: read_env("GrpcClient__ProxyUsername").context(ctx)?,
-            proxy_password: read_env("GrpcClient__ProxyPassword").context(ctx)?.into(),
-        })
-    }
-}
-
 impl ClientConfig {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_config_args(ClientConfigArgs::from_env()?)
-    }
     pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
         let _span = tracing::debug_span!(
             "ClientConfig",
             args.endpoint,
-            args.cert_pem,
-            args.key_pem,
-            args.ca_cert,
+            // Only presence is recorded: a private key must never reach a log, and a certificate's
+            // content would bury the span in PEM.
+            cert_pem_set = args.cert_pem.is_some(),
+            key_pem_set = args.key_pem.is_some(),
+            ca_cert_set = args.ca_cert.is_some(),
             args.allow_unsafe_connection,
             args.override_target_name,
             args.connect_timeout,
@@ -301,9 +308,9 @@ impl ClientConfig {
 
         let ClientConfigArgs {
             endpoint,
-            cert_pem: cert_path,
-            key_pem: key_path,
-            ca_cert: cacert_path,
+            cert_pem,
+            key_pem,
+            ca_cert,
             allow_unsafe_connection,
             override_target_name,
             connect_timeout,
@@ -323,25 +330,29 @@ impl ClientConfig {
             proxy_password,
         } = args;
 
-        // Read CAcert file
-        let cacert = if !cacert_path.is_empty() {
-            let cacert_pem = std::fs::read_to_string(cacert_path.clone())
-                .context(IoSnafu { path: cacert_path })?;
-            Some(CertificateDer::from_pem_slice(cacert_pem.as_bytes()).context(TlsSnafu {})?)
-        } else {
-            None
-        };
+        let cacert = ca_cert
+            .map(|ca_cert| ca_cert.resolve("ca_cert"))
+            .transpose()?
+            .map(|pem| CertificateDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {}))
+            .transpose()?;
 
-        // Read client cert and key files
-        let identity = match (cert_path.as_str(), key_path.as_str()) {
-            ("", "") => None,
-            ("", _) | (_, "") => return IncompatibleOptionsSnafu{msg: format!("`GrpcClient__CertPem={cert_path}` and `GrpcClient__KeyPem={key_path}` must be either both empty or both set")}.fail(),
-            (cert_path, key_path) => {
-                let cert_pem =
-                    std::fs::read_to_string(cert_path).context(IoSnafu { path: cert_path })?;
-                let key_pem = std::fs::read(key_path).context(IoSnafu { path: key_path })?;
-                let cert = CertificateDer::from_pem_slice(cert_pem.as_bytes()).context(TlsSnafu {})?;
-                let key = PrivateKeyDer::from_pem_slice(key_pem.as_slice()).context(TlsSnafu{})?;
+        let identity = match (cert_pem, key_pem) {
+            (None, None) => None,
+            (Some(_), None) | (None, Some(_)) => {
+                return IncompatibleOptionsSnafu {
+                    msg: String::from(
+                        "`cert_pem` and `key_pem` must be either both empty or both set",
+                    ),
+                }
+                .fail()
+            }
+            (Some(cert_pem), Some(key_pem)) => {
+                let cert_pem = cert_pem.resolve("cert_pem")?;
+                let key_pem = key_pem.resolve("key_pem")?;
+                let cert =
+                    CertificateDer::from_pem_slice(cert_pem.as_bytes()).context(TlsSnafu {})?;
+                let key = PrivateKeyDer::from_pem_slice(key_pem.expose_secret().as_bytes())
+                    .context(TlsSnafu {})?;
 
                 Some((cert, key))
             }
@@ -632,14 +643,6 @@ impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum ConfigError {
-    #[snafu(display("Could not read environment variable [{location}]"))]
-    #[non_exhaustive]
-    Env {
-        #[snafu(source(from(crate::utils::ReadEnvError, Box::new)))]
-        source: Box<crate::utils::ReadEnvError>,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
     #[snafu(display("Invalid TLS configuration [{location}]"))]
     #[non_exhaustive]
     Tls {
@@ -666,11 +669,12 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Could not read file `{path}` [{location}]"))]
+    #[snafu(display("Could not read `{option}`'s file `{path}` [{location}]"))]
     #[non_exhaustive]
     Io {
         #[snafu(source(from(std::io::Error, Box::new)))]
         source: Box<std::io::Error>,
+        option: &'static str,
         path: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -922,11 +926,17 @@ mod tests {
     #[test]
     fn half_an_identity_is_rejected_and_names_both_variables() {
         // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
-        // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
-        for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
+        // on an mTLS one, so it is caught before either half is parsed.
+        for (cert, key) in [
+            (
+                Some(Certificate::Content(String::from("a certificate"))),
+                None,
+            ),
+            (None, Some(Certificate::Content(Secret::from("a key")))),
+        ] {
             let error = ClientConfig::from_config_args(ClientConfigArgs {
-                cert_pem: String::from(cert),
-                key_pem: String::from(key),
+                cert_pem: cert,
+                key_pem: key,
                 ..args()
             })
             .expect_err("half an identity must be rejected");
@@ -936,8 +946,8 @@ mod tests {
                 "{error:?}"
             );
             let rendered = chain(&error);
-            assert!(rendered.contains("GrpcClient__CertPem"), "{rendered}");
-            assert!(rendered.contains("GrpcClient__KeyPem"), "{rendered}");
+            assert!(rendered.contains("cert_pem"), "{rendered}");
+            assert!(rendered.contains("key_pem"), "{rendered}");
         }
     }
 
@@ -948,38 +958,66 @@ mod tests {
     }
 
     #[test]
-    fn a_certificate_path_that_does_not_exist_is_reported_with_the_path() {
-        // These options are paths, not contents. A typo in one has to name the file rather than surface
-        // later as a TLS failure.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
-            cert_pem: String::from("no/such/cert.pem"),
-            key_pem: String::from("no/such/key.pem"),
-            ..args()
-        })
-        .expect_err("a missing file must be reported");
+    fn content_that_is_not_pem_fails_as_such() {
+        // These options carry the certificate itself when given as `Content`. Garbage content gets a
+        // PEM error naming what was wrong, rather than this crate silently accepting it.
+        for args in [
+            ClientConfigArgs {
+                cert_pem: Some(Certificate::Content(String::from("not a certificate"))),
+                key_pem: Some(Certificate::Content(Secret::from("not a key"))),
+                ..args()
+            },
+            ClientConfigArgs {
+                ca_cert: Some(Certificate::Content(String::from("not a certificate"))),
+                ..args()
+            },
+        ] {
+            let error = ClientConfig::from_config_args(args)
+                .expect_err("garbage content is not a certificate");
 
-        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
-        assert!(
-            chain(&error).contains("no/such/cert.pem"),
-            "{}",
-            chain(&error)
-        );
+            assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
+        }
     }
 
     #[test]
-    fn a_missing_ca_certificate_is_reported_with_the_path() {
+    fn a_path_that_leads_nowhere_names_the_option_and_the_path() {
+        for args in [
+            ClientConfigArgs {
+                cert_pem: Some(Certificate::Path(String::from("no/such/cert.pem"))),
+                key_pem: Some(Certificate::Path(String::from("no/such/key.pem"))),
+                ..args()
+            },
+            ClientConfigArgs {
+                ca_cert: Some(Certificate::Path(String::from("no/such/ca.pem"))),
+                ..args()
+            },
+        ] {
+            let error =
+                ClientConfig::from_config_args(args).expect_err("a missing file must be reported");
+
+            assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
+            let rendered = chain(&error);
+            assert!(rendered.contains("no/such/"), "{rendered}");
+        }
+    }
+
+    #[test]
+    fn a_path_to_a_real_file_is_actually_read() {
+        // Proven by the error changing kind, not by a successful parse: generating a real certificate
+        // is more than this needs. A file that exists but holds no certificate must fail as `Tls`, not
+        // as `Io`, or the path was never opened at all.
+        let mut ca = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut ca, b"clearly not a certificate").expect("write");
+
         let error = ClientConfig::from_config_args(ClientConfigArgs {
-            ca_cert: String::from("no/such/ca.pem"),
+            ca_cert: Some(Certificate::Path(
+                ca.path().to_str().expect("utf8 path").to_owned(),
+            )),
             ..args()
         })
-        .expect_err("a missing file must be reported");
+        .expect_err("this file holds no certificate");
 
-        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
-        assert!(
-            chain(&error).contains("no/such/ca.pem"),
-            "{}",
-            chain(&error)
-        );
+        assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
     }
 
     // --- override target ---
@@ -1043,13 +1081,28 @@ mod tests {
 
         assert_eq!(deserialised.endpoint, "http://localhost:5001");
         assert_eq!(deserialised.timeout, "30s");
-        assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
+        assert_eq!(deserialised.cert_pem, None, "an absent field defaults");
         assert!(!deserialised.allow_unsafe_connection);
 
         let round_tripped: ClientConfigArgs =
             serde_json::from_str(&serde_json::to_string(&deserialised).expect("serialise"))
                 .expect("deserialise");
         assert_eq!(round_tripped, deserialised);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_certificate_serialises_as_path_or_content_by_name() {
+        // What a caller across a JSON boundary needs to see: the two forms are distinguishable by a
+        // named key, not by shape alone, and a schema derived from this type can say "exactly one of
+        // these two".
+        let path = serde_json::to_string(&Certificate::Path::<String>(String::from("/ca.pem")))
+            .expect("serialise");
+        assert_eq!(path, r#"{"Path":"/ca.pem"}"#);
+
+        let content = serde_json::to_string(&Certificate::Content(String::from("-----BEGIN...")))
+            .expect("serialise");
+        assert_eq!(content, r#"{"Content":"-----BEGIN..."}"#);
     }
 
     // --- the proxy ---

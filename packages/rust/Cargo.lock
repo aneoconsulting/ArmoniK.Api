@@ -48,6 +48,7 @@ dependencies = [
 name = "armonik-transport"
 version = "3.29.2-beta-0"
 dependencies = [
+ "armonik-transport-derive",
  "base64",
  "bytes",
  "humantime",
@@ -59,10 +60,19 @@ dependencies = [
  "serde_json",
  "serial_test",
  "snafu",
+ "tempfile",
  "tokio",
  "tonic",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "armonik-transport-derive"
+version = "3.29.2-beta-0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
