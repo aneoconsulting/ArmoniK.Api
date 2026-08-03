@@ -127,6 +127,23 @@ fn parse_stream(input: ParseStream) -> syn::Result<Option<kw::stream>> {
     }
 }
 
+/// The three call shapes; drives kind markers, trait signatures and the
+/// `serve_*` helper each route dispatches into.
+#[derive(Clone, Copy, PartialEq)]
+enum CallKind {
+    Unary,
+    ClientStream,
+    ServerStream,
+}
+
+/// One `rpc` line, resolved against the descriptor.
+struct Resolved<'a> {
+    rpc: &'a RpcDef,
+    meta: &'a MethodMeta,
+    ergonomic: Ident,
+    kind: CallKind,
+}
+
 pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<TokenStream> {
     let full_name = def.name.value();
     let service = index.services.get(&full_name).ok_or_else(|| {
@@ -141,24 +158,17 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         )
     })?;
 
-    validate(&def, service)?;
+    let resolved = validate(&def, service)?;
 
     let marker = &def.marker;
     let service_docs = &service.docs;
     let fingerprint = proc_macro2::Literal::u64_suffixed(index.fingerprint);
 
-    let rpcs = def
-        .rpcs
+    let rpcs = resolved
         .iter()
-        .map(|rpc| {
-            let meta = service
-                .methods
-                .iter()
-                .find(|meta| rpc.method == meta.name)
-                .expect("validated");
-            expand_rpc(&def, rpc, meta, &full_name)
-        })
-        .collect::<syn::Result<Vec<_>>>()?;
+        .map(|entry| expand_rpc(&def, entry, &full_name))
+        .collect::<Vec<_>>();
+    let server = expand_server(&def, &resolved, service_docs);
 
     Ok(quote! {
         #(#[doc = #service_docs])*
@@ -175,44 +185,32 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         );
 
         #(#rpcs)*
+
+        #server
     })
 }
 
-fn expand_rpc(
-    def: &ServiceDef,
-    rpc: &RpcDef,
-    meta: &MethodMeta,
-    full_name: &str,
-) -> syn::Result<TokenStream> {
+fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenStream {
     let marker = &def.marker;
     let module = &def.module;
-    let method = rpc.method.to_string();
-    let ergonomic = match &rpc.ergonomic {
-        Some(ident) => ident.clone(),
-        None => request_module_segment(&rpc.request)?,
+    let method = entry.rpc.method.to_string();
+    let ergonomic = &entry.ergonomic;
+
+    let kind = match entry.kind {
+        CallKind::Unary => quote!(crate::rpc::Unary),
+        CallKind::ServerStream => quote!(crate::rpc::ServerStream),
+        CallKind::ClientStream => quote!(crate::rpc::ClientStream),
     };
 
-    let kind = match (rpc.client_stream, rpc.server_stream) {
-        (None, None) => quote!(crate::rpc::Unary),
-        (None, Some(_)) => quote!(crate::rpc::ServerStream),
-        (Some(_), None) => quote!(crate::rpc::ClientStream),
-        (Some(stream), Some(_)) => {
-            return Err(syn::Error::new(
-                stream.span,
-                "bidirectional streaming RPCs are not exposed; list the method in `unexposed(...)`",
-            ))
-        }
-    };
-
-    let request = &rpc.request;
-    let response = &rpc.response;
+    let request = &entry.rpc.request;
+    let response = &entry.rpc.response;
     let path = format!("/{full_name}/{method}");
     let label = format!("{marker}::{ergonomic}");
-    let docs = &meta.docs;
-    let input = &meta.input;
-    let output = &meta.output;
+    let docs = &entry.meta.docs;
+    let input = &entry.meta.input;
+    let output = &entry.meta.output;
 
-    Ok(quote! {
+    quote! {
         #(#[doc = #docs])*
         impl crate::rpc::Rpc for #module::#request {
             type Service = #marker;
@@ -240,7 +238,151 @@ fn expand_rpc(
                 "the response type does not implement this RPC's output message",
             );
         };
-    })
+    }
+}
+
+/// The server side of one invocation: the service trait (harvested docs,
+/// streaming shapes from the descriptor), the one-line `Ext`, and the routing
+/// table the generic `Router` dispatches through.
+fn expand_server(
+    def: &ServiceDef,
+    resolved: &[Resolved<'_>],
+    service_docs: &[String],
+) -> TokenStream {
+    let marker = &def.marker;
+    let module = &def.module;
+    let trait_ident = quote::format_ident!("{}Service", marker);
+    let ext_ident = quote::format_ident!("{}ServiceExt", marker);
+    let server_fn = quote::format_ident!("{}_server", snake(&marker.to_string()));
+
+    let methods = resolved.iter().map(|entry| {
+        let ergonomic = &entry.ergonomic;
+        let docs = &entry.meta.docs;
+        let request = &entry.rpc.request;
+        let response = &entry.rpc.response;
+        match entry.kind {
+            CallKind::Unary => quote! {
+                #(#[doc = #docs])*
+                fn #ergonomic(
+                    self: ::std::sync::Arc<Self>,
+                    request: #module::#request,
+                    context: crate::server::RequestContext,
+                ) -> impl ::std::future::Future<
+                    Output = ::std::result::Result<#module::#response, ::tonic::Status>,
+                > + ::std::marker::Send;
+            },
+            CallKind::ServerStream => quote! {
+                #(#[doc = #docs])*
+                fn #ergonomic(
+                    self: ::std::sync::Arc<Self>,
+                    request: #module::#request,
+                    context: crate::server::RequestContext,
+                ) -> impl ::std::future::Future<
+                    Output = ::std::result::Result<
+                        impl ::futures::Stream<
+                            Item = ::std::result::Result<#module::#response, ::tonic::Status>,
+                        > + ::std::marker::Send,
+                        ::tonic::Status,
+                    >,
+                > + ::std::marker::Send;
+            },
+            CallKind::ClientStream => quote! {
+                #(#[doc = #docs])*
+                fn #ergonomic(
+                    self: ::std::sync::Arc<Self>,
+                    request: impl ::futures::Stream<
+                        Item = ::std::result::Result<#module::#request, ::tonic::Status>,
+                    > + ::std::marker::Send + 'static,
+                    context: crate::server::RequestContext,
+                ) -> impl ::std::future::Future<
+                    Output = ::std::result::Result<#module::#response, ::tonic::Status>,
+                > + ::std::marker::Send;
+            },
+        }
+    });
+
+    let routes = resolved.iter().map(|entry| {
+        let ergonomic = &entry.ergonomic;
+        let request = &entry.rpc.request;
+        let serve = match entry.kind {
+            CallKind::Unary => quote!(serve_unary),
+            CallKind::ServerStream => quote!(serve_server_stream),
+            CallKind::ClientStream => quote!(serve_client_stream),
+        };
+        let span = format!("{trait_ident}::{ergonomic}");
+        quote! {
+            (
+                <#module::#request as crate::rpc::Rpc>::PATH,
+                |svc, req, config| {
+                    ::std::boxed::Box::pin(crate::server::router::#serve(
+                        svc,
+                        req,
+                        config,
+                        |s: ::std::sync::Arc<S>, r, c| <S as #trait_ident>::#ergonomic(s, r, c),
+                        ::tracing::debug_span!(#span),
+                    ))
+                },
+            )
+        }
+    });
+
+    let ext_doc = format!("Serve a [`{trait_ident}`] implementation as a gRPC service.");
+    let server_fn_doc = "Wrap the service implementation into a \
+                         [`Router`](crate::server::Router) accepted by \
+                         `tonic::transport::Server::add_service`.";
+
+    quote! {
+        #[cfg(feature = "_gen-server")]
+        #(#[doc = #service_docs])*
+        pub trait #trait_ident {
+            #(#methods)*
+        }
+
+        #[cfg(feature = "_gen-server")]
+        #[doc = #ext_doc]
+        pub trait #ext_ident {
+            #[doc = #server_fn_doc]
+            fn #server_fn(self) -> crate::server::Router<#marker, Self>
+            where
+                Self: Sized;
+        }
+
+        #[cfg(feature = "_gen-server")]
+        impl<S> #ext_ident for S
+        where
+            S: #trait_ident + ::std::marker::Send + ::std::marker::Sync + 'static,
+        {
+            fn #server_fn(self) -> crate::server::Router<#marker, Self> {
+                crate::server::Router::new(self)
+            }
+        }
+
+        #[cfg(feature = "_gen-server")]
+        impl<S> crate::server::router::Routes<S> for #marker
+        where
+            S: #trait_ident + ::std::marker::Send + ::std::marker::Sync + 'static,
+        {
+            const ROUTES: &'static [(&'static str, crate::server::router::RouteFn<S>)] = &[
+                #(#routes),*
+            ];
+        }
+    }
+}
+
+/// `HealthChecks` -> `health_checks`.
+fn snake(name: &str) -> String {
+    let mut out = String::new();
+    for (i, ch) in name.chars().enumerate() {
+        if ch.is_uppercase() {
+            if i != 0 {
+                out.push('_');
+            }
+            out.extend(ch.to_lowercase());
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 /// The module segment of `list::Request`, the default ergonomic name.
@@ -255,9 +397,10 @@ fn request_module_segment(request: &Path) -> syn::Result<Ident> {
     Ok(request.segments[request.segments.len() - 2].ident.clone())
 }
 
-fn validate(def: &ServiceDef, service: &ServiceMeta) -> syn::Result<()> {
+fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Vec<Resolved<'a>>> {
     let known = |ident: &Ident| service.methods.iter().any(|meta| ident == &meta.name);
 
+    let mut resolved = Vec::new();
     let mut declared = HashSet::new();
     let mut ergonomics = HashSet::new();
     for rpc in &def.rpcs {
@@ -299,6 +442,19 @@ fn validate(def: &ServiceDef, service: &ServiceMeta) -> syn::Result<()> {
             ));
         }
 
+        let kind = match (rpc.client_stream, rpc.server_stream) {
+            (None, None) => CallKind::Unary,
+            (None, Some(_)) => CallKind::ServerStream,
+            (Some(_), None) => CallKind::ClientStream,
+            (Some(stream), Some(_)) => {
+                return Err(syn::Error::new(
+                    stream.span,
+                    "bidirectional streaming RPCs are not exposed; list the method in \
+                     `unexposed(...)`",
+                ))
+            }
+        };
+
         let ergonomic = match &rpc.ergonomic {
             Some(ident) => ident.clone(),
             None => request_module_segment(&rpc.request)?,
@@ -311,6 +467,13 @@ fn validate(def: &ServiceDef, service: &ServiceMeta) -> syn::Result<()> {
                 ),
             ));
         }
+
+        resolved.push(Resolved {
+            rpc,
+            meta,
+            ergonomic,
+            kind,
+        });
     }
 
     for unexposed in &def.unexposed {
@@ -351,5 +514,5 @@ fn validate(def: &ServiceDef, service: &ServiceMeta) -> syn::Result<()> {
         ));
     }
 
-    Ok(())
+    Ok(resolved)
 }
