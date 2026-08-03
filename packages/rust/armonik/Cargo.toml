@@ -108,11 +108,6 @@ required-features = ["client", "server"]
 name = "results"
 required-features = ["client", "server"]
 
-# Spike (DESIGN-rpc.md §8 step 0): deleted once the cutover lands.
-[[test]]
-name = "results_spike"
-required-features = ["client", "server"]
-
 [[test]]
 name = "sessions"
 required-features = ["client", "server"]
