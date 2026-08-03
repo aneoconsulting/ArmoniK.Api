@@ -2,9 +2,10 @@
 
 use std::collections::HashMap;
 
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use snafu::ResultExt;
 
+use crate::rpc::services;
 use crate::submitter::{
     cancel_session, cancel_tasks, count_tasks, create_session, create_tasks,
     get_service_configuration, list_sessions, list_tasks, result_status, task_status,
@@ -14,35 +15,18 @@ use crate::submitter::{
 use crate::utils::IntoCollection;
 use crate::{Configuration, Output, ResultStatus, TaskOptions, TaskRequest, TaskStatus};
 
-use super::{GrpcCall, GrpcCallStream};
-
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::submitter::submitter_client as stub;
-
-#[derive(Clone)]
 #[deprecated]
-pub struct Submitter<T> {
-    inner: stub::SubmitterClient<T>,
-}
+pub type Submitter<T = tonic::transport::Channel> = super::ServiceClient<services::Submitter, T>;
 
-#[allow(deprecated)]
-impl<T> Submitter<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::SubmitterClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Submitter, T> {
+    #[deprecated]
     pub async fn get_service_configuration(
         &mut self,
     ) -> Result<Configuration, super::RequestError> {
         self.call(get_service_configuration::Request {}).await
     }
 
+    #[deprecated]
     pub async fn create_session(
         &mut self,
         partitions: impl IntoIterator<Item = impl Into<String>>,
@@ -57,6 +41,7 @@ where
             .session_id)
     }
 
+    #[deprecated]
     pub async fn cancel_session(
         &mut self,
         session_id: impl Into<String>,
@@ -68,6 +53,7 @@ where
         Ok(())
     }
 
+    #[deprecated]
     pub async fn create_small_tasks(
         &mut self,
         session_id: impl Into<String>,
@@ -90,6 +76,7 @@ where
         }
     }
 
+    #[deprecated]
     pub async fn create_large_tasks(
         &mut self,
         request: impl Stream<Item = create_tasks::LargeRequest> + Send + 'static,
@@ -104,6 +91,7 @@ where
         }
     }
 
+    #[deprecated]
     pub async fn list_tasks(
         &mut self,
         filter: TaskFilter,
@@ -111,6 +99,7 @@ where
         Ok(self.call(list_tasks::Request { filter }).await?.task_ids)
     }
 
+    #[deprecated]
     pub async fn list_sessions(
         &mut self,
         filter: SessionFilter,
@@ -121,6 +110,7 @@ where
             .session_ids)
     }
 
+    #[deprecated]
     pub async fn count_tasks(
         &mut self,
         filter: TaskFilter,
@@ -128,6 +118,7 @@ where
         Ok(self.call(count_tasks::Request { filter }).await?.values)
     }
 
+    #[deprecated]
     pub async fn try_get_result(
         &mut self,
         session_id: impl Into<String>,
@@ -136,25 +127,14 @@ where
         impl Stream<Item = Result<try_get_result::Response, super::RequestError>>,
         super::RequestError,
     > {
-        let span = tracing::debug_span!("Submitter::try_get_result");
-        let call = tracing_futures::Instrument::instrument(
-            self.inner.try_get_result_stream(try_get_result::Request {
-                session_id: session_id.into(),
-                result_id: result_id.into(),
-            }),
-            tracing::trace_span!(parent: &span, "rpc"),
-        );
-        let stream = call
-            .await
-            .context(super::GrpcSnafu {})?
-            .into_inner()
-            .map(|item| item.context(super::GrpcSnafu {}));
-        Ok(tracing_futures::Instrument::instrument(
-            stream,
-            tracing::trace_span!(parent: &span, "stream"),
-        ))
+        self.call(try_get_result::Request {
+            session_id: session_id.into(),
+            result_id: result_id.into(),
+        })
+        .await
     }
 
+    #[deprecated]
     pub async fn try_get_task_output(
         &mut self,
         session_id: impl Into<String>,
@@ -175,6 +155,7 @@ where
         }
     }
 
+    #[deprecated]
     pub async fn wait_for_availability(
         &mut self,
         session_id: impl Into<String>,
@@ -187,6 +168,7 @@ where
         .await
     }
 
+    #[deprecated]
     pub async fn wait_for_completion(
         &mut self,
         filter: TaskFilter,
@@ -203,11 +185,13 @@ where
             .values)
     }
 
+    #[deprecated]
     pub async fn cancel_tasks(&mut self, filter: TaskFilter) -> Result<(), super::RequestError> {
         self.call(cancel_tasks::Request { filter }).await?;
         Ok(())
     }
 
+    #[deprecated]
     pub async fn task_status(
         &mut self,
         task_ids: impl IntoIterator<Item = impl Into<String>>,
@@ -220,6 +204,7 @@ where
             .statuses)
     }
 
+    #[deprecated]
     pub async fn result_status(
         &mut self,
         session_id: impl Into<String>,
@@ -232,247 +217,6 @@ where
             })
             .await?
             .statuses)
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-
-    /// Perform a client-streaming gRPC call from a raw request stream.
-    pub async fn call_streaming<S, Request>(
-        &mut self,
-        request: S,
-    ) -> Result<
-        <&mut Self as GrpcCallStream<Request, S>>::Response,
-        <&mut Self as GrpcCallStream<Request, S>>::Error,
-    >
-    where
-        S: Stream<Item = Request> + Send + 'static,
-        for<'a> &'a mut Self: GrpcCallStream<Request, S>,
-    {
-        <&mut Self as GrpcCallStream<Request, S>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Submitter {
-        async fn call(self, request: get_service_configuration::Request) -> Result<get_service_configuration::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_service_configuration(request),
-                tracing::debug_span!("Submitter::get_service_configuration")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: create_session::Request) -> Result<create_session::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .create_session(request),
-                tracing::debug_span!("Submitter::create_session")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: cancel_session::Request) -> Result<cancel_session::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .cancel_session(request),
-                tracing::debug_span!("Submitter::cancel_session")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: create_tasks::SmallRequest) -> Result<create_tasks::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .create_small_tasks(request),
-                tracing::debug_span!("Submitter::create_small_tasks")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: list_tasks::Request) -> Result<list_tasks::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .list_tasks(request),
-                tracing::debug_span!("Submitter::list_tasks")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: list_sessions::Request) -> Result<list_sessions::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .list_sessions(request),
-                tracing::debug_span!("Submitter::list_sessions")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: count_tasks::Request) -> Result<count_tasks::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .count_tasks(request),
-                tracing::debug_span!("Submitter::count_tasks")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: try_get_result::Request) -> Result<futures::stream::BoxStream<'static, Result<try_get_result::Response, tonic::Status>>> {
-            let span = tracing::debug_span!("Submitter::try_get_result");
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .try_get_result_stream(request),
-                tracing::trace_span!(parent: &span, "rpc")
-            );
-            let stream = call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner();
-            Ok(futures::stream::StreamExt::boxed(
-                tracing_futures::Instrument::instrument(
-                    stream,
-                    tracing::trace_span!(parent: &span, "stream")
-                )
-            ))
-        }
-
-        async fn call(self, request: try_get_task_output::Request) -> Result<try_get_task_output::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .try_get_task_output(request),
-                tracing::debug_span!("Submitter::try_get_task_output")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: wait_for_availability::Request) -> Result<wait_for_availability::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .wait_for_availability(request),
-                tracing::debug_span!("Submitter::wait_for_availability")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: wait_for_completion::Request) -> Result<wait_for_completion::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .wait_for_completion(request),
-                tracing::debug_span!("Submitter::wait_for_completion")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: cancel_tasks::Request) -> Result<cancel_tasks::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .cancel_tasks(request),
-                tracing::debug_span!("Submitter::cancel_tasks")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: task_status::Request) -> Result<task_status::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_task_status(request),
-                tracing::debug_span!("Submitter::task_status")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: result_status::Request) -> Result<result_status::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_result_status(request),
-                tracing::debug_span!("Submitter::result_status")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-    }
-}
-
-impl<T, S> GrpcCallStream<create_tasks::LargeRequest, S> for &'_ mut Submitter<T>
-where
-    T: crate::client::Channel,
-    S: Stream<Item = create_tasks::LargeRequest> + Send + 'static,
-{
-    type Response = create_tasks::Response;
-    type Error = super::RequestError;
-
-    async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        let span = tracing::debug_span!("Submitter::create_large_tasks");
-        let stream = tracing_futures::Instrument::instrument(
-            request.map(Into::into),
-            tracing::trace_span!(parent: &span, "stream"),
-        );
-        let call = tracing_futures::Instrument::instrument(
-            self.inner.create_large_tasks(stream),
-            tracing::trace_span!(parent: &span, "rpc"),
-        );
-        Ok(call.await.context(super::GrpcSnafu {})?.into_inner())
     }
 }
 

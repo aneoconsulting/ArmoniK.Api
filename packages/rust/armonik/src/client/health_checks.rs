@@ -1,63 +1,16 @@
-use snafu::ResultExt;
-
 use crate::health_checks::check;
-
-use super::GrpcCall;
+use crate::rpc::services;
 
 /// The HealthChecksService provides methods to verify the health of the
 /// cluster.
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::health_checks::health_checks_service_client as stub;
+pub type HealthChecks<T = tonic::transport::Channel> = super::ServiceClient<services::HealthChecks, T>;
 
-#[derive(Clone)]
-pub struct HealthChecks<T> {
-    inner: stub::HealthChecksServiceClient<T>,
-}
-
-impl<T> HealthChecks<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::HealthChecksServiceClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::HealthChecks, T> {
     /// Checks the health of the cluster. This can be used to verify that the cluster is up and running.
     pub async fn check(
         &mut self,
     ) -> Result<Vec<crate::health_checks::ServiceHealth>, super::RequestError> {
         Ok(self.call(check::Request {}).await?.services)
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    HealthChecks {
-        async fn call(self, request: check::Request) -> Result<check::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .check_health(request),
-                tracing::debug_span!("HealthChecks::check")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
     }
 }
 

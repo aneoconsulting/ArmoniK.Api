@@ -1,33 +1,15 @@
-use futures::{Stream, StreamExt};
-use snafu::ResultExt;
+use futures::Stream;
 
 use crate::events::subscribe;
+use crate::rpc::services;
 use crate::utils::IntoCollection;
-
-use super::GrpcCall;
 
 /// Service for subscribing to events representing modifications to ArmoniK
 /// result and task data.
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::events::events_client as stub;
+pub type Events<T = tonic::transport::Channel> = super::ServiceClient<services::Events, T>;
 
-#[derive(Clone)]
-pub struct Events<T> {
-    inner: stub::EventsClient<T>,
-}
-
-impl<T> Events<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::EventsClient::new(channel),
-        }
-    }
-
-    /// Get current user
+impl<T: super::Channel> super::ServiceClient<services::Events, T> {
+    /// Subscribe to the event stream of a session.
     pub async fn subscribe(
         &mut self,
         session_id: impl Into<String>,
@@ -40,65 +22,19 @@ where
         impl Stream<Item = Result<subscribe::Response, super::RequestError>> + 'static,
         super::RequestError,
     > {
-        let span = tracing::debug_span!("Events::subscribe");
-        let call = tracing_futures::Instrument::instrument(
-            self.inner.get_events(subscribe::Request {
-                session_id: session_id.into(),
-                task_filters: task_filters
-                    .into_iter()
-                    .map(IntoCollection::into_collect)
-                    .collect(),
-                result_filters: result_filters
-                    .into_iter()
-                    .map(IntoCollection::into_collect)
-                    .collect(),
-                returned_events: returned_events.into_collect(),
-            }),
-            tracing::trace_span!(parent: &span, "init"),
-        );
-        let stream = call
-            .await
-            .context(super::GrpcSnafu {})?
-            .into_inner()
-            .map(|response| response.context(super::GrpcSnafu {}));
-        Ok(tracing_futures::Instrument::instrument(
-            stream,
-            tracing::trace_span!(parent: &span, "stream"),
-        ))
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-impl<T> GrpcCall<subscribe::Request> for &'_ mut Events<T>
-where
-    T: crate::client::Channel,
-{
-    type Response =
-        futures::stream::BoxStream<'static, Result<subscribe::Response, super::RequestError>>;
-    type Error = super::RequestError;
-
-    async fn call(
-        self,
-        subscribe::Request {
-            session_id,
-            task_filters,
-            result_filters,
-            returned_events,
-        }: subscribe::Request,
-    ) -> Result<Self::Response, Self::Error> {
-        self.subscribe(session_id, task_filters, result_filters, returned_events)
-            .await
-            .map(futures::stream::StreamExt::boxed)
+        self.call(subscribe::Request {
+            session_id: session_id.into(),
+            task_filters: task_filters
+                .into_iter()
+                .map(IntoCollection::into_collect)
+                .collect(),
+            result_filters: result_filters
+                .into_iter()
+                .map(IntoCollection::into_collect)
+                .collect(),
+            returned_events: returned_events.into_collect(),
+        })
+        .await
     }
 }
 

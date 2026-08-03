@@ -1,29 +1,11 @@
-use snafu::ResultExt;
-
+use crate::rpc::services;
 use crate::worker::{health_check, process};
 use crate::Output;
 
-use super::GrpcCall;
+/// The Worker gRPC service, called by the agent to run tasks.
+pub type Worker<T = tonic::transport::Channel> = super::ServiceClient<services::Worker, T>;
 
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::worker::worker_client as stub;
-
-#[derive(Clone)]
-pub struct Worker<T> {
-    inner: stub::WorkerClient<T>,
-}
-
-impl<T> Worker<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::WorkerClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Worker, T> {
     pub async fn health_check(&mut self) -> Result<health_check::Response, super::RequestError> {
         self.call(health_check::Request {}).await
     }
@@ -33,46 +15,5 @@ where
         request: process::Request,
     ) -> Result<Output, super::RequestError> {
         Ok(self.call(request).await?.output)
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Worker {
-        async fn call(self, request: health_check::Request) -> Result<health_check::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .health_check(request),
-                tracing::debug_span!("Worker::health_check")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: process::Request) -> Result<process::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .process(request),
-                tracing::debug_span!("Worker::process")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
     }
 }

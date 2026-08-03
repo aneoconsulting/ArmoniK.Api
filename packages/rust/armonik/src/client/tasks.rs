@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
-use snafu::ResultExt;
-
+use crate::rpc::services;
 use crate::tasks::{
     cancel, count_status, filter, get, get_result_ids, list, list_detailed, submit, Raw, Sort,
     Summary,
@@ -9,28 +8,10 @@ use crate::tasks::{
 use crate::utils::IntoCollection;
 use crate::{StatusCount, TaskOptions};
 
-use super::GrpcCall;
-
 /// Service for handling tasks.
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::tasks::tasks_client as stub;
+pub type Tasks<T = tonic::transport::Channel> = super::ServiceClient<services::Tasks, T>;
 
-#[derive(Clone)]
-pub struct Tasks<T> {
-    inner: stub::TasksClient<T>,
-}
-
-impl<T> Tasks<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::TasksClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Tasks, T> {
     /// Get a tasks list using pagination, filters and sorting.
     pub async fn list(
         &mut self,
@@ -134,112 +115,6 @@ where
             })
             .await?
             .items)
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Tasks {
-        async fn call(self, request: list::Request) -> Result<list::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .list_tasks(request),
-                tracing::debug_span!("Tasks::list")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: list_detailed::Request) -> Result<list_detailed::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .list_tasks_detailed(request),
-                tracing::debug_span!("Tasks::list_detailed")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: get::Request) -> Result<get::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_task(request),
-                tracing::debug_span!("Tasks::get")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: cancel::Request) -> Result<cancel::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .cancel_tasks(request),
-                tracing::debug_span!("Tasks::cancel")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: get_result_ids::Request) -> Result<get_result_ids::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_result_ids(request),
-                tracing::debug_span!("Tasks::get_result_ids")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: count_status::Request) -> Result<count_status::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .count_tasks_by_status(request),
-                tracing::debug_span!("Tasks::count_status")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: submit::Request) -> Result<submit::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .submit_tasks(request),
-                tracing::debug_span!("Tasks::submit")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
     }
 }
 

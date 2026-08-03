@@ -1,29 +1,11 @@
-use snafu::ResultExt;
-
 use crate::applications::{filter, list, Sort};
+use crate::rpc::services;
 use crate::utils::IntoCollection;
 
-use super::GrpcCall;
+/// Service for handling applications.
+pub type Applications<T = tonic::transport::Channel> = super::ServiceClient<services::Applications, T>;
 
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::applications::applications_client as stub;
-
-#[derive(Clone)]
-pub struct Applications<T> {
-    inner: stub::ApplicationsClient<T>,
-}
-
-impl<T> Applications<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::ApplicationsClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Applications, T> {
     pub async fn list(
         &mut self,
         filters: impl IntoIterator<Item = impl IntoIterator<Item = filter::Field>>,
@@ -41,34 +23,6 @@ where
             page_size,
         })
         .await
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Applications {
-        async fn call(self, request: list::Request) -> Result<list::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .list_applications(request),
-                tracing::debug_span!("Applications::list")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
     }
 }
 

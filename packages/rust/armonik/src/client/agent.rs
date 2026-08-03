@@ -2,34 +2,18 @@ use futures::Stream;
 use snafu::ResultExt;
 
 use crate::agent::{
-    create_results, create_results_metadata, create_tasks, get_common_data, get_direct_data,
-    get_resource_data, notify_result_data, submit_tasks, ResultMetaData,
+    create_results, create_results_metadata, create_tasks, notify_result_data, submit_tasks,
+    ResultMetaData,
 };
+use crate::rpc::services;
 use crate::utils::IntoCollection;
 use crate::TaskOptions;
 
-use super::{GrpcCall, GrpcCallStream};
+/// The Agent gRPC service, exposed to workers for spawning subtasks and
+/// exchanging data.
+pub type Agent<T = tonic::transport::Channel> = super::ServiceClient<services::Agent, T>;
 
-/// The ResultsService provides methods for interacting with results.
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::agent::agent_client as stub;
-
-#[derive(Clone)]
-pub struct Agent<T> {
-    inner: stub::AgentClient<T>,
-}
-
-impl<T> Agent<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::AgentClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Agent, T> {
     /// Create the metadata of multiple results at once.
     /// Data have to be uploaded separately.
     pub async fn create_results_metadata(
@@ -120,151 +104,6 @@ where
                 error,
             } => Err(tonic::Status::internal(error)).context(super::GrpcSnafu {}),
         }
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-
-    /// Perform a client-streaming gRPC call from a raw request stream.
-    pub async fn call_streaming<S, Request>(
-        &mut self,
-        request: S,
-    ) -> Result<
-        <&mut Self as GrpcCallStream<Request, S>>::Response,
-        <&mut Self as GrpcCallStream<Request, S>>::Error,
-    >
-    where
-        S: Stream<Item = Request> + Send + 'static,
-        for<'a> &'a mut Self: GrpcCallStream<Request, S>,
-    {
-        <&mut Self as GrpcCallStream<Request, S>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Agent {
-        async fn call(self, request: create_results_metadata::Request) -> Result<create_results_metadata::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .create_results_meta_data(request),
-                tracing::debug_span!("Agent::create_results_metadata")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: create_results::Request) -> Result<create_results::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .create_results(request),
-                tracing::debug_span!("Agent::create_results")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: notify_result_data::Request) -> Result<notify_result_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .notify_result_data(request),
-                tracing::debug_span!("Agent::notify_result_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: submit_tasks::Request) -> Result<submit_tasks::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .submit_tasks(request),
-                tracing::debug_span!("Agent::submit_tasks")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: get_resource_data::Request) -> Result<get_resource_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_resource_data(request),
-                tracing::debug_span!("Agent::get_resource_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: get_common_data::Request) -> Result<get_common_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_common_data(request),
-                tracing::debug_span!("Agent::get_common_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: get_direct_data::Request) -> Result<get_direct_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_direct_data(request),
-                tracing::debug_span!("Agent::get_direct_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-    }
-}
-
-impl<T, S> GrpcCallStream<create_tasks::Request, S> for &'_ mut Agent<T>
-where
-    T: crate::client::Channel,
-    S: Stream<Item = create_tasks::Request> + Send + 'static,
-{
-    type Response = create_tasks::Response;
-    type Error = super::RequestError;
-
-    async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        // Extern'd types: the stub speaks the armonik types directly, no
-        // conversion left on this path.
-        let span = tracing::debug_span!("Agent::create_tasks");
-        let stream = tracing_futures::Instrument::instrument(
-            request,
-            tracing::trace_span!(parent: &span, "stream"),
-        );
-        let call = tracing_futures::Instrument::instrument(
-            self.inner.create_task(stream),
-            tracing::trace_span!("rpc"),
-        );
-        Ok(call.await.context(super::GrpcSnafu {})?.into_inner())
     }
 }
 

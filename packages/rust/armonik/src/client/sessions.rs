@@ -1,5 +1,4 @@
-use snafu::ResultExt;
-
+use crate::rpc::services;
 use crate::sessions::{
     cancel, close, create, delete, filter, get, list, pause, purge, resume, stop_submission, Raw,
     Sort,
@@ -7,28 +6,10 @@ use crate::sessions::{
 use crate::utils::IntoCollection;
 use crate::TaskOptions;
 
-use super::GrpcCall;
+/// Service for handling sessions.
+pub type Sessions<T = tonic::transport::Channel> = super::ServiceClient<services::Sessions, T>;
 
-/// Service for handling sessions
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::sessions::sessions_client as stub;
-
-#[derive(Clone)]
-pub struct Sessions<T> {
-    inner: stub::SessionsClient<T>,
-}
-
-impl<T> Sessions<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::SessionsClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Sessions, T> {
     /// Get a sessions list using pagination, filters and sorting.
     pub async fn list(
         &mut self,
@@ -169,152 +150,6 @@ where
             })
             .await?
             .session)
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Sessions {
-        async fn call(self, request: list::Request) -> Result<list::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .list_sessions(request),
-                tracing::debug_span!("Sessions::list")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: get::Request) -> Result<get::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_session(request),
-                tracing::debug_span!("Sessions::get")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: cancel::Request) -> Result<cancel::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .cancel_session(request),
-                tracing::debug_span!("Sessions::cancel")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: create::Request) -> Result<create::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .create_session(request),
-                tracing::debug_span!("Sessions::create")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: pause::Request) -> Result<pause::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .pause_session(request),
-                tracing::debug_span!("Sessions::pause")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-
-        async fn call(self, request: resume::Request) -> Result<resume::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .resume_session(request),
-                tracing::debug_span!("Sessions::resume")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: close::Request) -> Result<close::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .close_session(request),
-                tracing::debug_span!("Sessions::close")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: purge::Request) -> Result<purge::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .purge_session(request),
-                tracing::debug_span!("Sessions::purge")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: delete::Request) -> Result<delete::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .delete_session(request),
-                tracing::debug_span!("Sessions::delete")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: stop_submission::Request) -> Result<stop_submission::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .stop_submission(request),
-                tracing::debug_span!("Sessions::stop_submission")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
     }
 }
 

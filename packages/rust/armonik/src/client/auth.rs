@@ -1,60 +1,13 @@
-use snafu::ResultExt;
-
 use crate::auth::{current_user, User};
-
-use super::GrpcCall;
+use crate::rpc::services;
 
 /// Service for authentication management.
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::auth::authentication_client as stub;
+pub type Auth<T = tonic::transport::Channel> = super::ServiceClient<services::Auth, T>;
 
-#[derive(Clone)]
-pub struct Auth<T> {
-    inner: stub::AuthenticationClient<T>,
-}
-
-impl<T> Auth<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::AuthenticationClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Auth, T> {
     /// Get current user
     pub async fn current_user(&mut self) -> Result<User, super::RequestError> {
         Ok(self.call(current_user::Request {}).await?.user)
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Auth {
-        async fn call(self, request: current_user::Request) -> Result<current_user::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_current_user(request),
-                tracing::debug_span!("Auth::current_user")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
     }
 }
 

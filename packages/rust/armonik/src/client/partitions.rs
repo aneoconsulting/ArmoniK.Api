@@ -1,29 +1,11 @@
-use snafu::ResultExt;
-
 use crate::partitions::{get, list, Raw};
+use crate::rpc::services;
 use crate::utils::IntoCollection;
 
-use super::GrpcCall;
+/// The PartitionsService provides methods for interacting with partitions.
+pub type Partitions<T = tonic::transport::Channel> = super::ServiceClient<services::Partitions, T>;
 
-/// The raw tonic client stub, speaking the armonik types natively.
-pub use crate::stubs::partitions::partitions_client as stub;
-
-#[derive(Clone)]
-pub struct Partitions<T> {
-    inner: stub::PartitionsClient<T>,
-}
-
-impl<T> Partitions<T>
-where
-    T: crate::client::Channel,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: stub::PartitionsClient::new(channel),
-        }
-    }
-
+impl<T: super::Channel> super::ServiceClient<services::Partitions, T> {
     pub async fn list(
         &mut self,
         filters: impl IntoIterator<Item = impl IntoIterator<Item = crate::partitions::filter::Field>>,
@@ -53,47 +35,6 @@ where
             })
             .await?
             .partition)
-    }
-
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Partitions {
-        async fn call(self, request: list::Request) -> Result<list::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .list_partitions(request),
-                tracing::debug_span!("Partitions::list")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
-
-        async fn call(self, request: get::Request) -> Result<get::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_partition(request),
-                tracing::debug_span!("Partitions::get")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner())
-        }
     }
 }
 
