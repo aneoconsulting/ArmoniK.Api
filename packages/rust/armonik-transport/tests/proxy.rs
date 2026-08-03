@@ -395,6 +395,36 @@ async fn no_proxy_does_not_apply_to_an_explicitly_configured_proxy() {
 }
 
 #[tokio::test]
+#[serial_test::serial(env)]
+async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carried() {
+    // A dedicated option alone must not discard the other half of whatever the intercepted proxy
+    // URL carried: setting only `ProxyPassword` while `HTTP_PROXY` names a username must still send
+    // that username, paired with the new password, not an empty one.
+    let server = spawn_server().await;
+    // The base64 of `url-user:new`, what the client is expected to send once the two are merged.
+    let (proxy, stats) = spawn_proxy(ProxyAuth::Required("dXJsLXVzZXI6bmV3")).await;
+
+    std::env::set_var("HTTP_PROXY", format!("http://url-user:old@{proxy}"));
+    let outcome = call_through(common::config(&server, |args| {
+        args.proxy = String::from("system");
+        args.proxy_password = String::from("new").into();
+    }))
+    .await;
+    std::env::remove_var("HTTP_PROXY");
+
+    assert_eq!(
+        outcome.expect("the merged credentials should satisfy the proxy"),
+        common::REPLY
+    );
+    assert_eq!(stats.tunnels.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        stats.rejected.load(Ordering::SeqCst),
+        0,
+        "a rejection means the URL's username was dropped instead of kept"
+    );
+}
+
+#[tokio::test]
 async fn known_issue_a_success_other_than_200_does_not_open_the_tunnel() {
     // RFC 9110: any 2xx switches the connection to tunnel mode. `hyper_util`'s `Tunnel`, which this
     // crate delegates the handshake to, checks for exactly `200`, so a proxy answering 201 or 204 is a
