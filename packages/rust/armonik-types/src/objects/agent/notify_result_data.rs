@@ -47,8 +47,7 @@ impl Request {
 // first-non-empty-session rule reads the partially merged struct itself.
 // Teaching the derive this one-off shape would cost more than the impl
 // (see `tasks::Output` for the full tradeoff); the differential harness
-// fuzzes it like any derived type, and by not implementing `ProtoField`
-// the type cannot be nested in other messages.
+// fuzzes it like any derived type.
 impl prost::Message for Request {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         for result_id in &self.result_ids {
@@ -178,6 +177,14 @@ impl crate::differential::Normalize for Request {
 // Hand-written `Message` impls register through the same `register!` macro the
 // derive emits (round-trip/`Normalize` hooks + extern-map entry).
 crate::register!(message: Request, "armonik.api.grpc.v1.agent.NotifyResultDataRequest");
+
+// The one-line `Msg` marker every message-shaped type carries: `service!`'s
+// const asserts read `NAMES` from it. It also grants the blanket `ProtoField`
+// (nesting as a field), which is moot: no proto message has a field of this
+// type, and the derives validate field shapes against the descriptor.
+impl crate::codec::Msg for Request {
+    const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.agent.NotifyResultDataRequest"];
+}
 
 // The `ResultIdentifier` pair message is flattened into the request's shared
 // session ID and result IDs, so no Rust type stands for it — declared absorbed

@@ -16,7 +16,11 @@ mod __schema {
     include!(concat!(env!("OUT_DIR"), "/schema_meta.rs"));
 }
 
-pub(crate) mod codec;
+// `pub` + `#[doc(hidden)]` (not `pub(crate)`) only so the const asserts
+// `service!` emits into the `armonik` crate can reach `codec::Msg::NAMES`
+// while the crates are still split; goes back to `pub(crate)` at the merge.
+#[doc(hidden)]
+pub mod codec;
 pub(crate) mod utils;
 
 /// Register a type's proto name(s) into [`wire::REGISTRY`]. The single place

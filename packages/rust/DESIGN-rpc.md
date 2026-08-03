@@ -169,7 +169,7 @@ scoped where they belong rather than collected in a central array:
 ```rust
 // armonik/src/rpc/results.rs
 crate::rpc::service! {
-    Results in crate::results @ "armonik.api.grpc.v1.results";
+    Results in crate::results @ "armonik.api.grpc.v1.results.Results";
     unexposed(WatchResults);
 
     rpc ListResults(list::Request) -> list::Response;
@@ -230,9 +230,14 @@ The `Rpc` impls must be **unconditional**. A server-only build (`server` enables
 `_gen-server` without `_gen-client`) has no client module, and the router
 resolves everything through `Rpc`.
 
+The header string is the **full proto service name** (not just the package):
+the marker ident is the Rust-facing name, and the two are not always equal
+(`Auth` vs `Authentication`, `HealthChecks` vs `HealthChecksService`), so the
+proto side is spelled out and the package falls out of it.
+
 **What it validates at expansion**, as spanned errors against `descriptor.bin`:
 
-- the service exists in the named package, and the package matches;
+- the named service exists in the descriptor;
 - every `rpc` names a method that exists on it;
 - the `stream` keywords agree with the descriptor's `client_streaming` and
   `server_streaming` flags;
@@ -737,30 +742,38 @@ Each step compiles, is separately reviewable, and is committed on its own.
    no longer exist), and the stale `armonik-macros/src/descriptor.rs` header
    (the descriptor is compiled by *`armonik-types`*'s build script, not
    `armonik`'s).
-3. Merge `armonik-types` into `armonik`: move the source, move the build script
-   (now retaining `SourceCodeInfo`, §3.2), drop the build-dependency, fold
-   `_registry` into `_differential`, make `linkme` dev-only, put `objects/`
-   back to private, update `scripts/versions/`. `armonik-transport` stays a
-   separate crate.
-4. `Rpc` / `Service` / kind markers, hand-written (promoted from the spike).
+3. `Rpc` / `Service` / kind markers, hand-written (promoted from the spike).
    No consumer yet.
-5. `service!`, emitting the marker, the `Rpc` impls and the harvested docs,
-   validating against the descriptor. Land it alongside the existing client and
+4. `service!`, emitting the marker, the `Rpc` impls and the harvested docs,
+   validating against the descriptor. Lands alongside the existing client and
    server code so the two can be diffed against each other before either is
-   deleted.
-6. Client: `ServiceClient` + `Dispatch`; the twelve aliases; convenience
+   deleted. Transition glue, deleted at step 8: `armonik/build.rs` copies
+   `descriptor.bin` + the fingerprint anchor into `armonik`'s `OUT_DIR` so the
+   invocations can expand there pre-merge, and `codec` is `pub` +
+   `#[doc(hidden)]` so the emitted const asserts reach `Msg::NAMES` across the
+   still-split crates.
+5. Client: `ServiceClient` + `Dispatch`; the twelve aliases; convenience
    methods become inherent impls on the aliases with bodies unchanged; the
    `services!` accessor macro; the new compression/size knobs; `#[deprecated]`
    onto the `Submitter` alias and its methods; delete `impl_call!`, `GrpcCall`,
    `GrpcCallStream`.
-7. Server: `service!` grows the trait, the one-line `Ext` and the `Routes`
+6. Server: `service!` grows the trait, the one-line `Ext` and the `Routes`
    table; delete `define_trait_methods!`, `impl_trait_methods!` and the `---`
    blocks.
-8. Delete `armonik/build.rs`, `stubs.rs`, the `tonic-prost-build` dependency
-   (`tonic-prost` stays: it provides `ProstCodec`), the `replace` machinery end
-   to end (annotations, `ReplaceSpec`, emitter, `Role::Replace`, `Replacement`,
-   `Direction`, `replacements()`, `extern_mapping()`), and the hand-maintained
-   `UNEXPOSED_RPC_MESSAGES`.
+7. Delete `stubs.rs`, the stub-generation half of `armonik/build.rs`, the
+   `tonic-prost-build` dependency (`tonic-prost` stays: it provides
+   `ProstCodec`), and the `replace` machinery end to end (annotations,
+   `ReplaceSpec`, emitter, `Role::Replace`, `Replacement`, `Direction`,
+   `replacements()`, `extern_mapping()`).
+8. Merge `armonik-types` into `armonik`: move the source and the build script,
+   drop the build-dependency and the step-4 glue, fold `_registry` into
+   `_differential`, make `linkme` dev-only, put `objects/` and `codec` back to
+   private, retire the hand-maintained `UNEXPOSED_RPC_MESSAGES` (now emitted
+   from `unexposed(...)`), update `scripts/versions/`. `armonik-transport`
+   stays a separate crate. **This step must follow step 7**: until the stub
+   generation dies, `armonik/build.rs` harvests the extern map from
+   `armonik_types::wire::REGISTRY` across the build-dependency edge, and a
+   crate cannot be its own build-dependency.
 9. Extract the nested-filter helper; no other convenience-body changes.
 10. Retire the per-RPC path tests; land the 12 per-service round-trips and the
     3 kind tests; run the suite against the mock before and after.
