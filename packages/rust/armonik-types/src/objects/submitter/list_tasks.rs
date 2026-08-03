@@ -4,12 +4,6 @@
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(transparent)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter")]
-#[armonik(replace(
-    target = "armonik.api.grpc.v1.submitter.ListTasksRequest",
-    service = "Submitter",
-    method = "ListTasks",
-    input,
-))]
 pub struct Request {
     pub filter: super::TaskFilter,
 }
@@ -19,12 +13,6 @@ pub struct Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.TaskIdList")]
-#[armonik(replace(
-    target = "armonik.api.grpc.v1.submitter.ListTasksResponse",
-    service = "Submitter",
-    method = "ListTasks",
-    output,
-))]
 pub struct Response {
     pub task_ids: Vec<String>,
 }

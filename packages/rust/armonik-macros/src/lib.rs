@@ -202,19 +202,10 @@ use syn::DeriveInput;
 /// field's message and can stand for a whole RPC message in the stub
 /// signatures (the struct sibling of the `derive(Enum)` wrapper mode). Name
 /// the inner message with [`message`](#message); the field is not matched
-/// against the descriptor. Typically paired with [`replace`](#replace) to
-/// wrap a shared message (e.g. `struct Request { filter: TaskFilter }`).
+/// against the descriptor. Typically used to wrap a shared message per RPC
+/// site (e.g. `struct Request { filter: TaskFilter }`), keeping request
+/// types injective over RPCs.
 ///
-/// ## replace
-///
-/// `replace(target = "synthetic.Name", service = "Service", method =
-/// "Method", input | output)`, on the type — the type stands in for its
-/// [`message`](#message) at one RPC site. `armonik`'s build script checks the
-/// RPC's `input`/`output` slot still holds `message` (a drift guard against
-/// proto changes), then rewrites that slot to the synthetic `target` message
-/// (absent from the real schema) and extern-maps `target` to this type — so
-/// RPCs sharing one proto message get distinct stub signatures pointing at
-/// distinct Rust types, keeping `GrpcCall<Request>` unambiguous. Repeatable.
 #[proc_macro_derive(Message, attributes(armonik))]
 pub fn derive_message(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
@@ -467,7 +458,7 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
     })?;
     let item_type: syn::ItemType = syn::parse2(item)?;
     let name = proto.value();
-    let registrations = codegen::registrations(&item_type.ident, std::slice::from_ref(&name), None);
+    let registrations = codegen::registrations(&item_type.ident, std::slice::from_ref(&name));
     Ok(quote::quote! {
         #item_type
         #registrations

@@ -163,43 +163,14 @@ fn dispatch(ty: &syn::Type, adapter: Option<&syn::Type>) -> TokenStream {
 
 /// Register the type's proto name(s) via `armonik-types`' `register!` macro —
 /// the single home of the registry's layout (the `linkme` slice, the feature
-/// gates, and the `_differential` round-trip/`Normalize` hooks). A plain type
-/// registers `message:`; a `#[armonik(replace(...))]` type registers `replace:`
-/// so the shared proto name stays unambiguous. Empty `names` (generic types,
-/// covered through their aliases) register nothing.
-pub(crate) fn registrations(
-    ident: &syn::Ident,
-    names: &[String],
-    replace: Option<&crate::attrs::ReplaceSpec>,
-) -> TokenStream {
+/// gates, and the `_differential` round-trip/`Normalize` hooks). Empty `names`
+/// (generic types, covered through their aliases) register nothing.
+pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
     if names.is_empty() {
         return TokenStream::new();
     }
-    match replace {
-        None => quote! {
-            crate::register!(message: #ident, #(#names),*);
-        },
-        Some(spec) => {
-            let service = &spec.service;
-            let method = &spec.method;
-            let target = &spec.target;
-            let direction = match spec.direction {
-                crate::attrs::Direction::Input => quote!(input),
-                crate::attrs::Direction::Output => quote!(output),
-            };
-            let mut out = TokenStream::new();
-            for name in names {
-                out.extend(quote! {
-                    crate::register!(replace: #ident,
-                        message = #name,
-                        service = #service,
-                        method = #method,
-                        #direction,
-                        target = #target);
-                });
-            }
-            out
-        }
+    quote! {
+        crate::register!(message: #ident, #(#names),*);
     }
 }
 
@@ -336,7 +307,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         }
     }
 
-    let registrations = registrations(ident, proto_names, plan.replace.as_ref());
+    let registrations = registrations(ident, proto_names);
     let normalize = normalize_impl(
         &impl_generics,
         ident,
@@ -459,7 +430,7 @@ fn transparent_message(
     let access = &field.access;
     let ty = &field.ty;
 
-    let registrations = registrations(ident, proto_names, plan.replace.as_ref());
+    let registrations = registrations(ident, proto_names);
     let normalize = normalize_impl(
         impl_generics,
         ident,
@@ -576,7 +547,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             }
         },
         EnumMode::Transparent { names, path } => {
-            let registrations = registrations(ident, names, None);
+            let registrations = registrations(ident, names);
             let generics = syn::Generics::default();
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
             // Zero, absent and present-but-empty carry no information at any
@@ -989,7 +960,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let whole_message = plan.whole_message.then(|| {
-        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name), None);
+        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
         let routed: Vec<u32> = plan
             .tags
             .iter()
