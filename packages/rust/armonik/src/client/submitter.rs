@@ -28,10 +28,7 @@ pub struct Submitter<T> {
 #[allow(deprecated)]
 impl<T> Submitter<T>
 where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
 {
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
@@ -459,10 +456,7 @@ super::impl_call! {
 
 impl<T, S> GrpcCallStream<create_tasks::LargeRequest, S> for &'_ mut Submitter<T>
 where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
     S: Stream<Item = create_tasks::LargeRequest> + Send + 'static,
 {
     type Response = create_tasks::Response;
