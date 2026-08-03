@@ -336,13 +336,17 @@ super::impl_call! {
         }
 
         async fn call(self, request: import::Request) -> Result<import::Response> {
-          Ok(self
-              .inner
-              .import_results_data(request)
-              .await
-              .context(super::GrpcSnafu {})?
-              .into_inner())
-      }
+            let call = tracing_futures::Instrument::instrument(
+                self
+                    .inner
+                    .import_results_data(request),
+                tracing::debug_span!("Results::import")
+            );
+            Ok(call
+                .await
+                .context(super::GrpcSnafu{})?
+                .into_inner())
+        }
     }
 }
 

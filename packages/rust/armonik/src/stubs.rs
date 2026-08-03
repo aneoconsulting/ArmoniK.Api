@@ -1,7 +1,7 @@
 //! Tonic client/server stubs, and nothing else: every message referenced by
-//! their signatures is implemented natively (`EXTERN_TYPES` in build.rs) and
-//! the unreferenced leftovers are pruned from the stub generation
-//! (`PRUNED_MESSAGES`), so the message-only proto packages produce no file.
+//! their signatures is implemented natively (extern'd through the harvested
+//! registry, see build.rs) and the unreferenced leftovers are pruned from the
+//! stub generation, so the message-only proto packages produce no file.
 //!
 //! Each service's stub is re-exported as the public `stub` module of its
 //! client/server module (`crate::client::sessions::stub`,

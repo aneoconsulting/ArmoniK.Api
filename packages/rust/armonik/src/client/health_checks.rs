@@ -4,7 +4,8 @@ use crate::health_checks::check;
 
 use super::GrpcCall;
 
-/// Service for authentication management.
+/// The HealthChecksService provides methods to verify the health of the
+/// cluster.
 /// The raw tonic client stub, speaking the armonik types natively.
 pub use crate::stubs::health_checks::health_checks_service_client as stub;
 
