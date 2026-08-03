@@ -6,12 +6,12 @@ use snafu::{ResultExt, Snafu};
 // crate.
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
-    Certificate, ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, EnvConfigError,
-    EnvNaming, ProxyConfig, ProxyError, ProxySource, Secret,
+    ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, EnvConfigError, ProxyConfig,
+    ProxyError, ProxySource, Secret,
 };
 
-/// Configuring `armonik-transport`'s environment reading with ArmoniK's own prefix and naming, rather
-/// than reading each `GrpcClient__*` variable in this crate.
+/// Configuring `armonik-transport`'s environment reading with ArmoniK's own prefix, rather than
+/// reading each `GrpcClient__*` variable in this crate.
 #[cfg(feature = "_gen-client")]
 mod env;
 #[cfg(feature = "_gen-client")]
@@ -77,8 +77,8 @@ pub struct Client<T = tonic::transport::Channel> {
 impl Client<tonic::transport::Channel> {
     /// Create a new client using the configuration from the environment variables
     pub async fn new() -> Result<Self, NewClientError> {
-        let config = ClientConfig::from_env_with(env::ARMONIK_PREFIX, EnvNaming::PascalCase)
-            .context(env::ConfigSnafu {})?;
+        let config =
+            ClientConfig::from_env_with(env::ARMONIK_PREFIX).context(env::ConfigSnafu {})?;
         Self::with_config(config)
             .await
             .context(env::ConnectSnafu {})
@@ -105,8 +105,7 @@ impl Client<tonic::transport::Channel> {
         use http_body_util::BodyExt;
         use hyper_util::rt::TokioExecutor;
 
-        let mut config =
-            ClientConfig::from_env_with(env::ARMONIK_PREFIX, EnvNaming::PascalCase).unwrap();
+        let mut config = ClientConfig::from_env_with(env::ARMONIK_PREFIX).unwrap();
 
         match std::env::var("Http__Endpoint") {
             Ok(value) if !value.is_empty() => {

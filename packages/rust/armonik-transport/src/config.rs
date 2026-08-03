@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use hyper::{http::HeaderValue, Uri};
-use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
-use snafu::{ResultExt, Snafu};
+use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use snafu::{OptionExt, ResultExt, Snafu};
 
 use crate::secret::Secret;
 
@@ -19,7 +19,7 @@ pub enum ProxySource {
     /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
     ///
     /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
-    /// started with. Every other option is read in [`ClientConfigArgs::from_env`].
+    /// started with. Every other option is read in [`ClientConfigArgs::from_env_with`].
     System,
     /// Use this specific proxy.
     Explicit(Uri),
@@ -84,45 +84,6 @@ impl ProxyConfig {
     }
 }
 
-/// Where a certificate, a key or a Certificate Authority comes from.
-///
-/// A caller that already has the material in hand supplies `Content`; a caller that only knows a path,
-/// such as `armonik`'s own `GrpcClient__*` variables, supplies `Path` and lets this crate read it.
-/// Exactly one of the two, by construction: there is no state where both, or neither, are set, which a
-/// pair of plain string fields cannot say.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "env", derive(crate::env::FromEnv))]
-pub enum Certificate<T = String> {
-    /// A file this crate reads itself.
-    #[cfg_attr(feature = "env", env(bare))]
-    Path(String),
-    /// The material itself, already in hand.
-    Content(T),
-}
-
-impl Certificate<String> {
-    /// The PEM text this describes, reading the file when it names one.
-    fn resolve(self, option: &'static str) -> Result<String, ConfigError> {
-        match self {
-            Self::Path(path) => std::fs::read_to_string(&path).context(IoSnafu { option, path }),
-            Self::Content(content) => Ok(content),
-        }
-    }
-}
-
-impl Certificate<Secret> {
-    /// The key's PEM text, reading the file when it names one. A `Secret` either way.
-    fn resolve(self, option: &'static str) -> Result<Secret, ConfigError> {
-        match self {
-            Self::Path(path) => std::fs::read_to_string(&path)
-                .map(Secret::from)
-                .context(IoSnafu { option, path }),
-            Self::Content(content) => Ok(content),
-        }
-    }
-}
-
 /// Options for creating a gRPC Client
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -131,7 +92,8 @@ pub struct ClientConfig {
     pub endpoint: Uri,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
     pub allow_unsafe_connection: bool,
-    /// TLS identity of the client: key + cert
+    /// TLS identity of the client: key + cert, loaded from whichever of `cert_pem`/`key_pem` or
+    /// `cert_p12` named it.
     pub identity: Option<(CertificateDer<'static>, PrivateKeyDer<'static>)>,
     /// CA certificate to authenticate the server
     pub cacert: Option<CertificateDer<'static>>,
@@ -194,24 +156,38 @@ impl Clone for ClientConfig {
 }
 
 /// Options for creating a gRPC Client, in the string form a caller supplies them in
+///
+/// `PascalCase`, ArmoniK's own convention for the C# and C++ clients too, chosen for both `serde`
+/// and environment reading: every caller this crate has, in this repository or outside it, already
+/// uses that one, so keeping the field naming generic bought genericity nobody spent.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "env", derive(crate::env::FromEnv))]
+#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
 // Deliberately exhaustive, unlike the configuration it becomes: this is what a caller fills in, and a
 // caller that cannot name every field cannot be told by the compiler when a new one appears.
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
+    #[cfg_attr(feature = "serde", serde(default))]
     pub endpoint: String,
-    /// The client certificate: a path this crate reads, or the PEM itself, already in hand.
+    /// A file this crate reads: the client's own certificate, matching `key_pem`. Mutually exclusive
+    /// with `cert_p12`.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub cert_pem: Option<Certificate>,
-    /// The client key, matching `cert_pem`. Redacted wherever it is written when given as content; see
-    /// [`Secret`].
+    pub cert_pem: String,
+    /// A file this crate reads: the client's own key, matching `cert_pem`. Mutually exclusive with
+    /// `cert_p12`.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub key_pem: Option<Certificate<Secret>>,
-    /// The Certificate Authority: a path this crate reads, or the PEM itself, already in hand.
+    pub key_pem: String,
+    /// A file this crate reads: the Certificate Authority.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub ca_cert: Option<Certificate>,
+    pub ca_cert: String,
+    /// A file this crate reads: the client's own certificate and key bundled together, the form
+    /// Windows and most certificate authorities hand out. Mutually exclusive with `cert_pem`/`key_pem`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cert_p12: String,
+    /// The password protecting `cert_p12`, empty for none. Meaningless, and rejected, without
+    /// `cert_p12`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cert_p12_password: Secret,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
     #[cfg_attr(feature = "serde", serde(default))]
     pub allow_unsafe_connection: bool,
@@ -275,6 +251,51 @@ pub struct ClientConfigArgs {
     pub proxy_password: Secret,
 }
 
+/// Reads `path` and parses it as one PEM-encoded certificate.
+fn read_cert_pem(option: &'static str, path: &str) -> Result<CertificateDer<'static>, ConfigError> {
+    let pem = std::fs::read_to_string(path).context(IoSnafu { option, path })?;
+    CertificateDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {})
+}
+
+/// Reads `path`, `key_pem`'s own file, whose loaded bytes are as sensitive as the key they carry
+/// the moment they leave the filesystem.
+fn read_key_pem(option: &'static str, path: &str) -> Result<PrivateKeyDer<'static>, ConfigError> {
+    let pem = std::fs::read_to_string(path).context(IoSnafu { option, path })?;
+    PrivateKeyDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {})
+}
+
+/// Reads `path` as a PKCS#12 bundle and returns the client identity it names, the leaf certificate of
+/// its chain and its private key, re-encoded as the same DER shapes a PEM pair produces.
+fn read_cert_p12(
+    path: &str,
+    password: &Secret,
+) -> Result<(CertificateDer<'static>, PrivateKeyDer<'static>), ConfigError> {
+    let data = std::fs::read(path).context(IoSnafu {
+        option: "cert_p12",
+        path,
+    })?;
+    let keystore = p12_keystore::KeyStore::from_pkcs12(
+        &data,
+        password.expose_secret(),
+        p12_keystore::Pkcs12ImportPolicy::Strict,
+    )
+    .context(Pkcs12Snafu { path })?;
+    let (_, chain) = keystore
+        .private_key_chain()
+        .context(EmptyPkcs12Snafu { path })?;
+    let cert = chain
+        .certs()
+        .first()
+        .context(EmptyPkcs12Snafu { path })?
+        .as_der()
+        .to_vec();
+    let key = chain.key().as_der().to_vec();
+    Ok((
+        CertificateDer::from(cert),
+        PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)),
+    ))
+}
+
 impl ClientConfig {
     pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
         let _span = tracing::debug_span!(
@@ -282,9 +303,10 @@ impl ClientConfig {
             args.endpoint,
             // Only presence is recorded: a private key must never reach a log, and a certificate's
             // content would bury the span in PEM.
-            cert_pem_set = args.cert_pem.is_some(),
-            key_pem_set = args.key_pem.is_some(),
-            ca_cert_set = args.ca_cert.is_some(),
+            cert_pem_set = !args.cert_pem.is_empty(),
+            key_pem_set = !args.key_pem.is_empty(),
+            ca_cert_set = !args.ca_cert.is_empty(),
+            cert_p12_set = !args.cert_p12.is_empty(),
             args.allow_unsafe_connection,
             args.override_target_name,
             args.connect_timeout,
@@ -311,6 +333,8 @@ impl ClientConfig {
             cert_pem,
             key_pem,
             ca_cert,
+            cert_p12,
+            cert_p12_password,
             allow_unsafe_connection,
             override_target_name,
             connect_timeout,
@@ -330,31 +354,46 @@ impl ClientConfig {
             proxy_password,
         } = args;
 
-        let cacert = ca_cert
-            .map(|ca_cert| ca_cert.resolve("ca_cert"))
-            .transpose()?
-            .map(|pem| CertificateDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {}))
-            .transpose()?;
+        let cacert = if ca_cert.is_empty() {
+            None
+        } else {
+            Some(read_cert_pem("ca_cert", &ca_cert)?)
+        };
 
-        let identity = match (cert_pem, key_pem) {
-            (None, None) => None,
-            (Some(_), None) | (None, Some(_)) => {
-                return IncompatibleOptionsSnafu {
-                    msg: String::from(
-                        "`cert_pem` and `key_pem` must be either both empty or both set",
-                    ),
-                }
-                .fail()
+        let has_pem_pair = !cert_pem.is_empty() || !key_pem.is_empty();
+        if !cert_p12.is_empty() && has_pem_pair {
+            return IncompatibleOptionsSnafu {
+                msg: String::from(
+                    "`cert_p12` and `cert_pem`/`key_pem` name the client identity two different \
+                     ways; set only one",
+                ),
             }
-            (Some(cert_pem), Some(key_pem)) => {
-                let cert_pem = cert_pem.resolve("cert_pem")?;
-                let key_pem = key_pem.resolve("key_pem")?;
-                let cert =
-                    CertificateDer::from_pem_slice(cert_pem.as_bytes()).context(TlsSnafu {})?;
-                let key = PrivateKeyDer::from_pem_slice(key_pem.expose_secret().as_bytes())
-                    .context(TlsSnafu {})?;
+            .fail();
+        }
+        if cert_p12.is_empty() && !cert_p12_password.is_empty() {
+            return IncompatibleOptionsSnafu {
+                msg: String::from("`cert_p12_password` is set without `cert_p12`"),
+            }
+            .fail();
+        }
 
-                Some((cert, key))
+        let identity = if !cert_p12.is_empty() {
+            Some(read_cert_p12(&cert_p12, &cert_p12_password)?)
+        } else {
+            match (cert_pem.is_empty(), key_pem.is_empty()) {
+                (true, true) => None,
+                (false, false) => Some((
+                    read_cert_pem("cert_pem", &cert_pem)?,
+                    read_key_pem("key_pem", &key_pem)?,
+                )),
+                _ => {
+                    return IncompatibleOptionsSnafu {
+                        msg: String::from(
+                            "`cert_pem` and `key_pem` must be either both empty or both set",
+                        ),
+                    }
+                    .fail()
+                }
             }
         };
 
@@ -688,6 +727,24 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+    #[snafu(display("`cert_p12`'s file `{path}` is not a valid PKCS#12 bundle [{location}]"))]
+    #[non_exhaustive]
+    Pkcs12 {
+        #[snafu(source(from(p12_keystore::error::Error, Box::new)))]
+        source: Box<p12_keystore::error::Error>,
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "`cert_p12`'s file `{path}` carries no private key and certificate chain [{location}]"
+    ))]
+    #[non_exhaustive]
+    EmptyPkcs12 {
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
     #[snafu(display("{msg} [{location}]"))]
     #[non_exhaustive]
     IncompatibleOptions {
@@ -941,11 +998,8 @@ mod tests {
         // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
         // on an mTLS one, so it is caught before either half is parsed.
         for (cert, key) in [
-            (
-                Some(Certificate::Content(String::from("a certificate"))),
-                None,
-            ),
-            (None, Some(Certificate::Content(Secret::from("a key")))),
+            (String::from("cert.pem"), String::new()),
+            (String::new(), String::from("key.pem")),
         ] {
             let error = ClientConfig::from_config_args(ClientConfigArgs {
                 cert_pem: cert,
@@ -972,16 +1026,21 @@ mod tests {
 
     #[test]
     fn content_that_is_not_pem_fails_as_such() {
-        // These options carry the certificate itself when given as `Content`. Garbage content gets a
-        // PEM error naming what was wrong, rather than this crate silently accepting it.
+        // Garbage content gets a PEM error naming what was wrong, rather than this crate silently
+        // accepting it.
+        let mut cert = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut cert, b"not a certificate").expect("write");
+        let mut key = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut key, b"not a key").expect("write");
+
         for args in [
             ClientConfigArgs {
-                cert_pem: Some(Certificate::Content(String::from("not a certificate"))),
-                key_pem: Some(Certificate::Content(Secret::from("not a key"))),
+                cert_pem: cert.path().to_str().expect("utf8 path").to_owned(),
+                key_pem: key.path().to_str().expect("utf8 path").to_owned(),
                 ..args()
             },
             ClientConfigArgs {
-                ca_cert: Some(Certificate::Content(String::from("not a certificate"))),
+                ca_cert: cert.path().to_str().expect("utf8 path").to_owned(),
                 ..args()
             },
         ] {
@@ -996,12 +1055,12 @@ mod tests {
     fn a_path_that_leads_nowhere_names_the_option_and_the_path() {
         for args in [
             ClientConfigArgs {
-                cert_pem: Some(Certificate::Path(String::from("no/such/cert.pem"))),
-                key_pem: Some(Certificate::Path(String::from("no/such/key.pem"))),
+                cert_pem: String::from("no/such/cert.pem"),
+                key_pem: String::from("no/such/key.pem"),
                 ..args()
             },
             ClientConfigArgs {
-                ca_cert: Some(Certificate::Path(String::from("no/such/ca.pem"))),
+                ca_cert: String::from("no/such/ca.pem"),
                 ..args()
             },
         ] {
@@ -1023,14 +1082,114 @@ mod tests {
         std::io::Write::write_all(&mut ca, b"clearly not a certificate").expect("write");
 
         let error = ClientConfig::from_config_args(ClientConfigArgs {
-            ca_cert: Some(Certificate::Path(
-                ca.path().to_str().expect("utf8 path").to_owned(),
-            )),
+            ca_cert: ca.path().to_str().expect("utf8 path").to_owned(),
             ..args()
         })
         .expect_err("this file holds no certificate");
 
         assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn cert_p12_and_the_pem_pair_are_mutually_exclusive() {
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            cert_pem: String::from("cert.pem"),
+            key_pem: String::from("key.pem"),
+            cert_p12: String::from("identity.p12"),
+            ..args()
+        })
+        .expect_err("both forms of identity must be rejected");
+
+        assert!(
+            matches!(error, ConfigError::IncompatibleOptions { .. }),
+            "{error:?}"
+        );
+        let rendered = chain(&error);
+        assert!(rendered.contains("cert_p12"), "{rendered}");
+    }
+
+    #[test]
+    fn a_p12_password_without_a_p12_is_rejected() {
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            cert_p12_password: Secret::from("s3cr3t"),
+            ..args()
+        })
+        .expect_err("a password naming no file must be rejected");
+
+        assert!(
+            matches!(error, ConfigError::IncompatibleOptions { .. }),
+            "{error:?}"
+        );
+        let rendered = chain(&error);
+        assert!(rendered.contains("cert_p12_password"), "{rendered}");
+        assert!(!rendered.contains("s3cr3t"), "{rendered}");
+    }
+
+    #[test]
+    fn a_p12_file_is_read_into_the_same_identity_a_pem_pair_would_be() {
+        // A self-signed certificate and its PKCS#8 key, generated fresh here rather than read from
+        // a fixture, then bundled into a PKCS#12 file with `p12-keystore`'s own writer.
+        const PASSWORD: &str = "s3cr3t";
+
+        let rcgen::CertifiedKey { cert, signing_key } =
+            rcgen::generate_simple_self_signed(["test".to_owned()]).expect("a self-signed cert");
+        let cert_der = cert.der().to_vec();
+        let key_der = signing_key.serialize_der();
+
+        let chain = p12_keystore::PrivateKeyChain::new(
+            [1u8].as_slice(),
+            p12_keystore::PrivateKey::from_der(&key_der).expect("a valid PKCS#8 key"),
+            [p12_keystore::Certificate::from_der(&cert_der).expect("a valid X.509 certificate")],
+        );
+        let mut keystore = p12_keystore::KeyStore::new();
+        keystore.add_entry(
+            "identity",
+            p12_keystore::KeyStoreEntry::PrivateKeyChain(chain),
+        );
+        let pfx = keystore.writer(PASSWORD).write().expect("write the bundle");
+
+        let mut p12 = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut p12, &pfx).expect("write");
+
+        let config = ClientConfig::from_config_args(ClientConfigArgs {
+            cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
+            cert_p12_password: Secret::from(PASSWORD),
+            ..args()
+        })
+        .expect("a valid PKCS#12 bundle");
+
+        let (cert, key) = config.identity.expect("an identity was bundled");
+        assert_eq!(cert.as_ref(), cert_der, "the leaf certificate round-trips");
+        let PrivateKeyDer::Pkcs8(key) = key else {
+            panic!("expected the PKCS#8 variant, since that is what the bundle carried");
+        };
+        assert_eq!(key.secret_pkcs8_der(), key_der.as_slice(), "the key round-trips");
+    }
+
+    #[test]
+    fn a_p12_that_leads_nowhere_names_the_path() {
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            cert_p12: String::from("no/such/identity.p12"),
+            ..args()
+        })
+        .expect_err("a missing file must be reported");
+
+        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
+        assert!(chain(&error).contains("no/such/"), "{}", chain(&error));
+    }
+
+    #[test]
+    fn a_p12_file_that_is_not_pkcs12_is_rejected_as_such() {
+        let mut p12 = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut p12, b"clearly not a pkcs12 bundle").expect("write");
+
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
+            ..args()
+        })
+        .expect_err("garbage is not a pkcs12 bundle");
+
+        assert!(matches!(error, ConfigError::Pkcs12 { .. }), "{error:?}");
     }
 
     // --- override target ---
@@ -1086,36 +1245,21 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
-        // Every field but the endpoint carries `serde(default)`, so a configuration file need only name
-        // what it changes. The feature is off by default, so nothing else here would notice it breaking.
+        // Every field carries `serde(default)`, so a configuration file need only name what it
+        // changes; an absent `endpoint` fails later, as `ConfigError::Uri`, not here. The feature is
+        // off by default, so nothing else here would notice it breaking.
         let deserialised: ClientConfigArgs =
-            serde_json::from_str(r#"{"endpoint":"http://localhost:5001","timeout":"30s"}"#)
-                .expect("absent fields should default");
+            serde_json::from_str(r#"{"Timeout":"30s"}"#).expect("absent fields should default");
 
-        assert_eq!(deserialised.endpoint, "http://localhost:5001");
+        assert_eq!(deserialised.endpoint, "", "an absent field defaults");
         assert_eq!(deserialised.timeout, "30s");
-        assert_eq!(deserialised.cert_pem, None, "an absent field defaults");
+        assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
         assert!(!deserialised.allow_unsafe_connection);
 
         let round_tripped: ClientConfigArgs =
             serde_json::from_str(&serde_json::to_string(&deserialised).expect("serialise"))
                 .expect("deserialise");
         assert_eq!(round_tripped, deserialised);
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn a_certificate_serialises_as_path_or_content_by_name() {
-        // What a caller across a JSON boundary needs to see: the two forms are distinguishable by a
-        // named key, not by shape alone, and a schema derived from this type can say "exactly one of
-        // these two".
-        let path = serde_json::to_string(&Certificate::Path::<String>(String::from("/ca.pem")))
-            .expect("serialise");
-        assert_eq!(path, r#"{"Path":"/ca.pem"}"#);
-
-        let content = serde_json::to_string(&Certificate::Content(String::from("-----BEGIN...")))
-            .expect("serialise");
-        assert_eq!(content, r#"{"Content":"-----BEGIN..."}"#);
     }
 
     // --- the proxy ---

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["armonik", "armonik-transport", "armonik-transport-derive"]
+members = ["armonik", "armonik-transport"]
 
 # Shared so that a version bump, or a change of MSRV or licence, is made once rather than drifting per
 # crate. Members opt in per field with `xxx.workspace = true`.
@@ -20,7 +20,6 @@ version = "3.29.2-beta-0"
 # it with the version requirement, which therefore has to name the version being released.
 # `nr update-versions` keeps it in step.
 armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
-armonik-transport-derive = { path = "armonik-transport-derive", version = "3.29.2-beta-0" }
 async-stream = "0.3"
 base64 = "0.22"
 bytes = "1"
@@ -31,9 +30,10 @@ humantime = "2.3.0"
 hyper = "1.10"
 hyper-rustls = { version = "0.27", default-features = false }
 hyper-util = "0.1"
+p12-keystore = "0.3"
 prost = "0.14"
 prost-types = "0.14"
-quote = "1"
+rcgen = "0.14"
 rustls = { version = "0.23", default-features = false }
 # `std` as well as `derive`: without it `String` implements neither `Serialize` nor `Deserialize`, so
 # the `serde` feature would not compile.
@@ -41,7 +41,6 @@ serde = { version = "1.0", features = ["derive", "std"], default-features = fals
 serde_json = "1"
 serial_test = "3.5"
 snafu = "0.9"
-syn = "2"
 tempfile = "3"
 tokio = { version = "1.52", default-features = false }
 tokio-util = "0.7"

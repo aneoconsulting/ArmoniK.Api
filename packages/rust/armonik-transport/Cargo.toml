@@ -12,9 +12,9 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [features]
 serde = ["dep:serde"]
-# Independent of `serde`: environment reading is driven by this crate's own `FromEnv` derive, not by
-# `Deserialize`, so a consumer that wants one does not have to pull in the other.
-env = ["dep:armonik-transport-derive"]
+# Environment reading deserialises `ClientConfigArgs`, whose field names are fixed at compile time
+# (`#[serde(rename_all = "PascalCase")]`), so it needs the derive `serde` turns on.
+env = ["serde"]
 
 [dependencies]
 # `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
@@ -43,8 +43,9 @@ hyper-rustls = { workspace = true, features = [
 ] }
 rustls = { workspace = true, features = ["ring", "logging", "std", "tls12"] }
 serde = { workspace = true, optional = true }
-# The `FromEnv` derive behind the `env` feature; see `src/env.rs`.
-armonik-transport-derive = { workspace = true, optional = true }
+# Reads a client certificate bundled with its key as a PKCS#12 file, the form Windows and most
+# certificate authorities hand out; pure Rust, so it does not pull in an OpenSSL of its own.
+p12-keystore.workspace = true
 humantime.workspace = true
 # `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
 # nothing to the build.
@@ -60,8 +61,10 @@ tower-service.workspace = true
 serial_test.workspace = true
 # Only to round-trip `ClientConfigArgs` in the test that pins the `serde` feature.
 serde_json.workspace = true
-# A real file for `Certificate::Path` to read, in the tests that pin what reading one does.
+# A real file for the certificate-loading tests to read: a PEM, or a garbage PKCS#12 bundle.
 tempfile.workspace = true
+# A self-signed certificate and key, generated fresh in the PKCS#12 test rather than committed.
+rcgen.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 # The integration tests serve a gRPC service to call, which the regular build never does; these features
 # union with the `channel`/`codegen` above for test builds only.

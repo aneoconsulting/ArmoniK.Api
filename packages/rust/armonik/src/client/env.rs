@@ -1,11 +1,11 @@
-//! ArmoniK's own environment vocabulary: `GrpcClient__*`, `PascalCase`.
+//! ArmoniK's own environment vocabulary: `GrpcClient__*`.
 //!
-//! `armonik-transport` reads any prefix and any naming convention; `ARMONIK_PREFIX` and
-//! `EnvNaming::PascalCase` are what tells it which, passed directly to `from_env_with` at the call
-//! site rather than read by this crate variable by variable.
+//! `armonik-transport` reads any prefix, `PascalCase` always; `ARMONIK_PREFIX` is what tells it
+//! which, passed directly to `from_env_with` at the call site rather than read by this crate
+//! variable by variable.
 
 #[cfg(test)]
-use super::{ClientConfigArgs, EnvNaming};
+use super::ClientConfigArgs;
 use super::{ConnectionError, EnvConfigError};
 
 /// The prefix every `GrpcClient` option is read under.
@@ -80,7 +80,7 @@ mod tests {
             Some("http://localhost:5001"),
             || {
                 with_var("GrpcClient__UserAgent", Some("armonik-test/1"), || {
-                    ClientConfigArgs::from_env_with(ARMONIK_PREFIX, EnvNaming::PascalCase)
+                    ClientConfigArgs::from_env_with(ARMONIK_PREFIX)
                 })
             },
         )
