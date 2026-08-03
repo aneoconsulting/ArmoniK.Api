@@ -288,10 +288,40 @@ fn guard_unique_extern(extern_types: &[(&str, &str)]) -> Result<(), Box<dyn Erro
     Ok(())
 }
 
+/// Transition glue, deleted when `armonik-types` merges into this crate: copy
+/// the descriptor (and its fingerprint anchor, same construction as
+/// `armonik-types/build.rs`) into this crate's `OUT_DIR`, so the `service!`
+/// invocations in `src/rpc/` can expand and tripwire here too.
+fn write_descriptor_copy() -> Result<(), Box<dyn Error>> {
+    let out_dir = std::path::PathBuf::from(std::env::var("OUT_DIR")?);
+    let bytes = armonik_types::wire::DESCRIPTOR;
+    write_if_changed(&out_dir.join("descriptor.bin"), bytes)?;
+
+    let fingerprint = {
+        use std::hash::Hasher as _;
+        let mut hasher = fnv::FnvHasher::default();
+        hasher.write(bytes);
+        hasher.finish()
+    };
+    write_if_changed(
+        &out_dir.join("schema_meta.rs"),
+        format!("pub(crate) const DESCRIPTOR_FINGERPRINT: u64 = {fingerprint:#018x};\n").as_bytes(),
+    )?;
+    Ok(())
+}
+
+fn write_if_changed(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
+    if std::fs::read(path).is_ok_and(|existing| existing == contents) {
+        return Ok(());
+    }
+    std::fs::write(path, contents)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     // The descriptor, the annotation-harvested extern map and the per-RPC
     // replacements are pulled from `armonik-types`, compiled first as a
     // build-dependency; no proto files are compiled here.
+    write_descriptor_copy()?;
     let fds = prost_types::FileDescriptorSet::decode(armonik_types::wire::DESCRIPTOR)?;
     let replacements = armonik_types::wire::replacements();
 

@@ -25,6 +25,7 @@ mod attrs;
 mod codegen;
 mod descriptor;
 mod resolve;
+mod service;
 
 use attrs::{AttrItem, Errors};
 use descriptor::DescriptorIndex;
@@ -329,6 +330,42 @@ pub fn derive_enum(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
     expand_alias(attr.into(), item.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Declare the RPCs of one proto service, validated against the protobuf
+/// descriptor at expansion time.
+///
+/// ```ignore
+/// crate::rpc::service! {
+///     Results in crate::results @ "armonik.api.grpc.v1.results.Results";
+///     unexposed(WatchResults);
+///
+///     rpc ListResults(list::Request) -> list::Response;
+///     rpc DownloadResultData(download::Request) -> stream download::Response;
+///     rpc UploadResultData(stream upload::Request) -> upload::Response;
+/// }
+/// ```
+///
+/// The header names the service marker type to emit, the module the request
+/// and response paths are relative to, and the full proto service name.
+/// `stream` sits where the proto puts it; an `as name` suffix overrides the
+/// ergonomic method name when the request path's module segment collides.
+///
+/// One invocation emits the `#[doc]`-harvested service marker, its
+/// `crate::rpc::Service` impl, and one `crate::rpc::Rpc` impl per line, plus
+/// const asserts that every named type implements the method's input or
+/// output message. Expansion validates the schema facts: the service and
+/// every method exist, the `stream` keywords agree with the descriptor's
+/// streaming flags, no method is declared twice, and every method of the
+/// service is declared or listed in `unexposed(...)`.
+#[proc_macro]
+pub fn service(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input as service::ServiceDef);
+    descriptor::index()
+        .map_err(|message| syn::Error::new(proc_macro2::Span::call_site(), message))
+        .and_then(|index| service::expand(def, &index))
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

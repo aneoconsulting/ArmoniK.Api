@@ -13,7 +13,10 @@ use std::time::SystemTime;
 
 use prost::Message;
 use prost_types::field_descriptor_proto::{Label, Type};
-use prost_types::{DescriptorProto, EnumDescriptorProto, FieldDescriptorProto, FileDescriptorSet};
+use prost_types::{
+    DescriptorProto, EnumDescriptorProto, FieldDescriptorProto, FileDescriptorProto,
+    FileDescriptorSet,
+};
 
 /// Scalar/wire kind of a protobuf field, mirrored from the descriptor. The
 /// `armonik-types` codec keeps an equivalent runtime classification that the
@@ -93,12 +96,33 @@ pub(crate) struct EnumMeta {
     pub(crate) values: Vec<(String, i32)>,
 }
 
-/// Index of every message and enum in the descriptor set, keyed by full name
-/// without leading dot (e.g. `armonik.api.grpc.v1.TaskOptions`).
+/// An RPC of a protobuf service, as seen by `service!`.
+pub(crate) struct MethodMeta {
+    pub(crate) name: String,
+    /// Full name of the input message, without leading dot.
+    pub(crate) input: String,
+    /// Full name of the output message, without leading dot.
+    pub(crate) output: String,
+    pub(crate) client_streaming: bool,
+    pub(crate) server_streaming: bool,
+    /// Leading comment from the proto, cleaned up line by line.
+    pub(crate) docs: Vec<String>,
+}
+
+/// A protobuf service.
+pub(crate) struct ServiceMeta {
+    pub(crate) methods: Vec<MethodMeta>,
+    /// Leading comment from the proto, cleaned up line by line.
+    pub(crate) docs: Vec<String>,
+}
+
+/// Index of every message, enum and service in the descriptor set, keyed by
+/// full name without leading dot (e.g. `armonik.api.grpc.v1.TaskOptions`).
 pub(crate) struct DescriptorIndex {
     pub(crate) fingerprint: u64,
     pub(crate) messages: HashMap<String, MessageMeta>,
     pub(crate) enums: HashMap<String, EnumMeta>,
+    pub(crate) services: HashMap<String, ServiceMeta>,
 }
 
 struct Cached {
@@ -177,6 +201,7 @@ fn build_index(fingerprint: u64, fds: &FileDescriptorSet) -> Result<DescriptorIn
         fingerprint,
         messages: HashMap::new(),
         enums: HashMap::new(),
+        services: HashMap::new(),
     };
     for file in &fds.file {
         let prefix = file.package();
@@ -186,8 +211,73 @@ fn build_index(fingerprint: u64, fds: &FileDescriptorSet) -> Result<DescriptorIn
         for enumeration in &file.enum_type {
             add_enum(prefix, enumeration, &mut index);
         }
+        add_services(file, &mut index);
     }
     Ok(index)
+}
+
+/// Field numbers of `FileDescriptorProto.service` and
+/// `ServiceDescriptorProto.method`, the `SourceCodeInfo` path components for
+/// service and method comments.
+const FILE_SERVICE: i32 = 6;
+const SERVICE_METHOD: i32 = 2;
+
+fn add_services(file: &FileDescriptorProto, index: &mut DescriptorIndex) {
+    let comment = |path: &[i32]| -> Vec<String> {
+        file.source_code_info
+            .as_ref()
+            .and_then(|info| info.location.iter().find(|loc| loc.path == path))
+            .map(|loc| clean_comment(loc.leading_comments()))
+            .unwrap_or_default()
+    };
+
+    let prefix = file.package();
+    for (service_idx, service) in file.service.iter().enumerate() {
+        let methods = service
+            .method
+            .iter()
+            .enumerate()
+            .map(|(method_idx, method)| MethodMeta {
+                name: method.name().to_owned(),
+                input: method.input_type().trim_start_matches('.').to_owned(),
+                output: method.output_type().trim_start_matches('.').to_owned(),
+                client_streaming: method.client_streaming(),
+                server_streaming: method.server_streaming(),
+                docs: comment(&[
+                    FILE_SERVICE,
+                    service_idx as i32,
+                    SERVICE_METHOD,
+                    method_idx as i32,
+                ]),
+            })
+            .collect();
+        index.services.insert(
+            full_name(prefix, service.name()),
+            ServiceMeta {
+                methods,
+                docs: comment(&[FILE_SERVICE, service_idx as i32]),
+            },
+        );
+    }
+}
+
+/// Clean a proto leading comment into rustdoc lines: drop the javadoc-style
+/// `*` filler lines and the common leading space, trim trailing whitespace.
+fn clean_comment(comment: &str) -> Vec<String> {
+    let mut lines: Vec<String> = comment
+        .lines()
+        .map(|line| {
+            let line = line.strip_prefix(' ').unwrap_or(line).trim_end();
+            if line == "*" { "" } else { line }.to_owned()
+        })
+        .collect();
+    while lines.first().is_some_and(|line| line.is_empty()) {
+        lines.remove(0);
+    }
+    while lines.last().is_some_and(|line| line.is_empty()) {
+        lines.pop();
+    }
+    lines
 }
 
 fn full_name(prefix: &str, name: &str) -> String {
