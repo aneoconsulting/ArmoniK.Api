@@ -187,6 +187,14 @@ compiled first and its derives have run):
 
 ### 3.3 The derive
 
+> **Superseded in one respect**: the two derives later became the attribute
+> macros `#[armonik_macros::message]` / `#[armonik_macros::enumeration]`, so
+> the item can be re-emitted with the proto documentation injected (type,
+> fields, oneof variants, enum values — the same harvest `service!` does for
+> services); the hand-transcribed doc comments were deleted from `objects/`.
+> Everything else below still holds; the `#[armonik(...)]` grammar is
+> unchanged (and now stripped from the re-emitted item).
+
 `#[derive(armonik::Message)]` on structs and oneof-shaped enums,
 `#[derive(armonik::Enum)]` on proto enums. An enum with `message = ...`
 alone stands for the *whole* message: its single oneof is inferred, and any

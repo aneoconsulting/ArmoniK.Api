@@ -62,6 +62,8 @@ pub(crate) struct FieldMeta {
     pub(crate) tag: u32,
     pub(crate) kind: FieldKind,
     pub(crate) cardinality: Cardinality,
+    /// Leading comment from the proto, cleaned up line by line.
+    pub(crate) docs: Vec<String>,
     /// Index into [`MessageMeta::oneofs`] when the field is a member of a
     /// real oneof (synthetic proto3-optional oneofs are folded into
     /// [`Cardinality::Optional`] instead).
@@ -79,6 +81,8 @@ pub(crate) struct OneofMeta {
 pub(crate) struct MessageMeta {
     pub(crate) fields: Vec<FieldMeta>,
     pub(crate) oneofs: Vec<OneofMeta>,
+    /// Leading comment from the proto, cleaned up line by line.
+    pub(crate) docs: Vec<String>,
 }
 
 impl MessageMeta {
@@ -94,6 +98,10 @@ impl MessageMeta {
 pub(crate) struct EnumMeta {
     /// Pairs of (full proto value name, numeric value), in declaration order.
     pub(crate) values: Vec<(String, i32)>,
+    /// Leading comment from the proto, cleaned up line by line.
+    pub(crate) docs: Vec<String>,
+    /// Per-value leading comments, parallel to `values`.
+    pub(crate) value_docs: Vec<Vec<String>>,
 }
 
 /// An RPC of a protobuf service, as seen by `service!`.
@@ -205,15 +213,47 @@ fn build_index(fingerprint: u64, fds: &FileDescriptorSet) -> Result<DescriptorIn
     };
     for file in &fds.file {
         let prefix = file.package();
-        for message in &file.message_type {
-            add_message(prefix, message, &map_entries, &mut index)?;
+        let comments = comments(file);
+        for (idx, message) in file.message_type.iter().enumerate() {
+            let path = vec![FILE_MESSAGE, idx as i32];
+            add_message(prefix, message, &map_entries, &comments, path, &mut index)?;
         }
-        for enumeration in &file.enum_type {
-            add_enum(prefix, enumeration, &mut index);
+        for (idx, enumeration) in file.enum_type.iter().enumerate() {
+            let path = vec![FILE_ENUM, idx as i32];
+            add_enum(prefix, enumeration, &comments, path, &mut index);
         }
         add_services(file, &mut index);
     }
     Ok(index)
+}
+
+/// `SourceCodeInfo` path components: field numbers of the descriptor protos.
+const FILE_MESSAGE: i32 = 4;
+const FILE_ENUM: i32 = 5;
+const MESSAGE_FIELD: i32 = 2;
+const MESSAGE_NESTED: i32 = 3;
+const MESSAGE_ENUM: i32 = 4;
+const ENUM_VALUE: i32 = 2;
+
+/// The cleaned comment of every location in the file, keyed by path. The
+/// protos mix styles: block comments above messages, trailing comments on
+/// fields — take the leading one, else the trailing one.
+fn comments(file: &FileDescriptorProto) -> HashMap<Vec<i32>, Vec<String>> {
+    file.source_code_info
+        .as_ref()
+        .map(|info| {
+            info.location
+                .iter()
+                .filter_map(|location| {
+                    let comment = location
+                        .leading_comments
+                        .as_deref()
+                        .or(location.trailing_comments.as_deref())?;
+                    Some((location.path.clone(), clean_comment(comment)))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Field numbers of `FileDescriptorProto.service` and
@@ -318,6 +358,8 @@ fn add_message(
     prefix: &str,
     message: &DescriptorProto,
     map_entries: &HashMap<String, (FieldKind, FieldKind)>,
+    comments: &HashMap<Vec<i32>, Vec<String>>,
+    path: Vec<i32>,
     index: &mut DescriptorIndex,
 ) -> Result<(), String> {
     let full = full_name(prefix, message.name());
@@ -326,11 +368,15 @@ fn add_message(
         return Ok(());
     }
 
-    for nested in &message.nested_type {
-        add_message(&full, nested, map_entries, index)?;
+    for (idx, nested) in message.nested_type.iter().enumerate() {
+        let mut nested_path = path.clone();
+        nested_path.extend([MESSAGE_NESTED, idx as i32]);
+        add_message(&full, nested, map_entries, comments, nested_path, index)?;
     }
-    for enumeration in &message.enum_type {
-        add_enum(&full, enumeration, index);
+    for (idx, enumeration) in message.enum_type.iter().enumerate() {
+        let mut nested_path = path.clone();
+        nested_path.extend([MESSAGE_ENUM, idx as i32]);
+        add_enum(&full, enumeration, comments, nested_path, index);
     }
 
     let mut oneofs = message
@@ -343,9 +389,11 @@ fn add_message(
         .collect::<Vec<_>>();
 
     let mut fields = Vec::new();
-    for field in &message.field {
+    for (field_idx, field) in message.field.iter().enumerate() {
         let kind = field_kind(field)
             .map_err(|err| format!("in message `{full}`, field `{}`: {err}", field.name()))?;
+        let mut field_path = path.clone();
+        field_path.extend([MESSAGE_FIELD, field_idx as i32]);
 
         let (cardinality, oneof) = if field.proto3_optional() {
             // proto3 `optional` is encoded as a synthetic single-field oneof;
@@ -387,22 +435,53 @@ fn add_message(
             tag: field.number() as u32,
             kind,
             cardinality,
+            docs: comments.get(&field_path).cloned().unwrap_or_default(),
             oneof,
         });
     }
 
-    index.messages.insert(full, MessageMeta { fields, oneofs });
+    index.messages.insert(
+        full,
+        MessageMeta {
+            fields,
+            oneofs,
+            docs: comments.get(&path).cloned().unwrap_or_default(),
+        },
+    );
     Ok(())
 }
 
-fn add_enum(prefix: &str, enumeration: &EnumDescriptorProto, index: &mut DescriptorIndex) {
+fn add_enum(
+    prefix: &str,
+    enumeration: &EnumDescriptorProto,
+    comments: &HashMap<Vec<i32>, Vec<String>>,
+    path: Vec<i32>,
+    index: &mut DescriptorIndex,
+) {
     let full = full_name(prefix, enumeration.name());
     let values = enumeration
         .value
         .iter()
         .map(|value| (value.name().to_owned(), value.number()))
         .collect();
-    index.enums.insert(full, EnumMeta { values });
+    let value_docs = enumeration
+        .value
+        .iter()
+        .enumerate()
+        .map(|(idx, _)| {
+            let mut value_path = path.clone();
+            value_path.extend([ENUM_VALUE, idx as i32]);
+            comments.get(&value_path).cloned().unwrap_or_default()
+        })
+        .collect();
+    index.enums.insert(
+        full,
+        EnumMeta {
+            values,
+            docs: comments.get(&path).cloned().unwrap_or_default(),
+            value_docs,
+        },
+    );
 }
 
 fn field_kind(field: &FieldDescriptorProto) -> Result<FieldKind, String> {

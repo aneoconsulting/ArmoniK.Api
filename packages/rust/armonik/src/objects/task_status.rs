@@ -1,32 +1,20 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
+#[armonik_macros::enumeration]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 pub enum TaskStatus {
-    /// Task is being created in database.
     Creating,
-    /// Task is submitted to the queue.
     Submitted,
-    /// Task is dispatched to a worker.
     Dispatched,
-    /// Task is completed.
     Completed,
-    /// Task is in error state.
     Error,
-    /// Task is in timeout state.
     Timeout,
-    /// Task is being cancelled.
     Cancelling,
-    /// Task is cancelled.
     Cancelled,
-    /// Task is being processed.
     Processing,
-    /// Task is processed.
     Processed,
-    /// Task is retried.
     Retried,
-    /// Task is waiting for its dependencies before becoming executable.
     Pending,
-    /// Task is paused and will not be executed until session is resumed.
     Paused,
     /// Unspecified (zero) or a status unknown to this crate version;
     /// round-trips losslessly.

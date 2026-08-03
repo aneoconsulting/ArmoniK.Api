@@ -1,4 +1,4 @@
-//! Internal derive macros for the [`armonik`](https://crates.io/crates/armonik) crate.
+//! Internal macros for the [`armonik`](https://crates.io/crates/armonik) crate.
 //!
 //! This crate is an implementation detail of `armonik`: the attribute grammar
 //! and the emitted code offer no stability guarantee of their own, and the
@@ -6,17 +6,20 @@
 //! inside the `armonik` crate itself. It must only be used through the
 //! `armonik` crate, which depends on it with an exact version pin.
 //!
-//! The derives read the protobuf descriptor set compiled by the `armonik`
+//! The macros read the protobuf descriptor set compiled by the `armonik`
 //! build script (`$OUT_DIR/descriptor.bin`) at expansion time: field tags,
-//! wire kinds and cardinalities are taken from the descriptors, and any
-//! mismatch between a Rust type and its proto counterpart is a compile
-//! error. A fingerprint const-assert is emitted with every expansion so a
-//! stale expansion can never survive a descriptor change.
+//! wire kinds, cardinalities and the documentation are taken from the
+//! descriptors, and any mismatch between a Rust type and its proto
+//! counterpart is a compile error. A fingerprint const-assert is emitted
+//! with every expansion so a stale expansion can never survive a descriptor
+//! change.
 //!
-//! See [`Message`](macro@Message) for messages and oneofs, and
-//! [`Enum`](macro@Enum) for proto enums; the `#[armonik(...)]` grammar is
-//! documented in their [message attributes](macro@Message#attributes) and
-//! [enum attributes](macro@Enum#attributes) sections.
+//! See [`message`](macro@message) for messages and oneofs,
+//! [`enumeration`](macro@enumeration) for proto enums, and
+//! [`service`](macro@service) for the per-service RPC definitions; the
+//! `#[armonik(...)]` grammar is documented in the
+//! [message attributes](macro@message#attributes) and
+//! [enum attributes](macro@enumeration#attributes) sections.
 
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
@@ -25,6 +28,7 @@ mod attrs;
 mod codegen;
 mod convenience;
 mod descriptor;
+mod docs;
 mod resolve;
 mod service;
 
@@ -33,17 +37,24 @@ use descriptor::DescriptorIndex;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::DeriveInput;
 
-/// Derive `prost::Message` for an ArmoniK API type, validated against the
+/// Implement `prost::Message` for an ArmoniK API type, validated against the
 /// protobuf descriptors compiled by the `armonik` build script.
 ///
 /// Tags, wire kinds and cardinalities are read from the descriptor at
 /// expansion time — nothing is restated in the source — and
 /// every disagreement between the Rust type and the proto message (unknown
 /// field, uncovered proto field or oneof, kind or cardinality mismatch) is
-/// a spanned compile error naming both sides. Proto enums are derived
-/// separately with [`Enum`](macro@Enum).
+/// a spanned compile error naming both sides. Proto enums are handled
+/// separately by [`enumeration`](macro@enumeration).
 ///
-/// Besides `prost::Message`, the derive emits:
+/// An attribute macro rather than a derive so the item can be **re-emitted
+/// with the proto documentation injected**: the type, its fields, its oneof
+/// variants and their inlined fields receive `#[doc]`s extracted from the
+/// protos' leading comments — the same harvest `service!` does for services —
+/// and hand-written doc comments follow them as Rust-specific notes. The
+/// `#[armonik(...)]` attributes are consumed and stripped.
+///
+/// Besides `prost::Message`, the expansion emits:
 /// - a `Msg` implementation (picked up by the codec's blanket `ProtoField`
 ///   impl), so the type composes as a field of other derived messages
 ///   (field types dispatch through `ProtoField`: scalars, `String`,
@@ -207,20 +218,28 @@ use syn::DeriveInput;
 /// site (e.g. `struct Request { filter: TaskFilter }`), keeping request
 /// types injective over RPCs.
 ///
-#[proc_macro_derive(Message, attributes(armonik))]
-pub fn derive_message(input: TokenStream) -> TokenStream {
+#[proc_macro_attribute]
+pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
-    expand_message(input)
+    if !attr.is_empty() {
+        return syn::Error::new(input.ident.span(), "#[armonik_macros::message] takes no arguments")
+            .into_compile_error()
+            .into();
+    }
+    docs::expand(input, docs::Mode::Message)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
 
-/// Derive the wire representation of a protobuf enum for an ArmoniK API
+/// Implement the wire representation of a protobuf enum for an ArmoniK API
 /// type, validated against the protobuf descriptors compiled by the
-/// `armonik` build script.
+/// `armonik` build script. Like [`message`](macro@message), an attribute
+/// macro: the item is re-emitted with the proto documentation injected (the
+/// enum and each matched value) and the `#[armonik(...)]` attributes
+/// stripped.
 ///
 /// proto3 enums are open: unknown values must round-trip losslessly. The
-/// derive therefore requires exactly one catch-all tuple variant whose
+/// expansion therefore requires exactly one catch-all tuple variant whose
 /// payload struct it emits itself:
 ///
 /// ```ignore
@@ -296,10 +315,18 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 ///
 /// `rename = "FULL_PROTO_VALUE_NAME"`, on a variant — the proto value
 /// name when the prost-style short form does not match.
-#[proc_macro_derive(Enum, attributes(armonik))]
-pub fn derive_enum(input: TokenStream) -> TokenStream {
+#[proc_macro_attribute]
+pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
-    expand_enumeration(input)
+    if !attr.is_empty() {
+        return syn::Error::new(
+            input.ident.span(),
+            "#[armonik_macros::enumeration] takes no arguments",
+        )
+        .into_compile_error()
+        .into();
+    }
+    docs::expand(input, docs::Mode::Enumeration)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -452,7 +479,7 @@ fn expand_message(input: DeriveInput) -> syn::Result<TokenStream2> {
     // Enums are oneof-shaped: `message = ...` alone stands for a whole
     // message with a single (inferred) oneof, `oneof = ...` for one oneof
     // of a message, embedded in a struct.
-    let mut out = doc_anchors(&input, "Message");
+    let mut out = doc_anchors(&input, "message");
     let mut absorbs = collect_absorbs(&input);
     if has_oneof || (matches!(input.data, syn::Data::Enum(_)) && !generic) {
         let plan = resolve::oneof_plan(&input, &index).map_err(Errors::into_syn_error)?;
@@ -591,7 +618,7 @@ fn sugar(ty: &syn::Type) -> Sugar {
 fn expand_enumeration(input: DeriveInput) -> syn::Result<TokenStream2> {
     let index = load_index(&input)?;
     let plan = resolve::enum_plan(&input, &index).map_err(Errors::into_syn_error)?;
-    let mut out = doc_anchors(&input, "Enum");
+    let mut out = doc_anchors(&input, "enumeration");
     let mut absorbs = collect_absorbs(&input);
     absorbs.extend(plan.absorbs.iter().cloned());
     out.extend(codegen::enumeration(&plan));

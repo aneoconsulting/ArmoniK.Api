@@ -1,6 +1,7 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions, TaskRequest};
 
-#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateSmallTaskRequest")]
 pub struct SmallRequest {
@@ -9,7 +10,8 @@ pub struct SmallRequest {
     pub task_requests: Vec<TaskRequest>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest")]
 pub struct InitRequest {
@@ -17,7 +19,8 @@ pub struct InitRequest {
     pub task_options: Option<TaskOptions>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest")]
 pub enum LargeRequest {
@@ -30,18 +33,15 @@ pub enum LargeRequest {
     DataChunk(DataChunk),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus")]
 pub enum Status {
     TaskInfo {
-        /// Unique ID of the created task.
         task_id: String,
-        /// Unique ID of the result that will be used as expected output. Results should already exist.
         expected_output_keys: Vec<String>,
-        /// Unique ID of the result that will be used as data dependency. Results should already exist.
         data_dependencies: Vec<String>,
-        /// Unique ID of the result that will be used as payload. Result associated to the payload is created implicitly.
         payload_id: String,
     },
     Error(String),
@@ -53,7 +53,8 @@ impl Default for Status {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply")]
 pub enum Response {
