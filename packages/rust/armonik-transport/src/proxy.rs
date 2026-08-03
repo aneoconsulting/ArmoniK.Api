@@ -319,8 +319,7 @@ pub enum ProxyError {
         location: snafu::Location,
     },
     #[snafu(display(
-        "The proxy requires authentication; set `GrpcClient__ProxyUsername` and \
-         `GrpcClient__ProxyPassword` [{location}]"
+        "The proxy requires authentication; set `proxy_username` and `proxy_password` [{location}]"
     ))]
     #[non_exhaustive]
     AuthenticationRequired {

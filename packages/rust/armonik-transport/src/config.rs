@@ -405,6 +405,7 @@ impl ClientConfig {
                 connect_timeout
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "connect_timeout",
                         value: connect_timeout,
                     })?
                     .into(),
@@ -417,7 +418,10 @@ impl ClientConfig {
             Some(
                 timeout
                     .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu { value: timeout })?
+                    .context(InvalidDurationSnafu {
+                        option: "timeout",
+                        value: timeout,
+                    })?
                     .into(),
             )
         };
@@ -439,6 +443,7 @@ impl ClientConfig {
             let duration: Duration = parts[1]
                 .parse::<humantime::Duration>()
                 .context(InvalidDurationSnafu {
+                    option: "rate_limit",
                     value: rate_limit.clone(),
                 })?
                 .into();
@@ -447,7 +452,7 @@ impl ClientConfig {
             if limit == 0 || duration.is_zero() {
                 return IncompatibleOptionsSnafu {
                     msg: format!(
-                        "`GrpcClient__RateLimit={rate_limit}` has a zero count or duration. Both have \
+                        "`rate_limit={rate_limit}` has a zero count or duration. Both have \
                          to be above zero, as in `100/1s`; leave it empty for no rate limit"
                     ),
                 }
@@ -463,6 +468,7 @@ impl ClientConfig {
                 tcp_keepalive
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "tcp_keepalive",
                         value: tcp_keepalive,
                     })?
                     .into(),
@@ -476,6 +482,7 @@ impl ClientConfig {
                 tcp_keepalive_interval
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "tcp_keepalive_interval",
                         value: tcp_keepalive_interval,
                     })?
                     .into(),
@@ -489,6 +496,7 @@ impl ClientConfig {
                 tcp_keepalive_retries
                     .parse::<u32>()
                     .context(InvalidIntegerSnafu {
+                        option: "tcp_keepalive_retries",
                         value: tcp_keepalive_retries,
                     })?,
             )
@@ -501,6 +509,7 @@ impl ClientConfig {
                 http2_keep_alive_interval
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "http2_keep_alive_interval",
                         value: http2_keep_alive_interval,
                     })?
                     .into(),
@@ -514,6 +523,7 @@ impl ClientConfig {
                 http2_keep_alive_timeout
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "http2_keep_alive_timeout",
                         value: http2_keep_alive_timeout,
                     })?
                     .into(),
@@ -527,6 +537,7 @@ impl ClientConfig {
                 http2_max_header_list_size
                     .parse::<u32>()
                     .context(InvalidIntegerSnafu {
+                        option: "http2_max_header_list_size",
                         value: http2_max_header_list_size,
                     })?,
             )
@@ -583,8 +594,6 @@ impl ClientConfig {
     }
 }
 
-/// Interpret the `GrpcClient__Proxy` value.
-///
 /// As ArmoniK's other clients spell it: empty is a direct connection, `none` disables proxying,
 /// `system` reads the environment, anything else is a proxy URL, defaulting to the `http` scheme.
 fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
@@ -611,7 +620,7 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
                     IncompatibleOptionsSnafu {
                         msg: format!(
                             "The `CONNECT` handshake is written in the clear, so only an `http` \
-                             proxy can be reached, and `GrpcClient__Proxy={}` names another scheme",
+                             proxy can be reached, and `proxy={}` names another scheme",
                             crate::proxy::elide_userinfo(proxy)
                         ),
                     }
@@ -621,7 +630,7 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
                 None => IncompatibleOptionsSnafu {
                     // Elided: a URL rejected for having no host can still have carried a password.
                     msg: format!(
-                        "`GrpcClient__Proxy={}` is not a valid proxy URL. Expected `none`, \
+                        "`proxy={}` is not a valid proxy URL. Expected `none`, \
                          `system`, or a URL such as `http://proxy.example.com:3128`",
                         crate::proxy::elide_userinfo(proxy)
                     ),
@@ -687,10 +696,13 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("`GrpcClient__ConnectTimeout={value}` is not a valid duration (e.g. `30s` or `1m`) [{location}]"))]
+    #[snafu(display(
+        "`{option}={value}` is not a valid duration (e.g. `30s` or `1m`) [{location}]"
+    ))]
     #[non_exhaustive]
     InvalidDuration {
         source: humantime::DurationError,
+        option: &'static str,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -703,10 +715,11 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("`{value}` is not a valid integer [{location}]"))]
+    #[snafu(display("`{option}={value}` is not a valid integer [{location}]"))]
     #[non_exhaustive]
     InvalidInteger {
         source: std::num::ParseIntError,
+        option: &'static str,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,

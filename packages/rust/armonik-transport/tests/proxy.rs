@@ -257,7 +257,7 @@ async fn a_missing_credential_is_reported_as_such() {
         "unexpected error: {rendered}"
     );
     assert!(
-        rendered.contains("GrpcClient__ProxyUsername"),
+        rendered.contains("proxy_username"),
         "the error should say which options to set: {rendered}"
     );
     assert_eq!(stats.rejected.load(Ordering::SeqCst), 1);
