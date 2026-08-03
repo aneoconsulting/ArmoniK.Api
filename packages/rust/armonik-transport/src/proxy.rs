@@ -81,17 +81,28 @@ where
             ProxySource::Disabled => None,
             // Straight through, whatever the target looks like: the caller named this proxy, so failing
             // to reach it has to be an error rather than a quiet direct connection. Credentials were
-            // taken out of the URL when the configuration was built.
-            ProxySource::Explicit(uri) => Some((uri.clone(), None)),
+            // taken out of the URL when the configuration was built, so there is none left to merge
+            // here.
+            ProxySource::Explicit(uri) => Some((uri.clone(), String::new(), String::new())),
             ProxySource::System => self
                 .matcher
                 .as_ref()
                 .and_then(|matcher| matcher.intercept(&target))
-                .map(|intercept| (intercept.uri().clone(), intercept.basic_auth().cloned())),
+                .map(|intercept| {
+                    // `raw_auth` is for a non-HTTP proxy scheme (e.g. `socks5h`); an `http` proxy, the
+                    // only kind reached past the scheme check below, is always `basic_auth`, already
+                    // base64-encoded. Decoded back out here so the two halves can still be merged
+                    // independently, the same as an explicit URL's are.
+                    let (user, password) = intercept
+                        .basic_auth()
+                        .map(decode_basic_auth)
+                        .unwrap_or_default();
+                    (intercept.uri().clone(), user, password)
+                }),
         };
 
         // Nothing to tunnel through: keep the original behaviour untouched.
-        let Some((proxy_uri, from_url)) = route else {
+        let Some((proxy_uri, url_username, url_password)) = route else {
             let future = self.inner.call(target);
             return Box::pin(async move { future.await.map_err(Into::into) });
         };
@@ -104,13 +115,21 @@ where
             return Box::pin(std::future::ready(Err(error.into())));
         }
 
-        // The configured options first; whatever the proxy URL carried is the fallback, already encoded
-        // by the matcher.
-        let credentials = self
-            .proxy
-            .credentials()
-            .map(|(user, password)| basic_auth_header(user, password))
-            .or(from_url);
+        // Field by field, not pair by pair: a dedicated option set alone must not discard the other
+        // half of whatever credentials the proxy URL (here, the one the matcher intercepted) carried,
+        // the same rule `ClientConfig::from_config_args` already applies to an explicit `proxy` URL.
+        let username = if self.proxy.username.is_empty() {
+            url_username.as_str()
+        } else {
+            self.proxy.username.as_str()
+        };
+        let password = if self.proxy.password.is_empty() {
+            url_password.as_str()
+        } else {
+            self.proxy.password.expose_secret()
+        };
+        let credentials = (!username.is_empty() || !password.is_empty())
+            .then(|| basic_auth_header(username, password));
 
         let mut tunnel = Tunnel::new(proxy_uri.clone(), self.inner.clone());
         if let Some(credentials) = credentials {
@@ -167,6 +186,26 @@ fn basic_auth_header(username: &str, password: &str) -> HeaderValue {
         .expect("base64 output is always a valid header value");
     value.set_sensitive(true);
     value
+}
+
+/// The username and password a `Basic` `Proxy-Authorization` value carries.
+///
+/// The inverse of [`basic_auth_header`]. Malformed input, which `hyper_util` itself never produces,
+/// decodes as an empty pair rather than panicking: worst case a proxy that needed credentials
+/// rejects the tunnel, which is what an absent value already does.
+fn decode_basic_auth(value: &HeaderValue) -> (String, String) {
+    let encoded = value
+        .to_str()
+        .unwrap_or_default()
+        .trim_start_matches("Basic ");
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .unwrap_or_default();
+    let decoded = String::from_utf8_lossy(&decoded).into_owned();
+    match decoded.split_once(':') {
+        Some((user, password)) => (user.to_owned(), password.to_owned()),
+        None => (decoded, String::new()),
+    }
 }
 
 /// Split any `user:password@` prefix out of a proxy URI, returning the URI without it.
