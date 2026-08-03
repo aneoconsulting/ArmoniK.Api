@@ -22,10 +22,7 @@ pub struct Results<T> {
 
 impl<T> Results<T>
 where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
 {
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
@@ -352,10 +349,7 @@ super::impl_call! {
 
 impl<T> GrpcCall<download::Request> for &'_ mut Results<T>
 where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
 {
     type Response =
         futures::stream::BoxStream<'static, Result<download::Response, super::RequestError>>;
@@ -383,10 +377,7 @@ where
 
 impl<T, S> GrpcCallStream<upload::Request, S> for &'_ mut Results<T>
 where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
     S: Stream<Item = upload::Request> + Send + 'static,
 {
     type Response = upload::Response;
