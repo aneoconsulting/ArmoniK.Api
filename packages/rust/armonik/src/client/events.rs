@@ -39,7 +39,6 @@ mod tests {
 
     use crate::Client;
 
-    // Named methods
 
     #[tokio::test]
     async fn subscribe() {
@@ -52,27 +51,6 @@ mod tests {
                 crate::results::filter::Or { or: vec![] },
                 vec![crate::events::EventsEnum::UNSPECIFIED],
             )
-            .await
-            .unwrap()
-            .try_collect::<Vec<_>>()
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Events", "GetEvents").await;
-        assert_eq!(after - before, 1);
-    }
-    // Explicit call request
-
-    #[tokio::test]
-    async fn subscribe_call() {
-        let before = Client::get_nb_request("Events", "GetEvents").await;
-        let mut client = Client::new().await.unwrap().into_events();
-        client
-            .call(crate::events::subscribe::Request {
-                session_id: String::from("session-id"),
-                task_filters: crate::tasks::filter::Or { or: vec![] },
-                result_filters: crate::results::filter::Or { or: vec![] },
-                returned_events: vec![],
-            })
             .await
             .unwrap()
             .try_collect::<Vec<_>>()

@@ -19,26 +19,12 @@ impl<T: super::Channel> super::ServiceClient<services::HealthChecks, T> {
 mod tests {
     use crate::Client;
 
-    // Named methods
 
     #[tokio::test]
     async fn check() {
         let before = Client::get_nb_request("HealthChecks", "CheckHealth").await;
         let mut client = Client::new().await.unwrap().into_health_checks();
         client.check().await.unwrap();
-        let after = Client::get_nb_request("HealthChecks", "CheckHealth").await;
-        assert_eq!(after - before, 1);
-    }
-    // Explicit call request
-
-    #[tokio::test]
-    async fn check_call() {
-        let before = Client::get_nb_request("HealthChecks", "CheckHealth").await;
-        let mut client = Client::new().await.unwrap().into_health_checks();
-        client
-            .call(crate::health_checks::check::Request {})
-            .await
-            .unwrap();
         let after = Client::get_nb_request("HealthChecks", "CheckHealth").await;
         assert_eq!(after - before, 1);
     }

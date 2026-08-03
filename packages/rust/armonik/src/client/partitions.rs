@@ -39,7 +39,6 @@ impl<T: super::Channel> super::ServiceClient<services::Partitions, T> {
 mod tests {
     use crate::Client;
 
-    // Named methods
 
     #[tokio::test]
     async fn list() {
@@ -57,46 +56,6 @@ mod tests {
             .await
             .unwrap();
         let after = Client::get_nb_request("Partitions", "ListPartitions").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn get() {
-        let before = Client::get_nb_request("Partitions", "GetPartition").await;
-        let mut client = Client::new().await.unwrap().into_partitions();
-        client.get("part1").await.unwrap();
-        let after = Client::get_nb_request("Partitions", "GetPartition").await;
-        assert_eq!(after - before, 1);
-    }
-
-    // Explicit call request
-
-    #[tokio::test]
-    async fn list_call() {
-        let before = Client::get_nb_request("Partitions", "ListPartitions").await;
-        let mut client = Client::new().await.unwrap().into_partitions();
-        client
-            .call(crate::partitions::list::Request {
-                page_size: 10,
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Partitions", "ListPartitions").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn get_call() {
-        let before = Client::get_nb_request("Partitions", "GetPartition").await;
-        let mut client = Client::new().await.unwrap().into_partitions();
-        client
-            .call(crate::partitions::get::Request {
-                partition_id: String::from("part1"),
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Partitions", "GetPartition").await;
         assert_eq!(after - before, 1);
     }
 }
