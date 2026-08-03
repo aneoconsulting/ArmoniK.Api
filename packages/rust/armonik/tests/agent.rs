@@ -189,7 +189,7 @@ async fn create_results() {
     let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
-        .create_results("rpc-create-results-input", "", [("result-id", b"")])
+        .create_results("rpc-create-results-input", "", [("result-id", b"".as_slice())])
         .await
         .unwrap();
 
@@ -214,7 +214,12 @@ async fn submit_tasks() {
     let mut client = armonik::Client::with_channel(Service::default().agent_server()).into_agent();
 
     let response = client
-        .submit_tasks("rpc-submit-tasks-input", "", None, [])
+        .submit_tasks(
+            "rpc-submit-tasks-input",
+            "",
+            None,
+            Vec::<armonik::agent::submit_tasks::RequestItem>::new(),
+        )
         .await
         .unwrap();
 

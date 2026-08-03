@@ -11,10 +11,6 @@ use super::{filter, Raw, Sort};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksRequest")]
 pub struct Request {
-    /// The page number. Start at 0.
-    pub page: i32,
-    /// The page size.
-    pub page_size: i32,
     /// The filters.
     pub filters: filter::Or,
     /// The sort.
@@ -23,6 +19,10 @@ pub struct Request {
     pub sort: Sort,
     /// Request error message in case of error in task.
     pub with_errors: bool,
+    /// The page number. Start at 0.
+    pub page: i32,
+    /// The page size.
+    pub page_size: i32,
 }
 
 /// Response to list tasks.

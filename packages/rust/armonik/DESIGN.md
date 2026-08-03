@@ -1021,21 +1021,59 @@ argument or return position). The five hand-shaped signatures currently living
 after the `---` in `define_trait_methods!`, and the `---` escape hatch itself,
 go away.
 
-### 3.7 The convenience layer stays hand-written
+### 3.7 The convenience layer is fully derived from the request structs
 
-The ~50 convenience methods are kept as they are: hand-written inherent impls
-on the client aliases, bodies unchanged (they already build the request structs
-inline and go through `call`). An earlier draft had `#[derive(Message)]` emit a
-`Request::new(..)` constructor to shrink the bodies; it is dropped. It added
-~150 lines of macro machinery and a positional-argument constructor whose arity
-would track the proto, to save bodies that are already one struct literal each.
-The one true duplication in the layer, the nested-filter collect copy-pasted
-into six `list` methods, becomes a single private helper.
+The convenience methods have **zero per-method source**: `service!` emits
+them, and their *signatures* come from the request structs' own fields — the
+one place the Rust types (not the proto types, §5.8) are visible. Parameters
+mirror the fields in declaration order (field order is wire-irrelevant, so
+structs are reordered where ergonomics demand), widened by a sugar class the
+derive infers from each field's type:
 
-Whether a `macro_rules!` over the common method shape earns its keep is
-measured after the cutover, with real numbers, not before (§9): this is the
-most user-facing code in the crate, and compressing it trades hover-docs and
-readability in exactly the wrong place.
+| field type | parameter | conversion |
+|---|---|---|
+| `String`, `Bytes`, `Vec<u8>` | `impl Into<…>` | `.into()` |
+| `Vec<T>` | `impl IntoIterator<Item = impl Into<T>>` | `.into_collect()` |
+| `HashMap<K, V>` | `impl IntoIterator<Item = (impl Into<K>, impl Into<V>)>` | pair map |
+| `filter::Or` | nested `impl IntoIterator` of `filter::Field` | `into_filters(…)` |
+| anything else | itself | moved |
+
+The mechanism is a cross-macro handshake: `#[derive(Message)]` emits, next to
+each struct, a `__armonik_fields_*` callback macro (field names + sugar
+classes, CPS-style) and flat `__armonik_ty_*` aliases (so another module can
+name field and element types without transporting relative-path tokens);
+`service!` emits an invocation of the request's callback continued into the
+`__emit_convenience` proc macro, which builds the method. Method docs are the
+harvested proto comments.
+
+The *response* side follows one rule with per-RPC overrides on the rpc line:
+a single-field response projects that field automatically, a multi-field one
+returns whole; `=> field` forces a projection, `=> *` forces whole (also the
+escape for alias-typed responses, which have no reflection), `=> ()` discards.
+For `auto`, `__emit_convenience` chains once through the *response* type's
+callback to count its fields.
+
+**Opt-out**: `manual` on the rpc line emits nothing — the escape for custom
+wiring or a wrong mechanical default. Client-streaming RPCs are always manual
+(their entry point is `call_streaming`). Today that leaves six hand-written
+methods (`results::upload`, `worker::process` — nine exploded parameters is a
+wrong default — `submitter::{create_small_tasks, create_large_tasks,
+try_get_task_output}`, `agent::create_tasks`); the hand-written
+`notify_result_data::Request` carries hand-written reflection to stay
+generated.
+
+Everything is type-checked post-expansion, so a wrong sugar inference is a
+compile error, never a wire bug; behaviorally, every generated method is
+covered per method by the in-process integration suites. Accepted DX shift:
+parameter names and order are now mechanically the field names and order
+(e.g. `results::get` takes `id`, the agent methods take `communication_token`),
+and `submitter::{count_tasks, wait_for_completion}` return `Count` whole.
+
+An earlier draft had `#[derive(Message)]` emit a `Request::new(..)`
+constructor instead, and a first implementation generated only the bodies
+under hand-written signatures; both were dropped for this design, which is
+what actually deletes the layer. The nested-filter collect shared by the
+`list` methods survives as the `into_filters` helper the emission calls.
 
 ### 3.8 What the registry is for now
 

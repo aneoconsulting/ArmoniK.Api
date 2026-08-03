@@ -483,7 +483,7 @@ async fn count_tasks() {
         "count-tasks"
     );
 
-    assert_eq!(response[&armonik::TaskStatus::Creating], 1337);
+    assert_eq!(response.values[&armonik::TaskStatus::Creating], 1337);
 }
 
 #[tokio::test]
@@ -570,7 +570,7 @@ async fn wait_for_completion() {
         "wait-for-completion"
     );
 
-    assert_eq!(response[&armonik::TaskStatus::Creating], 1337);
+    assert_eq!(response.values[&armonik::TaskStatus::Creating], 1337);
 }
 
 #[tokio::test]

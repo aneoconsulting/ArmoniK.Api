@@ -1,14 +1,7 @@
 use crate::rpc::services;
-use crate::versions::list;
 
 /// Service for getting versions of the components.
 pub type Versions<T = tonic::transport::Channel> = super::ServiceClient<services::Versions, T>;
-
-impl<T: super::Channel> super::ServiceClient<services::Versions, T> {
-    pub async fn list(&mut self) -> Result<list::Response, super::RequestError> {
-        self.call(list::Request {}).await
-    }
-}
 
 #[cfg(test)]
 #[serial_test::serial(versions)]

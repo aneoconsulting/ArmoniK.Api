@@ -13,14 +13,14 @@ use super::Raw;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataRequest")]
 pub struct Request {
+    /// The session in which create results.
+    pub session_id: String,
     /// The opaque ids associated to the results to import.
     #[armonik(
         with = "crate::codec::adapters::PairMap<1, 2>",
         absorbs = "armonik.api.grpc.v1.results.ImportResultsDataRequest.ResultOpaqueId"
     )]
     pub results: HashMap<String, bytes::Bytes>,
-    /// The session in which create results.
-    pub session_id: String,
 }
 
 /// Response for creating results without data.

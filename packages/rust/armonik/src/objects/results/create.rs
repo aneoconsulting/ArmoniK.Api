@@ -28,10 +28,10 @@ impl<K: Into<String>, V: Into<bytes::Bytes>> From<(K, V)> for RequestItem {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.CreateResultsRequest")]
 pub struct Request {
-    /// Results to create.
-    pub results: Vec<RequestItem>,
     /// The session in which create results.
     pub session_id: String,
+    /// Results to create.
+    pub results: Vec<RequestItem>,
 }
 
 /// Response for creating results without data.
