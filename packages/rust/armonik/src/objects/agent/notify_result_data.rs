@@ -4,8 +4,6 @@ use prost::DecodeError;
 
 use crate::codec::ProtoField;
 
-/// Request for notifying results data are available in files.
-///
 /// The proto message carries `repeated ResultIdentifier { session_id,
 /// result_id }` pairs, flattened here into one session ID shared by all the
 /// results: the wire implementation is hand-written. Encoding replicates the
@@ -13,7 +11,6 @@ use crate::codec::ProtoField;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
-    /// Communication token received by the worker during task processing.
     pub communication_token: String,
     /// The identifier of the session where all the results to be notified are.
     pub session_id: String,
@@ -217,13 +214,12 @@ impl crate::codec::Msg for Request {
 // the same way a `with` adapter would.
 crate::register!(absorbed: "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier");
 
-/// Response for creating results without data.
-#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.NotifyResultDataResponse")]
 pub struct Response {
-    /// The list of ResultMetaData results that were created.
-    pub result_ids: Vec<String>,
+        pub result_ids: Vec<String>,
 }
 
 #[cfg(test)]

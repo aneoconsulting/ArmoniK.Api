@@ -5,9 +5,8 @@ use super::{
 
 macro_rules! impl_filter_condition {
     ($name:ident, $proto:literal => $type:ty : $op:ident) => {
-        #[derive(
-            Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message,
-        )]
+        #[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, )]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $proto)]
         pub struct $name {
@@ -22,7 +21,8 @@ impl_filter_condition!(FilterNumber, "armonik.api.grpc.v1.FilterNumber" => i64: 
 impl_filter_condition!(FilterArray, "armonik.api.grpc.v1.FilterArray" => String: FilterArrayOperator);
 impl_filter_condition!(FilterBoolean, "armonik.api.grpc.v1.FilterBoolean" => bool: FilterBooleanOperator);
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.FilterDate")]
 pub struct FilterDate {
@@ -31,7 +31,8 @@ pub struct FilterDate {
     pub operator: FilterDateOperator,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.FilterDuration")]
 pub struct FilterDuration {
@@ -42,7 +43,8 @@ pub struct FilterDuration {
 
 /// Stands for the per-service `FilterStatus` messages, whose concrete
 /// instantiations are validated by the differential harness.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(generic)]
 pub struct FilterStatus<T> {

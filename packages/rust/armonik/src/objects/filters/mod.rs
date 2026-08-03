@@ -32,21 +32,24 @@ pub use string_operator::{FilterStringOperator, OtherFilterStringOperator};
 macro_rules! impl_filter {
     // Migrated form: direct wire implementations from the descriptor.
     (Filter[$field:ty, $condition:ty]: protos[$or_proto:literal, $and_proto:literal, $field_proto:literal]) => {
-        #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+        #[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $or_proto)]
         pub struct Or {
             pub or: Vec<And>,
         }
 
-        #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+        #[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $and_proto)]
         pub struct And {
             pub and: Vec<Field>,
         }
 
-        #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+        #[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $field_proto)]
         pub struct Field {

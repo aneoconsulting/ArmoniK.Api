@@ -7,7 +7,8 @@ pub const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
     nanos: 0,
 };
 
-#[derive(Debug, Clone, Default, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.TaskOptions")]
 pub struct TaskOptions {
@@ -55,11 +56,10 @@ impl TaskOptions {
     }
 }
 
-/// Represents a field in a task option.
-///
 /// Stands for the single-enum-field wrapper messages
 /// `sessions.TaskOptionField` and `tasks.TaskOptionField`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, armonik_macros::Enum)]
+#[armonik_macros::enumeration]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(transparent)]
 #[armonik(message = "armonik.api.grpc.v1.sessions.TaskOptionField")]

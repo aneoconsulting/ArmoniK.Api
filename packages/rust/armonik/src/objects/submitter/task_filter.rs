@@ -1,7 +1,8 @@
 use super::super::TaskStatus;
 
 /// Task selector of the filter.
-#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter", oneof = "ids")]
 pub enum TaskFilterIds {
@@ -28,10 +29,10 @@ impl Default for TaskFilterIds {
 }
 
 /// Status selector of the filter.
-///
 /// The `Include`/`Exclude` variants map to the *opposite* proto members
 /// (`excluded`/`included`), reproducing the historical conversions exactly.
-#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(
     message = "armonik.api.grpc.v1.submitter.TaskFilter",
@@ -58,7 +59,8 @@ impl Default for TaskFilterStatuses {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter")]
 pub struct TaskFilter {

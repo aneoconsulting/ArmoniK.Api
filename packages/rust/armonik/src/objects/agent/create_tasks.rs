@@ -1,6 +1,7 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions};
 
-#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest")]
 pub struct InitRequest {
@@ -11,7 +12,8 @@ pub struct InitRequest {
 /// `communication_token = 4`, carried by every variant — including
 /// `Invalid`, the "no member set" case, so a token is preserved in any wire
 /// field order.
-#[derive(Debug, Clone, PartialEq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest")]
 pub enum Request {
@@ -42,18 +44,15 @@ impl Default for Request {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus")]
 pub enum Status {
     TaskInfo {
-        /// Unique ID of the created task.
         task_id: String,
-        /// Unique ID of the result that will be used as expected output. Results should already exist.
         expected_output_keys: Vec<String>,
-        /// Unique ID of the result that will be used as data dependency. Results should already exist.
         data_dependencies: Vec<String>,
-        /// Unique ID of the result that will be used as payload. Result associated to the payload is created implicitly.
         payload_id: String,
     },
     Error(String),
@@ -69,7 +68,8 @@ impl Default for Status {
 /// `CreationStatusList` wrapper flattened through `VecWrapper`) plus a
 /// sibling `communication_token = 4` carried by both variants. There is no
 /// "no member set" variant: an absent oneof decodes to the `Error` default.
-#[derive(Debug, Clone, PartialEq, Eq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply")]
 pub enum Response {

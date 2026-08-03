@@ -4,8 +4,6 @@ use prost::DecodeError;
 
 use crate::codec::{ProtoAdapter, ProtoField};
 
-/// Represents the task output.
-///
 /// Stands for the `TaskDetailed.Output` message, whose two plain fields
 /// (`bool success = 1`, `string error = 2`) do not form a proto oneof: the
 /// wire implementation is hand-written. `success = true` wins over any
@@ -15,9 +13,7 @@ use crate::codec::{ProtoAdapter, ProtoField};
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Output {
-    /// To know if a task have failed or succeed.
     Success,
-    /// The error message. Only set if task have failed.
     Error(String),
 }
 

@@ -8,14 +8,12 @@ use crate::codec::{ProtoAdapter, ProtoField};
 
 use super::Raw;
 
-/// Request for creating results without data.
-#[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataRequest")]
 pub struct Request {
-    /// The session in which create results.
     pub session_id: String,
-    /// The opaque ids associated to the results to import.
     #[armonik(
         with = "crate::codec::adapters::PairMap<1, 2>",
         absorbs = "armonik.api.grpc.v1.results.ImportResultsDataRequest.ResultOpaqueId"
@@ -23,12 +21,11 @@ pub struct Request {
     pub results: HashMap<String, bytes::Bytes>,
 }
 
-/// Response for creating results without data.
-#[derive(Debug, Clone, Default, PartialEq, armonik_macros::Message)]
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataResponse")]
 pub struct Response {
-    /// The list of raw results that were created.
     #[armonik(with = "RawByName")]
     pub results: HashMap<String, Raw>,
 }
