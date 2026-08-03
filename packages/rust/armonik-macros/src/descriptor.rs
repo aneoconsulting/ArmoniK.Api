@@ -1,5 +1,5 @@
 //! Loading and indexing of the protobuf descriptor set compiled by the
-//! `armonik` build script into `$OUT_DIR/descriptor.bin`.
+//! `armonik-types` build script into `$OUT_DIR/descriptor.bin`.
 //!
 //! The index is cached per (mtime, len) of the descriptor file so that
 //! long-lived proc-macro hosts (rust-analyzer in particular) pick up

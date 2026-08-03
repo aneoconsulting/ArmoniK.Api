@@ -6,7 +6,8 @@ use crate::utils::IntoCollection;
 
 use super::GrpcCall;
 
-/// Service for authentication management.
+/// Service for subscribing to events representing modifications to ArmoniK
+/// result and task data.
 /// The raw tonic client stub, speaking the armonik types natively.
 pub use crate::stubs::events::events_client as stub;
 
@@ -108,7 +109,7 @@ where
 }
 
 #[cfg(test)]
-#[serial_test::serial(auth)]
+#[serial_test::serial(events)]
 mod tests {
     use futures::TryStreamExt;
 

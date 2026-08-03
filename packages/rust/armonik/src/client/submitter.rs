@@ -310,7 +310,7 @@ super::impl_call! {
                 self
                     .inner
                     .create_small_tasks(request),
-                tracing::debug_span!("Submitter::create_tasks")
+                tracing::debug_span!("Submitter::create_small_tasks")
             );
             Ok(call
                 .await
@@ -368,8 +368,7 @@ super::impl_call! {
             let stream = call
                 .await
                 .context(super::GrpcSnafu{})?
-                .into_inner()
-                .map(|item| item);
+                .into_inner();
             Ok(futures::stream::StreamExt::boxed(
                 tracing_futures::Instrument::instrument(
                     stream,
@@ -470,7 +469,7 @@ where
     type Error = super::RequestError;
 
     async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        let span = tracing::debug_span!("Submitter::create_tasks");
+        let span = tracing::debug_span!("Submitter::create_large_tasks");
         let stream = tracing_futures::Instrument::instrument(
             request.map(Into::into),
             tracing::trace_span!(parent: &span, "stream"),
