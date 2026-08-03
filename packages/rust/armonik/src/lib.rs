@@ -103,6 +103,9 @@ pub use armonik_transport as transport;
 #[cfg(feature = "_gen-client")]
 pub use client::{Client, ClientConfig};
 
+/// The crate's (transitive) dependencies, re-exported so consumers can name
+/// them at the exact versions armonik was built with — whether or not the
+/// crate itself still uses them internally.
 pub mod reexports {
     pub use bytes;
     // Through `armonik-transport`, which owns these now, so `armonik::reexports::rustls` cannot differ

@@ -17,7 +17,7 @@ use super::RequestContext;
 
 /// Compression and message-size configuration, applied per call.
 #[derive(Clone, Copy, Default)]
-pub struct ServerConfig {
+pub(crate) struct ServerConfig {
     accept_compression_encodings: EnabledCompressionEncodings,
     send_compression_encodings: EnabledCompressionEncodings,
     max_decoding_message_size: Option<usize>,
@@ -25,18 +25,18 @@ pub struct ServerConfig {
 }
 
 /// An erased request handler: one per RPC, stored in [`Routes::ROUTES`].
-pub type RouteFn<S> = fn(
+pub(crate) type RouteFn<S> = fn(
     Arc<S>,
     http::Request<tonic::body::Body>,
     ServerConfig,
 ) -> BoxFuture<http::Response<tonic::body::Body>, std::convert::Infallible>;
 
 /// The request stream handed to client-streaming trait methods.
-pub type RequestStream<R> = futures::stream::BoxStream<'static, Result<R, tonic::Status>>;
+pub(crate) type RequestStream<R> = futures::stream::BoxStream<'static, Result<R, tonic::Status>>;
 
 /// The routing table of the service marker `Self` over a service
 /// implementation `S`.
-pub trait Routes<S: 'static>: Service {
+pub(crate) trait Routes<S: 'static>: Service {
     /// `(path, handler)`, one entry per RPC.
     const ROUTES: &'static [(&'static str, RouteFn<S>)];
 }
@@ -144,9 +144,136 @@ impl<Svc: Service, S> tonic::server::NamedService for Router<Svc, S> {
     const NAME: &'static str = Svc::NAME;
 }
 
+/// One handler passed to `tonic::server::Grpc`: the service implementation,
+/// the trait-method closure from the routing table, and the per-RPC span. The
+/// three `tonic::server::*Service` impls below give it the three call shapes.
+struct Handler<S, F> {
+    inner: Arc<S>,
+    handler: F,
+    span: tracing::Span,
+}
+
+/// The traced, boxed response future shared by the unary and client-streaming
+/// call shapes.
+fn respond<T, Fut>(
+    fut: Fut,
+    span: tracing::Span,
+) -> BoxFuture<tonic::Response<T>, tonic::Status>
+where
+    T: std::fmt::Debug,
+    Fut: std::future::Future<Output = Result<T, tonic::Status>> + Send + 'static,
+{
+    Box::pin(tracing_futures::Instrument::instrument(
+        async move {
+            let res = fut.await;
+            match &res {
+                Ok(res) => tracing::trace!("Response: {res:?}"),
+                Err(err) => tracing::trace!("Response: {err:?}"),
+            }
+            res.map(tonic::Response::new)
+        },
+        span,
+    ))
+}
+
+impl<S, R, F, Fut> tonic::server::UnaryService<R> for Handler<S, F>
+where
+    R: Rpc,
+    F: Fn(Arc<S>, R, RequestContext) -> Fut,
+    Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
+{
+    type Response = R::Response;
+    type Future = BoxFuture<tonic::Response<R::Response>, tonic::Status>;
+
+    fn call(&mut self, request: tonic::Request<R>) -> Self::Future {
+        let (metadata, extensions, request) = request.into_parts();
+        tracing::trace!("Request: {request:?}");
+        let context = RequestContext::new(metadata.into_headers(), extensions);
+        respond(
+            (self.handler)(Arc::clone(&self.inner), request, context),
+            self.span.clone(),
+        )
+    }
+}
+
+impl<S, R, F, Fut> tonic::server::ClientStreamingService<R> for Handler<S, F>
+where
+    R: Rpc,
+    F: Fn(Arc<S>, RequestStream<R>, RequestContext) -> Fut,
+    Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
+{
+    type Response = R::Response;
+    type Future = BoxFuture<tonic::Response<R::Response>, tonic::Status>;
+
+    fn call(&mut self, request: tonic::Request<tonic::Streaming<R>>) -> Self::Future {
+        let (metadata, extensions, streaming) = request.into_parts();
+        let context = RequestContext::new(metadata.into_headers(), extensions);
+        let span = self.span.clone();
+        let stream = futures::StreamExt::map(streaming, |item| {
+            match &item {
+                Ok(item) => tracing::trace!("Request item: {item:?}"),
+                Err(err) => tracing::trace!("Request item: {err:?}"),
+            }
+            item
+        });
+        let stream = futures::StreamExt::boxed(tracing_futures::Instrument::instrument(
+            stream,
+            tracing::trace_span!(parent: &span, "stream"),
+        ));
+        respond((self.handler)(Arc::clone(&self.inner), stream, context), span)
+    }
+}
+
+impl<S, R, F, Fut, St> tonic::server::ServerStreamingService<R> for Handler<S, F>
+where
+    R: Rpc,
+    F: Fn(Arc<S>, R, RequestContext) -> Fut,
+    Fut: std::future::Future<Output = Result<St, tonic::Status>> + Send + 'static,
+    St: futures::Stream<Item = Result<R::Response, tonic::Status>> + Send + 'static,
+{
+    type Response = R::Response;
+    type ResponseStream = super::ServerStream<R::Response>;
+    type Future = BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
+
+    fn call(&mut self, request: tonic::Request<R>) -> Self::Future {
+        let (metadata, extensions, request) = request.into_parts();
+        tracing::trace!("Request: {request:?}");
+        let context = RequestContext::new(metadata.into_headers(), extensions);
+        let span = self.span.clone();
+        let fut = (self.handler)(Arc::clone(&self.inner), request, context);
+        Box::pin(tracing_futures::Instrument::instrument(
+            async move {
+                match fut.await {
+                    Ok(stream) => {
+                        let stream = futures::StreamExt::map(stream, |item| {
+                            match &item {
+                                Ok(item) => tracing::trace!("Response item: {item:?}"),
+                                Err(err) => tracing::trace!("Response item: {err:?}"),
+                            }
+                            item
+                        });
+                        let stream = tracing_futures::Instrument::instrument(
+                            futures::StreamExt::boxed(stream),
+                            tracing::trace_span!("stream"),
+                        );
+                        Ok(tonic::Response::new(super::ServerStream {
+                            receiver: stream,
+                        }))
+                    }
+                    Err(err) => {
+                        tracing::trace!("Response: {err:?}");
+                        Err(err)
+                    }
+                }
+            },
+            span,
+        ))
+    }
+}
+
 /// Serve one unary request: decode through `tonic::server::Grpc`, hand the
 /// message and its [`RequestContext`] to `handler`, encode the result.
-pub async fn serve_unary<S, R, F, Fut>(
+pub(crate) async fn serve_unary<S, R, F, Fut>(
     svc: Arc<S>,
     req: http::Request<tonic::body::Body>,
     config: ServerConfig,
@@ -159,44 +286,10 @@ where
     F: Fn(Arc<S>, R, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
 {
-    struct UnarySvc<S, F> {
-        inner: Arc<S>,
-        handler: F,
-        span: tracing::Span,
-    }
-
-    impl<S, R, F, Fut> tonic::server::UnaryService<R> for UnarySvc<S, F>
-    where
-        R: Rpc,
-        F: Fn(Arc<S>, R, RequestContext) -> Fut,
-        Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
-    {
-        type Response = R::Response;
-        type Future = BoxFuture<tonic::Response<R::Response>, tonic::Status>;
-
-        fn call(&mut self, request: tonic::Request<R>) -> Self::Future {
-            let (metadata, extensions, request) = request.into_parts();
-            tracing::trace!("Request: {request:?}");
-            let context = RequestContext::new(metadata.into_headers(), extensions);
-            let fut = (self.handler)(Arc::clone(&self.inner), request, context);
-            Box::pin(tracing_futures::Instrument::instrument(
-                async move {
-                    let res = fut.await;
-                    match &res {
-                        Ok(res) => tracing::trace!("Response: {res:?}"),
-                        Err(err) => tracing::trace!("Response: {err:?}"),
-                    }
-                    res.map(tonic::Response::new)
-                },
-                self.span.clone(),
-            ))
-        }
-    }
-
     let mut grpc = grpc(config);
     Ok(grpc
         .unary(
-            UnarySvc {
+            Handler {
                 inner: svc,
                 handler,
                 span,
@@ -207,7 +300,7 @@ where
 }
 
 /// Serve one client-streaming request; `handler` receives the request stream.
-pub async fn serve_client_stream<S, R, F, Fut>(
+pub(crate) async fn serve_client_stream<S, R, F, Fut>(
     svc: Arc<S>,
     req: http::Request<tonic::body::Body>,
     config: ServerConfig,
@@ -220,55 +313,10 @@ where
     F: Fn(Arc<S>, RequestStream<R>, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
 {
-    struct ClientStreamSvc<S, F> {
-        inner: Arc<S>,
-        handler: F,
-        span: tracing::Span,
-    }
-
-    impl<S, R, F, Fut> tonic::server::ClientStreamingService<R> for ClientStreamSvc<S, F>
-    where
-        R: Rpc,
-        F: Fn(Arc<S>, RequestStream<R>, RequestContext) -> Fut,
-        Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
-    {
-        type Response = R::Response;
-        type Future = BoxFuture<tonic::Response<R::Response>, tonic::Status>;
-
-        fn call(&mut self, request: tonic::Request<tonic::Streaming<R>>) -> Self::Future {
-            let (metadata, extensions, streaming) = request.into_parts();
-            let context = RequestContext::new(metadata.into_headers(), extensions);
-            let span = self.span.clone();
-            let stream = futures::StreamExt::map(streaming, |item| {
-                match &item {
-                    Ok(item) => tracing::trace!("Request item: {item:?}"),
-                    Err(err) => tracing::trace!("Request item: {err:?}"),
-                }
-                item
-            });
-            let stream = futures::StreamExt::boxed(tracing_futures::Instrument::instrument(
-                stream,
-                tracing::trace_span!(parent: &span, "stream"),
-            ));
-            let fut = (self.handler)(Arc::clone(&self.inner), stream, context);
-            Box::pin(tracing_futures::Instrument::instrument(
-                async move {
-                    let res = fut.await;
-                    match &res {
-                        Ok(res) => tracing::trace!("Response: {res:?}"),
-                        Err(err) => tracing::trace!("Response: {err:?}"),
-                    }
-                    res.map(tonic::Response::new)
-                },
-                span,
-            ))
-        }
-    }
-
     let mut grpc = grpc(config);
     Ok(grpc
         .client_streaming(
-            ClientStreamSvc {
+            Handler {
                 inner: svc,
                 handler,
                 span,
@@ -279,7 +327,7 @@ where
 }
 
 /// Serve one server-streaming request; `handler` returns the response stream.
-pub async fn serve_server_stream<S, R, F, Fut, St>(
+pub(crate) async fn serve_server_stream<S, R, F, Fut, St>(
     svc: Arc<S>,
     req: http::Request<tonic::body::Body>,
     config: ServerConfig,
@@ -293,63 +341,10 @@ where
     Fut: std::future::Future<Output = Result<St, tonic::Status>> + Send + 'static,
     St: futures::Stream<Item = Result<R::Response, tonic::Status>> + Send + 'static,
 {
-    struct ServerStreamSvc<S, F> {
-        inner: Arc<S>,
-        handler: F,
-        span: tracing::Span,
-    }
-
-    impl<S, R, F, Fut, St> tonic::server::ServerStreamingService<R> for ServerStreamSvc<S, F>
-    where
-        R: Rpc,
-        F: Fn(Arc<S>, R, RequestContext) -> Fut,
-        Fut: std::future::Future<Output = Result<St, tonic::Status>> + Send + 'static,
-        St: futures::Stream<Item = Result<R::Response, tonic::Status>> + Send + 'static,
-    {
-        type Response = R::Response;
-        type ResponseStream = super::ServerStream<R::Response>;
-        type Future = BoxFuture<tonic::Response<Self::ResponseStream>, tonic::Status>;
-
-        fn call(&mut self, request: tonic::Request<R>) -> Self::Future {
-            let (metadata, extensions, request) = request.into_parts();
-            tracing::trace!("Request: {request:?}");
-            let context = RequestContext::new(metadata.into_headers(), extensions);
-            let span = self.span.clone();
-            let fut = (self.handler)(Arc::clone(&self.inner), request, context);
-            Box::pin(tracing_futures::Instrument::instrument(
-                async move {
-                    match fut.await {
-                        Ok(stream) => {
-                            let stream = futures::StreamExt::map(stream, |item| {
-                                match &item {
-                                    Ok(item) => tracing::trace!("Response item: {item:?}"),
-                                    Err(err) => tracing::trace!("Response item: {err:?}"),
-                                }
-                                item
-                            });
-                            let stream = tracing_futures::Instrument::instrument(
-                                futures::StreamExt::boxed(stream),
-                                tracing::trace_span!("stream"),
-                            );
-                            Ok(tonic::Response::new(super::ServerStream {
-                                receiver: stream,
-                            }))
-                        }
-                        Err(err) => {
-                            tracing::trace!("Response: {err:?}");
-                            Err(err)
-                        }
-                    }
-                },
-                span,
-            ))
-        }
-    }
-
     let mut grpc = grpc(config);
     Ok(grpc
         .server_streaming(
-            ServerStreamSvc {
+            Handler {
                 inner: svc,
                 handler,
                 span,

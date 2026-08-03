@@ -6,7 +6,7 @@
 //! by `tonic::transport::Server::add_service`.
 
 mod request_context;
-pub mod router;
+pub(crate) mod router;
 
 pub use request_context::RequestContext;
 pub use router::Router;
@@ -37,7 +37,7 @@ pub use crate::rpc::versions::{VersionsService, VersionsServiceExt};
 pub use crate::rpc::worker::{WorkerService, WorkerServiceExt};
 
 /// The response stream of a server-streaming RPC, as framed by the router.
-pub struct ServerStream<T> {
+pub(crate) struct ServerStream<T> {
     pub(crate) receiver: tracing_futures::Instrumented<
         futures::stream::BoxStream<'static, Result<T, tonic::Status>>,
     >,
