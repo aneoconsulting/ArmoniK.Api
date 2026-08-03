@@ -14,6 +14,22 @@ where
     }
 }
 
+/// The nested-filter collect shared by the `list`/`subscribe` convenience
+/// methods: two levels of `impl IntoIterator` into the service's
+/// `filter::Or { or: Vec<filter::And> }` shape.
+pub(crate) fn into_filters<Field, And, Or>(
+    filters: impl IntoIterator<Item = impl IntoIterator<Item = Field>>,
+) -> Or
+where
+    And: FromIterator<Field>,
+    Or: FromIterator<And>,
+{
+    filters
+        .into_iter()
+        .map(|fields| fields.into_iter().collect())
+        .collect()
+}
+
 #[cfg(feature = "serde")]
 pub(crate) mod serde_timestamp {
     pub(crate) fn serialize<S: serde::Serializer>(

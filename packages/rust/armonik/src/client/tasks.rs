@@ -22,10 +22,7 @@ impl<T: super::Channel> super::ServiceClient<services::Tasks, T> {
         page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
         self.call(list::Request {
-            filters: filters
-                .into_iter()
-                .map(crate::utils::IntoCollection::into_collect)
-                .collect(),
+            filters: crate::utils::into_filters(filters),
             sort,
             with_errors,
             page,
@@ -44,10 +41,7 @@ impl<T: super::Channel> super::ServiceClient<services::Tasks, T> {
         page_size: i32,
     ) -> Result<list_detailed::Response, super::RequestError> {
         self.call(list_detailed::Request {
-            filters: filters
-                .into_iter()
-                .map(crate::utils::IntoCollection::into_collect)
-                .collect(),
+            filters: crate::utils::into_filters(filters),
             sort,
             with_errors,
             page,

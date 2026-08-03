@@ -1,6 +1,5 @@
 use crate::applications::{filter, list, Sort};
 use crate::rpc::services;
-use crate::utils::IntoCollection;
 
 /// Service for handling applications.
 pub type Applications<T = tonic::transport::Channel> = super::ServiceClient<services::Applications, T>;
@@ -14,10 +13,7 @@ impl<T: super::Channel> super::ServiceClient<services::Applications, T> {
         page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
         self.call(list::Request {
-            filters: filters
-                .into_iter()
-                .map(IntoCollection::into_collect)
-                .collect(),
+            filters: crate::utils::into_filters(filters),
             sort,
             page,
             page_size,

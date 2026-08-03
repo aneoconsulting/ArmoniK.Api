@@ -24,14 +24,8 @@ impl<T: super::Channel> super::ServiceClient<services::Events, T> {
     > {
         self.call(subscribe::Request {
             session_id: session_id.into(),
-            task_filters: task_filters
-                .into_iter()
-                .map(IntoCollection::into_collect)
-                .collect(),
-            result_filters: result_filters
-                .into_iter()
-                .map(IntoCollection::into_collect)
-                .collect(),
+            task_filters: crate::utils::into_filters(task_filters),
+            result_filters: crate::utils::into_filters(result_filters),
             returned_events: returned_events.into_collect(),
         })
         .await

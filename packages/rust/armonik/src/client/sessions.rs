@@ -20,10 +20,7 @@ impl<T: super::Channel> super::ServiceClient<services::Sessions, T> {
         page_size: i32,
     ) -> Result<list::Response, super::RequestError> {
         self.call(list::Request {
-            filters: filters
-                .into_iter()
-                .map(crate::utils::IntoCollection::into_collect)
-                .collect(),
+            filters: crate::utils::into_filters(filters),
             sort,
             with_task_options,
             page,
