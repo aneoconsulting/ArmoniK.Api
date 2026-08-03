@@ -161,7 +161,7 @@ fn dispatch(ty: &syn::Type, adapter: Option<&syn::Type>) -> TokenStream {
     }
 }
 
-/// Register the type's proto name(s) via `armonik-types`' `register!` macro —
+/// Register the type's proto name(s) via `armonik`'s `register!` macro —
 /// the single home of the registry's layout (the `linkme` slice, the feature
 /// gates, and the `_differential` round-trip/`Normalize` hooks). Empty `names`
 /// (generic types, covered through their aliases) register nothing.

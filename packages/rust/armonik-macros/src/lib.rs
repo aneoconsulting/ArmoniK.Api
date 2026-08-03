@@ -52,7 +52,7 @@ use syn::DeriveInput;
 /// - a fingerprint const-assert that fails the build if the expansion ever
 ///   goes stale against a newer descriptor;
 /// - under the private `_registry` feature, the type's registration into
-///   `armonik_types::wire::REGISTRY`, and under `_differential` its
+///   `armonik::wire::REGISTRY` (under the private `_differential` feature), with its
 ///   `Normalize` projection and harness hooks.
 ///
 /// Every derived type must uphold the crate's zero-default invariant:
@@ -182,7 +182,7 @@ use syn::DeriveInput;
 /// `absorbs = "full.proto.Name"`, on a field/variant carrying a
 /// [`with`](#with) adapter — the proto message the adapter flattens away
 /// (a pair-entry, `VecWrapper`, or `StringWrapper` message), which therefore
-/// has no Rust type of its own. Harvested into `armonik_types::wire::ABSORBED`
+/// has no Rust type of its own. Registered as absorbed in `armonik::wire`
 /// so the build script prunes it from the stubs and the differential harness
 /// counts it as covered through this parent. Repeatable. The other flatteners
 /// — [`transparent`](macro@Enum#transparent) chains and inline struct variants
@@ -310,7 +310,7 @@ pub fn derive_enum(input: TokenStream) -> TokenStream {
 /// `#[derive(Message)]` type is.
 ///
 /// The alias is re-emitted verbatim, plus the `crate::register!` entry a
-/// derive would emit for that proto name (into `armonik_types::wire::REGISTRY`,
+/// derive would emit for that proto name (into `armonik::wire::REGISTRY`,
 /// with its `_differential` harness hooks). The aliased type must implement
 /// `prost::Message` (and, under `_differential`, `Normalize`).
 ///

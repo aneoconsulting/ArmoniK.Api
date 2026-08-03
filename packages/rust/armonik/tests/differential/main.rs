@@ -13,7 +13,7 @@ mod probe;
 mod registry;
 mod rng;
 
-use armonik_types::reexports::prost::Message;
+use armonik::reexports::prost::Message;
 use prost_reflect::{DescriptorPool, DynamicMessage};
 
 static DESCRIPTOR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptor.bin"));
@@ -192,20 +192,21 @@ fn field_information_ratchet() {
     }
 }
 
-/// Messages of RPCs the crate does not expose. Unlike the many messages that
-/// are *flattened into a parent type* — which self-register as absorbed through
-/// `wire::absorbed()` (a `with` adapter's `absorbs`, a transparent chain's
-/// middles, an inline struct variant) — these are not absorbed by any type, so
-/// they are tracked here. Shared with the build script's stub pruning (one
-/// list, `wire::UNEXPOSED_RPC_MESSAGES`) so the two allowlists cannot drift.
-const PERMANENT_UNMAPPED: &[&str] = armonik_types::wire::UNEXPOSED_RPC_MESSAGES;
+/// Messages present in the schema but referenced by nothing; see
+/// `wire::UNREFERENCED_MESSAGES`. The messages of *unexposed RPCs* are not
+/// listed anywhere by hand: `service!` registers them from its
+/// `unexposed(...)` declaration (`wire::unexposed()`), so that allowlist
+/// cannot drift from the RPC one.
+const PERMANENT_UNMAPPED: &[&str] = armonik::wire::UNREFERENCED_MESSAGES;
 
 #[test]
 fn descriptor_coverage_ratchet() {
     let pool = pool();
     let registered: Vec<&str> = registry::entries().map(|entry| entry.proto).collect();
-    // Messages flattened into a parent type, harvested from the annotations.
-    let absorbed = armonik_types::wire::absorbed();
+    // Messages flattened into a parent type, harvested from the annotations,
+    // and messages of unexposed RPCs, registered by `service!`.
+    let absorbed = armonik::wire::absorbed();
+    let unexposed = armonik::wire::unexposed();
 
     let mut missing = Vec::new();
     for message in pool.all_messages() {
@@ -215,6 +216,7 @@ fn descriptor_coverage_ratchet() {
         }
         if registered.contains(&name)
             || absorbed.contains(&name)
+            || unexposed.contains(&name)
             || PERMANENT_UNMAPPED.contains(&name)
         {
             continue;

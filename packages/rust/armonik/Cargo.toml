@@ -14,19 +14,26 @@ rust-version.workspace = true
 
 [features]
 default = ["client"]
-serde = ["dep:serde", "armonik-types/serde", "armonik-transport?/serde"]
+serde = ["dep:serde", "bytes/serde", "armonik-transport?/serde"]
 client = ["_gen-client"]
 server = ["_gen-server"]
 agent = ["_gen-client", "_gen-server"]
 worker = ["_gen-client", "_gen-server"]
 _gen-client = ["tonic/channel", "dep:armonik-transport"]
 _gen-server = ["tonic/server", "tonic/router", "dep:tokio"]
+# Internal: the differential harness — each type's round-trip and `Normalize`
+# projection over `prost_reflect::DynamicMessage`, self-registered into the
+# `wire::REGISTRY` distributed slice. Enabled through the self dev-dependency,
+# so tests always see it and downstream builds never do.
+_differential = ["dep:linkme", "dep:prost-reflect"]
 
 [dependencies]
 # TLS, mTLS and the rest of the connection story live in `armonik-transport`; this crate keeps the
 # services and the generated types (which need `bytes` for zero-copy `bytes::Bytes` fields).
 armonik-transport = { workspace = true, optional = true }
 bytes = "1"
+linkme = { version = "0.3", optional = true }
+prost-reflect = { version = "0.16", optional = true }
 tonic = { workspace = true, features = ["codegen"] }
 tonic-prost.workspace = true
 prost.workspace = true
@@ -38,13 +45,7 @@ tracing-futures = { workspace = true, features = ["futures-03"] }
 tokio = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 
-# The message-types crate; version-locked with this crate.
-# The standalone `version` line below is updated by `scripts/update-versions.ts`.
-[dependencies.armonik-types]
-path = "../armonik-types"
-version = "=3.29.2-beta-0"
-
-# `service!`; version-locked with this crate.
+# The derives and `service!`; version-locked with this crate.
 # The standalone `version` line below is updated by `scripts/update-versions.ts`.
 [dependencies.armonik-macros]
 path = "../armonik-macros"
@@ -52,6 +53,9 @@ version = "=3.29.2-beta-0"
 
 [dev-dependencies]
 criterion.workspace = true
+# The differential harness: enabled for tests only, through the self dev-dependency.
+armonik = { path = ".", features = ["_differential"] }
+prost-reflect = "0.16"
 # Only the `get_nb_request` test helper needs these: it drives a raw HTTP request through the connector
 # `armonik-transport` builds, to read the mock server's `/calls.json`.
 hyper = { workspace = true, features = ["client", "http1"] }
@@ -73,10 +77,11 @@ tokio = { workspace = true, features = [
 tokio-util.workspace = true
 
 [build-dependencies]
-# Transition glue (deleted at the crate merge): the build script copies the descriptor compiled
-# by `armonik-types` (exposed through `wire::DESCRIPTOR`, behind `_registry`) and its fingerprint
-# into this crate's OUT_DIR for the `service!` invocations.
-armonik-types = { path = "../armonik-types", features = ["_registry"] }
+protox = "0.9"
+prost-types.workspace = true
+prost.workspace = true
+# Descriptor-fingerprint hash; armonik-macros hashes it with the same crate at
+# expansion time, so the two sides cannot diverge (see build.rs).
 fnv = "1"
 
 [[test]]

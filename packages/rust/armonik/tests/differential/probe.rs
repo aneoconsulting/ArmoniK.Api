@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use armonik_types::reexports::bytes::Bytes;
+use armonik::reexports::bytes::Bytes;
 use prost_reflect::{DynamicMessage, FieldDescriptor, Kind, MapKey, MessageDescriptor, Value};
 
 /// Candidate distinguishing values for a field. The field carries

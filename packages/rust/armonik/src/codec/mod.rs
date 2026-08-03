@@ -237,12 +237,7 @@ pub(crate) trait ProtoField: Default + PartialEq {
 /// A type implements `Msg` XOR a concrete `ProtoField`: only message-kind
 /// types belong here. Plain proto enums keep concrete impls — a second
 /// blanket would overlap this one (E0119).
-///
-/// `pub` (not `pub(crate)`) only so the const asserts `service!` emits into
-/// the `armonik` crate can reach [`Msg::NAMES`] while the crates are still
-/// split; goes back to `pub(crate)` when `armonik-types` merges into
-/// `armonik`.
-pub trait Msg: prost::Message + Default + PartialEq {
+pub(crate) trait Msg: prost::Message + Default + PartialEq {
     /// See [`Shape::names`].
     const NAMES: &'static [&'static str];
     /// Transparent wrapper enums encode their zero as a non-empty wrapper, so
@@ -253,7 +248,7 @@ pub trait Msg: prost::Message + Default + PartialEq {
 /// Whether `names` contains `name`; const, so the `service!`-emitted asserts
 /// can check at compile time that a type implements an RPC's input or output
 /// message.
-pub const fn names_contain(names: &'static [&'static str], name: &str) -> bool {
+pub(crate) const fn names_contain(names: &'static [&'static str], name: &str) -> bool {
     let name = name.as_bytes();
     let mut i = 0;
     while i < names.len() {

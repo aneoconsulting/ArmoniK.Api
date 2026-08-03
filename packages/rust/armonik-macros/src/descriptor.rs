@@ -1,5 +1,5 @@
 //! Loading and indexing of the protobuf descriptor set compiled by the
-//! `armonik-types` build script into `$OUT_DIR/descriptor.bin`.
+//! `armonik` build script into `$OUT_DIR/descriptor.bin`.
 //!
 //! The index is cached per (mtime, len) of the descriptor file so that
 //! long-lived proc-macro hosts (rust-analyzer in particular) pick up
@@ -19,7 +19,7 @@ use prost_types::{
 };
 
 /// Scalar/wire kind of a protobuf field, mirrored from the descriptor. The
-/// `armonik-types` codec keeps an equivalent runtime classification that the
+/// `armonik` codec keeps an equivalent runtime classification that the
 /// emitted shape asserts are checked against.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FieldKind {

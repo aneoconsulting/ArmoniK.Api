@@ -1,8 +1,8 @@
 [workspace]
 resolver = "2"
-# Publish order: armonik-macros, then armonik-types (pins macros with `=`), then armonik
-# (pins armonik-types with `=`); armonik-transport is independent. `nr update-versions` keeps the pins in step.
-members = ["armonik", "armonik-transport", "armonik-types", "armonik-macros"]
+# Publish order: armonik-macros, then armonik (pins macros with `=`);
+# armonik-transport is independent. `nr update-versions` keeps the pins in step.
+members = ["armonik", "armonik-transport", "armonik-macros"]
 
 # Shared so that a version bump, or a change of MSRV or licence, is made once rather than drifting per
 # crate. Members opt in per field with `xxx.workspace = true`.
