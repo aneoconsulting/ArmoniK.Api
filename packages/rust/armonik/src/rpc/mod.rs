@@ -8,18 +8,18 @@
 /// Declare the RPCs of one proto service. See [`armonik_macros::service!`].
 pub use armonik_macros::service;
 
-mod agent;
-mod applications;
-mod auth;
-mod events;
-mod health_checks;
-mod partitions;
-mod results;
-mod sessions;
-mod submitter;
-mod tasks;
-mod versions;
-mod worker;
+pub(crate) mod agent;
+pub(crate) mod applications;
+pub(crate) mod auth;
+pub(crate) mod events;
+pub(crate) mod health_checks;
+pub(crate) mod partitions;
+pub(crate) mod results;
+pub(crate) mod sessions;
+pub(crate) mod submitter;
+pub(crate) mod tasks;
+pub(crate) mod versions;
+pub(crate) mod worker;
 
 /// Service marker types, one per proto service.
 pub mod services {
