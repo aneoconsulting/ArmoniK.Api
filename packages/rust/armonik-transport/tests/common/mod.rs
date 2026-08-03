@@ -162,7 +162,7 @@ pub async fn call(
     Ok(response.into_inner())
 }
 
-/// Build a [`ClientConfig`] from the string form, applying `set` to the arguments first.
+/// Build a [`HttpConfig`] from the string form, applying `set` to the arguments first.
 ///
 /// Going through `ClientConfigArgs` keeps the parsing inside what is under test. It is a helper at all
 /// because both structs are `#[non_exhaustive]`: a test outside the crate cannot write either as a
@@ -171,11 +171,11 @@ pub async fn call(
 pub fn config(
     endpoint: &str,
     set: impl FnOnce(&mut armonik_transport::ClientConfigArgs),
-) -> armonik_transport::ClientConfig {
+) -> armonik_transport::HttpConfig {
     let mut args = armonik_transport::ClientConfigArgs::default();
     args.endpoint = endpoint.to_owned();
     args.allow_unsafe_connection = true;
     set(&mut args);
-    armonik_transport::ClientConfig::from_config_args(args)
+    armonik_transport::HttpConfig::from_config_args(args)
         .expect("the configuration should be valid")
 }

@@ -117,7 +117,7 @@ where
 
         // Field by field, not pair by pair: a dedicated option set alone must not discard the other
         // half of whatever credentials the proxy URL (here, the one the matcher intercepted) carried,
-        // the same rule `ClientConfig::from_config_args` already applies to an explicit `proxy` URL.
+        // the same rule `HttpConfig::from_config_args` already applies to an explicit `proxy` URL.
         let username = if self.proxy.username.is_empty() {
             url_username.as_str()
         } else {

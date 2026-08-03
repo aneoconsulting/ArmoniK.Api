@@ -20,7 +20,7 @@ mod proxy;
 mod secret;
 mod utils;
 
-pub use config::{ClientConfig, ClientConfigArgs, ConfigError, ProxyConfig, ProxySource};
+pub use config::{ClientConfigArgs, ConfigError, HttpConfig, ProxyConfig, ProxySource};
 pub use connect::{connect, https_connector, ConnectionError};
 #[cfg(feature = "env")]
 pub use env::EnvFieldError;

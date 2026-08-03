@@ -84,10 +84,11 @@ impl ProxyConfig {
     }
 }
 
-/// Options for creating a gRPC Client
+/// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
+/// endpoint.
 #[derive(Debug, Default)]
 #[non_exhaustive]
-pub struct ClientConfig {
+pub struct HttpConfig {
     /// Endpoint for sending requests
     pub endpoint: Uri,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
@@ -127,7 +128,7 @@ pub struct ClientConfig {
     pub proxy: ProxyConfig,
 }
 
-impl Clone for ClientConfig {
+impl Clone for HttpConfig {
     fn clone(&self) -> Self {
         Self {
             endpoint: self.endpoint.clone(),
@@ -268,10 +269,10 @@ fn read_cert_p12(
     ))
 }
 
-impl ClientConfig {
+impl HttpConfig {
     pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
         let _span = tracing::debug_span!(
-            "ClientConfig",
+            "HttpConfig",
             args.endpoint,
             args.cert_pem,
             args.key_pem,
@@ -652,10 +653,10 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
     }
 }
 
-impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
+impl TryFrom<&HttpConfig> for tonic::transport::Endpoint {
     type Error = ConfigError;
 
-    fn try_from(value: &ClientConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: &HttpConfig) -> Result<Self, Self::Error> {
         Ok(Self::from(value.endpoint.clone()))
     }
 }
@@ -790,7 +791,7 @@ mod tests {
 
     #[test]
     fn the_minimum_is_an_endpoint() {
-        let config = ClientConfig::from_config_args(args()).expect("an endpoint is enough");
+        let config = HttpConfig::from_config_args(args()).expect("an endpoint is enough");
 
         assert_eq!(config.endpoint.to_string(), "http://localhost:5001/");
         assert!(config.identity.is_none());
@@ -801,7 +802,7 @@ mod tests {
 
     #[test]
     fn an_endpoint_that_is_not_a_uri_is_reported() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             endpoint: String::new(),
             ..args()
         })
@@ -814,7 +815,7 @@ mod tests {
 
     #[test]
     fn durations_are_read_in_the_units_they_are_written_in() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             connect_timeout: String::from("500ms"),
             tcp_keepalive: String::from("30s"),
             tcp_keepalive_interval: String::from("2m"),
@@ -837,7 +838,7 @@ mod tests {
 
     #[test]
     fn a_duration_that_cannot_be_parsed_names_the_value() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             tcp_keepalive: String::from("soon"),
             ..args()
         })
@@ -852,7 +853,7 @@ mod tests {
 
     #[test]
     fn integers_are_read_and_a_bad_one_names_the_value() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             tcp_keepalive_retries: String::from("3"),
             http2_max_header_list_size: String::from("16384"),
             ..args()
@@ -861,7 +862,7 @@ mod tests {
         assert_eq!(config.tcp_keepalive_retries, Some(3));
         assert_eq!(config.http2_max_header_list_size, Some(16384));
 
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             tcp_keepalive_retries: String::from("many"),
             ..args()
         })
@@ -876,7 +877,7 @@ mod tests {
     #[test]
     fn an_integer_that_does_not_fit_is_rejected_rather_than_wrapped() {
         // These are `u32`; a value past the top must fail rather than silently become something else.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             http2_max_header_list_size: String::from("4294967296"),
             ..args()
         })
@@ -892,7 +893,7 @@ mod tests {
 
     #[test]
     fn a_rate_limit_is_a_count_and_a_duration() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             rate_limit: String::from("100/1s"),
             ..args()
         })
@@ -906,7 +907,7 @@ mod tests {
         // `tower`'s `Rate::new` asserts both halves are above zero, so a zero has to be refused here
         // rather than reaching it: a panic inside `connect` tells the caller nothing.
         for value in ["0/1s", "1/0s", "0/0s"] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(ClientConfigArgs {
                 rate_limit: String::from(value),
                 ..args()
             })
@@ -925,7 +926,7 @@ mod tests {
     fn a_rate_limit_missing_its_duration_is_reported_with_the_expected_shape() {
         // The message has to show the format, since `100` on its own looks perfectly reasonable to whoever
         // wrote it.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             rate_limit: String::from("100"),
             ..args()
         })
@@ -942,7 +943,7 @@ mod tests {
 
     #[test]
     fn each_half_of_a_rate_limit_is_validated_separately() {
-        let count = ClientConfig::from_config_args(ClientConfigArgs {
+        let count = HttpConfig::from_config_args(ClientConfigArgs {
             rate_limit: String::from("plenty/1s"),
             ..args()
         })
@@ -952,7 +953,7 @@ mod tests {
             "{count:?}"
         );
 
-        let duration = ClientConfig::from_config_args(ClientConfigArgs {
+        let duration = HttpConfig::from_config_args(ClientConfigArgs {
             rate_limit: String::from("100/soon"),
             ..args()
         })
@@ -973,7 +974,7 @@ mod tests {
             (String::from("cert.pem"), String::new()),
             (String::new(), String::from("key.pem")),
         ] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(ClientConfigArgs {
                 cert_pem: cert,
                 key_pem: key,
                 ..args()
@@ -992,7 +993,7 @@ mod tests {
 
     #[test]
     fn neither_half_is_no_identity_rather_than_an_error() {
-        let config = ClientConfig::from_config_args(args()).expect("valid");
+        let config = HttpConfig::from_config_args(args()).expect("valid");
         assert!(config.identity.is_none());
     }
 
@@ -1016,7 +1017,7 @@ mod tests {
                 ..args()
             },
         ] {
-            let error = ClientConfig::from_config_args(args)
+            let error = HttpConfig::from_config_args(args)
                 .expect_err("garbage content is not a certificate");
 
             assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
@@ -1037,7 +1038,7 @@ mod tests {
             },
         ] {
             let error =
-                ClientConfig::from_config_args(args).expect_err("a missing file must be reported");
+                HttpConfig::from_config_args(args).expect_err("a missing file must be reported");
 
             assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
             let rendered = chain(&error);
@@ -1053,7 +1054,7 @@ mod tests {
         let mut ca = tempfile::NamedTempFile::new().expect("temp file");
         std::io::Write::write_all(&mut ca, b"clearly not a certificate").expect("write");
 
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             ca_cert: ca.path().to_str().expect("utf8 path").to_owned(),
             ..args()
         })
@@ -1064,7 +1065,7 @@ mod tests {
 
     #[test]
     fn cert_p12_and_the_pem_pair_are_mutually_exclusive() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             cert_pem: String::from("cert.pem"),
             key_pem: String::from("key.pem"),
             cert_p12: String::from("identity.p12"),
@@ -1082,7 +1083,7 @@ mod tests {
 
     #[test]
     fn a_p12_password_without_a_p12_is_rejected() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             cert_p12_password: Secret::from("s3cr3t"),
             ..args()
         })
@@ -1123,7 +1124,7 @@ mod tests {
         let mut p12 = tempfile::NamedTempFile::new().expect("temp file");
         std::io::Write::write_all(&mut p12, &pfx).expect("write");
 
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
             cert_p12_password: Secret::from(PASSWORD),
             ..args()
@@ -1144,7 +1145,7 @@ mod tests {
 
     #[test]
     fn a_p12_that_leads_nowhere_names_the_path() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             cert_p12: String::from("no/such/identity.p12"),
             ..args()
         })
@@ -1159,7 +1160,7 @@ mod tests {
         let mut p12 = tempfile::NamedTempFile::new().expect("temp file");
         std::io::Write::write_all(&mut p12, b"clearly not a pkcs12 bundle").expect("write");
 
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
             ..args()
         })
@@ -1174,7 +1175,7 @@ mod tests {
     fn an_override_target_given_as_a_host_keeps_the_endpoints_scheme_and_path() {
         // The common case: the certificate names one host, the endpoint is reached at another. Only the
         // authority is being overridden, so everything else has to come from the endpoint.
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
             override_target_name: String::from("server.example.com"),
             ..args()
@@ -1192,7 +1193,7 @@ mod tests {
 
     #[test]
     fn an_override_target_given_as_a_uri_replaces_the_authority_and_the_path() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
             override_target_name: String::from("https://server.example.com/other"),
             ..args()
@@ -1212,7 +1213,7 @@ mod tests {
 
     #[test]
     fn no_override_target_leaves_it_unset() {
-        let config = ClientConfig::from_config_args(args()).expect("valid");
+        let config = HttpConfig::from_config_args(args()).expect("valid");
         assert_eq!(config.override_target, None);
     }
 
@@ -1243,7 +1244,7 @@ mod tests {
     #[test]
     fn proxy_none_and_empty_disable_proxying() {
         for value in ["", "none", "None", "NONE"] {
-            let config = ClientConfig::from_config_args(ClientConfigArgs {
+            let config = HttpConfig::from_config_args(ClientConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })
@@ -1259,7 +1260,7 @@ mod tests {
     #[test]
     fn proxy_system_reads_the_environment() {
         for value in ["system", "System", "SYSTEM"] {
-            let config = ClientConfig::from_config_args(ClientConfigArgs {
+            let config = HttpConfig::from_config_args(ClientConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })
@@ -1270,12 +1271,12 @@ mod tests {
 
     #[test]
     fn proxy_url_defaults_to_the_http_scheme() {
-        let with_scheme = ClientConfig::from_config_args(ClientConfigArgs {
+        let with_scheme = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("http://proxy.corp:3128"),
             ..args()
         })
         .expect("a valid configuration");
-        let without_scheme = ClientConfig::from_config_args(ClientConfigArgs {
+        let without_scheme = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             ..args()
         })
@@ -1291,14 +1292,14 @@ mod tests {
 
     #[test]
     fn proxy_credentials_are_optional() {
-        let none = ClientConfig::from_config_args(ClientConfigArgs {
+        let none = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             ..args()
         })
         .expect("a valid configuration");
         assert_eq!(none.proxy.credentials(), None);
 
-        let some = ClientConfig::from_config_args(ClientConfigArgs {
+        let some = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             proxy_username: String::from("user"),
             proxy_password: "secret".into(),
@@ -1310,7 +1311,7 @@ mod tests {
 
     #[test]
     fn proxy_credentials_in_the_url_are_honoured_and_removed_from_it() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("http://user:secret@proxy.corp:3128"),
             ..args()
         })
@@ -1328,7 +1329,7 @@ mod tests {
 
     #[test]
     fn the_dedicated_proxy_options_win_over_the_url() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
             proxy_username: String::from("option-user"),
             proxy_password: "option-secret".into(),
@@ -1344,9 +1345,9 @@ mod tests {
 
     #[test]
     fn the_proxy_password_is_kept_out_of_the_debug_output() {
-        // `ClientConfig` is `Debug` and holds a `ProxyConfig`, so a derived `Debug` would put the
+        // `HttpConfig` is `Debug` and holds a `ProxyConfig`, so a derived `Debug` would put the
         // password anywhere a configuration gets printed.
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             proxy_username: String::from("user"),
             proxy_password: "s3cr3t".into(),
@@ -1373,7 +1374,7 @@ mod tests {
     fn a_dedicated_password_alone_keeps_the_username_the_url_carried() {
         // Replacing the pair rather than each field would leave an empty username here, and the proxy
         // would answer 407 with nothing to explain it.
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
             proxy_password: "option-secret".into(),
             ..args()
@@ -1389,7 +1390,7 @@ mod tests {
     #[test]
     fn a_rejected_proxy_url_does_not_echo_its_password() {
         // A URL can be rejected for having no host and still have carried a credential.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
             proxy: String::from("http://user:s3cr3t@"),
             ..args()
         })
@@ -1402,7 +1403,7 @@ mod tests {
 
     #[test]
     fn the_arguments_keep_the_password_out_of_their_debug_output() {
-        // `ClientConfig` is not the only type that holds it: these are what a caller inspects before
+        // `HttpConfig` is not the only type that holds it: these are what a caller inspects before
         // handing them over.
         let args = ClientConfigArgs {
             proxy: String::from("http://user:url-secret@proxy.corp:3128"),
@@ -1438,7 +1439,7 @@ mod tests {
         // The `CONNECT` handshake goes out unencrypted, so a proxy expecting TLS would see gibberish.
         // Accepting the URL and failing at connect time would report it as an unreachable proxy.
         for value in ["https://proxy.corp:3128", "socks5://proxy.corp:1080"] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(ClientConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })
@@ -1454,7 +1455,7 @@ mod tests {
         // Reporting these through the endpoint's URI error would send whoever reads it looking at the
         // wrong setting.
         for value in ["http:///no-host", "http://", "http://:3128", "://"] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(ClientConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })

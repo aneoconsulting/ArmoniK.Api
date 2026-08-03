@@ -182,7 +182,7 @@ mod tests {
     use std::ffi::OsString;
 
     use super::*;
-    use crate::ClientConfig;
+    use crate::HttpConfig;
 
     /// Puts back what the variable held, rather than removing it: these tests run in a process whose
     /// environment may already carry a variable another test needs. On drop, so that a failing test
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn a_certificate_variable_names_a_path_without_reading_it() {
-        // Whether that path leads anywhere is `ClientConfig::from_config_args`'s question to ask, not
+        // Whether that path leads anywhere is `HttpConfig::from_config_args`'s question to ask, not
         // this one's: nothing here touches a filesystem.
         let args = with_var(
             "ARMONIK_TEST_CERT__Endpoint",
@@ -333,7 +333,7 @@ mod tests {
         .expect("an empty variable must not fail the read");
 
         assert_eq!(args.cert_pem, "");
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             endpoint: String::from("http://localhost:5001"),
             ..args
         })
