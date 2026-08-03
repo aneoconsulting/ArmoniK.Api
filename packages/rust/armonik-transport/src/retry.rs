@@ -1,14 +1,11 @@
 //! When a failed request is worth sending again.
 //!
-//! This module holds the policy and the loop, and nothing that knows what a call is. Deciding
-//! *whether* a given request may be sent twice belongs to whoever made it: only that layer knows the
-//! shape of the method, whether anything has already been handed to the caller, and whether the
-//! request can still be reproduced. See [`retry`] for how the two meet.
+//! This module holds the policy and the loop, not the decision of whether a request may be sent
+//! twice at all: that belongs to whoever made it. See [`retry`] for how the two meet.
 //!
-//! The waits follow the gRPC retry specification, which grpc-dotnet applies in `RetryCall`:
-//! `random(0, min(initial * multiplier^n, max))`. The draw is uniform *below* the computed delay, not
-//! added to it, which is why no backoff crate is used: the ones that offer jitter add it, and would
-//! wait three times longer on average.
+//! The waits follow the gRPC retry specification: `random(0, min(initial * multiplier^n, max))`,
+//! drawn uniformly *below* the computed delay rather than added to it - no backoff crate is used
+//! because the ones that offer jitter add it, and would wait three times longer on average.
 
 use std::time::Duration;
 
@@ -72,11 +69,9 @@ impl RetryPolicy {
         self.retryable_status_codes.contains(&code)
     }
 
-    /// The delay each replay is drawn from, before the draw.
-    ///
-    /// One item per replay, so at most `max_attempts - 1` of them: `initial * multiplier^n`, never
-    /// above `max_backoff`. Public so the arithmetic can be checked without a random number in the
-    /// way, and so a caller can report what it is about to do.
+    /// The delay each replay is drawn from, before the draw: `initial * multiplier^n`, never above
+    /// `max_backoff`, one item per replay. Public so the arithmetic is checkable without a random
+    /// number in the way, and so a caller can report what it is about to do.
     pub fn bounds(&self) -> impl Iterator<Item = Duration> + use<> {
         let ceiling = self.max_backoff;
         let multiplier = f64::from(self.backoff_multiplier);
@@ -89,28 +84,22 @@ impl RetryPolicy {
         })
     }
 
-    /// How long to wait before each further attempt, and when to stop.
-    ///
-    /// Each wait is drawn uniformly below its bound, so that clients which failed together do not
-    /// come back together.
+    /// Waits before each further attempt, each drawn uniformly below its bound so that clients which
+    /// failed together do not come back together.
     pub fn delays(&self) -> impl Iterator<Item = Duration> + use<> {
         self.bounds().map(draw_below)
     }
 }
 
-/// A wait drawn uniformly in `[0, bound]`, to the millisecond.
-///
-/// Milliseconds because that is the resolution the specification and every other client work in, and
-/// a finer draw would claim a precision the network does not have.
+/// A wait drawn uniformly in `[0, bound]`, to the millisecond: the resolution the specification and
+/// every other client work in.
 fn draw_below(bound: Duration) -> Duration {
     let millis = bound.as_millis().min(u128::from(u64::MAX)) as u64;
     Duration::from_millis(fastrand::u64(0..=millis))
 }
 
-/// The gRPC status a failure carries, if it carries one.
-///
-/// What decides a replay is the status code, and only the caller's error type knows where it keeps
-/// one. A failure with no status is never replayed: it did not come back from a server.
+/// The gRPC status a failure carries, if it carries one: a trait because only the caller's error
+/// type knows where it keeps it. A failure with none is never replayed.
 pub trait GrpcStatus {
     /// The code the server answered with.
     fn grpc_code(&self) -> Option<tonic::Code>;
@@ -124,9 +113,8 @@ impl GrpcStatus for tonic::Status {
 
 /// Send a request again while the policy says it is worth it.
 ///
-/// A macro rather than a function because the loop belongs in the caller's own body: an attempt has
-/// to borrow the client it is made on, and a closure handed to a function cannot return a future that
-/// borrows what the closure captured. Expanded here, the borrow ends with each turn of the loop.
+/// A macro rather than a function: an attempt borrows the client it is made on, and expanded here
+/// that borrow ends with each turn of the loop rather than living inside a closure.
 ///
 /// Three holes to fill:
 ///
@@ -135,8 +123,8 @@ impl GrpcStatus for tonic::Status {
 ///   answer; a caller whose error may carry no status answers [`None`] and is not replayed.
 /// - `attempt`, evaluated afresh each turn. It must produce a *new* request: sending consumes one.
 ///
-/// The wait is a plain `.await`, so dropping the future that contains this abandons the wait at once.
-/// A caller that has a deadline should wrap the whole expansion rather than check between attempts.
+/// A caller with a deadline should wrap the whole expansion in it, rather than check the deadline
+/// between attempts: dropping the future abandons an in-progress wait immediately.
 ///
 /// ```
 /// use armonik_transport::{GrpcStatus, RetryPolicy};
@@ -147,7 +135,6 @@ impl GrpcStatus for tonic::Status {
 /// #     .build()
 /// #     .unwrap();
 /// # runtime.block_on(async {
-/// // Waits of zero, so the example does not sleep. Left alone the policy waits about a second.
 /// let mut policy = RetryPolicy::default();
 /// policy.initial_backoff = std::time::Duration::ZERO;
 /// policy.max_backoff = std::time::Duration::ZERO;
@@ -157,7 +144,6 @@ impl GrpcStatus for tonic::Status {
 /// let outcome: Result<u32, tonic::Status> = armonik_transport::retry! {
 ///     policy = Some(policy),
 ///     code = GrpcStatus::grpc_code,
-///     // Evaluated afresh each turn: sending consumes a request, so make a new one.
 ///     attempt = {
 ///         attempts += 1;
 ///         if attempts < 3 {
@@ -242,9 +228,6 @@ mod tests {
 
     #[test]
     fn the_defaults_are_the_ones_the_other_clients_use() {
-        // `GrpcChannelFactory` hands grpc-dotnet 5 attempts, 1s growing by 1.5 to a 5s ceiling, and
-        // replays on Unavailable, Aborted and Unknown. A deployment should not care which client it
-        // is talking to. The buffer bound is grpc-dotnet's `MaxRetryBufferPerCallSize`.
         let policy = RetryPolicy::default();
 
         assert_eq!(policy.max_attempts, 5);
@@ -283,8 +266,6 @@ mod tests {
 
     #[test]
     fn each_wait_is_drawn_below_its_bound() {
-        // The specification says `random(0, bound)`, which is what grpc-dotnet draws. Adding jitter to
-        // the bound instead, as backoff crates do, would wait three times longer on average.
         let policy = RetryPolicy {
             initial_backoff: Duration::from_secs(1),
             max_backoff: Duration::from_secs(8),
@@ -293,7 +274,6 @@ mod tests {
         };
         let bounds: Vec<_> = policy.bounds().collect();
 
-        // Drawn, so one run proves little.
         for _ in 0..1_000 {
             for (wait, bound) in policy.delays().zip(&bounds) {
                 assert!(wait <= *bound, "{wait:?} was drawn above {bound:?}");
@@ -390,9 +370,8 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn the_last_failure_is_not_followed_by_a_wait() {
-        // Sleeping after the attempt that will not be retried delays the answer for nothing. The waits
-        // are drawn, so the clock is only evidence once the draw is reproducible: seeded, the elapsed
-        // time is exactly the waits between attempts, and one wait too many cannot hide in the noise.
+        // Seeded, so the elapsed time is exactly the sum of the drawn waits: one wait too many would
+        // show up rather than hide in the noise.
         const SEED: u64 = 0x5EED;
         let policy = policy(4);
 
@@ -416,8 +395,6 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn abandoning_the_call_abandons_the_wait_at_once() {
-        // grpc-dotnet's `FailureWithLongDelay_Dispose_CallImmediatelyDisposed`: whoever gives up during
-        // a backoff must get the answer immediately, not once the delay has run out.
         let policy = RetryPolicy {
             initial_backoff: Duration::from_secs(600),
             max_backoff: Duration::from_secs(600),
