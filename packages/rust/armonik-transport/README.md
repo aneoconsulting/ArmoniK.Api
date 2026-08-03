@@ -36,17 +36,17 @@ properties of a call, so they belong to the layer that makes one.
 ## Connecting
 
 `ClientConfigArgs` is the string form of every option, the shape a caller fills in.
-`ClientConfig::from_config_args` parses it, and `connect` opens the channel.
+`HttpConfig::from_config_args` parses it, and `connect` opens the channel.
 
 ```rust,no_run
-use armonik_transport::{ClientConfig, ClientConfigArgs};
+use armonik_transport::{ClientConfigArgs, HttpConfig};
 
 # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 let mut args = ClientConfigArgs::default();
 args.endpoint = String::from("https://localhost:5001");
 args.ca_cert = String::from("ca.pem");
 
-let config = ClientConfig::from_config_args(args)?;
+let config = HttpConfig::from_config_args(args)?;
 let channel = armonik_transport::connect(config).await?;
 # Ok(())
 # }

@@ -127,12 +127,7 @@ pub struct HttpConfig {
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
     pub proxy: ProxyConfig,
-    /// When a failed request is worth sending again, defaulting to what the other clients do.
-    ///
-    /// `connect` does not read this: a channel has no notion of a call, so replaying is the business
-    /// of whoever makes one. It travels here so that every caller configures it the same way, taking
-    /// effect only where the [`crate::retry!`] macro is used explicitly. `max_attempts` of 1 never
-    /// replays.
+    /// Retry policy for a failed request; only takes effect where [`crate::retry!`] is used.
     pub retry: RetryPolicy,
 }
 
@@ -232,25 +227,18 @@ pub struct ClientConfigArgs {
     /// [`Secret`].
     pub proxy_password: Secret,
     /// Attempts in all for one request, first try included. Empty for the default, `1` never replays
-    #[cfg_attr(feature = "serde", serde(default))]
     pub max_attempts: String,
     /// Wait before the second attempt (e.g. `1s`), empty for the default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub initial_backoff: String,
     /// Ceiling the wait grows to (e.g. `5s`), empty for the default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub max_backoff: String,
     /// What each wait is multiplied by, empty for the default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub backoff_multiplier: String,
     /// Status codes worth sending a request again for, comma separated, empty for the default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub retryable_status_codes: String,
     /// Bytes of a streamed request that may be held so it can be sent again, empty for the default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub max_retry_buffer_per_call: String,
     /// Largest single request still worth sending again, in bytes, empty for the default
-    #[cfg_attr(feature = "serde", serde(default))]
     pub max_retry_unary_size: String,
 }
 
@@ -1638,14 +1626,14 @@ mod tests {
 
     #[test]
     fn the_retry_options_default_to_what_the_other_clients_do() {
-        let config = ClientConfig::from_config_args(args()).expect("configuration");
+        let config = HttpConfig::from_config_args(args()).expect("configuration");
 
         assert_eq!(config.retry, RetryPolicy::default());
     }
 
     #[test]
     fn each_retry_option_is_read() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             max_attempts: String::from("3"),
             initial_backoff: String::from("250ms"),
             max_backoff: String::from("2s"),
@@ -1672,7 +1660,7 @@ mod tests {
 
     #[test]
     fn one_attempt_is_a_client_that_never_replays() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(ClientConfigArgs {
             max_attempts: String::from("1"),
             ..args()
         })
@@ -1711,7 +1699,7 @@ mod tests {
                 "Nonsense",
             ),
         ] {
-            let error = ClientConfig::from_config_args(args)
+            let error = HttpConfig::from_config_args(args)
                 .expect_err("an unparseable option must be rejected")
                 .to_string();
 
