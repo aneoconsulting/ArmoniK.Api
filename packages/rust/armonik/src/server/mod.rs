@@ -11,6 +11,7 @@ pub mod health_checks;
 #[cfg(feature = "server")]
 pub mod partitions;
 mod request_context;
+pub mod router;
 #[cfg(feature = "server")]
 pub mod results;
 #[cfg(feature = "server")]
@@ -37,6 +38,7 @@ pub use health_checks::{HealthChecksService, HealthChecksServiceExt};
 #[cfg(feature = "server")]
 pub use partitions::{PartitionsService, PartitionsServiceExt};
 pub use request_context::RequestContext;
+pub use router::Router;
 #[cfg(feature = "server")]
 pub use results::{ResultsService, ResultsServiceExt};
 #[cfg(feature = "server")]

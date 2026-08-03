@@ -59,6 +59,136 @@ super::define_trait_methods! {
     }
 }
 
+// Spike: the routing table `service!` will emit for this service. One entry
+// per RPC, dispatching into the generic `serve_*` helpers; the tower plumbing
+// lives once in `crate::server::router`.
+impl<S: ResultsService + Send + Sync + 'static> super::router::Routes<S>
+    for crate::rpc::services::Results
+{
+    const ROUTES: &'static [(&'static str, super::router::RouteFn<S>)] = &[
+        (
+            <results::list::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.list(r, c),
+                    tracing::debug_span!("ResultsService::list"),
+                ))
+            },
+        ),
+        (
+            <results::get::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.get(r, c),
+                    tracing::debug_span!("ResultsService::get"),
+                ))
+            },
+        ),
+        (
+            <results::get_owner_task_id::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.get_owner_task_id(r, c),
+                    tracing::debug_span!("ResultsService::get_owner_task_id"),
+                ))
+            },
+        ),
+        (
+            <results::create_metadata::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.create_metadata(r, c),
+                    tracing::debug_span!("ResultsService::create_metadata"),
+                ))
+            },
+        ),
+        (
+            <results::create::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.create(r, c),
+                    tracing::debug_span!("ResultsService::create"),
+                ))
+            },
+        ),
+        (
+            <results::import::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.import(r, c),
+                    tracing::debug_span!("ResultsService::import"),
+                ))
+            },
+        ),
+        (
+            <results::delete_data::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.delete_data(r, c),
+                    tracing::debug_span!("ResultsService::delete_data"),
+                ))
+            },
+        ),
+        (
+            <results::get_service_configuration::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_unary(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.get_service_configuration(r, c),
+                    tracing::debug_span!("ResultsService::get_service_configuration"),
+                ))
+            },
+        ),
+        (
+            <results::download::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_server_stream(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.download(r, c),
+                    tracing::debug_span!("ResultsService::download"),
+                ))
+            },
+        ),
+        (
+            <results::upload::Request as crate::rpc::Rpc>::PATH,
+            |svc, req, config| {
+                Box::pin(super::router::serve_client_stream(
+                    svc,
+                    req,
+                    config,
+                    |s: Arc<S>, r, c| s.upload(r, c),
+                    tracing::debug_span!("ResultsService::upload"),
+                ))
+            },
+        ),
+    ];
+}
+
 pub trait ResultsServiceExt {
     fn results_server(self) -> stub::ResultsServer<Self>
     where
