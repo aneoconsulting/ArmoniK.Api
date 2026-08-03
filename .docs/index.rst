@@ -33,7 +33,6 @@ ArmoniK.Api documentation
    content/guide/packages/python.md
    content/guide/packages/web.md
    content/guide/packages/angular.md
-   content/guide/packages/rust.md
 
 .. toctree::
    :maxdepth: 2
