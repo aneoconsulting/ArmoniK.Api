@@ -1,0 +1,723 @@
+name: Publish Packages
+
+# Every ecosystem publishes from this single workflow because npm forces it. An
+# npm trusted publisher (OIDC) is registered per package and keyed to one
+# workflow filename, and npm validates the entry-point workflow rather than
+# `job_workflow_ref`, so a shared `workflow_call` file does not lift the
+# restriction either. Splitting releases from pre-releases across two files
+# would make tokenless npm publishing impossible. Register `publish.yml` as the
+# trusted publisher for both npm packages.
+#
+# No other registry here imposes that. nuget.org names a single workflow file
+# per policy too, but a policy is owned by a user or organisation and applies to
+# every package that owner has, so an owner can register one policy per file
+# (https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing); and
+# the C# job below does not use trusted publishing at all, it still pushes with
+# NUGET_API_KEY.
+#
+# Four channels, resolved by the `context` job below:
+#
+#   channel     trigger            version              packages
+#   ----------  -----------------  -------------------  ----------------------------
+#   release     push tag X.Y.Z     the tag              RELEASE_PACKAGES
+#   prerelease  push on main       generated pre-rel.   PRERELEASE_PACKAGES
+#   pr          pull request       generated pre-rel.   PR_PACKAGES
+#   manual      workflow_dispatch  the `version` input  whatever the inputs tick
+#
+# and the registry each one targets:
+#
+#   channel     npm     NuGet      PyPI             Maven            C++
+#   ----------  ------  ---------  ---------------  ---------------  ------------------
+#   release     latest  nuget.org  TestPyPI + PyPI  Central          artefact + release
+#   prerelease  next    nuget.org  artefact only    GH Pkg SNAPSHOT  artefact
+#   pr          pr      nuget.org  TestPyPI         GH Pkg SNAPSHOT  artefact
+#   manual      dev     nuget.org  TestPyPI         GH Pkg SNAPSHOT  artefact
+#
+# Only `release` reaches a production registry. Everything else goes to the
+# pre-release one wherever the ecosystem has a distinct one; NuGet and the C++
+# artefacts have none, so they are the same target carrying a pre-release version.
+# Python on `prerelease` builds the wheel and publishes it nowhere, which is
+# inherited behaviour rather than a decision, see the job for the detail.
+#
+# The version above is the one C#, Java and npm publish. Python and C++ derive
+# their own from the repository (setuptools_scm on the git history, and
+# packages/cpp/CMakeLists.txt), so a manual run does not rename their artefacts.
+#
+# `manual` is the "pre pre-release" path, and it is a dry run unless the
+# dispatcher unticks `dry_run`. It can only ever publish a pre-release: it
+# refuses anything but a SemVer pre-release version, so a manual run can never
+# take over `latest`, and it publishes nothing unless a package is ticked.
+# Restrict who may use it with an Actions ruleset actor rule (Settings >
+# Actions > Policies) limiting workflow_dispatch to Admin, and keep the
+# `npm-publish` environment restricted to `main` plus the release tag pattern so
+# a run dispatched from an arbitrary branch cannot obtain a publish token.
+
+# Which packages each channel publishes. This is the knob to turn: everything
+# below reads these, nothing hardcodes a package list.
+#
+# The three channel lists are independent on purpose, even where two of them
+# currently match. Changing what a pull request publishes must not change what a
+# merge to main publishes.
+env:
+  RELEASE_PACKAGES: csharp python cpp java angular web
+  PRERELEASE_PACKAGES: csharp python cpp java angular web
+  PR_PACKAGES: csharp python cpp java
+
+  # These two narrow whichever channel list applies rather than replacing it, so
+  # they can only ever take packages away. Together they reproduce the
+  # `github.actor != 'renovate[bot]' && repository_owner == 'aneoconsulting'`
+  # guard the previous workflows put on Python, C++ and Java. Renovate is not
+  # limited to pull requests: an auto-merge to main is attributed to it too, and
+  # that was covered before as well.
+  #
+  # FORK_PACKAGES only covers a push inside a forked copy of the repository. A
+  # pull request from a fork runs in the base repository, so `repository_owner`
+  # is `aneoconsulting` there and this list does not apply, exactly as before.
+  RENOVATE_PACKAGES: csharp angular web
+  FORK_PACKAGES: csharp angular web
+
+  # Every package that exists. Only used to iterate the manual dispatch inputs,
+  # so a package missing here can never be published manually.
+  ALL_PACKAGES: csharp python cpp java angular web
+
+  # The npm packages, as `<package>:<folder to publish from>` pairs, where the
+  # folder is relative to `packages/<package>`. They need a matrix rather than a
+  # job each, so the list has to carry the dist folder with it.
+  NPM_PACKAGES: angular:dist/aneoconsultingfr/armonik.api.angular web:.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Pre-release version to publish, e.g. 3.30.0-dev.1'
+        required: true
+        type: string
+      # On by default: a manual run builds every ticked package and checks its
+      # version, but pushes nothing until this is unticked.
+      dry_run:
+        description: 'Dry run (build and check, push nothing)'
+        type: boolean
+        default: true
+      # Every ecosystem is opt-in: a manual run publishes nothing until at least
+      # one of these is ticked.
+      csharp:
+        description: 'C# (nuget.org)'
+        type: boolean
+        default: false
+      python:
+        description: Python (TestPyPI)
+        type: boolean
+        default: false
+      cpp:
+        description: 'C++ (build artefacts only)'
+        type: boolean
+        default: false
+      java:
+        description: Java (GitHub Packages SNAPSHOT)
+        type: boolean
+        default: false
+      angular:
+        description: Angular (npm)
+        type: boolean
+        default: false
+      web:
+        description: Web (npm)
+        type: boolean
+        default: false
+
+# Deny everything by default and let each job grant itself the minimum. This has
+# to stay `{}` rather than be removed: the repository's default workflow token
+# permission is `write`, so a workflow with no `permissions` key at all hands a
+# write token to every job that does not override it.
+permissions: {}
+
+jobs:
+  context:
+    name: Context
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      channel: ${{ steps.resolve.outputs.channel }}
+      dry_run: ${{ steps.resolve.outputs.dry_run }}
+      npm_tag: ${{ steps.resolve.outputs.npm_tag }}
+      csharp: ${{ steps.resolve.outputs.csharp }}
+      python: ${{ steps.resolve.outputs.python }}
+      cpp: ${{ steps.resolve.outputs.cpp }}
+      java: ${{ steps.resolve.outputs.java }}
+      npm: ${{ steps.resolve.outputs.npm }}
+      npm_matrix: ${{ steps.resolve.outputs.npm_matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          # The version generator reads the current branch name, so a pull
+          # request has to build on its head rather than on the detached merge
+          # ref: otherwise every PR resolves to the same `-head.*` version.
+          # Empty on every other event, which leaves the default checkout.
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - run: npm i -g --ignore-scripts pnpm@10.18.0 @antfu/ni@30.3.0
+
+      # No `cache: pnpm` here on purpose. Only the tag path installs anything
+      # (`nci`, below), so on every other channel the pnpm store never gets
+      # created and the post-job cache save fails the whole job with "Path
+      # Validation Error". A release run paying for a cold install is the
+      # cheaper trade.
+      - name: Setup Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
+        with:
+          node-version: 24
+
+      # A tagged release publishes the version committed in the repository, so
+      # the two must agree before anything reaches a registry. Only a push can
+      # get here: the tag trigger constrains the name to X.Y.Z, whereas a
+      # workflow_dispatch accepts any ref and is handled as the manual channel.
+      - name: Verify Versions
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: nci && nr verify-versions "$TAG"
+
+      - name: Resolve context
+        id: resolve
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          INPUT_CSHARP: ${{ inputs.csharp }}
+          INPUT_PYTHON: ${{ inputs.python }}
+          INPUT_CPP: ${{ inputs.cpp }}
+          INPUT_JAVA: ${{ inputs.java }}
+          INPUT_ANGULAR: ${{ inputs.angular }}
+          INPUT_WEB: ${{ inputs.web }}
+        run: |
+          dispatch_flag() {
+            case "$1" in
+              csharp)  echo "$INPUT_CSHARP" ;;
+              python)  echo "$INPUT_PYTHON" ;;
+              cpp)     echo "$INPUT_CPP" ;;
+              java)    echo "$INPUT_JAVA" ;;
+              angular) echo "$INPUT_ANGULAR" ;;
+              web)     echo "$INPUT_WEB" ;;
+            esac
+          }
+
+          # Package lists come from the workflow `env` block at the top of the file.
+          selected=
+          # Only a manual run can be a dry run; the other channels publish what
+          # they always published.
+          dry_run=false
+
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            channel=manual
+            npm_tag=dev
+            version=$INPUT_VERSION
+            # Anything but an explicit `false` is a dry run, so a missing input
+            # fails towards publishing nothing.
+            if [ "$INPUT_DRY_RUN" != false ]; then
+              dry_run=true
+            fi
+            # A manual version is free-form text typed by a human, and it ends up
+            # in package manifests and on registries that never let a version be
+            # replaced. Require a plain SemVer pre-release: no build metadata
+            # (nuget.org strips `+meta` and would publish a *stable* release), no
+            # empty pre-release part, nothing that is not a version at all.
+            if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*$ ]]; then
+              echo "::error::A manual publish needs a SemVer pre-release version such as 3.30.0-dev.1, got '$version'"
+              exit 1
+            fi
+            # The `npm-publish` environment already refuses to hand an OIDC
+            # token to any other ref, but the token-based registries have no
+            # such guard, so enforce it here for every ecosystem.
+            if [ "$GITHUB_REF_NAME" != main ]; then
+              echo "::error::A manual publish must be dispatched from main, got '$GITHUB_REF_NAME'"
+              exit 1
+            fi
+            for lang in $ALL_PACKAGES; do
+              if [ "$(dispatch_flag "$lang")" = true ]; then
+                selected="$selected $lang"
+              fi
+            done
+            if [ -z "$selected" ]; then
+              echo "::error::Tick at least one ecosystem to publish"
+              exit 1
+            fi
+          elif [ "$GITHUB_REF_TYPE" = tag ]; then
+            channel=release
+            npm_tag=latest
+            version=$GITHUB_REF_NAME
+            selected=$RELEASE_PACKAGES
+          else
+            version=$(npx --ignore-scripts @aneoconsultingfr/generate-next-version@0.0.5 --edge)
+            if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+              channel=pr
+              # No npm package is on PR_PACKAGES today, but the dist-tag has to
+              # be a real one so that adding one there is all it takes.
+              npm_tag=pr
+              selected=$PR_PACKAGES
+            else
+              channel=prerelease
+              npm_tag=next
+              selected=$PRERELEASE_PACKAGES
+            fi
+            # Guard kept from the previous publish-edge workflow: if the
+            # generator ever hands back a stable version, publish nothing rather
+            # than shipping it as a pre-release.
+            case "$version" in
+              *-*) ;;
+              *) selected= ;;
+            esac
+          fi
+
+          intersect() { # intersect <list> <allowed>, echoes the overlap
+            for item in $1; do
+              case " $2 " in
+                *" $item "*) printf '%s ' "$item" ;;
+              esac
+            done
+          }
+
+          if [ "$GITHUB_ACTOR" = "renovate[bot]" ]; then
+            selected=$(intersect "$selected" "$RENOVATE_PACKAGES")
+          fi
+          if [ "$GITHUB_REPOSITORY_OWNER" != aneoconsulting ]; then
+            selected=$(intersect "$selected" "$FORK_PACKAGES")
+          fi
+
+          # Collapse the list to single-space-separated with no padding, so that
+          # `enabled` and the matrix filter below can match on " $item ".
+          set -- $selected
+          selected="$*"
+
+          enabled() { # enabled <package>
+            case " $selected " in
+              *" $1 "*) echo true ;;
+              *) echo false ;;
+            esac
+          }
+
+          csharp=$(enabled csharp)
+          python=$(enabled python)
+          cpp=$(enabled cpp)
+          java=$(enabled java)
+
+          # The npm packages run off a generated matrix because a job-level `if:`
+          # cannot read the `matrix` context, so they cannot be filtered
+          # individually any other way. Built from NPM_PACKAGES so that the env
+          # block stays the only place a package is named.
+          npm_matrix=$(
+            jq -cn --arg specs "$NPM_PACKAGES" --arg selected "$selected" '
+              ($selected | split(" ")) as $want
+              | {
+                  include: [
+                    $specs
+                    | split(" ")[]
+                    | select(length > 0)
+                    | split(":")
+                    | {package: .[0], dist: .[1]}
+                    | select(.package as $p | $want | index($p))
+                  ]
+                }'
+          )
+          npm=$(jq -r 'if (.include | length) > 0 then "true" else "false" end' <<<"$npm_matrix")
+
+          # Nothing downstream should see a version that is not a version: it is
+          # written to $GITHUB_OUTPUT line-by-line, and it reaches shell
+          # commands, package manifests and registries.
+          if [[ ! $version =~ ^[0-9A-Za-z.+-]+$ ]]; then
+            echo "::error::Refusing to publish an unexpected version string '$version'"
+            exit 1
+          fi
+
+          {
+            echo "version=$version"
+            echo "channel=$channel"
+            echo "dry_run=$dry_run"
+            echo "npm_tag=$npm_tag"
+            echo "csharp=$csharp"
+            echo "python=$python"
+            echo "cpp=$cpp"
+            echo "java=$java"
+            echo "npm=$npm"
+            echo "npm_matrix=$npm_matrix"
+            # What actually survived the channel list, the guards and the flags,
+            # so a run says up front what it is about to publish.
+            echo "packages=${selected:-none}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        env:
+          CHANNEL: ${{ steps.resolve.outputs.channel }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+          NPM_TAG: ${{ steps.resolve.outputs.npm_tag }}
+          PACKAGES: ${{ steps.resolve.outputs.packages }}
+          DRY_RUN: ${{ steps.resolve.outputs.dry_run }}
+          OWN_VERSION: ${{ steps.resolve.outputs.python == 'true' || steps.resolve.outputs.cpp == 'true' }}
+        run: |
+          {
+            echo "| | |"
+            echo "|-|-|"
+            echo "| Channel | $CHANNEL |"
+            echo "| Version | $VERSION |"
+            echo "| npm dist-tag | ${NPM_TAG:--} |"
+            echo "| Packages | $PACKAGES |"
+            echo "| Dry run | $DRY_RUN |"
+            echo ""
+            if [ "$DRY_RUN" = true ]; then
+              echo "Dry run: every package is built and its version checked, nothing is pushed."
+            fi
+            if [ "$OWN_VERSION" = true ]; then
+              echo "Python and C++ derive their own version from the repository, so the"
+              echo "version above applies to C#, Java and npm only."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  csharp:
+    name: Publish C# Packages
+    needs: [context]
+    if: needs.context.outputs.csharp == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # 10 minutes is the pre-release cap, kept for the fast channels. A release
+    # keeps the default: nuget.org refuses to re-push a version, so cancelling
+    # one leg after the other four have pushed leaves a half-published release
+    # that can only be fixed by cutting a new one.
+    timeout-minutes: ${{ needs.context.outputs.channel == 'release' && 360 || 10 }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - packages/csharp/ArmoniK.Api.Common.Channel/ArmoniK.Api.Common.Channel.csproj
+          - packages/csharp/ArmoniK.Api.Common/ArmoniK.Api.Common.csproj
+          - packages/csharp/ArmoniK.Api.Core/ArmoniK.Api.Core.csproj
+          - packages/csharp/ArmoniK.Api.Client/ArmoniK.Api.Client.csproj
+          - packages/csharp/ArmoniK.Api.Worker/ArmoniK.Api.Worker.csproj
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          # Build the pull request's head, as the previous workflow did, not the
+          # merge ref. Empty on every other event.
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Install .NET Core
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4
+        with:
+          dotnet-version: 6.x
+
+      - name: Build the package
+        run: dotnet build ${{ matrix.package }} -c Release
+
+      - name: Pack the package
+        env:
+          VERSION: ${{ needs.context.outputs.version }}
+        run: |
+          dotnet pack ${{ matrix.package }} -c Release -o /tmp/packages \
+            -p:PackageVersion="$VERSION"
+          ls /tmp/packages
+
+      - name: Push the package
+        if: needs.context.outputs.dry_run != 'true'
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push /tmp/packages/ArmoniK.Api.*.nupkg -k "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json
+
+  python:
+    name: Publish Python Package
+    needs: [context]
+    if: needs.context.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: packages/python
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      # Without RELEASE the version generator appends the run number, which is
+      # what makes edge and dev builds unique.
+      #
+      # That counter is per workflow file and restarts at 1 for this new one,
+      # while TestPyPI already holds 3.29.3.dev5245 to 3.29.3.dev5334 published
+      # by publish-edge.yml. Without the offset every new dev wheel would sort
+      # below those and `pip install --pre` would keep resolving a stale build.
+      # The offset only has to clear the highest number already published, and
+      # run_number itself only ever grows. Kept in the shell because GitHub
+      # expressions have no arithmetic operators.
+      - name: pip update and add build package
+        run: |
+          export GITHUB_RUN_NUMBER=$((GITHUB_RUN_NUMBER + PYTHON_DEV_OFFSET))
+          bash proto2python.sh ~/pyvenv
+        env:
+          RELEASE: ${{ needs.context.outputs.channel == 'release' && 'true' || '' }}
+          PYTHON_DEV_OFFSET: 6000
+
+      - name: Upload as artifact
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        with:
+          name: python-packages
+          path: packages/python/pkg/
+
+      # `prerelease` builds the wheel and uploads the artefact above but publishes
+      # it nowhere. That is the pre-consolidation behaviour (the condition used to
+      # be `github.ref != 'refs/heads/main'`, which a tag also satisfies, so a
+      # release lands on both TestPyPI and PyPI) and it is kept on purpose.
+      - name: Publish to PyPITest
+        if: needs.context.outputs.channel != 'prerelease' && needs.context.outputs.dry_run != 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          password: ${{ secrets.DEV_PYPI_API_TOKEN }}
+          print-hash: true
+          packages-dir: packages/python/pkg/
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Publish to PyPI
+        if: needs.context.outputs.channel == 'release' && needs.context.outputs.dry_run != 'true'
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          print-hash: true
+          packages-dir: packages/python/pkg/
+
+  cpp:
+    name: Build C++ Packages [${{ matrix.type }}]
+    needs: [context]
+    if: needs.context.outputs.cpp == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        type: [tar.gz, deb, rpm]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Build the package
+        run: |
+          cd packages/cpp/tools/packaging
+          ./make-${{ matrix.type }}.sh
+
+      # TODO Upload to a more permanent storage
+      - name: Publish package as artefact
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1
+        with:
+          if-no-files-found: error
+          path: packages/cpp/tools/packaging/*.${{ matrix.type }}
+          name: ${{ needs.context.outputs.channel == 'release' && format('libarmonik-{0}', needs.context.outputs.version) || 'libarmonik' }}.${{ matrix.type }}
+
+  # Separate from the build so that the job running the packaging scripts does
+  # not need a token that can write to the repository. `permissions` is
+  # job-level, it cannot be granted per channel.
+  cpp-release:
+    name: Attach C++ Packages to the release
+    needs: [context, cpp]
+    if: needs.context.outputs.channel == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # `gh release upload`
+    steps:
+      - name: Download the built packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: libarmonik-*
+          merge-multiple: true
+          path: cpp-packages
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" cpp-packages/*
+
+  java-release:
+    name: Publish Java to Maven Central
+    needs: [context]
+    if: needs.context.outputs.java == 'true' && needs.context.outputs.channel == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Set up Maven Central Repository
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4
+        with:
+          java-version: '17'
+          distribution: temurin
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Publish package
+        run: |
+          cd packages/java
+          ./mvnw --batch-mode -Pci-release deploy -DskipTests
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_SIGNING_KEY_PASSWORD }}
+
+  java-snapshot:
+    name: Publish Java SNAPSHOT to GitHub Packages
+    needs: [context]
+    if: needs.context.outputs.java == 'true' && needs.context.outputs.channel != 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    defaults:
+      run:
+        working-directory: packages/java
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java + GitHub Packages server
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          server-id: github # must match <distributionManagement>/<snapshotRepository>/<id>
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Compute SNAPSHOT version
+        id: setsnapshot
+        env:
+          VER: ${{ needs.context.outputs.version }}
+        run: |
+          case "$VER" in
+            *-SNAPSHOT) SNAPSHOT_VERSION="$VER" ;;
+            *) SNAPSHOT_VERSION="${VER}-SNAPSHOT" ;;
+          esac
+          echo "version=$SNAPSHOT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy SNAPSHOT to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SNAPSHOT_VERSION: ${{ steps.setsnapshot.outputs.version }}
+          # A dry run still sets the version and builds the artefacts, it just
+          # stops short of `deploy`.
+          MAVEN_GOAL: ${{ needs.context.outputs.dry_run == 'true' && 'package' || 'deploy' }}
+        run: |
+          ./mvnw -B -ntp versions:set -DnewVersion="$SNAPSHOT_VERSION" -DgenerateBackupPoms=false
+          ./mvnw -B -ntp -DskipTests "$MAVEN_GOAL"
+
+      - name: Summary
+        env:
+          SNAPSHOT_VERSION: ${{ steps.setsnapshot.outputs.version }}
+          DRY_RUN: ${{ needs.context.outputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            echo "Built version, not published: $SNAPSHOT_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Published version: $SNAPSHOT_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  npm:
+    name: Publish ${{ matrix.package }} Package
+    needs: [context]
+    if: needs.context.outputs.npm == 'true'
+    runs-on: ubuntu-latest
+    # Bound in each package's npm trusted publisher config. Restrict the
+    # environment to `main` and the release tag pattern so the OIDC token cannot
+    # be obtained from a run dispatched off an arbitrary branch. A dry run goes
+    # through it too, which is deliberate: it then also proves the ref is one the
+    # environment accepts.
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # Required for OIDC
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.context.outputs.npm_matrix) }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          # Build the pull request's head, as the previous workflow did, not the
+          # merge ref. Empty on every other event.
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      # Pinned: the angular package is published from its generated `dist`
+      # folder, whose package.json carries no `packageManager` field, so pnpm
+      # cannot pick the version up from the repository. pnpm 11 is avoided on
+      # purpose, it 404s on OIDC publishes (pnpm/pnpm#11513).
+      - run: npm i -g --ignore-scripts pnpm@10.18.0 @antfu/ni@30.3.0
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org/
+
+      - name: Install dependencies
+        run: nci && cd packages/${{ matrix.package }} && nci
+
+      - name: Install Protoc
+        run: sudo apt install -y protobuf-compiler
+
+      - name: Build protos
+        run: cd packages/${{ matrix.package }} && nr proto:generate:linux
+
+      - name: Update version
+        env:
+          VERSION: ${{ needs.context.outputs.version }}
+        run: nr update-versions "$VERSION"
+
+      - name: Build package
+        run: cd packages/${{ matrix.package }} && nr build
+
+      # Authentication comes from the OIDC token, so no NODE_AUTH_TOKEN here.
+      - name: Release package
+        env:
+          PACKAGE: ${{ matrix.package }}
+          DIST: ${{ matrix.dist }}
+          NPM_TAG: ${{ needs.context.outputs.npm_tag }}
+          # Unquoted below so that it disappears entirely when empty. It holds a
+          # literal from this file, never anything a caller supplies.
+          DRY_RUN_FLAG: ${{ needs.context.outputs.dry_run == 'true' && '--dry-run' || '' }}
+        run: nr ci:publish "$PACKAGE" "$DIST" "$NPM_TAG" $DRY_RUN_FLAG
+
+  changelog:
+    name: Update Changelog
+    needs: [context]
+    if: needs.context.outputs.channel == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set node
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
+        with:
+          node-version: 24
+
+      - run: npx --ignore-scripts changelogithub@15.0.4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
