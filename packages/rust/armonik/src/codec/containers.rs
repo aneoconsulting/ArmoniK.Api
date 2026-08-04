@@ -64,10 +64,16 @@ impl<T: ProtoField> ProtoField for Vec<T> {
     }
 }
 
+/// Map fields keep prost's map codec, which omits `== default` key and value
+/// subfields inside each entry (the canonical map-entry encoding, and where the
+/// `PartialEq` bound on the value comes from). Decoders fill those subfields
+/// back in from the defaults, so nothing is lost; a `#[armonik(with)]` adapter
+/// over pair messages inherits the same framing (see
+/// [`PairMap`](super::adapters::PairMap)).
 impl<K, V> ProtoField for HashMap<K, V>
 where
     K: ProtoField + Eq + Hash + Ord,
-    V: ProtoField,
+    V: ProtoField + PartialEq,
 {
     const SHAPE: Shape = Shape {
         kind: FieldKind::Message,

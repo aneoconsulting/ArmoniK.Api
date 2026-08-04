@@ -17,19 +17,18 @@ use super::{ProtoAdapter, ProtoField};
 /// exactly like the historical conversions.
 ///
 /// The wire methods delegate to the [`HashMap`] `ProtoField` implementation
-/// (prost's real-map codec), which hardcodes entry tags 1/2 and skips
-/// `== default` key/value subfields — the same bytes the pair messages use.
-/// The implementation therefore only exists for `PairMap<1, 2>` (every use);
-/// other tag pairs would need the hand-rolled framing back. Delegation also
-/// assumes `is_default(v) ⟺ v == default` for the key/value types (true for
-/// scalars, strings, bytes, enums and containers; a message-typed value with
-/// an `is_default` override would diverge — the differential harness guards).
+/// (prost's real-map codec), which hardcodes entry tags 1/2, the same tags
+/// the pair messages use. The implementation therefore only exists for
+/// `PairMap<1, 2>` (every use); other tag pairs would need the hand-rolled
+/// framing back. prost's map codec skips `== default` key/value subfields,
+/// which the pair messages read back as the same values (the zero-default
+/// invariant); the differential harness guards it.
 pub(crate) struct PairMap<const KT: u32, const VT: u32>;
 
 impl<K, V> ProtoAdapter<HashMap<K, V>> for PairMap<1, 2>
 where
     K: ProtoField + Eq + Hash + Ord,
-    V: ProtoField,
+    V: ProtoField + PartialEq,
 {
     fn encode_field(tag: u32, value: &HashMap<K, V>, buf: &mut impl BufMut) {
         <HashMap<K, V> as ProtoField>::encode_field(tag, value, buf);
@@ -48,10 +47,6 @@ where
         <HashMap<K, V> as ProtoField>::encoded_len_field(tag, value)
     }
 
-    fn is_default(value: &HashMap<K, V>) -> bool {
-        value.is_empty()
-    }
-
     /// The `HashMap` loses entry order and collapses duplicate keys.
     #[cfg(feature = "_differential")]
     fn normalize_dynamic(
@@ -68,10 +63,10 @@ pub(crate) struct Wrapper<const TAG: u32>;
 
 impl<V: ProtoField, const TAG: u32> ProtoAdapter<V> for Wrapper<TAG> {
     fn encode_field(tag: u32, value: &V, buf: &mut impl BufMut) {
-        let body = V::encoded_len_nondefault(TAG, value);
+        let body = V::encoded_len_field(TAG, value);
         encoding::encode_key(tag, WireType::LengthDelimited, buf);
         encoding::encode_varint(body as u64, buf);
-        V::encode_nondefault(TAG, value, buf);
+        V::encode_field(TAG, value, buf);
     }
 
     fn merge_field(
@@ -94,14 +89,7 @@ impl<V: ProtoField, const TAG: u32> ProtoAdapter<V> for Wrapper<TAG> {
     }
 
     fn encoded_len_field(tag: u32, value: &V) -> usize {
-        let body = V::encoded_len_nondefault(TAG, value);
+        let body = V::encoded_len_field(TAG, value);
         encoding::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
-    }
-
-    /// The wrapper itself carries oneof presence in its uses; an empty one
-    /// still encodes (as an empty message).
-    fn is_default(value: &V) -> bool {
-        let _ = value;
-        false
     }
 }

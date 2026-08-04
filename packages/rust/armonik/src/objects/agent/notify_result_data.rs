@@ -26,14 +26,8 @@ const PAIR_RESULT_TAG: u32 = 2;
 
 impl Request {
     fn pair_len(&self, result_id: &String) -> usize {
-        let mut len = 0;
-        if !self.session_id.is_empty() {
-            len += <String as ProtoField>::encoded_len_field(PAIR_SESSION_TAG, &self.session_id);
-        }
-        if !result_id.is_empty() {
-            len += <String as ProtoField>::encoded_len_field(PAIR_RESULT_TAG, result_id);
-        }
-        len
+        <String as ProtoField>::encoded_len_field(PAIR_SESSION_TAG, &self.session_id)
+            + <String as ProtoField>::encoded_len_field(PAIR_RESULT_TAG, result_id)
     }
 }
 
@@ -51,16 +45,10 @@ impl prost::Message for Request {
             let pair_len = self.pair_len(result_id);
             encoding::encode_key(IDS_TAG, WireType::LengthDelimited, buf);
             encoding::encode_varint(pair_len as u64, buf);
-            if !self.session_id.is_empty() {
-                <String as ProtoField>::encode_field(PAIR_SESSION_TAG, &self.session_id, buf);
-            }
-            if !result_id.is_empty() {
-                <String as ProtoField>::encode_field(PAIR_RESULT_TAG, result_id, buf);
-            }
+            <String as ProtoField>::encode_field(PAIR_SESSION_TAG, &self.session_id, buf);
+            <String as ProtoField>::encode_field(PAIR_RESULT_TAG, result_id, buf);
         }
-        if !self.communication_token.is_empty() {
-            <String as ProtoField>::encode_field(TOKEN_TAG, &self.communication_token, buf);
-        }
+        <String as ProtoField>::encode_field(TOKEN_TAG, &self.communication_token, buf);
     }
 
     fn merge_field(
@@ -111,15 +99,13 @@ impl prost::Message for Request {
     }
 
     fn encoded_len(&self) -> usize {
-        let mut len = 0;
+        let mut len =
+            <String as ProtoField>::encoded_len_field(TOKEN_TAG, &self.communication_token);
         for result_id in &self.result_ids {
             let pair_len = self.pair_len(result_id);
             len += encoding::key_len(IDS_TAG)
                 + encoding::encoded_len_varint(pair_len as u64)
                 + pair_len;
-        }
-        if !self.communication_token.is_empty() {
-            len += <String as ProtoField>::encoded_len_field(TOKEN_TAG, &self.communication_token);
         }
         len
     }

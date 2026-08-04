@@ -161,6 +161,25 @@ fn dispatch(ty: &syn::Type, adapter: Option<&syn::Type>) -> TokenStream {
     }
 }
 
+/// The `(tag, encode statement, length expression)` fragments for one field,
+/// where `value` is the expression holding it. Every field is written the same
+/// way, nothing being conditional on what it holds, so a plain struct field, a
+/// oneof sibling, an active oneof member and one part of an inline variant all
+/// reduce to this. The encode statement writes into a `buf` in scope; the
+/// length is an expression, so a caller can sum it into an accumulator or
+/// return it straight out of a match arm.
+fn field_fragments(
+    dispatch: &TokenStream,
+    tag: u32,
+    value: TokenStream,
+) -> (u32, TokenStream, TokenStream) {
+    (
+        tag,
+        quote! { #dispatch::encode_field(#tag, #value, buf); },
+        quote! { #dispatch::encoded_len_field(#tag, #value) },
+    )
+}
+
 /// Register the type's proto name(s) via `armonik`'s `register!` macro —
 /// the single home of the registry's layout (the `linkme` slice, the feature
 /// gates, and the `_differential` round-trip/`Normalize` hooks). Empty `names`
@@ -265,14 +284,11 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         match &field.codec {
             FieldCodec::Field { adapter } => {
                 let d = dispatch(ty, adapter.as_deref());
-                encode_fragments.push(quote! {
-                    #d::encode_nondefault(#tag, &self.#access, buf);
-                });
+                let (_, encode, len) = field_fragments(&d, tag, quote!(&self.#access));
+                encode_fragments.push(encode);
+                len_fragments.push(quote! { len += #len; });
                 merge_arms.push(quote! {
                     #tag => #d::merge_field(wire_type, &mut self.#access, buf, ctx)
-                });
-                len_fragments.push(quote! {
-                    len += #d::encoded_len_nondefault(#tag, &self.#access);
                 });
                 if adapter.is_some() {
                     normalize_fragments.push(quote! {
@@ -334,7 +350,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             len
         },
     );
-    let proto_field = msg_impl(&impl_generics, ident, &ty_generics, where_clause, proto_names, false);
+    let proto_field = msg_impl(&impl_generics, ident, &ty_generics, where_clause, proto_names);
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {
@@ -394,21 +410,17 @@ fn message_impl(
 
 /// The one-line `Msg` implementation for a message-shaped type: the blanket
 /// `ProtoField` impl in `codec` picks it up, so the type composes as a field
-/// of other derived messages. `always_present` is the wrapper-enum override
-/// (a zero value still encodes as a non-empty wrapper).
+/// of other derived messages.
 fn msg_impl(
     impl_generics: &syn::ImplGenerics,
     ident: &syn::Ident,
     ty_generics: &syn::TypeGenerics,
     where_clause: Option<&syn::WhereClause>,
     proto_names: &[String],
-    always_present: bool,
 ) -> TokenStream {
-    let always = always_present.then(|| quote!(const ALWAYS_PRESENT: bool = true;));
     quote! {
         impl #impl_generics crate::codec::Msg for #ident #ty_generics #where_clause {
             const NAMES: &'static [&'static str] = &[#(#proto_names),*];
-            #always
         }
     }
 }
@@ -447,7 +459,7 @@ fn transparent_message(
         quote! { <#ty as ::prost::Message>::merge_field(&mut self.#access, tag, wire_type, buf, ctx) },
         quote! { <#ty as ::prost::Message>::encoded_len(&self.#access) },
     );
-    let proto_field = msg_impl(impl_generics, ident, ty_generics, where_clause, proto_names, false);
+    let proto_field = msg_impl(impl_generics, ident, ty_generics, where_clause, proto_names);
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = { #tripwire };
@@ -576,9 +588,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             );
             // As a field, the enum is its wrapper message: the blanket
             // `ProtoField` impl frames the `prost::Message` impl above.
-            // ALWAYS_PRESENT: a zero value still encodes (as an empty
-            // wrapper), preserving absent-vs-explicit-zero.
-            let msg = msg_impl(&impl_generics, ident, &ty_generics, where_clause, names, true);
+            let msg = msg_impl(&impl_generics, ident, &ty_generics, where_clause, names);
             quote! {
                 #registrations
 
@@ -649,9 +659,11 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let proto_name = &plan.proto_name;
     let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
-    // Sibling machinery (empty and inert without siblings): encode/len
-    // fragments keyed by tag so the member interleaves in canonical order,
-    // and all-variant struct patterns binding a subset of the siblings.
+    // Sibling machinery (empty and inert without siblings): all-variant
+    // patterns binding a subset of the siblings, plus the sibling fields'
+    // fragments. Every variant carries every sibling, so the fragments are
+    // emitted once *around* the member match rather than inside each of its
+    // arms, and the arms only have to deal with the member.
     let sib_idents: Vec<&syn::Ident> = plan.siblings.iter().map(|sibling| &sibling.ident).collect();
     let variant_idents: Vec<&syn::Ident> = plan
         .variants
@@ -665,24 +677,40 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
             .map(|variant| quote!(Self::#variant { #(#bound,)* .. }))
             .collect()
     };
-    let sibling_entries: Vec<(u32, TokenStream, TokenStream)> = plan
+    // Binds every sibling by reference, whatever the variant.
+    let bind_siblings = (!sib_idents.is_empty()).then(|| {
+        let all = pats(&sib_idents);
+        quote! {
+            #[allow(unused_parens)]
+            let (#(#sib_idents),*) = match value {
+                #(#all)|* => (#(#sib_idents),*),
+            };
+        }
+    });
+    // Ascending tags across the whole message: the siblings below the oneof's
+    // tags are written before the member, the ones above it after. (The shapes
+    // the derive accepts never interleave the two.)
+    let min_member_tag = plan.variants.iter().map(|variant| variant.tag).min();
+    let (low, high): (Vec<_>, Vec<_>) = plan
         .siblings
         .iter()
         .map(|sibling| {
             let sid = &sibling.ident;
-            let sty = &sibling.ty;
-            let stag = sibling.tag;
-            (
-                stag,
-                quote! {
-                    <#sty as crate::codec::ProtoField>::encode_nondefault(#stag, #sid, buf);
-                },
-                quote! {
-                    len += <#sty as crate::codec::ProtoField>::encoded_len_nondefault(#stag, #sid);
-                },
-            )
+            let d = dispatch(&sibling.ty, None);
+            field_fragments(&d, sibling.tag, quote!(#sid))
         })
-        .collect();
+        .partition(|(tag, _, _)| min_member_tag.is_some_and(|member| *tag < member));
+    let sib_encode = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
+        entries.iter().map(|(_, encode, _)| encode.clone()).collect()
+    };
+    let sib_len = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
+        entries
+            .iter()
+            .map(|(_, _, len)| quote! { len += #len; })
+            .collect()
+    };
+    let (low_encode, low_len) = (sib_encode(&low), sib_len(&low));
+    let (high_encode, high_len) = (sib_encode(&high), sib_len(&high));
 
     let mut encode_arms = Vec::new();
     let mut len_arms = Vec::new();
@@ -720,22 +748,18 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                     ));
                 }
 
-                // Oneof presence is significant: the member is always
-                // emitted, even with a default payload (is_default is not
-                // consulted), interleaved with the siblings in tag order.
-                let mut entries = sibling_entries.clone();
-                entries.push((
-                    tag,
-                    quote! { #d::encode_field(#tag, payload, buf); },
-                    quote! { len += #d::encoded_len_field(#tag, payload); },
-                ));
-                entries.sort_by_key(|(tag, _, _)| *tag);
-                let encodes = entries.iter().map(|(_, encode, _)| encode);
-                let lens = entries.iter().map(|(_, _, len)| len);
+                // The active member carries the oneof's presence, so it is
+                // emitted even with a default payload, like every other field.
+                let (_, encode, len) = field_fragments(&d, tag, quote!(payload));
 
-                // The member value is bound as `payload` either way; with
-                // siblings, merging a member takes them along.
-                let (pattern, take) = match binding {
+                // Matching binds the member as `payload` and ignores the
+                // siblings; constructing one needs them, so merging a member
+                // takes them along.
+                let pattern = match binding {
+                    None => quote!(Self::#var(payload)),
+                    Some(field) => quote!(Self::#var { #field: payload, .. }),
+                };
+                let (construct, take) = match binding {
                     None => (quote!(Self::#var(payload)), None),
                     Some(field) => (
                         quote!(Self::#var { #field: payload, #(#sib_idents),* }),
@@ -750,34 +774,19 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                         }),
                     ),
                 };
-                let seed = match binding {
-                    None => quote!(Self::#var(payload)),
-                    Some(field) => quote!(Self::#var { #field: payload, .. }),
-                };
 
-                encode_arms.push(quote! {
-                    #pattern => {
-                        #(#encodes)*
-                    }
-                });
-                len_arms.push(quote! {
-                    #pattern => {
-                        #[allow(unused_mut)]
-                        let mut len = 0;
-                        #(#lens)*
-                        len
-                    }
-                });
+                encode_arms.push(quote! { #pattern => { #encode } });
+                len_arms.push(quote! { #pattern => #len, });
                 merge_arms.push(quote! {
                     #tag => {
                         #take
-                        let mut payload = if let #seed = value {
+                        let mut payload = if let #pattern = value {
                             ::std::mem::take(payload)
                         } else {
                             ::core::default::Default::default()
                         };
                         #d::merge_field(wire_type, &mut payload, buf, ctx)?;
-                        *value = #pattern;
+                        *value = #construct;
                         ::core::result::Result::Ok(())
                     }
                 });
@@ -794,9 +803,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                     }
                 });
                 len_arms.push(quote! {
-                    Self::#var => {
-                        <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true)
-                    }
+                    Self::#var => <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true),
                 });
                 merge_arms.push(quote! {
                     #tag => {
@@ -816,9 +823,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                     }
                 });
                 len_arms.push(quote! {
-                    Self::#var => {
-                        crate::codec::empty_body::encoded_len(#tag)
-                    }
+                    Self::#var => crate::codec::empty_body::encoded_len(#tag),
                 });
                 merge_arms.push(quote! {
                     #tag => {
@@ -839,12 +844,20 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                         quote!(<#ty as ::core::default::Default>::default())
                     })
                     .collect();
+                // The variant's parts are ordinary fields of the inline
+                // message; only its framing is hand-rolled, since the message
+                // is absorbed and has no Rust type to delegate to.
+                let fragments: Vec<_> = parts
+                    .iter()
+                    .map(|part| {
+                        let id = &part.ident;
+                        field_fragments(&dispatch(&part.ty, None), part.tag, quote!(#id))
+                    })
+                    .collect();
+                let encodes = fragments.iter().map(|(_, encode, _)| encode);
+                let lens = fragments.iter().map(|(_, _, len)| len);
                 let body_len = quote! {
-                    #[allow(unused_mut)]
-                    let mut body_len = 0;
-                    #(
-                        body_len += <#part_tys as crate::codec::ProtoField>::encoded_len_nondefault(#part_tags, #part_idents);
-                    )*
+                    let body_len = 0 #(+ #lens)*;
                 };
 
                 encode_arms.push(quote! {
@@ -856,9 +869,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                             buf,
                         );
                         ::prost::encoding::encode_varint(body_len as u64, buf);
-                        #(
-                            <#part_tys as crate::codec::ProtoField>::encode_nondefault(#part_tags, #part_idents, buf);
-                        )*
+                        #(#encodes)*
                     }
                 });
                 len_arms.push(quote! {
@@ -929,32 +940,17 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         });
     }
 
-    let default_encode_arm = plan.default_variant.as_ref().map(|var| {
-        if sib_idents.is_empty() {
-            quote! { Self::#var => {} }
-        } else {
-            let encodes = sibling_entries.iter().map(|(_, encode, _)| encode);
-            quote! {
-                Self::#var { #(#sib_idents),* } => {
-                    #(#encodes)*
-                }
-            }
-        }
-    });
-    let default_len_arm = plan.default_variant.as_ref().map(|var| {
-        if sib_idents.is_empty() {
-            quote! { Self::#var => 0, }
-        } else {
-            let lens = sibling_entries.iter().map(|(_, _, len)| len);
-            quote! {
-                Self::#var { #(#sib_idents),* } => {
-                    let mut len = 0;
-                    #(#lens)*
-                    len
-                }
-            }
-        }
-    });
+    // The "no member set" variant has no member to write; its siblings are
+    // written outside the match like every other variant's. `{ .. }` matches
+    // whatever shape the variant has (unit, or carrying the siblings).
+    let default_encode_arm = plan
+        .default_variant
+        .as_ref()
+        .map(|var| quote! { Self::#var { .. } => {} });
+    let default_len_arm = plan
+        .default_variant
+        .as_ref()
+        .map(|var| quote! { Self::#var { .. } => 0, });
 
     let generics = syn::Generics::default();
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -989,7 +985,6 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
             &ty_generics,
             where_clause,
             std::slice::from_ref(proto_name),
-            false,
         );
         quote! {
             #registrations
@@ -1021,10 +1016,13 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
 
         impl crate::codec::ProtoOneof for #ident {
             fn encode_oneof(value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+                #bind_siblings
+                #(#low_encode)*
                 match value {
                     #(#encode_arms)*
                     #default_encode_arm
                 }
+                #(#high_encode)*
             }
 
             fn merge_oneof(
@@ -1041,10 +1039,14 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
             }
 
             fn encoded_len_oneof(value: &Self) -> usize {
-                match value {
+                #bind_siblings
+                let mut len = match value {
                     #(#len_arms)*
                     #default_len_arm
-                }
+                };
+                #(#low_len)*
+                #(#high_len)*
+                len
             }
         }
 

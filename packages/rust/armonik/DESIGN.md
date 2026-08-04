@@ -64,7 +64,7 @@ the beta break on that basis, not on a per-message line count.
 | Public API | Same shapes as today; minor breaks allowed (crate is beta on purpose) |
 | Raw generated types | Removed entirely, including from tonic stub signatures (`extern_path`) |
 | Unknown enum values | Single merged catch-all `Other(Raw…)` dataful variant covering unspecified (0) and unknown values; opaque payload; lossless round-trip |
-| Message-field presence | Non-`Option` message fields: decode absent as default, **omit on encode when the nested encoding is empty** (free check via `encoded_len() == 0`); `Option` fields keep exact presence |
+| Message-field presence | Non-`Option` message fields: decode absent as default, **always written on encode** (a default nested message goes out as an empty one; no default is ever skipped); `Option` fields keep exact presence |
 | `bytes` fields | `bytes::Bytes` everywhere (zero-copy decode from tonic buffers) |
 | Migration | Big-bang branch; `main` untouched until the branch lands |
 | Validation | Compile-time (derive vs descriptor) + generic differential round-trip harness (`prost-reflect` `DynamicMessage`) |
@@ -235,15 +235,15 @@ fingerprint proves the two agree.
 Wire representation is chosen by the type system, not guessed from syntax:
 
 ```rust
-pub(crate) trait ProtoField: Default + PartialEq {
+pub(crate) trait ProtoField: Default {           // `Default` = the decode seed;
+                                                 // nothing compares against it
     const SHAPE: Shape;                          // kind/cardinality/names/map — one
                                                  // derive-emitted assert per field
                                                  // checks it against the descriptor
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut);
     fn merge_field(wire: WireType, value: &mut Self, buf: &mut impl Buf, ctx: DecodeContext) -> Result<…>;
     fn encoded_len_field(tag: u32, value: &Self) -> usize;
-    fn is_default(value: &Self) -> bool;         // proto3 implicit presence
-    // + nondefault/repeated forms with unpacked defaults
+    // + repeated forms with unpacked defaults
 }
 ```
 
@@ -252,7 +252,7 @@ Concrete implementations: scalars, `String`, `bytes::Bytes`, `Vec<T>`
 (presence), and plain proto enums (emitted by `derive(Enum)`). Every
 message-shaped type — derived messages, transparent wrapper enums, the
 well-known types — instead carries a one-line `Msg` marker impl
-(`NAMES` + `ALWAYS_PRESENT`), and a single blanket
+(just `NAMES`), and a single blanket
 `impl<T: Msg> ProtoField for T` frames it through `prost::encoding::message`.
 The blanket is coherence-safe because `Msg` is crate-local: rustc knows the
 concrete impls on foreign types can never overlap it. A type implements
@@ -338,9 +338,9 @@ pub struct Response {
 ```
 
 The named type implements `ProtoAdapter<T>` (`encode_field`/`merge_field`/
-`encoded_len_field`/`is_default`, tag still supplied from the descriptor;
-`ProtoField` and `ProtoAdapter` share method names, so the emitter only
-switches the dispatch prefix). The crate ships generic building blocks —
+`encoded_len_field`, tag still supplied from the descriptor; `ProtoField` and
+`ProtoAdapter` share method names, so the emitter only switches the dispatch
+prefix). The crate ships generic building blocks —
 `PairMap` (delegating to prost's real-map codec) and `Wrapper<TAG>` (a
 single-field wrapper message flattened to its `String`/`Vec` payload) — so
 a new adapter is a few lines. `with` fields skip the shape check — the
@@ -368,31 +368,51 @@ loss through `normalize_dynamic`).
 > marker oneof members forget their payload (explicit `false` re-encodes
 > as `true`); oneofs whose Rust default is a member variant re-encode an
 > absent oneof with that member present (there is no `None` state);
-> transparent wrapper enums and multi-member field oneofs always emit, so
-> values containing them are never wire-empty; pair-map fields lose entry
-> order and collapse duplicate keys; `tasks::Output` folds `success =
-> true` over any error message, and its `Default` is `Error("")` — the
-> proto zero — so an absent output is an empty *error* (the old
-> conversion said success; the wire semantics of `TaskDetailed.Output`
-> agree with the new reading).
+> pair-map fields lose entry order and collapse duplicate keys;
+> `tasks::Output` folds `success = true` over any error message, and its
+> `Default` is `Error("")` — the proto zero — so an absent output is an
+> empty *error* (the old conversion said success; the wire semantics of
+> `TaskDetailed.Output` agree with the new reading).
+
+> **No default is ever skipped on encode (supersedes the presence gate).**
+> The encode side has no notion of a default value: every field a type
+> declares is written, whatever it holds. Zeros, empty strings and
+> present-but-empty nested messages therefore go on the wire, where a proto3
+> receiver reads them exactly like an absent implicit-presence field. This
+> removed the whole `is_default` family (the `ProtoField`/`ProtoAdapter`
+> methods and their `nondefault` encode forms, the message-kind
+> "`encoded_len() == 0`" override, `Msg::ALWAYS_PRESENT` for the transparent
+> wrapper enums' force-emit, the hand-rolled `if raw == 0` skips in the
+> wrapper-enum helpers and the `is_empty()` guards in the two hand-written
+> impls), along with the `PartialEq` supertrait it needed. Those pieces only
+> existed to defend each other: skipping erased a zero wrapper enum's
+> presence, so wrapper enums were force-emitted, which in turn made
+> "all-default" and "encodes to zero bytes" disagree for the containing
+> message. The trade is a slightly larger encoding (zero fields on the wire)
+> for a codec with one rule instead of three, and it is what the derives now
+> emit for singular fields, oneof members and adapters alike.
 
 - Non-`Option` message field ("absent = default"): decode merges in place,
-  absence leaves the default; encode **skips the field when the nested
-  `encoded_len() == 0`**. This presence gate costs one extra `encoded_len()`
-  walk of the nested message on encode (the field is written only when
-  non-empty; when written, prost recomputes the length for the varint prefix).
-  The gated fields are shallow top-level wrappers, so the cost is a handful of
-  extra traversals per call, not an asymptotic one. An all-default message
-  encodes to zero bytes, making "empty encoding" ⇔ "default value". These
-  fields were chosen
-  precisely because absent and default are semantically indistinguishable.
+  absence leaves the default; encode always writes the field, so a default
+  nested message goes out as an empty one. These fields were chosen precisely
+  because absent and default are semantically indistinguishable, which is why
+  the wire form is free to pick either.
 - `Option<T>` fields (presence-meaningful, e.g. `TaskOptions` on task
   submission where `None` inherits session defaults): `None` omits,
-  `Some(default)` **is** emitted. Exact presence preserved.
+  `Some(default)` is emitted. Exact presence preserved; this is the only
+  presence knob left, and it lives in the Rust type.
 - proto3 explicit `optional` scalars must be `Option` in Rust — validated by
   the derive.
+- Empty containers still encode to nothing: a `Vec` writes one field per
+  element and a `HashMap` one per entry, so zero elements is zero bytes with
+  no default check involved. Map *entries* keep prost's map codec, which omits
+  `== default` key/value subfields (the canonical entry encoding; decoders fill
+  them back in), and that is where `HashMap`'s `PartialEq` bound on the value
+  type comes from.
 - Flattened oneofs: decode with no variant set → the default/`Invalid`
-  variant; encoding the default variant emits nothing (unchanged behavior).
+  variant; the active member is written even when its payload is the default,
+  and an `Invalid`/no-member variant writes nothing (there is no member to
+  write, not a skipped default).
 - Unknown *fields* are skipped on decode and not preserved on re-encode —
   same as prost and as today. Only unknown enum *values* become lossless.
 
@@ -407,7 +427,8 @@ loss through `normalize_dynamic`).
   (`bytes` needs its `serde` feature when armonik's `serde` feature is on.)
 - `encoded_len` recomputation for nested messages matches prost's own
   behavior (recomputed per level); filter trees are shallow, no caching
-  needed.
+  needed. Dropping the presence gate also dropped its extra `encoded_len()`
+  walk per nested message, at the cost of a few more bytes on the wire.
 - `benches/` are kept and run before/after on the branch; results recorded in
   the PR description.
 
@@ -425,11 +446,12 @@ below for the two hand-written cross-field impls:
      randomized `DynamicMessage`s per descriptor;
    - round-trip both directions: dynamic → bytes → armonik type → bytes →
      dynamic, compared semantically (field-set equality, not byte equality —
-     empty nested messages may legitimately disappear per §3.6);
+     absent and present-but-default nested messages are interchangeable per
+     §3.6, and the encoder picks the second form);
    - the equivalence classes are **computed, not restated**: each type's
      `default_encoding` (what it emits for "nothing") is folded into
      messages where those fields are absent, deriving the default-member
-     and always-emit projections from the implementation itself; the
+     projection from the implementation itself; the
      value-level projections live in a `Normalize` impl per type, generated
      from the same constructs that shape the codec — each `with` adapter
      declares its own loss (`PairMap` order/duplicates), `present` markers

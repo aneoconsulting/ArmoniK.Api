@@ -71,8 +71,8 @@ pub fn bool_marker(message: &mut DynamicMessage, tag: u32) {
 }
 
 /// Transparent enum wrapper (chain) message: when the chained enum value is
-/// zero, every representation (absent members, empty inner wrappers) is
-/// equivalent to the empty message.
+/// zero, every representation (absent members, explicit zeros, empty inner
+/// wrappers) is equivalent to the empty message.
 pub fn wrapper_chain(message: &mut DynamicMessage) {
     let mut number = 0;
     let mut cursor = Value::Message(message.clone());

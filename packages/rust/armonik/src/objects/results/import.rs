@@ -62,10 +62,6 @@ impl ProtoAdapter<HashMap<String, Raw>> for RawByName {
             .sum()
     }
 
-    fn is_default(value: &HashMap<String, Raw>) -> bool {
-        value.is_empty()
-    }
-
     /// The `HashMap` loses entry order and collapses duplicate names.
     #[cfg(feature = "_differential")]
     fn normalize_dynamic(

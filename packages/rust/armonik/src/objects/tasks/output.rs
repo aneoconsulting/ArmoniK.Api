@@ -43,9 +43,7 @@ impl prost::Message for Output {
         match self {
             Output::Success => <bool as ProtoField>::encode_field(SUCCESS_TAG, &true, buf),
             Output::Error(message) => {
-                if !message.is_empty() {
-                    <String as ProtoField>::encode_field(ERROR_TAG, message, buf);
-                }
+                <String as ProtoField>::encode_field(ERROR_TAG, message, buf)
             }
         }
     }
@@ -85,10 +83,7 @@ impl prost::Message for Output {
     fn encoded_len(&self) -> usize {
         match self {
             Output::Success => <bool as ProtoField>::encoded_len_field(SUCCESS_TAG, &true),
-            Output::Error(message) if !message.is_empty() => {
-                <String as ProtoField>::encoded_len_field(ERROR_TAG, message)
-            }
-            Output::Error(_) => 0,
+            Output::Error(message) => <String as ProtoField>::encoded_len_field(ERROR_TAG, message),
         }
     }
 
@@ -135,8 +130,10 @@ pub(crate) struct ErrorAdapter;
 
 impl ProtoAdapter<Output> for ErrorAdapter {
     fn encode_field(tag: u32, value: &Output, buf: &mut impl BufMut) {
-        if let Output::Error(message) = value {
-            <String as ProtoField>::encode_field(tag, message, buf);
+        match value {
+            Output::Error(message) => <String as ProtoField>::encode_field(tag, message, buf),
+            // Success *is* the empty error message.
+            Output::Success => crate::codec::empty_body::encode(tag, buf),
         }
     }
 
@@ -159,14 +156,7 @@ impl ProtoAdapter<Output> for ErrorAdapter {
     fn encoded_len_field(tag: u32, value: &Output) -> usize {
         match value {
             Output::Error(message) => <String as ProtoField>::encoded_len_field(tag, message),
-            Output::Success => 0,
-        }
-    }
-
-    fn is_default(value: &Output) -> bool {
-        match value {
-            Output::Success => true,
-            Output::Error(message) => message.is_empty(),
+            Output::Success => crate::codec::empty_body::encoded_len(tag),
         }
     }
 }
