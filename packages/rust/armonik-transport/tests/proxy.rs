@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use armonik_transport::{HttpConfig, ProxyConfig};
+use armonik_transport::{HttpConfig, HttpProxyConfig};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -207,10 +207,10 @@ async fn a_proxy_can_be_configured_without_going_through_the_environment() {
     let server = spawn_server().await;
     let (proxy, stats) = spawn_proxy(ProxyAuth::Required("dXNlcjpzZWNyZXQ=")).await;
 
-    // `ProxyConfig` is `#[non_exhaustive]`, so these constructors are the only way another crate can
+    // `HttpProxyConfig` is `#[non_exhaustive]`, so these constructors are the only way another crate can
     // build one. Worth its own test: nothing else here exercises them.
     let mut config = direct(&server);
-    config.proxy = ProxyConfig::explicit(
+    config.proxy = HttpProxyConfig::explicit(
         hyper::Uri::try_from(format!("http://{proxy}")).expect("a valid proxy URI"),
     )
     .with_credentials("user", "secret");

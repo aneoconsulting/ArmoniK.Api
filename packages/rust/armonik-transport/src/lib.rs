@@ -22,7 +22,7 @@ mod secret;
 mod tcp;
 mod utils;
 
-pub use config::{ConfigError, HttpConfig, HttpConfigArgs, ProxyConfig, ProxySource};
+pub use config::{ConfigError, HttpConfig, HttpConfigArgs, HttpProxyConfig, ProxySource};
 pub use connect::{connect, https_connector, ConnectionError};
 #[cfg(feature = "env")]
 pub use env::EnvFieldError;

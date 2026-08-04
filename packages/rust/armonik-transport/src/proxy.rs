@@ -21,7 +21,7 @@ use snafu::{IntoError, Snafu};
 use tokio::net::TcpStream;
 use tower_service::Service;
 
-use super::{ProxyConfig, ProxySource};
+use super::{HttpProxyConfig, ProxySource};
 
 /// What a connector reports when it fails, which every layer here has to be able to carry.
 type BoxError = Box<dyn std::error::Error + Send + Sync>;
@@ -38,7 +38,7 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Debug, Clone)]
 pub struct ProxyConnector<S> {
     inner: S,
-    proxy: ProxyConfig,
+    proxy: HttpProxyConfig,
     /// The environment's proxy rules: `Some` for [`ProxySource::System`] alone, since a matcher
     /// answers `None` for a scheme other than `http`/`https` and would skip an explicit proxy.
     ///
@@ -49,7 +49,7 @@ pub struct ProxyConnector<S> {
 
 impl<S> ProxyConnector<S> {
     /// Wrap a TCP connector with the given proxy configuration.
-    pub(crate) fn new(inner: S, proxy: ProxyConfig) -> Self {
+    pub(crate) fn new(inner: S, proxy: HttpProxyConfig) -> Self {
         // Read once, here: a channel that reconnects keeps the values it started with.
         let matcher = matches!(proxy.source, ProxySource::System)
             .then(|| std::sync::Arc::new(Matcher::from_env()));
@@ -214,7 +214,7 @@ pub(crate) fn prefer_dedicated<'a>(dedicated: &'a str, from_url: &'a str) -> &'a
 /// Split any `user:password@` prefix out of a proxy URI, returning the URI without it.
 ///
 /// Credentials in the URL are how `HTTPS_PROXY` conventionally carries them, so they are honoured. They
-/// must not stay in the URI: it is rendered in errors, in the tunnel log line, and in `ProxyConfig`'s
+/// must not stay in the URI: it is rendered in errors, in the tunnel log line, and in `HttpProxyConfig`'s
 /// `Debug`. Percent-escapes are decoded, which is the only way to write a password containing `@`.
 pub(crate) fn split_credentials(uri: Uri) -> (Uri, Option<(String, String)>) {
     let Some(authority) = uri.authority() else {
@@ -489,7 +489,7 @@ mod tests {
         let proxy = Uri::try_from("http://proxy.corp:3128").expect("a valid proxy URI");
         let mut connector = ProxyConnector::new(
             Recorder(std::sync::Arc::clone(&seen)),
-            ProxyConfig::explicit(proxy.clone()),
+            HttpProxyConfig::explicit(proxy.clone()),
         );
 
         let target = Uri::try_from("grpc://armonik.example.com:5001").expect("a valid target");

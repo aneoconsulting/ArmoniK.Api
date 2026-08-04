@@ -6,7 +6,7 @@ use snafu::{ResultExt, Snafu};
 // crate.
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
-    ConfigError, ConnectionError, EnvFieldError, HttpConfig, HttpConfigArgs, ProxyConfig,
+    ConfigError, ConnectionError, EnvFieldError, HttpConfig, HttpConfigArgs, HttpProxyConfig,
     ProxyError, ProxySource, Secret,
 };
 

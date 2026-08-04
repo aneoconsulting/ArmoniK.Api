@@ -37,7 +37,7 @@ pub enum ProxySource {
 /// real server and the proxy never sees the plaintext.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct ProxyConfig {
+pub struct HttpProxyConfig {
     /// Where to find the proxy.
     pub source: ProxySource,
     /// Username for proxy authentication, empty for none.
@@ -46,7 +46,7 @@ pub struct ProxyConfig {
     pub password: Secret,
 }
 
-impl ProxyConfig {
+impl HttpProxyConfig {
     /// Use this specific proxy.
     ///
     /// Credentials written into the URL are taken out of it and kept here, so the URI carries none
@@ -131,7 +131,7 @@ pub struct HttpConfig {
     /// User-Agent header value sent with each request
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
-    pub proxy: ProxyConfig,
+    pub proxy: HttpProxyConfig,
 }
 
 impl Clone for HttpConfig {
@@ -592,9 +592,9 @@ impl HttpConfig {
 
         let mut proxy = match parse_proxy_source(&proxy)? {
             // Through the constructor, so credentials written into the URL are taken out of it.
-            ProxySource::Explicit(uri) => ProxyConfig::explicit(uri),
-            ProxySource::System => ProxyConfig::system(),
-            ProxySource::Disabled => ProxyConfig::default(),
+            ProxySource::Explicit(uri) => HttpProxyConfig::explicit(uri),
+            ProxySource::System => HttpProxyConfig::system(),
+            ProxySource::Disabled => HttpProxyConfig::default(),
         };
         // See `crate::proxy::prefer_dedicated`.
         let username = crate::proxy::prefer_dedicated(&proxy_username, &proxy.username).to_owned();
@@ -1515,7 +1515,7 @@ mod tests {
 
     #[test]
     fn the_proxy_password_is_kept_out_of_the_debug_output() {
-        // `HttpConfig` is `Debug` and holds a `ProxyConfig`, so a derived `Debug` would put the
+        // `HttpConfig` is `Debug` and holds a `HttpProxyConfig`, so a derived `Debug` would put the
         // password anywhere a configuration gets printed.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("proxy.corp:3128"),
