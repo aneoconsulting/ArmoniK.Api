@@ -16,6 +16,7 @@ mod config;
 mod connect;
 #[cfg(feature = "env")]
 mod env;
+mod http2;
 mod proxy;
 mod secret;
 mod tcp;
@@ -25,6 +26,7 @@ pub use config::{ConfigError, HttpConfig, HttpConfigArgs, ProxyConfig, ProxySour
 pub use connect::{connect, https_connector, ConnectionError};
 #[cfg(feature = "env")]
 pub use env::EnvFieldError;
+pub use http2::Http2ConfigArgs;
 pub use proxy::ProxyError;
 pub use secret::Secret;
 pub use tcp::TcpConfigArgs;

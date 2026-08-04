@@ -4,6 +4,9 @@ use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use snafu::{OptionExt, ResultExt, Snafu};
 
+#[cfg(feature = "serde")]
+use crate::http2::prefix_http2;
+use crate::http2::{Http2Config, Http2ConfigArgs};
 use crate::secret::Secret;
 #[cfg(feature = "serde")]
 use crate::tcp::prefix_tcp;
@@ -208,19 +211,9 @@ pub struct HttpConfigArgs {
     /// TCP-level socket options.
     #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_tcp"))]
     pub tcp: TcpConfigArgs,
-    /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_keep_alive_interval: String,
-    /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_keep_alive_timeout: String,
-    /// Send HTTP/2 keepalive PINGs even when idle, empty for false. See
-    /// [`Self::allow_unsafe_connection`] for the accepted spellings.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_keep_alive_while_idle: String,
-    /// HTTP/2 max header list size in bytes, defaults to no limit
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_max_header_list_size: String,
+    /// HTTP/2-level transport options.
+    #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_http2"))]
+    pub http2: Http2ConfigArgs,
     /// User-Agent header value sent with each request
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub user_agent: String,
@@ -397,10 +390,10 @@ impl HttpConfig {
             args.tcp.keepalive_interval,
             args.tcp.keepalive_retries,
             args.tcp.nagle_algorithm,
-            args.http2_keep_alive_interval,
-            args.http2_keep_alive_timeout,
-            args.http2_keep_alive_while_idle,
-            args.http2_max_header_list_size,
+            args.http2.keep_alive_interval,
+            args.http2.keep_alive_timeout,
+            args.http2.keep_alive_while_idle,
+            args.http2.max_header_list_size,
             args.user_agent,
             // Elided, and `proxy_password` left out entirely: this span is recorded at debug level, and
             // a proxy URL carries credentials as often as the dedicated option does. Do not complete
@@ -422,10 +415,7 @@ impl HttpConfig {
             timeout,
             rate_limit,
             tcp,
-            http2_keep_alive_interval,
-            http2_keep_alive_timeout,
-            http2_keep_alive_while_idle,
-            http2_max_header_list_size,
+            http2,
             user_agent,
             proxy,
             proxy_username,
@@ -585,46 +575,12 @@ impl HttpConfig {
             nagle_algorithm: tcp_nagle_algorithm,
         } = tcp.resolve()?;
 
-        let http2_keep_alive_interval = if http2_keep_alive_interval.is_empty() {
-            None
-        } else {
-            Some(
-                http2_keep_alive_interval
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "http2_keep_alive_interval",
-                        value: http2_keep_alive_interval,
-                    })?
-                    .into(),
-            )
-        };
-
-        let http2_keep_alive_timeout = if http2_keep_alive_timeout.is_empty() {
-            None
-        } else {
-            Some(
-                http2_keep_alive_timeout
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "http2_keep_alive_timeout",
-                        value: http2_keep_alive_timeout,
-                    })?
-                    .into(),
-            )
-        };
-
-        let http2_max_header_list_size = if http2_max_header_list_size.is_empty() {
-            None
-        } else {
-            Some(
-                http2_max_header_list_size
-                    .parse::<u32>()
-                    .context(InvalidIntegerSnafu {
-                        option: "http2_max_header_list_size",
-                        value: http2_max_header_list_size,
-                    })?,
-            )
-        };
+        let Http2Config {
+            keep_alive_interval: http2_keep_alive_interval,
+            keep_alive_timeout: http2_keep_alive_timeout,
+            keep_alive_while_idle: http2_keep_alive_while_idle,
+            max_header_list_size: http2_max_header_list_size,
+        } = http2.resolve()?;
 
         let user_agent = if user_agent.is_empty() {
             None
@@ -666,10 +622,7 @@ impl HttpConfig {
             tcp_nagle_algorithm,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
-            http2_keep_alive_while_idle: parse_bool(
-                "http2_keep_alive_while_idle",
-                &http2_keep_alive_while_idle,
-            )?,
+            http2_keep_alive_while_idle,
             http2_max_header_list_size,
             user_agent,
             proxy,
@@ -904,7 +857,10 @@ mod tests {
                 keepalive_interval: String::from("2m"),
                 ..Default::default()
             },
-            http2_keep_alive_interval: String::from("1h"),
+            http2: Http2ConfigArgs {
+                keep_alive_interval: String::from("1h"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid durations");
@@ -946,7 +902,10 @@ mod tests {
                 keepalive_retries: String::from("3"),
                 ..Default::default()
             },
-            http2_max_header_list_size: String::from("16384"),
+            http2: Http2ConfigArgs {
+                max_header_list_size: String::from("16384"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid integers");
@@ -972,7 +931,10 @@ mod tests {
     fn an_integer_that_does_not_fit_is_rejected_rather_than_wrapped() {
         // These are `u32`; a value past the top must fail rather than silently become something else.
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            http2_max_header_list_size: String::from("4294967296"),
+            http2: Http2ConfigArgs {
+                max_header_list_size: String::from("4294967296"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("2^32 does not fit in a u32");
@@ -1387,15 +1349,19 @@ mod tests {
         assert!(config.allow_unsafe_connection);
     }
 
-    /// The point of grouping the `Tcp*` fields into their own thematic unit, with `with_prefix!`
-    /// rather than a plain nested object: not one JSON key changes, so an existing document, or an
-    /// existing environment variable, still reads.
+    /// The point of grouping each thematic unit's own fields with `with_prefix!` rather than a
+    /// plain nested object: not one JSON key changes, so an existing document, or an existing
+    /// environment variable, still reads.
     #[cfg(feature = "serde")]
     #[test]
     fn a_thematic_units_own_fields_still_serialise_as_flat_top_level_keys() {
         let args = HttpConfigArgs {
             tcp: TcpConfigArgs {
                 keepalive: String::from("30s"),
+                ..Default::default()
+            },
+            http2: Http2ConfigArgs {
+                max_header_list_size: String::from("16384"),
                 ..Default::default()
             },
             ..Default::default()
@@ -1407,10 +1373,17 @@ mod tests {
             "flat, not nested under \"Tcp\": {written}"
         );
         assert!(!written.contains(r#""Tcp":"#), "{written}");
+        assert!(
+            written.contains(r#""Http2MaxHeaderListSize":"16384""#),
+            "flat, not nested under \"Http2\": {written}"
+        );
+        assert!(!written.contains(r#""Http2":"#), "{written}");
 
         let read: HttpConfigArgs =
-            serde_json::from_str(r#"{"TcpKeepalive":"5s"}"#).expect("read the flat key back");
+            serde_json::from_str(r#"{"TcpKeepalive":"5s","Http2MaxHeaderListSize":"8192"}"#)
+                .expect("read the flat keys back");
         assert_eq!(read.tcp.keepalive, "5s");
+        assert_eq!(read.http2.max_header_list_size, "8192");
     }
 
     #[cfg(feature = "serde")]
