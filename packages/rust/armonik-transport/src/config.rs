@@ -640,18 +640,12 @@ impl HttpConfig {
             ProxySource::System => ProxyConfig::system(),
             ProxySource::Disabled => ProxyConfig::default(),
         };
-        // Field by field, not pair by pair: setting only the password while the URL carries
-        // `user:other@` has to keep that username, or the request fails as an unexplained 407.
-        let username = if proxy_username.is_empty() {
-            std::mem::take(&mut proxy.username)
-        } else {
-            proxy_username
-        };
-        let password = if proxy_password.is_empty() {
-            std::mem::take(&mut proxy.password)
-        } else {
-            proxy_password
-        };
+        // See `crate::proxy::prefer_dedicated`.
+        let username = crate::proxy::prefer_dedicated(&proxy_username, &proxy.username).to_owned();
+        let password = Secret::from(crate::proxy::prefer_dedicated(
+            proxy_password.expose_secret(),
+            proxy.password.expose_secret(),
+        ));
         proxy = proxy.with_credentials(username, password);
 
         Ok(Self {

@@ -115,19 +115,8 @@ where
             return Box::pin(std::future::ready(Err(error.into())));
         }
 
-        // Field by field, not pair by pair: a dedicated option set alone must not discard the other
-        // half of whatever credentials the proxy URL (here, the one the matcher intercepted) carried,
-        // the same rule `HttpConfig::from_config_args` already applies to an explicit `proxy` URL.
-        let username = if self.proxy.username.is_empty() {
-            url_username.as_str()
-        } else {
-            self.proxy.username.as_str()
-        };
-        let password = if self.proxy.password.is_empty() {
-            url_password.as_str()
-        } else {
-            self.proxy.password.expose_secret()
-        };
+        let username = prefer_dedicated(&self.proxy.username, &url_username);
+        let password = prefer_dedicated(self.proxy.password.expose_secret(), &url_password);
         let credentials = (!username.is_empty() || !password.is_empty())
             .then(|| basic_auth_header(username, password));
 
@@ -205,6 +194,20 @@ fn decode_basic_auth(value: &HeaderValue) -> (String, String) {
     match decoded.split_once(':') {
         Some((user, password)) => (user.to_owned(), password.to_owned()),
         None => (decoded, String::new()),
+    }
+}
+
+/// Prefer `dedicated` unless it is empty, in which case fall back to `from_url`.
+///
+/// The rule both credential-merging call sites apply: a dedicated username or password set alone
+/// must not discard the other half of whatever the proxy URL carried, or the request fails as an
+/// unexplained 407. Used here for a proxy taken from the environment, and by
+/// `ClientConfig::from_config_args` for one configured explicitly.
+pub(crate) fn prefer_dedicated<'a>(dedicated: &'a str, from_url: &'a str) -> &'a str {
+    if dedicated.is_empty() {
+        from_url
+    } else {
+        dedicated
     }
 }
 
