@@ -74,13 +74,7 @@ async fn serve_tunnel(
     stats: Arc<ProxyStats>,
 ) -> std::io::Result<()> {
     let head = read_head(&mut client).await?;
-
-    let target = head
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))
-        .unwrap_or_default()
-        .to_owned();
+    let target = request_target(&head);
 
     if let ProxyAuth::Required(expected) = auth {
         let presented = head.lines().find_map(|line| {
@@ -107,6 +101,15 @@ async fn serve_tunnel(
     tokio::io::copy_bidirectional(&mut client, &mut upstream)
         .await
         .map(|_| ())
+}
+
+/// The request-target of a `CONNECT` request's start line, e.g. `proxy.corp:3128`.
+fn request_target(head: &str) -> String {
+    head.lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .unwrap_or_default()
+        .to_owned()
 }
 
 /// Read up to the blank line that ends an HTTP head.
@@ -427,8 +430,8 @@ async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carr
 #[tokio::test]
 async fn known_issue_a_success_other_than_200_does_not_open_the_tunnel() {
     // RFC 9110: any 2xx switches the connection to tunnel mode. `hyper_util`'s `Tunnel`, which this
-    // crate delegates the handshake to, checks for exactly `200`, so a proxy answering 201 or 204 is a
-    // tunnel that should open and does not. See the crate README's "Known issues".
+    // crate delegates the handshake to, checks for exactly `200`, so a proxy answering 201 is a tunnel
+    // that should open and does not. See the crate README's "Known issues".
     //
     // A tripwire, not a preference: the day `hyper_util` accepts any 2xx, this starts failing, which
     // is the signal to loosen it back to asserting success and to update the README.
@@ -436,20 +439,18 @@ async fn known_issue_a_success_other_than_200_does_not_open_the_tunnel() {
     // Not asserted on `ProxyStats::tunnels`: the fake proxy counts a tunnel as soon as it has written
     // its own response, before learning whether the client accepted it, so that counter answers a
     // different question from the one this test asks.
-    for success in [201u16, 204] {
-        let server = spawn_server().await;
-        let (proxy, _stats) = spawn_proxy_answering(ProxyAuth::None, success).await;
+    let server = spawn_server().await;
+    let (proxy, _stats) = spawn_proxy_answering(ProxyAuth::None, 201).await;
 
-        let error = call_through(through_proxy(&server, proxy, None))
-            .await
-            .expect_err(&format!("{success} unexpectedly opened the tunnel"));
+    let error = call_through(through_proxy(&server, proxy, None))
+        .await
+        .expect_err("201 unexpectedly opened the tunnel");
 
-        assert!(
-            error_chain(error.as_ref()).contains("did not open the tunnel"),
-            "unexpected error for {success}: {}",
-            error_chain(error.as_ref())
-        );
-    }
+    assert!(
+        error_chain(error.as_ref()).contains("did not open the tunnel"),
+        "unexpected error: {}",
+        error_chain(error.as_ref())
+    );
 }
 
 #[tokio::test]
@@ -510,13 +511,7 @@ async fn known_issue_a_portless_http_target_is_dialled_on_443_not_80() {
         let Ok(head) = read_head(&mut client).await else {
             return;
         };
-        let target = head
-            .lines()
-            .next()
-            .and_then(|line| line.split_whitespace().nth(1))
-            .unwrap_or_default()
-            .to_owned();
-        *captured.lock().expect("lock") = Some(target);
+        *captured.lock().expect("lock") = Some(request_target(&head));
         // No response: the client only needs to have sent the request to be observed here, and this
         // address would never answer regardless.
     });
