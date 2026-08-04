@@ -1,0 +1,24 @@
+[package]
+name = "armonik-ffi"
+description = "C ABI over armonik-transport, for ArmoniK.Api.Client.Legacy alone; never published"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+# `cdylib` for the native library .NET loads; `rlib` so this crate's own tests link normally.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# By path: this crate is local to the .NET project, not a published dependent. Only `armonik-transport`,
+# not `armonik`: the ABI routes gRPC calls by raw method path, so it needs the channel, not the
+# generated per-service wrappers.
+armonik-transport = { path = "../../../../rust/armonik-transport" }
+tokio = { version = "1.52", default-features = false, features = ["rt-multi-thread"] }
+
+[dev-dependencies]
+# The tests spin up a real in-process listener to prove `ak_client_create` actually connects.
+tokio = { version = "1.52", default-features = false, features = ["net"] }
+# Same version armonik-transport pins, so Cargo unifies onto the one tonic instance it already
+# depends on, rather than building a second, incompatible copy.
+tonic = { version = "0.14", default-features = false, features = ["server", "router"] }
