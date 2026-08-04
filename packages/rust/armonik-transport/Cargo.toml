@@ -48,6 +48,8 @@ base64.workspace = true
 tokio = { workspace = true, features = ["io-util", "net", "time"] }
 # The proxy connector is a `tower` service, so that it composes with the connectors around it.
 tower-service.workspace = true
+# `SecretString`, for `Secret`'s storage: zeroized on drop, which a hand-rolled `String` is not.
+secrecy.workspace = true
 
 [dev-dependencies]
 # The boolean options are read straight from the environment, so testing which spellings they accept
