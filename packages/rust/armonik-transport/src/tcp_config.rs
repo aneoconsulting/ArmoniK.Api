@@ -43,11 +43,16 @@ pub struct TcpConfigArgs {
 
 /// The resolved form of [`TcpConfigArgs`].
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct TcpConfig {
-    pub(crate) keepalive: Option<Duration>,
-    pub(crate) keepalive_interval: Option<Duration>,
-    pub(crate) keepalive_retries: Option<u32>,
-    pub(crate) nagle_algorithm: bool,
+#[non_exhaustive]
+pub struct TcpConfig {
+    /// TCP keepalive duration, defaults to no keepalive.
+    pub keepalive: Option<Duration>,
+    /// Interval between TCP keepalive probes, defaults to OS default.
+    pub keepalive_interval: Option<Duration>,
+    /// Number of TCP keepalive retries, defaults to OS default.
+    pub keepalive_retries: Option<u32>,
+    /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false.
+    pub nagle_algorithm: bool,
 }
 
 impl TcpConfigArgs {

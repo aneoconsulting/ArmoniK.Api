@@ -139,8 +139,8 @@ fn through_proxy(
     common::config(endpoint, |args| {
         args.proxy = format!("http://{proxy}");
         if let Some((username, password)) = credentials {
-            args.proxy_username = String::from(username);
-            args.proxy_password = password.into();
+            args.proxy_config.username = String::from(username);
+            args.proxy_config.password = password.into();
         }
     })
 }
@@ -410,7 +410,7 @@ async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carr
     std::env::set_var("HTTP_PROXY", format!("http://url-user:old@{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system");
-        args.proxy_password = String::from("new").into();
+        args.proxy_config.password = String::from("new").into();
     }))
     .await;
     std::env::remove_var("HTTP_PROXY");

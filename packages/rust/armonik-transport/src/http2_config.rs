@@ -43,11 +43,16 @@ pub struct Http2ConfigArgs {
 
 /// The resolved form of [`Http2ConfigArgs`].
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct Http2Config {
-    pub(crate) keep_alive_interval: Option<Duration>,
-    pub(crate) keep_alive_timeout: Option<Duration>,
-    pub(crate) keep_alive_while_idle: bool,
-    pub(crate) max_header_list_size: Option<u32>,
+#[non_exhaustive]
+pub struct Http2Config {
+    /// HTTP/2 PING frame interval, defaults to no keepalive.
+    pub keep_alive_interval: Option<Duration>,
+    /// HTTP/2 PING timeout, defaults to no timeout.
+    pub keep_alive_timeout: Option<Duration>,
+    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false.
+    pub keep_alive_while_idle: bool,
+    /// HTTP/2 max header list size in bytes, defaults to no limit.
+    pub max_header_list_size: Option<u32>,
 }
 
 impl Http2ConfigArgs {

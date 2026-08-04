@@ -5,90 +5,15 @@ use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePk
 use snafu::{OptionExt, ResultExt, Snafu};
 
 #[cfg(feature = "serde")]
-use crate::http2::prefix_http2;
-use crate::http2::{Http2Config, Http2ConfigArgs};
+use crate::http2_config::prefix_http2;
+use crate::http2_config::{Http2Config, Http2ConfigArgs};
+#[cfg(feature = "serde")]
+use crate::proxy_config::prefix_proxy;
+use crate::proxy_config::{parse_proxy_source, HttpProxyConfig, HttpProxyConfigArgs, ProxySource};
 use crate::secret::Secret;
 #[cfg(feature = "serde")]
-use crate::tcp::prefix_tcp;
-use crate::tcp::{TcpConfig, TcpConfigArgs};
-
-/// Where to find the HTTP proxy used to reach the endpoint.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum ProxySource {
-    /// Connect directly, ignoring any proxy configured in the environment.
-    ///
-    /// The default: a client that asks for nothing connects directly.
-    #[default]
-    Disabled,
-    /// Read the proxy from the environment, on `hyper_util`'s rules: `ALL_PROXY`, `HTTPS_PROXY`,
-    /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
-    ///
-    /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
-    /// started with. Every other option is read in [`HttpConfigArgs::from_env`].
-    System,
-    /// Use this specific proxy.
-    Explicit(Uri),
-}
-
-/// Configuration of the HTTP proxy used to reach the endpoint.
-///
-/// Proxying uses a `CONNECT` tunnel, so TLS, mutual TLS included, is negotiated end to end with the
-/// real server and the proxy never sees the plaintext.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct HttpProxyConfig {
-    /// Where to find the proxy.
-    pub source: ProxySource,
-    /// Username for proxy authentication, empty for none.
-    pub username: String,
-    /// Password for proxy authentication, empty for none.
-    pub password: Secret,
-}
-
-impl HttpProxyConfig {
-    /// Use this specific proxy.
-    ///
-    /// Credentials written into the URL are taken out of it and kept here, so the URI carries none
-    /// wherever it is rendered. The type is `#[non_exhaustive]`, so this is the way in.
-    pub fn explicit(uri: Uri) -> Self {
-        let (uri, credentials) = crate::proxy::split_credentials(uri);
-        let (username, password) = credentials.unwrap_or_default();
-        Self {
-            source: ProxySource::Explicit(uri),
-            username,
-            password: password.into(),
-        }
-    }
-
-    /// Read the proxy from the environment.
-    pub fn system() -> Self {
-        Self {
-            source: ProxySource::System,
-            ..Default::default()
-        }
-    }
-
-    /// Attach credentials for proxy authentication.
-    pub fn with_credentials(
-        mut self,
-        username: impl Into<String>,
-        password: impl Into<Secret>,
-    ) -> Self {
-        self.username = username.into();
-        self.password = password.into();
-        self
-    }
-
-    /// Credentials to present to the proxy, if any were configured.
-    pub fn credentials(&self) -> Option<(&str, &str)> {
-        if self.username.is_empty() && self.password.is_empty() {
-            None
-        } else {
-            Some((&self.username, self.password.expose_secret()))
-        }
-    }
-}
+use crate::tcp_config::prefix_tcp;
+use crate::tcp_config::{TcpConfig, TcpConfigArgs};
 
 /// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
 /// endpoint.
@@ -112,22 +37,10 @@ pub struct HttpConfig {
     pub timeout: Option<Duration>,
     /// Rate limit for requests, defaults to no rate limit
     pub rate_limit: Option<(u64, Duration)>,
-    /// TCP keepalive duration, defaults to no keepalive
-    pub tcp_keepalive: Option<Duration>,
-    /// Interval between TCP keepalive probes, defaults to OS default
-    pub tcp_keepalive_interval: Option<Duration>,
-    /// Number of TCP keepalive retries, defaults to OS default
-    pub tcp_keepalive_retries: Option<u32>,
-    /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false
-    pub tcp_nagle_algorithm: bool,
-    /// HTTP/2 PING frame interval, defaults to no keepalive
-    pub http2_keep_alive_interval: Option<Duration>,
-    /// HTTP/2 PING timeout, defaults to no timeout
-    pub http2_keep_alive_timeout: Option<Duration>,
-    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false
-    pub http2_keep_alive_while_idle: bool,
-    /// HTTP/2 max header list size in bytes, defaults to no limit
-    pub http2_max_header_list_size: Option<u32>,
+    /// TCP-level socket options.
+    pub tcp: TcpConfig,
+    /// HTTP/2-level transport options.
+    pub http2: Http2Config,
     /// User-Agent header value sent with each request
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
@@ -148,14 +61,8 @@ impl Clone for HttpConfig {
             connect_timeout: self.connect_timeout,
             timeout: self.timeout,
             rate_limit: self.rate_limit,
-            tcp_keepalive: self.tcp_keepalive,
-            tcp_keepalive_interval: self.tcp_keepalive_interval,
-            tcp_keepalive_retries: self.tcp_keepalive_retries,
-            tcp_nagle_algorithm: self.tcp_nagle_algorithm,
-            http2_keep_alive_interval: self.http2_keep_alive_interval,
-            http2_keep_alive_timeout: self.http2_keep_alive_timeout,
-            http2_keep_alive_while_idle: self.http2_keep_alive_while_idle,
-            http2_max_header_list_size: self.http2_max_header_list_size,
+            tcp: self.tcp,
+            http2: self.http2,
             user_agent: self.user_agent.clone(),
             proxy: self.proxy.clone(),
         }
@@ -224,18 +131,9 @@ pub struct HttpConfigArgs {
     /// `http`: the `CONNECT` handshake is written in the clear.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub proxy: String,
-    /// Username for proxy authentication.
-    ///
-    /// Empty falls back to the username the `proxy` URL carried, if any.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub proxy_username: String,
-    /// Password for proxy authentication.
-    ///
-    /// Empty falls back to the password the `proxy` URL carried, independently of the username, so
-    /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
-    /// [`Secret`].
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
-    pub proxy_password: Secret,
+    /// The dedicated proxy credentials.
+    #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_proxy"))]
+    pub proxy_config: HttpProxyConfigArgs,
 }
 
 /// Reads a boolean option, on the vocabulary every ArmoniK client accepts.
@@ -399,7 +297,7 @@ impl HttpConfig {
             // a proxy URL carries credentials as often as the dedicated option does. Do not complete
             // the list.
             proxy = %crate::proxy::elide_userinfo(&args.proxy),
-            args.proxy_username,
+            args.proxy_config.username,
         );
 
         let HttpConfigArgs {
@@ -418,8 +316,7 @@ impl HttpConfig {
             http2,
             user_agent,
             proxy,
-            proxy_username,
-            proxy_password,
+            proxy_config,
         } = args;
 
         let cacert = if ca_cert.is_empty() {
@@ -568,19 +465,8 @@ impl HttpConfig {
             Some((limit, duration))
         };
 
-        let TcpConfig {
-            keepalive: tcp_keepalive,
-            keepalive_interval: tcp_keepalive_interval,
-            keepalive_retries: tcp_keepalive_retries,
-            nagle_algorithm: tcp_nagle_algorithm,
-        } = tcp.resolve()?;
-
-        let Http2Config {
-            keep_alive_interval: http2_keep_alive_interval,
-            keep_alive_timeout: http2_keep_alive_timeout,
-            keep_alive_while_idle: http2_keep_alive_while_idle,
-            max_header_list_size: http2_max_header_list_size,
-        } = http2.resolve()?;
+        let tcp = tcp.resolve()?;
+        let http2 = http2.resolve()?;
 
         let user_agent = if user_agent.is_empty() {
             None
@@ -590,19 +476,13 @@ impl HttpConfig {
             Some(header)
         };
 
-        let mut proxy = match parse_proxy_source(&proxy)? {
+        let proxy = match parse_proxy_source(&proxy)? {
             // Through the constructor, so credentials written into the URL are taken out of it.
             ProxySource::Explicit(uri) => HttpProxyConfig::explicit(uri),
             ProxySource::System => HttpProxyConfig::system(),
             ProxySource::Disabled => HttpProxyConfig::default(),
         };
-        // See `crate::proxy::prefer_dedicated`.
-        let username = crate::proxy::prefer_dedicated(&proxy_username, &proxy.username).to_owned();
-        let password = Secret::from(crate::proxy::prefer_dedicated(
-            proxy_password.expose_secret(),
-            proxy.password.expose_secret(),
-        ));
-        proxy = proxy.with_credentials(username, password);
+        let proxy = proxy_config.merge_into(proxy);
 
         Ok(Self {
             endpoint,
@@ -616,64 +496,11 @@ impl HttpConfig {
             connect_timeout,
             timeout,
             rate_limit,
-            tcp_keepalive,
-            tcp_keepalive_interval,
-            tcp_keepalive_retries,
-            tcp_nagle_algorithm,
-            http2_keep_alive_interval,
-            http2_keep_alive_timeout,
-            http2_keep_alive_while_idle,
-            http2_max_header_list_size,
+            tcp,
+            http2,
             user_agent,
             proxy,
         })
-    }
-}
-
-/// As ArmoniK's other clients spell it: empty is a direct connection, `none` disables proxying,
-/// `system` reads the environment, anything else is a proxy URL, defaulting to the `http` scheme.
-fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
-    match proxy {
-        "" => Ok(ProxySource::Disabled),
-        _ if proxy.eq_ignore_ascii_case("none") => Ok(ProxySource::Disabled),
-        _ if proxy.eq_ignore_ascii_case("system") => Ok(ProxySource::System),
-        _ => {
-            let with_scheme = if proxy.contains("://") {
-                proxy.to_owned()
-            } else {
-                format!("http://{proxy}")
-            };
-            // Not reported through `UriSnafu`: its message names the endpoint, which would send
-            // whoever reads it looking at the wrong option.
-            let uri = Uri::try_from(&with_scheme).ok().filter(|uri| {
-                uri.authority()
-                    .is_some_and(|authority| !authority.host().is_empty())
-            });
-            match uri {
-                // Caught here rather than at connect time, so a mistyped option fails while the
-                // configuration is being read and names itself.
-                Some(uri) if uri.scheme_str().is_some_and(|scheme| scheme != "http") => {
-                    IncompatibleOptionsSnafu {
-                        msg: format!(
-                            "The `CONNECT` handshake is written in the clear, so only an `http` \
-                             proxy can be reached, and `proxy={}` names another scheme",
-                            crate::proxy::elide_userinfo(proxy)
-                        ),
-                    }
-                    .fail()
-                }
-                Some(uri) => Ok(ProxySource::Explicit(uri)),
-                None => IncompatibleOptionsSnafu {
-                    // Elided: a URL rejected for having no host can still have carried a password.
-                    msg: format!(
-                        "`proxy={}` is not a valid proxy URL. Expected `none`, \
-                         `system`, or a URL such as `http://proxy.example.com:3128`",
-                        crate::proxy::elide_userinfo(proxy)
-                    ),
-                }
-                .fail(),
-            }
-        }
     }
 }
 
@@ -866,13 +693,13 @@ mod tests {
         .expect("valid durations");
 
         assert_eq!(config.connect_timeout, Some(Duration::from_millis(500)));
-        assert_eq!(config.tcp_keepalive, Some(Duration::from_secs(30)));
+        assert_eq!(config.tcp.keepalive, Some(Duration::from_secs(30)));
         assert_eq!(
-            config.tcp_keepalive_interval,
+            config.tcp.keepalive_interval,
             Some(Duration::from_secs(120))
         );
         assert_eq!(
-            config.http2_keep_alive_interval,
+            config.http2.keep_alive_interval,
             Some(Duration::from_secs(3600))
         );
     }
@@ -909,8 +736,8 @@ mod tests {
             ..args()
         })
         .expect("valid integers");
-        assert_eq!(config.tcp_keepalive_retries, Some(3));
-        assert_eq!(config.http2_max_header_list_size, Some(16384));
+        assert_eq!(config.tcp.keepalive_retries, Some(3));
+        assert_eq!(config.http2.max_header_list_size, Some(16384));
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
             tcp: TcpConfigArgs {
@@ -1471,8 +1298,10 @@ mod tests {
 
         let some = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("proxy.corp:3128"),
-            proxy_username: String::from("user"),
-            proxy_password: "secret".into(),
+            proxy_config: HttpProxyConfigArgs {
+                username: String::from("user"),
+                password: "secret".into(),
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1501,8 +1330,10 @@ mod tests {
     fn the_dedicated_proxy_options_win_over_the_url() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
-            proxy_username: String::from("option-user"),
-            proxy_password: "option-secret".into(),
+            proxy_config: HttpProxyConfigArgs {
+                username: String::from("option-user"),
+                password: "option-secret".into(),
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1519,8 +1350,10 @@ mod tests {
         // password anywhere a configuration gets printed.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("proxy.corp:3128"),
-            proxy_username: String::from("user"),
-            proxy_password: "s3cr3t".into(),
+            proxy_config: HttpProxyConfigArgs {
+                username: String::from("user"),
+                password: "s3cr3t".into(),
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1546,7 +1379,10 @@ mod tests {
         // would answer 407 with nothing to explain it.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
-            proxy_password: "option-secret".into(),
+            proxy_config: HttpProxyConfigArgs {
+                password: "option-secret".into(),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1577,7 +1413,10 @@ mod tests {
         // handing them over.
         let args = HttpConfigArgs {
             proxy: String::from("http://user:url-secret@proxy.corp:3128"),
-            proxy_password: "option-secret".into(),
+            proxy_config: HttpProxyConfigArgs {
+                password: "option-secret".into(),
+                ..Default::default()
+            },
             ..args()
         };
 
@@ -1596,7 +1435,10 @@ mod tests {
     #[test]
     fn an_ordinary_serialisation_redacts_the_password() {
         let args = HttpConfigArgs {
-            proxy_password: "s3cr3t".into(),
+            proxy_config: HttpProxyConfigArgs {
+                password: "s3cr3t".into(),
+                ..Default::default()
+            },
             ..args()
         };
 
