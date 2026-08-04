@@ -9,6 +9,20 @@
   "semanticCommits": "enabled",
   "rangeStrategy": "bump",
   "prBodyTemplate": "# Motivation\n\nAutomated dependency update by Renovate bot.\n\n# Description\n\n{{{table}}}{{{notes}}}\n\n# Testing\n\nThis is an automated dependency update. No functional changes are expected.\n\n# Impact\n\n{{{changelogs}}}\n\n# Additional Information\n\n{{{warnings}}}{{{errors}}}{{{controls}}}This PR was generated automatically by [Renovate](https://docs.renovatebot.com/).",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "npm packages pinned inline in workflow `run:` steps, e.g. `npm i -g pnpm@10.18.0` or `npx changelogithub@15.0.4`. No native manager looks inside a run step, so without this those pins go stale silently. Matches any `<package>@<x.y.z>` pair, so a newly pinned tool is picked up without touching this file.",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/[^/]+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "(?<depName>@?[a-z0-9][\\w.-]*(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+[\\w.-]*)"
+      ],
+      "datasourceTemplate": "npm",
+      "versioningTemplate": "npm"
+    }
+  ],
   "packageRules": [
     {
       "groupName": "npm packages",
