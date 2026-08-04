@@ -109,6 +109,20 @@ Track fixing the first two upstream through
 [hyperium/hyper-util#300](https://github.com/hyperium/hyper-util/pull/300) and the ArmoniK.Api issue
 tracker.
 
+## Tuning the connection
+
+`connect_timeout` bounds how long establishing the connection itself may take, defaulting to 60
+seconds; `timeout` bounds each individual request, with no limit by default. `rate_limit`, in the
+form `100/1s`, caps requests over a duration; both the count and the duration have to be above
+zero.
+
+`tcp_keepalive`, `tcp_keepalive_interval` and `tcp_keepalive_retries` configure the TCP-level
+keepalive probes; `tcp_nagle_algorithm` re-enables Nagle's algorithm, off by default. The HTTP/2
+equivalents, `http2_keep_alive_interval` and `http2_keep_alive_timeout`, are PING frames instead of
+TCP probes, and `http2_keep_alive_while_idle` sends them even when nothing else is in flight.
+`http2_max_header_list_size` bounds how large the response headers may be, and `user_agent` sets
+the `User-Agent` header every request carries.
+
 ## Replaying a failed request
 
 The policy lives here; the loop runs in your code.
@@ -121,50 +135,11 @@ held for a replay: `max_buffer_per_call` for a streamed request, whose messages 
 `max_unary_size` for a single one, where nothing accumulates and what is bounded is the cost of
 sending it twice.
 
-Driving it is the `retry!` macro, which expands in your own function so that each attempt can borrow
-the client it is made on:
-
-```
-use armonik_transport::{GrpcStatus, RetryPolicy};
-use armonik_transport::reexports::tonic;
-
-# let runtime = armonik_transport::reexports::tokio::runtime::Builder::new_current_thread()
-#     .enable_time()
-#     .build()
-#     .unwrap();
-# runtime.block_on(async {
-// Waits of zero, so the example does not sleep. Left alone the policy waits about a second.
-let mut policy = RetryPolicy::default();
-policy.initial_backoff = std::time::Duration::ZERO;
-policy.max_backoff = std::time::Duration::ZERO;
-
-let mut attempts = 0;
-
-let outcome: Result<u32, tonic::Status> = armonik_transport::retry! {
-    policy = Some(policy),
-    code = GrpcStatus::grpc_code,
-    // Evaluated afresh each turn: sending consumes a request, so make a new one.
-    attempt = {
-        attempts += 1;
-        if attempts < 3 {
-            Err(tonic::Status::unavailable("not yet"))
-        } else {
-            Ok(attempts)
-        }
-    }
-};
-
-assert_eq!(outcome.unwrap(), 3);
-# });
-```
-
-You decide what may be replayed at all, because only you know it: whether the method is unary, whether
-anything has already reached your own caller, and whether the request can still be reproduced. A
-`policy` of `None` runs the attempt once. `GrpcStatus` is how the macro reads a gRPC code out of
-whatever error type your attempt produces; it is already implemented for `tonic::Status`.
-
-The wait is a plain `.await`, so dropping the future abandons it immediately. Wrap the whole expansion
-in a deadline rather than checking between attempts, or the deadline will not cut a backoff short.
+Driving it is the [`retry!`] macro, which expands in your own function so that each attempt can
+borrow the client it is made on; see its own documentation for a worked example. You decide what
+may be replayed at all, because only you know it: whether the method is unary, whether anything has
+already reached your own caller, and whether the request can still be reproduced. A `policy` of
+`None` runs the attempt once.
 
 Setting the retry options by themselves changes nothing: they take effect only where a caller
 invokes the `retry!` macro.

@@ -186,7 +186,7 @@ pub struct ClientConfigArgs {
     pub allow_unsafe_connection: bool,
     /// Override the endpoint name during SSL verification
     pub override_target_name: String,
-    /// Timeout for establishing a connection to the server, defaults to no timeout
+    /// Timeout for establishing a connection to the server, defaults to 60s
     pub connect_timeout: String,
     /// Timeout for each request, defaults to no timeout
     pub timeout: String,
@@ -226,7 +226,8 @@ pub struct ClientConfigArgs {
     /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
     /// [`Secret`].
     pub proxy_password: Secret,
-    /// Attempts in all for one request, first try included. Empty for the default, `1` never replays
+    /// Attempts in all for one request, first try included; empty for the default, `1` never
+    /// replays, `0` is rejected
     pub max_attempts: String,
     /// Wait before the second attempt (e.g. `1s`), empty for the default
     pub initial_backoff: String,
@@ -630,7 +631,20 @@ impl HttpConfig {
             user_agent,
             proxy,
             retry: RetryPolicy {
-                max_attempts: parse_or("max_attempts", &max_attempts, defaults.max_attempts)?,
+                max_attempts: {
+                    let max_attempts =
+                        parse_or("max_attempts", &max_attempts, defaults.max_attempts)?;
+                    if max_attempts == 0 {
+                        return IncompatibleOptionsSnafu {
+                            msg: String::from(
+                                "`max_attempts=0` behaves exactly like `1`: one attempt, no \
+                                 replay. Write `1` directly, or leave it empty for the default",
+                            ),
+                        }
+                        .fail();
+                    }
+                    max_attempts
+                },
                 initial_backoff: parse_duration_or(
                     "initial_backoff",
                     &initial_backoff,
@@ -661,27 +675,59 @@ impl HttpConfig {
     }
 }
 
+/// A name that matches no gRPC status code, boxed so it can be `InvalidRetryOption`'s source next
+/// to the parse errors the numeric and duration options raise.
+#[derive(Debug)]
+struct UnknownStatusCode(String);
+
+impl std::fmt::Display for UnknownStatusCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "`{}` is not a gRPC status code", self.0)
+    }
+}
+
+impl std::error::Error for UnknownStatusCode {}
+
+/// A duration that failed to parse, adding the guidance `humantime`'s own message does not give
+/// while keeping it as the `source`, so both still reach whoever reads the error chain.
+#[derive(Debug)]
+struct InvalidDurationOption(humantime::DurationError);
+
+impl std::fmt::Display for InvalidDurationOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}, expected something like `1s` or `500ms`", self.0)
+    }
+}
+
+impl std::error::Error for InvalidDurationOption {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.0)
+    }
+}
+
 /// Read a retry option that parses itself, or keep the default when it says nothing.
-fn parse_or<T>(option: &str, value: &str, default: T) -> Result<T, ConfigError>
+///
+/// `#[track_caller]`, so the location `InvalidRetryOption` carries is this function's own caller -
+/// one of the seven call sites in `RetryPolicy`'s construction - rather than this one line shared
+/// by all of them.
+#[track_caller]
+fn parse_or<T>(option: &'static str, value: &str, default: T) -> Result<T, ConfigError>
 where
     T: std::str::FromStr,
-    T::Err: std::fmt::Display,
+    T::Err: std::error::Error + Send + Sync + 'static,
 {
     if value.is_empty() {
         return Ok(default);
     }
-    value.parse().map_err(|error: T::Err| {
-        InvalidRetryOptionSnafu {
-            option: option.to_owned(),
-            value: value.to_owned(),
-            reason: error.to_string(),
-        }
-        .build()
-    })
+    value
+        .parse()
+        .map_err(|error: T::Err| Box::new(error) as Box<dyn std::error::Error + Send + Sync>)
+        .context(InvalidRetryOptionSnafu { option, value })
 }
 
+#[track_caller]
 fn parse_duration_or(
-    option: &str,
+    option: &'static str,
     value: &str,
     default: Duration,
 ) -> Result<Duration, ConfigError> {
@@ -692,19 +738,16 @@ fn parse_duration_or(
         .parse::<humantime::Duration>()
         .map(Into::into)
         .map_err(|error| {
-            InvalidRetryOptionSnafu {
-                option: option.to_owned(),
-                value: value.to_owned(),
-                reason: format!("{error}, expected something like `1s` or `500ms`"),
-            }
-            .build()
+            Box::new(InvalidDurationOption(error)) as Box<dyn std::error::Error + Send + Sync>
         })
+        .context(InvalidRetryOptionSnafu { option, value })
 }
 
 /// The status codes worth a replay, by name, as the other clients spell them.
 ///
 /// Written out because `tonic::Code` parses none: matching on its `Debug` output would tie the
 /// vocabulary to a formatting detail.
+#[track_caller]
 fn parse_codes(value: &str, default: Vec<tonic::Code>) -> Result<Vec<tonic::Code>, ConfigError> {
     if value.is_empty() {
         return Ok(default);
@@ -715,14 +758,15 @@ fn parse_codes(value: &str, default: Vec<tonic::Code>) -> Result<Vec<tonic::Code
         .map(str::trim)
         .filter(|name| !name.is_empty())
         .map(|name| {
-            parse_code(name).ok_or_else(|| {
-                InvalidRetryOptionSnafu {
-                    option: String::from("retryable_status_codes"),
-                    value: value.to_owned(),
-                    reason: format!("`{name}` is not a gRPC status code"),
-                }
-                .build()
-            })
+            parse_code(name)
+                .ok_or_else(|| {
+                    Box::new(UnknownStatusCode(name.to_owned()))
+                        as Box<dyn std::error::Error + Send + Sync>
+                })
+                .context(InvalidRetryOptionSnafu {
+                    option: "retryable_status_codes",
+                    value,
+                })
         })
         .collect()
 }
@@ -899,12 +943,12 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("`{option}={value}` is not valid: {reason} [{location}]"))]
+    #[snafu(display("`{option}={value}` is not valid: {source} [{location}]"))]
     #[non_exhaustive]
     InvalidRetryOption {
-        option: String,
+        source: Box<dyn std::error::Error + Send + Sync>,
+        option: &'static str,
         value: String,
-        reason: String,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -1667,6 +1711,46 @@ mod tests {
         .expect("configuration");
 
         assert_eq!(config.retry.bounds().count(), 0);
+    }
+
+    #[test]
+    fn zero_attempts_is_rejected_rather_than_silently_read_as_one() {
+        let error = HttpConfig::from_config_args(ClientConfigArgs {
+            max_attempts: String::from("0"),
+            ..args()
+        })
+        .expect_err("zero attempts is not a valid client")
+        .to_string();
+
+        assert!(error.contains("max_attempts=0"), "{error}");
+    }
+
+    #[test]
+    fn each_retry_option_names_its_own_location_not_a_shared_one() {
+        // `parse_or`/`parse_duration_or` are shared by every retry option; without `#[track_caller]`
+        // every failure would point at the same line inside them instead of its own call site.
+        let max_attempts_error = HttpConfig::from_config_args(ClientConfigArgs {
+            max_attempts: String::from("many"),
+            ..args()
+        })
+        .expect_err("not a number")
+        .to_string();
+        let initial_backoff_error = HttpConfig::from_config_args(ClientConfigArgs {
+            initial_backoff: String::from("a while"),
+            ..args()
+        })
+        .expect_err("not a duration")
+        .to_string();
+
+        assert_ne!(
+            max_attempts_error
+                .rsplit_once('[')
+                .map(|(_, location)| location),
+            initial_backoff_error
+                .rsplit_once('[')
+                .map(|(_, location)| location),
+            "{max_attempts_error} / {initial_backoff_error}"
+        );
     }
 
     #[test]
