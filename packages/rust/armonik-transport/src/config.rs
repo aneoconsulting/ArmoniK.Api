@@ -178,8 +178,12 @@ pub struct ClientConfigArgs {
     /// The password protecting `cert_p12`, empty for none. Meaningless, and rejected, without
     /// `cert_p12`.
     pub cert_p12_password: Secret,
-    /// Allow unsafe connections to the endpoint (without SSL), defaults to false
-    pub allow_unsafe_connection: bool,
+    /// Accept any server certificate instead of verifying it, empty for false.
+    ///
+    /// Spelled as any other ArmoniK client accepts it: `1`, `true`, `yes`, `enable`, `allow` or
+    /// `authorize`, and their negatives. A `serde` source may also give a real boolean.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "bool_or_text"))]
+    pub allow_unsafe_connection: String,
     /// Override the endpoint name during SSL verification
     pub override_target_name: String,
     /// Timeout for establishing a connection to the server, defaults to no timeout
@@ -194,14 +198,18 @@ pub struct ClientConfigArgs {
     pub tcp_keepalive_interval: String,
     /// Number of TCP keepalive retries, defaults to OS default
     pub tcp_keepalive_retries: String,
-    /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false
-    pub tcp_nagle_algorithm: bool,
+    /// Enable Nagle's algorithm (disable TCP_NODELAY), empty for false. See
+    /// [`Self::allow_unsafe_connection`] for the accepted spellings.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "bool_or_text"))]
+    pub tcp_nagle_algorithm: String,
     /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
     pub http2_keep_alive_interval: String,
     /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout
     pub http2_keep_alive_timeout: String,
-    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false
-    pub http2_keep_alive_while_idle: bool,
+    /// Send HTTP/2 keepalive PINGs even when idle, empty for false. See
+    /// [`Self::allow_unsafe_connection`] for the accepted spellings.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "bool_or_text"))]
+    pub http2_keep_alive_while_idle: String,
     /// HTTP/2 max header list size in bytes, defaults to no limit
     pub http2_max_header_list_size: String,
     /// User-Agent header value sent with each request
@@ -222,6 +230,65 @@ pub struct ClientConfigArgs {
     /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
     /// [`Secret`].
     pub proxy_password: Secret,
+}
+
+/// Reads a boolean option, on the vocabulary every ArmoniK client accepts.
+///
+/// The parsing lives here rather than in a `Deserialize` impl so that the error can name the option
+/// it came from: a `serde` source that flattens its fields buffers values before handing them over,
+/// and by then the field's own name is no longer available.
+fn parse_bool(option: &'static str, value: &str) -> Result<bool, ConfigError> {
+    match value {
+        "" | "0" | "false" | "no" | "disable" | "disallow" | "forbid" => Ok(false),
+        "1" | "true" | "yes" | "enable" | "allow" | "authorize" => Ok(true),
+        _ => InvalidBoolSnafu {
+            option,
+            value: value.to_owned(),
+        }
+        .fail(),
+    }
+}
+
+/// Keeps a boolean option as the text it was written as, whichever way it was written.
+///
+/// An environment variable spells it (`1`, `yes`); a JSON document may use a real boolean. Both are
+/// accepted and kept as text, so [`parse_bool`] can report an unusable spelling against the option's
+/// own name.
+#[cfg(feature = "serde")]
+fn bool_or_text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    struct Either;
+
+    impl serde::de::Visitor<'_> for Either {
+        type Value = String;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a boolean, or a word spelling one")
+        }
+
+        fn visit_bool<E>(self, value: bool) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<String, E> {
+            Ok(value.to_owned())
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<String, E> {
+            Ok(value)
+        }
+
+        /// `1` and `0` are spellings this option accepts, so a document that writes them unquoted
+        /// means the same thing as one that quotes them.
+        fn visit_u64<E>(self, value: u64) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+    }
+
+    deserializer.deserialize_any(Either)
 }
 
 /// Reads `path` and parses it as one PEM-encoded certificate.
@@ -585,7 +652,10 @@ impl HttpConfig {
 
         Ok(Self {
             endpoint,
-            allow_unsafe_connection,
+            allow_unsafe_connection: parse_bool(
+                "allow_unsafe_connection",
+                &allow_unsafe_connection,
+            )?,
             identity,
             cacert,
             override_target,
@@ -595,10 +665,13 @@ impl HttpConfig {
             tcp_keepalive,
             tcp_keepalive_interval,
             tcp_keepalive_retries,
-            tcp_nagle_algorithm,
+            tcp_nagle_algorithm: parse_bool("tcp_nagle_algorithm", &tcp_nagle_algorithm)?,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
-            http2_keep_alive_while_idle,
+            http2_keep_alive_while_idle: parse_bool(
+                "http2_keep_alive_while_idle",
+                &http2_keep_alive_while_idle,
+            )?,
             http2_max_header_list_size,
             user_agent,
             proxy,
@@ -741,6 +814,16 @@ pub enum ConfigError {
     #[non_exhaustive]
     InvalidRateLimitCount {
         source: std::num::ParseIntError,
+        value: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "`{option}={value}` is not a valid boolean (e.g. `true`, `1`, `yes`, or `false`, `0`, `no`) [{location}]"
+    ))]
+    #[non_exhaustive]
+    InvalidBool {
+        option: &'static str,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -1219,6 +1302,80 @@ mod tests {
 
     // --- the serde feature ---
 
+    /// The rendered message is what a user actually reads, so assert it whole rather than by
+    /// fragments: a stray space or a missing spelling only shows up here.
+    #[test]
+    fn an_unusable_boolean_names_the_option_and_the_vocabulary() {
+        let rendered = HttpConfig::from_config_args(ClientConfigArgs {
+            allow_unsafe_connection: String::from("perhaps"),
+            ..args()
+        })
+        .expect_err("`perhaps` spells no boolean")
+        .to_string();
+
+        let (message, location) = rendered
+            .rsplit_once(" [")
+            .expect("every error in this crate carries its location");
+        // `concat!` rather than a `\`-continued literal: that one keeps the source indentation in
+        // the string, which is exactly the defect this test exists to catch.
+        assert_eq!(
+            message,
+            concat!(
+                "`allow_unsafe_connection=perhaps` is not a valid boolean ",
+                "(e.g. `true`, `1`, `yes`, or `false`, `0`, `no`)"
+            )
+        );
+        assert!(location.ends_with(']'), "{rendered}");
+    }
+
+    /// A document may spell a boolean option the way its own format does, rather than the way an
+    /// environment variable has to.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_boolean_option_accepts_the_spelling_its_source_writes_naturally() {
+        for (written, expected) in [
+            (r#"{"AllowUnsafeConnection":true}"#, true),
+            (r#"{"AllowUnsafeConnection":false}"#, false),
+            (r#"{"AllowUnsafeConnection":"yes"}"#, true),
+            (r#"{"AllowUnsafeConnection":1}"#, true),
+            (r#"{"AllowUnsafeConnection":0}"#, false),
+        ] {
+            let mut args: ClientConfigArgs =
+                serde_json::from_str(written).unwrap_or_else(|error| panic!("{written}: {error}"));
+            args.endpoint = String::from("http://localhost:5001");
+
+            let config = HttpConfig::from_config_args(args)
+                .unwrap_or_else(|error| panic!("{written}: {error}"));
+
+            assert_eq!(
+                config.allow_unsafe_connection, expected,
+                "{written} should resolve to {expected}"
+            );
+        }
+    }
+
+    /// What this crate writes, this crate reads: the options are textual, so a boolean comes back as
+    /// the word it was resolved from rather than as the source's own boolean.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_boolean_option_survives_being_written_and_read_again() {
+        let written = serde_json::to_string(&ClientConfigArgs {
+            allow_unsafe_connection: String::from("yes"),
+            ..args()
+        })
+        .expect("serialise");
+
+        assert!(
+            written.contains(r#""AllowUnsafeConnection":"yes""#),
+            "kept as written: {written}"
+        );
+
+        let read: ClientConfigArgs = serde_json::from_str(&written).expect("read back");
+        let config = HttpConfig::from_config_args(read).expect("resolve");
+
+        assert!(config.allow_unsafe_connection);
+    }
+
     #[cfg(feature = "serde")]
     #[test]
     fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
@@ -1231,7 +1388,10 @@ mod tests {
         assert_eq!(deserialised.endpoint, "", "an absent field defaults");
         assert_eq!(deserialised.timeout, "30s");
         assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
-        assert!(!deserialised.allow_unsafe_connection);
+        assert_eq!(
+            deserialised.allow_unsafe_connection, "",
+            "an absent boolean defaults to empty, which reads as false"
+        );
 
         let round_tripped: ClientConfigArgs =
             serde_json::from_str(&serde_json::to_string(&deserialised).expect("serialise"))

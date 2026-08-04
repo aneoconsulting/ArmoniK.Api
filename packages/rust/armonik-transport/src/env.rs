@@ -104,44 +104,9 @@ impl<'de> serde::de::MapAccess<'de> for FieldMap<'_> {
             // `next_key_seed` already checked the variable is set; it cannot have vanished since.
             None => unreachable!("checked present in next_key_seed"),
         })?;
-        seed.deserialize(EnvValue { name, value })
-    }
-}
-
-/// One environment variable's value, deserialised into whatever type its field declares.
-///
-/// Not `String`'s own `IntoDeserializer`: that one expects `true`/`false` verbatim for a `bool`,
-/// where an environment variable accepts the wider vocabulary every other ArmoniK client does, and
-/// names itself when it fails to parse, the way every other option in this crate already does.
-struct EnvValue {
-    name: String,
-    value: String,
-}
-
-impl<'de> serde::Deserializer<'de> for EnvValue {
-    type Error = EnvFieldError;
-
-    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        visitor.visit_string(self.value)
-    }
-
-    fn deserialize_bool<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Self::Error> {
-        match self.value.as_str() {
-            "" | "0" | "false" | "no" | "disable" | "disallow" | "forbid" => {
-                visitor.visit_bool(false)
-            }
-            "1" | "true" | "yes" | "enable" | "allow" | "authorize" => visitor.visit_bool(true),
-            _ => Err(Self::Error::custom(format!(
-                "`{}={}` is not a valid boolean",
-                self.name, self.value
-            ))),
-        }
-    }
-
-    serde::forward_to_deserialize_any! {
-        i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
+        // `String`'s own `IntoDeserializer`: every option is textual, so there is nothing this
+        // crate needs to interpret on the way in.
+        seed.deserialize(value.into_deserializer())
     }
 }
 
@@ -182,7 +147,7 @@ mod tests {
     use std::ffi::OsString;
 
     use super::*;
-    use crate::HttpConfig;
+    use crate::{ConfigError, HttpConfig};
 
     /// Puts back what the variable held, rather than removing it: these tests run in a process whose
     /// environment may already carry a variable another test needs. On drop, so that a failing test
@@ -250,44 +215,50 @@ mod tests {
     #[serial_test::serial]
     fn every_accepted_boolean_spelling_is_accepted() {
         // The vocabulary is wider than `true`/`false` and there is no other record of it: the list is
-        // the specification, so it is written out here rather than sampled.
-        for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
+        // the specification, so it is written out here rather than sampled. Read through to the
+        // resolved configuration, since that is the layer that interprets the spelling.
+        fn resolve(spelling: &str) -> Result<HttpConfig, ConfigError> {
             let args = with_var(
                 "ARMONIK_TEST_BOOL__AllowUnsafeConnection",
                 Some(spelling),
-                || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
+                || {
+                    with_var(
+                        "ARMONIK_TEST_BOOL__Endpoint",
+                        Some("http://localhost:5001"),
+                        || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
+                    )
+                },
             )
-            .expect(spelling);
+            .expect("a spelling is text, whatever it spells");
+            HttpConfig::from_config_args(args)
+        }
+
+        for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
+            let config = resolve(spelling).expect(spelling);
             assert!(
-                args.allow_unsafe_connection,
+                config.allow_unsafe_connection,
                 "`{spelling}` should read as true"
             );
         }
 
         for spelling in ["0", "false", "no", "disable", "disallow", "forbid", ""] {
-            let args = with_var(
-                "ARMONIK_TEST_BOOL__AllowUnsafeConnection",
-                Some(spelling),
-                || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
-            )
-            .expect(spelling);
+            let config = resolve(spelling).expect(spelling);
             assert!(
-                !args.allow_unsafe_connection,
+                !config.allow_unsafe_connection,
                 "`{spelling}` should read as false"
             );
         }
 
-        let unrecognised = with_var(
-            "ARMONIK_TEST_BOOL__AllowUnsafeConnection",
-            Some("perhaps"),
-            || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
-        );
-        let error = unrecognised.expect_err("`perhaps` is not a boolean");
-        let rendered = error.to_string();
+        // An unusable spelling is the configuration's to reject, naming the option: reading it is
+        // just reading text, and a flattened `serde` source no longer knows which variable it came
+        // from by the time a value is interpreted.
+        let rendered = resolve("perhaps")
+            .expect_err("`perhaps` is not a boolean")
+            .to_string();
         assert!(rendered.contains("perhaps"), "{rendered}");
         assert!(
-            rendered.contains("ARMONIK_TEST_BOOL__AllowUnsafeConnection"),
-            "the message should name the variable: {rendered}"
+            rendered.contains("allow_unsafe_connection"),
+            "the message should name the option: {rendered}"
         );
     }
 

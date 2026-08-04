@@ -174,7 +174,7 @@ pub fn config(
 ) -> armonik_transport::HttpConfig {
     let mut args = armonik_transport::ClientConfigArgs::default();
     args.endpoint = endpoint.to_owned();
-    args.allow_unsafe_connection = true;
+    args.allow_unsafe_connection = String::from("true");
     set(&mut args);
     armonik_transport::HttpConfig::from_config_args(args)
         .expect("the configuration should be valid")
