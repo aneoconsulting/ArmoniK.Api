@@ -1,22 +1,25 @@
 //! A configuration value that must not be printed.
 
 use std::fmt;
+use std::hash::{Hash, Hasher};
+
+use secrecy::{ExposeSecret as _, SecretString};
 
 /// What a secret renders as instead of its value.
 const REDACTED: &str = "[redacted]";
 
-/// A string that redacts itself when printed or serialised.
+/// A string that redacts itself when printed or serialised, and is zeroized on drop.
 ///
 /// The value is reachable only through [`Secret::expose_secret`], named so that reading it is a visible act.
 /// There is deliberately no `Deref` or `AsRef`, which would let it out silently; `rustls` guards a
 /// private key the same way, with `secret_der` as the only way in.
-#[derive(Clone, Default, PartialEq, Eq, Hash)]
-pub struct Secret(String);
+#[derive(Clone, Default)]
+pub struct Secret(SecretString);
 
 impl Secret {
     /// Hold `value`, to be redacted wherever it is written.
     pub fn new(value: impl Into<String>) -> Self {
-        Self(value.into())
+        Self(value.into().into())
     }
 
     /// The value itself, for the code that has to use it.
@@ -24,22 +27,37 @@ impl Secret {
     /// Named in full so that a call site reads as the deliberate act it is, following the convention
     /// the `secrecy` crate set.
     pub fn expose_secret(&self) -> &str {
-        &self.0
+        self.0.expose_secret()
     }
 
     /// Whether no secret was given, which a caller may ask without reading one.
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.expose_secret().is_empty()
     }
 }
 
 impl fmt::Debug for Secret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.0.is_empty() {
+        if self.is_empty() {
             f.write_str("\"\"")
         } else {
             f.write_str(REDACTED)
         }
+    }
+}
+
+impl PartialEq for Secret {
+    /// Compares the exposed values, since `SecretString` itself offers no `PartialEq`.
+    fn eq(&self, other: &Self) -> bool {
+        self.expose_secret() == other.expose_secret()
+    }
+}
+
+impl Eq for Secret {}
+
+impl Hash for Secret {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.expose_secret().hash(state)
     }
 }
 
@@ -59,7 +77,7 @@ impl From<&str> for Secret {
 impl serde::Serialize for Secret {
     /// Redacts, so that a configuration dumped for diagnosis carries no credential.
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if self.0.is_empty() {
+        if self.is_empty() {
             serializer.serialize_str("")
         } else {
             serializer.serialize_str(REDACTED)
