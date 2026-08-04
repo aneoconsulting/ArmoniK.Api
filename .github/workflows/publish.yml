@@ -133,13 +133,18 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
+# Deny everything by default and let each job grant itself the minimum. This has
+# to stay `{}` rather than be removed: the repository's default workflow token
+# permission is `write`, so a workflow with no `permissions` key at all hands a
+# write token to every job that does not override it.
+permissions: {}
 
 jobs:
   context:
     name: Context
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       channel: ${{ steps.resolve.outputs.channel }}
@@ -162,7 +167,7 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - run: npm i -g pnpm@10.18.0 @antfu/ni
+      - run: npm i -g --ignore-scripts pnpm@10.18.0 @antfu/ni@30.3.0
 
       # No `cache: pnpm` here on purpose. Only the tag path installs anything
       # (`nci`, below), so on every other channel the pnpm store never gets
@@ -253,7 +258,7 @@ jobs:
             version=$GITHUB_REF_NAME
             selected=$RELEASE_PACKAGES
           else
-            version=$(npx @aneoconsultingfr/generate-next-version@latest --edge)
+            version=$(npx --ignore-scripts @aneoconsultingfr/generate-next-version@0.0.5 --edge)
             if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
               channel=pr
               # No npm package is on PR_PACKAGES today, but the dist-tag has to
@@ -382,6 +387,8 @@ jobs:
     needs: [context]
     if: needs.context.outputs.csharp == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     # 10 minutes is the pre-release cap, kept for the fast channels. A release
     # keeps the default: nuget.org refuses to re-push a version, so cancelling
     # one leg after the other four have pushed leaves a half-published release
@@ -432,6 +439,8 @@ jobs:
     needs: [context]
     if: needs.context.outputs.python == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: packages/python
@@ -470,7 +479,7 @@ jobs:
       # release lands on both TestPyPI and PyPI) and it is kept on purpose.
       - name: Publish to PyPITest
         if: needs.context.outputs.channel != 'prerelease' && needs.context.outputs.dry_run != 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           password: ${{ secrets.DEV_PYPI_API_TOKEN }}
           print-hash: true
@@ -479,7 +488,7 @@ jobs:
 
       - name: Publish to PyPI
         if: needs.context.outputs.channel == 'release' && needs.context.outputs.dry_run != 'true'
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           print-hash: true
@@ -490,6 +499,8 @@ jobs:
     needs: [context]
     if: needs.context.outputs.cpp == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -541,6 +552,8 @@ jobs:
     needs: [context]
     if: needs.context.outputs.java == 'true' && needs.context.outputs.channel == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -652,7 +665,7 @@ jobs:
       # folder, whose package.json carries no `packageManager` field, so pnpm
       # cannot pick the version up from the repository. pnpm 11 is avoided on
       # purpose, it 404s on OIDC publishes (pnpm/pnpm#11513).
-      - run: npm i -g pnpm@10.18.0 @antfu/ni
+      - run: npm i -g --ignore-scripts pnpm@10.18.0 @antfu/ni@30.3.0
 
       - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4
         with:
@@ -705,6 +718,6 @@ jobs:
         with:
           node-version: 24
 
-      - run: npx changelogithub
+      - run: npx --ignore-scripts changelogithub@15.0.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
