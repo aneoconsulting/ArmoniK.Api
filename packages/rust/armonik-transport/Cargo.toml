@@ -12,7 +12,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [features]
 serde = ["dep:serde"]
-# Environment reading deserialises `ClientConfigArgs`, whose field names are fixed at compile time
+# Environment reading deserialises `HttpConfigArgs`, whose field names are fixed at compile time
 # (`#[serde(rename_all = "PascalCase")]`), so it needs the derive `serde` turns on, plus `figment`'s
 # own `env` feature for its `Env` provider.
 env = ["serde", "dep:figment"]
@@ -21,7 +21,7 @@ env = ["serde", "dep:figment"]
 # `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
 # `http`/`tokio_stream` re-exports a dependent reaches through this crate.
 tonic = { workspace = true, features = ["channel", "codegen"] }
-# `ClientConfigArgs::from_env`'s reader: its `Env` provider supports `#[serde(flatten)]`, and reads a
+# `HttpConfigArgs::from_env`'s reader: its `Env` provider supports `#[serde(flatten)]`, and reads a
 # `PascalCase` variable correctly (unlike `config`'s `Environment`, which lower-cases a key before any
 # case conversion runs, empirically confirmed unusable here).
 figment = { workspace = true, optional = true, features = ["env"] }
@@ -64,7 +64,7 @@ tower-service.workspace = true
 # The boolean options are read straight from the environment, so testing which spellings they accept
 # means setting variables: process-global state, hence one test at a time.
 serial_test.workspace = true
-# Only to round-trip `ClientConfigArgs` in the test that pins the `serde` feature.
+# Only to round-trip `HttpConfigArgs` in the test that pins the `serde` feature.
 serde_json.workspace = true
 # A real file for the certificate-loading tests to read: a PEM, or a garbage PKCS#12 bundle.
 tempfile.workspace = true

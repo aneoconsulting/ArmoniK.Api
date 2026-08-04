@@ -5,7 +5,7 @@
 //! variable by variable.
 
 #[cfg(test)]
-use super::ClientConfigArgs;
+use super::HttpConfigArgs;
 use super::{ConfigError, ConnectionError, EnvFieldError};
 
 /// The prefix every `GrpcClient` option is read under.
@@ -90,7 +90,7 @@ mod tests {
             Some("http://localhost:5001"),
             || {
                 with_var("GrpcClient__UserAgent", Some("armonik-test/1"), || {
-                    ClientConfigArgs::from_env(ARMONIK_PREFIX)
+                    HttpConfigArgs::from_env(ARMONIK_PREFIX)
                 })
             },
         )

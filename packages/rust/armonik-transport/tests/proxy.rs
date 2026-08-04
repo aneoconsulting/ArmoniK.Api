@@ -127,7 +127,7 @@ async fn read_head(stream: &mut TcpStream) -> std::io::Result<String> {
 
 /// A client reaching `endpoint` through `proxy`, spelled as an environment would.
 ///
-/// Through `ClientConfigArgs` on purpose, so the parsing is under test along with the tunnelling.
+/// Through `HttpConfigArgs` on purpose, so the parsing is under test along with the tunnelling.
 fn through_proxy(
     endpoint: &str,
     proxy: SocketAddr,
@@ -336,7 +336,7 @@ async fn system_mode_takes_the_proxy_from_the_environment() {
 
     // The variable has to still be set when `connect` runs, not merely when the configuration is
     // built: `system` resolves the environment as the connection is made. Every other option is read
-    // once, in `ClientConfigArgs::from_env`.
+    // once, in `HttpConfigArgs::from_env`.
     std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system")

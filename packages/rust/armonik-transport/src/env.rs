@@ -1,11 +1,11 @@
-//! Building a [`ClientConfigArgs`] from the environment.
+//! Building a [`HttpConfigArgs`] from the environment.
 //!
 //! Reading the environment at all is still integration work, not transport, so nothing here decides
-//! *that* a caller should do it: [`ClientConfigArgs::from_env`] is offered because a variable per
+//! *that* a caller should do it: [`HttpConfigArgs::from_env`] is offered because a variable per
 //! option is by far the most common way a deployment supplies one, not because this crate goes looking
 //! for one on its own. `connect` never calls it.
 //!
-//! The prefix is the only thing a caller chooses: `ClientConfigArgs`'s own field names, spelled in
+//! The prefix is the only thing a caller chooses: `HttpConfigArgs`'s own field names, spelled in
 //! `PascalCase` (`#[serde(rename_all = "PascalCase")]`, ArmoniK's own convention, the same for the C#
 //! and C++ clients), decide the rest. [`figment::providers::Env`] is the reader: it supports
 //! `#[serde(flatten)]`, which a `Deserializer` implementing only `deserialize_struct` cannot.
@@ -25,9 +25,9 @@ use figment::providers::Env;
 use figment::Figment;
 use snafu::{ResultExt, Snafu};
 
-use crate::ClientConfigArgs;
+use crate::HttpConfigArgs;
 
-impl ClientConfigArgs {
+impl HttpConfigArgs {
     /// Read every option from the environment, under a prefix of the caller's choosing.
     pub fn from_env(prefix: &str) -> Result<Self, EnvFieldError> {
         Figment::new()
@@ -37,7 +37,7 @@ impl ClientConfigArgs {
     }
 }
 
-/// Reading [`ClientConfigArgs`] from the environment failed.
+/// Reading [`HttpConfigArgs`] from the environment failed.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum EnvFieldError {
@@ -98,7 +98,7 @@ mod tests {
             Some("http://localhost:5001"),
             || {
                 with_var("ARMONIK_TEST__UserAgent", Some("armonik-test/1"), || {
-                    ClientConfigArgs::from_env("ARMONIK_TEST__")
+                    HttpConfigArgs::from_env("ARMONIK_TEST__")
                 })
             },
         )
@@ -114,7 +114,7 @@ mod tests {
         // Matches every other field, and what this crate did before it grew its own environment
         // reading: a missing option is this crate's problem to reject with a named error
         // (`ConfigError::Uri` for an empty endpoint), not this module's to refuse up front.
-        let args = ClientConfigArgs::from_env("ARMONIK_TEST_ABSENT__")
+        let args = HttpConfigArgs::from_env("ARMONIK_TEST_ABSENT__")
             .expect("an absent variable must not fail the read");
 
         assert_eq!(args.endpoint, "");
@@ -134,7 +134,7 @@ mod tests {
                     with_var(
                         "ARMONIK_TEST_BOOL__Endpoint",
                         Some("http://localhost:5001"),
-                        || ClientConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
+                        || HttpConfigArgs::from_env("ARMONIK_TEST_BOOL__"),
                     )
                 },
             )
@@ -183,7 +183,7 @@ mod tests {
                 with_var(
                     "ARMONIK_TEST_CERT__CertPem",
                     Some("no/such/cert.pem"),
-                    || ClientConfigArgs::from_env("ARMONIK_TEST_CERT__"),
+                    || HttpConfigArgs::from_env("ARMONIK_TEST_CERT__"),
                 )
             },
         )
@@ -195,7 +195,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn an_unset_certificate_variable_is_no_certificate_rather_than_an_error() {
-        let args = ClientConfigArgs::from_env("ARMONIK_TEST_NOCERT__")
+        let args = HttpConfigArgs::from_env("ARMONIK_TEST_NOCERT__")
             .expect("an unset variable names no path");
 
         assert_eq!(args.cert_pem, "");
@@ -217,7 +217,7 @@ mod tests {
                         with_var(
                             "ARMONIK_TEST_NUMERIC__Http2MaxHeaderListSize",
                             Some("16384"),
-                            || ClientConfigArgs::from_env("ARMONIK_TEST_NUMERIC__"),
+                            || HttpConfigArgs::from_env("ARMONIK_TEST_NUMERIC__"),
                         )
                     },
                 )
@@ -241,7 +241,7 @@ mod tests {
                 with_var(
                     "ARMONIK_TEST_NUMERIC_SECRET__ProxyPassword",
                     Some("1234"),
-                    || ClientConfigArgs::from_env("ARMONIK_TEST_NUMERIC_SECRET__"),
+                    || HttpConfigArgs::from_env("ARMONIK_TEST_NUMERIC_SECRET__"),
                 )
             },
         )
@@ -263,7 +263,7 @@ mod tests {
                 with_var(
                     "ARMONIK_TEST_BRACKETS__OverrideTargetName",
                     Some("[::1]"),
-                    || ClientConfigArgs::from_env("ARMONIK_TEST_BRACKETS__"),
+                    || HttpConfigArgs::from_env("ARMONIK_TEST_BRACKETS__"),
                 )
             },
         )
@@ -286,7 +286,7 @@ mod tests {
                 with_var(
                     "ARMONIK_TEST_QUOTED_BRACKETS__OverrideTargetName",
                     Some("\"[::1]\""),
-                    || ClientConfigArgs::from_env("ARMONIK_TEST_QUOTED_BRACKETS__"),
+                    || HttpConfigArgs::from_env("ARMONIK_TEST_QUOTED_BRACKETS__"),
                 )
             },
         )
@@ -302,12 +302,12 @@ mod tests {
         // empty path: a plain `String` has only one absent representation, the empty string, so
         // there is no separate empty-but-present case to collapse into by mistake.
         let args = with_var("ARMONIK_TEST_EMPTYCERT__CertPem", Some(""), || {
-            ClientConfigArgs::from_env("ARMONIK_TEST_EMPTYCERT__")
+            HttpConfigArgs::from_env("ARMONIK_TEST_EMPTYCERT__")
         })
         .expect("an empty variable must not fail the read");
 
         assert_eq!(args.cert_pem, "");
-        let config = HttpConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("http://localhost:5001"),
             ..args
         })
@@ -323,7 +323,7 @@ mod tests {
         let args = with_var(
             "armonik_test_case__Endpoint",
             Some("http://localhost:5001"),
-            || ClientConfigArgs::from_env("ARMONIK_TEST_CASE__"),
+            || HttpConfigArgs::from_env("ARMONIK_TEST_CASE__"),
         )
         .expect("the prefix's own case must not matter");
 
@@ -342,7 +342,7 @@ mod tests {
         let args = with_var(
             "ARMONIK_TEST_CASE_FIELD__endpoint",
             Some("http://localhost:5001"),
-            || ClientConfigArgs::from_env("ARMONIK_TEST_CASE_FIELD__"),
+            || HttpConfigArgs::from_env("ARMONIK_TEST_CASE_FIELD__"),
         )
         .expect("an unrecognised suffix must not fail the read");
 
@@ -353,7 +353,7 @@ mod tests {
     #[serial_test::serial]
     fn the_empty_prefix_still_reads_pascal_case() {
         let args = with_var("Endpoint", Some("http://localhost:5001"), || {
-            ClientConfigArgs::from_env("")
+            HttpConfigArgs::from_env("")
         })
         .expect("reading the environment must not fail");
 
