@@ -225,7 +225,7 @@ mod tests {
         )
         .expect("a value that parses as a number must still be read");
 
-        assert_eq!(args.tcp_keepalive_retries, "3");
+        assert_eq!(args.tcp.keepalive_retries, "3");
         assert_eq!(args.http2_max_header_list_size, "16384");
     }
 

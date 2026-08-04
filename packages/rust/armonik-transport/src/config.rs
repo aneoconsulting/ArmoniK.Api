@@ -5,6 +5,9 @@ use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePk
 use snafu::{OptionExt, ResultExt, Snafu};
 
 use crate::secret::Secret;
+#[cfg(feature = "serde")]
+use crate::tcp::prefix_tcp;
+use crate::tcp::{TcpConfig, TcpConfigArgs};
 
 /// Where to find the HTTP proxy used to reach the endpoint.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -202,19 +205,9 @@ pub struct HttpConfigArgs {
     /// Rate limit for requests, defaults to no rate limit
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub rate_limit: String,
-    /// TCP keepalive duration (e.g. `30s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_keepalive: String,
-    /// Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_keepalive_interval: String,
-    /// Number of TCP keepalive retries, defaults to OS default
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_keepalive_retries: String,
-    /// Enable Nagle's algorithm (disable TCP_NODELAY), empty for false. See
-    /// [`Self::allow_unsafe_connection`] for the accepted spellings.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_nagle_algorithm: String,
+    /// TCP-level socket options.
+    #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_tcp"))]
+    pub tcp: TcpConfigArgs,
     /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_keep_alive_interval: String,
@@ -257,7 +250,7 @@ pub struct HttpConfigArgs {
 /// The parsing lives here rather than in a `Deserialize` impl so that the error can name the option
 /// it came from: a `serde` source that flattens its fields buffers values before handing them over,
 /// and by then the field's own name is no longer available.
-fn parse_bool(option: &'static str, value: &str) -> Result<bool, ConfigError> {
+pub(crate) fn parse_bool(option: &'static str, value: &str) -> Result<bool, ConfigError> {
     match value {
         "" | "0" | "false" | "no" | "disable" | "disallow" | "forbid" => Ok(false),
         "1" | "true" | "yes" | "enable" | "allow" | "authorize" => Ok(true),
@@ -279,7 +272,7 @@ fn parse_bool(option: &'static str, value: &str) -> Result<bool, ConfigError> {
 /// option cannot be, so that shape is refused with a message naming the escape hatch: a literal pair
 /// of double quotes around the value (`"[::1]"`) forces it to be read as a string instead.
 #[cfg(feature = "serde")]
-fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+pub(crate) fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
     struct AnyScalar;
 
     impl<'de> serde::de::Visitor<'de> for AnyScalar {
@@ -333,7 +326,9 @@ fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::
 
 /// [`text`], for the two fields whose value is a [`Secret`] rather than a plain `String`.
 #[cfg(feature = "serde")]
-fn secret_text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Secret, D::Error> {
+pub(crate) fn secret_text<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Secret, D::Error> {
     text(deserializer).and_then(Secret::from_decoded_text)
 }
 
@@ -398,10 +393,10 @@ impl HttpConfig {
             args.connect_timeout,
             args.timeout,
             args.rate_limit,
-            args.tcp_keepalive,
-            args.tcp_keepalive_interval,
-            args.tcp_keepalive_retries,
-            args.tcp_nagle_algorithm,
+            args.tcp.keepalive,
+            args.tcp.keepalive_interval,
+            args.tcp.keepalive_retries,
+            args.tcp.nagle_algorithm,
             args.http2_keep_alive_interval,
             args.http2_keep_alive_timeout,
             args.http2_keep_alive_while_idle,
@@ -426,10 +421,7 @@ impl HttpConfig {
             connect_timeout,
             timeout,
             rate_limit,
-            tcp_keepalive,
-            tcp_keepalive_interval,
-            tcp_keepalive_retries,
-            tcp_nagle_algorithm,
+            tcp,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
             http2_keep_alive_while_idle,
@@ -586,46 +578,12 @@ impl HttpConfig {
             Some((limit, duration))
         };
 
-        let tcp_keepalive = if tcp_keepalive.is_empty() {
-            None
-        } else {
-            Some(
-                tcp_keepalive
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "tcp_keepalive",
-                        value: tcp_keepalive,
-                    })?
-                    .into(),
-            )
-        };
-
-        let tcp_keepalive_interval = if tcp_keepalive_interval.is_empty() {
-            None
-        } else {
-            Some(
-                tcp_keepalive_interval
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "tcp_keepalive_interval",
-                        value: tcp_keepalive_interval,
-                    })?
-                    .into(),
-            )
-        };
-
-        let tcp_keepalive_retries = if tcp_keepalive_retries.is_empty() {
-            None
-        } else {
-            Some(
-                tcp_keepalive_retries
-                    .parse::<u32>()
-                    .context(InvalidIntegerSnafu {
-                        option: "tcp_keepalive_retries",
-                        value: tcp_keepalive_retries,
-                    })?,
-            )
-        };
+        let TcpConfig {
+            keepalive: tcp_keepalive,
+            keepalive_interval: tcp_keepalive_interval,
+            keepalive_retries: tcp_keepalive_retries,
+            nagle_algorithm: tcp_nagle_algorithm,
+        } = tcp.resolve()?;
 
         let http2_keep_alive_interval = if http2_keep_alive_interval.is_empty() {
             None
@@ -711,7 +669,7 @@ impl HttpConfig {
             tcp_keepalive,
             tcp_keepalive_interval,
             tcp_keepalive_retries,
-            tcp_nagle_algorithm: parse_bool("tcp_nagle_algorithm", &tcp_nagle_algorithm)?,
+            tcp_nagle_algorithm,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
             http2_keep_alive_while_idle: parse_bool(
@@ -781,6 +739,7 @@ impl TryFrom<&HttpConfig> for tonic::transport::Endpoint {
 }
 
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum ConfigError {
     #[snafu(display("Invalid TLS configuration [{location}]"))]
@@ -946,8 +905,11 @@ mod tests {
     fn durations_are_read_in_the_units_they_are_written_in() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             connect_timeout: String::from("500ms"),
-            tcp_keepalive: String::from("30s"),
-            tcp_keepalive_interval: String::from("2m"),
+            tcp: TcpConfigArgs {
+                keepalive: String::from("30s"),
+                keepalive_interval: String::from("2m"),
+                ..Default::default()
+            },
             http2_keep_alive_interval: String::from("1h"),
             ..args()
         })
@@ -968,7 +930,10 @@ mod tests {
     #[test]
     fn a_duration_that_cannot_be_parsed_names_the_value() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tcp_keepalive: String::from("soon"),
+            tcp: TcpConfigArgs {
+                keepalive: String::from("soon"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("`soon` is not a duration");
@@ -983,7 +948,10 @@ mod tests {
     #[test]
     fn integers_are_read_and_a_bad_one_names_the_value() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            tcp_keepalive_retries: String::from("3"),
+            tcp: TcpConfigArgs {
+                keepalive_retries: String::from("3"),
+                ..Default::default()
+            },
             http2_max_header_list_size: String::from("16384"),
             ..args()
         })
@@ -992,7 +960,10 @@ mod tests {
         assert_eq!(config.http2_max_header_list_size, Some(16384));
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tcp_keepalive_retries: String::from("many"),
+            tcp: TcpConfigArgs {
+                keepalive_retries: String::from("many"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("`many` is not an integer");
@@ -1420,6 +1391,32 @@ mod tests {
         let config = HttpConfig::from_config_args(read).expect("resolve");
 
         assert!(config.allow_unsafe_connection);
+    }
+
+    /// The point of grouping the `Tcp*` fields into their own thematic unit, with `with_prefix!`
+    /// rather than a plain nested object: not one JSON key changes, so an existing document, or an
+    /// existing environment variable, still reads.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_thematic_units_own_fields_still_serialise_as_flat_top_level_keys() {
+        let args = HttpConfigArgs {
+            tcp: TcpConfigArgs {
+                keepalive: String::from("30s"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let written = serde_json::to_string(&args).expect("serialise");
+        assert!(
+            written.contains(r#""TcpKeepalive":"30s""#),
+            "flat, not nested under \"Tcp\": {written}"
+        );
+        assert!(!written.contains(r#""Tcp":"#), "{written}");
+
+        let read: HttpConfigArgs =
+            serde_json::from_str(r#"{"TcpKeepalive":"5s"}"#).expect("read the flat key back");
+        assert_eq!(read.tcp.keepalive, "5s");
     }
 
     #[cfg(feature = "serde")]
