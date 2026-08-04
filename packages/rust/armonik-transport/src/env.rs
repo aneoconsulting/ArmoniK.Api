@@ -7,139 +7,48 @@
 //!
 //! The prefix is the only thing a caller chooses: `ClientConfigArgs`'s own field names, spelled in
 //! `PascalCase` (`#[serde(rename_all = "PascalCase")]`, ArmoniK's own convention, the same for the C#
-//! and C++ clients), decide the rest. [`EnvSource`] is a `serde::Deserializer` that reads
-//! `{prefix}{Field}` for each field `serde_derive` asks it for, so the field walk itself is `serde`'s,
-//! not a parallel list kept here: adding a field to `ClientConfigArgs` is enough for it to gain
-//! environment support.
+//! and C++ clients), decide the rest. [`figment::providers::Env`] is the reader: it supports
+//! `#[serde(flatten)]`, which a `Deserializer` implementing only `deserialize_struct` cannot.
+//!
+//! The prefix a caller passes is matched case-insensitively (an incidental property of the `Uncased`
+//! comparison this reader's own prefix-stripping happens to use), but each field name after it still
+//! has to be spelled `PascalCase` exactly: `serde_derive`'s generated field matcher is a literal
+//! string comparison, and nothing here folds case before it runs. This comparison is uniform across
+//! platforms, unlike a lookup keyed by the host's own environment-variable case rules.
+//!
+//! A value that is not valid Unicode is read anyway, replacing what does not decode with the Unicode
+//! replacement character, rather than reported as [`EnvFieldError`]: this reader enumerates every
+//! variable through [`std::env::vars_os`] and decodes each one leniently, rather than looking up one
+//! variable at a time and treating a decoding failure as this variable's own.
 
-use std::ffi::OsString;
-
-use serde::de::{Error as _, IntoDeserializer, Visitor};
-use serde::Deserialize;
-use snafu::Snafu;
+use figment::providers::Env;
+use figment::Figment;
+use snafu::{ResultExt, Snafu};
 
 use crate::ClientConfigArgs;
 
 impl ClientConfigArgs {
     /// Read every option from the environment, under a prefix of the caller's choosing.
     pub fn from_env(prefix: &str) -> Result<Self, EnvFieldError> {
-        Self::deserialize(EnvSource { prefix })
+        Figment::new()
+            .merge(Env::prefixed(prefix).lowercase(false))
+            .extract()
+            .context(ReadSnafu)
     }
 }
 
-/// A `serde::Deserializer` reading a struct's fields from `{prefix}{Field}` environment variables,
-/// `Field` being whatever `serde_derive` already renamed the field to.
-struct EnvSource<'a> {
-    prefix: &'a str,
-}
-
-impl<'de> serde::Deserializer<'de> for EnvSource<'_> {
-    type Error = EnvFieldError;
-
-    fn deserialize_struct<V: Visitor<'de>>(
-        self,
-        _name: &'static str,
-        fields: &'static [&'static str],
-        visitor: V,
-    ) -> Result<V::Value, Self::Error> {
-        visitor.visit_map(FieldMap {
-            prefix: self.prefix,
-            fields: fields.iter(),
-            current: None,
-        })
-    }
-
-    fn deserialize_any<V: Visitor<'de>>(self, _visitor: V) -> Result<V::Value, Self::Error> {
-        Err(Self::Error::custom(
-            "this source only reads a struct, at the top level",
-        ))
-    }
-
-    serde::forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct seq tuple
-        tuple_struct map enum identifier ignored_any
-    }
-}
-
-/// Walks a struct's field names, in order, skipping one this source's environment does not carry: a
-/// missing variable leaves the field to `#[serde(default)]`, not an error.
-struct FieldMap<'a> {
-    prefix: &'a str,
-    fields: std::slice::Iter<'static, &'static str>,
-    current: Option<&'static str>,
-}
-
-impl<'de> serde::de::MapAccess<'de> for FieldMap<'_> {
-    type Error = EnvFieldError;
-
-    fn next_key_seed<K: serde::de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: K,
-    ) -> Result<Option<K::Value>, Self::Error> {
-        for field in self.fields.by_ref() {
-            if std::env::var_os(format!("{}{field}", self.prefix)).is_some() {
-                self.current = Some(field);
-                return seed.deserialize(field.into_deserializer()).map(Some);
-            }
-        }
-        Ok(None)
-    }
-
-    fn next_value_seed<V: serde::de::DeserializeSeed<'de>>(
-        &mut self,
-        seed: V,
-    ) -> Result<V::Value, Self::Error> {
-        let field = self
-            .current
-            .take()
-            .expect("next_value_seed called without a preceding next_key_seed");
-        let name = format!("{}{field}", self.prefix);
-        let value = std::env::var(&name).map_err(|_| match std::env::var_os(&name) {
-            Some(value) => NotUnicodeSnafu {
-                name: name.clone(),
-                value,
-            }
-            .build(),
-            // `next_key_seed` already checked the variable is set; it cannot have vanished since.
-            None => unreachable!("checked present in next_key_seed"),
-        })?;
-        // `String`'s own `IntoDeserializer`: every option is textual, so there is nothing this
-        // crate needs to interpret on the way in.
-        seed.deserialize(value.into_deserializer())
-    }
-}
-
-/// Reading a single environment variable into the type a field declares.
+/// Reading [`ClientConfigArgs`] from the environment failed.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum EnvFieldError {
-    #[snafu(display(
-        "Environment variable `{name}={value:?}` is not a valid unicode string [{location}]"
-    ))]
+    #[snafu(display("{source} [{location}]"))]
     #[non_exhaustive]
-    NotUnicode {
-        name: String,
-        value: OsString,
+    Read {
+        #[snafu(source(from(figment::Error, Box::new)))]
+        source: Box<figment::Error>,
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("{message} [{location}]"))]
-    #[non_exhaustive]
-    Custom {
-        message: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-}
-
-impl serde::de::Error for EnvFieldError {
-    fn custom<T: std::fmt::Display>(msg: T) -> Self {
-        CustomSnafu {
-            message: msg.to_string(),
-        }
-        .build()
-    }
 }
 
 #[cfg(test)]
@@ -294,6 +203,100 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn a_variable_that_looks_like_a_number_is_still_read_as_text() {
+        // This reader's own `Env` provider parses a bare `3` into a real integer before `serde` ever
+        // sees it. A number, spelled as any other option is: text, is what every field here expects.
+        let args = with_var(
+            "ARMONIK_TEST_NUMERIC__Endpoint",
+            Some("http://localhost:5001"),
+            || {
+                with_var(
+                    "ARMONIK_TEST_NUMERIC__TcpKeepaliveRetries",
+                    Some("3"),
+                    || {
+                        with_var(
+                            "ARMONIK_TEST_NUMERIC__Http2MaxHeaderListSize",
+                            Some("16384"),
+                            || ClientConfigArgs::from_env("ARMONIK_TEST_NUMERIC__"),
+                        )
+                    },
+                )
+            },
+        )
+        .expect("a value that parses as a number must still be read");
+
+        assert_eq!(args.tcp_keepalive_retries, "3");
+        assert_eq!(args.http2_max_header_list_size, "16384");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn a_secret_that_looks_like_a_number_is_still_read_as_text() {
+        // This reader's own `Env` provider can hand `Secret::deserialize` a real integer rather than a
+        // string; `secret_text` has to tolerate that the same way `text` does for a plain `String`.
+        let args = with_var(
+            "ARMONIK_TEST_NUMERIC_SECRET__Endpoint",
+            Some("http://localhost:5001"),
+            || {
+                with_var(
+                    "ARMONIK_TEST_NUMERIC_SECRET__ProxyPassword",
+                    Some("1234"),
+                    || ClientConfigArgs::from_env("ARMONIK_TEST_NUMERIC_SECRET__"),
+                )
+            },
+        )
+        .expect("a numeric-looking secret must still be read");
+
+        assert_eq!(args.proxy_password.expose_secret(), "1234");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn a_variable_made_entirely_of_brackets_names_its_own_escape_hatch() {
+        // A trailing or leading character defeats the reader's own list grammar (`[::1]:5001` stays
+        // text, since the brackets do not span the whole value), so only a value that is *nothing but*
+        // a bracketed list hits this at all: a bare `[::1]`, not the usual `[::1]:5001`.
+        let rendered = with_var(
+            "ARMONIK_TEST_BRACKETS__Endpoint",
+            Some("http://localhost:5001"),
+            || {
+                with_var(
+                    "ARMONIK_TEST_BRACKETS__OverrideTargetName",
+                    Some("[::1]"),
+                    || ClientConfigArgs::from_env("ARMONIK_TEST_BRACKETS__"),
+                )
+            },
+        )
+        .expect_err("a bracketed list is not this option's own text")
+        .to_string();
+
+        assert!(
+            rendered.contains("double quotes"),
+            "the message should name the escape hatch: {rendered}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn wrapping_a_bracketed_value_in_quotes_reads_it_as_text() {
+        let args = with_var(
+            "ARMONIK_TEST_QUOTED_BRACKETS__Endpoint",
+            Some("http://localhost:5001"),
+            || {
+                with_var(
+                    "ARMONIK_TEST_QUOTED_BRACKETS__OverrideTargetName",
+                    Some("\"[::1]\""),
+                    || ClientConfigArgs::from_env("ARMONIK_TEST_QUOTED_BRACKETS__"),
+                )
+            },
+        )
+        .expect("the escape hatch this reader documents must work");
+
+        assert_eq!(args.override_target_name, "[::1]");
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn a_certificate_variable_present_but_empty_is_no_certificate_either() {
         // A deployment that declares the variable with an empty default must not be told to open an
         // empty path: a plain `String` has only one absent representation, the empty string, so
@@ -310,6 +313,40 @@ mod tests {
         })
         .expect("an empty cert_pem must not be treated as half an identity");
         assert!(config.identity.is_none());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn the_prefix_matches_regardless_of_its_own_case() {
+        // Verified rather than assumed: an incidental property of the `Uncased` comparison this
+        // reader's prefix-stripping happens to use, not something the field-name match below shares.
+        let args = with_var(
+            "armonik_test_case__Endpoint",
+            Some("http://localhost:5001"),
+            || ClientConfigArgs::from_env("ARMONIK_TEST_CASE__"),
+        )
+        .expect("the prefix's own case must not matter");
+
+        assert_eq!(args.endpoint, "http://localhost:5001");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn a_field_name_spelled_in_the_wrong_case_is_left_alone() {
+        // Not itself a discriminator against a `.lowercase(true)` reader (a lower-case suffix like
+        // this one would be left alone under either setting): its own value is that an unrecognised
+        // suffix behaves like any other variable naming no field, rather than an error. Setting both
+        // spellings to tell the two settings apart is not reliable across platforms: Windows folds an
+        // environment variable's own name by case at the OS level, so `Endpoint` and `endpoint` are
+        // the same variable there before this reader ever sees either one.
+        let args = with_var(
+            "ARMONIK_TEST_CASE_FIELD__endpoint",
+            Some("http://localhost:5001"),
+            || ClientConfigArgs::from_env("ARMONIK_TEST_CASE_FIELD__"),
+        )
+        .expect("an unrecognised suffix must not fail the read");
+
+        assert_eq!(args.endpoint, "");
     }
 
     #[test]

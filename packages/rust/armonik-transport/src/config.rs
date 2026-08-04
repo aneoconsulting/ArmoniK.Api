@@ -163,72 +163,92 @@ impl Clone for HttpConfig {
 #[non_exhaustive]
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub endpoint: String,
     /// A file this crate reads: the client's own certificate, matching `key_pem`. Mutually exclusive
     /// with `cert_p12`.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub cert_pem: String,
     /// A file this crate reads: the client's own key, matching `cert_pem`. Mutually exclusive with
     /// `cert_p12`.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub key_pem: String,
     /// A file this crate reads: the Certificate Authority.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub ca_cert: String,
     /// A file this crate reads: the client's own certificate and key bundled together, the form
     /// Windows and most certificate authorities hand out. Mutually exclusive with `cert_pem`/`key_pem`.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub cert_p12: String,
     /// The password protecting `cert_p12`, empty for none. Meaningless, and rejected, without
     /// `cert_p12`.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
     pub cert_p12_password: Secret,
     /// Accept any server certificate instead of verifying it, empty for false.
     ///
     /// Spelled as any other ArmoniK client accepts it: `1`, `true`, `yes`, `enable`, `allow` or
     /// `authorize`, and their negatives. A `serde` source may also give a real boolean.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "bool_or_text"))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub allow_unsafe_connection: String,
     /// Override the endpoint name during SSL verification
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub override_target_name: String,
     /// Timeout for establishing a connection to the server, defaults to no timeout
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub connect_timeout: String,
     /// Timeout for each request, defaults to no timeout
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub timeout: String,
     /// Rate limit for requests, defaults to no rate limit
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub rate_limit: String,
     /// TCP keepalive duration (e.g. `30s`), defaults to no keepalive
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub tcp_keepalive: String,
     /// Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub tcp_keepalive_interval: String,
     /// Number of TCP keepalive retries, defaults to OS default
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub tcp_keepalive_retries: String,
     /// Enable Nagle's algorithm (disable TCP_NODELAY), empty for false. See
     /// [`Self::allow_unsafe_connection`] for the accepted spellings.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "bool_or_text"))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub tcp_nagle_algorithm: String,
     /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_keep_alive_interval: String,
     /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_keep_alive_timeout: String,
     /// Send HTTP/2 keepalive PINGs even when idle, empty for false. See
     /// [`Self::allow_unsafe_connection`] for the accepted spellings.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "bool_or_text"))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_keep_alive_while_idle: String,
     /// HTTP/2 max header list size in bytes, defaults to no limit
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_max_header_list_size: String,
     /// User-Agent header value sent with each request
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub user_agent: String,
     /// HTTP proxy to reach the endpoint through.
     ///
     /// Empty for a direct connection, `none` to disable proxying explicitly, `system` to read the
     /// environment (see [`ProxySource::System`]), otherwise the proxy URL, whose scheme has to be
     /// `http`: the `CONNECT` handshake is written in the clear.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub proxy: String,
     /// Username for proxy authentication.
     ///
     /// Empty falls back to the username the `proxy` URL carried, if any.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub proxy_username: String,
     /// Password for proxy authentication.
     ///
     /// Empty falls back to the password the `proxy` URL carried, independently of the username, so
     /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
     /// [`Secret`].
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
     pub proxy_password: Secret,
 }
 
@@ -249,20 +269,24 @@ fn parse_bool(option: &'static str, value: &str) -> Result<bool, ConfigError> {
     }
 }
 
-/// Keeps a boolean option as the text it was written as, whichever way it was written.
+/// Reads any field of [`ClientConfigArgs`] as text, whatever scalar shape a `serde` source gave it.
 ///
-/// An environment variable spells it (`1`, `yes`); a JSON document may use a real boolean. Both are
-/// accepted and kept as text, so [`parse_bool`] can report an unusable spelling against the option's
-/// own name.
+/// Every field of `ClientConfigArgs` is authoritatively text, in the string form its own doc names,
+/// but a source is not obliged to agree: `figment`'s `Env` provider parses a bare `3` or `true` into
+/// a real integer or boolean before `serde` ever sees it, and a plain `String` field rejects those
+/// outright. The same provider parses a value made entirely of a bracketed or braced list (`[::1]`,
+/// with nothing before or after the brackets) into a list or object the same way, which a value's own
+/// option cannot be, so that shape is refused with a message naming the escape hatch: a literal pair
+/// of double quotes around the value (`"[::1]"`) forces it to be read as a string instead.
 #[cfg(feature = "serde")]
-fn bool_or_text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
-    struct Either;
+fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    struct AnyScalar;
 
-    impl serde::de::Visitor<'_> for Either {
+    impl<'de> serde::de::Visitor<'de> for AnyScalar {
         type Value = String;
 
         fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str("a boolean, or a word spelling one")
+            f.write_str("a string, or a number or boolean spelling one")
         }
 
         fn visit_bool<E>(self, value: bool) -> Result<String, E> {
@@ -277,8 +301,6 @@ fn bool_or_text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Str
             Ok(value)
         }
 
-        /// `1` and `0` are spellings this option accepts, so a document that writes them unquoted
-        /// means the same thing as one that quotes them.
         fn visit_u64<E>(self, value: u64) -> Result<String, E> {
             Ok(value.to_string())
         }
@@ -286,9 +308,33 @@ fn bool_or_text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Str
         fn visit_i64<E>(self, value: i64) -> Result<String, E> {
             Ok(value.to_string())
         }
+
+        fn visit_f64<E>(self, value: f64) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, _seq: A) -> Result<String, A::Error> {
+            Err(serde::de::Error::custom(
+                "a value made entirely of a bracketed list reads as one, not as text; wrap it in a \
+                 literal pair of double quotes (e.g. `\"[::1]\"`) to read it as a string",
+            ))
+        }
+
+        fn visit_map<A: serde::de::MapAccess<'de>>(self, _map: A) -> Result<String, A::Error> {
+            Err(serde::de::Error::custom(
+                "a value made entirely of a braced object reads as one, not as text; wrap it in a \
+                 literal pair of double quotes to read it as a string",
+            ))
+        }
     }
 
-    deserializer.deserialize_any(Either)
+    deserializer.deserialize_any(AnyScalar)
+}
+
+/// [`text`], for the two fields whose value is a [`Secret`] rather than a plain `String`.
+#[cfg(feature = "serde")]
+fn secret_text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Secret, D::Error> {
+    text(deserializer).and_then(Secret::from_decoded_text)
 }
 
 /// Reads `path` and parses it as one PEM-encoded certificate.

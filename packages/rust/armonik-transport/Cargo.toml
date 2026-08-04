@@ -13,13 +13,18 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 [features]
 serde = ["dep:serde"]
 # Environment reading deserialises `ClientConfigArgs`, whose field names are fixed at compile time
-# (`#[serde(rename_all = "PascalCase")]`), so it needs the derive `serde` turns on.
-env = ["serde"]
+# (`#[serde(rename_all = "PascalCase")]`), so it needs the derive `serde` turns on, plus `figment`'s
+# own `env` feature for its `Env` provider.
+env = ["serde", "dep:figment"]
 
 [dependencies]
 # `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
 # `http`/`tokio_stream` re-exports a dependent reaches through this crate.
 tonic = { workspace = true, features = ["channel", "codegen"] }
+# `ClientConfigArgs::from_env`'s reader: its `Env` provider supports `#[serde(flatten)]`, and reads a
+# `PascalCase` variable correctly (unlike `config`'s `Environment`, which lower-cases a key before any
+# case conversion runs, empirically confirmed unusable here).
+figment = { workspace = true, optional = true, features = ["env"] }
 snafu.workspace = true
 tracing.workspace = true
 hyper = { workspace = true, features = ["client", "http1", "http2"] }
