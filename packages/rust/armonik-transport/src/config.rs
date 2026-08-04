@@ -1,8 +1,7 @@
 use std::time::Duration;
 
 use hyper::{http::HeaderValue, Uri};
-use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
-use snafu::{OptionExt, ResultExt, Snafu};
+use snafu::{ResultExt, Snafu};
 
 #[cfg(feature = "serde")]
 use crate::http2_config::prefix_http2;
@@ -10,10 +9,12 @@ use crate::http2_config::{Http2Config, Http2ConfigArgs};
 #[cfg(feature = "serde")]
 use crate::proxy_config::prefix_proxy;
 use crate::proxy_config::{parse_proxy_source, HttpProxyConfig, HttpProxyConfigArgs, ProxySource};
+#[cfg(feature = "serde")]
 use crate::secret::Secret;
 #[cfg(feature = "serde")]
 use crate::tcp_config::prefix_tcp;
 use crate::tcp_config::{TcpConfig, TcpConfigArgs};
+use crate::tls_config::{HttpTlsConfig, HttpTlsConfigArgs};
 
 /// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
 /// endpoint.
@@ -22,15 +23,8 @@ use crate::tcp_config::{TcpConfig, TcpConfigArgs};
 pub struct HttpConfig {
     /// Endpoint for sending requests
     pub endpoint: Uri,
-    /// Allow unsafe connections to the endpoint (without SSL), defaults to false
-    pub allow_unsafe_connection: bool,
-    /// TLS identity of the client: key + cert, loaded from whichever of `cert_pem`/`key_pem` or
-    /// `cert_p12` named it.
-    pub identity: Option<(CertificateDer<'static>, PrivateKeyDer<'static>)>,
-    /// CA certificate to authenticate the server
-    pub cacert: Option<CertificateDer<'static>>,
-    /// Override the endpoint name during SSL verification
-    pub override_target: Option<Uri>,
+    /// TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour.
+    pub tls: HttpTlsConfig,
     /// Timeout for establishing a connection to the server, defaults to 60s
     pub connect_timeout: Option<Duration>,
     /// Timeout for each request, defaults to no timeout
@@ -51,13 +45,7 @@ impl Clone for HttpConfig {
     fn clone(&self) -> Self {
         Self {
             endpoint: self.endpoint.clone(),
-            allow_unsafe_connection: self.allow_unsafe_connection,
-            identity: self
-                .identity
-                .as_ref()
-                .map(|(cert, key)| (cert.clone(), key.clone_key())),
-            cacert: self.cacert.clone(),
-            override_target: self.override_target.clone(),
+            tls: self.tls.clone(),
             connect_timeout: self.connect_timeout,
             timeout: self.timeout,
             rate_limit: self.rate_limit,
@@ -78,34 +66,9 @@ pub struct HttpConfigArgs {
     /// Endpoint for sending requests
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub endpoint: String,
-    /// A file this crate reads: the client's own certificate, matching `key_pem`. Mutually exclusive
-    /// with `cert_p12`.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub cert_pem: String,
-    /// A file this crate reads: the client's own key, matching `cert_pem`. Mutually exclusive with
-    /// `cert_p12`.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub key_pem: String,
-    /// A file this crate reads: the Certificate Authority.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub ca_cert: String,
-    /// A file this crate reads: the client's own certificate and key bundled together, the form
-    /// Windows and most certificate authorities hand out. Mutually exclusive with `cert_pem`/`key_pem`.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub cert_p12: String,
-    /// The password protecting `cert_p12`, empty for none. Meaningless, and rejected, without
-    /// `cert_p12`.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
-    pub cert_p12_password: Secret,
-    /// Accept any server certificate instead of verifying it, empty for false.
-    ///
-    /// Spelled as any other ArmoniK client accepts it: `1`, `true`, `yes`, `enable`, `allow` or
-    /// `authorize`, and their negatives. A `serde` source may also give a real boolean.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub allow_unsafe_connection: String,
-    /// Override the endpoint name during SSL verification
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub override_target_name: String,
+    /// The client's TLS identity and the server's CA.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub tls: HttpTlsConfigArgs,
     /// Timeout for establishing a connection to the server, defaults to no timeout
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub connect_timeout: String,
@@ -223,64 +186,19 @@ pub(crate) fn secret_text<'de, D: serde::Deserializer<'de>>(
     text(deserializer).and_then(Secret::from_decoded_text)
 }
 
-/// Reads `path` and parses it as one PEM-encoded certificate.
-fn read_cert_pem(option: &'static str, path: &str) -> Result<CertificateDer<'static>, ConfigError> {
-    let pem = std::fs::read_to_string(path).context(IoSnafu { option, path })?;
-    CertificateDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {})
-}
-
-/// Reads `path`, `key_pem`'s own file, whose loaded bytes are as sensitive as the key they carry
-/// the moment they leave the filesystem.
-fn read_key_pem(option: &'static str, path: &str) -> Result<PrivateKeyDer<'static>, ConfigError> {
-    let pem = std::fs::read_to_string(path).context(IoSnafu { option, path })?;
-    PrivateKeyDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {})
-}
-
-/// Reads `path` as a PKCS#12 bundle and returns the client identity it names, the leaf certificate of
-/// its chain and its private key, re-encoded as the same DER shapes a PEM pair produces.
-fn read_cert_p12(
-    path: &str,
-    password: &Secret,
-) -> Result<(CertificateDer<'static>, PrivateKeyDer<'static>), ConfigError> {
-    let data = std::fs::read(path).context(IoSnafu {
-        option: "cert_p12",
-        path,
-    })?;
-    let keystore = p12_keystore::KeyStore::from_pkcs12(
-        &data,
-        password.expose_secret(),
-        p12_keystore::Pkcs12ImportPolicy::Strict,
-    )
-    .context(Pkcs12Snafu { path })?;
-    let (_, chain) = keystore
-        .private_key_chain()
-        .context(EmptyPkcs12Snafu { path })?;
-    let cert = chain
-        .certs()
-        .first()
-        .context(EmptyPkcs12Snafu { path })?
-        .as_der()
-        .to_vec();
-    let key = chain.key().as_der().to_vec();
-    Ok((
-        CertificateDer::from(cert),
-        PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)),
-    ))
-}
-
 impl HttpConfig {
     pub fn from_config_args(args: HttpConfigArgs) -> Result<Self, ConfigError> {
         let _span = tracing::debug_span!(
             "HttpConfig",
             args.endpoint,
-            args.cert_pem,
-            args.key_pem,
-            args.ca_cert,
-            args.cert_p12,
+            args.tls.cert_pem,
+            args.tls.key_pem,
+            args.tls.ca_cert,
+            args.tls.cert_p12,
             // `cert_p12_password` left out entirely, the same as `proxy_password` below: a path
             // names no secret, but a password does.
-            args.allow_unsafe_connection,
-            args.override_target_name,
+            args.tls.allow_unsafe_connection,
+            args.tls.override_target_name,
             args.connect_timeout,
             args.timeout,
             args.rate_limit,
@@ -302,13 +220,7 @@ impl HttpConfig {
 
         let HttpConfigArgs {
             endpoint,
-            cert_pem,
-            key_pem,
-            ca_cert,
-            cert_p12,
-            cert_p12_password,
-            allow_unsafe_connection,
-            override_target_name,
+            tls,
             connect_timeout,
             timeout,
             rate_limit,
@@ -319,88 +231,8 @@ impl HttpConfig {
             proxy_config,
         } = args;
 
-        let cacert = if ca_cert.is_empty() {
-            None
-        } else {
-            Some(read_cert_pem("ca_cert", &ca_cert)?)
-        };
-
-        let has_pem_pair = !cert_pem.is_empty() || !key_pem.is_empty();
-        if !cert_p12.is_empty() && has_pem_pair {
-            return IncompatibleOptionsSnafu {
-                msg: String::from(
-                    "`cert_p12` and `cert_pem`/`key_pem` name the client identity two different \
-                     ways; set only one",
-                ),
-            }
-            .fail();
-        }
-        if cert_p12.is_empty() && !cert_p12_password.is_empty() {
-            return IncompatibleOptionsSnafu {
-                msg: String::from("`cert_p12_password` is set without `cert_p12`"),
-            }
-            .fail();
-        }
-
-        let identity = if !cert_p12.is_empty() {
-            Some(read_cert_p12(&cert_p12, &cert_p12_password)?)
-        } else {
-            match (cert_pem.is_empty(), key_pem.is_empty()) {
-                (true, true) => None,
-                (false, false) => Some((
-                    read_cert_pem("cert_pem", &cert_pem)?,
-                    read_key_pem("key_pem", &key_pem)?,
-                )),
-                _ => {
-                    return IncompatibleOptionsSnafu {
-                        msg: String::from(
-                            "`cert_pem` and `key_pem` must be either both empty or both set",
-                        ),
-                    }
-                    .fail()
-                }
-            }
-        };
-
         let endpoint = Uri::try_from(endpoint.clone()).context(UriSnafu { uri: endpoint })?;
-
-        let override_target = if override_target_name.is_empty() {
-            None
-        } else {
-            let authority;
-            let path_and_query;
-
-            if let Ok(auth) = override_target_name.parse::<hyper::http::uri::Authority>() {
-                authority = Some(auth);
-                path_and_query = endpoint.path_and_query().cloned();
-            } else {
-                hyper::http::uri::Parts {
-                    authority,
-                    path_and_query,
-                    ..
-                } = Uri::try_from(override_target_name.clone())
-                    .context(UriSnafu {
-                        uri: endpoint.to_string(),
-                    })?
-                    .into_parts();
-            }
-
-            let mut uri = hyper::http::uri::Builder::new();
-
-            if let Some(scheme) = endpoint.scheme() {
-                uri = uri.scheme(scheme.clone());
-            }
-            if let Some(authority) = authority.or_else(|| endpoint.authority().cloned()) {
-                uri = uri.authority(authority);
-            }
-            if let Some(path_and_query) = path_and_query {
-                uri = uri.path_and_query(path_and_query);
-            }
-
-            Some(uri.build().context(HttpSnafu {
-                uri: override_target_name,
-            })?)
-        };
+        let tls = tls.resolve(&endpoint)?;
 
         let connect_timeout = if connect_timeout.is_empty() {
             Some(Duration::from_secs(60))
@@ -486,13 +318,7 @@ impl HttpConfig {
 
         Ok(Self {
             endpoint,
-            allow_unsafe_connection: parse_bool(
-                "allow_unsafe_connection",
-                &allow_unsafe_connection,
-            )?,
-            identity,
-            cacert,
-            override_target,
+            tls,
             connect_timeout,
             timeout,
             rate_limit,
@@ -628,7 +454,10 @@ pub enum ConfigError {
 
 #[cfg(test)]
 mod tests {
+    use rustls::pki_types::PrivateKeyDer;
+
     use super::*;
+    use crate::secret::Secret;
 
     /// The minimum viable arguments: an endpoint, and nothing else set.
     fn args() -> HttpConfigArgs {
@@ -656,9 +485,9 @@ mod tests {
         let config = HttpConfig::from_config_args(args()).expect("an endpoint is enough");
 
         assert_eq!(config.endpoint.to_string(), "http://localhost:5001/");
-        assert!(config.identity.is_none());
-        assert!(config.cacert.is_none());
-        assert_eq!(config.override_target, None);
+        assert!(config.tls.identity.is_none());
+        assert!(config.tls.cacert.is_none());
+        assert_eq!(config.tls.override_target, None);
         assert_eq!(config.rate_limit, None);
     }
 
@@ -858,8 +687,11 @@ mod tests {
             (String::new(), String::from("key.pem")),
         ] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
-                cert_pem: cert,
-                key_pem: key,
+                tls: HttpTlsConfigArgs {
+                    cert_pem: cert,
+                    key_pem: key,
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect_err("half an identity must be rejected");
@@ -877,7 +709,7 @@ mod tests {
     #[test]
     fn neither_half_is_no_identity_rather_than_an_error() {
         let config = HttpConfig::from_config_args(args()).expect("valid");
-        assert!(config.identity.is_none());
+        assert!(config.tls.identity.is_none());
     }
 
     #[test]
@@ -891,12 +723,18 @@ mod tests {
 
         for args in [
             HttpConfigArgs {
-                cert_pem: cert.path().to_str().expect("utf8 path").to_owned(),
-                key_pem: key.path().to_str().expect("utf8 path").to_owned(),
+                tls: HttpTlsConfigArgs {
+                    cert_pem: cert.path().to_str().expect("utf8 path").to_owned(),
+                    key_pem: key.path().to_str().expect("utf8 path").to_owned(),
+                    ..Default::default()
+                },
                 ..args()
             },
             HttpConfigArgs {
-                ca_cert: cert.path().to_str().expect("utf8 path").to_owned(),
+                tls: HttpTlsConfigArgs {
+                    ca_cert: cert.path().to_str().expect("utf8 path").to_owned(),
+                    ..Default::default()
+                },
                 ..args()
             },
         ] {
@@ -911,12 +749,18 @@ mod tests {
     fn a_path_that_leads_nowhere_names_the_option_and_the_path() {
         for args in [
             HttpConfigArgs {
-                cert_pem: String::from("no/such/cert.pem"),
-                key_pem: String::from("no/such/key.pem"),
+                tls: HttpTlsConfigArgs {
+                    cert_pem: String::from("no/such/cert.pem"),
+                    key_pem: String::from("no/such/key.pem"),
+                    ..Default::default()
+                },
                 ..args()
             },
             HttpConfigArgs {
-                ca_cert: String::from("no/such/ca.pem"),
+                tls: HttpTlsConfigArgs {
+                    ca_cert: String::from("no/such/ca.pem"),
+                    ..Default::default()
+                },
                 ..args()
             },
         ] {
@@ -938,7 +782,10 @@ mod tests {
         std::io::Write::write_all(&mut ca, b"clearly not a certificate").expect("write");
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            ca_cert: ca.path().to_str().expect("utf8 path").to_owned(),
+            tls: HttpTlsConfigArgs {
+                ca_cert: ca.path().to_str().expect("utf8 path").to_owned(),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("this file holds no certificate");
@@ -949,9 +796,12 @@ mod tests {
     #[test]
     fn cert_p12_and_the_pem_pair_are_mutually_exclusive() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            cert_pem: String::from("cert.pem"),
-            key_pem: String::from("key.pem"),
-            cert_p12: String::from("identity.p12"),
+            tls: HttpTlsConfigArgs {
+                cert_pem: String::from("cert.pem"),
+                key_pem: String::from("key.pem"),
+                cert_p12: String::from("identity.p12"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("both forms of identity must be rejected");
@@ -967,7 +817,10 @@ mod tests {
     #[test]
     fn a_p12_password_without_a_p12_is_rejected() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            cert_p12_password: Secret::from("s3cr3t"),
+            tls: HttpTlsConfigArgs {
+                cert_p12_password: Secret::from("s3cr3t"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("a password naming no file must be rejected");
@@ -1008,13 +861,16 @@ mod tests {
         std::io::Write::write_all(&mut p12, &pfx).expect("write");
 
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
-            cert_p12_password: Secret::from(PASSWORD),
+            tls: HttpTlsConfigArgs {
+                cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
+                cert_p12_password: Secret::from(PASSWORD),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid PKCS#12 bundle");
 
-        let (cert, key) = config.identity.expect("an identity was bundled");
+        let (cert, key) = config.tls.identity.expect("an identity was bundled");
         assert_eq!(cert.as_ref(), cert_der, "the leaf certificate round-trips");
         let PrivateKeyDer::Pkcs8(key) = key else {
             panic!("expected the PKCS#8 variant, since that is what the bundle carried");
@@ -1029,7 +885,10 @@ mod tests {
     #[test]
     fn a_p12_that_leads_nowhere_names_the_path() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            cert_p12: String::from("no/such/identity.p12"),
+            tls: HttpTlsConfigArgs {
+                cert_p12: String::from("no/such/identity.p12"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("a missing file must be reported");
@@ -1044,7 +903,10 @@ mod tests {
         std::io::Write::write_all(&mut p12, b"clearly not a pkcs12 bundle").expect("write");
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
+            tls: HttpTlsConfigArgs {
+                cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("garbage is not a pkcs12 bundle");
@@ -1060,12 +922,15 @@ mod tests {
         // authority is being overridden, so everything else has to come from the endpoint.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
-            override_target_name: String::from("server.example.com"),
+            tls: HttpTlsConfigArgs {
+                override_target_name: String::from("server.example.com"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid");
 
-        let override_target = config.override_target.expect("an override target");
+        let override_target = config.tls.override_target.expect("an override target");
         assert_eq!(override_target.scheme_str(), Some("https"));
         assert_eq!(
             override_target.authority().map(|a| a.as_str()),
@@ -1078,12 +943,15 @@ mod tests {
     fn an_override_target_given_as_a_uri_replaces_the_authority_and_the_path() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
-            override_target_name: String::from("https://server.example.com/other"),
+            tls: HttpTlsConfigArgs {
+                override_target_name: String::from("https://server.example.com/other"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid");
 
-        let override_target = config.override_target.expect("an override target");
+        let override_target = config.tls.override_target.expect("an override target");
         assert_eq!(
             override_target.authority().map(|a| a.as_str()),
             Some("server.example.com")
@@ -1097,7 +965,7 @@ mod tests {
     #[test]
     fn no_override_target_leaves_it_unset() {
         let config = HttpConfig::from_config_args(args()).expect("valid");
-        assert_eq!(config.override_target, None);
+        assert_eq!(config.tls.override_target, None);
     }
 
     // --- the serde feature ---
@@ -1107,7 +975,10 @@ mod tests {
     #[test]
     fn an_unusable_boolean_names_the_option_and_the_vocabulary() {
         let rendered = HttpConfig::from_config_args(HttpConfigArgs {
-            allow_unsafe_connection: String::from("perhaps"),
+            tls: HttpTlsConfigArgs {
+                allow_unsafe_connection: String::from("perhaps"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("`perhaps` spells no boolean")
@@ -1148,7 +1019,7 @@ mod tests {
                 .unwrap_or_else(|error| panic!("{written}: {error}"));
 
             assert_eq!(
-                config.allow_unsafe_connection, expected,
+                config.tls.allow_unsafe_connection, expected,
                 "{written} should resolve to {expected}"
             );
         }
@@ -1160,7 +1031,10 @@ mod tests {
     #[test]
     fn a_boolean_option_survives_being_written_and_read_again() {
         let written = serde_json::to_string(&HttpConfigArgs {
-            allow_unsafe_connection: String::from("yes"),
+            tls: HttpTlsConfigArgs {
+                allow_unsafe_connection: String::from("yes"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("serialise");
@@ -1173,7 +1047,7 @@ mod tests {
         let read: HttpConfigArgs = serde_json::from_str(&written).expect("read back");
         let config = HttpConfig::from_config_args(read).expect("resolve");
 
-        assert!(config.allow_unsafe_connection);
+        assert!(config.tls.allow_unsafe_connection);
     }
 
     /// The point of grouping each thematic unit's own fields with `with_prefix!` rather than a
@@ -1224,9 +1098,9 @@ mod tests {
 
         assert_eq!(deserialised.endpoint, "", "an absent field defaults");
         assert_eq!(deserialised.timeout, "30s");
-        assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
+        assert_eq!(deserialised.tls.cert_pem, "", "an absent field defaults");
         assert_eq!(
-            deserialised.allow_unsafe_connection, "",
+            deserialised.tls.allow_unsafe_connection, "",
             "an absent boolean defaults to empty, which reads as false"
         );
 
