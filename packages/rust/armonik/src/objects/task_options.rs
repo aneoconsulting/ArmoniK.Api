@@ -165,8 +165,11 @@ mod tests {
         assert_eq!(ours.max_duration, prost_types::Duration::default());
         assert_eq!(ours.priority, 0);
 
+        // Re-encoding writes the zero back explicitly (no field is skipped),
+        // which reads as the same value.
         let reencoded = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
-        assert_eq!(reencoded.max_duration, None);
+        assert_eq!(reencoded.max_duration, Some(prost_types::Duration::default()));
+        assert_eq!(reencoded.priority, 0);
 
         assert_eq!(
             TaskOptions::recommended().max_duration.seconds,

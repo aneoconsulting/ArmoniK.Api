@@ -18,6 +18,15 @@
 //! [`ProtoField::SHAPE`] exists so that one derive-emitted `const` assertion
 //! per field can check the Rust type against the descriptor at compile time
 //! (see [`shape_matches`]).
+//!
+//! There is no notion of a default value on the encode side: every field a
+//! type declares is written, whatever it holds. Zeros and empty nested
+//! messages therefore appear on the wire, which proto3 receivers read exactly
+//! like an absent implicit-presence field, and the decode side keeps its
+//! "absent = default" reading (seeded from `Default`, the proto zero for every
+//! armonik type). Presence that *is* meaningful is carried by the Rust type
+//! instead: `Option<T>` omits `None`, a oneof emits its active member, and the
+//! empty containers encode to nothing on their own.
 
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{DecodeContext, WireType};
@@ -161,7 +170,11 @@ pub(crate) const fn shape_matches(shape: &Shape, expect: &Expect) -> bool {
 }
 
 /// A type that can be encoded and decoded as a single protobuf field.
-pub(crate) trait ProtoField: Default + PartialEq {
+///
+/// `Default` is what decoding seeds a field from (the proto zero value for
+/// every armonik type); nothing here ever compares a value *against* that
+/// default, so no `PartialEq` is required.
+pub(crate) trait ProtoField: Default {
     const SHAPE: Shape;
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut);
@@ -172,32 +185,6 @@ pub(crate) trait ProtoField: Default + PartialEq {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &Self) -> usize;
-
-    /// proto3 implicit presence: when `true`, a singular field is skipped on
-    /// encode. The default is "equal to the type's default value", which is
-    /// right for scalars, enums, strings and containers. Message-kind types
-    /// override it with [`message_is_default`] ("encodes to zero bytes", which
-    /// differs once a nested field is always emitted), and wrapper enums
-    /// override it to `false` (always emitted).
-    fn is_default(value: &Self) -> bool {
-        value == &Self::default()
-    }
-
-    // The proto3 singular-field forms the derives emit: skip the default.
-
-    fn encode_nondefault(tag: u32, value: &Self, buf: &mut impl BufMut) {
-        if !Self::is_default(value) {
-            Self::encode_field(tag, value, buf);
-        }
-    }
-
-    fn encoded_len_nondefault(tag: u32, value: &Self) -> usize {
-        if Self::is_default(value) {
-            0
-        } else {
-            Self::encoded_len_field(tag, value)
-        }
-    }
 
     // Repeated forms, used by `Vec<Self>`. Packable kinds override them with
     // their packed encodings; the defaults implement the unpacked form.
@@ -237,12 +224,9 @@ pub(crate) trait ProtoField: Default + PartialEq {
 /// A type implements `Msg` XOR a concrete `ProtoField`: only message-kind
 /// types belong here. Plain proto enums keep concrete impls — a second
 /// blanket would overlap this one (E0119).
-pub(crate) trait Msg: prost::Message + Default + PartialEq {
+pub(crate) trait Msg: prost::Message + Default {
     /// See [`Shape::names`].
     const NAMES: &'static [&'static str];
-    /// Transparent wrapper enums encode their zero as a non-empty wrapper, so
-    /// they are always emitted as a field (presence-significant).
-    const ALWAYS_PRESENT: bool = false;
 }
 
 /// Whether `names` contains `name`; const, so the `service!`-emitted asserts
@@ -292,10 +276,6 @@ impl<T: Msg> ProtoField for T {
         prost::encoding::message::encoded_len(tag, value)
     }
 
-    fn is_default(value: &Self) -> bool {
-        !Self::ALWAYS_PRESENT && message_is_default(value)
-    }
-
     // Repeated forms: the trait's unpacked defaults (messages never pack).
 }
 
@@ -325,21 +305,6 @@ pub(crate) trait ProtoAdapter<T> {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &T) -> usize;
-    fn is_default(value: &T) -> bool;
-
-    fn encode_nondefault(tag: u32, value: &T, buf: &mut impl BufMut) {
-        if !Self::is_default(value) {
-            Self::encode_field(tag, value, buf);
-        }
-    }
-
-    fn encoded_len_nondefault(tag: u32, value: &T) -> usize {
-        if Self::is_default(value) {
-            0
-        } else {
-            Self::encoded_len_field(tag, value)
-        }
-    }
 
     /// Project the field at `tag` of a dynamic message onto the equivalence
     /// classes this adapter's Rust representation defines (for the
@@ -355,8 +320,9 @@ pub(crate) trait ProtoAdapter<T> {
     }
 }
 
-/// An empty length-delimited body: what a `#[armonik(present)]` message
-/// marker encodes.
+/// An empty length-delimited field: what a `#[armonik(present)]` message
+/// marker encodes, and the zero of any other length-delimited kind (an empty
+/// string or `bytes`) when no value is held to encode from.
 pub(crate) mod empty_body {
     use prost::bytes::BufMut;
     use prost::encoding::{self, WireType};
@@ -383,16 +349,6 @@ pub(crate) fn read_delimited<B: Buf + ?Sized>(
         return Err(DecodeError::new("buffer underflow"));
     }
     Ok(buf.take(len))
-}
-
-/// A message-kind field is absent (proto3 default) exactly when it encodes to
-/// zero bytes. This is deliberately *not* `value == M::default()`: a message
-/// can hold only default sub-values yet still encode to a non-empty buffer when
-/// one of them is always emitted — a wrapper enum encodes its zero as an empty
-/// wrapper — and such a field must survive the round-trip. This is why
-/// message-kind types override the [`ProtoField::is_default`] trait default.
-pub(crate) fn message_is_default<M: prost::Message>(value: &M) -> bool {
-    value.encoded_len() == 0
 }
 
 /// Const string equality, for derive-emitted assertions.

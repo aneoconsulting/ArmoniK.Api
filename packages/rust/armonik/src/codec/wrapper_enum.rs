@@ -9,35 +9,6 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, key_len, DecodeContext, WireType};
 use prost::DecodeError;
 
-fn body_len<T: Copy + Into<i32>>(path: &[u32], value: &T) -> usize {
-    let raw: i32 = (*value).into();
-    if raw == 0 {
-        // A zero value carries no information at any wrapper depth.
-        return 0;
-    }
-    let (&inner_tag, rest) = path.split_first().expect("non-empty wrapper path");
-    if rest.is_empty() {
-        encoding::int32::encoded_len(inner_tag, &raw)
-    } else {
-        encoded_len(inner_tag, rest, value)
-    }
-}
-
-// Field forms of an inner wrapper (key + delimited body), used by the
-// recursion below; the OUTERMOST wrapper is framed by the blanket
-// message-kind `ProtoField` impl over the type's `prost::Message` impl.
-fn encode<T: Copy + Into<i32>>(tag: u32, path: &[u32], value: &T, buf: &mut impl BufMut) {
-    let len = body_len(path, value);
-    encoding::encode_key(tag, WireType::LengthDelimited, buf);
-    encoding::encode_varint(len as u64, buf);
-    encode_raw(path, value, buf);
-}
-
-fn encoded_len<T: Copy + Into<i32>>(tag: u32, path: &[u32], value: &T) -> usize {
-    let len = body_len(path, value);
-    key_len(tag) + encoding::encoded_len_varint(len as u64) + len
-}
-
 // The recursion is dynamic over `dyn Buf`: a generic recursion would
 // monomorphize an unbounded tower of `Take<&mut Take<...>>` types.
 fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
@@ -67,23 +38,33 @@ fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
 }
 
 // Body forms of the outermost wrapper (no containing field key), for the
-// `prost::Message` impls of transparent enums standing for RPC messages.
-
-pub(crate) fn encode_raw<T: Copy + Into<i32>>(path: &[u32], value: &T, buf: &mut impl BufMut) {
-    let raw: i32 = (*value).into();
-    if raw == 0 {
-        return;
-    }
-    let (&inner_tag, rest) = path.split_first().expect("non-empty wrapper path");
-    if rest.is_empty() {
-        encoding::int32::encode(inner_tag, &raw, buf);
-    } else {
-        encode(inner_tag, rest, value, buf);
-    }
-}
+// `prost::Message` impls of transparent enums standing for RPC messages. The
+// outermost wrapper itself is framed by the blanket message-kind `ProtoField`
+// impl over those `prost::Message` impls.
+//
+// Nothing along the chain is ever skipped, so the shape is a function of
+// `path` alone: the enum's `int32` field at the last tag, wrapped in one
+// length-delimited message per tag above it. Both halves are therefore a fold
+// from the enum field outwards, rather than a recursion that has to ask the
+// value where it bottoms out.
 
 pub(crate) fn encoded_len_raw<T: Copy + Into<i32>>(path: &[u32], value: &T) -> usize {
-    body_len(path, value)
+    let (&leaf, wrappers) = path.split_last().expect("non-empty wrapper path");
+    let mut len = encoding::int32::encoded_len(leaf, &(*value).into());
+    for &tag in wrappers.iter().rev() {
+        len = key_len(tag) + encoding::encoded_len_varint(len as u64) + len;
+    }
+    len
+}
+
+pub(crate) fn encode_raw<T: Copy + Into<i32>>(path: &[u32], value: &T, buf: &mut impl BufMut) {
+    let (&leaf, wrappers) = path.split_last().expect("non-empty wrapper path");
+    for (depth, &tag) in wrappers.iter().enumerate() {
+        // This wrapper's body is the rest of the chain below it.
+        encoding::encode_key(tag, WireType::LengthDelimited, buf);
+        encoding::encode_varint(encoded_len_raw(&path[depth + 1..], value) as u64, buf);
+    }
+    encoding::int32::encode(leaf, &(*value).into(), buf);
 }
 
 pub(crate) fn merge_root_field<T: Copy + Into<i32> + From<i32>>(

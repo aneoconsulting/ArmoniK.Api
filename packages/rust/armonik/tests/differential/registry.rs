@@ -94,8 +94,8 @@ fn apply_rules(message: &mut DynamicMessage) {
     // The value projections declared by the type itself.
     (entry.normalize)(message);
     // The canonical-absence fold: whatever the type emits for "nothing"
-    // (default oneof members, always-emitted wrappers and sorts)
-    // materializes where it is absent — except into a oneof that
+    // (default oneof members, and the zero fields the encoder writes rather
+    // than skips) materializes where it is absent — except into a oneof that
     // already carries another member.
     for member in canonical.descriptor().fields() {
         if !canonical.has_field(&member) || message.has_field(&member) {
