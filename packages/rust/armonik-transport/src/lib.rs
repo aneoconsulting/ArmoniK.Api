@@ -21,6 +21,7 @@ mod proxy;
 mod proxy_config;
 mod secret;
 mod tcp_config;
+mod tls_config;
 mod utils;
 
 pub use config::{ConfigError, HttpConfig, HttpConfigArgs};
@@ -32,6 +33,7 @@ pub use proxy::ProxyError;
 pub use proxy_config::{ProxyConfig, ProxyConfigArgs, ProxySource};
 pub use secret::Secret;
 pub use tcp_config::{TcpConfig, TcpConfigArgs};
+pub use tls_config::{TlsConfig, TlsConfigArgs};
 // Snafu's context selectors, so a caller in another crate can build the error with the location
 // captured at its own call site. Hidden: this is how the error is built, not API to design against.
 #[doc(hidden)]

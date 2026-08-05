@@ -18,7 +18,7 @@ use crate::HttpConfig;
 /// established, not lazily on the first request.
 pub async fn connect(config: HttpConfig) -> Result<tonic::transport::Channel, ConnectionError> {
     let endpoint = config.endpoint.clone();
-    let override_target = config.override_target.clone();
+    let override_target = config.tls.override_target.clone();
     let http2_keep_alive_interval = config.http2.keep_alive_interval;
     let http2_keep_alive_timeout = config.http2.keep_alive_timeout;
     let http2_keep_alive_while_idle = config.http2.keep_alive_while_idle;
@@ -89,12 +89,12 @@ pub async fn https_connector(
         })?;
 
     // Configure the server verification
-    let tls_config = if config.allow_unsafe_connection {
+    let tls_config = if config.tls.allow_unsafe_connection {
         // Do not verify the server
         tls_config
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(crate::utils::InsecureCertVerifier))
-    } else if let Some(cacert) = config.cacert {
+    } else if let Some(cacert) = config.tls.cacert {
         // Verify that the server certificate is signed with a specific CA cert
         let mut root_cert_store = rustls::RootCertStore::empty();
         root_cert_store.add(cacert).with_context(|_| TlsSnafu {
@@ -109,7 +109,7 @@ pub async fn https_connector(
     };
 
     // Configure client identity for mTLS
-    let tls_config = if let Some((cert, key)) = config.identity {
+    let tls_config = if let Some((cert, key)) = config.tls.identity {
         // Use the the specified client certificate and key for the client authentication
         tls_config
             .with_client_auth_cert(vec![cert], key)
@@ -126,7 +126,7 @@ pub async fn https_connector(
         .with_tls_config(tls_config)
         .https_or_http();
 
-    if let Some(hostname) = &config.override_target {
+    if let Some(hostname) = &config.tls.override_target {
         let server_name = ServerName::try_from(hostname.host().unwrap_or_default())
             .expect("A valid URI host should be a valid ServerName")
             .to_owned();

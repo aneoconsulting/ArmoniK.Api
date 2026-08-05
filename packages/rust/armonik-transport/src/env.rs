@@ -145,7 +145,7 @@ mod tests {
         for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
             let config = resolve(spelling).expect(spelling);
             assert!(
-                config.allow_unsafe_connection,
+                config.tls.allow_unsafe_connection,
                 "`{spelling}` should read as true"
             );
         }
@@ -153,14 +153,14 @@ mod tests {
         for spelling in ["0", "false", "no", "disable", "disallow", "forbid", ""] {
             let config = resolve(spelling).expect(spelling);
             assert!(
-                !config.allow_unsafe_connection,
+                !config.tls.allow_unsafe_connection,
                 "`{spelling}` should read as false"
             );
         }
 
         // An unusable spelling is the configuration's to reject, naming the option: reading it is
-        // just reading text, and the `deserialize_with` shim that reads it never sees which field
-        // it was called for.
+        // just reading text, and a flattened `serde` source no longer knows which variable it came
+        // from by the time a value is interpreted.
         let rendered = resolve("perhaps")
             .expect_err("`perhaps` is not a boolean")
             .to_string();
@@ -189,7 +189,7 @@ mod tests {
         )
         .expect("reading the variable itself must not fail");
 
-        assert_eq!(args.cert_pem, "no/such/cert.pem");
+        assert_eq!(args.tls.cert_pem, "no/such/cert.pem");
     }
 
     #[test]
@@ -198,27 +198,7 @@ mod tests {
         let args = HttpConfigArgs::from_env("ARMONIK_TEST_NOCERT__")
             .expect("an unset variable names no path");
 
-        assert_eq!(args.cert_pem, "");
-    }
-
-    #[test]
-    #[serial_test::serial]
-    fn a_certificate_variable_present_but_empty_is_no_certificate_either() {
-        // A deployment that declares the variable with an empty default must not be told to open an
-        // empty path: a plain `String` has only one absent representation, the empty string, so
-        // there is no separate empty-but-present case to collapse into by mistake.
-        let args = with_var("ARMONIK_TEST_EMPTYCERT__CertPem", Some(""), || {
-            HttpConfigArgs::from_env("ARMONIK_TEST_EMPTYCERT__")
-        })
-        .expect("an empty variable must not fail the read");
-
-        assert_eq!(args.cert_pem, "");
-        let config = HttpConfig::from_config_args(HttpConfigArgs {
-            endpoint: String::from("http://localhost:5001"),
-            ..args
-        })
-        .expect("an empty cert_pem must not be treated as half an identity");
-        assert!(config.identity.is_none());
+        assert_eq!(args.tls.cert_pem, "");
     }
 
     #[test]
@@ -312,7 +292,27 @@ mod tests {
         )
         .expect("the escape hatch this reader documents must work");
 
-        assert_eq!(args.override_target_name, "[::1]");
+        assert_eq!(args.tls.override_target_name, "[::1]");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn a_certificate_variable_present_but_empty_is_no_certificate_either() {
+        // A deployment that declares the variable with an empty default must not be told to open an
+        // empty path: a plain `String` has only one absent representation, the empty string, so
+        // there is no separate empty-but-present case to collapse into by mistake.
+        let args = with_var("ARMONIK_TEST_EMPTYCERT__CertPem", Some(""), || {
+            HttpConfigArgs::from_env("ARMONIK_TEST_EMPTYCERT__")
+        })
+        .expect("an empty variable must not fail the read");
+
+        assert_eq!(args.tls.cert_pem, "");
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
+            endpoint: String::from("http://localhost:5001"),
+            ..args
+        })
+        .expect("an empty cert_pem must not be treated as half an identity");
+        assert!(config.tls.identity.is_none());
     }
 
     #[test]

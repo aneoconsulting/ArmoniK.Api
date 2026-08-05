@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use hyper::{http::HeaderValue, Uri};
-use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
 #[cfg(feature = "serde")]
@@ -13,22 +12,17 @@ use crate::secret::Secret;
 #[cfg(feature = "serde")]
 use crate::tcp_config::prefix_tcp;
 use crate::tcp_config::{TcpConfig, TcpConfigArgs};
+use crate::tls_config::{TlsConfig, TlsConfigArgs};
 
 /// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
 /// endpoint.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct HttpConfig {
     /// Endpoint for sending requests
     pub endpoint: Uri,
-    /// Allow unsafe connections to the endpoint (without SSL), defaults to false
-    pub allow_unsafe_connection: bool,
-    /// TLS identity of the client: key + cert
-    pub identity: Option<(CertificateDer<'static>, PrivateKeyDer<'static>)>,
-    /// CA certificate to authenticate the server
-    pub cacert: Option<CertificateDer<'static>>,
-    /// Override the endpoint name during SSL verification
-    pub override_target: Option<Uri>,
+    /// TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour.
+    pub tls: TlsConfig,
     /// Timeout for establishing a connection to the server, defaults to 60s
     pub connect_timeout: Option<Duration>,
     /// Timeout for each request, defaults to no timeout
@@ -45,28 +39,6 @@ pub struct HttpConfig {
     pub proxy: ProxyConfig,
 }
 
-impl Clone for HttpConfig {
-    fn clone(&self) -> Self {
-        Self {
-            endpoint: self.endpoint.clone(),
-            allow_unsafe_connection: self.allow_unsafe_connection,
-            identity: self
-                .identity
-                .as_ref()
-                .map(|(cert, key)| (cert.clone(), key.clone_key())),
-            cacert: self.cacert.clone(),
-            override_target: self.override_target.clone(),
-            connect_timeout: self.connect_timeout,
-            timeout: self.timeout,
-            rate_limit: self.rate_limit,
-            tcp: self.tcp,
-            http2: self.http2,
-            user_agent: self.user_agent.clone(),
-            proxy: self.proxy.clone(),
-        }
-    }
-}
-
 /// Options for creating a gRPC Client, in the string form a caller supplies them in
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -76,21 +48,9 @@ pub struct HttpConfigArgs {
     /// Endpoint for sending requests
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub endpoint: String,
-    /// Path to the certificate file in pem format
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub cert_pem: String,
-    /// Path to the key file in pem format
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub key_pem: String,
-    /// Path to the Certificate Authority file in pem format
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub ca_cert: String,
-    /// Allow unsafe connections to the endpoint (without SSL), empty for false
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub allow_unsafe_connection: String,
-    /// Override the endpoint name during SSL verification
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub override_target_name: String,
+    /// The client's TLS identity and the server's CA.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub tls: TlsConfigArgs,
     /// Timeout for establishing a connection to the server, defaults to no timeout
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub connect_timeout: String,
@@ -112,6 +72,14 @@ pub struct HttpConfigArgs {
     /// HTTP proxy used to reach the endpoint: where to find it, and the dedicated credentials.
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub proxy: ProxyConfigArgs,
+}
+
+/// Boxes any error as a trait object, for a [`ConfigError`] variant shared by more than one
+/// underlying error type.
+pub(crate) fn boxed(
+    error: impl std::error::Error + Send + Sync + 'static,
+) -> Box<dyn std::error::Error + Send + Sync> {
+    Box::new(error)
 }
 
 /// Reads a duration option, empty for `None`.
@@ -237,11 +205,11 @@ impl HttpConfig {
         let _span = tracing::debug_span!(
             "HttpConfig",
             args.endpoint,
-            args.cert_pem,
-            args.key_pem,
-            args.ca_cert,
-            args.allow_unsafe_connection,
-            args.override_target_name,
+            args.tls.cert_pem,
+            args.tls.key_pem,
+            args.tls.ca_cert,
+            args.tls.allow_unsafe_connection,
+            args.tls.override_target_name,
             args.connect_timeout,
             args.timeout,
             args.rate_limit,
@@ -263,11 +231,7 @@ impl HttpConfig {
 
         let HttpConfigArgs {
             endpoint,
-            cert_pem: cert_path,
-            key_pem: key_path,
-            ca_cert: cacert_path,
-            allow_unsafe_connection,
-            override_target_name,
+            tls,
             connect_timeout,
             timeout,
             rate_limit,
@@ -277,74 +241,13 @@ impl HttpConfig {
             proxy,
         } = args;
 
-        let allow_unsafe_connection =
-            parse_bool("allow_unsafe_connection", &allow_unsafe_connection)?;
-        let tcp = tcp.resolve()?;
-        let http2 = http2.resolve()?;
-
-        // Read CAcert file
-        let cacert = if !cacert_path.is_empty() {
-            let cacert_pem = std::fs::read_to_string(cacert_path.clone())
-                .context(IoSnafu { path: cacert_path })?;
-            Some(CertificateDer::from_pem_slice(cacert_pem.as_bytes()).context(TlsSnafu {})?)
-        } else {
-            None
-        };
-
-        // Read client cert and key files
-        let identity = match (cert_path.as_str(), key_path.as_str()) {
-            ("", "") => None,
-            ("", _) | (_, "") => return IncompatibleOptionsSnafu{msg: format!("`GrpcClient__CertPem={cert_path}` and `GrpcClient__KeyPem={key_path}` must be either both empty or both set")}.fail(),
-            (cert_path, key_path) => {
-                let cert_pem =
-                    std::fs::read_to_string(cert_path).context(IoSnafu { path: cert_path })?;
-                let key_pem = std::fs::read(key_path).context(IoSnafu { path: key_path })?;
-                let cert = CertificateDer::from_pem_slice(cert_pem.as_bytes()).context(TlsSnafu {})?;
-                let key = PrivateKeyDer::from_pem_slice(key_pem.as_slice()).context(TlsSnafu{})?;
-
-                Some((cert, key))
-            }
-        };
-
-        let endpoint = Uri::try_from(endpoint.clone()).context(UriSnafu { uri: endpoint })?;
-
-        let override_target = if override_target_name.is_empty() {
-            None
-        } else {
-            let authority;
-            let path_and_query;
-
-            if let Ok(auth) = override_target_name.parse::<hyper::http::uri::Authority>() {
-                authority = Some(auth);
-                path_and_query = endpoint.path_and_query().cloned();
-            } else {
-                hyper::http::uri::Parts {
-                    authority,
-                    path_and_query,
-                    ..
-                } = Uri::try_from(override_target_name.clone())
-                    .context(UriSnafu {
-                        uri: endpoint.to_string(),
-                    })?
-                    .into_parts();
-            }
-
-            let mut uri = hyper::http::uri::Builder::new();
-
-            if let Some(scheme) = endpoint.scheme() {
-                uri = uri.scheme(scheme.clone());
-            }
-            if let Some(authority) = authority.or_else(|| endpoint.authority().cloned()) {
-                uri = uri.authority(authority);
-            }
-            if let Some(path_and_query) = path_and_query {
-                uri = uri.path_and_query(path_and_query);
-            }
-
-            Some(uri.build().context(HttpSnafu {
-                uri: override_target_name,
-            })?)
-        };
+        let endpoint = Uri::try_from(endpoint.clone())
+            .map_err(boxed)
+            .context(UriSnafu {
+                option: "endpoint",
+                uri: endpoint,
+            })?;
+        let tls = tls.resolve(&endpoint)?;
 
         let connect_timeout = Some(
             parse_optional_duration("connect_timeout", connect_timeout)?
@@ -388,6 +291,9 @@ impl HttpConfig {
             Some((limit, duration))
         };
 
+        let tcp = tcp.resolve()?;
+        let http2 = http2.resolve()?;
+
         let user_agent = if user_agent.is_empty() {
             None
         } else {
@@ -400,10 +306,7 @@ impl HttpConfig {
 
         Ok(Self {
             endpoint,
-            allow_unsafe_connection,
-            identity,
-            cacert,
-            override_target,
+            tls,
             connect_timeout,
             timeout,
             rate_limit,
@@ -435,29 +338,21 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Endpoint URI is not valid: `{uri}` [{location}]"))]
+    #[snafu(display("`{option}={uri}` is not a valid URI [{location}]"))]
     #[non_exhaustive]
     Uri {
-        #[snafu(source(from(hyper::http::uri::InvalidUri, Box::new)))]
-        source: Box<hyper::http::uri::InvalidUri>,
+        source: Box<dyn std::error::Error + Send + Sync>,
+        option: &'static str,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Override URI is not valid: `{uri}` [{location}]"))]
-    #[non_exhaustive]
-    Http {
-        #[snafu(source(from(hyper::http::Error, Box::new)))]
-        source: Box<hyper::http::Error>,
-        uri: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-    #[snafu(display("Could not read file `{path}` [{location}]"))]
+    #[snafu(display("Could not read `{option}`'s file `{path}` [{location}]"))]
     #[non_exhaustive]
     Io {
         #[snafu(source(from(std::io::Error, Box::new)))]
         source: Box<std::io::Error>,
+        option: &'static str,
         path: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -549,9 +444,9 @@ mod tests {
         let config = HttpConfig::from_config_args(args()).expect("an endpoint is enough");
 
         assert_eq!(config.endpoint.to_string(), "http://localhost:5001/");
-        assert!(config.identity.is_none());
-        assert!(config.cacert.is_none());
-        assert_eq!(config.override_target, None);
+        assert!(config.tls.identity.is_none());
+        assert!(config.tls.cacert.is_none());
+        assert_eq!(config.tls.override_target, None);
         assert_eq!(config.rate_limit, None);
     }
 
@@ -564,56 +459,6 @@ mod tests {
         .expect_err("an empty endpoint is not a URI");
 
         assert!(matches!(error, ConfigError::Uri { .. }), "{error:?}");
-    }
-
-    // --- booleans ---
-
-    #[test]
-    fn every_accepted_boolean_spelling_is_accepted() {
-        for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
-            let config = HttpConfig::from_config_args(HttpConfigArgs {
-                allow_unsafe_connection: String::from(spelling),
-                tcp: TcpConfigArgs {
-                    nagle_algorithm: String::from(spelling),
-                    ..Default::default()
-                },
-                http2: Http2ConfigArgs {
-                    keep_alive_while_idle: String::from(spelling),
-                    ..Default::default()
-                },
-                ..args()
-            })
-            .expect(spelling);
-            assert!(config.allow_unsafe_connection, "{spelling}");
-            assert!(config.tcp.nagle_algorithm, "{spelling}");
-            assert!(config.http2.keep_alive_while_idle, "{spelling}");
-        }
-
-        for spelling in ["0", "false", "no", "disable", "disallow", "forbid", ""] {
-            let config = HttpConfig::from_config_args(HttpConfigArgs {
-                allow_unsafe_connection: String::from(spelling),
-                ..args()
-            })
-            .expect(spelling);
-            assert!(!config.allow_unsafe_connection, "{spelling:?}");
-        }
-    }
-
-    #[test]
-    fn an_unrecognised_boolean_names_the_option_and_the_value() {
-        let error = HttpConfig::from_config_args(HttpConfigArgs {
-            allow_unsafe_connection: String::from("perhaps"),
-            ..args()
-        })
-        .expect_err("`perhaps` is not a boolean");
-
-        assert!(
-            matches!(error, ConfigError::InvalidBool { .. }),
-            "{error:?}"
-        );
-        let rendered = chain(&error);
-        assert!(rendered.contains("perhaps"), "{rendered}");
-        assert!(rendered.contains("allow_unsafe_connection"), "{rendered}");
     }
 
     // --- durations and numbers ---
@@ -798,8 +643,11 @@ mod tests {
         // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
         for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
-                cert_pem: String::from(cert),
-                key_pem: String::from(key),
+                tls: TlsConfigArgs {
+                    cert_pem: String::from(cert),
+                    key_pem: String::from(key),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect_err("half an identity must be rejected");
@@ -809,50 +657,96 @@ mod tests {
                 "{error:?}"
             );
             let rendered = chain(&error);
-            assert!(rendered.contains("GrpcClient__CertPem"), "{rendered}");
-            assert!(rendered.contains("GrpcClient__KeyPem"), "{rendered}");
+            assert!(rendered.contains("cert_pem"), "{rendered}");
+            assert!(rendered.contains("key_pem"), "{rendered}");
         }
     }
 
     #[test]
     fn neither_half_is_no_identity_rather_than_an_error() {
         let config = HttpConfig::from_config_args(args()).expect("valid");
-        assert!(config.identity.is_none());
+        assert!(config.tls.identity.is_none());
     }
 
     #[test]
-    fn a_certificate_path_that_does_not_exist_is_reported_with_the_path() {
-        // These options are paths, not contents. A typo in one has to name the file rather than surface
-        // later as a TLS failure.
-        let error = HttpConfig::from_config_args(HttpConfigArgs {
-            cert_pem: String::from("no/such/cert.pem"),
-            key_pem: String::from("no/such/key.pem"),
-            ..args()
-        })
-        .expect_err("a missing file must be reported");
+    fn content_that_is_not_pem_fails_as_such() {
+        // Garbage content gets a PEM error naming what was wrong, rather than this crate silently
+        // accepting it.
+        let mut cert = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut cert, b"not a certificate").expect("write");
+        let mut key = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut key, b"not a key").expect("write");
 
-        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
-        assert!(
-            chain(&error).contains("no/such/cert.pem"),
-            "{}",
-            chain(&error)
-        );
+        for args in [
+            HttpConfigArgs {
+                tls: TlsConfigArgs {
+                    cert_pem: cert.path().to_str().expect("utf8 path").to_owned(),
+                    key_pem: key.path().to_str().expect("utf8 path").to_owned(),
+                    ..Default::default()
+                },
+                ..args()
+            },
+            HttpConfigArgs {
+                tls: TlsConfigArgs {
+                    ca_cert: cert.path().to_str().expect("utf8 path").to_owned(),
+                    ..Default::default()
+                },
+                ..args()
+            },
+        ] {
+            let error = HttpConfig::from_config_args(args)
+                .expect_err("garbage content is not a certificate");
+
+            assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
+        }
     }
 
     #[test]
-    fn a_missing_ca_certificate_is_reported_with_the_path() {
+    fn a_path_that_leads_nowhere_names_the_option_and_the_path() {
+        for args in [
+            HttpConfigArgs {
+                tls: TlsConfigArgs {
+                    cert_pem: String::from("no/such/cert.pem"),
+                    key_pem: String::from("no/such/key.pem"),
+                    ..Default::default()
+                },
+                ..args()
+            },
+            HttpConfigArgs {
+                tls: TlsConfigArgs {
+                    ca_cert: String::from("no/such/ca.pem"),
+                    ..Default::default()
+                },
+                ..args()
+            },
+        ] {
+            let error =
+                HttpConfig::from_config_args(args).expect_err("a missing file must be reported");
+
+            assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
+            let rendered = chain(&error);
+            assert!(rendered.contains("no/such/"), "{rendered}");
+        }
+    }
+
+    #[test]
+    fn a_path_to_a_real_file_is_actually_read() {
+        // Proven by the error changing kind, not by a successful parse: generating a real certificate
+        // is more than this needs. A file that exists but holds no certificate must fail as `Tls`, not
+        // as `Io`, or the path was never opened at all.
+        let mut ca = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut ca, b"clearly not a certificate").expect("write");
+
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            ca_cert: String::from("no/such/ca.pem"),
+            tls: TlsConfigArgs {
+                ca_cert: ca.path().to_str().expect("utf8 path").to_owned(),
+                ..Default::default()
+            },
             ..args()
         })
-        .expect_err("a missing file must be reported");
+        .expect_err("this file holds no certificate");
 
-        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
-        assert!(
-            chain(&error).contains("no/such/ca.pem"),
-            "{}",
-            chain(&error)
-        );
+        assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
     }
 
     // --- override target ---
@@ -863,12 +757,15 @@ mod tests {
         // authority is being overridden, so everything else has to come from the endpoint.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
-            override_target_name: String::from("server.example.com"),
+            tls: TlsConfigArgs {
+                override_target_name: String::from("server.example.com"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid");
 
-        let override_target = config.override_target.expect("an override target");
+        let override_target = config.tls.override_target.expect("an override target");
         assert_eq!(override_target.scheme_str(), Some("https"));
         assert_eq!(
             override_target.authority().map(|a| a.as_str()),
@@ -881,12 +778,15 @@ mod tests {
     fn an_override_target_given_as_a_uri_replaces_the_authority_and_the_path() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
-            override_target_name: String::from("https://server.example.com/other"),
+            tls: TlsConfigArgs {
+                override_target_name: String::from("https://server.example.com/other"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid");
 
-        let override_target = config.override_target.expect("an override target");
+        let override_target = config.tls.override_target.expect("an override target");
         assert_eq!(
             override_target.authority().map(|a| a.as_str()),
             Some("server.example.com")
@@ -900,44 +800,149 @@ mod tests {
     #[test]
     fn no_override_target_leaves_it_unset() {
         let config = HttpConfig::from_config_args(args()).expect("valid");
-        assert_eq!(config.override_target, None);
+        assert_eq!(config.tls.override_target, None);
     }
 
     // --- the serde feature ---
 
+    /// The rendered message is what a user actually reads, so assert it whole rather than by
+    /// fragments: a stray space or a missing spelling only shows up here.
+    #[test]
+    fn an_unusable_boolean_names_the_option_and_the_vocabulary() {
+        let rendered = HttpConfig::from_config_args(HttpConfigArgs {
+            tls: TlsConfigArgs {
+                allow_unsafe_connection: String::from("perhaps"),
+                ..Default::default()
+            },
+            ..args()
+        })
+        .expect_err("`perhaps` spells no boolean")
+        .to_string();
+
+        let (message, location) = rendered
+            .rsplit_once(" [")
+            .expect("every error in this crate carries its location");
+        // `concat!` rather than a `\`-continued literal: that one keeps the source indentation in
+        // the string, which is exactly the defect this test exists to catch.
+        assert_eq!(
+            message,
+            concat!(
+                "`allow_unsafe_connection=perhaps` is not a valid boolean ",
+                "(e.g. `true`, `1`, `yes`, or `false`, `0`, `no`)"
+            )
+        );
+        assert!(location.ends_with(']'), "{rendered}");
+    }
+
+    /// A document may spell a boolean option the way its own format does, rather than the way an
+    /// environment variable has to.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_boolean_option_accepts_the_spelling_its_source_writes_naturally() {
+        for (written, expected) in [
+            (r#"{"AllowUnsafeConnection":true}"#, true),
+            (r#"{"AllowUnsafeConnection":false}"#, false),
+            (r#"{"AllowUnsafeConnection":"yes"}"#, true),
+            (r#"{"AllowUnsafeConnection":1}"#, true),
+            (r#"{"AllowUnsafeConnection":0}"#, false),
+        ] {
+            let mut args: HttpConfigArgs =
+                serde_json::from_str(written).unwrap_or_else(|error| panic!("{written}: {error}"));
+            args.endpoint = String::from("http://localhost:5001");
+
+            let config = HttpConfig::from_config_args(args)
+                .unwrap_or_else(|error| panic!("{written}: {error}"));
+
+            assert_eq!(
+                config.tls.allow_unsafe_connection, expected,
+                "{written} should resolve to {expected}"
+            );
+        }
+    }
+
+    /// What this crate writes, this crate reads: the options are textual, so a boolean comes back as
+    /// the word it was resolved from rather than as the source's own boolean.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_boolean_option_survives_being_written_and_read_again() {
+        let written = serde_json::to_string(&HttpConfigArgs {
+            tls: TlsConfigArgs {
+                allow_unsafe_connection: String::from("yes"),
+                ..Default::default()
+            },
+            ..args()
+        })
+        .expect("serialise");
+
+        assert!(
+            written.contains(r#""AllowUnsafeConnection":"yes""#),
+            "kept as written: {written}"
+        );
+
+        let read: HttpConfigArgs = serde_json::from_str(&written).expect("read back");
+        let config = HttpConfig::from_config_args(read).expect("resolve");
+
+        assert!(config.tls.allow_unsafe_connection);
+    }
+
+    /// The point of grouping each thematic unit's own fields with `with_prefix!` rather than a
+    /// plain nested object: not one JSON key changes, so an existing document, or an existing
+    /// environment variable, still reads.
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_thematic_units_own_fields_still_serialise_as_flat_top_level_keys() {
+        let args = HttpConfigArgs {
+            tcp: TcpConfigArgs {
+                keepalive: String::from("30s"),
+                ..Default::default()
+            },
+            http2: Http2ConfigArgs {
+                max_header_list_size: String::from("16384"),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let written = serde_json::to_string(&args).expect("serialise");
+        assert!(
+            written.contains(r#""TcpKeepalive":"30s""#),
+            "flat, not nested under \"Tcp\": {written}"
+        );
+        assert!(!written.contains(r#""Tcp":"#), "{written}");
+        assert!(
+            written.contains(r#""Http2MaxHeaderListSize":"16384""#),
+            "flat, not nested under \"Http2\": {written}"
+        );
+        assert!(!written.contains(r#""Http2":"#), "{written}");
+
+        let read: HttpConfigArgs =
+            serde_json::from_str(r#"{"TcpKeepalive":"5s","Http2MaxHeaderListSize":"8192"}"#)
+                .expect("read the flat keys back");
+        assert_eq!(read.tcp.keepalive, "5s");
+        assert_eq!(read.http2.max_header_list_size, "8192");
+    }
+
     #[cfg(feature = "serde")]
     #[test]
     fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
-        // A single struct-level `serde(default)` covers every field, endpoint included, so a
-        // configuration file need only name what it changes, in `PascalCase`, matching the
-        // environment. The feature is off by default, so nothing else here would notice it breaking.
+        // The struct carries `serde(default)`, so a configuration file need only name what it
+        // changes; an absent `endpoint` fails later, as `ConfigError::Uri`, not here. The feature is
+        // off by default, so nothing else here would notice it breaking.
         let deserialised: HttpConfigArgs =
-            serde_json::from_str(r#"{"Endpoint":"http://localhost:5001","Timeout":"30s"}"#)
-                .expect("absent fields should default");
+            serde_json::from_str(r#"{"Timeout":"30s"}"#).expect("absent fields should default");
 
-        assert_eq!(deserialised.endpoint, "http://localhost:5001");
+        assert_eq!(deserialised.endpoint, "", "an absent field defaults");
         assert_eq!(deserialised.timeout, "30s");
-        assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
-        assert_eq!(deserialised.allow_unsafe_connection, "");
+        assert_eq!(deserialised.tls.cert_pem, "", "an absent field defaults");
+        assert_eq!(
+            deserialised.tls.allow_unsafe_connection, "",
+            "an absent boolean defaults to empty, which reads as false"
+        );
 
         let round_tripped: HttpConfigArgs =
             serde_json::from_str(&serde_json::to_string(&deserialised).expect("serialise"))
                 .expect("deserialise");
         assert_eq!(round_tripped, deserialised);
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn a_value_that_figment_would_parse_as_a_number_or_boolean_still_reads_as_text() {
-        // `serde_json` itself has no reason to coerce a quoted string into anything else, so this
-        // pins the shim's own visitor methods directly rather than through a real `figment` read.
-        let deserialised: HttpConfigArgs = serde_json::from_str(
-            r#"{"Endpoint":"http://localhost:5001","TcpKeepaliveRetries":3,"AllowUnsafeConnection":true}"#,
-        )
-        .expect("a number or boolean must still be read as text");
-
-        assert_eq!(deserialised.tcp.keepalive_retries, "3");
-        assert_eq!(deserialised.allow_unsafe_connection, "true");
     }
 
     // --- the proxy ---
