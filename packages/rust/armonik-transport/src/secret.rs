@@ -86,17 +86,29 @@ impl serde::Serialize for Secret {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for Secret {
-    /// Refuses the redaction marker, so that reading back a dump fails where it can be understood
-    /// rather than later, as an unexplained rejection by whatever the secret authenticates against.
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let value = String::deserialize(deserializer)?;
+impl Secret {
+    /// Builds from text already decoded by some other means, refusing the redaction marker the same
+    /// way [`Deserialize`](serde::Deserialize) does.
+    ///
+    /// For a caller whose own `Deserialize` reads a scalar of more shapes than a bare string (a
+    /// `serde` source may hand over a real number or boolean before this crate ever sees text), and
+    /// therefore cannot simply delegate to this type's own `Deserialize` impl.
+    pub(crate) fn from_decoded_text<E: serde::de::Error>(value: String) -> Result<Self, E> {
         if value == REDACTED {
-            return Err(serde::de::Error::custom(format!(
+            return Err(E::custom(format!(
                 "`{REDACTED}` is what a secret serialises to, so this input cannot be one"
             )));
         }
         Ok(Self::new(value))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for Secret {
+    /// Refuses the redaction marker, so that reading back a dump fails where it can be understood
+    /// rather than later, as an unexplained rejection by whatever the secret authenticates against.
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Self::from_decoded_text(String::deserialize(deserializer)?)
     }
 }
 

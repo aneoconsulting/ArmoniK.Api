@@ -9,7 +9,7 @@ use armonik_transport::ConfigSnafu;
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
     ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ProxyConfig, ProxyError,
-    ProxySource, ReadEnvError, Secret,
+    ProxySource, Secret,
 };
 
 #[cfg(feature = "worker")]

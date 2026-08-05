@@ -154,123 +154,182 @@ impl Clone for ClientConfig {
     }
 }
 
-/// Options for creating a gRPC Client (as given in the environment)
+/// Options for creating a gRPC Client, in the string form a caller supplies them in
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
 #[non_exhaustive]
 pub struct ClientConfigArgs {
     /// Endpoint for sending requests
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub endpoint: String,
     /// Path to the certificate file in pem format
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub cert_pem: String,
     /// Path to the key file in pem format
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub key_pem: String,
     /// Path to the Certificate Authority file in pem format
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub ca_cert: String,
-    /// Allow unsafe connections to the endpoint (without SSL), defaults to false
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub allow_unsafe_connection: bool,
+    /// Allow unsafe connections to the endpoint (without SSL), empty for false
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
+    pub allow_unsafe_connection: String,
     /// Override the endpoint name during SSL verification
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub override_target_name: String,
     /// Timeout for establishing a connection to the server, defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub connect_timeout: String,
     /// Timeout for each request, defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub timeout: String,
     /// Rate limit for requests, defaults to no rate limit
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub rate_limit: String,
     /// TCP keepalive duration (e.g. `30s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub tcp_keepalive: String,
     /// Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub tcp_keepalive_interval: String,
     /// Number of TCP keepalive retries, defaults to OS default
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub tcp_keepalive_retries: String,
-    /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub tcp_nagle_algorithm: bool,
+    /// Enable Nagle's algorithm (disable TCP_NODELAY), empty for false
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
+    pub tcp_nagle_algorithm: String,
     /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_keep_alive_interval: String,
     /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_keep_alive_timeout: String,
-    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub http2_keep_alive_while_idle: bool,
+    /// Send HTTP/2 keepalive PINGs even when idle, empty for false
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
+    pub http2_keep_alive_while_idle: String,
     /// HTTP/2 max header list size in bytes, defaults to no limit
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_max_header_list_size: String,
     /// User-Agent header value sent with each request
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub user_agent: String,
     /// HTTP proxy to reach the endpoint through.
     ///
     /// Empty for a direct connection, `none` to disable proxying explicitly, `system` to read the
     /// environment (see [`ProxySource::System`]), otherwise the proxy URL, whose scheme has to be
     /// `http`: the `CONNECT` handshake is written in the clear.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub proxy: String,
     /// Username for proxy authentication.
     ///
     /// Empty falls back to the username the `proxy` URL carried, if any.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub proxy_username: String,
     /// Password for proxy authentication.
     ///
     /// Empty falls back to the password the `proxy` URL carried, independently of the username, so
     /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
     /// [`Secret`].
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
     pub proxy_password: Secret,
 }
 
-impl ClientConfigArgs {
+/// Reads a boolean option, on the vocabulary every ArmoniK client accepts.
+///
+/// The parsing lives here rather than in a `Deserialize` impl so that the error can name the option
+/// it came from: a `deserialize_with` function's signature carries only the value, not the field it
+/// was read for, so the name has to come from whoever calls it instead.
+pub(crate) fn parse_bool(option: &'static str, value: &str) -> Result<bool, ConfigError> {
+    match value {
+        "" | "0" | "false" | "no" | "disable" | "disallow" | "forbid" => Ok(false),
+        "1" | "true" | "yes" | "enable" | "allow" | "authorize" => Ok(true),
+        _ => InvalidBoolSnafu {
+            option,
+            value: value.to_owned(),
+        }
+        .fail(),
+    }
+}
+
+/// Reads any field of [`ClientConfigArgs`] as text, whatever scalar shape a `serde` source gave it.
+///
+/// Every field of `ClientConfigArgs` is authoritatively text, in the string form its own doc names,
+/// but a source is not obliged to agree: `figment`'s `Env` provider parses a bare `3` or `true` into
+/// a real integer or boolean before `serde` ever sees it, and a plain `String` field rejects those
+/// outright. The same provider parses a value made entirely of a bracketed or braced list (`[::1]`,
+/// with nothing before or after the brackets) into a list or object the same way, which a value's own
+/// option cannot be, so that shape is refused with a message naming the escape hatch: a literal pair
+/// of double quotes around the value (`"[::1]"`) forces it to be read as a string instead.
+#[cfg(feature = "serde")]
+pub(crate) fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    struct AnyScalar;
+
+    impl<'de> serde::de::Visitor<'de> for AnyScalar {
+        type Value = String;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a string, or a number or boolean spelling one")
+        }
+
+        fn visit_bool<E>(self, value: bool) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<String, E> {
+            Ok(value.to_owned())
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<String, E> {
+            Ok(value)
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_f64<E>(self, value: f64) -> Result<String, E> {
+            Ok(value.to_string())
+        }
+
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, _seq: A) -> Result<String, A::Error> {
+            Err(serde::de::Error::custom(
+                "a value made entirely of a bracketed list reads as one, not as text; wrap it in a \
+                 literal pair of double quotes (e.g. `\"[::1]\"`) to read it as a string",
+            ))
+        }
+
+        fn visit_map<A: serde::de::MapAccess<'de>>(self, _map: A) -> Result<String, A::Error> {
+            Err(serde::de::Error::custom(
+                "a value made entirely of a braced object reads as one, not as text; wrap it in a \
+                 literal pair of double quotes to read it as a string",
+            ))
+        }
+    }
+
+    deserializer.deserialize_any(AnyScalar)
+}
+
+/// [`text`], for the one field whose value is a [`Secret`] rather than a plain `String`.
+#[cfg(feature = "serde")]
+pub(crate) fn secret_text<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Secret, D::Error> {
+    text(deserializer).and_then(Secret::from_decoded_text)
+}
+
+#[cfg(feature = "env")]
+impl ClientConfig {
     pub fn from_env() -> Result<Self, ConfigError> {
-        use crate::utils::{read_env, read_env_bool};
-        let ctx = EnvSnafu {};
-        Ok(Self {
-            endpoint: read_env("GrpcClient__Endpoint").context(ctx)?,
-            cert_pem: read_env("GrpcClient__CertPem").context(ctx)?,
-            key_pem: read_env("GrpcClient__KeyPem").context(ctx)?,
-            ca_cert: read_env("GrpcClient__CaCert").context(ctx)?,
-            allow_unsafe_connection: read_env_bool("GrpcClient__AllowUnsafeConnection")
-                .context(ctx)?,
-            override_target_name: read_env("GrpcClient__OverrideTargetName").context(ctx)?,
-            connect_timeout: read_env("GrpcClient__ConnectTimeout").context(ctx)?,
-            timeout: read_env("GrpcClient__Timeout").context(ctx)?,
-            rate_limit: read_env("GrpcClient__RateLimit").context(ctx)?,
-            tcp_keepalive: read_env("GrpcClient__TcpKeepalive").context(ctx)?,
-            tcp_keepalive_interval: read_env("GrpcClient__TcpKeepaliveInterval").context(ctx)?,
-            tcp_keepalive_retries: read_env("GrpcClient__TcpKeepaliveRetries").context(ctx)?,
-            tcp_nagle_algorithm: read_env_bool("GrpcClient__TcpNagleAlgorithm").context(ctx)?,
-            http2_keep_alive_interval: read_env("GrpcClient__Http2KeepAliveInterval")
-                .context(ctx)?,
-            http2_keep_alive_timeout: read_env("GrpcClient__Http2KeepAliveTimeout").context(ctx)?,
-            http2_keep_alive_while_idle: read_env_bool("GrpcClient__Http2KeepAliveWhileIdle")
-                .context(ctx)?,
-            http2_max_header_list_size: read_env("GrpcClient__Http2MaxHeaderListSize")
-                .context(ctx)?,
-            user_agent: read_env("GrpcClient__UserAgent").context(ctx)?,
-            proxy: read_env("GrpcClient__Proxy").context(ctx)?,
-            proxy_username: read_env("GrpcClient__ProxyUsername").context(ctx)?,
-            proxy_password: read_env("GrpcClient__ProxyPassword").context(ctx)?.into(),
-        })
+        Self::from_config_args(ClientConfigArgs::from_env("GrpcClient__").context(EnvSnafu {})?)
     }
 }
 
 impl ClientConfig {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_config_args(ClientConfigArgs::from_env()?)
-    }
     pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
         let _span = tracing::debug_span!(
             "ClientConfig",
@@ -322,6 +381,12 @@ impl ClientConfig {
             proxy_username,
             proxy_password,
         } = args;
+
+        let allow_unsafe_connection =
+            parse_bool("allow_unsafe_connection", &allow_unsafe_connection)?;
+        let tcp_nagle_algorithm = parse_bool("tcp_nagle_algorithm", &tcp_nagle_algorithm)?;
+        let http2_keep_alive_while_idle =
+            parse_bool("http2_keep_alive_while_idle", &http2_keep_alive_while_idle)?;
 
         // Read CAcert file
         let cacert = if !cacert_path.is_empty() {
@@ -626,11 +691,12 @@ impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum ConfigError {
-    #[snafu(display("Could not read environment variable [{location}]"))]
+    #[cfg(feature = "env")]
+    #[snafu(display("Could not read the environment [{location}]"))]
     #[non_exhaustive]
     Env {
-        #[snafu(source(from(crate::utils::ReadEnvError, Box::new)))]
-        source: Box<crate::utils::ReadEnvError>,
+        #[snafu(source(from(crate::env::EnvFieldError, Box::new)))]
+        source: Box<crate::env::EnvFieldError>,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -689,6 +755,16 @@ pub enum ConfigError {
     #[non_exhaustive]
     InvalidRateLimitCount {
         source: std::num::ParseIntError,
+        value: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "`{option}={value}` is not a valid boolean (e.g. `true`, `1`, `yes`, or `false`, `0`, `no`) [{location}]"
+    ))]
+    #[non_exhaustive]
+    InvalidBool {
+        option: &'static str,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -756,6 +832,50 @@ mod tests {
         .expect_err("an empty endpoint is not a URI");
 
         assert!(matches!(error, ConfigError::Uri { .. }), "{error:?}");
+    }
+
+    // --- booleans ---
+
+    #[test]
+    fn every_accepted_boolean_spelling_is_accepted() {
+        for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
+            let config = ClientConfig::from_config_args(ClientConfigArgs {
+                allow_unsafe_connection: String::from(spelling),
+                tcp_nagle_algorithm: String::from(spelling),
+                http2_keep_alive_while_idle: String::from(spelling),
+                ..args()
+            })
+            .expect(spelling);
+            assert!(config.allow_unsafe_connection, "{spelling}");
+            assert!(config.tcp_nagle_algorithm, "{spelling}");
+            assert!(config.http2_keep_alive_while_idle, "{spelling}");
+        }
+
+        for spelling in ["0", "false", "no", "disable", "disallow", "forbid", ""] {
+            let config = ClientConfig::from_config_args(ClientConfigArgs {
+                allow_unsafe_connection: String::from(spelling),
+                ..args()
+            })
+            .expect(spelling);
+            assert!(!config.allow_unsafe_connection, "{spelling:?}");
+        }
+    }
+
+    #[test]
+    fn an_unrecognised_boolean_names_the_option_and_the_value() {
+        let error = ClientConfig::from_config_args(ClientConfigArgs {
+            allow_unsafe_connection: String::from("perhaps"),
+            ..args()
+        })
+        .expect_err("`perhaps` is not a boolean");
+
+        assert!(
+            matches!(error, ConfigError::InvalidBool { .. }),
+            "{error:?}"
+        );
+        let rendered = chain(&error);
+        assert!(rendered.contains("perhaps"), "{rendered}");
+        assert!(rendered.contains("allow_unsafe_connection"), "{rendered}");
     }
 
     // --- durations and numbers ---
@@ -1029,21 +1149,36 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
-        // Every field but the endpoint carries `serde(default)`, so a configuration file need only name
-        // what it changes. The feature is off by default, so nothing else here would notice it breaking.
+        // A single struct-level `serde(default)` covers every field, endpoint included, so a
+        // configuration file need only name what it changes, in `PascalCase`, matching the
+        // environment. The feature is off by default, so nothing else here would notice it breaking.
         let deserialised: ClientConfigArgs =
-            serde_json::from_str(r#"{"endpoint":"http://localhost:5001","timeout":"30s"}"#)
+            serde_json::from_str(r#"{"Endpoint":"http://localhost:5001","Timeout":"30s"}"#)
                 .expect("absent fields should default");
 
         assert_eq!(deserialised.endpoint, "http://localhost:5001");
         assert_eq!(deserialised.timeout, "30s");
         assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
-        assert!(!deserialised.allow_unsafe_connection);
+        assert_eq!(deserialised.allow_unsafe_connection, "");
 
         let round_tripped: ClientConfigArgs =
             serde_json::from_str(&serde_json::to_string(&deserialised).expect("serialise"))
                 .expect("deserialise");
         assert_eq!(round_tripped, deserialised);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_value_that_figment_would_parse_as_a_number_or_boolean_still_reads_as_text() {
+        // `serde_json` itself has no reason to coerce a quoted string into anything else, so this
+        // pins the shim's own visitor methods directly rather than through a real `figment` read.
+        let deserialised: ClientConfigArgs = serde_json::from_str(
+            r#"{"Endpoint":"http://localhost:5001","TcpKeepaliveRetries":3,"AllowUnsafeConnection":true}"#,
+        )
+        .expect("a number or boolean must still be read as text");
+
+        assert_eq!(deserialised.tcp_keepalive_retries, "3");
+        assert_eq!(deserialised.allow_unsafe_connection, "true");
     }
 
     // --- the proxy ---
