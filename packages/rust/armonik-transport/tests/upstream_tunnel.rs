@@ -1,9 +1,8 @@
 //! What `hyper_util`'s `Tunnel`, which [`crate::proxy`] drives, still gets wrong.
 //!
-//! These tests assert that `Tunnel` gets two cases wrong. They are meant to fail: when a
-//! `hyper-util` release fixes either, the failure is the notice that the crate README's
-//! "Known issues" section, and the matching tripwire in `tests/proxy.rs`, are out of date.
-//! Fixing them upstream is tracked by #702.
+//! This asserts that `Tunnel` gets a split status line wrong. It is meant to fail: when a
+//! `hyper-util` release fixes it, the failure is the notice that the crate README's "Known issues"
+//! section is out of date. Fixing it upstream is tracked by #702.
 //!
 //! A dependency bump turning CI red is the point. Read the failure before assuming it is a regression.
 
@@ -95,26 +94,6 @@ async fn a_plain_200_opens_the_tunnel() {
 }
 
 #[tokio::test]
-async fn hyper_util_still_refuses_a_2xx_that_is_not_200() {
-    // RFC 9110: any 2xx switches a `CONNECT` connection to tunnel mode. `Tunnel` compares the status
-    // line against `200` alone, so a proxy answering 201 is treated as a refusal.
-    let proxy = spawn_proxy("HTTP/1.1 201 Connection established\r\n\r\n", None).await;
-
-    let error = tunnel_through(proxy).await.err().unwrap_or_else(|| {
-        panic!(
-            "hyper-util now opens the tunnel on a 2xx other than 200. \
-             Check the split-status-line case too, and if that is fixed as well, drop this test, \
-             the matching one in tests/proxy.rs, and the README's \"Known issues\" section."
-        )
-    });
-
-    assert!(
-        error.contains("unsuccessful"),
-        "unexpected failure: {error}"
-    );
-}
-
-#[tokio::test]
 async fn hyper_util_still_refuses_a_status_line_split_across_reads() {
     // Cut inside `HTTP/1.1 200`, so the first read carries `HTTP/1.1 2`, which matches neither prefix
     // `Tunnel` looks for and falls into its catch-all refusal. Legal, and likelier with a slow proxy
@@ -125,8 +104,7 @@ async fn hyper_util_still_refuses_a_status_line_split_across_reads() {
         panic!(
             "hyper-util now reads a split status line correctly, or the two writes reached it as \
              one read. Rule the second out before believing the first: the halves are 50ms apart \
-             on a socket with Nagle off. If it really is fixed, check the 2xx case too, and if that \
-             is fixed as well, drop this test, the matching one in tests/proxy.rs, and the README's \
+             on a socket with Nagle off. If it really is fixed, drop this test and the README's \
              \"Known issues\" section."
         )
     });

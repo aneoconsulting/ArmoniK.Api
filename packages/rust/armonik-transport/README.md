@@ -21,9 +21,9 @@ out in the clear, the proxy's own URL has to be `http`. The tunnel handshake its
 
 ### Known issues
 
-`Tunnel`, as shipped in `hyper-util` 0.1.20, gets four cases wrong. None are ours to fix directly, and
-each is pinned by a test named `known_issue_*`, in `tests/proxy.rs` or `tests/upstream_tunnel.rs`, so a
-`hyper-util` release that fixes one turns that test red rather than letting the fix pass unnoticed.
+`Tunnel`, as shipped in `hyper-util` 0.1.20, gets four cases wrong. None are ours to fix directly; each
+is pinned by a test in `tests/proxy.rs` or `tests/upstream_tunnel.rs`, so a `hyper-util` release that
+fixes one turns that test red rather than letting the fix pass unnoticed.
 
 - **Only an exact `200` opens the tunnel.** RFC 9110 says any `2xx` should. A proxy answering `201` or
   `204` is treated as a refusal.
