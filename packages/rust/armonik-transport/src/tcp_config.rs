@@ -34,7 +34,7 @@ pub struct TcpConfigArgs {
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub keepalive_retries: String,
     /// Enable Nagle's algorithm (disable TCP_NODELAY), empty for false. `TcpNagleAlgorithm`. See
-    /// [`crate::HttpTlsConfigArgs::allow_unsafe_connection`] for the accepted spellings.
+    /// [`crate::TlsConfigArgs::allow_unsafe_connection`] for the accepted spellings.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub nagle_algorithm: String,
 }

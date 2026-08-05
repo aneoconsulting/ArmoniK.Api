@@ -1,10 +1,10 @@
 //! TLS and mTLS: the client's own identity, the server's CA, and the two options that change how
 //! verification behaves rather than what is verified.
 //!
-//! Unlike the `Tcp`/`Http2`/`Proxy` units, these fields share no common prefix in the environment
-//! (`CertPem`, `CaCert`, `AllowUnsafeConnection`, `OverrideTargetName`, ...), so grouping them is a
-//! plain [`serde(flatten)`](serde::Deserialize), with no [`serde_with::with_prefix!`] needed: every
-//! name here already matches today's flat one exactly.
+//! Unlike the `Tcp`/`Http2` units, these fields share no common prefix in the environment (`CertPem`,
+//! `CaCert`, `AllowUnsafeConnection`, `OverrideTargetName`, ...), so grouping them is a plain
+//! [`serde(flatten)`](serde::Deserialize), with no [`serde_with::with_prefix!`] needed: every name
+//! here already matches today's flat one exactly.
 
 use hyper::Uri;
 use rustls::pki_types::pem::PemObject;

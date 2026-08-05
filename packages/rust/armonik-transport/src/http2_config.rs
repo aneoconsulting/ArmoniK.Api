@@ -31,7 +31,7 @@ pub struct Http2ConfigArgs {
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub keep_alive_timeout: String,
     /// Send HTTP/2 keepalive PINGs even when idle, empty for false. `Http2KeepAliveWhileIdle`. See
-    /// [`crate::HttpTlsConfigArgs::allow_unsafe_connection`] for the accepted spellings.
+    /// [`crate::TlsConfigArgs::allow_unsafe_connection`] for the accepted spellings.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub keep_alive_while_idle: String,
     /// HTTP/2 max header list size in bytes, defaults to no limit. `Http2MaxHeaderListSize`.

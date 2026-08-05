@@ -269,8 +269,8 @@ pub(crate) fn elide_userinfo(value: &str) -> String {
     }
 }
 
-/// Decode `%XX` escapes, leaving anything malformed exactly as it was written: `percent_encoding`'s
-/// own documented behaviour for a `%` not followed by two hex digits.
+/// Decode `%XX` escapes, leaving anything malformed exactly as it was written, which is how
+/// `percent_encoding` behaves for a `%` not followed by two hex digits.
 fn percent_decode(value: &str) -> String {
     percent_encoding::percent_decode_str(value)
         .decode_utf8_lossy()
