@@ -30,10 +30,10 @@ pub use connect::{connect, https_connector, ConnectionError};
 pub use env::EnvFieldError;
 pub use http2_config::{Http2Config, Http2ConfigArgs};
 pub use proxy::ProxyError;
-pub use proxy_config::{HttpProxyConfig, HttpProxyConfigArgs, ProxySource};
+pub use proxy_config::{ProxyConfig, ProxyConfigArgs, ProxySource};
 pub use secret::Secret;
 pub use tcp_config::{TcpConfig, TcpConfigArgs};
-pub use tls_config::{HttpTlsConfig, HttpTlsConfigArgs};
+pub use tls_config::{TlsConfig, TlsConfigArgs};
 // Snafu's context selectors, so a caller in another crate can build the error with the location
 // captured at its own call site. Hidden: this is how the error is built, not API to design against.
 #[doc(hidden)]

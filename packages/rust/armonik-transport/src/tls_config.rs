@@ -14,7 +14,7 @@ use snafu::{OptionExt, ResultExt};
 #[cfg(feature = "serde")]
 use crate::config::{secret_text, text};
 use crate::config::{
-    ConfigError, EmptyPkcs12Snafu, IncompatibleOptionsSnafu, IoSnafu, Pkcs12Snafu, TlsSnafu,
+    boxed, ConfigError, EmptyPkcs12Snafu, IncompatibleOptionsSnafu, IoSnafu, Pkcs12Snafu, TlsSnafu,
     UriSnafu,
 };
 use crate::secret::Secret;
@@ -24,7 +24,7 @@ use crate::secret::Secret;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
 #[non_exhaustive]
-pub struct HttpTlsConfigArgs {
+pub struct TlsConfigArgs {
     /// A file this crate reads: the client's own certificate, matching `key_pem`. Mutually exclusive
     /// with `cert_p12`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
@@ -55,10 +55,10 @@ pub struct HttpTlsConfigArgs {
     pub override_target_name: String,
 }
 
-/// The resolved form of [`HttpTlsConfigArgs`].
+/// The resolved form of [`TlsConfigArgs`].
 #[derive(Debug, Default)]
 #[non_exhaustive]
-pub struct HttpTlsConfig {
+pub struct TlsConfig {
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false.
     pub allow_unsafe_connection: bool,
     /// TLS identity of the client: key + cert, loaded from whichever of `cert_pem`/`key_pem` or
@@ -70,7 +70,7 @@ pub struct HttpTlsConfig {
     pub override_target: Option<Uri>,
 }
 
-impl Clone for HttpTlsConfig {
+impl Clone for TlsConfig {
     fn clone(&self) -> Self {
         Self {
             allow_unsafe_connection: self.allow_unsafe_connection,
@@ -129,12 +129,12 @@ fn read_cert_p12(
     ))
 }
 
-impl HttpTlsConfigArgs {
+impl TlsConfigArgs {
     /// Resolves against `endpoint`: an override target given as a bare host keeps the endpoint's own
     /// scheme and path, and is otherwise a full URI whose authority and path replace the endpoint's,
     /// but never its scheme, since the connection is still made to the endpoint. Only the name it is
     /// verified against changes.
-    pub(crate) fn resolve(self, endpoint: &Uri) -> Result<HttpTlsConfig, ConfigError> {
+    pub(crate) fn resolve(self, endpoint: &Uri) -> Result<TlsConfig, ConfigError> {
         let Self {
             cert_pem,
             key_pem,
@@ -203,7 +203,7 @@ impl HttpTlsConfigArgs {
                     path_and_query,
                     ..
                 } = Uri::try_from(override_target_name.as_str())
-                    .map_err(crate::config::boxed)
+                    .map_err(boxed)
                     .context(UriSnafu {
                         option: "override_target_name",
                         uri: override_target_name.clone(),
@@ -225,7 +225,7 @@ impl HttpTlsConfigArgs {
 
             Some(
                 uri.build()
-                    .map_err(crate::config::boxed)
+                    .map_err(boxed)
                     .context(UriSnafu {
                         option: "override_target_name",
                         uri: override_target_name,
@@ -233,7 +233,7 @@ impl HttpTlsConfigArgs {
             )
         };
 
-        Ok(HttpTlsConfig {
+        Ok(TlsConfig {
             allow_unsafe_connection: crate::config::parse_bool(
                 "allow_unsafe_connection",
                 &allow_unsafe_connection,

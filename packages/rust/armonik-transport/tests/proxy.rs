@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use armonik_transport::{HttpConfig, HttpProxyConfig};
+use armonik_transport::{HttpConfig, ProxyConfig};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -137,10 +137,10 @@ fn through_proxy(
     credentials: Option<(&str, &str)>,
 ) -> HttpConfig {
     common::config(endpoint, |args| {
-        args.proxy = format!("http://{proxy}");
+        args.proxy.source = format!("http://{proxy}");
         if let Some((username, password)) = credentials {
-            args.proxy_config.username = String::from(username);
-            args.proxy_config.password = password.into();
+            args.proxy.username = String::from(username);
+            args.proxy.password = password.into();
         }
     })
 }
@@ -207,10 +207,10 @@ async fn a_proxy_can_be_configured_without_going_through_the_environment() {
     let server = spawn_server().await;
     let (proxy, stats) = spawn_proxy(ProxyAuth::Required("dXNlcjpzZWNyZXQ=")).await;
 
-    // `HttpProxyConfig` is `#[non_exhaustive]`, so these constructors are the only way another crate can
+    // `ProxyConfig` is `#[non_exhaustive]`, so these constructors are the only way another crate can
     // build one. Worth its own test: nothing else here exercises them.
     let mut config = direct(&server);
-    config.proxy = HttpProxyConfig::explicit(
+    config.proxy = ProxyConfig::explicit(
         hyper::Uri::try_from(format!("http://{proxy}")).expect("a valid proxy URI"),
     )
     .with_credentials("user", "secret");
@@ -231,7 +231,7 @@ async fn credentials_written_into_the_proxy_url_authenticate_the_tunnel() {
     // The conventional `HTTPS_PROXY` form. Accepting the URL and then not authenticating with it is
     // the failure this pins.
     let config = common::config(&server, |args| {
-        args.proxy = format!("http://user:secret@{proxy}");
+        args.proxy.source = format!("http://user:secret@{proxy}");
     });
 
     let answer = call_through(config)
@@ -342,7 +342,7 @@ async fn system_mode_takes_the_proxy_from_the_environment() {
     // once, in `HttpConfigArgs::from_env`.
     let _http_proxy = common::EnvGuard::set("HTTP_PROXY", &format!("http://{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
-        args.proxy = String::from("system")
+        args.proxy.source = String::from("system")
     }))
     .await;
 
@@ -362,7 +362,7 @@ async fn no_proxy_bypasses_the_proxy_in_system_mode() {
     let _http_proxy = common::EnvGuard::set("HTTP_PROXY", &format!("http://{proxy}"));
     let _no_proxy = common::EnvGuard::set("NO_PROXY", "127.0.0.1");
     let outcome = call_through(common::config(&server, |args| {
-        args.proxy = String::from("system")
+        args.proxy.source = String::from("system")
     }))
     .await;
 
@@ -405,8 +405,8 @@ async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carr
 
     let _http_proxy = common::EnvGuard::set("HTTP_PROXY", &format!("http://url-user:old@{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
-        args.proxy = String::from("system");
-        args.proxy_config.password = String::from("new").into();
+        args.proxy.source = String::from("system");
+        args.proxy.password = String::from("new").into();
     }))
     .await;
 
@@ -531,7 +531,7 @@ async fn an_https_proxy_from_the_environment_is_refused_before_dialling() {
 
     let _http_proxy = common::EnvGuard::set("HTTP_PROXY", "https://proxy.corp:3128");
     let outcome = call_through(common::config(&server, |args| {
-        args.proxy = String::from("system")
+        args.proxy.source = String::from("system")
     }))
     .await;
 

@@ -6,15 +6,13 @@ use snafu::{ResultExt, Snafu};
 #[cfg(feature = "serde")]
 use crate::http2_config::prefix_http2;
 use crate::http2_config::{Http2Config, Http2ConfigArgs};
-#[cfg(feature = "serde")]
-use crate::proxy_config::prefix_proxy;
-use crate::proxy_config::{parse_proxy_source, HttpProxyConfig, HttpProxyConfigArgs, ProxySource};
+use crate::proxy_config::{ProxyConfig, ProxyConfigArgs};
 #[cfg(feature = "serde")]
 use crate::secret::Secret;
 #[cfg(feature = "serde")]
 use crate::tcp_config::prefix_tcp;
 use crate::tcp_config::{TcpConfig, TcpConfigArgs};
-use crate::tls_config::{HttpTlsConfig, HttpTlsConfigArgs};
+use crate::tls_config::{TlsConfig, TlsConfigArgs};
 
 /// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
 /// endpoint.
@@ -24,7 +22,7 @@ pub struct HttpConfig {
     /// Endpoint for sending requests
     pub endpoint: Uri,
     /// TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour.
-    pub tls: HttpTlsConfig,
+    pub tls: TlsConfig,
     /// Timeout for establishing a connection to the server, defaults to 60s
     pub connect_timeout: Option<Duration>,
     /// Timeout for each request, defaults to no timeout
@@ -38,7 +36,7 @@ pub struct HttpConfig {
     /// User-Agent header value sent with each request
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
-    pub proxy: HttpProxyConfig,
+    pub proxy: ProxyConfig,
 }
 
 /// Options for creating a gRPC Client, in the string form a caller supplies them in
@@ -52,7 +50,7 @@ pub struct HttpConfigArgs {
     pub endpoint: String,
     /// The client's TLS identity and the server's CA.
     #[cfg_attr(feature = "serde", serde(flatten))]
-    pub tls: HttpTlsConfigArgs,
+    pub tls: TlsConfigArgs,
     /// Timeout for establishing a connection to the server, defaults to no timeout
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub connect_timeout: String,
@@ -71,16 +69,9 @@ pub struct HttpConfigArgs {
     /// User-Agent header value sent with each request
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub user_agent: String,
-    /// HTTP proxy to reach the endpoint through.
-    ///
-    /// Empty for a direct connection, `none` to disable proxying explicitly, `system` to read the
-    /// environment (see [`ProxySource::System`]), otherwise the proxy URL, whose scheme has to be
-    /// `http`: the `CONNECT` handshake is written in the clear.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub proxy: String,
-    /// The dedicated proxy credentials.
-    #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_proxy"))]
-    pub proxy_config: HttpProxyConfigArgs,
+    /// HTTP proxy used to reach the endpoint: where to find it, and the dedicated credentials.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub proxy: ProxyConfigArgs,
 }
 
 /// Boxes any error as a trait object, for a [`ConfigError`] variant shared by more than one
@@ -237,8 +228,8 @@ impl HttpConfig {
             // Elided, and `proxy_password` left out entirely: this span is recorded at debug level, and
             // a proxy URL carries credentials as often as the dedicated option does. Do not complete
             // the list.
-            proxy = %crate::proxy::elide_userinfo(&args.proxy),
-            args.proxy_config.username,
+            proxy = %crate::proxy::elide_userinfo(&args.proxy.source),
+            args.proxy.username,
         );
 
         let HttpConfigArgs {
@@ -251,7 +242,6 @@ impl HttpConfig {
             http2,
             user_agent,
             proxy,
-            proxy_config,
         } = args;
 
         let endpoint = Uri::try_from(endpoint.clone())
@@ -315,13 +305,7 @@ impl HttpConfig {
             Some(header)
         };
 
-        let proxy = match parse_proxy_source(&proxy)? {
-            // Through the constructor, so credentials written into the URL are taken out of it.
-            ProxySource::Explicit(uri) => HttpProxyConfig::explicit(uri),
-            ProxySource::System => HttpProxyConfig::system(),
-            ProxySource::Disabled => HttpProxyConfig::default(),
-        };
-        let proxy = proxy_config.merge_into(proxy);
+        let proxy = proxy.resolve()?;
 
         Ok(Self {
             endpoint,
@@ -455,6 +439,7 @@ mod tests {
     use rustls::pki_types::PrivateKeyDer;
 
     use super::*;
+    use crate::proxy_config::ProxySource;
     use crate::secret::Secret;
 
     /// The minimum viable arguments: an endpoint, and nothing else set.
@@ -685,7 +670,7 @@ mod tests {
             (String::new(), String::from("key.pem")),
         ] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
-                tls: HttpTlsConfigArgs {
+                tls: TlsConfigArgs {
                     cert_pem: cert,
                     key_pem: key,
                     ..Default::default()
@@ -721,7 +706,7 @@ mod tests {
 
         for args in [
             HttpConfigArgs {
-                tls: HttpTlsConfigArgs {
+                tls: TlsConfigArgs {
                     cert_pem: cert.path().to_str().expect("utf8 path").to_owned(),
                     key_pem: key.path().to_str().expect("utf8 path").to_owned(),
                     ..Default::default()
@@ -729,7 +714,7 @@ mod tests {
                 ..args()
             },
             HttpConfigArgs {
-                tls: HttpTlsConfigArgs {
+                tls: TlsConfigArgs {
                     ca_cert: cert.path().to_str().expect("utf8 path").to_owned(),
                     ..Default::default()
                 },
@@ -747,7 +732,7 @@ mod tests {
     fn a_path_that_leads_nowhere_names_the_option_and_the_path() {
         for args in [
             HttpConfigArgs {
-                tls: HttpTlsConfigArgs {
+                tls: TlsConfigArgs {
                     cert_pem: String::from("no/such/cert.pem"),
                     key_pem: String::from("no/such/key.pem"),
                     ..Default::default()
@@ -755,7 +740,7 @@ mod tests {
                 ..args()
             },
             HttpConfigArgs {
-                tls: HttpTlsConfigArgs {
+                tls: TlsConfigArgs {
                     ca_cert: String::from("no/such/ca.pem"),
                     ..Default::default()
                 },
@@ -780,7 +765,7 @@ mod tests {
         std::io::Write::write_all(&mut ca, b"clearly not a certificate").expect("write");
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 ca_cert: ca.path().to_str().expect("utf8 path").to_owned(),
                 ..Default::default()
             },
@@ -794,7 +779,7 @@ mod tests {
     #[test]
     fn cert_p12_and_the_pem_pair_are_mutually_exclusive() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 cert_pem: String::from("cert.pem"),
                 key_pem: String::from("key.pem"),
                 cert_p12: String::from("identity.p12"),
@@ -815,7 +800,7 @@ mod tests {
     #[test]
     fn a_p12_password_without_a_p12_is_rejected() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 cert_p12_password: Secret::from("s3cr3t"),
                 ..Default::default()
             },
@@ -859,7 +844,7 @@ mod tests {
         std::io::Write::write_all(&mut p12, &pfx).expect("write");
 
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
                 cert_p12_password: Secret::from(PASSWORD),
                 ..Default::default()
@@ -883,7 +868,7 @@ mod tests {
     #[test]
     fn a_p12_that_leads_nowhere_names_the_path() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 cert_p12: String::from("no/such/identity.p12"),
                 ..Default::default()
             },
@@ -901,7 +886,7 @@ mod tests {
         std::io::Write::write_all(&mut p12, b"clearly not a pkcs12 bundle").expect("write");
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
                 ..Default::default()
             },
@@ -920,7 +905,7 @@ mod tests {
         // authority is being overridden, so everything else has to come from the endpoint.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 override_target_name: String::from("server.example.com"),
                 ..Default::default()
             },
@@ -941,7 +926,7 @@ mod tests {
     fn an_override_target_given_as_a_uri_replaces_the_authority_and_the_path() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 override_target_name: String::from("https://server.example.com/other"),
                 ..Default::default()
             },
@@ -973,7 +958,7 @@ mod tests {
     #[test]
     fn an_unusable_boolean_names_the_option_and_the_vocabulary() {
         let rendered = HttpConfig::from_config_args(HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 allow_unsafe_connection: String::from("perhaps"),
                 ..Default::default()
             },
@@ -1029,7 +1014,7 @@ mod tests {
     #[test]
     fn a_boolean_option_survives_being_written_and_read_again() {
         let written = serde_json::to_string(&HttpConfigArgs {
-            tls: HttpTlsConfigArgs {
+            tls: TlsConfigArgs {
                 allow_unsafe_connection: String::from("yes"),
                 ..Default::default()
             },
@@ -1114,7 +1099,10 @@ mod tests {
     fn proxy_none_and_empty_disable_proxying() {
         for value in ["", "none", "None", "NONE"] {
             let config = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect("a valid configuration");
@@ -1130,7 +1118,10 @@ mod tests {
     fn proxy_system_reads_the_environment() {
         for value in ["system", "System", "SYSTEM"] {
             let config = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect("a valid configuration");
@@ -1141,12 +1132,18 @@ mod tests {
     #[test]
     fn proxy_url_defaults_to_the_http_scheme() {
         let with_scheme = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
         let without_scheme = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1162,15 +1159,18 @@ mod tests {
     #[test]
     fn proxy_credentials_are_optional() {
         let none = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
         assert_eq!(none.proxy.credentials(), None);
 
         let some = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
-            proxy_config: HttpProxyConfigArgs {
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
                 username: String::from("user"),
                 password: "secret".into(),
             },
@@ -1183,7 +1183,10 @@ mod tests {
     #[test]
     fn proxy_credentials_in_the_url_are_honoured_and_removed_from_it() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://user:secret@proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://user:secret@proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1201,8 +1204,8 @@ mod tests {
     #[test]
     fn the_dedicated_proxy_options_win_over_the_url() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
-            proxy_config: HttpProxyConfigArgs {
+            proxy: ProxyConfigArgs {
+                source: String::from("http://url-user:url-secret@proxy.corp:3128"),
                 username: String::from("option-user"),
                 password: "option-secret".into(),
             },
@@ -1218,11 +1221,11 @@ mod tests {
 
     #[test]
     fn the_proxy_password_is_kept_out_of_the_debug_output() {
-        // `HttpConfig` is `Debug` and holds a `HttpProxyConfig`, so a derived `Debug` would put the
+        // `HttpConfig` is `Debug` and holds a `ProxyConfig`, so a derived `Debug` would put the
         // password anywhere a configuration gets printed.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
-            proxy_config: HttpProxyConfigArgs {
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
                 username: String::from("user"),
                 password: "s3cr3t".into(),
             },
@@ -1250,8 +1253,8 @@ mod tests {
         // Replacing the pair rather than each field would leave an empty username here, and the proxy
         // would answer 407 with nothing to explain it.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
-            proxy_config: HttpProxyConfigArgs {
+            proxy: ProxyConfigArgs {
+                source: String::from("http://url-user:url-secret@proxy.corp:3128"),
                 password: "option-secret".into(),
                 ..Default::default()
             },
@@ -1269,7 +1272,10 @@ mod tests {
     fn a_rejected_proxy_url_does_not_echo_its_password() {
         // A URL can be rejected for having no host and still have carried a credential.
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://user:s3cr3t@"),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://user:s3cr3t@"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("a proxy without a host must be rejected")
@@ -1284,8 +1290,8 @@ mod tests {
         // `HttpConfig` is not the only type that holds it: these are what a caller inspects before
         // handing them over.
         let args = HttpConfigArgs {
-            proxy: String::from("http://user:url-secret@proxy.corp:3128"),
-            proxy_config: HttpProxyConfigArgs {
+            proxy: ProxyConfigArgs {
+                source: String::from("http://user:url-secret@proxy.corp:3128"),
                 password: "option-secret".into(),
                 ..Default::default()
             },
@@ -1307,7 +1313,7 @@ mod tests {
     #[test]
     fn an_ordinary_serialisation_redacts_the_password() {
         let args = HttpConfigArgs {
-            proxy_config: HttpProxyConfigArgs {
+            proxy: ProxyConfigArgs {
                 password: "s3cr3t".into(),
                 ..Default::default()
             },
@@ -1324,7 +1330,10 @@ mod tests {
         // Accepting the URL and failing at connect time would report it as an unreachable proxy.
         for value in ["https://proxy.corp:3128", "socks5://proxy.corp:1080"] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect_err("only an http proxy can be reached")
@@ -1340,7 +1349,10 @@ mod tests {
         // wrong setting.
         for value in ["http:///no-host", "http://", "http://:3128", "://"] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect_err("a proxy without a host must be rejected")

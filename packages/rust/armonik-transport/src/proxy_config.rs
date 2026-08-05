@@ -1,13 +1,10 @@
-//! Everything about the HTTP proxy: where to find it, its resolved configuration, and the dedicated
-//! credentials in the string form a caller supplies them in.
+//! Everything about the HTTP proxy: where to find it, its resolved configuration, and the string
+//! form a caller supplies it in.
 //!
-//! [`HttpProxyConfigArgs`] holds only `username`/`password`: grouped because their names in the
-//! environment already share the `Proxy` prefix (`ProxyUsername`, `ProxyPassword`).
-//! [`serde_with::with_prefix!`] reproduces that prefix from this struct's own field names composed
-//! with `#[serde(flatten)]`, so grouping these two fields changes no environment variable a
-//! deployment already sets. The `proxy` URL field itself stays on [`crate::HttpConfigArgs`]
-//! directly: a prefix cannot produce an empty suffix, so there is no `Proxy`-prefixed name for it to
-//! take.
+//! [`ProxyConfigArgs`] holds all three fields together. `username`/`password` share the `Proxy`
+//! prefix uniformly (`ProxyUsername`, `ProxyPassword`), but `source` does not: it is `Proxy` alone,
+//! ArmoniK's own convention across every client. [`serde_with::with_prefix!`] can only apply the
+//! same prefix to every field of a group, so each field is renamed individually here instead.
 
 use hyper::Uri;
 
@@ -15,9 +12,6 @@ use hyper::Uri;
 use crate::config::{secret_text, text};
 use crate::config::{ConfigError, IncompatibleOptionsSnafu};
 use crate::secret::Secret;
-
-#[cfg(feature = "serde")]
-serde_with::with_prefix!(pub(crate) prefix_proxy "Proxy");
 
 /// Where to find the HTTP proxy used to reach the endpoint.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -44,7 +38,7 @@ pub enum ProxySource {
 /// real server and the proxy never sees the plaintext.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct HttpProxyConfig {
+pub struct ProxyConfig {
     /// Where to find the proxy.
     pub source: ProxySource,
     /// Username for proxy authentication, empty for none.
@@ -53,7 +47,7 @@ pub struct HttpProxyConfig {
     pub password: Secret,
 }
 
-impl HttpProxyConfig {
+impl ProxyConfig {
     /// Use this specific proxy.
     ///
     /// Credentials written into the URL are taken out of it and kept here, so the URI carries none
@@ -97,46 +91,69 @@ impl HttpProxyConfig {
     }
 }
 
-/// The dedicated proxy credentials, in the string form a caller supplies them in.
-///
-/// Read from a `Proxy`-prefixed variable or JSON key, e.g. [`Self::username`] is `ProxyUsername`:
-/// see the module documentation for why.
+/// Everything about the HTTP proxy, in the string form a caller supplies it in.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
+#[cfg_attr(feature = "serde", serde(default))]
 #[non_exhaustive]
-pub struct HttpProxyConfigArgs {
+pub struct ProxyConfigArgs {
+    /// Where to find the proxy. `Proxy`.
+    ///
+    /// Empty for a direct connection, `none` to disable proxying explicitly, `system` to read the
+    /// environment (see [`ProxySource::System`]), otherwise the proxy URL, whose scheme has to be
+    /// `http`: the `CONNECT` handshake is written in the clear.
+    #[cfg_attr(feature = "serde", serde(rename = "Proxy", deserialize_with = "text"))]
+    pub source: String,
     /// Username for proxy authentication. `ProxyUsername`.
     ///
-    /// Empty falls back to the username the `proxy` URL carried, if any.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
+    /// Empty falls back to the username `source` carried, if any.
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "ProxyUsername", deserialize_with = "text")
+    )]
     pub username: String,
     /// Password for proxy authentication. `ProxyPassword`.
     ///
-    /// Empty falls back to the password the `proxy` URL carried, independently of the username, so
-    /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
+    /// Empty falls back to the password `source` carried, independently of the username, so setting
+    /// this one alone still uses that URL's username. Redacted wherever it is written; see
     /// [`Secret`].
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "ProxyPassword", deserialize_with = "secret_text")
+    )]
     pub password: Secret,
 }
 
-impl HttpProxyConfigArgs {
-    /// Merges these dedicated credentials into `proxy`, field by field rather than pair by pair: a
-    /// dedicated option set alone must not discard the other half of whatever credentials the
-    /// `proxy` URL carried. See [`crate::proxy::prefer_dedicated`].
-    pub(crate) fn merge_into(self, proxy: HttpProxyConfig) -> HttpProxyConfig {
-        let username = crate::proxy::prefer_dedicated(&self.username, &proxy.username).to_owned();
+impl ProxyConfigArgs {
+    /// Resolves `source`, then merges the dedicated credentials into it field by field rather than
+    /// pair by pair: a dedicated option set alone must not discard the other half of whatever
+    /// credentials `source` carried. See [`crate::proxy::prefer_dedicated`].
+    pub(crate) fn resolve(self) -> Result<ProxyConfig, ConfigError> {
+        let Self {
+            source,
+            username,
+            password,
+        } = self;
+
+        let proxy = match parse_proxy_source(&source)? {
+            // Through the constructor, so credentials written into the URL are taken out of it.
+            ProxySource::Explicit(uri) => ProxyConfig::explicit(uri),
+            ProxySource::System => ProxyConfig::system(),
+            ProxySource::Disabled => ProxyConfig::default(),
+        };
+
+        let username = crate::proxy::prefer_dedicated(&username, &proxy.username).to_owned();
         let password = Secret::from(crate::proxy::prefer_dedicated(
-            self.password.expose_secret(),
+            password.expose_secret(),
             proxy.password.expose_secret(),
         ));
-        proxy.with_credentials(username, password)
+        Ok(proxy.with_credentials(username, password))
     }
 }
 
 /// As ArmoniK's other clients spell it: empty is a direct connection, `none` disables proxying,
 /// `system` reads the environment, anything else is a proxy URL, defaulting to the `http` scheme.
-pub(crate) fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
+fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
     match proxy {
         "" => Ok(ProxySource::Disabled),
         _ if proxy.eq_ignore_ascii_case("none") => Ok(ProxySource::Disabled),
