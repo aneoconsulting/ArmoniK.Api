@@ -18,16 +18,18 @@ mod connect;
 mod env;
 mod http2_config;
 mod proxy;
+mod proxy_config;
 mod secret;
 mod tcp_config;
 mod utils;
 
-pub use config::{ConfigError, HttpConfig, HttpConfigArgs, ProxyConfig, ProxySource};
+pub use config::{ConfigError, HttpConfig, HttpConfigArgs};
 pub use connect::{connect, https_connector, ConnectionError};
 #[cfg(feature = "env")]
 pub use env::EnvFieldError;
 pub use http2_config::{Http2Config, Http2ConfigArgs};
 pub use proxy::ProxyError;
+pub use proxy_config::{ProxyConfig, ProxyConfigArgs, ProxySource};
 pub use secret::Secret;
 pub use tcp_config::{TcpConfig, TcpConfigArgs};
 // Snafu's context selectors, so a caller in another crate can build the error with the location

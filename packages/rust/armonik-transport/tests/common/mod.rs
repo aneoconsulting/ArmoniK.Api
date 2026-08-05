@@ -162,6 +162,34 @@ pub async fn call(
     Ok(response.into_inner())
 }
 
+/// Sets an environment variable for as long as the guard lives, restoring whatever it held before -
+/// absent included - on drop, panic included: a test failing before it would have removed the
+/// variable itself must not leak it into whichever `serial(env)` test runs next.
+pub struct EnvGuard {
+    name: String,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl EnvGuard {
+    pub fn set(name: &str, value: &str) -> Self {
+        let previous = std::env::var_os(name);
+        std::env::set_var(name, value);
+        Self {
+            name: name.to_owned(),
+            previous,
+        }
+    }
+}
+
+impl Drop for EnvGuard {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(previous) => std::env::set_var(&self.name, previous),
+            None => std::env::remove_var(&self.name),
+        }
+    }
+}
+
 /// Build a [`HttpConfig`] from the string form, applying `set` to the arguments first.
 ///
 /// Going through `HttpConfigArgs` keeps the parsing inside what is under test. It is a helper at all

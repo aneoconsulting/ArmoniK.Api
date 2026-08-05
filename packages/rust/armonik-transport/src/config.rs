@@ -7,88 +7,12 @@ use snafu::{ResultExt, Snafu};
 #[cfg(feature = "serde")]
 use crate::http2_config::prefix_http2;
 use crate::http2_config::{Http2Config, Http2ConfigArgs};
+use crate::proxy_config::{ProxyConfig, ProxyConfigArgs};
+#[cfg(feature = "serde")]
 use crate::secret::Secret;
 #[cfg(feature = "serde")]
 use crate::tcp_config::prefix_tcp;
 use crate::tcp_config::{TcpConfig, TcpConfigArgs};
-
-/// Where to find the HTTP proxy used to reach the endpoint.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum ProxySource {
-    /// Connect directly, ignoring any proxy configured in the environment.
-    ///
-    /// The default: a client that asks for nothing connects directly.
-    #[default]
-    Disabled,
-    /// Read the proxy from the environment, on `hyper_util`'s rules: `ALL_PROXY`, `HTTPS_PROXY`,
-    /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
-    ///
-    /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
-    /// started with. Every other option is read in [`HttpConfigArgs::from_env`].
-    System,
-    /// Use this specific proxy.
-    Explicit(Uri),
-}
-
-/// Configuration of the HTTP proxy used to reach the endpoint.
-///
-/// Proxying uses a `CONNECT` tunnel, so TLS, mutual TLS included, is negotiated end to end with the
-/// real server and the proxy never sees the plaintext.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct ProxyConfig {
-    /// Where to find the proxy.
-    pub source: ProxySource,
-    /// Username for proxy authentication, empty for none.
-    pub username: String,
-    /// Password for proxy authentication, empty for none.
-    pub password: Secret,
-}
-
-impl ProxyConfig {
-    /// Use this specific proxy.
-    ///
-    /// Credentials written into the URL are taken out of it and kept here, so the URI carries none
-    /// wherever it is rendered. The type is `#[non_exhaustive]`, so this is the way in.
-    pub fn explicit(uri: Uri) -> Self {
-        let (uri, credentials) = crate::proxy::split_credentials(uri);
-        let (username, password) = credentials.unwrap_or_default();
-        Self {
-            source: ProxySource::Explicit(uri),
-            username,
-            password: password.into(),
-        }
-    }
-
-    /// Read the proxy from the environment.
-    pub fn system() -> Self {
-        Self {
-            source: ProxySource::System,
-            ..Default::default()
-        }
-    }
-
-    /// Attach credentials for proxy authentication.
-    pub fn with_credentials(
-        mut self,
-        username: impl Into<String>,
-        password: impl Into<Secret>,
-    ) -> Self {
-        self.username = username.into();
-        self.password = password.into();
-        self
-    }
-
-    /// Credentials to present to the proxy, if any were configured.
-    pub fn credentials(&self) -> Option<(&str, &str)> {
-        if self.username.is_empty() && self.password.is_empty() {
-            None
-        } else {
-            Some((&self.username, self.password.expose_secret()))
-        }
-    }
-}
 
 /// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
 /// endpoint.
@@ -185,25 +109,9 @@ pub struct HttpConfigArgs {
     /// User-Agent header value sent with each request
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub user_agent: String,
-    /// HTTP proxy to reach the endpoint through.
-    ///
-    /// Empty for a direct connection, `none` to disable proxying explicitly, `system` to read the
-    /// environment (see [`ProxySource::System`]), otherwise the proxy URL, whose scheme has to be
-    /// `http`: the `CONNECT` handshake is written in the clear.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub proxy: String,
-    /// Username for proxy authentication.
-    ///
-    /// Empty falls back to the username the `proxy` URL carried, if any.
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub proxy_username: String,
-    /// Password for proxy authentication.
-    ///
-    /// Empty falls back to the password the `proxy` URL carried, independently of the username, so
-    /// setting this one alone still uses that URL's username. Redacted wherever it is written; see
-    /// [`Secret`].
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
-    pub proxy_password: Secret,
+    /// HTTP proxy used to reach the endpoint: where to find it, and the dedicated credentials.
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    pub proxy: ProxyConfigArgs,
 }
 
 /// Reads a duration option, empty for `None`.
@@ -349,8 +257,8 @@ impl HttpConfig {
             // Elided, and `proxy_password` left out entirely: this span is recorded at debug level, and
             // a proxy URL carries credentials as often as the dedicated option does. Do not complete
             // the list.
-            proxy = %crate::proxy::elide_userinfo(&args.proxy),
-            args.proxy_username,
+            proxy = %crate::proxy::elide_userinfo(&args.proxy.source),
+            args.proxy.username,
         );
 
         let HttpConfigArgs {
@@ -367,8 +275,6 @@ impl HttpConfig {
             http2,
             user_agent,
             proxy,
-            proxy_username,
-            proxy_password,
         } = args;
 
         let allow_unsafe_connection =
@@ -473,7 +379,7 @@ impl HttpConfig {
             if limit == 0 || duration.is_zero() {
                 return IncompatibleOptionsSnafu {
                     msg: format!(
-                        "`GrpcClient__RateLimit={rate_limit}` has a zero count or duration. Both have \
+                        "`rate_limit={rate_limit}` has a zero count or duration. Both have \
                          to be above zero, as in `100/1s`; leave it empty for no rate limit"
                     ),
                 }
@@ -490,19 +396,7 @@ impl HttpConfig {
             Some(header)
         };
 
-        let mut proxy = match parse_proxy_source(&proxy)? {
-            // Through the constructor, so credentials written into the URL are taken out of it.
-            ProxySource::Explicit(uri) => ProxyConfig::explicit(uri),
-            ProxySource::System => ProxyConfig::system(),
-            ProxySource::Disabled => ProxyConfig::default(),
-        };
-        // See `crate::proxy::prefer_dedicated`.
-        let username = crate::proxy::prefer_dedicated(&proxy_username, &proxy.username).to_owned();
-        let password = Secret::from(crate::proxy::prefer_dedicated(
-            proxy_password.expose_secret(),
-            proxy.password.expose_secret(),
-        ));
-        proxy = proxy.with_credentials(username, password);
+        let proxy = proxy.resolve()?;
 
         Ok(Self {
             endpoint,
@@ -518,55 +412,6 @@ impl HttpConfig {
             user_agent,
             proxy,
         })
-    }
-}
-
-/// Interpret the `GrpcClient__Proxy` value.
-///
-/// As ArmoniK's other clients spell it: empty is a direct connection, `none` disables proxying,
-/// `system` reads the environment, anything else is a proxy URL, defaulting to the `http` scheme.
-fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
-    match proxy {
-        "" => Ok(ProxySource::Disabled),
-        _ if proxy.eq_ignore_ascii_case("none") => Ok(ProxySource::Disabled),
-        _ if proxy.eq_ignore_ascii_case("system") => Ok(ProxySource::System),
-        _ => {
-            let with_scheme = if proxy.contains("://") {
-                proxy.to_owned()
-            } else {
-                format!("http://{proxy}")
-            };
-            // Not reported through `UriSnafu`: its message names the endpoint, which would send
-            // whoever reads it looking at the wrong option.
-            let uri = Uri::try_from(&with_scheme).ok().filter(|uri| {
-                uri.authority()
-                    .is_some_and(|authority| !authority.host().is_empty())
-            });
-            match uri {
-                // Caught here rather than at connect time, so a mistyped option fails while the
-                // configuration is being read and names itself.
-                Some(uri) if uri.scheme_str().is_some_and(|scheme| scheme != "http") => {
-                    IncompatibleOptionsSnafu {
-                        msg: format!(
-                            "The `CONNECT` handshake is written in the clear, so only an `http` \
-                             proxy can be reached, and `GrpcClient__Proxy={}` names another scheme",
-                            crate::proxy::elide_userinfo(proxy)
-                        ),
-                    }
-                    .fail()
-                }
-                Some(uri) => Ok(ProxySource::Explicit(uri)),
-                None => IncompatibleOptionsSnafu {
-                    // Elided: a URL rejected for having no host can still have carried a password.
-                    msg: format!(
-                        "`GrpcClient__Proxy={}` is not a valid proxy URL. Expected `none`, \
-                         `system`, or a URL such as `http://proxy.example.com:3128`",
-                        crate::proxy::elide_userinfo(proxy)
-                    ),
-                }
-                .fail(),
-            }
-        }
     }
 }
 
@@ -676,6 +521,7 @@ pub enum ConfigError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proxy_config::ProxySource;
 
     /// The minimum viable arguments: an endpoint, and nothing else set.
     fn args() -> HttpConfigArgs {
@@ -1100,7 +946,10 @@ mod tests {
     fn proxy_none_and_empty_disable_proxying() {
         for value in ["", "none", "None", "NONE"] {
             let config = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect("a valid configuration");
@@ -1116,7 +965,10 @@ mod tests {
     fn proxy_system_reads_the_environment() {
         for value in ["system", "System", "SYSTEM"] {
             let config = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect("a valid configuration");
@@ -1127,12 +979,18 @@ mod tests {
     #[test]
     fn proxy_url_defaults_to_the_http_scheme() {
         let with_scheme = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
         let without_scheme = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1148,16 +1006,21 @@ mod tests {
     #[test]
     fn proxy_credentials_are_optional() {
         let none = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
         assert_eq!(none.proxy.credentials(), None);
 
         let some = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
-            proxy_username: String::from("user"),
-            proxy_password: "secret".into(),
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
+                username: String::from("user"),
+                password: "secret".into(),
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1167,7 +1030,10 @@ mod tests {
     #[test]
     fn proxy_credentials_in_the_url_are_honoured_and_removed_from_it() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://user:secret@proxy.corp:3128"),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://user:secret@proxy.corp:3128"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1185,9 +1051,11 @@ mod tests {
     #[test]
     fn the_dedicated_proxy_options_win_over_the_url() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
-            proxy_username: String::from("option-user"),
-            proxy_password: "option-secret".into(),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://url-user:url-secret@proxy.corp:3128"),
+                username: String::from("option-user"),
+                password: "option-secret".into(),
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1203,9 +1071,11 @@ mod tests {
         // `HttpConfig` is `Debug` and holds a `ProxyConfig`, so a derived `Debug` would put the
         // password anywhere a configuration gets printed.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("proxy.corp:3128"),
-            proxy_username: String::from("user"),
-            proxy_password: "s3cr3t".into(),
+            proxy: ProxyConfigArgs {
+                source: String::from("proxy.corp:3128"),
+                username: String::from("user"),
+                password: "s3cr3t".into(),
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1230,8 +1100,11 @@ mod tests {
         // Replacing the pair rather than each field would leave an empty username here, and the proxy
         // would answer 407 with nothing to explain it.
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
-            proxy_password: "option-secret".into(),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://url-user:url-secret@proxy.corp:3128"),
+                password: "option-secret".into(),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("a valid configuration");
@@ -1246,7 +1119,10 @@ mod tests {
     fn a_rejected_proxy_url_does_not_echo_its_password() {
         // A URL can be rejected for having no host and still have carried a credential.
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            proxy: String::from("http://user:s3cr3t@"),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://user:s3cr3t@"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("a proxy without a host must be rejected")
@@ -1261,8 +1137,11 @@ mod tests {
         // `HttpConfig` is not the only type that holds it: these are what a caller inspects before
         // handing them over.
         let args = HttpConfigArgs {
-            proxy: String::from("http://user:url-secret@proxy.corp:3128"),
-            proxy_password: "option-secret".into(),
+            proxy: ProxyConfigArgs {
+                source: String::from("http://user:url-secret@proxy.corp:3128"),
+                password: "option-secret".into(),
+                ..Default::default()
+            },
             ..args()
         };
 
@@ -1281,7 +1160,10 @@ mod tests {
     #[test]
     fn an_ordinary_serialisation_redacts_the_password() {
         let args = HttpConfigArgs {
-            proxy_password: "s3cr3t".into(),
+            proxy: ProxyConfigArgs {
+                password: "s3cr3t".into(),
+                ..Default::default()
+            },
             ..args()
         };
 
@@ -1295,7 +1177,10 @@ mod tests {
         // Accepting the URL and failing at connect time would report it as an unreachable proxy.
         for value in ["https://proxy.corp:3128", "socks5://proxy.corp:1080"] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect_err("only an http proxy can be reached")
@@ -1311,7 +1196,10 @@ mod tests {
         // wrong setting.
         for value in ["http:///no-host", "http://", "http://:3128", "://"] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
-                proxy: String::from(value),
+                proxy: ProxyConfigArgs {
+                    source: String::from(value),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect_err("a proxy without a host must be rejected")

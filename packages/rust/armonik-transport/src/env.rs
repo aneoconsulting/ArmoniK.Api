@@ -267,7 +267,7 @@ mod tests {
         )
         .expect("a numeric-looking secret must still be read");
 
-        assert_eq!(args.proxy_password.expose_secret(), "1234");
+        assert_eq!(args.proxy.password.expose_secret(), "1234");
     }
 
     #[test]
