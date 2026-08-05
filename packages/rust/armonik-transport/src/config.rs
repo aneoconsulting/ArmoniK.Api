@@ -18,7 +18,7 @@ use crate::tls_config::{HttpTlsConfig, HttpTlsConfigArgs};
 
 /// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
 /// endpoint.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct HttpConfig {
     /// Endpoint for sending requests
@@ -39,22 +39,6 @@ pub struct HttpConfig {
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
     pub proxy: HttpProxyConfig,
-}
-
-impl Clone for HttpConfig {
-    fn clone(&self) -> Self {
-        Self {
-            endpoint: self.endpoint.clone(),
-            tls: self.tls.clone(),
-            connect_timeout: self.connect_timeout,
-            timeout: self.timeout,
-            rate_limit: self.rate_limit,
-            tcp: self.tcp,
-            http2: self.http2,
-            user_agent: self.user_agent.clone(),
-            proxy: self.proxy.clone(),
-        }
-    }
 }
 
 /// Options for creating a gRPC Client, in the string form a caller supplies them in
@@ -97,6 +81,45 @@ pub struct HttpConfigArgs {
     /// The dedicated proxy credentials.
     #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_proxy"))]
     pub proxy_config: HttpProxyConfigArgs,
+}
+
+/// Boxes any error as a trait object, for a [`ConfigError`] variant shared by more than one
+/// underlying error type.
+pub(crate) fn boxed(
+    error: impl std::error::Error + Send + Sync + 'static,
+) -> Box<dyn std::error::Error + Send + Sync> {
+    Box::new(error)
+}
+
+/// Reads a duration option, empty for `None`.
+pub(crate) fn parse_optional_duration(
+    option: &'static str,
+    value: String,
+) -> Result<Option<Duration>, ConfigError> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(
+        value
+            .parse::<humantime::Duration>()
+            .context(InvalidDurationSnafu { option, value })?
+            .into(),
+    ))
+}
+
+/// Reads an integer option, empty for `None`.
+pub(crate) fn parse_optional_int<T: std::str::FromStr<Err = std::num::ParseIntError>>(
+    option: &'static str,
+    value: String,
+) -> Result<Option<T>, ConfigError> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(
+        value
+            .parse::<T>()
+            .context(InvalidIntegerSnafu { option, value })?,
+    ))
 }
 
 /// Reads a boolean option, on the vocabulary every ArmoniK client accepts.
@@ -231,36 +254,20 @@ impl HttpConfig {
             proxy_config,
         } = args;
 
-        let endpoint = Uri::try_from(endpoint.clone()).context(UriSnafu { uri: endpoint })?;
+        let endpoint = Uri::try_from(endpoint.clone())
+            .map_err(boxed)
+            .context(UriSnafu {
+                option: "endpoint",
+                uri: endpoint,
+            })?;
         let tls = tls.resolve(&endpoint)?;
 
-        let connect_timeout = if connect_timeout.is_empty() {
-            Some(Duration::from_secs(60))
-        } else {
-            Some(
-                connect_timeout
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "connect_timeout",
-                        value: connect_timeout,
-                    })?
-                    .into(),
-            )
-        };
+        let connect_timeout = Some(
+            parse_optional_duration("connect_timeout", connect_timeout)?
+                .unwrap_or(Duration::from_secs(60)),
+        );
 
-        let timeout = if timeout.is_empty() {
-            None
-        } else {
-            Some(
-                timeout
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "timeout",
-                        value: timeout,
-                    })?
-                    .into(),
-            )
-        };
+        let timeout = parse_optional_duration("timeout", timeout)?;
 
         let rate_limit = if rate_limit.is_empty() {
             None
@@ -350,20 +357,11 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("Endpoint URI is not valid: `{uri}` [{location}]"))]
+    #[snafu(display("`{option}={uri}` is not a valid URI [{location}]"))]
     #[non_exhaustive]
     Uri {
-        #[snafu(source(from(hyper::http::uri::InvalidUri, Box::new)))]
-        source: Box<hyper::http::uri::InvalidUri>,
-        uri: String,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
-    #[snafu(display("Override URI is not valid: `{uri}` [{location}]"))]
-    #[non_exhaustive]
-    Http {
-        #[snafu(source(from(hyper::http::Error, Box::new)))]
-        source: Box<hyper::http::Error>,
+        source: Box<dyn std::error::Error + Send + Sync>,
+        option: &'static str,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,

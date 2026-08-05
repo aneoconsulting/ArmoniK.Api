@@ -14,8 +14,8 @@ use snafu::{OptionExt, ResultExt};
 #[cfg(feature = "serde")]
 use crate::config::{secret_text, text};
 use crate::config::{
-    ConfigError, EmptyPkcs12Snafu, HttpSnafu, IncompatibleOptionsSnafu, IoSnafu, Pkcs12Snafu,
-    TlsSnafu, UriSnafu,
+    ConfigError, EmptyPkcs12Snafu, IncompatibleOptionsSnafu, IoSnafu, Pkcs12Snafu, TlsSnafu,
+    UriSnafu,
 };
 use crate::secret::Secret;
 
@@ -203,7 +203,9 @@ impl HttpTlsConfigArgs {
                     path_and_query,
                     ..
                 } = Uri::try_from(override_target_name.as_str())
+                    .map_err(crate::config::boxed)
                     .context(UriSnafu {
+                        option: "override_target_name",
                         uri: override_target_name.clone(),
                     })?
                     .into_parts();
@@ -221,9 +223,14 @@ impl HttpTlsConfigArgs {
                 uri = uri.path_and_query(path_and_query);
             }
 
-            Some(uri.build().context(HttpSnafu {
-                uri: override_target_name,
-            })?)
+            Some(
+                uri.build()
+                    .map_err(crate::config::boxed)
+                    .context(UriSnafu {
+                        option: "override_target_name",
+                        uri: override_target_name,
+                    })?,
+            )
         };
 
         Ok(HttpTlsConfig {

@@ -8,11 +8,9 @@
 
 use std::time::Duration;
 
-use snafu::ResultExt;
-
 #[cfg(feature = "serde")]
 use crate::config::text;
-use crate::config::{ConfigError, InvalidDurationSnafu, InvalidIntegerSnafu};
+use crate::config::{parse_optional_duration, parse_optional_int, ConfigError};
 
 #[cfg(feature = "serde")]
 serde_with::with_prefix!(pub(crate) prefix_http2 "Http2");
@@ -64,46 +62,12 @@ impl Http2ConfigArgs {
             max_header_list_size,
         } = self;
 
-        let keep_alive_interval = if keep_alive_interval.is_empty() {
-            None
-        } else {
-            Some(
-                keep_alive_interval
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "http2_keep_alive_interval",
-                        value: keep_alive_interval,
-                    })?
-                    .into(),
-            )
-        };
-
-        let keep_alive_timeout = if keep_alive_timeout.is_empty() {
-            None
-        } else {
-            Some(
-                keep_alive_timeout
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "http2_keep_alive_timeout",
-                        value: keep_alive_timeout,
-                    })?
-                    .into(),
-            )
-        };
-
-        let max_header_list_size = if max_header_list_size.is_empty() {
-            None
-        } else {
-            Some(
-                max_header_list_size
-                    .parse::<u32>()
-                    .context(InvalidIntegerSnafu {
-                        option: "http2_max_header_list_size",
-                        value: max_header_list_size,
-                    })?,
-            )
-        };
+        let keep_alive_interval =
+            parse_optional_duration("http2_keep_alive_interval", keep_alive_interval)?;
+        let keep_alive_timeout =
+            parse_optional_duration("http2_keep_alive_timeout", keep_alive_timeout)?;
+        let max_header_list_size =
+            parse_optional_int::<u32>("http2_max_header_list_size", max_header_list_size)?;
 
         Ok(Http2Config {
             keep_alive_interval,

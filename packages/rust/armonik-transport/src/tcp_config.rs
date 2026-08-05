@@ -7,11 +7,9 @@
 
 use std::time::Duration;
 
-use snafu::ResultExt;
-
 #[cfg(feature = "serde")]
 use crate::config::text;
-use crate::config::{ConfigError, InvalidDurationSnafu, InvalidIntegerSnafu};
+use crate::config::{parse_optional_duration, parse_optional_int, ConfigError};
 
 #[cfg(feature = "serde")]
 serde_with::with_prefix!(pub(crate) prefix_tcp "Tcp");
@@ -64,46 +62,11 @@ impl TcpConfigArgs {
             nagle_algorithm,
         } = self;
 
-        let keepalive = if keepalive.is_empty() {
-            None
-        } else {
-            Some(
-                keepalive
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "tcp_keepalive",
-                        value: keepalive,
-                    })?
-                    .into(),
-            )
-        };
-
-        let keepalive_interval = if keepalive_interval.is_empty() {
-            None
-        } else {
-            Some(
-                keepalive_interval
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "tcp_keepalive_interval",
-                        value: keepalive_interval,
-                    })?
-                    .into(),
-            )
-        };
-
-        let keepalive_retries = if keepalive_retries.is_empty() {
-            None
-        } else {
-            Some(
-                keepalive_retries
-                    .parse::<u32>()
-                    .context(InvalidIntegerSnafu {
-                        option: "tcp_keepalive_retries",
-                        value: keepalive_retries,
-                    })?,
-            )
-        };
+        let keepalive = parse_optional_duration("tcp_keepalive", keepalive)?;
+        let keepalive_interval =
+            parse_optional_duration("tcp_keepalive_interval", keepalive_interval)?;
+        let keepalive_retries =
+            parse_optional_int::<u32>("tcp_keepalive_retries", keepalive_retries)?;
 
         Ok(TcpConfig {
             keepalive,
