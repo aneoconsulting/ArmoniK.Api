@@ -5,6 +5,9 @@ use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
 use crate::secret::Secret;
+#[cfg(feature = "serde")]
+use crate::tcp_config::prefix_tcp;
+use crate::tcp_config::{TcpConfig, TcpConfigArgs};
 
 /// Where to find the HTTP proxy used to reach the endpoint.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -105,14 +108,8 @@ pub struct HttpConfig {
     pub timeout: Option<Duration>,
     /// Rate limit for requests, defaults to no rate limit
     pub rate_limit: Option<(u64, Duration)>,
-    /// TCP keepalive duration, defaults to no keepalive
-    pub tcp_keepalive: Option<Duration>,
-    /// Interval between TCP keepalive probes, defaults to OS default
-    pub tcp_keepalive_interval: Option<Duration>,
-    /// Number of TCP keepalive retries, defaults to OS default
-    pub tcp_keepalive_retries: Option<u32>,
-    /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false
-    pub tcp_nagle_algorithm: bool,
+    /// TCP-level socket options.
+    pub tcp: TcpConfig,
     /// HTTP/2 PING frame interval, defaults to no keepalive
     pub http2_keep_alive_interval: Option<Duration>,
     /// HTTP/2 PING timeout, defaults to no timeout
@@ -141,10 +138,7 @@ impl Clone for HttpConfig {
             connect_timeout: self.connect_timeout,
             timeout: self.timeout,
             rate_limit: self.rate_limit,
-            tcp_keepalive: self.tcp_keepalive,
-            tcp_keepalive_interval: self.tcp_keepalive_interval,
-            tcp_keepalive_retries: self.tcp_keepalive_retries,
-            tcp_nagle_algorithm: self.tcp_nagle_algorithm,
+            tcp: self.tcp,
             http2_keep_alive_interval: self.http2_keep_alive_interval,
             http2_keep_alive_timeout: self.http2_keep_alive_timeout,
             http2_keep_alive_while_idle: self.http2_keep_alive_while_idle,
@@ -188,18 +182,9 @@ pub struct HttpConfigArgs {
     /// Rate limit for requests, defaults to no rate limit
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub rate_limit: String,
-    /// TCP keepalive duration (e.g. `30s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_keepalive: String,
-    /// Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_keepalive_interval: String,
-    /// Number of TCP keepalive retries, defaults to OS default
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_keepalive_retries: String,
-    /// Enable Nagle's algorithm (disable TCP_NODELAY), empty for false
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub tcp_nagle_algorithm: String,
+    /// TCP-level socket options.
+    #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_tcp"))]
+    pub tcp: TcpConfigArgs,
     /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub http2_keep_alive_interval: String,
@@ -236,11 +221,42 @@ pub struct HttpConfigArgs {
     pub proxy_password: Secret,
 }
 
+/// Reads a duration option, empty for `None`.
+pub(crate) fn parse_optional_duration(
+    option: &'static str,
+    value: String,
+) -> Result<Option<Duration>, ConfigError> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(
+        value
+            .parse::<humantime::Duration>()
+            .context(InvalidDurationSnafu { option, value })?
+            .into(),
+    ))
+}
+
+/// Reads an integer option, empty for `None`.
+pub(crate) fn parse_optional_int<T: std::str::FromStr<Err = std::num::ParseIntError>>(
+    option: &'static str,
+    value: String,
+) -> Result<Option<T>, ConfigError> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(
+        value
+            .parse::<T>()
+            .context(InvalidIntegerSnafu { option, value })?,
+    ))
+}
+
 /// Reads a boolean option, on the vocabulary every ArmoniK client accepts.
 ///
 /// The parsing lives here rather than in a `Deserialize` impl so that the error can name the option
-/// it came from: a `deserialize_with` function's signature carries only the value, not the field it
-/// was read for, so the name has to come from whoever calls it instead.
+/// it came from: a `serde` source that flattens its fields buffers values before handing them over,
+/// and by then the field's own name is no longer available.
 pub(crate) fn parse_bool(option: &'static str, value: &str) -> Result<bool, ConfigError> {
     match value {
         "" | "0" | "false" | "no" | "disable" | "disallow" | "forbid" => Ok(false),
@@ -336,10 +352,10 @@ impl HttpConfig {
             args.connect_timeout,
             args.timeout,
             args.rate_limit,
-            args.tcp_keepalive,
-            args.tcp_keepalive_interval,
-            args.tcp_keepalive_retries,
-            args.tcp_nagle_algorithm,
+            args.tcp.keepalive,
+            args.tcp.keepalive_interval,
+            args.tcp.keepalive_retries,
+            args.tcp.nagle_algorithm,
             args.http2_keep_alive_interval,
             args.http2_keep_alive_timeout,
             args.http2_keep_alive_while_idle,
@@ -362,10 +378,7 @@ impl HttpConfig {
             connect_timeout,
             timeout,
             rate_limit,
-            tcp_keepalive,
-            tcp_keepalive_interval,
-            tcp_keepalive_retries,
-            tcp_nagle_algorithm,
+            tcp,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
             http2_keep_alive_while_idle,
@@ -378,7 +391,7 @@ impl HttpConfig {
 
         let allow_unsafe_connection =
             parse_bool("allow_unsafe_connection", &allow_unsafe_connection)?;
-        let tcp_nagle_algorithm = parse_bool("tcp_nagle_algorithm", &tcp_nagle_algorithm)?;
+        let tcp = tcp.resolve()?;
         let http2_keep_alive_while_idle =
             parse_bool("http2_keep_alive_while_idle", &http2_keep_alive_while_idle)?;
 
@@ -446,29 +459,12 @@ impl HttpConfig {
             })?)
         };
 
-        let connect_timeout = if connect_timeout.is_empty() {
-            Some(Duration::from_secs(60))
-        } else {
-            Some(
-                connect_timeout
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        value: connect_timeout,
-                    })?
-                    .into(),
-            )
-        };
+        let connect_timeout = Some(
+            parse_optional_duration("connect_timeout", connect_timeout)?
+                .unwrap_or(Duration::from_secs(60)),
+        );
 
-        let timeout = if timeout.is_empty() {
-            None
-        } else {
-            Some(
-                timeout
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu { value: timeout })?
-                    .into(),
-            )
-        };
+        let timeout = parse_optional_duration("timeout", timeout)?;
 
         let rate_limit = if rate_limit.is_empty() {
             None
@@ -487,6 +483,7 @@ impl HttpConfig {
             let duration: Duration = parts[1]
                 .parse::<humantime::Duration>()
                 .context(InvalidDurationSnafu {
+                    option: "rate_limit",
                     value: rate_limit.clone(),
                 })?
                 .into();
@@ -504,44 +501,6 @@ impl HttpConfig {
             Some((limit, duration))
         };
 
-        let tcp_keepalive = if tcp_keepalive.is_empty() {
-            None
-        } else {
-            Some(
-                tcp_keepalive
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        value: tcp_keepalive,
-                    })?
-                    .into(),
-            )
-        };
-
-        let tcp_keepalive_interval = if tcp_keepalive_interval.is_empty() {
-            None
-        } else {
-            Some(
-                tcp_keepalive_interval
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        value: tcp_keepalive_interval,
-                    })?
-                    .into(),
-            )
-        };
-
-        let tcp_keepalive_retries = if tcp_keepalive_retries.is_empty() {
-            None
-        } else {
-            Some(
-                tcp_keepalive_retries
-                    .parse::<u32>()
-                    .context(InvalidIntegerSnafu {
-                        value: tcp_keepalive_retries,
-                    })?,
-            )
-        };
-
         let http2_keep_alive_interval = if http2_keep_alive_interval.is_empty() {
             None
         } else {
@@ -549,6 +508,7 @@ impl HttpConfig {
                 http2_keep_alive_interval
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "http2_keep_alive_interval",
                         value: http2_keep_alive_interval,
                     })?
                     .into(),
@@ -562,6 +522,7 @@ impl HttpConfig {
                 http2_keep_alive_timeout
                     .parse::<humantime::Duration>()
                     .context(InvalidDurationSnafu {
+                        option: "http2_keep_alive_timeout",
                         value: http2_keep_alive_timeout,
                     })?
                     .into(),
@@ -575,6 +536,7 @@ impl HttpConfig {
                 http2_max_header_list_size
                     .parse::<u32>()
                     .context(InvalidIntegerSnafu {
+                        option: "http2_max_header_list_size",
                         value: http2_max_header_list_size,
                     })?,
             )
@@ -611,10 +573,7 @@ impl HttpConfig {
             connect_timeout,
             timeout,
             rate_limit,
-            tcp_keepalive,
-            tcp_keepalive_interval,
-            tcp_keepalive_retries,
-            tcp_nagle_algorithm,
+            tcp,
             http2_keep_alive_interval,
             http2_keep_alive_timeout,
             http2_keep_alive_while_idle,
@@ -683,6 +642,7 @@ impl TryFrom<&HttpConfig> for tonic::transport::Endpoint {
 }
 
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
 #[non_exhaustive]
 pub enum ConfigError {
     #[snafu(display("Invalid TLS configuration [{location}]"))]
@@ -728,10 +688,13 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("`GrpcClient__ConnectTimeout={value}` is not a valid duration (e.g. `30s` or `1m`) [{location}]"))]
+    #[snafu(display(
+        "`{option}={value}` is not a valid duration (e.g. `30s` or `1m`) [{location}]"
+    ))]
     #[non_exhaustive]
     InvalidDuration {
         source: humantime::DurationError,
+        option: &'static str,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -754,10 +717,11 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("`{value}` is not a valid integer [{location}]"))]
+    #[snafu(display("`{option}={value}` is not a valid integer [{location}]"))]
     #[non_exhaustive]
     InvalidInteger {
         source: std::num::ParseIntError,
+        option: &'static str,
         value: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -826,13 +790,16 @@ mod tests {
         for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
             let config = HttpConfig::from_config_args(HttpConfigArgs {
                 allow_unsafe_connection: String::from(spelling),
-                tcp_nagle_algorithm: String::from(spelling),
+                tcp: TcpConfigArgs {
+                    nagle_algorithm: String::from(spelling),
+                    ..Default::default()
+                },
                 http2_keep_alive_while_idle: String::from(spelling),
                 ..args()
             })
             .expect(spelling);
             assert!(config.allow_unsafe_connection, "{spelling}");
-            assert!(config.tcp_nagle_algorithm, "{spelling}");
+            assert!(config.tcp.nagle_algorithm, "{spelling}");
             assert!(config.http2_keep_alive_while_idle, "{spelling}");
         }
 
@@ -869,17 +836,20 @@ mod tests {
     fn durations_are_read_in_the_units_they_are_written_in() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
             connect_timeout: String::from("500ms"),
-            tcp_keepalive: String::from("30s"),
-            tcp_keepalive_interval: String::from("2m"),
+            tcp: TcpConfigArgs {
+                keepalive: String::from("30s"),
+                keepalive_interval: String::from("2m"),
+                ..Default::default()
+            },
             http2_keep_alive_interval: String::from("1h"),
             ..args()
         })
         .expect("valid durations");
 
         assert_eq!(config.connect_timeout, Some(Duration::from_millis(500)));
-        assert_eq!(config.tcp_keepalive, Some(Duration::from_secs(30)));
+        assert_eq!(config.tcp.keepalive, Some(Duration::from_secs(30)));
         assert_eq!(
-            config.tcp_keepalive_interval,
+            config.tcp.keepalive_interval,
             Some(Duration::from_secs(120))
         );
         assert_eq!(
@@ -891,7 +861,10 @@ mod tests {
     #[test]
     fn a_duration_that_cannot_be_parsed_names_the_value() {
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tcp_keepalive: String::from("soon"),
+            tcp: TcpConfigArgs {
+                keepalive: String::from("soon"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("`soon` is not a duration");
@@ -906,16 +879,22 @@ mod tests {
     #[test]
     fn integers_are_read_and_a_bad_one_names_the_value() {
         let config = HttpConfig::from_config_args(HttpConfigArgs {
-            tcp_keepalive_retries: String::from("3"),
+            tcp: TcpConfigArgs {
+                keepalive_retries: String::from("3"),
+                ..Default::default()
+            },
             http2_max_header_list_size: String::from("16384"),
             ..args()
         })
         .expect("valid integers");
-        assert_eq!(config.tcp_keepalive_retries, Some(3));
+        assert_eq!(config.tcp.keepalive_retries, Some(3));
         assert_eq!(config.http2_max_header_list_size, Some(16384));
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            tcp_keepalive_retries: String::from("many"),
+            tcp: TcpConfigArgs {
+                keepalive_retries: String::from("many"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("`many` is not an integer");
@@ -1162,7 +1141,7 @@ mod tests {
         )
         .expect("a number or boolean must still be read as text");
 
-        assert_eq!(deserialised.tcp_keepalive_retries, "3");
+        assert_eq!(deserialised.tcp.keepalive_retries, "3");
         assert_eq!(deserialised.allow_unsafe_connection, "true");
     }
 

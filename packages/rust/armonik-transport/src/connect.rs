@@ -135,10 +135,10 @@ pub async fn https_connector(
 
     let mut http = HttpConnector::new();
     http.enforce_http(false); // required for hyper-rustls to switch schemes
-    http.set_nodelay(!config.tcp_nagle_algorithm);
-    http.set_keepalive(config.tcp_keepalive);
-    http.set_keepalive_interval(config.tcp_keepalive_interval);
-    http.set_keepalive_retries(config.tcp_keepalive_retries);
+    http.set_nodelay(!config.tcp.nagle_algorithm);
+    http.set_keepalive(config.tcp.keepalive);
+    http.set_keepalive_interval(config.tcp.keepalive_interval);
+    http.set_keepalive_retries(config.tcp.keepalive_retries);
     if let Some(timeout) = config.connect_timeout {
         http.set_connect_timeout(Some(timeout));
     }
