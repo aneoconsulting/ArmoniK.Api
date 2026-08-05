@@ -7,6 +7,23 @@ Depend on it when you need the connection layer without generated protobuf types
 `protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
 wants the services as well needs only that one.
 
+## TLS and mutual TLS
+
+`ca_cert` authenticates the server; `cert_pem` and `key_pem` together are the client's own identity
+for mutual TLS, and must be either both set or both empty. All three are files this crate reads
+itself.
+
+`cert_p12` is an alternative to `cert_pem`/`key_pem`: the client's certificate and key bundled
+together in one PKCS#12 file, the form Windows and most certificate authorities hand out, optionally
+protected by `cert_p12_password`. Mutually exclusive with `cert_pem`/`key_pem` - set one identity or
+the other, never both.
+
+`cert_p12_password` is `Secret`, redacted by `Debug` and by serialisation; the other paths are not
+secrets themselves, only what they lead to is. `allow_unsafe_connection` accepts any server
+certificate instead of verifying it, for a self-signed endpoint; it has no effect on a plain `http://`
+endpoint, which never negotiates TLS at all. `override_target_name` overrides the name checked during
+verification, for an endpoint reached by an address that does not match its certificate.
+
 ## Reaching the endpoint through a proxy
 
 `proxy` takes four forms, the same ArmoniK uses everywhere else: empty for a direct connection,

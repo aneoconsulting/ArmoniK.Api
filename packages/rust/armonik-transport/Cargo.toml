@@ -53,6 +53,9 @@ serde = { workspace = true, optional = true }
 # keeping the option's own definition in its own thematic file. `std` because `with_prefix!` is
 # gated behind it.
 serde_with = { workspace = true, optional = true, default-features = false, features = ["std"] }
+# Reads a client certificate bundled with its key as a PKCS#12 file, the form Windows and most
+# certificate authorities hand out; pure Rust, so it does not pull in an OpenSSL of its own.
+p12-keystore.workspace = true
 humantime.workspace = true
 # `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
 # nothing to the build.
@@ -73,8 +76,10 @@ secrecy.workspace = true
 serial_test.workspace = true
 # Only to round-trip `HttpConfigArgs` in the test that pins the `serde` feature.
 serde_json.workspace = true
-# A real file for the certificate-loading tests to read: garbage content that is not a valid PEM.
+# A real file for the certificate-loading tests to read: a PEM, or a garbage PKCS#12 bundle.
 tempfile.workspace = true
+# A self-signed certificate and key, generated fresh in the PKCS#12 test rather than committed.
+rcgen.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 # The integration tests serve a gRPC service to call, which the regular build never does; these features
 # union with the `channel`/`codegen` above for test builds only.

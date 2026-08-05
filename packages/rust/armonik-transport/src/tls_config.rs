@@ -8,12 +8,16 @@
 
 use hyper::Uri;
 use rustls::pki_types::pem::PemObject;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use snafu::{OptionExt, ResultExt};
 
+use crate::config::{
+    boxed, ConfigError, EmptyPkcs12Snafu, IncompatibleOptionsSnafu, IoSnafu, Pkcs12Snafu, TlsSnafu,
+    UriSnafu,
+};
 #[cfg(feature = "serde")]
-use crate::config::text;
-use crate::config::{boxed, ConfigError, IncompatibleOptionsSnafu, IoSnafu, TlsSnafu, UriSnafu};
-use snafu::ResultExt;
+use crate::config::{secret_text, text};
+use crate::secret::Secret;
 
 /// The client's TLS identity and the server's CA, in the string form a caller supplies them in.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
@@ -21,15 +25,25 @@ use snafu::ResultExt;
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
 #[non_exhaustive]
 pub struct TlsConfigArgs {
-    /// A file this crate reads: the client's own certificate, matching `key_pem`.
+    /// A file this crate reads: the client's own certificate, matching `key_pem`. Mutually exclusive
+    /// with `cert_p12`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub cert_pem: String,
-    /// A file this crate reads: the client's own key, matching `cert_pem`.
+    /// A file this crate reads: the client's own key, matching `cert_pem`. Mutually exclusive with
+    /// `cert_p12`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub key_pem: String,
     /// A file this crate reads: the Certificate Authority.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub ca_cert: String,
+    /// A file this crate reads: the client's own certificate and key bundled together, the form
+    /// Windows and most certificate authorities hand out. Mutually exclusive with `cert_pem`/`key_pem`.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
+    pub cert_p12: String,
+    /// The password protecting `cert_p12`, empty for none. Meaningless, and rejected, without
+    /// `cert_p12`.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "secret_text"))]
+    pub cert_p12_password: Secret,
     /// Accept any server certificate instead of verifying it, empty for false.
     ///
     /// Spelled as any other ArmoniK client accepts it: `1`, `true`, `yes`, `enable`, `allow` or
@@ -47,7 +61,8 @@ pub struct TlsConfigArgs {
 pub struct TlsConfig {
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false.
     pub allow_unsafe_connection: bool,
-    /// TLS identity of the client: key + cert, loaded from `cert_pem`/`key_pem`.
+    /// TLS identity of the client: key + cert, loaded from whichever of `cert_pem`/`key_pem` or
+    /// `cert_p12` named it.
     pub identity: Option<(CertificateDer<'static>, PrivateKeyDer<'static>)>,
     /// CA certificate to authenticate the server.
     pub cacert: Option<CertificateDer<'static>>,
@@ -82,6 +97,38 @@ fn read_key_pem(option: &'static str, path: &str) -> Result<PrivateKeyDer<'stati
     PrivateKeyDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {})
 }
 
+/// Reads `path` as a PKCS#12 bundle and returns the client identity it names, the leaf certificate of
+/// its chain and its private key, re-encoded as the same DER shapes a PEM pair produces.
+fn read_cert_p12(
+    path: &str,
+    password: &Secret,
+) -> Result<(CertificateDer<'static>, PrivateKeyDer<'static>), ConfigError> {
+    let data = std::fs::read(path).context(IoSnafu {
+        option: "cert_p12",
+        path,
+    })?;
+    let keystore = p12_keystore::KeyStore::from_pkcs12(
+        &data,
+        password.expose_secret(),
+        p12_keystore::Pkcs12ImportPolicy::Strict,
+    )
+    .context(Pkcs12Snafu { path })?;
+    let (_, chain) = keystore
+        .private_key_chain()
+        .context(EmptyPkcs12Snafu { path })?;
+    let cert = chain
+        .certs()
+        .first()
+        .context(EmptyPkcs12Snafu { path })?
+        .as_der()
+        .to_vec();
+    let key = chain.key().as_der().to_vec();
+    Ok((
+        CertificateDer::from(cert),
+        PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)),
+    ))
+}
+
 impl TlsConfigArgs {
     /// Resolves against `endpoint`: an override target given as a bare host keeps the endpoint's own
     /// scheme and path, and is otherwise a full URI whose authority and path replace the endpoint's,
@@ -92,6 +139,8 @@ impl TlsConfigArgs {
             cert_pem,
             key_pem,
             ca_cert,
+            cert_p12,
+            cert_p12_password,
             allow_unsafe_connection,
             override_target_name,
         } = self;
@@ -102,19 +151,40 @@ impl TlsConfigArgs {
             Some(read_cert_pem("ca_cert", &ca_cert)?)
         };
 
-        let identity = match (cert_pem.is_empty(), key_pem.is_empty()) {
-            (true, true) => None,
-            (false, false) => Some((
-                read_cert_pem("cert_pem", &cert_pem)?,
-                read_key_pem("key_pem", &key_pem)?,
-            )),
-            _ => {
-                return IncompatibleOptionsSnafu {
-                    msg: String::from(
-                        "`cert_pem` and `key_pem` must be either both empty or both set",
-                    ),
+        let has_pem_pair = !cert_pem.is_empty() || !key_pem.is_empty();
+        if !cert_p12.is_empty() && has_pem_pair {
+            return IncompatibleOptionsSnafu {
+                msg: String::from(
+                    "`cert_p12` and `cert_pem`/`key_pem` name the client identity two different \
+                     ways; set only one",
+                ),
+            }
+            .fail();
+        }
+        if cert_p12.is_empty() && !cert_p12_password.is_empty() {
+            return IncompatibleOptionsSnafu {
+                msg: String::from("`cert_p12_password` is set without `cert_p12`"),
+            }
+            .fail();
+        }
+
+        let identity = if !cert_p12.is_empty() {
+            Some(read_cert_p12(&cert_p12, &cert_p12_password)?)
+        } else {
+            match (cert_pem.is_empty(), key_pem.is_empty()) {
+                (true, true) => None,
+                (false, false) => Some((
+                    read_cert_pem("cert_pem", &cert_pem)?,
+                    read_key_pem("key_pem", &key_pem)?,
+                )),
+                _ => {
+                    return IncompatibleOptionsSnafu {
+                        msg: String::from(
+                            "`cert_pem` and `key_pem` must be either both empty or both set",
+                        ),
+                    }
+                    .fail()
                 }
-                .fail()
             }
         };
 

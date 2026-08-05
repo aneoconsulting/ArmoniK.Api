@@ -192,7 +192,7 @@ pub(crate) fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<
     deserializer.deserialize_any(AnyScalar)
 }
 
-/// [`text`], for the one field whose value is a [`Secret`] rather than a plain `String`.
+/// [`text`], for the two fields whose value is a [`Secret`] rather than a plain `String`.
 #[cfg(feature = "serde")]
 pub(crate) fn secret_text<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
@@ -208,6 +208,9 @@ impl HttpConfig {
             args.tls.cert_pem,
             args.tls.key_pem,
             args.tls.ca_cert,
+            args.tls.cert_p12,
+            // `cert_p12_password` left out entirely, the same as `proxy_password` below: a path
+            // names no secret, but a password does.
             args.tls.allow_unsafe_connection,
             args.tls.override_target_name,
             args.connect_timeout,
@@ -357,6 +360,24 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+    #[snafu(display("`cert_p12`'s file `{path}` is not a valid PKCS#12 bundle [{location}]"))]
+    #[non_exhaustive]
+    Pkcs12 {
+        #[snafu(source(from(p12_keystore::error::Error, Box::new)))]
+        source: Box<p12_keystore::error::Error>,
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "`cert_p12`'s file `{path}` carries no private key and certificate chain [{location}]"
+    ))]
+    #[non_exhaustive]
+    EmptyPkcs12 {
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
     #[snafu(display("{msg} [{location}]"))]
     #[non_exhaustive]
     IncompatibleOptions {
@@ -415,8 +436,11 @@ pub enum ConfigError {
 
 #[cfg(test)]
 mod tests {
+    use rustls::pki_types::PrivateKeyDer;
+
     use super::*;
     use crate::proxy_config::ProxySource;
+    use crate::secret::Secret;
 
     /// The minimum viable arguments: an endpoint, and nothing else set.
     fn args() -> HttpConfigArgs {
@@ -640,12 +664,15 @@ mod tests {
     #[test]
     fn half_an_identity_is_rejected_and_names_both_variables() {
         // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
-        // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
-        for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
+        // on an mTLS one, so it is caught before either half is parsed.
+        for (cert, key) in [
+            (String::from("cert.pem"), String::new()),
+            (String::new(), String::from("key.pem")),
+        ] {
             let error = HttpConfig::from_config_args(HttpConfigArgs {
                 tls: TlsConfigArgs {
-                    cert_pem: String::from(cert),
-                    key_pem: String::from(key),
+                    cert_pem: cert,
+                    key_pem: key,
                     ..Default::default()
                 },
                 ..args()
@@ -747,6 +774,127 @@ mod tests {
         .expect_err("this file holds no certificate");
 
         assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn cert_p12_and_the_pem_pair_are_mutually_exclusive() {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
+            tls: TlsConfigArgs {
+                cert_pem: String::from("cert.pem"),
+                key_pem: String::from("key.pem"),
+                cert_p12: String::from("identity.p12"),
+                ..Default::default()
+            },
+            ..args()
+        })
+        .expect_err("both forms of identity must be rejected");
+
+        assert!(
+            matches!(error, ConfigError::IncompatibleOptions { .. }),
+            "{error:?}"
+        );
+        let rendered = chain(&error);
+        assert!(rendered.contains("cert_p12"), "{rendered}");
+    }
+
+    #[test]
+    fn a_p12_password_without_a_p12_is_rejected() {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
+            tls: TlsConfigArgs {
+                cert_p12_password: Secret::from("s3cr3t"),
+                ..Default::default()
+            },
+            ..args()
+        })
+        .expect_err("a password naming no file must be rejected");
+
+        assert!(
+            matches!(error, ConfigError::IncompatibleOptions { .. }),
+            "{error:?}"
+        );
+        let rendered = chain(&error);
+        assert!(rendered.contains("cert_p12_password"), "{rendered}");
+        assert!(!rendered.contains("s3cr3t"), "{rendered}");
+    }
+
+    #[test]
+    fn a_p12_file_is_read_into_the_same_identity_a_pem_pair_would_be() {
+        // A self-signed certificate and its PKCS#8 key, generated fresh here rather than read from
+        // a fixture, then bundled into a PKCS#12 file with `p12-keystore`'s own writer.
+        const PASSWORD: &str = "s3cr3t";
+
+        let rcgen::CertifiedKey { cert, signing_key } =
+            rcgen::generate_simple_self_signed(["test".to_owned()]).expect("a self-signed cert");
+        let cert_der = cert.der().to_vec();
+        let key_der = signing_key.serialize_der();
+
+        let chain = p12_keystore::PrivateKeyChain::new(
+            [1u8].as_slice(),
+            p12_keystore::PrivateKey::from_der(&key_der).expect("a valid PKCS#8 key"),
+            [p12_keystore::Certificate::from_der(&cert_der).expect("a valid X.509 certificate")],
+        );
+        let mut keystore = p12_keystore::KeyStore::new();
+        keystore.add_entry(
+            "identity",
+            p12_keystore::KeyStoreEntry::PrivateKeyChain(chain),
+        );
+        let pfx = keystore.writer(PASSWORD).write().expect("write the bundle");
+
+        let mut p12 = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut p12, &pfx).expect("write");
+
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
+            tls: TlsConfigArgs {
+                cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
+                cert_p12_password: Secret::from(PASSWORD),
+                ..Default::default()
+            },
+            ..args()
+        })
+        .expect("a valid PKCS#12 bundle");
+
+        let (cert, key) = config.tls.identity.expect("an identity was bundled");
+        assert_eq!(cert.as_ref(), cert_der, "the leaf certificate round-trips");
+        let PrivateKeyDer::Pkcs8(key) = key else {
+            panic!("expected the PKCS#8 variant, since that is what the bundle carried");
+        };
+        assert_eq!(
+            key.secret_pkcs8_der(),
+            key_der.as_slice(),
+            "the key round-trips"
+        );
+    }
+
+    #[test]
+    fn a_p12_that_leads_nowhere_names_the_path() {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
+            tls: TlsConfigArgs {
+                cert_p12: String::from("no/such/identity.p12"),
+                ..Default::default()
+            },
+            ..args()
+        })
+        .expect_err("a missing file must be reported");
+
+        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
+        assert!(chain(&error).contains("no/such/"), "{}", chain(&error));
+    }
+
+    #[test]
+    fn a_p12_file_that_is_not_pkcs12_is_rejected_as_such() {
+        let mut p12 = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut p12, b"clearly not a pkcs12 bundle").expect("write");
+
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
+            tls: TlsConfigArgs {
+                cert_p12: p12.path().to_str().expect("utf8 path").to_owned(),
+                ..Default::default()
+            },
+            ..args()
+        })
+        .expect_err("garbage is not a pkcs12 bundle");
+
+        assert!(matches!(error, ConfigError::Pkcs12 { .. }), "{error:?}");
     }
 
     // --- override target ---
