@@ -4,11 +4,11 @@
 //! Depending on this alone leaves protobuf codegen, and the `protoc` a build script would need, out of
 //! the build.
 //!
-//! A caller hands over a [`ClientConfigArgs`], filled in from wherever it keeps its settings.
+//! A caller hands over a [`HttpConfigArgs`], filled in from wherever it keeps its settings.
 //! `connect` itself reads neither an environment variable nor a file of options: where the values
 //! come from is the business of whoever knows what the deployment looks like. Two exceptions, both
 //! opt-in rather than something `connect` does on its own: `ProxySource::System`, the `*_PROXY`
-//! convention every HTTP client obeys, and [`ClientConfigArgs::from_env`] (behind the `env`
+//! convention every HTTP client obeys, and [`HttpConfigArgs::from_env`] (behind the `env`
 //! feature), for the common case where a deployment's settings really are one environment variable
 //! per option, spelled in `PascalCase` under a prefix of the caller's choosing.
 
@@ -20,7 +20,7 @@ mod proxy;
 mod secret;
 mod utils;
 
-pub use config::{ClientConfig, ClientConfigArgs, ConfigError, ProxyConfig, ProxySource};
+pub use config::{ConfigError, HttpConfig, HttpConfigArgs, ProxyConfig, ProxySource};
 pub use connect::{connect, https_connector, ConnectionError};
 #[cfg(feature = "env")]
 pub use env::EnvFieldError;

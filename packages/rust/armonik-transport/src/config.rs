@@ -19,7 +19,7 @@ pub enum ProxySource {
     /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
     ///
     /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
-    /// started with. Every other option is read in [`ClientConfigArgs::from_env`].
+    /// started with. Every other option is read in [`HttpConfigArgs::from_env`].
     System,
     /// Use this specific proxy.
     Explicit(Uri),
@@ -84,10 +84,11 @@ impl ProxyConfig {
     }
 }
 
-/// Options for creating a gRPC Client
+/// Options for the HTTP/2 transport: TLS, proxy, and everything else `connect` needs to reach the
+/// endpoint.
 #[derive(Debug, Default)]
 #[non_exhaustive]
-pub struct ClientConfig {
+pub struct HttpConfig {
     /// Endpoint for sending requests
     pub endpoint: Uri,
     /// Allow unsafe connections to the endpoint (without SSL), defaults to false
@@ -126,7 +127,7 @@ pub struct ClientConfig {
     pub proxy: ProxyConfig,
 }
 
-impl Clone for ClientConfig {
+impl Clone for HttpConfig {
     fn clone(&self) -> Self {
         Self {
             endpoint: self.endpoint.clone(),
@@ -159,7 +160,7 @@ impl Clone for ClientConfig {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
 #[non_exhaustive]
-pub struct ClientConfigArgs {
+pub struct HttpConfigArgs {
     /// Endpoint for sending requests
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub endpoint: String,
@@ -252,9 +253,9 @@ pub(crate) fn parse_bool(option: &'static str, value: &str) -> Result<bool, Conf
     }
 }
 
-/// Reads any field of [`ClientConfigArgs`] as text, whatever scalar shape a `serde` source gave it.
+/// Reads any field of [`HttpConfigArgs`] as text, whatever scalar shape a `serde` source gave it.
 ///
-/// Every field of `ClientConfigArgs` is authoritatively text, in the string form its own doc names,
+/// Every field of `HttpConfigArgs` is authoritatively text, in the string form its own doc names,
 /// but a source is not obliged to agree: `figment`'s `Env` provider parses a bare `3` or `true` into
 /// a real integer or boolean before `serde` ever sees it, and a plain `String` field rejects those
 /// outright. The same provider parses a value made entirely of a bracketed or braced list (`[::1]`,
@@ -322,17 +323,10 @@ pub(crate) fn secret_text<'de, D: serde::Deserializer<'de>>(
     text(deserializer).and_then(Secret::from_decoded_text)
 }
 
-#[cfg(feature = "env")]
-impl ClientConfig {
-    pub fn from_env() -> Result<Self, ConfigError> {
-        Self::from_config_args(ClientConfigArgs::from_env("GrpcClient__").context(EnvSnafu {})?)
-    }
-}
-
-impl ClientConfig {
-    pub fn from_config_args(args: ClientConfigArgs) -> Result<Self, ConfigError> {
+impl HttpConfig {
+    pub fn from_config_args(args: HttpConfigArgs) -> Result<Self, ConfigError> {
         let _span = tracing::debug_span!(
-            "ClientConfig",
+            "HttpConfig",
             args.endpoint,
             args.cert_pem,
             args.key_pem,
@@ -358,7 +352,7 @@ impl ClientConfig {
             args.proxy_username,
         );
 
-        let ClientConfigArgs {
+        let HttpConfigArgs {
             endpoint,
             cert_pem: cert_path,
             key_pem: key_path,
@@ -680,10 +674,10 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxySource, ConfigError> {
     }
 }
 
-impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
+impl TryFrom<&HttpConfig> for tonic::transport::Endpoint {
     type Error = ConfigError;
 
-    fn try_from(value: &ClientConfig) -> Result<Self, Self::Error> {
+    fn try_from(value: &HttpConfig) -> Result<Self, Self::Error> {
         Ok(Self::from(value.endpoint.clone()))
     }
 }
@@ -691,15 +685,6 @@ impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum ConfigError {
-    #[cfg(feature = "env")]
-    #[snafu(display("Could not read the environment [{location}]"))]
-    #[non_exhaustive]
-    Env {
-        #[snafu(source(from(crate::env::EnvFieldError, Box::new)))]
-        source: Box<crate::env::EnvFieldError>,
-        #[snafu(implicit)]
-        location: snafu::Location,
-    },
     #[snafu(display("Invalid TLS configuration [{location}]"))]
     #[non_exhaustive]
     Tls {
@@ -792,8 +777,8 @@ mod tests {
     use super::*;
 
     /// The minimum viable arguments: an endpoint, and nothing else set.
-    fn args() -> ClientConfigArgs {
-        ClientConfigArgs {
+    fn args() -> HttpConfigArgs {
+        HttpConfigArgs {
             endpoint: String::from("http://localhost:5001"),
             ..Default::default()
         }
@@ -814,7 +799,7 @@ mod tests {
 
     #[test]
     fn the_minimum_is_an_endpoint() {
-        let config = ClientConfig::from_config_args(args()).expect("an endpoint is enough");
+        let config = HttpConfig::from_config_args(args()).expect("an endpoint is enough");
 
         assert_eq!(config.endpoint.to_string(), "http://localhost:5001/");
         assert!(config.identity.is_none());
@@ -825,7 +810,7 @@ mod tests {
 
     #[test]
     fn an_endpoint_that_is_not_a_uri_is_reported() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::new(),
             ..args()
         })
@@ -839,7 +824,7 @@ mod tests {
     #[test]
     fn every_accepted_boolean_spelling_is_accepted() {
         for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
-            let config = ClientConfig::from_config_args(ClientConfigArgs {
+            let config = HttpConfig::from_config_args(HttpConfigArgs {
                 allow_unsafe_connection: String::from(spelling),
                 tcp_nagle_algorithm: String::from(spelling),
                 http2_keep_alive_while_idle: String::from(spelling),
@@ -852,7 +837,7 @@ mod tests {
         }
 
         for spelling in ["0", "false", "no", "disable", "disallow", "forbid", ""] {
-            let config = ClientConfig::from_config_args(ClientConfigArgs {
+            let config = HttpConfig::from_config_args(HttpConfigArgs {
                 allow_unsafe_connection: String::from(spelling),
                 ..args()
             })
@@ -863,7 +848,7 @@ mod tests {
 
     #[test]
     fn an_unrecognised_boolean_names_the_option_and_the_value() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             allow_unsafe_connection: String::from("perhaps"),
             ..args()
         })
@@ -882,7 +867,7 @@ mod tests {
 
     #[test]
     fn durations_are_read_in_the_units_they_are_written_in() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             connect_timeout: String::from("500ms"),
             tcp_keepalive: String::from("30s"),
             tcp_keepalive_interval: String::from("2m"),
@@ -905,7 +890,7 @@ mod tests {
 
     #[test]
     fn a_duration_that_cannot_be_parsed_names_the_value() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             tcp_keepalive: String::from("soon"),
             ..args()
         })
@@ -920,7 +905,7 @@ mod tests {
 
     #[test]
     fn integers_are_read_and_a_bad_one_names_the_value() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             tcp_keepalive_retries: String::from("3"),
             http2_max_header_list_size: String::from("16384"),
             ..args()
@@ -929,7 +914,7 @@ mod tests {
         assert_eq!(config.tcp_keepalive_retries, Some(3));
         assert_eq!(config.http2_max_header_list_size, Some(16384));
 
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             tcp_keepalive_retries: String::from("many"),
             ..args()
         })
@@ -944,7 +929,7 @@ mod tests {
     #[test]
     fn an_integer_that_does_not_fit_is_rejected_rather_than_wrapped() {
         // These are `u32`; a value past the top must fail rather than silently become something else.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             http2_max_header_list_size: String::from("4294967296"),
             ..args()
         })
@@ -960,7 +945,7 @@ mod tests {
 
     #[test]
     fn a_rate_limit_is_a_count_and_a_duration() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             rate_limit: String::from("100/1s"),
             ..args()
         })
@@ -974,7 +959,7 @@ mod tests {
         // `tower`'s `Rate::new` asserts both halves are above zero, so a zero has to be refused here
         // rather than reaching it: a panic inside `connect` tells the caller nothing.
         for value in ["0/1s", "1/0s", "0/0s"] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(HttpConfigArgs {
                 rate_limit: String::from(value),
                 ..args()
             })
@@ -993,7 +978,7 @@ mod tests {
     fn a_rate_limit_missing_its_duration_is_reported_with_the_expected_shape() {
         // The message has to show the format, since `100` on its own looks perfectly reasonable to whoever
         // wrote it.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             rate_limit: String::from("100"),
             ..args()
         })
@@ -1010,7 +995,7 @@ mod tests {
 
     #[test]
     fn each_half_of_a_rate_limit_is_validated_separately() {
-        let count = ClientConfig::from_config_args(ClientConfigArgs {
+        let count = HttpConfig::from_config_args(HttpConfigArgs {
             rate_limit: String::from("plenty/1s"),
             ..args()
         })
@@ -1020,7 +1005,7 @@ mod tests {
             "{count:?}"
         );
 
-        let duration = ClientConfig::from_config_args(ClientConfigArgs {
+        let duration = HttpConfig::from_config_args(HttpConfigArgs {
             rate_limit: String::from("100/soon"),
             ..args()
         })
@@ -1038,7 +1023,7 @@ mod tests {
         // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
         // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
         for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(HttpConfigArgs {
                 cert_pem: String::from(cert),
                 key_pem: String::from(key),
                 ..args()
@@ -1057,7 +1042,7 @@ mod tests {
 
     #[test]
     fn neither_half_is_no_identity_rather_than_an_error() {
-        let config = ClientConfig::from_config_args(args()).expect("valid");
+        let config = HttpConfig::from_config_args(args()).expect("valid");
         assert!(config.identity.is_none());
     }
 
@@ -1065,7 +1050,7 @@ mod tests {
     fn a_certificate_path_that_does_not_exist_is_reported_with_the_path() {
         // These options are paths, not contents. A typo in one has to name the file rather than surface
         // later as a TLS failure.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             cert_pem: String::from("no/such/cert.pem"),
             key_pem: String::from("no/such/key.pem"),
             ..args()
@@ -1082,7 +1067,7 @@ mod tests {
 
     #[test]
     fn a_missing_ca_certificate_is_reported_with_the_path() {
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             ca_cert: String::from("no/such/ca.pem"),
             ..args()
         })
@@ -1102,7 +1087,7 @@ mod tests {
     fn an_override_target_given_as_a_host_keeps_the_endpoints_scheme_and_path() {
         // The common case: the certificate names one host, the endpoint is reached at another. Only the
         // authority is being overridden, so everything else has to come from the endpoint.
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
             override_target_name: String::from("server.example.com"),
             ..args()
@@ -1120,7 +1105,7 @@ mod tests {
 
     #[test]
     fn an_override_target_given_as_a_uri_replaces_the_authority_and_the_path() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
             override_target_name: String::from("https://server.example.com/other"),
             ..args()
@@ -1140,7 +1125,7 @@ mod tests {
 
     #[test]
     fn no_override_target_leaves_it_unset() {
-        let config = ClientConfig::from_config_args(args()).expect("valid");
+        let config = HttpConfig::from_config_args(args()).expect("valid");
         assert_eq!(config.override_target, None);
     }
 
@@ -1152,7 +1137,7 @@ mod tests {
         // A single struct-level `serde(default)` covers every field, endpoint included, so a
         // configuration file need only name what it changes, in `PascalCase`, matching the
         // environment. The feature is off by default, so nothing else here would notice it breaking.
-        let deserialised: ClientConfigArgs =
+        let deserialised: HttpConfigArgs =
             serde_json::from_str(r#"{"Endpoint":"http://localhost:5001","Timeout":"30s"}"#)
                 .expect("absent fields should default");
 
@@ -1161,7 +1146,7 @@ mod tests {
         assert_eq!(deserialised.cert_pem, "", "an absent field defaults");
         assert_eq!(deserialised.allow_unsafe_connection, "");
 
-        let round_tripped: ClientConfigArgs =
+        let round_tripped: HttpConfigArgs =
             serde_json::from_str(&serde_json::to_string(&deserialised).expect("serialise"))
                 .expect("deserialise");
         assert_eq!(round_tripped, deserialised);
@@ -1172,7 +1157,7 @@ mod tests {
     fn a_value_that_figment_would_parse_as_a_number_or_boolean_still_reads_as_text() {
         // `serde_json` itself has no reason to coerce a quoted string into anything else, so this
         // pins the shim's own visitor methods directly rather than through a real `figment` read.
-        let deserialised: ClientConfigArgs = serde_json::from_str(
+        let deserialised: HttpConfigArgs = serde_json::from_str(
             r#"{"Endpoint":"http://localhost:5001","TcpKeepaliveRetries":3,"AllowUnsafeConnection":true}"#,
         )
         .expect("a number or boolean must still be read as text");
@@ -1186,7 +1171,7 @@ mod tests {
     #[test]
     fn proxy_none_and_empty_disable_proxying() {
         for value in ["", "none", "None", "NONE"] {
-            let config = ClientConfig::from_config_args(ClientConfigArgs {
+            let config = HttpConfig::from_config_args(HttpConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })
@@ -1202,7 +1187,7 @@ mod tests {
     #[test]
     fn proxy_system_reads_the_environment() {
         for value in ["system", "System", "SYSTEM"] {
-            let config = ClientConfig::from_config_args(ClientConfigArgs {
+            let config = HttpConfig::from_config_args(HttpConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })
@@ -1213,12 +1198,12 @@ mod tests {
 
     #[test]
     fn proxy_url_defaults_to_the_http_scheme() {
-        let with_scheme = ClientConfig::from_config_args(ClientConfigArgs {
+        let with_scheme = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("http://proxy.corp:3128"),
             ..args()
         })
         .expect("a valid configuration");
-        let without_scheme = ClientConfig::from_config_args(ClientConfigArgs {
+        let without_scheme = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             ..args()
         })
@@ -1234,14 +1219,14 @@ mod tests {
 
     #[test]
     fn proxy_credentials_are_optional() {
-        let none = ClientConfig::from_config_args(ClientConfigArgs {
+        let none = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             ..args()
         })
         .expect("a valid configuration");
         assert_eq!(none.proxy.credentials(), None);
 
-        let some = ClientConfig::from_config_args(ClientConfigArgs {
+        let some = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             proxy_username: String::from("user"),
             proxy_password: "secret".into(),
@@ -1253,7 +1238,7 @@ mod tests {
 
     #[test]
     fn proxy_credentials_in_the_url_are_honoured_and_removed_from_it() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("http://user:secret@proxy.corp:3128"),
             ..args()
         })
@@ -1271,7 +1256,7 @@ mod tests {
 
     #[test]
     fn the_dedicated_proxy_options_win_over_the_url() {
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
             proxy_username: String::from("option-user"),
             proxy_password: "option-secret".into(),
@@ -1287,9 +1272,9 @@ mod tests {
 
     #[test]
     fn the_proxy_password_is_kept_out_of_the_debug_output() {
-        // `ClientConfig` is `Debug` and holds a `ProxyConfig`, so a derived `Debug` would put the
+        // `HttpConfig` is `Debug` and holds a `ProxyConfig`, so a derived `Debug` would put the
         // password anywhere a configuration gets printed.
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("proxy.corp:3128"),
             proxy_username: String::from("user"),
             proxy_password: "s3cr3t".into(),
@@ -1316,7 +1301,7 @@ mod tests {
     fn a_dedicated_password_alone_keeps_the_username_the_url_carried() {
         // Replacing the pair rather than each field would leave an empty username here, and the proxy
         // would answer 407 with nothing to explain it.
-        let config = ClientConfig::from_config_args(ClientConfigArgs {
+        let config = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("http://url-user:url-secret@proxy.corp:3128"),
             proxy_password: "option-secret".into(),
             ..args()
@@ -1332,7 +1317,7 @@ mod tests {
     #[test]
     fn a_rejected_proxy_url_does_not_echo_its_password() {
         // A URL can be rejected for having no host and still have carried a credential.
-        let error = ClientConfig::from_config_args(ClientConfigArgs {
+        let error = HttpConfig::from_config_args(HttpConfigArgs {
             proxy: String::from("http://user:s3cr3t@"),
             ..args()
         })
@@ -1345,9 +1330,9 @@ mod tests {
 
     #[test]
     fn the_arguments_keep_the_password_out_of_their_debug_output() {
-        // `ClientConfig` is not the only type that holds it: these are what a caller inspects before
+        // `HttpConfig` is not the only type that holds it: these are what a caller inspects before
         // handing them over.
-        let args = ClientConfigArgs {
+        let args = HttpConfigArgs {
             proxy: String::from("http://user:url-secret@proxy.corp:3128"),
             proxy_password: "option-secret".into(),
             ..args()
@@ -1367,7 +1352,7 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn an_ordinary_serialisation_redacts_the_password() {
-        let args = ClientConfigArgs {
+        let args = HttpConfigArgs {
             proxy_password: "s3cr3t".into(),
             ..args()
         };
@@ -1381,7 +1366,7 @@ mod tests {
         // The `CONNECT` handshake goes out unencrypted, so a proxy expecting TLS would see gibberish.
         // Accepting the URL and failing at connect time would report it as an unreachable proxy.
         for value in ["https://proxy.corp:3128", "socks5://proxy.corp:1080"] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(HttpConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })
@@ -1397,7 +1382,7 @@ mod tests {
         // Reporting these through the endpoint's URI error would send whoever reads it looking at the
         // wrong setting.
         for value in ["http:///no-host", "http://", "http://:3128", "://"] {
-            let error = ClientConfig::from_config_args(ClientConfigArgs {
+            let error = HttpConfig::from_config_args(HttpConfigArgs {
                 proxy: String::from(value),
                 ..args()
             })

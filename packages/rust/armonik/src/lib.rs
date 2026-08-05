@@ -11,7 +11,7 @@ pub mod server;
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport as transport;
 #[cfg(feature = "_gen-client")]
-pub use client::{Client, ClientConfig};
+pub use client::{Client, HttpConfig};
 pub use objects::*;
 
 mod utils;

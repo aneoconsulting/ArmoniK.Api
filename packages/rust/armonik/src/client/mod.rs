@@ -5,12 +5,17 @@ use snafu::{ResultExt, Snafu};
 // Re-exported here, so a caller reaches them through the client rather than through the transport
 // crate.
 #[cfg(feature = "_gen-client")]
-use armonik_transport::ConfigSnafu;
-#[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
-    ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ProxyConfig, ProxyError,
-    ProxySource, Secret,
+    ConfigError, ConnectionError, EnvFieldError, HttpConfig, HttpConfigArgs, ProxyConfig,
+    ProxyError, ProxySource, Secret,
 };
+
+/// Configuring `armonik-transport`'s environment reading with ArmoniK's own prefix, rather than
+/// reading each `GrpcClient__*` variable in this crate.
+#[cfg(feature = "_gen-client")]
+mod env;
+#[cfg(feature = "_gen-client")]
+pub use env::{NewClientError, ARMONIK_PREFIX};
 
 #[cfg(feature = "worker")]
 mod agent;
@@ -71,12 +76,16 @@ pub struct Client<T = tonic::transport::Channel> {
 
 impl Client<tonic::transport::Channel> {
     /// Create a new client using the configuration from the environment variables
-    pub async fn new() -> Result<Self, ConnectionError> {
-        Self::with_config(ClientConfig::from_env().context(ConfigSnafu {})?).await
+    pub async fn new() -> Result<Self, NewClientError> {
+        let args = HttpConfigArgs::from_env(env::ARMONIK_PREFIX).context(env::EnvSnafu {})?;
+        let config = HttpConfig::from_config_args(args).context(env::ConfigSnafu {})?;
+        Self::with_config(config)
+            .await
+            .context(env::ConnectSnafu {})
     }
 
     /// Create a new client with the specified client configuration
-    pub async fn with_config(config: ClientConfig) -> Result<Self, ConnectionError> {
+    pub async fn with_config(config: HttpConfig) -> Result<Self, ConnectionError> {
         let endpoint = config.endpoint.to_string();
         tracing_futures::Instrument::instrument(
             async move {
@@ -96,7 +105,8 @@ impl Client<tonic::transport::Channel> {
         use http_body_util::BodyExt;
         use hyper_util::rt::TokioExecutor;
 
-        let mut config = ClientConfig::from_env().unwrap();
+        let args = HttpConfigArgs::from_env(env::ARMONIK_PREFIX).unwrap();
+        let mut config = HttpConfig::from_config_args(args).unwrap();
 
         match std::env::var("Http__Endpoint") {
             Ok(value) if !value.is_empty() => {

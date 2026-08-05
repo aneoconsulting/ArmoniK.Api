@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use armonik_transport::{ClientConfig, ProxyConfig};
+use armonik_transport::{HttpConfig, ProxyConfig};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -130,12 +130,12 @@ async fn read_head(stream: &mut TcpStream) -> std::io::Result<String> {
 
 /// A client reaching `endpoint` through `proxy`, spelled as an environment would.
 ///
-/// Through `ClientConfigArgs` on purpose, so the parsing is under test along with the tunnelling.
+/// Through `HttpConfigArgs` on purpose, so the parsing is under test along with the tunnelling.
 fn through_proxy(
     endpoint: &str,
     proxy: SocketAddr,
     credentials: Option<(&str, &str)>,
-) -> ClientConfig {
+) -> HttpConfig {
     common::config(endpoint, |args| {
         args.proxy = format!("http://{proxy}");
         if let Some((username, password)) = credentials {
@@ -146,12 +146,12 @@ fn through_proxy(
 }
 
 /// A client that connects directly, whatever proxy the tests happen to be running.
-fn direct(endpoint: &str) -> ClientConfig {
+fn direct(endpoint: &str) -> HttpConfig {
     common::config(endpoint, |_| {})
 }
 
 /// Connect and make one call, returning what the server answered.
-async fn call_through(config: ClientConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
+async fn call_through(config: HttpConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
     let channel = armonik_transport::connect(config).await?;
     Ok(common::call(channel).await?)
 }
@@ -339,7 +339,7 @@ async fn system_mode_takes_the_proxy_from_the_environment() {
 
     // The variable has to still be set when `connect` runs, not merely when the configuration is
     // built: `system` resolves the environment as the connection is made. Every other option is read
-    // once, in `ClientConfigArgs::from_env`.
+    // once, in `HttpConfigArgs::from_env`.
     std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system")

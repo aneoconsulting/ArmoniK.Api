@@ -202,7 +202,7 @@ fn decode_basic_auth(value: &HeaderValue) -> (String, String) {
 /// The rule both credential-merging call sites apply: a dedicated username or password set alone
 /// must not discard the other half of whatever the proxy URL carried, or the request fails as an
 /// unexplained 407. Used here for a proxy taken from the environment, and by
-/// `ClientConfig::from_config_args` for one configured explicitly.
+/// `HttpConfig::from_config_args` for one configured explicitly.
 pub(crate) fn prefer_dedicated<'a>(dedicated: &'a str, from_url: &'a str) -> &'a str {
     if dedicated.is_empty() {
         from_url
