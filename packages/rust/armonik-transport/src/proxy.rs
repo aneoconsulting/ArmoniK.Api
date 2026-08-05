@@ -269,34 +269,12 @@ pub(crate) fn elide_userinfo(value: &str) -> String {
     }
 }
 
-/// Decode `%XX` escapes, leaving anything malformed exactly as it was written.
+/// Decode `%XX` escapes, leaving anything malformed exactly as it was written: `percent_encoding`'s
+/// own documented behaviour for a `%` not followed by two hex digits.
 fn percent_decode(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut index = 0;
-
-    while index < bytes.len() {
-        let decoded = if bytes[index] == b'%' && index + 2 < bytes.len() {
-            std::str::from_utf8(&bytes[index + 1..index + 3])
-                .ok()
-                .and_then(|hex| u8::from_str_radix(hex, 16).ok())
-        } else {
-            None
-        };
-
-        match decoded {
-            Some(byte) => {
-                out.push(byte);
-                index += 3;
-            }
-            None => {
-                out.push(bytes[index]);
-                index += 1;
-            }
-        }
-    }
-
-    String::from_utf8_lossy(&out).into_owned()
+    percent_encoding::percent_decode_str(value)
+        .decode_utf8_lossy()
+        .into_owned()
 }
 
 /// Failure to reach the endpoint through the proxy.
