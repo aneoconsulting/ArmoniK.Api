@@ -4,6 +4,9 @@ use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
+#[cfg(feature = "serde")]
+use crate::http2_config::prefix_http2;
+use crate::http2_config::{Http2Config, Http2ConfigArgs};
 use crate::secret::Secret;
 #[cfg(feature = "serde")]
 use crate::tcp_config::prefix_tcp;
@@ -110,14 +113,8 @@ pub struct HttpConfig {
     pub rate_limit: Option<(u64, Duration)>,
     /// TCP-level socket options.
     pub tcp: TcpConfig,
-    /// HTTP/2 PING frame interval, defaults to no keepalive
-    pub http2_keep_alive_interval: Option<Duration>,
-    /// HTTP/2 PING timeout, defaults to no timeout
-    pub http2_keep_alive_timeout: Option<Duration>,
-    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false
-    pub http2_keep_alive_while_idle: bool,
-    /// HTTP/2 max header list size in bytes, defaults to no limit
-    pub http2_max_header_list_size: Option<u32>,
+    /// HTTP/2-level transport options.
+    pub http2: Http2Config,
     /// User-Agent header value sent with each request
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to a direct connection
@@ -139,10 +136,7 @@ impl Clone for HttpConfig {
             timeout: self.timeout,
             rate_limit: self.rate_limit,
             tcp: self.tcp,
-            http2_keep_alive_interval: self.http2_keep_alive_interval,
-            http2_keep_alive_timeout: self.http2_keep_alive_timeout,
-            http2_keep_alive_while_idle: self.http2_keep_alive_while_idle,
-            http2_max_header_list_size: self.http2_max_header_list_size,
+            http2: self.http2,
             user_agent: self.user_agent.clone(),
             proxy: self.proxy.clone(),
         }
@@ -185,18 +179,9 @@ pub struct HttpConfigArgs {
     /// TCP-level socket options.
     #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_tcp"))]
     pub tcp: TcpConfigArgs,
-    /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_keep_alive_interval: String,
-    /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_keep_alive_timeout: String,
-    /// Send HTTP/2 keepalive PINGs even when idle, empty for false
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_keep_alive_while_idle: String,
-    /// HTTP/2 max header list size in bytes, defaults to no limit
-    #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
-    pub http2_max_header_list_size: String,
+    /// HTTP/2-level transport options.
+    #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_http2"))]
+    pub http2: Http2ConfigArgs,
     /// User-Agent header value sent with each request
     #[cfg_attr(feature = "serde", serde(deserialize_with = "text"))]
     pub user_agent: String,
@@ -356,10 +341,10 @@ impl HttpConfig {
             args.tcp.keepalive_interval,
             args.tcp.keepalive_retries,
             args.tcp.nagle_algorithm,
-            args.http2_keep_alive_interval,
-            args.http2_keep_alive_timeout,
-            args.http2_keep_alive_while_idle,
-            args.http2_max_header_list_size,
+            args.http2.keep_alive_interval,
+            args.http2.keep_alive_timeout,
+            args.http2.keep_alive_while_idle,
+            args.http2.max_header_list_size,
             args.user_agent,
             // Elided, and `proxy_password` left out entirely: this span is recorded at debug level, and
             // a proxy URL carries credentials as often as the dedicated option does. Do not complete
@@ -379,10 +364,7 @@ impl HttpConfig {
             timeout,
             rate_limit,
             tcp,
-            http2_keep_alive_interval,
-            http2_keep_alive_timeout,
-            http2_keep_alive_while_idle,
-            http2_max_header_list_size,
+            http2,
             user_agent,
             proxy,
             proxy_username,
@@ -392,8 +374,7 @@ impl HttpConfig {
         let allow_unsafe_connection =
             parse_bool("allow_unsafe_connection", &allow_unsafe_connection)?;
         let tcp = tcp.resolve()?;
-        let http2_keep_alive_while_idle =
-            parse_bool("http2_keep_alive_while_idle", &http2_keep_alive_while_idle)?;
+        let http2 = http2.resolve()?;
 
         // Read CAcert file
         let cacert = if !cacert_path.is_empty() {
@@ -501,47 +482,6 @@ impl HttpConfig {
             Some((limit, duration))
         };
 
-        let http2_keep_alive_interval = if http2_keep_alive_interval.is_empty() {
-            None
-        } else {
-            Some(
-                http2_keep_alive_interval
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "http2_keep_alive_interval",
-                        value: http2_keep_alive_interval,
-                    })?
-                    .into(),
-            )
-        };
-
-        let http2_keep_alive_timeout = if http2_keep_alive_timeout.is_empty() {
-            None
-        } else {
-            Some(
-                http2_keep_alive_timeout
-                    .parse::<humantime::Duration>()
-                    .context(InvalidDurationSnafu {
-                        option: "http2_keep_alive_timeout",
-                        value: http2_keep_alive_timeout,
-                    })?
-                    .into(),
-            )
-        };
-
-        let http2_max_header_list_size = if http2_max_header_list_size.is_empty() {
-            None
-        } else {
-            Some(
-                http2_max_header_list_size
-                    .parse::<u32>()
-                    .context(InvalidIntegerSnafu {
-                        option: "http2_max_header_list_size",
-                        value: http2_max_header_list_size,
-                    })?,
-            )
-        };
-
         let user_agent = if user_agent.is_empty() {
             None
         } else {
@@ -574,10 +514,7 @@ impl HttpConfig {
             timeout,
             rate_limit,
             tcp,
-            http2_keep_alive_interval,
-            http2_keep_alive_timeout,
-            http2_keep_alive_while_idle,
-            http2_max_header_list_size,
+            http2,
             user_agent,
             proxy,
         })
@@ -794,13 +731,16 @@ mod tests {
                     nagle_algorithm: String::from(spelling),
                     ..Default::default()
                 },
-                http2_keep_alive_while_idle: String::from(spelling),
+                http2: Http2ConfigArgs {
+                    keep_alive_while_idle: String::from(spelling),
+                    ..Default::default()
+                },
                 ..args()
             })
             .expect(spelling);
             assert!(config.allow_unsafe_connection, "{spelling}");
             assert!(config.tcp.nagle_algorithm, "{spelling}");
-            assert!(config.http2_keep_alive_while_idle, "{spelling}");
+            assert!(config.http2.keep_alive_while_idle, "{spelling}");
         }
 
         for spelling in ["0", "false", "no", "disable", "disallow", "forbid", ""] {
@@ -841,7 +781,10 @@ mod tests {
                 keepalive_interval: String::from("2m"),
                 ..Default::default()
             },
-            http2_keep_alive_interval: String::from("1h"),
+            http2: Http2ConfigArgs {
+                keep_alive_interval: String::from("1h"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid durations");
@@ -853,7 +796,7 @@ mod tests {
             Some(Duration::from_secs(120))
         );
         assert_eq!(
-            config.http2_keep_alive_interval,
+            config.http2.keep_alive_interval,
             Some(Duration::from_secs(3600))
         );
     }
@@ -883,12 +826,15 @@ mod tests {
                 keepalive_retries: String::from("3"),
                 ..Default::default()
             },
-            http2_max_header_list_size: String::from("16384"),
+            http2: Http2ConfigArgs {
+                max_header_list_size: String::from("16384"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect("valid integers");
         assert_eq!(config.tcp.keepalive_retries, Some(3));
-        assert_eq!(config.http2_max_header_list_size, Some(16384));
+        assert_eq!(config.http2.max_header_list_size, Some(16384));
 
         let error = HttpConfig::from_config_args(HttpConfigArgs {
             tcp: TcpConfigArgs {
@@ -909,7 +855,10 @@ mod tests {
     fn an_integer_that_does_not_fit_is_rejected_rather_than_wrapped() {
         // These are `u32`; a value past the top must fail rather than silently become something else.
         let error = HttpConfig::from_config_args(HttpConfigArgs {
-            http2_max_header_list_size: String::from("4294967296"),
+            http2: Http2ConfigArgs {
+                max_header_list_size: String::from("4294967296"),
+                ..Default::default()
+            },
             ..args()
         })
         .expect_err("2^32 does not fit in a u32");

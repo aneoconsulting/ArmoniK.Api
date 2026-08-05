@@ -19,10 +19,10 @@ use crate::HttpConfig;
 pub async fn connect(config: HttpConfig) -> Result<tonic::transport::Channel, ConnectionError> {
     let endpoint = config.endpoint.clone();
     let override_target = config.override_target.clone();
-    let http2_keep_alive_interval = config.http2_keep_alive_interval;
-    let http2_keep_alive_timeout = config.http2_keep_alive_timeout;
-    let http2_keep_alive_while_idle = config.http2_keep_alive_while_idle;
-    let http2_max_header_list_size = config.http2_max_header_list_size;
+    let http2_keep_alive_interval = config.http2.keep_alive_interval;
+    let http2_keep_alive_timeout = config.http2.keep_alive_timeout;
+    let http2_keep_alive_while_idle = config.http2.keep_alive_while_idle;
+    let http2_max_header_list_size = config.http2.max_header_list_size;
     let user_agent = config.user_agent.clone();
     let timeout = config.timeout;
     let rate_limit = config.rate_limit;
