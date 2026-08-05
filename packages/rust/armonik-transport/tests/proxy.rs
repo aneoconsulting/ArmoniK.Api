@@ -340,12 +340,11 @@ async fn system_mode_takes_the_proxy_from_the_environment() {
     // The variable has to still be set when `connect` runs, not merely when the configuration is
     // built: `system` resolves the environment as the connection is made. Every other option is read
     // once, in `HttpConfigArgs::from_env`.
-    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
+    let _http_proxy = common::EnvGuard::set("HTTP_PROXY", &format!("http://{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system")
     }))
     .await;
-    std::env::remove_var("HTTP_PROXY");
 
     assert_eq!(
         outcome.expect("the call should go through the proxy the environment names"),
@@ -360,14 +359,12 @@ async fn no_proxy_bypasses_the_proxy_in_system_mode() {
     let server = spawn_server().await;
     let (proxy, stats) = spawn_proxy(ProxyAuth::None).await;
 
-    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
-    std::env::set_var("NO_PROXY", "127.0.0.1");
+    let _http_proxy = common::EnvGuard::set("HTTP_PROXY", &format!("http://{proxy}"));
+    let _no_proxy = common::EnvGuard::set("NO_PROXY", "127.0.0.1");
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system")
     }))
     .await;
-    std::env::remove_var("HTTP_PROXY");
-    std::env::remove_var("NO_PROXY");
 
     assert_eq!(outcome.expect("a direct call succeeds"), common::REPLY);
     assert_eq!(
@@ -386,9 +383,8 @@ async fn no_proxy_does_not_apply_to_an_explicitly_configured_proxy() {
     // `NO_PROXY` belongs to the same environment convention as `HTTP_PROXY`, so it governs `system`
     // only. ArmoniK's other clients give an explicitly named proxy an empty bypass list, and diverging
     // would mean a request skipping the proxy here while using it there.
-    std::env::set_var("NO_PROXY", "127.0.0.1");
+    let _no_proxy = common::EnvGuard::set("NO_PROXY", "127.0.0.1");
     let outcome = call_through(through_proxy(&server, proxy, None)).await;
-    std::env::remove_var("NO_PROXY");
 
     assert_eq!(
         outcome.expect("an explicit proxy is used whatever NO_PROXY says"),
@@ -407,13 +403,12 @@ async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carr
     // The base64 of `url-user:new`, what the client is expected to send once the two are merged.
     let (proxy, stats) = spawn_proxy(ProxyAuth::Required("dXJsLXVzZXI6bmV3")).await;
 
-    std::env::set_var("HTTP_PROXY", format!("http://url-user:old@{proxy}"));
+    let _http_proxy = common::EnvGuard::set("HTTP_PROXY", &format!("http://url-user:old@{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system");
         args.proxy_config.password = String::from("new").into();
     }))
     .await;
-    std::env::remove_var("HTTP_PROXY");
 
     assert_eq!(
         outcome.expect("the merged credentials should satisfy the proxy"),
@@ -534,12 +529,11 @@ async fn an_https_proxy_from_the_environment_is_refused_before_dialling() {
     // it would write the handshake in the clear to a proxy expecting TLS.
     let server = spawn_server().await;
 
-    std::env::set_var("HTTP_PROXY", "https://proxy.corp:3128");
+    let _http_proxy = common::EnvGuard::set("HTTP_PROXY", "https://proxy.corp:3128");
     let outcome = call_through(common::config(&server, |args| {
         args.proxy = String::from("system")
     }))
     .await;
-    std::env::remove_var("HTTP_PROXY");
 
     let error = error_chain(
         outcome

@@ -202,9 +202,9 @@ impl HttpTlsConfigArgs {
                     authority,
                     path_and_query,
                     ..
-                } = Uri::try_from(override_target_name.clone())
+                } = Uri::try_from(override_target_name.as_str())
                     .context(UriSnafu {
-                        uri: endpoint.to_string(),
+                        uri: override_target_name.clone(),
                     })?
                     .into_parts();
             }
