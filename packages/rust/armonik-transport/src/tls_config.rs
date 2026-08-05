@@ -11,12 +11,12 @@ use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use snafu::{OptionExt, ResultExt};
 
-#[cfg(feature = "serde")]
-use crate::config::{secret_text, text};
 use crate::config::{
     boxed, ConfigError, EmptyPkcs12Snafu, IncompatibleOptionsSnafu, IoSnafu, Pkcs12Snafu, TlsSnafu,
     UriSnafu,
 };
+#[cfg(feature = "serde")]
+use crate::config::{secret_text, text};
 use crate::secret::Secret;
 
 /// The client's TLS identity and the server's CA, in the string form a caller supplies them in.
@@ -223,14 +223,10 @@ impl TlsConfigArgs {
                 uri = uri.path_and_query(path_and_query);
             }
 
-            Some(
-                uri.build()
-                    .map_err(boxed)
-                    .context(UriSnafu {
-                        option: "override_target_name",
-                        uri: override_target_name,
-                    })?,
-            )
+            Some(uri.build().map_err(boxed).context(UriSnafu {
+                option: "override_target_name",
+                uri: override_target_name,
+            })?)
         };
 
         Ok(TlsConfig {
