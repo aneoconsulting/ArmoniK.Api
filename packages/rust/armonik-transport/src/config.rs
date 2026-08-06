@@ -540,9 +540,7 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxyConfig, ConfigError> {
     // `http::Uri` keeps the port as text and parses it lazily, so `proxy.corp:99999` or
     // `proxy.corp:31z8` would otherwise be accepted here and silently dialled on port 80. Checked
     // on the credential-stripped form, where the only `:` left outside an IPv6 literal is a port's.
-    let authority = stripped
-        .authority()
-        .expect("checked above to have a host");
+    let authority = stripped.authority().expect("checked above to have a host");
     let written_port = authority
         .as_str()
         .rsplit_once(':')
@@ -1141,7 +1139,11 @@ mod tests {
         // `http::Uri` keeps the port as text and parses it lazily, so without the explicit check a
         // typo would pass validation and the connector would quietly fall back to the scheme
         // default.
-        for value in ["proxy.corp:99999", "proxy.corp:31z8", "http://admin:hunter2"] {
+        for value in [
+            "proxy.corp:99999",
+            "proxy.corp:31z8",
+            "http://admin:hunter2",
+        ] {
             let error = proxy_error(|args| args.proxy = String::from(value));
             assert!(
                 error.contains("does not name a valid port"),

@@ -746,7 +746,9 @@ mod tests {
             let elided = elide_userinfo(written);
             assert_eq!(elided, expected, "{written}");
             assert!(
-                !elided.contains("secret") && !elided.contains("pass") && !elided.contains("hunter"),
+                !elided.contains("secret")
+                    && !elided.contains("pass")
+                    && !elided.contains("hunter"),
                 "{written} still shows its password as {elided}"
             );
         }
