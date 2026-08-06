@@ -9,4 +9,5 @@ pub struct Request {
     pub filter: super::TaskFilter,
 }
 
+#[armonik_macros::reflect]
 pub type Response = super::super::Count;

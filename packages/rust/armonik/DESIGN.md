@@ -1078,10 +1078,24 @@ harvested proto comments.
 
 The *response* side follows one rule with per-RPC overrides on the rpc line:
 a single-field response projects that field automatically, a multi-field one
-returns whole; `=> field` forces a projection, `=> *` forces whole (also the
-escape for alias-typed responses, which have no reflection), `=> ()` discards.
-For `auto`, `__emit_convenience` chains once through the *response* type's
-callback to count its fields.
+returns whole; `=> field` forces a projection, `=> *` forces whole, `=> ()`
+discards. For `auto`, `__emit_convenience` chains once through the *response*
+type's callback to count its fields.
+
+Both sides mangle the reflection's names from the type path written on the rpc
+line, which an **alias** of a message breaks: `pub type Response = Count;` has
+no reflection of its own (the derive emitted it next to `Count`, under the
+`count` stem). `#[armonik_macros::reflect]` on the alias carries it over, as
+renaming re-exports of the callback and the field aliases under the alias's own
+stem, the field names coming from one chain through the source callback into
+`__emit_reflect`. Unlike the convenience emission, it expands *in the alias's
+module*, so the alias's own relative right-hand side is all it needs; the
+reflection is looked up in the module named after the aliased type
+(`super::super::Count` in `super::super::count`, the one-object-per-file
+convention). It carries `submitter::{count_tasks, wait_for_completion}`, whose
+`Response` is `Count` and whose methods project its `values` map as they did
+before the revamp. Generic aliases (the per-service `Sort`/`FilterStatus`
+instantiations) have no reflection to carry and are rejected.
 
 **Opt-out**: `manual` on the rpc line emits nothing — the escape for custom
 wiring or a wrong mechanical default. Client-streaming RPCs are always manual
@@ -1096,8 +1110,7 @@ Everything is type-checked post-expansion, so a wrong sugar inference is a
 compile error, never a wire bug; behaviorally, every generated method is
 covered per method by the in-process integration suites. Accepted DX shift:
 parameter names and order are now mechanically the field names and order
-(e.g. `results::get` takes `id`, the agent methods take `communication_token`),
-and `submitter::{count_tasks, wait_for_completion}` return `Count` whole.
+(e.g. `results::get` takes `id`, the agent methods take `communication_token`).
 
 An earlier draft had `#[derive(Message)]` emit a `Request::new(..)`
 constructor instead, and a first implementation generated only the bodies
