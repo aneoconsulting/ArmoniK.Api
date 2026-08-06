@@ -44,7 +44,7 @@ pub struct ClientConfig {
     pub http2_max_header_list_size: Option<u32>,
     /// User-Agent header value sent with each request
     pub user_agent: Option<HeaderValue>,
-    /// HTTP proxy used to reach the endpoint, defaults to a direct connection
+    /// HTTP proxy used to reach the endpoint, defaults to following the environment
     pub proxy: ProxyConfig,
 }
 

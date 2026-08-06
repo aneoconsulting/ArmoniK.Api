@@ -9,9 +9,13 @@ wants the services as well needs only that one.
 
 ## Reaching the endpoint through a proxy
 
-`ClientConfig::proxy` decides how the connection goes out: directly, the default, or through the
-proxy `ProxyConfig::explicit(uri)` names. `with_credentials` authenticates to it, half by half: a
-half left empty keeps what the proxy URL itself carried.
+`ClientConfig::proxy` decides how the connection goes out. The default is `ProxySource::System`, the
+same as ArmoniK's C# client: `ALL_PROXY`/`HTTPS_PROXY`/`HTTP_PROXY` are honoured and `NO_PROXY` is
+matched the way curl matches it, so a client that configures nothing follows its environment and
+connects directly when the environment names no proxy. `ProxyConfig::disabled()` forces a direct
+connection; `ProxyConfig::explicit(uri)` names a proxy, which is then used whatever `NO_PROXY` says.
+`with_credentials` authenticates to it, half by half: a half left empty keeps what the proxy URL
+itself carried.
 
 The connection is an HTTP `CONNECT` tunnel: TLS, mutual TLS included, is negotiated end to end with
 the real server, and the proxy only forwards opaque bytes. Because the `CONNECT` handshake itself goes
