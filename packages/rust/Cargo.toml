@@ -21,6 +21,7 @@ version = "3.29.2-beta-0"
 # `nr update-versions` keeps it in step.
 armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
 async-stream = "0.3"
+base64 = "0.22"
 bytes = "1"
 eyre = "0.6"
 futures = "0.3"
@@ -29,9 +30,11 @@ humantime = "2.3.0"
 hyper = "1.10"
 hyper-rustls = { version = "0.27", default-features = false }
 hyper-util = "0.1"
+percent-encoding = "2.3"
 prost = "0.14"
 prost-types = "0.14"
 rustls = { version = "0.23", default-features = false }
+secrecy = "0.10"
 # `std` as well as `derive`: without it `String` implements neither `Serialize` nor `Deserialize`, so
 # the `serde` feature would not compile.
 serde = { version = "1.0", features = ["derive", "std"], default-features = false }
