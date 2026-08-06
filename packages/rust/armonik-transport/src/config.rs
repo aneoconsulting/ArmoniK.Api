@@ -409,12 +409,13 @@ mod schema {
     struct HttpConfigSchema {
         /// Endpoint for sending requests.
         endpoint: Option<String>,
-        /// Path to the client certificate file, in PEM format; set together with `KeyPem`.
+        /// Path to the client certificate file, in PEM format, the leaf first and any chain
+        /// after it; set together with `KeyPem`.
         cert_pem: Option<String>,
         /// Path to the client key file, in PEM format; set together with `CertPem`.
         key_pem: Option<String>,
-        /// Path to the client certificate and key bundled together, in PKCS#12 format; mutually
-        /// exclusive with `CertPem`/`KeyPem`.
+        /// Path to the client certificate and key bundled together, in PKCS#12 format, any
+        /// intermediates kept leaf first; mutually exclusive with `CertPem`/`KeyPem`.
         cert_p12: Option<String>,
         /// Password protecting `CertP12`, empty for none; meaningless, and rejected, without
         /// `CertP12`.
@@ -534,7 +535,8 @@ mod schema {
         /// A certificate and its key, each in its own PEM file.
         #[schemars(rename_all = "PascalCase")]
         PemFiles {
-            /// Path to the certificate file, in PEM format.
+            /// Path to the certificate file, in PEM format, the leaf first and any chain after
+            /// it.
             cert_pem: String,
             /// Path to the key file, in PEM format.
             key_pem: String,
@@ -542,7 +544,7 @@ mod schema {
         /// A certificate and its key bundled together in one PKCS#12 file.
         #[schemars(rename_all = "PascalCase")]
         Pkcs12 {
-            /// Path to the PKCS#12 bundle.
+            /// Path to the PKCS#12 bundle. Any intermediates it carries are kept, leaf first.
             cert_p12: String,
             /// The password protecting the bundle, absent for none.
             cert_p12_password: Option<String>,

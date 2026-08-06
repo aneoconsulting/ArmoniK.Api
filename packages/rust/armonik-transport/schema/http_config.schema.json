@@ -44,7 +44,7 @@
             "PemFiles": {
               "properties": {
                 "CertPem": {
-                  "description": "Path to the certificate file, in PEM format.",
+                  "description": "Path to the certificate file, in PEM format, the leaf first and any chain after\nit.",
                   "type": "string"
                 },
                 "KeyPem": {
@@ -71,7 +71,7 @@
             "Pkcs12": {
               "properties": {
                 "CertP12": {
-                  "description": "Path to the PKCS#12 bundle.",
+                  "description": "Path to the PKCS#12 bundle. Any intermediates it carries are kept, leaf first.",
                   "type": "string"
                 },
                 "CertP12Password": {

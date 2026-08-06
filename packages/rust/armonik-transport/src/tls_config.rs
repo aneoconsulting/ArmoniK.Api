@@ -29,7 +29,8 @@ use crate::config::{
 pub enum IdentitySource {
     /// A certificate and its key, each in its own PEM file.
     PemFiles {
-        /// Path to the certificate file, in PEM format. `CertPem`.
+        /// Path to the certificate file, in PEM format: the leaf first, then any intermediates,
+        /// as PEM chains are conventionally laid out. `CertPem`.
         cert_pem: PathBuf,
         /// Path to the key file, in PEM format. `KeyPem`.
         key_pem: PathBuf,
@@ -37,7 +38,8 @@ pub enum IdentitySource {
     /// A certificate and its key bundled together in one PKCS#12 file, the form Windows and most
     /// certificate authorities hand out.
     Pkcs12 {
-        /// Path to the PKCS#12 bundle. `CertP12`.
+        /// Path to the PKCS#12 bundle. Any intermediates it carries are kept, leaf first.
+        /// `CertP12`.
         cert_p12: PathBuf,
         /// The password protecting the bundle, `None` for none. `CertP12Password`. Redacted by
         /// `Debug` and zeroized on drop.
@@ -216,7 +218,9 @@ impl TryFrom<RawTls> for TlsConfig {
 #[derive(Debug)]
 pub(crate) struct ResolvedTls {
     pub(crate) allow_unsafe_connection: bool,
-    pub(crate) identity: Option<(CertificateDer<'static>, PrivateKeyDer<'static>)>,
+    /// The client's certificate chain, leaf first, and its key. The whole chain is kept: a server
+    /// that trusts only the root needs the intermediates to build its path.
+    pub(crate) identity: Option<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>)>,
     pub(crate) cacert: Option<CertificateDer<'static>>,
     pub(crate) override_target: Option<Uri>,
 }
@@ -246,8 +250,21 @@ impl TlsConfig {
                 let key = std::fs::read(key_pem).context(IoSnafu {
                     path: key_pem.display().to_string(),
                 })?;
+                // Every certificate in the file, not just the first: a PEM file conventionally
+                // carries the leaf followed by its intermediates, and dropping those breaks
+                // against a server that trusts only the root. A file with none is still an error.
+                let certs = CertificateDer::pem_slice_iter(cert.as_bytes())
+                    .collect::<Result<Vec<_>, _>>()
+                    .and_then(|certs| {
+                        if certs.is_empty() {
+                            Err(rustls::pki_types::pem::Error::NoItemsFound)
+                        } else {
+                            Ok(certs)
+                        }
+                    })
+                    .context(TlsSnafu {})?;
                 Some((
-                    CertificateDer::from_pem_slice(cert.as_bytes()).context(TlsSnafu {})?,
+                    certs,
                     PrivateKeyDer::from_pem_slice(key.as_slice()).context(TlsSnafu {})?,
                 ))
             }
@@ -270,19 +287,18 @@ impl TlsConfig {
                 let (_, chain) = keystore
                     .private_key_chain()
                     .context(EmptyPkcs12Snafu { path: path.clone() })?;
-                let cert = chain
+                // The whole chain, in the leaf-first order `p12-keystore` rebuilds it in (the
+                // certificate the key names, then each issuer upward), which is the order rustls
+                // sends it in; under the `Strict` import policy the chain carries at least that
+                // leaf. Re-encoded into the same DER shapes the PEM pair produces, so everything
+                // past this point sees one identity format.
+                let certs: Vec<CertificateDer<'static>> = chain
                     .certs()
-                    .first()
-                    .context(EmptyPkcs12Snafu { path })?
-                    .as_der()
-                    .to_vec();
+                    .iter()
+                    .map(|cert| CertificateDer::from(cert.as_der().to_vec()))
+                    .collect();
                 let key = chain.key().as_der().to_vec();
-                // Re-encoded into the same DER shapes the PEM pair produces, so everything past
-                // this point sees one identity format.
-                Some((
-                    CertificateDer::from(cert),
-                    PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)),
-                ))
+                Some((certs, PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key))))
             }
         };
 
@@ -431,6 +447,29 @@ mod tests {
         (pfx, cert_der, key_der)
     }
 
+    /// A CA-signed identity, generated fresh like the self-signed one: the CA signs itself, and
+    /// the leaf is signed by it. The chain tests use it to assert that both certificates survive
+    /// the resolve, in order.
+    fn ca_signed_identity() -> (rcgen::Certificate, rcgen::KeyPair, rcgen::Certificate) {
+        let ca_key = rcgen::KeyPair::generate().expect("a CA key");
+        let mut ca_params = rcgen::CertificateParams::new(Vec::new()).expect("CA params");
+        ca_params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+        ca_params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, "test ca");
+        let ca_cert = ca_params.self_signed(&ca_key).expect("a CA certificate");
+
+        let leaf_key = rcgen::KeyPair::generate().expect("a leaf key");
+        let leaf_params =
+            rcgen::CertificateParams::new(vec!["test".to_owned()]).expect("leaf params");
+        let issuer = rcgen::Issuer::new(ca_params, ca_key);
+        let leaf_cert = leaf_params
+            .signed_by(&leaf_key, &issuer)
+            .expect("a leaf certificate");
+
+        (leaf_cert, leaf_key, ca_cert)
+    }
+
     /// `bytes`, written to a file the test owns, so the option under test names a real path.
     fn temp_file(bytes: &[u8]) -> tempfile::NamedTempFile {
         let mut file = tempfile::NamedTempFile::new().expect("temp file");
@@ -458,8 +497,13 @@ mod tests {
             .resolve(&endpoint())
             .expect("a valid PKCS#12 bundle");
 
-        let (cert, key) = resolved.identity.expect("an identity was bundled");
-        assert_eq!(cert.as_ref(), cert_der, "the leaf certificate round-trips");
+        let (certs, key) = resolved.identity.expect("an identity was bundled");
+        assert_eq!(certs.len(), 1, "one certificate went in, one comes out");
+        assert_eq!(
+            certs[0].as_ref(),
+            cert_der,
+            "the leaf certificate round-trips"
+        );
         let PrivateKeyDer::Pkcs8(key) = key else {
             panic!("expected the PKCS#8 variant, since that is what the bundle carried");
         };
@@ -467,6 +511,41 @@ mod tests {
             key.secret_pkcs8_der(),
             key_der.as_slice(),
             "the key round-trips"
+        );
+    }
+
+    #[test]
+    fn a_p12_bundle_keeps_its_intermediates_leaf_first() {
+        // A server that trusts only the root rebuilds its path through the intermediates the
+        // client sends; a resolve that kept only the leaf would fail that handshake.
+        let (leaf, leaf_key, ca) = ca_signed_identity();
+        let chain = p12_keystore::PrivateKeyChain::new(
+            [1u8].as_slice(),
+            p12_keystore::PrivateKey::from_der(&leaf_key.serialize_der())
+                .expect("a valid PKCS#8 key"),
+            [
+                p12_keystore::Certificate::from_der(leaf.der().as_ref()).expect("a valid leaf"),
+                p12_keystore::Certificate::from_der(ca.der().as_ref()).expect("a valid CA"),
+            ],
+        );
+        let mut keystore = p12_keystore::KeyStore::new();
+        keystore.add_entry(
+            "identity",
+            p12_keystore::KeyStoreEntry::PrivateKeyChain(chain),
+        );
+        let pfx = keystore.writer("s3cr3t").write().expect("write the bundle");
+        let file = temp_file(&pfx);
+
+        let resolved = p12_config(file.path(), Some("s3cr3t"))
+            .resolve(&endpoint())
+            .expect("a valid PKCS#12 bundle");
+
+        let (certs, _) = resolved.identity.expect("an identity was bundled");
+        let ders: Vec<&[u8]> = certs.iter().map(AsRef::as_ref).collect();
+        assert_eq!(
+            ders,
+            vec![leaf.der().as_ref(), ca.der().as_ref()],
+            "the whole chain survives, leaf first"
         );
     }
 
@@ -552,6 +631,70 @@ mod tests {
             "{}",
             chain(&error)
         );
+    }
+
+    // --- PEM chains ---
+
+    /// A configuration whose identity is the PEM pair at `cert_pem`/`key_pem`.
+    fn pem_config(cert_pem: &std::path::Path, key_pem: &std::path::Path) -> TlsConfig {
+        TlsConfig {
+            identity: Some(IdentitySource::PemFiles {
+                cert_pem: cert_pem.to_path_buf(),
+                key_pem: key_pem.to_path_buf(),
+            }),
+            ..TlsConfig::default()
+        }
+    }
+
+    #[test]
+    fn a_single_certificate_pem_pair_resolves_to_a_one_certificate_chain() {
+        let rcgen::CertifiedKey { cert, signing_key } =
+            rcgen::generate_simple_self_signed(["test".to_owned()]).expect("a self-signed cert");
+        let cert_file = temp_file(cert.pem().as_bytes());
+        let key_file = temp_file(signing_key.serialize_pem().as_bytes());
+
+        let resolved = pem_config(cert_file.path(), key_file.path())
+            .resolve(&endpoint())
+            .expect("a valid PEM pair");
+
+        let (certs, _) = resolved.identity.expect("an identity was configured");
+        assert_eq!(certs.len(), 1, "one certificate went in, one comes out");
+        assert_eq!(certs[0].as_ref(), cert.der().as_ref());
+    }
+
+    #[test]
+    fn a_pem_file_carrying_a_chain_keeps_every_certificate_in_order() {
+        // The same defect the PKCS#12 chain test guards against, in the PEM spelling: the file
+        // conventionally holds the leaf followed by its intermediates.
+        let (leaf, leaf_key, ca) = ca_signed_identity();
+        let cert_file = temp_file(format!("{}{}", leaf.pem(), ca.pem()).as_bytes());
+        let key_file = temp_file(leaf_key.serialize_pem().as_bytes());
+
+        let resolved = pem_config(cert_file.path(), key_file.path())
+            .resolve(&endpoint())
+            .expect("a valid PEM chain");
+
+        let (certs, _) = resolved.identity.expect("an identity was configured");
+        let ders: Vec<&[u8]> = certs.iter().map(AsRef::as_ref).collect();
+        assert_eq!(
+            ders,
+            vec![leaf.der().as_ref(), ca.der().as_ref()],
+            "the whole chain survives, leaf first"
+        );
+    }
+
+    #[test]
+    fn a_certificate_file_with_no_certificate_is_rejected() {
+        // Reading the whole file instead of its first item must not turn emptiness into an empty
+        // chain that only fails at the handshake.
+        let cert_file = temp_file(b"");
+        let key_file = temp_file(b"");
+
+        let error = pem_config(cert_file.path(), key_file.path())
+            .resolve(&endpoint())
+            .expect_err("an empty certificate file must be rejected");
+
+        assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
     }
 
     // --- override target ---

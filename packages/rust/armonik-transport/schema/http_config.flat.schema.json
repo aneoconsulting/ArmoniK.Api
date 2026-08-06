@@ -17,7 +17,7 @@
       ]
     },
     "CertP12": {
-      "description": "Path to the client certificate and key bundled together, in PKCS#12 format; mutually\nexclusive with `CertPem`/`KeyPem`.",
+      "description": "Path to the client certificate and key bundled together, in PKCS#12 format, any\nintermediates kept leaf first; mutually exclusive with `CertPem`/`KeyPem`.",
       "type": [
         "string",
         "null"
@@ -31,7 +31,7 @@
       ]
     },
     "CertPem": {
-      "description": "Path to the client certificate file, in PEM format; set together with `KeyPem`.",
+      "description": "Path to the client certificate file, in PEM format, the leaf first and any chain\nafter it; set together with `KeyPem`.",
       "type": [
         "string",
         "null"

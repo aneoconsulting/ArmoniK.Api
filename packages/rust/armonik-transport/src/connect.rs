@@ -133,10 +133,11 @@ fn build_connector(
     };
 
     // Configure client identity for mTLS
-    let tls_config = if let Some((cert, key)) = tls.identity {
-        // Use the the specified client certificate and key for the client authentication
+    let tls_config = if let Some((certs, key)) = tls.identity {
+        // The client's whole chain, leaf first, so a server that trusts only the root can build
+        // its path through the intermediates.
         tls_config
-            .with_client_auth_cert(vec![cert], key)
+            .with_client_auth_cert(certs, key)
             .with_context(|_| TlsSnafu {
                 endpoint: endpoint.clone(),
             })?
