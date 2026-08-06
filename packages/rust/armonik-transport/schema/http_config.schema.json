@@ -63,6 +63,35 @@
             "PemFiles"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A certificate and its key bundled together in one PKCS#12 file.",
+          "properties": {
+            "Pkcs12": {
+              "properties": {
+                "CertP12": {
+                  "description": "Path to the PKCS#12 bundle.",
+                  "type": "string"
+                },
+                "CertP12Password": {
+                  "description": "The password protecting the bundle, absent for none.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "CertP12"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Pkcs12"
+          ],
+          "type": "object"
         }
       ]
     },

@@ -156,7 +156,7 @@ pub(crate) fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<
     deserializer.deserialize_any(AnyScalar)
 }
 
-/// [`text`], for the one secret-valued option this crate reads.
+/// [`text`], for the secret-valued options this crate reads.
 ///
 /// A numeric-looking password may arrive as a real number the same way any other option can, and
 /// rejecting it would make some passwords unusable.
@@ -360,6 +360,24 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+    #[snafu(display("`CertP12`'s file `{path}` is not a valid PKCS#12 bundle [{location}]"))]
+    #[non_exhaustive]
+    Pkcs12 {
+        #[snafu(source(from(p12_keystore::error::Error, Box::new)))]
+        source: Box<p12_keystore::error::Error>,
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "`CertP12`'s file `{path}` carries no private key and certificate chain [{location}]"
+    ))]
+    #[non_exhaustive]
+    EmptyPkcs12 {
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
     #[snafu(display("{msg} [{location}]"))]
     #[non_exhaustive]
     IncompatibleOptions {
@@ -395,6 +413,12 @@ mod schema {
         cert_pem: Option<String>,
         /// Path to the client key file, in PEM format; set together with `CertPem`.
         key_pem: Option<String>,
+        /// Path to the client certificate and key bundled together, in PKCS#12 format; mutually
+        /// exclusive with `CertPem`/`KeyPem`.
+        cert_p12: Option<String>,
+        /// Password protecting `CertP12`, empty for none; meaningless, and rejected, without
+        /// `CertP12`.
+        cert_p12_password: Option<String>,
         /// Path to the Certificate Authority file, in PEM format; empty for the system CAs.
         ca_cert: Option<String>,
         /// Accept any server certificate instead of verifying it: `1`, `true`, `yes`, `enable`,
@@ -514,6 +538,14 @@ mod schema {
             cert_pem: String,
             /// Path to the key file, in PEM format.
             key_pem: String,
+        },
+        /// A certificate and its key bundled together in one PKCS#12 file.
+        #[schemars(rename_all = "PascalCase")]
+        Pkcs12 {
+            /// Path to the PKCS#12 bundle.
+            cert_p12: String,
+            /// The password protecting the bundle, absent for none.
+            cert_p12_password: Option<String>,
         },
     }
 
@@ -917,6 +949,67 @@ mod tests {
                 key_pem: "no/such/key.pem".into(),
             })
         );
+    }
+
+    #[test]
+    fn cert_p12_and_the_pem_pair_are_mutually_exclusive() {
+        // Two spellings of the identity at once is a contradiction whichever half of the PEM pair
+        // is set, and the message has to name both spellings so either one can be removed.
+        for (cert, key) in [("cert.pem", "key.pem"), ("cert.pem", ""), ("", "key.pem")] {
+            let rendered = error(json!({
+                "Endpoint": "http://localhost:5001",
+                "CertPem": cert,
+                "KeyPem": key,
+                "CertP12": "identity.p12",
+            }));
+
+            assert!(rendered.contains("CertP12"), "{rendered}");
+            assert!(rendered.contains("CertPem"), "{rendered}");
+        }
+    }
+
+    #[test]
+    fn a_p12_password_without_a_p12_is_rejected_without_echoing_it() {
+        let rendered = error(json!({
+            "Endpoint": "http://localhost:5001",
+            "CertP12Password": "s3cr3t",
+        }));
+
+        assert!(rendered.contains("CertP12Password"), "{rendered}");
+        assert!(rendered.contains("CertP12"), "{rendered}");
+        assert!(!rendered.contains("s3cr3t"), "{rendered}");
+    }
+
+    #[test]
+    fn empty_p12_options_read_as_unset() {
+        // Including the password: an empty password next to no bundle is not "a password without
+        // a bundle", it is the shape a deployment with empty defaults declares.
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "CertP12": "",
+            "CertP12Password": "",
+        }));
+
+        assert!(config.tls.identity.is_none());
+    }
+
+    #[test]
+    fn a_p12_option_names_a_path_without_reading_it() {
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "CertP12": "no/such/identity.p12",
+            "CertP12Password": "s3cr3t",
+        }));
+
+        assert_eq!(
+            config.tls.identity,
+            Some(IdentitySource::Pkcs12 {
+                cert_p12: "no/such/identity.p12".into(),
+                cert_p12_password: Some(secrecy::SecretString::from("s3cr3t")),
+            })
+        );
+        let rendered = format!("{:?}", config.tls);
+        assert!(!rendered.contains("s3cr3t"), "{rendered}");
     }
 
     // --- the proxy ---

@@ -16,6 +16,20 @@
         "null"
       ]
     },
+    "CertP12": {
+      "description": "Path to the client certificate and key bundled together, in PKCS#12 format; mutually\nexclusive with `CertPem`/`KeyPem`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "CertP12Password": {
+      "description": "Password protecting `CertP12`, empty for none; meaningless, and rejected, without\n`CertP12`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "CertPem": {
       "description": "Path to the client certificate file, in PEM format; set together with `KeyPem`.",
       "type": [

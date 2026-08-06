@@ -20,6 +20,24 @@ pinned by a test: [`http_config.flat.schema.json`](schema/http_config.flat.schem
 option vocabulary for generating an options class, and
 [`http_config.schema.json`](schema/http_config.schema.json) is the config's real, structured shape.
 
+## TLS and mutual TLS
+
+`CaCert` authenticates the server; `CertPem` and `KeyPem` together are the client's own identity
+for mutual TLS, and must be either both set or both empty. All three name files this crate reads
+when the connection is made, so a configuration can be built on one machine and used on another.
+
+`CertP12` is an alternative to `CertPem`/`KeyPem`: the client's certificate and key bundled
+together in one PKCS#12 file, the form Windows and most certificate authorities hand out,
+optionally protected by `CertP12Password`. Mutually exclusive with `CertPem`/`KeyPem` - set one
+identity or the other, never both. ArmoniK's C# client reads the same `CertP12` option, but has no
+`CertP12Password` counterpart yet, so a password-protected bundle is not portable to it.
+
+`CertP12Password` is a secret, redacted by `Debug`; the other options are not secrets themselves,
+only what they lead to is. `AllowUnsafeConnection` accepts any server certificate instead of
+verifying it, for a self-signed endpoint; it has no effect on a plain `http://` endpoint, which
+never negotiates TLS at all. `OverrideTargetName` overrides the name checked during verification,
+for an endpoint reached by an address that does not match its certificate.
+
 ## Reaching the endpoint through a proxy
 
 `HttpConfig::proxy` decides how the connection goes out. The default is `ProxySource::System`, the

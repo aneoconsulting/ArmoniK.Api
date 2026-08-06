@@ -13,15 +13,18 @@ use std::path::PathBuf;
 
 use hyper::Uri;
 use rustls::pki_types::pem::PemObject;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-use snafu::ResultExt;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+use secrecy::ExposeSecret;
+use snafu::{OptionExt, ResultExt};
 
 #[cfg(feature = "serde")]
 use crate::config::IncompatibleOptionsSnafu;
-use crate::config::{ConfigError, HttpSnafu, IoSnafu, TlsSnafu, UriSnafu};
+use crate::config::{
+    ConfigError, EmptyPkcs12Snafu, HttpSnafu, IoSnafu, Pkcs12Snafu, TlsSnafu, UriSnafu,
+};
 
 /// Where the client's TLS identity comes from.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum IdentitySource {
     /// A certificate and its key, each in its own PEM file.
@@ -31,7 +34,50 @@ pub enum IdentitySource {
         /// Path to the key file, in PEM format. `KeyPem`.
         key_pem: PathBuf,
     },
+    /// A certificate and its key bundled together in one PKCS#12 file, the form Windows and most
+    /// certificate authorities hand out.
+    Pkcs12 {
+        /// Path to the PKCS#12 bundle. `CertP12`.
+        cert_p12: PathBuf,
+        /// The password protecting the bundle, `None` for none. `CertP12Password`. Redacted by
+        /// `Debug` and zeroized on drop.
+        cert_p12_password: Option<secrecy::SecretString>,
+    },
 }
+
+/// Not derived: [`secrecy::SecretString`] deliberately implements no `PartialEq`. What is compared
+/// here is two configurations, not a credential against a guess, so exposing the passwords for the
+/// comparison is fine.
+impl PartialEq for IdentitySource {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::PemFiles { cert_pem, key_pem },
+                Self::PemFiles {
+                    cert_pem: other_cert_pem,
+                    key_pem: other_key_pem,
+                },
+            ) => cert_pem == other_cert_pem && key_pem == other_key_pem,
+            (
+                Self::Pkcs12 {
+                    cert_p12,
+                    cert_p12_password,
+                },
+                Self::Pkcs12 {
+                    cert_p12: other_cert_p12,
+                    cert_p12_password: other_password,
+                },
+            ) => {
+                cert_p12 == other_cert_p12
+                    && cert_p12_password.as_ref().map(ExposeSecret::expose_secret)
+                        == other_password.as_ref().map(ExposeSecret::expose_secret)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl Eq for IdentitySource {}
 
 /// TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -70,6 +116,10 @@ struct RawTls {
     #[serde(deserialize_with = "crate::config::text")]
     key_pem: String,
     #[serde(deserialize_with = "crate::config::text")]
+    cert_p12: String,
+    #[serde(deserialize_with = "crate::config::secret_text")]
+    cert_p12_password: secrecy::SecretString,
+    #[serde(deserialize_with = "crate::config::text")]
     ca_cert: String,
     #[serde(deserialize_with = "crate::config::text")]
     allow_unsafe_connection: String,
@@ -85,26 +135,58 @@ impl TryFrom<RawTls> for TlsConfig {
         let RawTls {
             cert_pem,
             key_pem,
+            cert_p12,
+            cert_p12_password,
             ca_cert,
             allow_unsafe_connection,
             override_target_name,
         } = raw;
 
-        // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected
-        // handshake on an mTLS one, so it is caught here, before either path is opened.
-        let identity = match (cert_pem.is_empty(), key_pem.is_empty()) {
-            (true, true) => None,
-            (false, false) => Some(IdentitySource::PemFiles {
-                cert_pem: PathBuf::from(cert_pem),
-                key_pem: PathBuf::from(key_pem),
-            }),
-            _ => {
-                return IncompatibleOptionsSnafu {
-                    msg: String::from(
-                        "`CertPem` and `KeyPem` must be either both empty or both set",
-                    ),
+        // Both spellings of the identity at once is a contradiction to reject, not a preference
+        // to resolve silently.
+        if !cert_p12.is_empty() && (!cert_pem.is_empty() || !key_pem.is_empty()) {
+            return IncompatibleOptionsSnafu {
+                msg: String::from(
+                    "`CertP12` and `CertPem`/`KeyPem` name the client identity two different \
+                     ways; set only one",
+                ),
+            }
+            .fail();
+        }
+        // A password naming no bundle is a typo somewhere; honouring half of it would hide it.
+        if cert_p12.is_empty() && !cert_p12_password.expose_secret().is_empty() {
+            return IncompatibleOptionsSnafu {
+                msg: String::from("`CertP12Password` is set without `CertP12`"),
+            }
+            .fail();
+        }
+
+        let identity = if !cert_p12.is_empty() {
+            Some(IdentitySource::Pkcs12 {
+                cert_p12: PathBuf::from(cert_p12),
+                cert_p12_password: if cert_p12_password.expose_secret().is_empty() {
+                    None
+                } else {
+                    Some(cert_p12_password)
+                },
+            })
+        } else {
+            // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected
+            // handshake on an mTLS one, so it is caught here, before either path is opened.
+            match (cert_pem.is_empty(), key_pem.is_empty()) {
+                (true, true) => None,
+                (false, false) => Some(IdentitySource::PemFiles {
+                    cert_pem: PathBuf::from(cert_pem),
+                    key_pem: PathBuf::from(key_pem),
+                }),
+                _ => {
+                    return IncompatibleOptionsSnafu {
+                        msg: String::from(
+                            "`CertPem` and `KeyPem` must be either both empty or both set",
+                        ),
+                    }
+                    .fail()
                 }
-                .fail()
             }
         };
 
@@ -167,6 +249,39 @@ impl TlsConfig {
                 Some((
                     CertificateDer::from_pem_slice(cert.as_bytes()).context(TlsSnafu {})?,
                     PrivateKeyDer::from_pem_slice(key.as_slice()).context(TlsSnafu {})?,
+                ))
+            }
+            Some(IdentitySource::Pkcs12 {
+                cert_p12,
+                cert_p12_password,
+            }) => {
+                let path = cert_p12.display().to_string();
+                let data = std::fs::read(cert_p12).context(IoSnafu { path: path.clone() })?;
+                // An absent password opens an unprotected bundle the same way an empty one does.
+                let password = cert_p12_password
+                    .as_ref()
+                    .map_or("", ExposeSecret::expose_secret);
+                let keystore = p12_keystore::KeyStore::from_pkcs12(
+                    &data,
+                    password,
+                    p12_keystore::Pkcs12ImportPolicy::Strict,
+                )
+                .context(Pkcs12Snafu { path: path.clone() })?;
+                let (_, chain) = keystore
+                    .private_key_chain()
+                    .context(EmptyPkcs12Snafu { path: path.clone() })?;
+                let cert = chain
+                    .certs()
+                    .first()
+                    .context(EmptyPkcs12Snafu { path })?
+                    .as_der()
+                    .to_vec();
+                let key = chain.key().as_der().to_vec();
+                // Re-encoded into the same DER shapes the PEM pair produces, so everything past
+                // this point sees one identity format.
+                Some((
+                    CertificateDer::from(cert),
+                    PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(key)),
                 ))
             }
         };
@@ -286,6 +401,154 @@ mod tests {
         assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
         assert!(
             chain(&error).contains("no/such/ca.pem"),
+            "{}",
+            chain(&error)
+        );
+    }
+
+    // --- PKCS#12 ---
+
+    /// A fresh self-signed identity written into PKCS#12 bytes with `p12-keystore`'s own writer,
+    /// generated rather than committed so no fixture can expire. Returns the bundle and the DER
+    /// forms the resolve is expected to hand back.
+    fn p12_bundle(password: &str) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+        let rcgen::CertifiedKey { cert, signing_key } =
+            rcgen::generate_simple_self_signed(["test".to_owned()]).expect("a self-signed cert");
+        let cert_der = cert.der().to_vec();
+        let key_der = signing_key.serialize_der();
+
+        let chain = p12_keystore::PrivateKeyChain::new(
+            [1u8].as_slice(),
+            p12_keystore::PrivateKey::from_der(&key_der).expect("a valid PKCS#8 key"),
+            [p12_keystore::Certificate::from_der(&cert_der).expect("a valid X.509 certificate")],
+        );
+        let mut keystore = p12_keystore::KeyStore::new();
+        keystore.add_entry(
+            "identity",
+            p12_keystore::KeyStoreEntry::PrivateKeyChain(chain),
+        );
+        let pfx = keystore.writer(password).write().expect("write the bundle");
+        (pfx, cert_der, key_der)
+    }
+
+    /// `bytes`, written to a file the test owns, so the option under test names a real path.
+    fn temp_file(bytes: &[u8]) -> tempfile::NamedTempFile {
+        let mut file = tempfile::NamedTempFile::new().expect("temp file");
+        std::io::Write::write_all(&mut file, bytes).expect("write");
+        file
+    }
+
+    /// A configuration whose identity is the PKCS#12 bundle at `path`.
+    fn p12_config(path: &std::path::Path, password: Option<&str>) -> TlsConfig {
+        TlsConfig {
+            identity: Some(IdentitySource::Pkcs12 {
+                cert_p12: path.to_path_buf(),
+                cert_p12_password: password.map(secrecy::SecretString::from),
+            }),
+            ..TlsConfig::default()
+        }
+    }
+
+    #[test]
+    fn a_p12_bundle_is_read_into_the_same_identity_a_pem_pair_would_be() {
+        let (pfx, cert_der, key_der) = p12_bundle("s3cr3t");
+        let file = temp_file(&pfx);
+
+        let resolved = p12_config(file.path(), Some("s3cr3t"))
+            .resolve(&endpoint())
+            .expect("a valid PKCS#12 bundle");
+
+        let (cert, key) = resolved.identity.expect("an identity was bundled");
+        assert_eq!(cert.as_ref(), cert_der, "the leaf certificate round-trips");
+        let PrivateKeyDer::Pkcs8(key) = key else {
+            panic!("expected the PKCS#8 variant, since that is what the bundle carried");
+        };
+        assert_eq!(
+            key.secret_pkcs8_der(),
+            key_der.as_slice(),
+            "the key round-trips"
+        );
+    }
+
+    #[test]
+    fn no_password_opens_a_bundle_protected_by_the_empty_one() {
+        // The empty password is what an "unprotected" PKCS#12 bundle is actually written with, so
+        // an absent option has to open it.
+        let (pfx, _, _) = p12_bundle("");
+        let file = temp_file(&pfx);
+
+        let resolved = p12_config(file.path(), None)
+            .resolve(&endpoint())
+            .expect("an unprotected bundle needs no password");
+
+        assert!(resolved.identity.is_some());
+    }
+
+    #[test]
+    fn a_wrong_p12_password_is_reported_with_the_path() {
+        // The path, not the password: whoever reads the error must learn which file refused to
+        // open, and nothing about what was tried.
+        let (pfx, _, _) = p12_bundle("right");
+        let file = temp_file(&pfx);
+
+        let error = p12_config(file.path(), Some("wrong"))
+            .resolve(&endpoint())
+            .expect_err("the wrong password must be rejected");
+
+        assert!(matches!(error, ConfigError::Pkcs12 { .. }), "{error:?}");
+        let rendered = chain(&error);
+        assert!(
+            rendered.contains(&file.path().display().to_string()),
+            "{rendered}"
+        );
+        assert!(!rendered.contains("wrong"), "{rendered}");
+    }
+
+    #[test]
+    fn a_p12_bundle_with_no_identity_is_rejected_as_empty() {
+        // A bundle can be perfectly valid PKCS#12 and still carry no private key chain, which is
+        // its own story: nothing is malformed, there is just no identity inside.
+        let pfx = p12_keystore::KeyStore::new()
+            .writer("s3cr3t")
+            .write()
+            .expect("write the bundle");
+        let file = temp_file(&pfx);
+
+        let error = p12_config(file.path(), Some("s3cr3t"))
+            .resolve(&endpoint())
+            .expect_err("an identity-less bundle must be rejected");
+
+        assert!(
+            matches!(error, ConfigError::EmptyPkcs12 { .. }),
+            "{error:?}"
+        );
+        assert!(
+            chain(&error).contains(&file.path().display().to_string()),
+            "{}",
+            chain(&error)
+        );
+    }
+
+    #[test]
+    fn a_file_that_is_not_pkcs12_is_rejected_as_such() {
+        let file = temp_file(b"clearly not a pkcs12 bundle");
+
+        let error = p12_config(file.path(), None)
+            .resolve(&endpoint())
+            .expect_err("garbage is not a pkcs12 bundle");
+
+        assert!(matches!(error, ConfigError::Pkcs12 { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn a_p12_path_that_does_not_exist_is_reported_with_the_path() {
+        let error = p12_config(std::path::Path::new("no/such/identity.p12"), None)
+            .resolve(&endpoint())
+            .expect_err("a missing file must be reported");
+
+        assert!(matches!(error, ConfigError::Io { .. }), "{error:?}");
+        assert!(
+            chain(&error).contains("no/such/identity.p12"),
             "{}",
             chain(&error)
         );

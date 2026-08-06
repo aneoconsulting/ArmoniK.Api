@@ -47,6 +47,21 @@ fn the_committed_flat_schema_matches_the_generated_one() {
 }
 
 #[test]
+fn both_schemas_name_the_pkcs12_identity() {
+    // Coarser than the golden comparison on purpose: this one states the contract in words, so a
+    // regeneration that quietly dropped the PKCS#12 options would fail with a readable message
+    // rather than a full-schema diff.
+    let flat = serde_json::to_string(&schemars::schema_for!(armonik_transport::HttpConfig))
+        .expect("a schema serialises to JSON");
+    assert!(flat.contains("\"CertP12\""), "{flat}");
+    assert!(flat.contains("\"CertP12Password\""), "{flat}");
+
+    let structured = serde_json::to_string(&armonik_transport::HttpConfig::structured_schema())
+        .expect("a schema serialises to JSON");
+    assert!(structured.contains("\"Pkcs12\""), "{structured}");
+}
+
+#[test]
 fn the_committed_structured_schema_matches_the_generated_one() {
     // The config's own shape: nested thematic units, and the TLS identity as a `oneOf` of its
     // variants.
