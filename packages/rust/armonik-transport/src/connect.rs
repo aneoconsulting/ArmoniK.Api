@@ -1,4 +1,4 @@
-//! Turning a [`ClientConfig`] into a connected `tonic` channel.
+//! Turning a [`HttpConfig`] into a connected `tonic` channel.
 //!
 //! TLS, mTLS, and every timeout, keepalive and identity setting come together here.
 
@@ -12,11 +12,11 @@ use snafu::{ResultExt, Snafu};
 
 use crate::config::ConfigError;
 use crate::proxy::ProxyConnector;
-use crate::ClientConfig;
+use crate::HttpConfig;
 
 /// Connect to the endpoint described by `config`, eagerly: this resolves once the connection is
 /// established, not lazily on the first request.
-pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, ConnectionError> {
+pub async fn connect(config: HttpConfig) -> Result<tonic::transport::Channel, ConnectionError> {
     let endpoint = config.endpoint.clone();
     let override_target = config.override_target.clone();
     let http2_keep_alive_interval = config.http2_keep_alive_interval;
@@ -72,7 +72,7 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
 /// rather than its own; `pub` only so the signature is expressible.
 #[doc(hidden)]
 pub async fn https_connector(
-    config: ClientConfig,
+    config: HttpConfig,
 ) -> Result<HttpsConnector<ProxyConnector<HttpConnector>>, ConnectionError> {
     let endpoint = config.endpoint;
 
@@ -150,7 +150,7 @@ pub async fn https_connector(
     Ok(https.enable_http1().enable_http2().wrap_connector(http))
 }
 
-/// Everything that can go wrong between a [`ClientConfig`] and a usable channel.
+/// Everything that can go wrong between a [`HttpConfig`] and a usable channel.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 // snafu keeps its generated context selectors module-private by default. Public so that a caller in

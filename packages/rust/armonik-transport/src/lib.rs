@@ -9,7 +9,7 @@ mod connect;
 mod proxy;
 mod utils;
 
-pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
+pub use config::{ConfigError, HttpConfig, HttpConfigArgs};
 pub use connect::{connect, https_connector, ConnectionError};
 pub use proxy::{ProxyConfig, ProxyError, ProxySource};
 // The password's own type, so a caller can build a `ProxyConfig` without declaring a dependency on
