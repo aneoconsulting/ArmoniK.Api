@@ -8,7 +8,7 @@
 
 use std::time::Duration;
 
-use armonik_transport::{ClientConfig, ProxyConfig};
+use armonik_transport::{HttpConfig, ProxyConfig};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 
@@ -17,7 +17,7 @@ mod common;
 use common::{error_chain, ProxyAuth, SlowService};
 
 /// A client reaching `endpoint` through `proxy`.
-fn through_proxy(endpoint: &str, proxy: std::net::SocketAddr) -> ClientConfig {
+fn through_proxy(endpoint: &str, proxy: std::net::SocketAddr) -> HttpConfig {
     let mut config = common::config(endpoint, |_| {});
     config.proxy = ProxyConfig::explicit(
         hyper::Uri::try_from(format!("http://{proxy}")).expect("a valid proxy URI"),
@@ -26,7 +26,7 @@ fn through_proxy(endpoint: &str, proxy: std::net::SocketAddr) -> ClientConfig {
 }
 
 /// Connect and make one call, returning what the server answered.
-async fn call_through(config: ClientConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
+async fn call_through(config: HttpConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
     let channel = armonik_transport::connect(config).await?;
     Ok(common::call(channel).await?)
 }

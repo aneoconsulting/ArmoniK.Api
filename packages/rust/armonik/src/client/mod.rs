@@ -8,8 +8,8 @@ use snafu::{ResultExt, Snafu};
 use armonik_transport::ConfigSnafu;
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
-    ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ProxyConfig, ProxyError,
-    ProxySource, ReadEnvError, SecretString,
+    ConfigError, ConnectionError, HttpConfig, HttpConfigArgs, ProxyConfig, ProxyError, ProxySource,
+    ReadEnvError, SecretString,
 };
 
 #[cfg(feature = "worker")]
@@ -72,11 +72,11 @@ pub struct Client<T = tonic::transport::Channel> {
 impl Client<tonic::transport::Channel> {
     /// Create a new client using the configuration from the environment variables
     pub async fn new() -> Result<Self, ConnectionError> {
-        Self::with_config(ClientConfig::from_env().context(ConfigSnafu {})?).await
+        Self::with_config(HttpConfig::from_env().context(ConfigSnafu {})?).await
     }
 
     /// Create a new client with the specified client configuration
-    pub async fn with_config(config: ClientConfig) -> Result<Self, ConnectionError> {
+    pub async fn with_config(config: HttpConfig) -> Result<Self, ConnectionError> {
         let endpoint = config.endpoint.to_string();
         tracing_futures::Instrument::instrument(
             async move {
@@ -96,7 +96,7 @@ impl Client<tonic::transport::Channel> {
         use http_body_util::BodyExt;
         use hyper_util::rt::TokioExecutor;
 
-        let mut config = ClientConfig::from_env().unwrap();
+        let mut config = HttpConfig::from_env().unwrap();
 
         match std::env::var("Http__Endpoint") {
             Ok(value) if !value.is_empty() => {
