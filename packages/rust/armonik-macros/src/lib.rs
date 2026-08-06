@@ -25,10 +25,12 @@ use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
 mod attrs;
+mod callback;
 mod codegen;
 mod convenience;
 mod descriptor;
 mod docs;
+mod reflect;
 mod resolve;
 mod service;
 
@@ -349,6 +351,44 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
     expand_alias(attr.into(), item.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Carry a derived message's field reflection onto a **type alias** of it, so
+/// the alias can stand for the message in a [`service!`](macro@service) rpc
+/// line without losing what the convenience emission reads off it: a
+/// projection (`=> field`) or an `auto` field count on the response side, the
+/// parameter list on the request side.
+///
+/// The alias is re-emitted, plus renaming re-exports of the aliased struct's
+/// `__armonik_fields_*` callback and `__armonik_ty_*` field aliases under the
+/// alias's own stem (`Response` gives `response`), which are the names the
+/// emission mangles from the path on the rpc line. The reflection is looked up
+/// in the module named after the aliased type (`super::super::Count` in
+/// `super::super::count`, the crate's one-object-per-file convention); a
+/// right-hand side already spelling the defining module is taken as is.
+/// Generic aliases carry no reflection (neither does the struct they
+/// instantiate) and are rejected.
+///
+/// ```ignore
+/// #[armonik_macros::reflect]
+/// pub type Response = super::super::Count;   // rpc line: `=> values` now resolves
+/// ```
+#[proc_macro_attribute]
+pub fn reflect(attr: TokenStream, item: TokenStream) -> TokenStream {
+    reflect::expand_attribute(attr.into(), item.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Internal continuation of the field-reflection callback for
+/// [`reflect`](macro@reflect): re-exports one field type alias per reflected
+/// field. Only ever invoked by `reflect`-emitted code; see `reflect.rs`.
+#[doc(hidden)]
+#[proc_macro]
+pub fn __emit_reflect(input: TokenStream) -> TokenStream {
+    reflect::expand(input.into())
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

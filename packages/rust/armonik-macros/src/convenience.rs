@@ -4,7 +4,8 @@
 //!
 //! `service!` emits, per convenience-eligible RPC, an invocation of the
 //! request type's `__armonik_fields_*` callback with this macro as the
-//! continuation; the callback appends a `fields { [name class]* }` block. For
+//! continuation; the callback appends a `fields { [name class]* }` block (the
+//! handshake and its shared parsing live in `callback.rs`). For
 //! `project { auto }` a second hop through the *response* type's callback
 //! decides the projection (exactly one field → project it, else whole
 //! response). Field and element types are never transported as tokens —
@@ -21,6 +22,8 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream};
 use syn::{Ident, LitStr, Path};
+
+use crate::callback::{braced, fields, Class};
 
 mod kw {
     syn::custom_keyword!(marker);
@@ -60,54 +63,8 @@ enum Project {
     Field(Ident),
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum Class {
-    Plain,
-    Into,
-    Iter,
-    Pairs,
-    Filters,
-}
-
 impl Parse for Emit {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        fn braced<T>(
-            input: ParseStream,
-            parse: impl FnOnce(ParseStream) -> syn::Result<T>,
-        ) -> syn::Result<T> {
-            let content;
-            syn::braced!(content in input);
-            let value = parse(&content)?;
-            if !content.is_empty() {
-                return Err(content.error("unexpected trailing tokens"));
-            }
-            Ok(value)
-        }
-        fn fields(input: ParseStream) -> syn::Result<Vec<(Ident, Class)>> {
-            let mut fields = Vec::new();
-            while !input.is_empty() {
-                let unit;
-                syn::bracketed!(unit in input);
-                let name: Ident = unit.parse()?;
-                let class: Ident = unit.parse()?;
-                let class = match class.to_string().as_str() {
-                    "plain" => Class::Plain,
-                    "into" => Class::Into,
-                    "iter" => Class::Iter,
-                    "pairs" => Class::Pairs,
-                    "filters" => Class::Filters,
-                    other => {
-                        return Err(syn::Error::new(
-                            class.span(),
-                            format!("unknown sugar class `{other}`"),
-                        ))
-                    }
-                };
-                fields.push((name, class));
-            }
-            Ok(fields)
-        }
-
         input.parse::<kw::marker>()?;
         let marker = braced(input, |c| c.parse())?;
         input.parse::<kw::method>()?;

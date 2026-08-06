@@ -8,4 +8,5 @@ pub struct Request {
     pub stop_on_first_task_cancellation: bool,
 }
 
+#[armonik_macros::reflect]
 pub type Response = super::super::Count;
