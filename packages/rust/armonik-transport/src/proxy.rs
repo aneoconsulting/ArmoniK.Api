@@ -423,6 +423,45 @@ fn translate(proxy: Uri, error: impl std::error::Error + Send + Sync + 'static) 
     TunnelFailedSnafu { proxy }.into_error(BoxError::from(error))
 }
 
+/// The one statement of the scheme rule, shared between the connect-time check and the
+/// configuration-time one so the two messages cannot drift apart.
+pub(crate) const HTTP_ONLY_RULE: &str =
+    "The `CONNECT` handshake is written in the clear, so only an `http` proxy can be reached";
+
+/// Render a proxy URL with any credentials elided, for a message or a log line.
+///
+/// Textual rather than through [`Uri`], because the values that most need eliding are the ones that
+/// failed to parse in the first place. Every ambiguity elides rather than shows: over-eliding loses
+/// a detail from a message, under-eliding prints a password.
+pub(crate) fn elide_userinfo(value: &str) -> String {
+    let (scheme, rest) = match value.split_once("://") {
+        Some((scheme, rest)) => (Some(scheme), rest),
+        None => (None, value),
+    };
+    let elided = |body: String| match scheme {
+        Some(scheme) => format!("{scheme}://{body}"),
+        None => body,
+    };
+
+    // The last `@` in the whole of the rest, not just up to the first `/`. A password containing an
+    // unescaped `/` is malformed, which is exactly the input that reaches this function, and looking
+    // only at the authority would leave such a password rendered in full.
+    if let Some((_, remainder)) = rest.rsplit_once('@') {
+        return elided(format!("***@{remainder}"));
+    }
+
+    // No `@`, but a `:` whose tail is not a port: userinfo written without a host
+    // (`http://admin:hunter2`), and the tail is the password. An IPv6 literal also lands here and
+    // is over-elided; nothing leaks.
+    if let Some((head, tail)) = rest.split_once(':') {
+        if !tail.is_empty() && tail.parse::<u16>().is_err() {
+            return elided(format!("{head}:***"));
+        }
+    }
+
+    String::from(value)
+}
+
 /// Failure to reach the endpoint through the proxy.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
@@ -446,7 +485,8 @@ pub enum ProxyError {
         location: snafu::Location,
     },
     #[snafu(display(
-        "The proxy requires authentication; configure proxy credentials [{location}]"
+        "The proxy requires authentication; set `GrpcClient__ProxyUsername` and \
+         `GrpcClient__ProxyPassword` [{location}]"
     ))]
     #[non_exhaustive]
     AuthenticationRequired {
@@ -461,10 +501,7 @@ pub enum ProxyError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display(
-        "The `CONNECT` handshake is written in the clear, so only an `http` proxy can be reached, \
-         not {proxy} [{location}]"
-    ))]
+    #[snafu(display("{HTTP_ONLY_RULE}, not {proxy} [{location}]"))]
     #[non_exhaustive]
     UnsupportedProxy {
         proxy: Uri,
@@ -676,6 +713,50 @@ mod tests {
             credentials,
             Some((String::from("[user"), String::from("s3cr3t")))
         );
+    }
+
+    #[test]
+    fn eliding_hides_the_credentials_and_keeps_the_rest() {
+        for (written, expected) in [
+            (
+                "http://user:secret@proxy.corp:3128",
+                "http://***@proxy.corp:3128",
+            ),
+            ("http://user@proxy.corp", "http://***@proxy.corp"),
+            // Rejected for having no host, and still worth eliding.
+            ("http://user:secret@", "http://***@"),
+            ("user:secret@proxy.corp", "***@proxy.corp"),
+            (
+                "http://user:secret@proxy.corp/path",
+                "http://***@proxy.corp/path",
+            ),
+            // A `/` inside the password is malformed, which is how such a value reaches this function
+            // at all, and is why the split is on the last `@` rather than on the authority.
+            (
+                "http://user:my/pass@proxy.corp:3128",
+                "http://***@proxy.corp:3128",
+            ),
+            // Several `@`: the last one wins, so nothing before it survives.
+            ("http://user:p@ss@proxy.corp", "http://***@proxy.corp"),
+            // Credentials with the `@host` part missing entirely: the tail is not a port, so it is
+            // a password.
+            ("http://admin:hunter2", "http://admin:***"),
+            ("admin:hunter2", "admin:***"),
+        ] {
+            let elided = elide_userinfo(written);
+            assert_eq!(elided, expected, "{written}");
+            assert!(
+                !elided.contains("secret") && !elided.contains("pass") && !elided.contains("hunter"),
+                "{written} still shows its password as {elided}"
+            );
+        }
+    }
+
+    #[test]
+    fn eliding_leaves_a_url_without_credentials_untouched() {
+        for value in ["http://proxy.corp:3128", "proxy.corp:3128", "", "none"] {
+            assert_eq!(elide_userinfo(value), value, "{value}");
+        }
     }
 
     #[test]
