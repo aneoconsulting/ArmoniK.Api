@@ -281,7 +281,10 @@ mod tests {
             .with_credentials("user", "s3cr3t");
 
         let rendered = format!("{config:?}");
-        assert!(!rendered.contains("s3cr3t"), "password rendered: {rendered}");
+        assert!(
+            !rendered.contains("s3cr3t"),
+            "password rendered: {rendered}"
+        );
         assert!(
             rendered.contains("user"),
             "the username is not a secret and stays useful: {rendered}"
