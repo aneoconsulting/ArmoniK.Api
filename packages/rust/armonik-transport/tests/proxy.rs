@@ -207,19 +207,76 @@ async fn no_proxy_is_used_when_proxying_is_disabled() {
 // --- what the environment decides, through the real connector ---
 //
 // `hyper_util`'s matcher does the reading; these pin how this crate maps its configuration onto it,
-// which is ours to get right. They set process-wide variables, hence `serial`.
+// which is ours to get right. They set process-wide variables, hence `serial`; and the host may
+// already export proxy variables of its own, hence [`ProxyEnvironment`].
+
+/// Every variable `Matcher::from_env` reads, in both spellings.
+const PROXY_VARIABLES: [&str; 8] = [
+    "HTTP_PROXY",
+    "http_proxy",
+    "HTTPS_PROXY",
+    "https_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+    "NO_PROXY",
+    "no_proxy",
+];
+
+/// The proxy-related environment, cleared for the duration of a test.
+///
+/// `serial` keeps these tests from racing each other, but does nothing about what the host already
+/// exports: a runner with `NO_PROXY=127.0.0.1` would bypass the proxy a test just configured. The
+/// guard saves and clears [`PROXY_VARIABLES`] on creation and restores them on drop - also when the
+/// test panics, so one failure cannot contaminate the next.
+struct ProxyEnvironment {
+    saved: Vec<(&'static str, Option<std::ffi::OsString>)>,
+}
+
+impl ProxyEnvironment {
+    fn cleared() -> Self {
+        let saved = PROXY_VARIABLES
+            .iter()
+            .map(|&name| {
+                let value = std::env::var_os(name);
+                std::env::remove_var(name);
+                (name, value)
+            })
+            .collect();
+        Self { saved }
+    }
+
+    /// Set a variable the guard restores on drop.
+    fn set(&self, name: &str, value: impl AsRef<std::ffi::OsStr>) {
+        assert!(
+            PROXY_VARIABLES.contains(&name),
+            "`{name}` is not a variable this guard restores"
+        );
+        std::env::set_var(name, value);
+    }
+}
+
+impl Drop for ProxyEnvironment {
+    fn drop(&mut self) {
+        for (name, value) in self.saved.drain(..) {
+            match value {
+                Some(value) => std::env::set_var(name, value),
+                None => std::env::remove_var(name),
+            }
+        }
+    }
+}
 
 #[tokio::test]
 #[serial_test::serial(env)]
 async fn system_mode_takes_the_proxy_from_the_environment() {
+    let environment = ProxyEnvironment::cleared();
     let server = spawn_server().await;
     let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
 
     // The variable has to still be set when `connect` runs, not merely when the configuration is
     // built: `system` resolves the environment as the connection is made.
-    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
+    environment.set("HTTP_PROXY", format!("http://{proxy}"));
     let outcome = call_through(following_the_environment(&server)).await;
-    std::env::remove_var("HTTP_PROXY");
 
     assert_eq!(
         outcome.expect("the call should go through the proxy the environment names"),
@@ -231,14 +288,13 @@ async fn system_mode_takes_the_proxy_from_the_environment() {
 #[tokio::test]
 #[serial_test::serial(env)]
 async fn no_proxy_bypasses_the_proxy_in_system_mode() {
+    let environment = ProxyEnvironment::cleared();
     let server = spawn_server().await;
     let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
 
-    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
-    std::env::set_var("NO_PROXY", "127.0.0.1");
+    environment.set("HTTP_PROXY", format!("http://{proxy}"));
+    environment.set("NO_PROXY", "127.0.0.1");
     let outcome = call_through(following_the_environment(&server)).await;
-    std::env::remove_var("HTTP_PROXY");
-    std::env::remove_var("NO_PROXY");
 
     assert_eq!(outcome.expect("a direct call succeeds"), common::REPLY);
     assert_eq!(
@@ -251,15 +307,15 @@ async fn no_proxy_bypasses_the_proxy_in_system_mode() {
 #[tokio::test]
 #[serial_test::serial(env)]
 async fn no_proxy_does_not_apply_to_an_explicitly_configured_proxy() {
+    let environment = ProxyEnvironment::cleared();
     let server = spawn_server().await;
     let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
 
     // `NO_PROXY` belongs to the same environment convention as `HTTP_PROXY`, so it governs `system`
     // only. ArmoniK's other clients give an explicitly named proxy an empty bypass list, and diverging
     // would mean a request skipping the proxy here while using it there.
-    std::env::set_var("NO_PROXY", "127.0.0.1");
+    environment.set("NO_PROXY", "127.0.0.1");
     let outcome = call_through(through_proxy(&server, proxy, None)).await;
-    std::env::remove_var("NO_PROXY");
 
     assert_eq!(
         outcome.expect("an explicit proxy is used whatever NO_PROXY says"),
@@ -274,15 +330,15 @@ async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carr
     // A dedicated half alone must not discard the other half of whatever the intercepted proxy
     // URL carried: setting only the password while `HTTP_PROXY` names a username must still send
     // that username, paired with the new password, not an empty one.
+    let environment = ProxyEnvironment::cleared();
     let server = spawn_server().await;
     // The base64 of `url-user:new`, what the client is expected to send once the two are merged.
     let (proxy, tunnels) = spawn_proxy(ProxyAuth::Required("dXJsLXVzZXI6bmV3")).await;
 
-    std::env::set_var("HTTP_PROXY", format!("http://url-user:old@{proxy}"));
+    environment.set("HTTP_PROXY", format!("http://url-user:old@{proxy}"));
     let mut config = direct(&server);
     config.proxy = ProxyConfig::system().with_credentials("", "new");
     let outcome = call_through(config).await;
-    std::env::remove_var("HTTP_PROXY");
 
     assert_eq!(
         outcome.expect("the merged credentials should satisfy the proxy"),
@@ -300,11 +356,11 @@ async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carr
 async fn an_https_proxy_from_the_environment_is_refused_before_dialling() {
     // `system` resolves at connect time, so that is the only place its scheme can be checked. Dialling
     // it would write the handshake in the clear to a proxy expecting TLS.
+    let environment = ProxyEnvironment::cleared();
     let server = spawn_server().await;
 
-    std::env::set_var("HTTP_PROXY", "https://proxy.corp:3128");
+    environment.set("HTTP_PROXY", "https://proxy.corp:3128");
     let outcome = call_through(following_the_environment(&server)).await;
-    std::env::remove_var("HTTP_PROXY");
 
     let error = error_chain(
         outcome
