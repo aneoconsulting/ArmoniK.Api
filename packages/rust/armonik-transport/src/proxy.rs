@@ -379,7 +379,9 @@ pub enum ProxyError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("The proxy requires authentication; configure proxy credentials [{location}]"))]
+    #[snafu(display(
+        "The proxy requires authentication; configure proxy credentials [{location}]"
+    ))]
     #[non_exhaustive]
     AuthenticationRequired {
         #[snafu(implicit)]
