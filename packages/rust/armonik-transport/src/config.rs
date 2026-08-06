@@ -96,13 +96,11 @@ impl TryFrom<&HttpConfig> for tonic::transport::Endpoint {
 
 /// Reads any option as text, whatever scalar shape a `serde` source gave it.
 ///
-/// Every option is authoritatively text, in the spelling its own doc names, but a source is not
-/// obliged to agree: `figment`'s `Env` provider parses a bare `3` or `true` into a real integer or
-/// boolean before `serde` ever sees it, and a plain `String` field rejects those outright. The
-/// same provider parses a value made entirely of a bracketed or braced list (`[::1]`, with nothing
-/// before or after the brackets) into a list or object the same way, which a value's own option
-/// cannot be, so that shape is refused with a message naming the escape hatch: a literal pair of
-/// double quotes around the value (`"[::1]"`) forces it to be read as a string instead.
+/// Every option is authoritatively text, in the spelling its own doc names. The environment
+/// reader hands every value over as a string verbatim, but a typed source is not obliged to: a
+/// JSON file can spell a number or boolean as itself, and a plain `String` field would reject
+/// those outright, so every scalar shape is accepted and rendered back to text. A list or an
+/// object is refused: no option is one.
 #[cfg(feature = "serde")]
 pub(crate) fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
     struct AnyScalar;
@@ -134,21 +132,22 @@ pub(crate) fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<
             Ok(value.to_string())
         }
 
+        // A number a typed source hands over as a float renders in Rust's default float
+        // formatting, not necessarily in the source's own spelling: acceptable for a real
+        // number, and the environment reader never produces one.
         fn visit_f64<E>(self, value: f64) -> Result<String, E> {
             Ok(value.to_string())
         }
 
         fn visit_seq<A: serde::de::SeqAccess<'de>>(self, _seq: A) -> Result<String, A::Error> {
             Err(serde::de::Error::custom(
-                "a value made entirely of a bracketed list reads as one, not as text; wrap it in a \
-                 literal pair of double quotes (e.g. `\"[::1]\"`) to read it as a string",
+                "a list is not a single text value; spell the option as a string",
             ))
         }
 
         fn visit_map<A: serde::de::MapAccess<'de>>(self, _map: A) -> Result<String, A::Error> {
             Err(serde::de::Error::custom(
-                "a value made entirely of a braced object reads as one, not as text; wrap it in a \
-                 literal pair of double quotes to read it as a string",
+                "an object is not a single text value; spell the option as a string",
             ))
         }
     }
@@ -748,8 +747,7 @@ mod tests {
 
     #[test]
     fn a_number_a_source_typed_eagerly_is_still_read() {
-        // A JSON document, like `figment`'s own reading of the environment, may hand a bare
-        // number over as one rather than as text.
+        // A JSON document may hand a bare number over as one rather than as text.
         let config = config(json!({
             "Endpoint": "http://localhost:5001",
             "TcpKeepaliveRetries": 3,

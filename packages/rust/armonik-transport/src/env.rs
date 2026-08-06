@@ -7,8 +7,12 @@
 //!
 //! The prefix is the only thing a caller chooses: [`HttpConfig`]'s own option names, spelled in
 //! `PascalCase` (`#[serde(rename_all = "PascalCase")]`, ArmoniK's own convention, the same for the
-//! C# and C++ clients), decide the rest. [`figment::providers::Env`] is the reader: it supports
-//! `#[serde(flatten)]`, which a `Deserializer` implementing only `deserialize_struct` cannot.
+//! C# and C++ clients), decide the rest. Reading goes through `figment`, which supports
+//! `#[serde(flatten)]` where a `Deserializer` implementing only `deserialize_struct` cannot, but
+//! the values come from [`RawEnv`], a provider over [`figment::providers::Env`]'s enumeration
+//! that keeps each value as the raw text the variable holds: every value reaches its option
+//! byte for byte, brackets and quotes included, and an option that really is a number or a
+//! boolean parses the text itself.
 //!
 //! The prefix a caller passes is matched case-insensitively (an incidental property of the `Uncased`
 //! comparison this reader's own prefix-stripping happens to use), but each option name after it still
@@ -31,9 +35,37 @@ impl HttpConfig {
     /// Read every option from the environment, under a prefix of the caller's choosing.
     pub fn from_env(prefix: &str) -> Result<Self, EnvFieldError> {
         Figment::new()
-            .merge(Env::prefixed(prefix).lowercase(false))
+            .merge(RawEnv(Env::prefixed(prefix).lowercase(false)))
             .extract()
             .context(ReadSnafu)
+    }
+}
+
+/// [`figment::providers::Env`]'s enumeration - prefix stripping, case handling and profile
+/// included - with every value kept as the raw text the variable holds.
+///
+/// `Env`'s own `Provider` impl runs each value through `figment`'s scalar grammar before `serde`
+/// sees it: a bare `1.0` becomes a float, whose default rendering is `1`, which silently corrupts
+/// a numeric-looking password. Text is what a variable holds, so text is what goes in; an option
+/// that really is a number or a boolean parses the text itself.
+struct RawEnv(Env);
+
+impl figment::Provider for RawEnv {
+    fn metadata(&self) -> figment::Metadata {
+        self.0.metadata()
+    }
+
+    fn data(
+        &self,
+    ) -> Result<figment::value::Map<figment::Profile, figment::value::Dict>, figment::Error> {
+        let mut dict = figment::value::Dict::new();
+        for (key, value) in self.0.iter() {
+            // `Value::from(String)` is the string verbatim: no grammar runs. The key goes in
+            // whole as well: the option names contain no dots, so `Env`'s dotted-key nesting has
+            // nothing to describe here, and an unrecognised name is ignored either way.
+            dict.insert(key.as_str().to_owned(), value.into());
+        }
+        Ok(self.0.profile.collect(dict))
     }
 }
 
@@ -215,8 +247,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn a_variable_that_looks_like_a_number_is_still_read() {
-        // This reader's own `Env` provider parses a bare `3` into a real integer before `serde` ever
-        // sees it; the option's reader has to accept that shape as well as the text spelling.
+        // The raw reader hands a bare `3` over as text; the option's own reader does the parsing,
+        // so a numeric option keeps working without the provider guessing types.
         let config = with_var(
             "ARMONIK_TEST_NUMERIC__Endpoint",
             Some("http://localhost:5001"),
@@ -243,8 +275,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn a_secret_that_looks_like_a_number_is_still_read_as_text() {
-        // This reader's own `Env` provider can hand the password over as a real integer rather than
-        // a string; the secret's reader has to tolerate that the same way a plain option does.
+        // The raw reader hands the password over as text whatever it looks like, and the secret's
+        // reader keeps it as written.
         let config = with_var(
             "ARMONIK_TEST_NUMERIC_SECRET__Endpoint",
             Some("http://localhost:5001"),
@@ -263,47 +295,54 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
-    fn a_variable_made_entirely_of_brackets_names_its_own_escape_hatch() {
-        // A trailing or leading character defeats the reader's own list grammar (`[::1]:5001` stays
-        // text, since the brackets do not span the whole value), so only a value that is *nothing but*
-        // a bracketed list hits this at all: a bare `[::1]`, not the usual `[::1]:5001`.
-        let rendered = with_var(
-            "ARMONIK_TEST_BRACKETS__Endpoint",
-            Some("http://localhost:5001"),
-            || {
-                with_var(
-                    "ARMONIK_TEST_BRACKETS__OverrideTargetName",
-                    Some("[::1]"),
-                    || HttpConfig::from_env("ARMONIK_TEST_BRACKETS__"),
-                )
-            },
-        )
-        .expect_err("a bracketed list is not this option's own text")
-        .to_string();
+    fn a_float_looking_password_reaches_the_config_byte_exact() {
+        // `figment`'s own `Env` provider parses `1.0` into a float, whose default rendering is
+        // `1`: a silently corrupted credential. The raw reader never parses, so the spelling
+        // survives byte for byte.
+        for written in ["1.0", "2.50"] {
+            let config = with_var(
+                "ARMONIK_TEST_FLOAT_SECRET__Endpoint",
+                Some("http://localhost:5001"),
+                || {
+                    with_var(
+                        "ARMONIK_TEST_FLOAT_SECRET__ProxyPassword",
+                        Some(written),
+                        || HttpConfig::from_env("ARMONIK_TEST_FLOAT_SECRET__"),
+                    )
+                },
+            )
+            .expect(written);
 
-        assert!(
-            rendered.contains("double quotes"),
-            "the message should name the escape hatch: {rendered}"
-        );
+            assert_eq!(config.proxy.password.expose_secret(), written, "{written}");
+        }
     }
 
     #[test]
     #[serial_test::serial]
-    fn wrapping_a_bracketed_value_in_quotes_reads_it_as_text() {
-        let config = with_var(
-            "ARMONIK_TEST_QUOTED_BRACKETS__Endpoint",
-            Some("http://localhost:5001"),
-            || {
-                with_var(
-                    "ARMONIK_TEST_QUOTED_BRACKETS__OverrideTargetName",
-                    Some("\"[::1]\""),
-                    || HttpConfig::from_env("ARMONIK_TEST_QUOTED_BRACKETS__"),
-                )
-            },
-        )
-        .expect("the escape hatch this reader documents must work");
+    fn a_bracketed_value_is_read_verbatim() {
+        // `[::1]` is exactly what a target-name override for an IPv6 literal looks like. The raw
+        // reader hands the text over as written: no list grammar, and no quote stripping either,
+        // so brackets need no escape hatch and quote characters are part of the value.
+        for written in ["[::1]", "\"[::1]\""] {
+            let config = with_var(
+                "ARMONIK_TEST_BRACKETS__Endpoint",
+                Some("http://localhost:5001"),
+                || {
+                    with_var(
+                        "ARMONIK_TEST_BRACKETS__OverrideTargetName",
+                        Some(written),
+                        || HttpConfig::from_env("ARMONIK_TEST_BRACKETS__"),
+                    )
+                },
+            )
+            .expect(written);
 
-        assert_eq!(config.tls.override_target_name, Some(String::from("[::1]")));
+            assert_eq!(
+                config.tls.override_target_name,
+                Some(String::from(written)),
+                "{written}"
+            );
+        }
     }
 
     #[test]
