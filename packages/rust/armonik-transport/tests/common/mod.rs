@@ -208,10 +208,14 @@ pub fn config(
     args.endpoint = endpoint.to_owned();
     args.allow_unsafe_connection = true;
     set(&mut args);
+    // An unset proxy option follows the machine's environment; a test has to name its proxy
+    // deliberately, or a developer's own HTTP_PROXY would route these loopback calls somewhere
+    // real.
+    let follow_environment = args.proxy.is_empty();
     let mut config = armonik_transport::ClientConfig::from_config_args(args)
         .expect("the configuration should be valid");
-    // The default follows the machine's environment; a test has to opt back in deliberately, or a
-    // developer's own HTTP_PROXY would route these loopback calls somewhere real.
-    config.proxy = armonik_transport::ProxyConfig::disabled();
+    if follow_environment {
+        config.proxy = armonik_transport::ProxyConfig::disabled();
+    }
     config
 }
