@@ -144,7 +144,12 @@ impl ProxyConfig {
         // The matcher takes credentials out of the proxy URL itself; anything it left behind (a
         // malformed URL with several `@`) is stripped here so it never renders.
         let (uri, _leftovers) = split_credentials(intercept.uri().clone());
-        self.finish_route(uri, String::new(), String::new(), intercept.basic_auth().cloned())
+        self.finish_route(
+            uri,
+            String::new(),
+            String::new(),
+            intercept.basic_auth().cloned(),
+        )
     }
 
     /// The scheme rule and the credential merge, shared by every source. `Err` carries the proxy
@@ -647,7 +652,9 @@ mod tests {
             let elided = elide_userinfo(written);
             assert_eq!(elided, expected, "{written}");
             assert!(
-                !elided.contains("secret") && !elided.contains("pass") && !elided.contains("hunter"),
+                !elided.contains("secret")
+                    && !elided.contains("pass")
+                    && !elided.contains("hunter"),
                 "{written} still shows its password as {elided}"
             );
         }
@@ -682,7 +689,10 @@ mod tests {
             .with_credentials("user", "s3cr3t");
 
         let rendered = format!("{config:?}");
-        assert!(!rendered.contains("s3cr3t"), "password rendered: {rendered}");
+        assert!(
+            !rendered.contains("s3cr3t"),
+            "password rendered: {rendered}"
+        );
         assert!(
             rendered.contains("user"),
             "the username is not a secret and stays useful: {rendered}"
