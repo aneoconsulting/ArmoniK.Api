@@ -4,90 +4,24 @@
 //! few dozen lines below rather than an external binary, so the tests run wherever CI does.
 
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use armonik_transport::{ClientConfig, ProxyConfig};
-use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 
 mod common;
 
-use common::SlowService;
+use common::{ProxyAuth, SlowService, Tunnels};
 
 /// Serve the gRPC service the tests call, on an ephemeral loopback port.
 async fn spawn_server() -> String {
     common::serve(SlowService::new(Duration::ZERO)).await
 }
 
-/// What a test proxy should demand of its clients.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ProxyAuth {
-    /// Accept every tunnel request.
-    None,
-    /// Reject with `407` unless the expected `Proxy-Authorization` header is present.
-    Required(&'static str),
-}
-
-/// How many `CONNECT` requests a test proxy accepted and tunnelled.
-type Tunnels = Arc<AtomicUsize>;
-
 /// A minimal HTTP proxy that only implements `CONNECT`, answering 200.
 async fn spawn_proxy(auth: ProxyAuth) -> (SocketAddr, Tunnels) {
-    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy");
-    let address = listener.local_addr().expect("proxy address");
-    let tunnels = Tunnels::default();
-
-    let accepted = Arc::clone(&tunnels);
-    tokio::spawn(async move {
-        loop {
-            let Ok((client, _)) = listener.accept().await else {
-                return;
-            };
-            let tunnels = Arc::clone(&accepted);
-            tokio::spawn(async move {
-                // A failing tunnel is a normal outcome in these tests; the client asserts on it.
-                let _ = serve_tunnel(client, auth, tunnels).await;
-            });
-        }
-    });
-
-    (address, tunnels)
-}
-
-async fn serve_tunnel(
-    mut client: TcpStream,
-    auth: ProxyAuth,
-    tunnels: Tunnels,
-) -> std::io::Result<()> {
-    let head = common::read_head(&mut client).await?;
-    let target = common::request_target(&head);
-
-    if let ProxyAuth::Required(expected) = auth {
-        let presented = head.lines().find_map(|line| {
-            line.strip_prefix("Proxy-Authorization: Basic ")
-                .or_else(|| line.strip_prefix("proxy-authorization: Basic "))
-        });
-
-        if presented != Some(expected) {
-            client
-                .write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n")
-                .await?;
-            return client.flush().await;
-        }
-    }
-
-    let mut upstream = TcpStream::connect(&target).await?;
-    client
-        .write_all(b"HTTP/1.1 200 Connection established\r\n\r\n")
-        .await?;
-    client.flush().await?;
-    tunnels.fetch_add(1, Ordering::SeqCst);
-
-    tokio::io::copy_bidirectional(&mut client, &mut upstream)
-        .await
-        .map(|_| ())
+    common::spawn_proxy(auth, 200).await
 }
 
 /// A client reaching `endpoint` through `proxy`, configured through the API.
@@ -125,19 +59,7 @@ async fn call_through(config: ClientConfig) -> Result<bytes::Bytes, Box<dyn std:
     Ok(common::call(channel).await?)
 }
 
-/// Render an error and everything it was caused by.
-///
-/// The transport error that wraps a proxy failure has a generic message, so an assertion has to look
-/// at the whole chain.
-fn error_chain(error: &dyn std::error::Error) -> String {
-    let mut rendered = vec![error.to_string()];
-    let mut current = error.source();
-    while let Some(source) = current {
-        rendered.push(source.to_string());
-        current = source.source();
-    }
-    rendered.join(" -> ")
-}
+use common::error_chain;
 
 #[tokio::test]
 async fn request_reaches_the_server_through_the_tunnel() {
