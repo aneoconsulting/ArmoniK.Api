@@ -1063,6 +1063,20 @@ mod tests {
     }
 
     #[test]
+    fn a_proxy_url_whose_credentials_cannot_be_stripped_is_rejected_while_reading() {
+        // `@` is legal inside a bracketed authority, so this parses, yet what follows the
+        // credentials (`proxy]`) is not a host on its own. Accepting it would store the
+        // placeholder and fail only at connect time, against this option's fail-on-read
+        // contract; the rejection must not echo the password either.
+        let rendered = proxy_error("http://[user:s3cr3t@proxy]");
+        assert!(
+            rendered.contains("once its credentials are taken out"),
+            "{rendered}"
+        );
+        assert!(!rendered.contains("s3cr3t"), "password echoed: {rendered}");
+    }
+
+    #[test]
     fn a_proxy_that_is_not_http_is_rejected_rather_than_reached_in_the_clear() {
         // The `CONNECT` handshake goes out unencrypted, so a proxy expecting TLS would see
         // gibberish. Accepting the URL and failing at connect time would report it as an

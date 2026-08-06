@@ -125,11 +125,19 @@ impl ProxyConfig {
     /// the URI carries none wherever it is rendered. A URI installed into `source` by hand gets the
     /// same treatment when the connection is made; this constructor only does it earlier, where a
     /// caller can still read the parts back.
+    ///
+    /// A URI whose credential-stripped form cannot be rebuilt (credentials inside a bracketed
+    /// authority) keeps its credentials in the fields but gets a scheme-less placeholder as its
+    /// `source`, which routing refuses: the failure surfaces at connect time, never as a URI that
+    /// still holds the password.
     pub fn explicit(uri: Uri) -> Self {
         let (uri, credentials) = split_credentials(uri);
         let (username, password) = credentials.unwrap_or_default();
         Self {
-            source: ProxySource::Explicit(uri),
+            // On a URI whose sanitized form cannot be rebuilt, the placeholder goes in: the
+            // credentials stay in the fields, and the route refuses the placeholder, so the bad
+            // URL surfaces as an error that cannot name the password.
+            source: ProxySource::Explicit(uri.unwrap_or_else(|elided| elided)),
             username,
             password: password.into(),
         }
@@ -184,7 +192,12 @@ impl ProxyConfig {
             ProxySource::Explicit(uri) => {
                 let (uri, credentials) = split_credentials(uri.clone());
                 let (username, password) = credentials.unwrap_or_default();
-                Some(self.finish_route(uri, username, password, None))
+                match uri {
+                    Ok(uri) => Some(self.finish_route(uri, username, password, None)),
+                    // No sanitized form exists, and the original must not come back: it is the
+                    // one URI that still holds the password.
+                    Err(elided) => Some(Err(elided)),
+                }
             }
         }
     }
@@ -195,10 +208,12 @@ impl ProxyConfig {
             return Ok(None);
         };
         // The matcher takes credentials out of the proxy URL itself; anything it left behind (a
-        // malformed URL with several `@`) is stripped here so it never renders.
+        // malformed URL with several `@`) is stripped here so it never renders. A URI with no
+        // sanitized form propagates the placeholder as the route error: the original is the one
+        // URI that still holds the password.
         let (uri, _leftovers) = split_credentials(intercept.uri().clone());
         self.finish_route(
-            uri,
+            uri?,
             String::new(),
             String::new(),
             intercept.basic_auth().cloned(),
@@ -244,8 +259,9 @@ impl ProxyConfig {
 }
 
 /// Where a connection goes, and with which ready `Proxy-Authorization` value: `None` is a direct
-/// connection. The error carries the proxy whose scheme cannot carry the cleartext handshake, so
-/// whoever reports it names the offending URI once.
+/// connection. The error carries the proxy that cannot be routed through - a scheme that cannot
+/// carry the cleartext handshake, or the placeholder for a URI with no sanitized form - so
+/// whoever reports it names the offending URI once, and that URI never holds a password.
 pub(crate) type RouteResult = Result<Option<(Uri, Option<HeaderValue>)>, Uri>;
 
 /// The flat string options [`ProxyConfig`] is read from.
@@ -406,6 +422,22 @@ fn parse_proxy_source(proxy: &str) -> Result<ProxyConfig, crate::config::ConfigE
         }
         .fail();
     };
+
+    // `explicit` swaps in the placeholder when the credential-stripped authority cannot be
+    // rebuilt (`@` is legal inside a bracketed authority, so `http://[user:password@proxy]`
+    // parses yet `proxy]` is not a host on its own). Routing refuses the placeholder anyway,
+    // but this option's contract is to fail while the configuration is read and can name
+    // itself, elided.
+    ensure!(
+        stripped != &elided_proxy(),
+        IncompatibleOptionsSnafu {
+            msg: format!(
+                "`Proxy={}` is not a valid proxy URL once its credentials are taken out. \
+                 Expected `none`, `system`, or a URL such as `http://proxy.example.com:3128`",
+                elide_userinfo(proxy)
+            ),
+        }
+    );
 
     // `http::Uri` keeps the port as text and parses it lazily, so `proxy.corp:99999` or
     // `proxy.corp:31z8` would otherwise be accepted here and silently dialled on port 80. Checked
@@ -759,19 +791,27 @@ fn prefer_dedicated<'a>(dedicated: &'a str, from_url: &'a str) -> &'a str {
 /// Credentials in the URL are how `HTTPS_PROXY` conventionally carries them, so they are honoured. They
 /// must not stay in the URI: it is rendered in errors, in log lines, and in `ProxyConfig`'s
 /// `Debug`. Percent-escapes are decoded, which is the only way to write a password containing `@`.
-pub(crate) fn split_credentials(uri: Uri) -> (Uri, Option<(String, String)>) {
+///
+/// The split is textual, so it always happens; only the URI half can fail. `Err` means the
+/// post-`@` text is not an authority on its own (`@` is legal inside a bracketed authority, so
+/// `http://[user:password@proxy]` parses yet `proxy]` does not rebuild) and carries
+/// [`elided_proxy`], never anything from the input: the input is the one URI that still holds the
+/// password.
+pub(crate) fn split_credentials(uri: Uri) -> (Result<Uri, Uri>, Option<(String, String)>) {
     let Some(authority) = uri.authority() else {
-        return (uri, None);
+        return (Ok(uri), None);
     };
     // The last `@`, so a literal one inside the password does not split in the wrong place.
     let Some((userinfo, host)) = authority.as_str().rsplit_once('@') else {
-        return (uri, None);
+        return (Ok(uri), None);
     };
 
     let (username, password) = match userinfo.split_once(':') {
         Some((username, password)) => (percent_decode(username), percent_decode(password)),
         None => (percent_decode(userinfo), String::new()),
     };
+    let credentials =
+        (!username.is_empty() || !password.is_empty()).then_some((username, password));
 
     let stripped = Uri::builder()
         .scheme(uri.scheme_str().unwrap_or("http"))
@@ -779,13 +819,16 @@ pub(crate) fn split_credentials(uri: Uri) -> (Uri, Option<(String, String)>) {
         .path_and_query(uri.path_and_query().map_or("/", |path| path.as_str()))
         .build();
 
-    match stripped {
-        Ok(stripped) if username.is_empty() && password.is_empty() => (stripped, None),
-        Ok(stripped) => (stripped, Some((username, password))),
-        // Unreachable: the parts come from a URI that already parsed. Keeping the original is the only
-        // thing left to do, and dropping the credentials is the safer half of it.
-        Err(_) => (uri, None),
-    }
+    (stripped.map_err(|_| elided_proxy()), credentials)
+}
+
+/// Stands in for a proxy URI whose sanitized form cannot be rebuilt.
+///
+/// Authority-form on purpose: carrying no scheme means `finish_route` refuses it, so a proxy URL
+/// that cannot be sanitized surfaces as a route error naming this placeholder, wherever the URI
+/// came from.
+fn elided_proxy() -> Uri {
+    Uri::from_static("unrepresentable-proxy.invalid")
 }
 
 /// Decode `%XX` escapes, leaving anything malformed exactly as it was written, which is how
@@ -811,6 +854,7 @@ mod tests {
     fn a_url_without_credentials_is_left_alone() {
         for value in ["http://proxy.corp:3128/", "http://proxy.corp/"] {
             let (uri, credentials) = split_credentials(Uri::try_from(value).expect("a valid URI"));
+            let uri = uri.expect("nothing to strip");
             assert_eq!(uri.to_string(), value, "{value} should be unchanged");
             assert_eq!(credentials, None);
         }
@@ -838,7 +882,10 @@ mod tests {
         let (uri, credentials) =
             split_credentials(Uri::try_from("http://user@proxy.corp:3128").expect("uri"));
 
-        assert_eq!(uri.to_string(), "http://proxy.corp:3128/");
+        assert_eq!(
+            uri.expect("rebuildable").to_string(),
+            "http://proxy.corp:3128/"
+        );
         assert_eq!(credentials, Some((String::from("user"), String::new())));
     }
 
@@ -850,7 +897,10 @@ mod tests {
             Uri::try_from("http://a%40b:p%3Ass%40word@proxy.corp:3128").expect("uri"),
         );
 
-        assert_eq!(uri.to_string(), "http://proxy.corp:3128/");
+        assert_eq!(
+            uri.expect("rebuildable").to_string(),
+            "http://proxy.corp:3128/"
+        );
         assert_eq!(
             credentials,
             Some((String::from("a@b"), String::from("p:ss@word")))
@@ -901,6 +951,23 @@ mod tests {
         for value in ["http://proxy.corp:3128", "proxy.corp:3128", "", "none"] {
             assert_eq!(elide_userinfo(value), value, "{value}");
         }
+    }
+
+    #[test]
+    fn a_uri_with_no_sanitized_form_is_still_split() {
+        // `@` is legal inside a bracketed authority, so this parses, yet the post-`@` text
+        // `proxy]` is not an authority on its own and the stripped URI cannot be rebuilt. The
+        // split still happens: handing back the original would keep the password in a URI that
+        // errors and logs render.
+        let (uri, credentials) =
+            split_credentials(Uri::try_from("http://[user:s3cr3t@proxy]").expect("uri"));
+
+        let elided = uri.expect_err("`proxy]` alone is not a valid authority");
+        assert!(!elided.to_string().contains("s3cr3t"), "leaked: {elided}");
+        assert_eq!(
+            credentials,
+            Some((String::from("[user"), String::from("s3cr3t")))
+        );
     }
 
     #[test]
@@ -1025,6 +1092,37 @@ mod tests {
             Some(Err(uri)),
             "the route should carry the refused proxy back"
         );
+    }
+
+    #[test]
+    fn a_uri_with_no_sanitized_form_becomes_a_route_error_without_the_password() {
+        // Whether the URI went through the constructor or straight into the field, no output may
+        // carry the password: the fields keep the credentials, `Debug` stays clean, and the route
+        // error names the placeholder instead of the original.
+        let constructed =
+            ProxyConfig::explicit(Uri::try_from("http://[user:s3cr3t@proxy]").expect("uri"));
+        let by_hand = ProxyConfig {
+            source: ProxySource::Explicit(
+                Uri::try_from("http://[user:s3cr3t@proxy]").expect("uri"),
+            ),
+            ..ProxyConfig::default()
+        };
+
+        assert_eq!(constructed.username, "[user");
+        assert_eq!(constructed.password.expose_secret(), "s3cr3t");
+
+        for config in [constructed, by_hand] {
+            let rendered = format!("{config:?}");
+            assert!(
+                !rendered.contains("s3cr3t"),
+                "password rendered: {rendered}"
+            );
+            let refused = config
+                .fixed_route()
+                .expect("a source fixed at construction")
+                .expect_err("nothing sane to route through");
+            assert!(!refused.to_string().contains("s3cr3t"), "leaked: {refused}");
+        }
     }
 
     #[test]
