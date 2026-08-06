@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Options for creating a gRPC client.",
+  "properties": {
+    "AllowUnsafeConnection": {
+      "description": "Accept any server certificate instead of verifying it: `1`, `true`, `yes`, `enable`,\n`allow` or `authorize`, and their negatives; empty for false.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "CaCert": {
+      "description": "Path to the Certificate Authority file, in PEM format; empty for the system CAs.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "CertPem": {
+      "description": "Path to the client certificate file, in PEM format; set together with `KeyPem`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ConnectTimeout": {
+      "description": "Timeout for establishing a connection to the server (e.g. `30s`), empty for 60s.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Endpoint": {
+      "description": "Endpoint for sending requests.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Http2KeepAliveInterval": {
+      "description": "HTTP/2 PING frame interval (e.g. `20s`), empty for no keepalive.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Http2KeepAliveTimeout": {
+      "description": "HTTP/2 PING timeout (e.g. `10s`), empty for no timeout.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Http2KeepAliveWhileIdle": {
+      "description": "Send HTTP/2 keepalive PINGs even when idle; spelled like `AllowUnsafeConnection`,\nempty for false.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Http2MaxHeaderListSize": {
+      "description": "HTTP/2 max header list size in bytes, empty for no limit.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "KeyPem": {
+      "description": "Path to the client key file, in PEM format; set together with `CertPem`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "OverrideTargetName": {
+      "description": "Override the endpoint name during SSL verification.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Proxy": {
+      "description": "HTTP proxy used to reach the endpoint: empty or `system` to follow the environment,\n`none` for a direct connection, otherwise the proxy URL, whose scheme has to be\n`http`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ProxyPassword": {
+      "description": "Password for proxy authentication; empty falls back to the password the `Proxy` URL\ncarried, independently of the username.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ProxyUsername": {
+      "description": "Username for proxy authentication; empty falls back to the username the `Proxy` URL\ncarried, if any.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "RateLimit": {
+      "description": "Rate limit for requests, written `count/duration` (e.g. `100/1s`), empty for no rate\nlimit.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "TcpKeepalive": {
+      "description": "TCP keepalive duration (e.g. `30s`), empty for no keepalive.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "TcpKeepaliveInterval": {
+      "description": "Interval between TCP keepalive probes (e.g. `5s`), empty for the OS default.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "TcpKeepaliveRetries": {
+      "description": "Number of TCP keepalive retries, empty for the OS default.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "TcpNagleAlgorithm": {
+      "description": "Enable Nagle's algorithm (disable TCP_NODELAY); spelled like `AllowUnsafeConnection`,\nempty for false.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Timeout": {
+      "description": "Timeout for each request (e.g. `30s`), empty for no timeout.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "UserAgent": {
+      "description": "User-Agent header value sent with each request.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "title": "HttpConfig",
+  "type": "object"
+}

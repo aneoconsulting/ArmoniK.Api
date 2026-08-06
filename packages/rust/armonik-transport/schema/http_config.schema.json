@@ -1,0 +1,254 @@
+{
+  "$defs": {
+    "Http2Config": {
+      "description": "HTTP/2-level transport options.",
+      "properties": {
+        "KeepAliveInterval": {
+          "description": "HTTP/2 PING frame interval (e.g. `20s`), empty for no keepalive.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "KeepAliveTimeout": {
+          "description": "HTTP/2 PING timeout (e.g. `10s`), empty for no timeout.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "KeepAliveWhileIdle": {
+          "description": "Send HTTP/2 keepalive PINGs even when idle; spelled like `AllowUnsafeConnection`,\nempty for false.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "MaxHeaderListSize": {
+          "description": "HTTP/2 max header list size in bytes, empty for no limit.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "IdentitySource": {
+      "description": "Where the client's TLS identity comes from.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A certificate and its key, each in its own PEM file.",
+          "properties": {
+            "PemFiles": {
+              "properties": {
+                "CertPem": {
+                  "description": "Path to the certificate file, in PEM format.",
+                  "type": "string"
+                },
+                "KeyPem": {
+                  "description": "Path to the key file, in PEM format.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "CertPem",
+                "KeyPem"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "PemFiles"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ProxyConfig": {
+      "description": "Configuration of the HTTP proxy used to reach the endpoint.",
+      "properties": {
+        "Password": {
+          "description": "Password for proxy authentication; empty falls back to the password the proxy URL\ncarried, independently of the username.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "Source": {
+          "description": "Where to find the proxy: empty or `system` to follow the environment, `none` for a\ndirect connection, otherwise the proxy URL, whose scheme has to be `http`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "Username": {
+          "description": "Username for proxy authentication; empty falls back to the username the proxy URL\ncarried, if any.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "TcpConfig": {
+      "description": "TCP-level socket options.",
+      "properties": {
+        "Keepalive": {
+          "description": "TCP keepalive duration (e.g. `30s`), empty for no keepalive.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "KeepaliveInterval": {
+          "description": "Interval between TCP keepalive probes (e.g. `5s`), empty for the OS default.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "KeepaliveRetries": {
+          "description": "Number of TCP keepalive retries, empty for the OS default.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "NagleAlgorithm": {
+          "description": "Enable Nagle's algorithm (disable TCP_NODELAY); spelled like `AllowUnsafeConnection`,\nempty for false.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "TlsConfig": {
+      "description": "TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour.",
+      "properties": {
+        "AllowUnsafeConnection": {
+          "description": "Accept any server certificate instead of verifying it: `1`, `true`, `yes`, `enable`,\n`allow` or `authorize`, and their negatives; empty for false.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "CaCert": {
+          "description": "Path to the Certificate Authority file, in PEM format; absent for the system CAs.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "Identity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/IdentitySource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "TLS identity of the client, absent for no client authentication."
+        },
+        "OverrideTargetName": {
+          "description": "Override the endpoint name during SSL verification.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Options for creating a gRPC client.",
+  "properties": {
+    "ConnectTimeout": {
+      "description": "Timeout for establishing a connection to the server (e.g. `30s`), defaults to 60s.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Endpoint": {
+      "description": "Endpoint for sending requests.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Http2": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Http2Config"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "HTTP/2-level transport options."
+    },
+    "Proxy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProxyConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "HTTP proxy used to reach the endpoint, defaults to following the environment."
+    },
+    "RateLimit": {
+      "description": "Rate limit for requests, written `count/duration` (e.g. `100/1s`), defaults to no rate\nlimit.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Tcp": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TcpConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "TCP-level socket options."
+    },
+    "Timeout": {
+      "description": "Timeout for each request (e.g. `30s`), defaults to no timeout.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Tls": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TlsConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "TLS and mTLS: the client's own identity, the server's CA, and SSL verification\nbehaviour."
+    },
+    "UserAgent": {
+      "description": "User-Agent header value sent with each request.",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "title": "HttpConfig",
+  "type": "object"
+}

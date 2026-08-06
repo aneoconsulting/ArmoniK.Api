@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use armonik_transport::{ClientConfig, ProxyConfig};
+use armonik_transport::{HttpConfig, ProxyConfig};
 use tokio::net::TcpListener;
 
 mod common;
@@ -29,7 +29,7 @@ fn through_proxy(
     endpoint: &str,
     proxy: SocketAddr,
     credentials: Option<(&str, &str)>,
-) -> ClientConfig {
+) -> HttpConfig {
     let mut config = common::config(endpoint, |_| {});
     let mut proxy = ProxyConfig::explicit(
         hyper::Uri::try_from(format!("http://{proxy}")).expect("a valid proxy URI"),
@@ -42,19 +42,19 @@ fn through_proxy(
 }
 
 /// A client that connects directly, whatever proxy the tests happen to be running.
-fn direct(endpoint: &str) -> ClientConfig {
+fn direct(endpoint: &str) -> HttpConfig {
     common::config(endpoint, |_| {})
 }
 
 /// The same client, following the environment.
-fn following_the_environment(endpoint: &str) -> ClientConfig {
+fn following_the_environment(endpoint: &str) -> HttpConfig {
     let mut config = common::config(endpoint, |_| {});
     config.proxy = ProxyConfig::system();
     config
 }
 
 /// Connect and make one call, returning what the server answered.
-async fn call_through(config: ClientConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
+async fn call_through(config: HttpConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
     let channel = armonik_transport::connect(config).await?;
     Ok(common::call(channel).await?)
 }
@@ -129,7 +129,7 @@ async fn a_missing_credential_is_reported_as_such() {
         "unexpected error: {rendered}"
     );
     assert!(
-        rendered.contains("GrpcClient__ProxyUsername"),
+        rendered.contains("ProxyUsername"),
         "the error should say which options to set: {rendered}"
     );
     // And the failure has to be matchable by type, not only by text: `find_in` is how a caller
@@ -316,19 +316,22 @@ async fn an_https_proxy_from_the_environment_is_refused_before_dialling() {
 
 // --- the string-form options, from the words to the tunnel ---
 
+#[cfg(feature = "serde")]
 #[tokio::test]
 async fn the_proxy_options_reach_the_tunnel() {
-    // Through `ClientConfigArgs` on purpose, so the parsing is under test along with the
-    // tunnelling: accepting the options and then not proxying is the defect the whole feature
-    // exists to fix.
+    // Through serde on purpose, so the parsing is under test along with the tunnelling: accepting
+    // the options and then not proxying is the defect the whole feature exists to fix.
     let server = spawn_server().await;
     let (proxy, tunnels) = spawn_proxy(ProxyAuth::Required("dXNlcjpzZWNyZXQ=")).await;
 
-    let config = common::config(&server, |args| {
-        args.proxy = format!("http://{proxy}");
-        args.proxy_username = String::from("user");
-        args.proxy_password = "secret".into();
-    });
+    let config: HttpConfig = serde_json::from_value(serde_json::json!({
+        "Endpoint": server,
+        "AllowUnsafeConnection": "true",
+        "Proxy": format!("http://{proxy}"),
+        "ProxyUsername": "user",
+        "ProxyPassword": "secret",
+    }))
+    .expect("a valid configuration");
 
     let answer = call_through(config)
         .await
@@ -338,17 +341,22 @@ async fn the_proxy_options_reach_the_tunnel() {
     assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
 
+#[cfg(feature = "serde")]
 #[tokio::test]
 #[serial_test::serial(env)]
 async fn the_system_option_takes_the_proxy_from_the_environment() {
     let server = spawn_server().await;
     let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
 
-    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
-    let outcome = call_through(common::config(&server, |args| {
-        args.proxy = String::from("system");
+    let config: HttpConfig = serde_json::from_value(serde_json::json!({
+        "Endpoint": server,
+        "AllowUnsafeConnection": "true",
+        "Proxy": "system",
     }))
-    .await;
+    .expect("a valid configuration");
+
+    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
+    let outcome = call_through(config).await;
     std::env::remove_var("HTTP_PROXY");
 
     assert_eq!(
