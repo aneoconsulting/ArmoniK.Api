@@ -194,6 +194,98 @@ pub fn request_target(head: &str) -> String {
         .to_owned()
 }
 
+/// What a test proxy should demand of its clients.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)] // not every test binary drives a proxy
+pub enum ProxyAuth {
+    /// Accept every tunnel request.
+    None,
+    /// Reject with `407` unless the expected `Proxy-Authorization` header is present.
+    Required(&'static str),
+}
+
+/// How many `CONNECT` requests a test proxy accepted and tunnelled.
+pub type Tunnels = std::sync::Arc<std::sync::atomic::AtomicUsize>;
+
+/// A minimal HTTP proxy that only implements `CONNECT`, answering `success` when it accepts one.
+#[allow(dead_code)] // not every test binary drives a proxy
+pub async fn spawn_proxy(auth: ProxyAuth, success: u16) -> (std::net::SocketAddr, Tunnels) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind proxy");
+    let address = listener.local_addr().expect("proxy address");
+    let tunnels = Tunnels::default();
+
+    let accepted = std::sync::Arc::clone(&tunnels);
+    tokio::spawn(async move {
+        loop {
+            let Ok((client, _)) = listener.accept().await else {
+                return;
+            };
+            let tunnels = std::sync::Arc::clone(&accepted);
+            tokio::spawn(async move {
+                // A failing tunnel is a normal outcome in these tests; the client asserts on it.
+                let _ = serve_tunnel(client, auth, success, tunnels).await;
+            });
+        }
+    });
+
+    (address, tunnels)
+}
+
+#[allow(dead_code)] // reached only through spawn_proxy
+async fn serve_tunnel(
+    mut client: tokio::net::TcpStream,
+    auth: ProxyAuth,
+    success: u16,
+    tunnels: Tunnels,
+) -> std::io::Result<()> {
+    use tokio::io::AsyncWriteExt;
+
+    let head = read_head(&mut client).await?;
+    let target = request_target(&head);
+
+    if let ProxyAuth::Required(expected) = auth {
+        let presented = head.lines().find_map(|line| {
+            line.strip_prefix("Proxy-Authorization: Basic ")
+                .or_else(|| line.strip_prefix("proxy-authorization: Basic "))
+        });
+
+        if presented != Some(expected) {
+            client
+                .write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n")
+                .await?;
+            return client.flush().await;
+        }
+    }
+
+    let mut upstream = tokio::net::TcpStream::connect(&target).await?;
+    client
+        .write_all(format!("HTTP/1.1 {success} Connection established\r\n\r\n").as_bytes())
+        .await?;
+    client.flush().await?;
+    tunnels.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+
+    tokio::io::copy_bidirectional(&mut client, &mut upstream)
+        .await
+        .map(|_| ())
+}
+
+/// Render an error and everything it was caused by.
+///
+/// The transport error that wraps a proxy failure has a generic message, so an assertion has to look
+/// at the whole chain.
+#[allow(dead_code)] // not every test binary drives a proxy
+pub fn error_chain(error: &dyn std::error::Error) -> String {
+    let mut rendered = vec![error.to_string()];
+    let mut current = error.source();
+    while let Some(source) = current {
+        rendered.push(source.to_string());
+        current = source.source();
+    }
+    rendered.join(" -> ")
+}
+
 /// Build a [`ClientConfig`] from the string form, applying `set` to the arguments first.
 ///
 /// Going through `ClientConfigArgs` keeps the parsing inside what is under test. It is a helper at all

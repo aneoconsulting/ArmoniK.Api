@@ -29,6 +29,26 @@ capitalised: this crate accepts any casing, C# treats `NONE` as a proxy URL. And
 URL, which C# passes to the runtime, is refused here: the `CONNECT` handshake would go out in the
 clear to a proxy expecting TLS.
 
+### Known issues
+
+The tunnel handshake is `hyper_util::client::legacy::connect::proxy::Tunnel`, not code written in
+this crate, and as shipped in `hyper-util` 0.1.20 it gets four cases wrong. None are ours to fix
+directly; [hyperium/hyper-util#300](https://github.com/hyperium/hyper-util/pull/300) tracks the
+first two upstream. All but the second are pinned by a tripwire in `tests/upstream_tunnel.rs`, so a
+`hyper-util` release that fixes one turns that test red rather than letting the fix pass unnoticed.
+
+- **Only an exact `200` opens the tunnel.** RFC 9110 says any `2xx` should. A proxy answering `201`
+  or `204` is treated as a refusal.
+- **A status line split across two reads is rejected**, even though the connection is fine. Legal
+  HTTP, and likelier with a slow proxy or a small MSS. Not pinned by a tripwire: asserting on how
+  reads land needs timing assumptions that make the test flaky on a loaded runner.
+- **An `HTTP/1.0 407` is not recognised as a request for credentials.** Only `HTTP/1.1 407` is; the
+  older version falls into the same generic refusal as any other failure, so the message naming
+  which two options to set is not shown for it.
+- **A target with no port is dialled on `443`, whatever its scheme**, rather than the scheme
+  deciding between `80` and `443`. ArmoniK deployments always name a port, so this is unlikely to
+  matter in practice.
+
 The connection is an HTTP `CONNECT` tunnel: TLS, mutual TLS included, is negotiated end to end with
 the real server, and the proxy only forwards opaque bytes. Because the `CONNECT` handshake itself goes
 out in the clear, the proxy's own URL has to be `http`. The handshake is bounded by
