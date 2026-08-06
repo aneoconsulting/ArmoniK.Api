@@ -211,7 +211,10 @@ pub fn config(
     // An unset proxy option follows the machine's environment; a test has to name its proxy
     // deliberately, or a developer's own HTTP_PROXY would route these loopback calls somewhere
     // real.
-    let follow_environment = args.proxy.is_empty();
+    let follow_environment = {
+        use armonik_transport::reexports::secrecy::ExposeSecret as _;
+        args.proxy.expose_secret().is_empty()
+    };
     let mut config = armonik_transport::ClientConfig::from_config_args(args)
         .expect("the configuration should be valid");
     if follow_environment {

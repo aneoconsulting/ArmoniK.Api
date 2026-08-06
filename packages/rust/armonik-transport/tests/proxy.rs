@@ -459,7 +459,7 @@ async fn the_proxy_options_reach_the_tunnel() {
     let (proxy, tunnels) = spawn_proxy(ProxyAuth::Required("dXNlcjpzZWNyZXQ=")).await;
 
     let config = common::config(&server, |args| {
-        args.proxy = format!("http://{proxy}");
+        args.proxy = format!("http://{proxy}").into();
         args.proxy_username = String::from("user");
         args.proxy_password = "secret".into();
     });
@@ -480,7 +480,7 @@ async fn the_system_option_takes_the_proxy_from_the_environment() {
 
     std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
     let outcome = call_through(common::config(&server, |args| {
-        args.proxy = String::from("system");
+        args.proxy = "system".into();
     }))
     .await;
     std::env::remove_var("HTTP_PROXY");

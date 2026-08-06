@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
+use secrecy::ExposeSecret as _;
 use snafu::{ResultExt, Snafu};
 
 use crate::proxy::{ProxyConfig, ProxySource};
@@ -144,8 +145,11 @@ pub struct ClientConfigArgs {
     /// direct connection, otherwise the proxy URL, whose scheme has to be `http`: the `CONNECT`
     /// handshake is written in the clear. `none` and `system` are the spellings every ArmoniK
     /// client understands; other casings are accepted here but not everywhere.
+    ///
+    /// A URL can carry credentials (`http://user:password@host`), so the whole value is redacted
+    /// by `Debug` and zeroized on drop, like `proxy_password`.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub proxy: String,
+    pub proxy: secrecy::SecretString,
     /// Username for proxy authentication.
     ///
     /// Empty falls back to the username the `proxy` URL carried, if any.
@@ -187,7 +191,7 @@ impl ClientConfigArgs {
             http2_max_header_list_size: read_env("GrpcClient__Http2MaxHeaderListSize")
                 .context(ctx)?,
             user_agent: read_env("GrpcClient__UserAgent").context(ctx)?,
-            proxy: read_env("GrpcClient__Proxy").context(ctx)?,
+            proxy: read_env("GrpcClient__Proxy").context(ctx)?.into(),
             proxy_username: read_env("GrpcClient__ProxyUsername").context(ctx)?,
             proxy_password: read_env("GrpcClient__ProxyPassword").context(ctx)?.into(),
         })
@@ -222,7 +226,7 @@ impl ClientConfig {
             // Elided, and `proxy_password` left out entirely: this span is recorded at debug level,
             // and a proxy URL carries credentials as often as the dedicated option does. Do not
             // complete the list.
-            proxy = %crate::proxy::elide_userinfo(&args.proxy),
+            proxy = %crate::proxy::elide_userinfo(args.proxy.expose_secret()),
             args.proxy_username,
         );
 
@@ -476,7 +480,8 @@ impl ClientConfig {
             user_agent,
             // A dedicated credential half wins over the URL's; `with_credentials` leaves an empty
             // half to what the URL carried.
-            proxy: parse_proxy_source(&proxy)?.with_credentials(proxy_username, proxy_password),
+            proxy: parse_proxy_source(proxy.expose_secret())?
+                .with_credentials(proxy_username, proxy_password),
         })
     }
 }
@@ -1014,7 +1019,7 @@ mod tests {
         // The same reading as ArmoniK's C# client, where an unset option leaves the handler
         // following the environment.
         for value in ["", "system", "System", "SYSTEM"] {
-            let config = proxy_config(|args| args.proxy = String::from(value));
+            let config = proxy_config(|args| args.proxy = value.into());
             assert_eq!(config.proxy.source, ProxySource::System, "{value:?}");
         }
     }
@@ -1022,15 +1027,15 @@ mod tests {
     #[test]
     fn proxy_none_forces_a_direct_connection() {
         for value in ["none", "None", "NONE"] {
-            let config = proxy_config(|args| args.proxy = String::from(value));
+            let config = proxy_config(|args| args.proxy = value.into());
             assert_eq!(config.proxy.source, ProxySource::Disabled, "{value:?}");
         }
     }
 
     #[test]
     fn proxy_url_defaults_to_the_http_scheme() {
-        let with_scheme = proxy_config(|args| args.proxy = String::from("http://proxy.corp:3128"));
-        let without_scheme = proxy_config(|args| args.proxy = String::from("proxy.corp:3128"));
+        let with_scheme = proxy_config(|args| args.proxy = "http://proxy.corp:3128".into());
+        let without_scheme = proxy_config(|args| args.proxy = "proxy.corp:3128".into());
 
         assert_eq!(with_scheme.proxy.source, without_scheme.proxy.source);
         let ProxySource::Explicit(uri) = with_scheme.proxy.source else {
@@ -1042,8 +1047,7 @@ mod tests {
 
     #[test]
     fn proxy_credentials_in_the_url_are_honoured_and_removed_from_it() {
-        let config =
-            proxy_config(|args| args.proxy = String::from("http://user:secret@proxy.corp:3128"));
+        let config = proxy_config(|args| args.proxy = "http://user:secret@proxy.corp:3128".into());
 
         assert_eq!(config.proxy.username, "user");
         assert_eq!(config.proxy.password.expose_secret(), "secret");
@@ -1059,7 +1063,7 @@ mod tests {
     #[test]
     fn the_dedicated_proxy_options_win_over_the_url() {
         let config = proxy_config(|args| {
-            args.proxy = String::from("http://url-user:url-secret@proxy.corp:3128");
+            args.proxy = "http://url-user:url-secret@proxy.corp:3128".into();
             args.proxy_username = String::from("option-user");
             args.proxy_password = "option-secret".into();
         });
@@ -1073,7 +1077,7 @@ mod tests {
         // Replacing the pair rather than each half would leave an empty username here, and the proxy
         // would answer 407 with nothing to explain it.
         let config = proxy_config(|args| {
-            args.proxy = String::from("http://url-user:url-secret@proxy.corp:3128");
+            args.proxy = "http://url-user:url-secret@proxy.corp:3128".into();
             args.proxy_password = "option-secret".into();
         });
 
@@ -1086,7 +1090,7 @@ mod tests {
         // These are what a caller inspects before handing them over, and what a panic message or a
         // log line would render.
         let arguments = ClientConfigArgs {
-            proxy: String::from("http://user:url-secret@proxy.corp:3128"),
+            proxy: "http://user:url-secret@proxy.corp:3128".into(),
             proxy_password: "option-secret".into(),
             ..args()
         };
@@ -1096,6 +1100,11 @@ mod tests {
             !rendered.contains("option-secret"),
             "password rendered: {rendered}"
         );
+        // The URL form carries a password too, which is why the whole `proxy` value is a secret.
+        assert!(
+            !rendered.contains("url-secret"),
+            "URL password rendered: {rendered}"
+        );
     }
 
     #[test]
@@ -1103,7 +1112,7 @@ mod tests {
         // A URL can be rejected for having no host, or for a "port" that is really a password
         // whose `@host` part went missing, and still have carried a credential.
         for value in ["http://user:s3cr3t@", "http://admin:hunter2"] {
-            let error = proxy_error(|args| args.proxy = String::from(value));
+            let error = proxy_error(|args| args.proxy = value.into());
             assert!(
                 !error.contains("s3cr3t") && !error.contains("hunter2"),
                 "password echoed for {value:?}: {error}"
@@ -1116,7 +1125,7 @@ mod tests {
         // The `CONNECT` handshake goes out unencrypted, so a proxy expecting TLS would see gibberish.
         // Accepting the URL and failing at connect time would report it as an unreachable proxy.
         for value in ["https://proxy.corp:3128", "socks5://proxy.corp:1080"] {
-            let error = proxy_error(|args| args.proxy = String::from(value));
+            let error = proxy_error(|args| args.proxy = value.into());
             assert!(error.contains("only an `http` proxy"), "{value}: {error}");
         }
     }
@@ -1126,7 +1135,7 @@ mod tests {
         // Reporting these through the endpoint's URI error would send whoever reads it looking at the
         // wrong setting.
         for value in ["http:///no-host", "http://", "http://:3128", "://"] {
-            let error = proxy_error(|args| args.proxy = String::from(value));
+            let error = proxy_error(|args| args.proxy = value.into());
             assert!(
                 error.contains("is not a valid proxy URL"),
                 "unexpected error for {value:?}: {error}"
@@ -1144,7 +1153,7 @@ mod tests {
             "proxy.corp:31z8",
             "http://admin:hunter2",
         ] {
-            let error = proxy_error(|args| args.proxy = String::from(value));
+            let error = proxy_error(|args| args.proxy = value.into());
             assert!(
                 error.contains("does not name a valid port"),
                 "unexpected error for {value:?}: {error}"
@@ -1156,7 +1165,7 @@ mod tests {
     fn an_ipv6_proxy_is_accepted_with_and_without_a_port() {
         // The port check must not mistake the colons of an IPv6 literal for an invalid port.
         for (value, port) in [("http://[::1]:3128", Some(3128)), ("http://[::1]", None)] {
-            let config = proxy_config(|args| args.proxy = String::from(value));
+            let config = proxy_config(|args| args.proxy = value.into());
             let ProxySource::Explicit(uri) = &config.proxy.source else {
                 panic!("expected an explicit proxy for {value:?}");
             };
