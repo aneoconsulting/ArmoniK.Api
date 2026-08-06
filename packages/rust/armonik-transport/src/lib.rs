@@ -11,7 +11,7 @@ mod utils;
 
 pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
 pub use connect::{connect, https_connector, ConnectionError};
-pub use proxy::{ProxyConfig, ProxySource};
+pub use proxy::{ProxyConfig, ProxyError, ProxySource};
 // The password's own type, so a caller can build a `ProxyConfig` without declaring a dependency on
 // the `secrecy` crate this one happens to use.
 pub use secrecy::SecretString;
