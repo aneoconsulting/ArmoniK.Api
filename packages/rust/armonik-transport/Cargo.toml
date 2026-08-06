@@ -23,9 +23,12 @@ hyper = { workspace = true, features = ["client", "http1", "http2"] }
 # `client-legacy` for `HttpConnector` and for the `Tunnel` connector that performs the `CONNECT`
 # handshake; `tokio` for `TokioIo` and the runtime side of both. Each is named here even though
 # `hyper-rustls` happens to turn it on: depending on that would break the day it stops.
+# `client-proxy` for the proxy matcher: the `*_PROXY` convention, `NO_PROXY` on curl's rules, and
+# taking credentials out of a proxy URL, none of which is worth writing again here.
 hyper-util = { workspace = true, features = [
   "client",
   "client-legacy",
+  "client-proxy",
   "http1",
   "tokio",
 ] }

@@ -112,6 +112,13 @@ fn direct(endpoint: &str) -> ClientConfig {
     common::config(endpoint, |_| {})
 }
 
+/// The same client, following the environment.
+fn following_the_environment(endpoint: &str) -> ClientConfig {
+    let mut config = common::config(endpoint, |_| {});
+    config.proxy = ProxyConfig::system();
+    config
+}
+
 /// Connect and make one call, returning what the server answered.
 async fn call_through(config: ClientConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
     let channel = armonik_transport::connect(config).await?;
@@ -269,6 +276,116 @@ async fn no_proxy_is_used_when_proxying_is_disabled() {
         "the proxy must not be involved when it is disabled"
     );
     let _ = proxy;
+}
+
+// --- what the environment decides, through the real connector ---
+//
+// `hyper_util`'s matcher does the reading; these pin how this crate maps its configuration onto it,
+// which is ours to get right. They set process-wide variables, hence `serial`.
+
+#[tokio::test]
+#[serial_test::serial(env)]
+async fn system_mode_takes_the_proxy_from_the_environment() {
+    let server = spawn_server().await;
+    let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
+
+    // The variable has to still be set when `connect` runs, not merely when the configuration is
+    // built: `system` resolves the environment as the connection is made.
+    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
+    let outcome = call_through(following_the_environment(&server)).await;
+    std::env::remove_var("HTTP_PROXY");
+
+    assert_eq!(
+        outcome.expect("the call should go through the proxy the environment names"),
+        common::REPLY
+    );
+    assert_eq!(tunnels.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+#[serial_test::serial(env)]
+async fn no_proxy_bypasses_the_proxy_in_system_mode() {
+    let server = spawn_server().await;
+    let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
+
+    std::env::set_var("HTTP_PROXY", format!("http://{proxy}"));
+    std::env::set_var("NO_PROXY", "127.0.0.1");
+    let outcome = call_through(following_the_environment(&server)).await;
+    std::env::remove_var("HTTP_PROXY");
+    std::env::remove_var("NO_PROXY");
+
+    assert_eq!(outcome.expect("a direct call succeeds"), common::REPLY);
+    assert_eq!(
+        tunnels.load(Ordering::SeqCst),
+        0,
+        "NO_PROXY named the target, so the proxy must not have been used"
+    );
+}
+
+#[tokio::test]
+#[serial_test::serial(env)]
+async fn no_proxy_does_not_apply_to_an_explicitly_configured_proxy() {
+    let server = spawn_server().await;
+    let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
+
+    // `NO_PROXY` belongs to the same environment convention as `HTTP_PROXY`, so it governs `system`
+    // only. ArmoniK's other clients give an explicitly named proxy an empty bypass list, and diverging
+    // would mean a request skipping the proxy here while using it there.
+    std::env::set_var("NO_PROXY", "127.0.0.1");
+    let outcome = call_through(through_proxy(&server, proxy, None)).await;
+    std::env::remove_var("NO_PROXY");
+
+    assert_eq!(
+        outcome.expect("an explicit proxy is used whatever NO_PROXY says"),
+        common::REPLY
+    );
+    assert_eq!(tunnels.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+#[serial_test::serial(env)]
+async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carried() {
+    // A dedicated half alone must not discard the other half of whatever the intercepted proxy
+    // URL carried: setting only the password while `HTTP_PROXY` names a username must still send
+    // that username, paired with the new password, not an empty one.
+    let server = spawn_server().await;
+    // The base64 of `url-user:new`, what the client is expected to send once the two are merged.
+    let (proxy, tunnels) = spawn_proxy(ProxyAuth::Required("dXJsLXVzZXI6bmV3")).await;
+
+    std::env::set_var("HTTP_PROXY", format!("http://url-user:old@{proxy}"));
+    let mut config = direct(&server);
+    config.proxy = ProxyConfig::system().with_credentials("", "new");
+    let outcome = call_through(config).await;
+    std::env::remove_var("HTTP_PROXY");
+
+    assert_eq!(
+        outcome.expect("the merged credentials should satisfy the proxy"),
+        common::REPLY
+    );
+    assert_eq!(
+        tunnels.load(Ordering::SeqCst),
+        1,
+        "a rejection means the URL's username was dropped instead of kept"
+    );
+}
+
+#[tokio::test]
+#[serial_test::serial(env)]
+async fn an_https_proxy_from_the_environment_is_refused_before_dialling() {
+    // `system` resolves at connect time, so that is the only place its scheme can be checked. Dialling
+    // it would write the handshake in the clear to a proxy expecting TLS.
+    let server = spawn_server().await;
+
+    std::env::set_var("HTTP_PROXY", "https://proxy.corp:3128");
+    let outcome = call_through(following_the_environment(&server)).await;
+    std::env::remove_var("HTTP_PROXY");
+
+    let error = error_chain(
+        outcome
+            .expect_err("an https proxy cannot be reached")
+            .as_ref(),
+    );
+    assert!(error.contains("only an `http` proxy"), "{error}");
 }
 
 // --- the handshake is bounded in time ---
