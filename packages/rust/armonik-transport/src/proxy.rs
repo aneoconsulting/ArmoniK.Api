@@ -55,6 +55,7 @@ impl std::fmt::Debug for ProxySource {
     /// is redacted here rather than trusted to have been stripped.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::System => f.write_str("System"),
             Self::Disabled => f.write_str("Disabled"),
             Self::Explicit(uri) => f
                 .debug_tuple("Explicit")
