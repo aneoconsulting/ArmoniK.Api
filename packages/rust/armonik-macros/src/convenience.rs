@@ -16,7 +16,8 @@
 //! order, widened per sugar class (`String`/`Bytes` → `impl Into`, `Vec<T>` →
 //! `impl IntoIterator<Item = impl Into<T>>`, `HashMap<K, V>` → pair iterators,
 //! `filter::Or` → nested iterators); the body is `self.call(request)` plus
-//! the projection. `manual` on the rpc line opts a method out entirely.
+//! the projection. `manual` on the rpc line opts a method out entirely, and
+//! client-streaming lines are required to carry it.
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};

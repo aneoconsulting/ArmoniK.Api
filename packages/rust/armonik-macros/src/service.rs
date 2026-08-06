@@ -144,6 +144,16 @@ impl Parse for ServiceDef {
             } else {
                 false
             };
+            // A request stream has no single message to spread into parameters,
+            // so no convenience method can be derived. Spelling `manual` out
+            // keeps "no convenience method" readable from the rpc line alone.
+            if let (Some(stream), false) = (&client_stream, manual) {
+                return Err(syn::Error::new_spanned(
+                    stream,
+                    "a client-streaming rpc needs `manual`: its entry point is \
+                     `call_streaming`, and no convenience method is derived",
+                ));
+            }
             input.parse::<Token![;]>()?;
             rpcs.push(RpcDef {
                 method,
@@ -271,10 +281,11 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
 /// The client convenience method of one RPC: an invocation of the request
 /// type's field-reflection callback, continued into `__emit_convenience`,
 /// which builds the method from the fields (see `convenience.rs`).
-/// Client-streaming RPCs and `manual` lines emit nothing — the opt-out for
-/// custom wiring or a wrong sugar default.
+/// `manual` lines emit nothing — the opt-out for custom wiring or a wrong
+/// sugar default. Client-streaming lines are required to carry it (enforced
+/// while parsing), so this one condition covers them too.
 fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<TokenStream> {
-    if entry.kind == CallKind::ClientStream || entry.rpc.manual {
+    if entry.rpc.manual {
         return Ok(TokenStream::new());
     }
 

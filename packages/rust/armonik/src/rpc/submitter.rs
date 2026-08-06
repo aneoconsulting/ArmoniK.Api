@@ -7,7 +7,7 @@ super::service! {
     rpc CreateSession(create_session::Request) -> create_session::Response;
     rpc CancelSession(cancel_session::Request) -> cancel_session::Response => ();
     rpc CreateSmallTasks(create_tasks::SmallRequest) -> create_tasks::Response as create_small_tasks manual;
-    rpc CreateLargeTasks(stream create_tasks::LargeRequest) -> create_tasks::Response as create_large_tasks;
+    rpc CreateLargeTasks(stream create_tasks::LargeRequest) -> create_tasks::Response as create_large_tasks manual;
     rpc ListTasks(list_tasks::Request) -> list_tasks::Response;
     rpc ListSessions(list_sessions::Request) -> list_sessions::Response;
     rpc CountTasks(count_tasks::Request) -> count_tasks::Response => values;
