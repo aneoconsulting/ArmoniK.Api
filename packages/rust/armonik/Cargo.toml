@@ -99,6 +99,10 @@ name = "events"
 required-features = ["client", "server"]
 
 [[test]]
+name = "health_checks"
+required-features = ["client", "server"]
+
+[[test]]
 name = "partitions"
 required-features = ["client", "server"]
 

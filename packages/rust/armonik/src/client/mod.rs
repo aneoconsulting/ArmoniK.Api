@@ -90,46 +90,6 @@ impl Client<tonic::transport::Channel> {
         )
         .await
     }
-
-    #[cfg(test)]
-    async fn get_nb_request(service: &str, rpc: &str) -> usize {
-        use std::collections::HashMap;
-
-        use http_body_util::BodyExt;
-        use hyper_util::rt::TokioExecutor;
-
-        let mut config = ClientConfig::from_env().unwrap();
-
-        match std::env::var("Http__Endpoint") {
-            Ok(value) if !value.is_empty() => {
-                config.endpoint = hyper::Uri::try_from(value).expect("HTTP endpoint");
-            }
-            Ok(_) | Err(std::env::VarError::NotPresent) => {}
-            Err(std::env::VarError::NotUnicode(value)) => {
-                panic!("{value:?} is not a valid unicode string")
-            }
-        }
-
-        let request = hyper::Request::get(format!("{}calls.json", config.endpoint))
-            .body(http_body_util::Empty::<&[u8]>::new())
-            .expect("Request");
-
-        let https = armonik_transport::https_connector(config)
-            .await
-            .expect("Build connection information");
-
-        let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(https);
-
-        let response = client.request(request).await.expect("/calls.json");
-
-        let body = response.collect().await.expect("Response").to_bytes();
-
-        let calls =
-            serde_json::from_slice::<HashMap<String, HashMap<String, usize>>>(body.as_ref())
-                .expect("Invalid JSON request");
-
-        calls[service][rpc]
-    }
 }
 
 /// One borrowed + one owned accessor per service on [`Client`].
