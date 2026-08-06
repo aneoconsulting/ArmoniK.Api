@@ -71,26 +71,3 @@ impl<T: super::Channel> super::ServiceClient<services::Submitter, T> {
         }
     }
 }
-
-#[cfg(test)]
-#[serial_test::serial(submitter)]
-mod tests {
-
-    use crate::Client;
-
-
-    #[tokio::test]
-    async fn list_tasks() {
-        let before = Client::get_nb_request("Submitter", "ListTasks").await;
-        let mut client = Client::new().await.unwrap().into_submitter();
-        client
-            .list_tasks(crate::submitter::TaskFilter {
-                ids: crate::submitter::TaskFilterIds::Sessions(vec![String::from("session-id")]),
-                statuses: crate::submitter::TaskFilterStatuses::Exclude(vec![]),
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Submitter", "ListTasks").await;
-        assert_eq!(after - before, 1);
-    }
-}

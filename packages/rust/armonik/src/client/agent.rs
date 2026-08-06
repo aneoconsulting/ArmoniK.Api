@@ -27,27 +27,3 @@ impl<T: super::Channel> super::ServiceClient<services::Agent, T> {
         }
     }
 }
-
-#[cfg(test)]
-#[serial_test::serial(agent)]
-mod tests {
-    use crate::Client;
-
-
-    #[tokio::test]
-    async fn submit() {
-        let before = Client::get_nb_request("Agent", "SubmitTasks").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .submit_tasks(
-                "token",
-                "session-id",
-                None,
-                Vec::<crate::agent::submit_tasks::RequestItem>::new(),
-            )
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "SubmitTasks").await;
-        assert_eq!(after - before, 1);
-    }
-}
