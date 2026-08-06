@@ -433,11 +433,11 @@ mod schema {
         /// `none` for a direct connection, otherwise the proxy URL, whose scheme has to be
         /// `http`.
         proxy: Option<String>,
-        /// Username for proxy authentication; empty falls back to the username the `Proxy` URL
-        /// carried, if any.
+        /// Username for proxy authentication; mutually exclusive with credentials written into
+        /// the `Proxy` URL.
         proxy_username: Option<String>,
-        /// Password for proxy authentication; empty falls back to the password the `Proxy` URL
-        /// carried, independently of the username.
+        /// Password for proxy authentication; mutually exclusive with credentials written into
+        /// the `Proxy` URL.
         proxy_password: Option<String>,
     }
 
@@ -549,20 +549,31 @@ mod schema {
         max_header_list_size: Option<String>,
     }
 
-    /// Configuration of the HTTP proxy used to reach the endpoint.
+    /// Configuration of the HTTP proxy used to reach the endpoint: one of the two shapes proxy
+    /// credentials arrive in, mirroring [`crate::proxy::ProxyConfig`]'s deserialisation.
     #[derive(schemars::JsonSchema)]
     #[schemars(rename = "ProxyConfig", rename_all = "PascalCase")]
     #[allow(dead_code)]
-    struct ProxyConfigSchema {
-        /// Where to find the proxy: empty or `system` to follow the environment, `none` for a
-        /// direct connection, otherwise the proxy URL, whose scheme has to be `http`.
-        source: Option<String>,
-        /// Username for proxy authentication; empty falls back to the username the proxy URL
-        /// carried, if any.
-        username: Option<String>,
-        /// Password for proxy authentication; empty falls back to the password the proxy URL
-        /// carried, independently of the username.
-        password: Option<String>,
+    enum ProxyConfigSchema {
+        /// A clean proxy URL next to dedicated credential fields.
+        #[schemars(rename_all = "PascalCase")]
+        Fields {
+            /// Where to find the proxy: empty or `system` to follow the environment, `none` for a
+            /// direct connection, otherwise the proxy URL, carrying no credentials, whose scheme
+            /// has to be `http`.
+            source: Option<String>,
+            /// Username for proxy authentication.
+            username: Option<String>,
+            /// Password for proxy authentication.
+            password: Option<String>,
+        },
+        /// A proxy URL that carries its credentials itself, `user:password@` in its authority.
+        #[schemars(rename_all = "PascalCase")]
+        Embedded {
+            /// The proxy URL, credentials included; the dedicated credential fields must stay
+            /// empty.
+            source: String,
+        },
     }
 }
 
@@ -981,51 +992,61 @@ mod tests {
     }
 
     #[test]
-    fn the_dedicated_proxy_options_win_over_the_url() {
-        let config = config(json!({
-            "Endpoint": "http://localhost:5001",
-            "Proxy": "http://url-user:url-secret@proxy.corp:3128",
-            "ProxyUsername": "option-user",
-            "ProxyPassword": "option-secret",
-        }));
+    fn credentials_in_both_the_url_and_the_options_are_rejected() {
+        // Two ways in, not a merge: guessing which half of which source wins turns a mixed
+        // configuration into a silent surprise, so it is refused while it is being read. The
+        // message names both sources and echoes neither value.
+        for dedicated in [
+            json!({"ProxyUsername": "option-user", "ProxyPassword": "option-secret"}),
+            json!({"ProxyPassword": "option-secret"}),
+            json!({"ProxyUsername": "option-user"}),
+        ] {
+            let mut value = json!({
+                "Endpoint": "http://localhost:5001",
+                "Proxy": "http://url-user:url-secret@proxy.corp:3128",
+            });
+            value
+                .as_object_mut()
+                .expect("a JSON object")
+                .extend(dedicated.as_object().expect("a JSON object").clone());
 
-        assert_eq!(config.proxy.username, "option-user");
-        assert_eq!(config.proxy.password.expose_secret(), "option-secret");
-    }
-
-    #[test]
-    fn a_dedicated_password_alone_keeps_the_username_the_url_carried() {
-        // Replacing the pair rather than each half would leave an empty username here, and the
-        // proxy would answer 407 with nothing to explain it.
-        let config = config(json!({
-            "Endpoint": "http://localhost:5001",
-            "Proxy": "http://url-user:url-secret@proxy.corp:3128",
-            "ProxyPassword": "option-secret",
-        }));
-
-        assert_eq!(config.proxy.username, "url-user");
-        assert_eq!(config.proxy.password.expose_secret(), "option-secret");
+            let rendered = error(value);
+            assert!(rendered.contains("set them one way"), "{rendered}");
+            assert!(rendered.contains("ProxyUsername"), "{rendered}");
+            assert!(
+                !rendered.contains("url-secret") && !rendered.contains("option-secret"),
+                "a password is echoed: {rendered}"
+            );
+        }
     }
 
     #[test]
     fn the_configuration_keeps_the_password_out_of_its_debug_output() {
         // `HttpConfig` is `Debug` and holds the password, so a careless `Debug` would put it
-        // anywhere a configuration gets printed.
-        let config = config(json!({
-            "Endpoint": "http://localhost:5001",
-            "Proxy": "http://user:url-secret@proxy.corp:3128",
-            "ProxyPassword": "option-secret",
-        }));
-
-        let rendered = format!("{config:?}");
-        assert!(
-            !rendered.contains("option-secret") && !rendered.contains("url-secret"),
-            "password rendered: {rendered}"
-        );
-        assert!(
-            rendered.contains("user"),
-            "the username is not a secret and stays useful: {rendered}"
-        );
+        // anywhere a configuration gets printed. Both shapes are covered: a URL-carried password
+        // and a dedicated one.
+        for value in [
+            json!({
+                "Endpoint": "http://localhost:5001",
+                "Proxy": "http://user:url-secret@proxy.corp:3128",
+            }),
+            json!({
+                "Endpoint": "http://localhost:5001",
+                "Proxy": "http://proxy.corp:3128",
+                "ProxyUsername": "user",
+                "ProxyPassword": "option-secret",
+            }),
+        ] {
+            let rendered = format!("{:?}", config(value));
+            assert!(
+                !rendered.contains("option-secret") && !rendered.contains("url-secret"),
+                "password rendered: {rendered}"
+            );
+            assert!(
+                rendered.contains("user"),
+                "the username is not a secret and stays useful: {rendered}"
+            );
+        }
     }
 
     #[test]

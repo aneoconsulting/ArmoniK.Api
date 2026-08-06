@@ -87,14 +87,14 @@
       ]
     },
     "ProxyPassword": {
-      "description": "Password for proxy authentication; empty falls back to the password the `Proxy` URL\ncarried, independently of the username.",
+      "description": "Password for proxy authentication; mutually exclusive with credentials written into\nthe `Proxy` URL.",
       "type": [
         "string",
         "null"
       ]
     },
     "ProxyUsername": {
-      "description": "Username for proxy authentication; empty falls back to the username the `Proxy` URL\ncarried, if any.",
+      "description": "Username for proxy authentication; mutually exclusive with credentials written into\nthe `Proxy` URL.",
       "type": [
         "string",
         "null"

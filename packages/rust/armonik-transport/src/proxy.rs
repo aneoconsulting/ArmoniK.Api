@@ -266,16 +266,12 @@ struct RawProxy {
     /// client understands; other casings are accepted here but not everywhere.
     #[serde(rename = "Proxy", deserialize_with = "crate::config::text")]
     source: String,
-    /// Username for proxy authentication.
-    ///
-    /// Empty falls back to the username the `Proxy` URL carried, if any.
+    /// Username for proxy authentication. Mutually exclusive with credentials written into the
+    /// `Proxy` URL.
     #[serde(rename = "ProxyUsername", deserialize_with = "crate::config::text")]
     username: String,
-    /// Password for proxy authentication.
-    ///
-    /// Empty falls back to the password the `Proxy` URL carried, independently of the username, so
-    /// setting this one alone still uses that URL's username. Redacted by `Debug` and zeroized on
-    /// drop.
+    /// Password for proxy authentication. Mutually exclusive with credentials written into the
+    /// `Proxy` URL. Redacted by `Debug` and zeroized on drop.
     #[serde(
         rename = "ProxyPassword",
         deserialize_with = "crate::config::secret_text"
@@ -283,14 +279,71 @@ struct RawProxy {
     password: SecretString,
 }
 
+/// The two shapes proxy credentials arrive in, the same way a TLS identity has its own
+/// [`crate::tls_config::IdentitySource`] shapes; the structured schema mirrors this as a `oneOf`.
+///
+/// A value that fits neither shape, a URL carrying credentials next to non-empty dedicated
+/// fields, is refused rather than merged: guessing which half of which source wins would turn a
+/// mixed configuration into a silent surprise.
+#[cfg(feature = "serde")]
+enum ProxyShape {
+    /// A clean URL (or `system`/`none`/empty) next to dedicated credential fields.
+    Fields {
+        config: ProxyConfig,
+        username: String,
+        password: SecretString,
+    },
+    /// A URL that carries its credentials itself.
+    Embedded { config: ProxyConfig },
+}
+
+#[cfg(feature = "serde")]
+impl ProxyShape {
+    /// Which shape `raw` fits, if any. `parse_proxy_source` moves any URL credentials into the
+    /// config's fields, so a non-empty field there means the URL carried some.
+    fn classify(raw: RawProxy) -> Result<Self, crate::config::ConfigError> {
+        use crate::config::IncompatibleOptionsSnafu;
+
+        let config = parse_proxy_source(&raw.source)?;
+        let url_carried =
+            !config.username.is_empty() || !config.password.expose_secret().is_empty();
+        let dedicated = !raw.username.is_empty() || !raw.password.expose_secret().is_empty();
+        match (url_carried, dedicated) {
+            (true, true) => IncompatibleOptionsSnafu {
+                msg: String::from(
+                    "credentials are set both inside the `Proxy` URL and through \
+                     `ProxyUsername`/`ProxyPassword`; set them one way",
+                ),
+            }
+            .fail(),
+            (true, false) => Ok(Self::Embedded { config }),
+            (false, _) => Ok(Self::Fields {
+                config,
+                username: raw.username,
+                password: raw.password,
+            }),
+        }
+    }
+
+    /// The configuration either shape describes.
+    fn resolve(self) -> ProxyConfig {
+        match self {
+            Self::Embedded { config } => config,
+            Self::Fields {
+                config,
+                username,
+                password,
+            } => config.with_credentials(username, password),
+        }
+    }
+}
+
 #[cfg(feature = "serde")]
 impl TryFrom<RawProxy> for ProxyConfig {
     type Error = crate::config::ConfigError;
 
     fn try_from(raw: RawProxy) -> Result<Self, Self::Error> {
-        // A dedicated credential half wins over the URL's; `with_credentials` leaves an empty
-        // half to what the URL carried.
-        Ok(parse_proxy_source(&raw.source)?.with_credentials(raw.username, raw.password))
+        ProxyShape::classify(raw).map(ProxyShape::resolve)
     }
 }
 

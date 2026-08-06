@@ -67,31 +67,67 @@
       ]
     },
     "ProxyConfig": {
-      "description": "Configuration of the HTTP proxy used to reach the endpoint.",
-      "properties": {
-        "Password": {
-          "description": "Password for proxy authentication; empty falls back to the password the proxy URL\ncarried, independently of the username.",
-          "type": [
-            "string",
-            "null"
-          ]
+      "description": "Configuration of the HTTP proxy used to reach the endpoint: one of the two shapes proxy\ncredentials arrive in, mirroring [`crate::proxy::ProxyConfig`]'s deserialisation.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "A clean proxy URL next to dedicated credential fields.",
+          "properties": {
+            "Fields": {
+              "properties": {
+                "Password": {
+                  "description": "Password for proxy authentication.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "Source": {
+                  "description": "Where to find the proxy: empty or `system` to follow the environment, `none` for a\ndirect connection, otherwise the proxy URL, carrying no credentials, whose scheme\nhas to be `http`.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "Username": {
+                  "description": "Username for proxy authentication.",
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "Fields"
+          ],
+          "type": "object"
         },
-        "Source": {
-          "description": "Where to find the proxy: empty or `system` to follow the environment, `none` for a\ndirect connection, otherwise the proxy URL, whose scheme has to be `http`.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "Username": {
-          "description": "Username for proxy authentication; empty falls back to the username the proxy URL\ncarried, if any.",
-          "type": [
-            "string",
-            "null"
-          ]
+        {
+          "additionalProperties": false,
+          "description": "A proxy URL that carries its credentials itself, `user:password@` in its authority.",
+          "properties": {
+            "Embedded": {
+              "properties": {
+                "Source": {
+                  "description": "The proxy URL, credentials included; the dedicated credential fields must stay\nempty.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "Source"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Embedded"
+          ],
+          "type": "object"
         }
-      },
-      "type": "object"
+      ]
     },
     "TcpConfig": {
       "description": "TCP-level socket options.",
