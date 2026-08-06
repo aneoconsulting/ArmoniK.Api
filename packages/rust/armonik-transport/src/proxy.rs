@@ -12,7 +12,7 @@ use hyper::Uri;
 use secrecy::{ExposeSecret, SecretString};
 
 /// Where to find the HTTP proxy used to reach the endpoint.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ProxySource {
     /// Connect directly.
@@ -22,6 +22,50 @@ pub enum ProxySource {
     Disabled,
     /// Use this specific proxy.
     Explicit(Uri),
+}
+
+impl std::fmt::Debug for ProxySource {
+    /// Hand written because the variant is public: a caller can put a credential-bearing URI into
+    /// `Explicit` directly, and `Debug` output reaches logs, so the password half of any userinfo
+    /// is redacted here rather than trusted to have been stripped.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Disabled => f.write_str("Disabled"),
+            Self::Explicit(uri) => f
+                .debug_tuple("Explicit")
+                .field(&format_args!("{}", RedactedUri(uri)))
+                .finish(),
+        }
+    }
+}
+
+/// Renders a URI with the password half of any userinfo replaced by `<redacted>`.
+///
+/// Purely textual, so it cannot fail and holds even for authorities that would not survive a
+/// round trip through the URI builder.
+struct RedactedUri<'a>(&'a Uri);
+
+impl std::fmt::Display for RedactedUri<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let uri = self.0;
+        // The last `@`, because a password may contain a literal one.
+        let userinfo = uri
+            .authority()
+            .and_then(|authority| authority.as_str().rsplit_once('@'));
+        let Some((userinfo, host)) = userinfo else {
+            return write!(f, "{uri}");
+        };
+        // A userinfo without `:` carries no password, and a username is not a secret.
+        let Some((username, _password)) = userinfo.split_once(':') else {
+            return write!(f, "{uri}");
+        };
+
+        if let Some(scheme) = uri.scheme_str() {
+            write!(f, "{scheme}://")?;
+        }
+        let path = uri.path_and_query().map_or("", |path| path.as_str());
+        write!(f, "{username}:<redacted>@{host}{path}")
+    }
 }
 
 /// Configuration of the HTTP proxy used to reach the endpoint.
@@ -289,6 +333,37 @@ mod tests {
             rendered.contains("user"),
             "the username is not a secret and stays useful: {rendered}"
         );
+    }
+
+    #[test]
+    fn a_credentialed_uri_installed_by_hand_is_redacted_in_debug_output() {
+        // `#[non_exhaustive]` does not prevent building the variant directly, so `Debug` cannot
+        // assume the constructor's stripping ran before the value is logged.
+        let source = ProxySource::Explicit(
+            Uri::try_from("http://user:s3cr3t@proxy.corp:3128").expect("uri"),
+        );
+
+        let rendered = format!("{source:?}");
+        assert!(
+            !rendered.contains("s3cr3t"),
+            "password rendered: {rendered}"
+        );
+        assert!(
+            rendered.contains("user") && rendered.contains("proxy.corp:3128"),
+            "the username and the host are not secrets and stay useful: {rendered}"
+        );
+    }
+
+    #[test]
+    fn a_uri_without_a_password_is_rendered_verbatim_in_debug_output() {
+        for value in ["http://proxy.corp:3128/", "http://user@proxy.corp:3128/"] {
+            let source = ProxySource::Explicit(Uri::try_from(value).expect("uri"));
+            let rendered = format!("{source:?}");
+            assert!(
+                rendered.contains(value),
+                "{value} carries no password and should be rendered as written: {rendered}"
+            );
+        }
     }
 
     #[test]
