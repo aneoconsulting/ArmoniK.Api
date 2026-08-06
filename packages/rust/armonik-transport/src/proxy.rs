@@ -14,6 +14,7 @@ use hyper::http::uri::Scheme;
 use hyper::http::HeaderValue;
 use hyper::Uri;
 use hyper_util::client::legacy::connect::proxy::Tunnel;
+use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::TokioIo;
 use secrecy::{ExposeSecret, SecretString};
 use snafu::{IntoError, Snafu};
@@ -32,12 +33,19 @@ const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 #[derive(Clone, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ProxySource {
-    /// Connect directly.
+    /// Read the proxy from the environment, on `hyper_util`'s rules: `ALL_PROXY`, `HTTPS_PROXY`,
+    /// `HTTP_PROXY` and `NO_PROXY`, in either case, with `NO_PROXY` matched as curl matches it.
     ///
-    /// The default: a client that asks for nothing connects directly.
+    /// The default, as it is for ArmoniK's C# client: a client that asks for nothing follows the
+    /// environment, and connects directly when the environment names no proxy.
+    ///
+    /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
+    /// started with.
     #[default]
+    System,
+    /// Connect directly, ignoring any proxy configured in the environment.
     Disabled,
-    /// Use this specific proxy.
+    /// Use this specific proxy, whatever the environment says: `NO_PROXY` does not apply to it.
     Explicit(Uri),
 }
 
@@ -47,6 +55,7 @@ impl std::fmt::Debug for ProxySource {
     /// is redacted here rather than trusted to have been stripped.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::System => f.write_str("System"),
             Self::Disabled => f.write_str("Disabled"),
             Self::Explicit(uri) => f
                 .debug_tuple("Explicit")
@@ -121,9 +130,17 @@ impl ProxyConfig {
         }
     }
 
-    /// Connect directly.
-    pub fn disabled() -> Self {
+    /// Read the proxy from the environment.
+    pub fn system() -> Self {
         Self::default()
+    }
+
+    /// Connect directly, ignoring any proxy configured in the environment.
+    pub fn disabled() -> Self {
+        Self {
+            source: ProxySource::Disabled,
+            ..Self::default()
+        }
     }
 
     /// Attach credentials for proxy authentication.
@@ -147,26 +164,49 @@ impl ProxyConfig {
         self
     }
 
-    /// The route every connection through this configuration takes.
+    /// The route every connection takes when it does not depend on the target: everything but
+    /// `System`, which reads the environment per connection and answers `None` here.
     ///
     /// Resolved from the fields as they are, not as a constructor left them: an `Explicit` URI is
     /// stripped of any userinfo even when it bypassed [`ProxyConfig::explicit`], so a password
     /// never reaches a log line or an error display through the URI.
-    pub(crate) fn fixed_route(&self) -> RouteResult {
+    pub(crate) fn fixed_route(&self) -> Option<RouteResult> {
         match &self.source {
-            ProxySource::Disabled => Ok(None),
+            ProxySource::System => None,
+            ProxySource::Disabled => Some(Ok(None)),
             // Straight through, whatever the target looks like: the caller named this proxy, so
             // failing to reach it has to be an error rather than a quiet direct connection.
             ProxySource::Explicit(uri) => {
                 let (uri, credentials) = split_credentials(uri.clone());
                 let (username, password) = credentials.unwrap_or_default();
-                match uri {
-                    Ok(uri) => self.finish_route(uri, username, password),
+                Some(match uri {
+                    Ok(uri) => self.finish_route(uri, username, password, None),
                     // No sanitized form exists, and the original must not come back: it is the
                     // one URI that still holds the password.
                     Err(elided) => Err(elided),
-                }
+                })
             }
+        }
+    }
+
+    /// The route to `target` when the environment decides, `Ok(None)` for a direct connection.
+    fn env_route(&self, matcher: &Matcher, target: &Uri) -> RouteResult {
+        let Some(intercept) = matcher.intercept(target) else {
+            return Ok(None);
+        };
+        // The matcher takes credentials out of the proxy URL itself; anything it left behind (a
+        // malformed URL with several `@`) is stripped here so it never renders.
+        let (uri, _leftovers) = split_credentials(intercept.uri().clone());
+        match uri {
+            Ok(uri) => self.finish_route(
+                uri,
+                String::new(),
+                String::new(),
+                intercept.basic_auth().cloned(),
+            ),
+            // No sanitized form exists, and the original must not come back: it is the one URI
+            // that still holds the password.
+            Err(elided) => Err(elided),
         }
     }
 
@@ -177,17 +217,32 @@ impl ProxyConfig {
         proxy_uri: Uri,
         url_username: String,
         url_password: String,
+        ready_auth: Option<HeaderValue>,
     ) -> RouteResult {
         if proxy_uri.scheme() != Some(&Scheme::HTTP) {
             return Err(proxy_uri);
         }
 
-        // A dedicated half wins; the other half falls back to the URL's, so setting only the
-        // password keeps the username the URL carried.
-        let username = prefer_dedicated(&self.username, &url_username);
-        let password = prefer_dedicated(self.password.expose_secret(), &url_password);
-        let auth = (!username.is_empty() || !password.is_empty())
-            .then(|| basic_auth_header(username, password));
+        let auth = if self.username.is_empty() && self.password.expose_secret().is_empty() {
+            // Nothing to merge: what the URL carried is used as is. For `system` that is the
+            // header the matcher already built, sensitive flag included.
+            match ready_auth {
+                Some(header) => Some(header),
+                None if url_username.is_empty() && url_password.is_empty() => None,
+                None => Some(basic_auth_header(&url_username, &url_password)),
+            }
+        } else {
+            // A dedicated half wins; the other half falls back to the URL's, so setting only the
+            // password keeps the username the URL carried. `Basic` forbids `:` in the username
+            // (RFC 7617), which is what makes decoding the matcher's header unambiguous.
+            let (url_username, url_password) = match ready_auth.as_ref() {
+                Some(header) => decode_basic_auth(header),
+                None => (url_username, url_password),
+            };
+            let username = prefer_dedicated(&self.username, &url_username);
+            let password = prefer_dedicated(self.password.expose_secret(), &url_password);
+            Some(basic_auth_header(username, password))
+        };
 
         Ok(Some((proxy_uri, auth)))
     }
@@ -207,6 +262,7 @@ pub(crate) type RouteResult = Result<Option<(Uri, Option<HeaderValue>)>, Uri>;
 #[derive(Debug, Clone)]
 pub struct ProxyConnector<S> {
     inner: S,
+    proxy: ProxyConfig,
     prepared: Prepared,
     /// Upper bound on the tunnel handshake alone; the dial to the proxy is the inner connector's,
     /// bounded by its own connect timeout.
@@ -226,6 +282,10 @@ enum Prepared {
     },
     /// Refuse every connection: this proxy's scheme cannot carry the cleartext handshake.
     Unsupported(Uri),
+    /// Resolve per connection: the environment's rules, read once here so a channel that
+    /// reconnects keeps the values it started with. Behind an `Arc` because a `tower` connector is
+    /// cloned per connection and `Matcher` is not `Clone`.
+    PerCall(std::sync::Arc<Matcher>),
 }
 
 impl<S> ProxyConnector<S> {
@@ -236,12 +296,14 @@ impl<S> ProxyConnector<S> {
     /// accepts the connection and then goes quiet from hanging the client.
     pub(crate) fn new(inner: S, proxy: ProxyConfig, connect_timeout: Option<Duration>) -> Self {
         let prepared = match proxy.fixed_route() {
-            Ok(None) => Prepared::Direct,
-            Ok(Some((uri, auth))) => Prepared::Via { proxy: uri, auth },
-            Err(unsupported) => Prepared::Unsupported(unsupported),
+            None => Prepared::PerCall(std::sync::Arc::new(Matcher::from_env())),
+            Some(Ok(None)) => Prepared::Direct,
+            Some(Ok(Some((uri, auth)))) => Prepared::Via { proxy: uri, auth },
+            Some(Err(unsupported)) => Prepared::Unsupported(unsupported),
         };
         Self {
             inner,
+            proxy,
             prepared,
             handshake_timeout: connect_timeout.unwrap_or(DEFAULT_HANDSHAKE_TIMEOUT),
         }
@@ -264,20 +326,24 @@ where
     }
 
     fn call(&mut self, target: Uri) -> Self::Future {
-        let (proxy_uri, auth) = match &self.prepared {
-            // Nothing to tunnel through: keep the original behaviour untouched.
-            Prepared::Direct => {
-                let future = self.inner.call(target);
-                return Box::pin(async move { future.await.map_err(Into::into) });
-            }
-            Prepared::Via { proxy, auth } => (proxy.clone(), auth.clone()),
-            Prepared::Unsupported(proxy) => {
-                let error = UnsupportedProxySnafu {
-                    proxy: proxy.clone(),
-                }
-                .build();
+        let route = match &self.prepared {
+            Prepared::Direct => Ok(None),
+            Prepared::Via { proxy, auth } => Ok(Some((proxy.clone(), auth.clone()))),
+            Prepared::Unsupported(proxy) => Err(proxy.clone()),
+            Prepared::PerCall(matcher) => self.proxy.env_route(matcher, &target),
+        };
+        let route = match route {
+            Ok(route) => route,
+            Err(proxy) => {
+                let error = UnsupportedProxySnafu { proxy }.build();
                 return Box::pin(std::future::ready(Err(error.into())));
             }
+        };
+
+        // Nothing to tunnel through: keep the original behaviour untouched.
+        let Some((proxy_uri, auth)) = route else {
+            let future = self.inner.call(target);
+            return Box::pin(async move { future.await.map_err(Into::into) });
         };
 
         // Dial the proxy with the inner connector, so a failure to reach it is classified by
@@ -440,6 +506,28 @@ fn basic_auth_header(username: &str, password: &str) -> HeaderValue {
     value
 }
 
+/// The username and password a `Basic` `Proxy-Authorization` value carries.
+///
+/// The inverse of [`basic_auth_header`], needed only when a dedicated credential half has to merge
+/// with what a proxy URL carried. The split is at the first `:`, which RFC 7617 makes unambiguous
+/// by forbidding `:` in the username. Malformed input, which `hyper_util` itself never produces,
+/// decodes as an empty pair rather than panicking: worst case a proxy that needed credentials
+/// rejects the tunnel, which is what an absent value already does.
+fn decode_basic_auth(value: &HeaderValue) -> (String, String) {
+    let encoded = value
+        .to_str()
+        .unwrap_or_default()
+        .trim_start_matches("Basic ");
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .unwrap_or_default();
+    let decoded = String::from_utf8_lossy(&decoded).into_owned();
+    match decoded.split_once(':') {
+        Some((user, password)) => (user.to_owned(), password.to_owned()),
+        None => (decoded, String::new()),
+    }
+}
+
 /// Prefer `dedicated` unless it is empty, in which case fall back to `from_url`.
 ///
 /// A dedicated username or password set alone must not discard the other half of whatever the
@@ -510,9 +598,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_default_is_a_direct_connection() {
-        assert_eq!(ProxySource::default(), ProxySource::Disabled);
-        assert_eq!(ProxyConfig::default().source, ProxySource::Disabled);
+    fn the_default_source_follows_the_environment() {
+        // The same default as ArmoniK's C# client: unset means the environment decides.
+        assert_eq!(ProxySource::default(), ProxySource::System);
+        assert_eq!(ProxyConfig::default().source, ProxySource::System);
     }
 
     #[test]
@@ -669,7 +758,12 @@ mod tests {
 
     #[test]
     fn disabled_routes_directly() {
-        assert_eq!(ProxyConfig::disabled().fixed_route(), Ok(None));
+        assert_eq!(ProxyConfig::disabled().fixed_route(), Some(Ok(None)));
+    }
+
+    #[test]
+    fn system_resolves_per_connection_rather_than_at_construction() {
+        assert_eq!(ProxyConfig::system().fixed_route(), None);
     }
 
     #[test]
@@ -687,6 +781,7 @@ mod tests {
 
         let (uri, auth) = config
             .fixed_route()
+            .expect("a source fixed at construction")
             .expect("routing should succeed")
             .expect("an explicit proxy routes through it");
 
@@ -702,7 +797,7 @@ mod tests {
 
         assert_eq!(
             config.fixed_route(),
-            Err(uri),
+            Some(Err(uri)),
             "the route should carry the refused proxy back"
         );
     }
@@ -732,6 +827,7 @@ mod tests {
             );
             let refused = config
                 .fixed_route()
+                .expect("a source fixed at construction")
                 .expect_err("nothing sane to route through");
             assert!(!refused.to_string().contains("s3cr3t"), "leaked: {refused}");
         }
@@ -742,6 +838,7 @@ mod tests {
         let config = ProxyConfig::explicit(Uri::try_from("http://proxy.corp:3128").expect("uri"));
         let (_, auth) = config
             .fixed_route()
+            .expect("a source fixed at construction")
             .expect("routing should succeed")
             .expect("an explicit proxy routes through it");
         assert_eq!(auth, None);
