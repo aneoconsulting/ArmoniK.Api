@@ -438,8 +438,10 @@ pub fn __emit_reflect(input: TokenStream) -> TokenStream {
 ///   [Projection](#projection).
 /// - `manual` emits no convenience method — the opt-out for custom wiring or
 ///   a wrong mechanical default (e.g. `worker::Process`, whose request would
-///   explode into nine parameters). Client-streaming RPCs are always manual:
-///   their entry point is `call_streaming`.
+///   explode into nine parameters). Client-streaming RPCs are *required* to
+///   carry it: a request stream has no single message to spread into
+///   parameters, so nothing can be derived, and the entry point is
+///   `call_streaming`.
 ///
 /// # What one invocation emits
 ///
