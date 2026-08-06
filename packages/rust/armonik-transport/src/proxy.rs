@@ -381,7 +381,9 @@ pub enum ProxyError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display("The proxy requires authentication; configure proxy credentials [{location}]"))]
+    #[snafu(display(
+        "The proxy requires authentication; configure proxy credentials [{location}]"
+    ))]
     #[non_exhaustive]
     AuthenticationRequired {
         #[snafu(implicit)]
@@ -599,7 +601,10 @@ mod tests {
             .with_credentials("user", "s3cr3t");
 
         let rendered = format!("{config:?}");
-        assert!(!rendered.contains("s3cr3t"), "password rendered: {rendered}");
+        assert!(
+            !rendered.contains("s3cr3t"),
+            "password rendered: {rendered}"
+        );
         assert!(
             rendered.contains("user"),
             "the username is not a secret and stays useful: {rendered}"
