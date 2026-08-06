@@ -49,7 +49,7 @@ async fn no_timeout_lets_a_slow_call_finish() {
         .expect("connecting should succeed");
 
     let answer = call(channel).await.expect("the call should complete");
-    assert_eq!(answer.as_ref(), b"late");
+    assert_eq!(answer.as_ref(), common::REPLY);
 }
 
 #[tokio::test]
@@ -69,7 +69,7 @@ async fn a_rate_limit_is_accepted_and_still_lets_calls_through() {
             .await
             .expect("the call should complete")
             .as_ref(),
-        b"late"
+        common::REPLY
     );
 }
 
