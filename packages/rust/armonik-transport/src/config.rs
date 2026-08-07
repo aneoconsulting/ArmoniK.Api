@@ -3,10 +3,10 @@
 //! [`HttpConfig`] is plain data: every field is typed, public, and buildable by hand. Under the
 //! `serde` feature it also deserialises directly from a flat document of `PascalCase` options
 //! (`Endpoint`, `TcpKeepalive`, `Http2KeepAliveInterval`, ...), the same vocabulary every ArmoniK
-//! client reads; the thematic groups ([`TlsConfig`], [`TcpConfig`], [`Http2Config`]) flatten back
-//! into those names, so grouping the fields changes no option a deployment already sets. The
-//! `schema` feature describes that same vocabulary as a JSON schema, derived from the types that
-//! define it rather than written out a second time.
+//! client reads; the thematic groups ([`TlsConfig`], [`TcpConfig`], [`Http2Config`],
+//! [`RetryConfig`]) flatten back into those names, so grouping the fields changes no option a
+//! deployment already sets. The `schema` feature describes that same vocabulary as a JSON schema,
+//! derived from the types that define it rather than written out a second time.
 
 use std::time::Duration;
 
@@ -15,6 +15,7 @@ use snafu::Snafu;
 
 use crate::http2_config::Http2Config;
 use crate::proxy::ProxyConfig;
+use crate::retry_config::RetryConfig;
 use crate::tcp_config::TcpConfig;
 use crate::tls_config::TlsConfig;
 
@@ -47,6 +48,13 @@ embed_prefixed!(
     crate::http2_config::Http2Config,
     crate::http2_config::Http2Config,
     "Http2"
+);
+#[cfg(feature = "serde")]
+embed_prefixed!(
+    retry,
+    crate::retry_config::RetryConfig,
+    crate::retry_config::RawRetry,
+    ""
 );
 
 /// Options for creating a gRPC client.
@@ -108,6 +116,17 @@ pub struct HttpConfig {
     )]
     #[cfg_attr(feature = "schema", schemars(schema_with = "http2::schema"))]
     pub http2: Http2Config,
+    /// How a failed request is replayed, read under no prefix (`MaxAttempts`, `InitialBackOff`,
+    /// ...).
+    ///
+    /// Applied by whoever makes the calls: a channel carries no notion of a call, so nothing in
+    /// `connect` reads it.
+    #[cfg_attr(
+        feature = "serde",
+        serde(flatten, deserialize_with = "retry::deserialize")
+    )]
+    #[cfg_attr(feature = "schema", schemars(schema_with = "retry::schema"))]
+    pub retry: RetryConfig,
     /// User-Agent header value sent with each request. `UserAgent`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "user_agent"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
@@ -130,6 +149,7 @@ impl Default for HttpConfig {
             rate_limit: None,
             tcp: TcpConfig::default(),
             http2: Http2Config::default(),
+            retry: RetryConfig::default(),
             user_agent: None,
             proxy: ProxyConfig::default(),
         }
@@ -382,6 +402,10 @@ mod tests {
             "TcpKeepalive": "",
             "TcpKeepaliveRetries": "",
             "UserAgent": "",
+            "MaxAttempts": "",
+            "InitialBackOff": "",
+            "MaxBackOff": "",
+            "BackOffMultiplier": "",
         }));
 
         assert_eq!(config.connect_timeout, Some(DEFAULT_CONNECT_TIMEOUT));
@@ -390,6 +414,7 @@ mod tests {
         assert_eq!(config.tcp.keepalive, None);
         assert_eq!(config.tcp.keepalive_retries, None);
         assert_eq!(config.user_agent, None);
+        assert_eq!(config.retry, RetryConfig::default());
     }
 
     // --- durations and numbers ---
@@ -442,6 +467,9 @@ mod tests {
             ("Http2MaxHeaderListSize", "many"),
             ("TcpNagleAlgorithm", "perhaps"),
             ("Http2KeepAliveWhileIdle", "perhaps"),
+            ("MaxAttempts", "many"),
+            ("InitialBackOff", "a while"),
+            ("BackOffMultiplier", "twice"),
         ] {
             let rendered = error(json!({
                 "Endpoint": "http://localhost:5001",
@@ -782,5 +810,85 @@ mod tests {
 
         assert!(rendered.contains("no/such/identity.p12"), "{rendered}");
         assert!(!rendered.contains("s3cr3t"), "{rendered}");
+    }
+
+    // --- retry ---
+
+    #[test]
+    fn the_retry_options_default_to_what_the_other_clients_do() {
+        let config = config(json!({"Endpoint": "http://localhost:5001"}));
+
+        assert_eq!(config.retry, RetryConfig::default());
+    }
+
+    #[test]
+    fn each_retry_option_is_read() {
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "MaxAttempts": "3",
+            "InitialBackOff": "250ms",
+            "MaxBackOff": "2s",
+            "BackOffMultiplier": "3",
+        }));
+
+        assert_eq!(config.retry.max_attempts, 3);
+        assert_eq!(config.retry.initial_back_off, Duration::from_millis(250));
+        assert_eq!(config.retry.max_back_off, Duration::from_secs(2));
+        assert_eq!(config.retry.back_off_multiplier, 3.0);
+    }
+
+    #[test]
+    fn a_fractional_multiplier_survives_the_trip_through_text() {
+        // The one option that is a real number: reading it as an integer would round the growth
+        // the other clients use down to no growth at all.
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "BackOffMultiplier": "1.5",
+        }));
+
+        assert_eq!(config.retry.back_off_multiplier, 1.5);
+    }
+
+    #[test]
+    fn zero_attempts_is_refused_by_the_option_rather_than_read_as_one() {
+        // `0` and `1` would both mean one try and no replay, so a source that spells `0` means
+        // something the client cannot do and has to hear about it.
+        let rendered = error(json!({
+            "Endpoint": "http://localhost:5001",
+            "MaxAttempts": "0",
+        }));
+
+        assert!(rendered.contains("`MaxAttempts`"), "{rendered}");
+        assert!(rendered.contains("zero"), "{rendered}");
+    }
+
+    #[test]
+    fn a_ceiling_below_the_initial_back_off_is_refused_and_names_both_options() {
+        // Setting one of the two is enough: the other keeps its default, and the pair is what is
+        // wrong, so the message cannot lean on the key a source spelled.
+        for value in [
+            json!({"Endpoint": "http://localhost:5001", "InitialBackOff": "10s"}),
+            json!({"Endpoint": "http://localhost:5001", "MaxBackOff": "500ms"}),
+        ] {
+            let rendered = error(value);
+
+            assert!(rendered.contains("`MaxBackOff`"), "{rendered}");
+            assert!(rendered.contains("`InitialBackOff`"), "{rendered}");
+        }
+    }
+
+    #[test]
+    fn a_ceiling_equal_to_the_initial_back_off_is_a_constant_wait_rather_than_an_error() {
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "InitialBackOff": "2s",
+            "MaxBackOff": "2s",
+            "MaxAttempts": "3",
+        }));
+
+        assert_eq!(
+            config.retry.bounds().collect::<Vec<_>>(),
+            [Duration::from_secs(2); 2]
+        );
     }
 }

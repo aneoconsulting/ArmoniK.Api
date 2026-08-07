@@ -295,6 +295,32 @@ pub(crate) fn optional_u32<'de, D: serde::Deserializer<'de>>(
     }
 }
 
+/// Reads a field whose own type states what it accepts - a real number, an integer that cannot be
+/// zero - empty for `None`. The message quotes the value and the type's own complaint, like
+/// [`bool_option`].
+///
+/// Preferred to a check made once the whole unit is built: the value is refused while the source's
+/// key is still known, so the name comes from the document rather than from a string written next
+/// to the check.
+#[cfg(feature = "serde")]
+pub(crate) fn optional_parsed<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: std::str::FromStr,
+    T::Err: std::fmt::Display,
+{
+    let value = text(deserializer)?;
+    if value.is_empty() {
+        return Ok(None);
+    }
+    match value.parse() {
+        Ok(parsed) => Ok(Some(parsed)),
+        Err(error) => Err(serde::de::Error::custom(format!(
+            "`{value}` is not valid: {error}"
+        ))),
+    }
+}
+
 #[cfg(all(test, feature = "schema"))]
 mod tests {
     use super::schema_with_prefix;
