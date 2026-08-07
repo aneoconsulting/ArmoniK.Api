@@ -13,20 +13,30 @@
 #[cfg(feature = "serde")]
 use std::time::Duration;
 
-/// Everything one embedding of a grouped unit needs: the prefix its options are read under, and a
-/// reader that names the option a source got wrong.
+/// Everything one embedding of a grouped unit needs: the prefix its options are read under, a
+/// reader that names the option a source got wrong, and the unit's schema under the same prefix.
 ///
 /// The prefix is this embedding's to choose, not the unit's to declare: a unit is a plain
 /// collection of fields, and another embedding may compose the same one under a prefix of its own.
+/// Declaring the three together is what keeps them from drifting apart.
+///
+/// `$schema` is separate from `$ty` because a unit built through `TryFrom` describes itself to a
+/// schema in the shape a document writes, not the shape the program keeps.
 ///
 /// Emits a module rather than free functions because `macro_rules!` cannot build an identifier out
-/// of pieces on stable, and takes `$ty` as a full path because names in the body resolve inside
+/// of pieces on stable, and takes its types as full paths because names in the body resolve inside
 /// that module rather than at the call site.
 #[cfg(feature = "serde")]
 macro_rules! embed_prefixed {
-    ($name:ident, $ty:ty, $prefix:literal) => {
+    ($name:ident, $ty:ty, $schema:ty, $prefix:literal) => {
         mod $name {
             serde_with::with_prefix!(prefix $prefix);
+
+            /// The unit's schema, with this embedding's prefix on every property it declares.
+            #[cfg(feature = "schema")]
+            pub fn schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+                crate::config_utils::schema_with_prefix::<$schema>(generator, $prefix)
+            }
 
             /// The unit, read under this embedding's prefix, naming the option a source got wrong.
             ///
@@ -60,6 +70,79 @@ macro_rules! embed_prefixed {
 
 #[cfg(feature = "serde")]
 pub(crate) use embed_prefixed;
+
+/// Remove every `default` from the generated schema, recursively.
+///
+/// A `default` here is a Rust field's `Default`, serialised in the field's own type rather than in
+/// the option's text form: `false` on an option whose schema type is string. Every option's real
+/// contract is already stated once, as text: an empty or absent option reads as its default.
+#[cfg(feature = "schema")]
+pub(crate) fn strip_defaults(schema: &mut schemars::Schema) {
+    fn strip(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(object) => {
+                object.remove("default");
+                for child in object.values_mut() {
+                    strip(child);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    strip(item);
+                }
+            }
+            _ => {}
+        }
+    }
+    let object = schema.ensure_object();
+    object.remove("default");
+    for child in object.values_mut() {
+        strip(child);
+    }
+}
+
+/// `T`'s own schema with `prefix` glued onto every property, mirroring what
+/// [`serde_with::with_prefix!`] does to the names a flattened group is read from: `serde_with` has
+/// no `schemars` integration, so without this the schema would describe a field as `Field` where
+/// the source spells `PrefixField`.
+#[cfg(feature = "schema")]
+pub(crate) fn schema_with_prefix<T: schemars::JsonSchema>(
+    generator: &mut schemars::SchemaGenerator,
+    prefix: &str,
+) -> schemars::Schema {
+    /// The names live one level down in each branch of a union: a unit whose shapes are selected
+    /// untagged describes itself as an `anyOf`, and prefixing only the top level would rename
+    /// nothing at all there.
+    fn rename(object: &mut serde_json::Map<String, serde_json::Value>, prefix: &str) {
+        if let Some(serde_json::Value::Object(properties)) = object.remove("properties") {
+            let properties: serde_json::Map<String, serde_json::Value> = properties
+                .into_iter()
+                .map(|(name, subschema)| (format!("{prefix}{name}"), subschema))
+                .collect();
+            object.insert(String::from("properties"), properties.into());
+        }
+        if let Some(serde_json::Value::Array(required)) = object.get_mut("required") {
+            for name in required {
+                if let serde_json::Value::String(name) = name {
+                    *name = format!("{prefix}{name}");
+                }
+            }
+        }
+        for keyword in ["anyOf", "oneOf", "allOf"] {
+            if let Some(serde_json::Value::Array(branches)) = object.get_mut(keyword) {
+                for branch in branches {
+                    if let Some(branch) = branch.as_object_mut() {
+                        rename(branch, prefix);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut schema = T::json_schema(generator);
+    rename(schema.ensure_object(), prefix);
+    schema
+}
 
 /// Reads any option as text, whatever scalar shape a `serde` source gave it.
 ///
@@ -197,5 +280,52 @@ pub(crate) fn optional_u32<'de, D: serde::Deserializer<'de>>(
         Err(error) => Err(serde::de::Error::custom(format!(
             "`{value}` is not a valid integer: {error}"
         ))),
+    }
+}
+
+#[cfg(all(test, feature = "schema"))]
+mod tests {
+    use super::schema_with_prefix;
+
+    /// A unit whose shapes are selected untagged, so its schema is a union of branches and the
+    /// names live one level down rather than at the top.
+    ///
+    /// Never constructed: the derive is what is under test, not the values.
+    #[derive(schemars::JsonSchema)]
+    #[schemars(untagged)]
+    #[allow(dead_code)]
+    enum Untagged {
+        #[schemars(rename_all = "PascalCase")]
+        Both { first: String, second: String },
+        #[schemars(rename_all = "PascalCase")]
+        One { first: String },
+    }
+
+    #[test]
+    fn a_prefix_reaches_the_names_inside_a_union_branch() {
+        // Renaming the top level alone would rename nothing at all here: both the properties and
+        // the keys `required` names sit inside the branches, and a schema that kept the bare names
+        // would describe options no source spells.
+        let mut generator = schemars::SchemaGenerator::default();
+        let schema = schema_with_prefix::<Untagged>(&mut generator, "Prefix");
+        let value = serde_json::to_value(&schema).expect("a schema serialises to JSON");
+
+        let branches = value["anyOf"]
+            .as_array()
+            .unwrap_or_else(|| panic!("an untagged union is an anyOf: {value:#}"));
+        assert_eq!(branches.len(), 2, "{value:#}");
+        for branch in branches {
+            for name in branch["properties"]
+                .as_object()
+                .unwrap_or_else(|| panic!("each branch is an object shape: {value:#}"))
+                .keys()
+            {
+                assert!(name.starts_with("Prefix"), "`{name}` kept its bare name");
+            }
+            for name in branch["required"].as_array().into_iter().flatten() {
+                let name = name.as_str().expect("a required key is a string");
+                assert!(name.starts_with("Prefix"), "`{name}` kept its bare name");
+            }
+        }
     }
 }

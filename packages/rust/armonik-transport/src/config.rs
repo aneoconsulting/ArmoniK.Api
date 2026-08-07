@@ -4,7 +4,9 @@
 //! `serde` feature it also deserialises directly from a flat document of `PascalCase` options
 //! (`Endpoint`, `TcpKeepalive`, `Http2KeepAliveInterval`, ...), the same vocabulary every ArmoniK
 //! client reads; the thematic groups ([`TlsConfig`], [`TcpConfig`], [`Http2Config`]) flatten back
-//! into those names, so grouping the fields changes no option a deployment already sets.
+//! into those names, so grouping the fields changes no option a deployment already sets. The
+//! `schema` feature describes that same vocabulary as a JSON schema, derived from the types that
+//! define it rather than written out a second time.
 
 use std::time::Duration;
 
@@ -26,11 +28,26 @@ use crate::config_utils::{embed_prefixed, optional_duration, text};
 // own. An empty prefix strips nothing: it reads the flat vocabulary unchanged, and still gets the
 // naming and a prefix to give the day the unit is embedded a second time.
 #[cfg(feature = "serde")]
-embed_prefixed!(tls, crate::tls_config::TlsConfig, "");
+embed_prefixed!(
+    tls,
+    crate::tls_config::TlsConfig,
+    crate::tls_config::RawTls,
+    ""
+);
 #[cfg(feature = "serde")]
-embed_prefixed!(tcp, crate::tcp_config::TcpConfig, "Tcp");
+embed_prefixed!(
+    tcp,
+    crate::tcp_config::TcpConfig,
+    crate::tcp_config::TcpConfig,
+    "Tcp"
+);
 #[cfg(feature = "serde")]
-embed_prefixed!(http2, crate::http2_config::Http2Config, "Http2");
+embed_prefixed!(
+    http2,
+    crate::http2_config::Http2Config,
+    crate::http2_config::Http2Config,
+    "Http2"
+);
 
 /// Options for creating a gRPC client.
 ///
@@ -44,10 +61,16 @@ embed_prefixed!(http2, crate::http2_config::Http2Config, "Http2");
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
+#[cfg_attr(
+    feature = "schema",
+    derive(schemars::JsonSchema),
+    schemars(transform = crate::config_utils::strip_defaults)
+)]
 #[non_exhaustive]
 pub struct HttpConfig {
     /// Endpoint for sending requests. `Endpoint`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "endpoint"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub endpoint: Uri,
     /// TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour,
     /// read under no prefix (`CertPem`, `CaCert`, `AllowUnsafeConnection`, ...).
@@ -55,22 +78,27 @@ pub struct HttpConfig {
         feature = "serde",
         serde(flatten, deserialize_with = "tls::deserialize")
     )]
+    #[cfg_attr(feature = "schema", schemars(schema_with = "tls::schema"))]
     pub tls: TlsConfig,
     /// Timeout for establishing a connection to the server, defaults to 60s. `ConnectTimeout`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "connect_timeout"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub connect_timeout: Option<Duration>,
     /// Timeout for each request, defaults to no timeout. `Timeout`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "optional_duration"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub timeout: Option<Duration>,
     /// Rate limit for requests, written `count/duration` (e.g. `100/1s`), defaults to no rate
     /// limit. `RateLimit`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "rate_limit"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub rate_limit: Option<(u64, Duration)>,
     /// TCP-level socket options, read under the `Tcp` prefix (`TcpKeepalive`, ...).
     #[cfg_attr(
         feature = "serde",
         serde(flatten, deserialize_with = "tcp::deserialize")
     )]
+    #[cfg_attr(feature = "schema", schemars(schema_with = "tcp::schema"))]
     pub tcp: TcpConfig,
     /// HTTP/2-level transport options, read under the `Http2` prefix (`Http2KeepAliveInterval`,
     /// ...).
@@ -78,9 +106,11 @@ pub struct HttpConfig {
         feature = "serde",
         serde(flatten, deserialize_with = "http2::deserialize")
     )]
+    #[cfg_attr(feature = "schema", schemars(schema_with = "http2::schema"))]
     pub http2: Http2Config,
     /// User-Agent header value sent with each request. `UserAgent`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "user_agent"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint, defaults to following the environment.
     ///
