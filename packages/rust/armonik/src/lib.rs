@@ -3,6 +3,17 @@
 //! Ergonomic Rust structs and enums implementing [`prost::Message`] directly against the ArmoniK
 //! protobuf schema, with no generated intermediate representation and no conversion layer, plus the
 //! gRPC clients and servers speaking them natively.
+//!
+//! # Defaults
+//!
+//! `Default::default()` is the proto zero value for every type, which is what lets decoding seed
+//! from it with no special wire semantics: an empty message and `Default::default()` are the same
+//! value. A request built as `Ty { field, ..Default::default() }` therefore sends zeros for
+//! everything else, including a zero task deadline or a page size of 0. The types that need
+//! non-zero values to be useful supply them by name instead:
+//! [`TaskOptions::recommended`](TaskOptions::recommended),
+//! `<service>::list::Request::recommended()`, and
+//! [`Sort::ascending`](Sort::ascending) / [`Sort::descending`](Sort::descending).
 
 // Staleness anchor for the wire-representation derives and the `service!` invocations: `include!`
 // puts the generated file in rustc's dep-info, so any descriptor change invalidates the crate;

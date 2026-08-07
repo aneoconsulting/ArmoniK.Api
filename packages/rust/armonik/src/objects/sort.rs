@@ -24,6 +24,24 @@ pub struct Sort<T> {
     pub direction: SortDirection,
 }
 
+impl<T> Sort<T> {
+    /// Sort on `field`, smallest first.
+    pub fn ascending(field: T) -> Self {
+        Self {
+            field,
+            direction: SortDirection::Asc,
+        }
+    }
+
+    /// Sort on `field`, largest first.
+    pub fn descending(field: T) -> Self {
+        Self {
+            field,
+            direction: SortDirection::Desc,
+        }
+    }
+}
+
 /// Sort on several fields; stands for the per-service `Sort` messages with
 /// repeated fields.
 #[armonik_macros::message]
@@ -35,6 +53,24 @@ pub struct SortMany<T> {
     pub fields: Vec<T>,
     #[armonik(tag = 2)]
     pub direction: SortDirection,
+}
+
+impl<T> SortMany<T> {
+    /// Sort on `fields`, smallest first.
+    pub fn ascending(fields: impl IntoIterator<Item = T>) -> Self {
+        Self {
+            fields: fields.into_iter().collect(),
+            direction: SortDirection::Asc,
+        }
+    }
+
+    /// Sort on `fields`, largest first.
+    pub fn descending(fields: impl IntoIterator<Item = T>) -> Self {
+        Self {
+            fields: fields.into_iter().collect(),
+            direction: SortDirection::Desc,
+        }
+    }
 }
 
 #[cfg(test)]

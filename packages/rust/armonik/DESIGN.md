@@ -548,18 +548,40 @@ even though the branch lands as one unit:
   matched by name against the descriptor.
 - Enums: dataful `Other(...)` variant replaces `Unspecified` unit variants
   (`UNSPECIFIED` const provided); `as i32` casts replaced by `From` impls;
-  `#[repr(i32)]` gone; matches need an `Other`/catch-all arm.
+  matches need an `Other`/catch-all arm. The type stays `#[repr(i32)]`, each
+  named variant carrying its proto value as its discriminant, so `Ord` orders
+  by proto value; the catch-all takes `i32::MIN` and sorts first (see 6.1).
 - All `bytes` payload fields: `Vec<u8>` -> `bytes::Bytes`.
 - `Default::default()` is the proto zero value for every type (the
-  zero-default invariant): `TaskOptions`, `Configuration`, the list
-  requests and the sort/field enums lose their historical non-zero
-  defaults (`TaskOptions::recommended()` and `INFINITE_DURATION` replace
-  them); `tasks::Output::default()` is `Error("")`, and an absent task
-  output now reads as an empty error rather than success.
+  zero-default invariant); `tasks::Output::default()` is `Error("")`, and an
+  absent task output reads as an empty error rather than success. Section 6.1
+  lists the replacements.
 - serde representation shifts for the affected enums and `Bytes` fields.
 - `prost_types::{Duration, Timestamp}` remain the public time types
   (unchanged).
 - Everything else keeps its current shape and module paths.
+
+### 6.1 Defaults: what `Default::default()` yields, and what replaces it
+
+`Default` is the proto zero value everywhere, which is what lets decoding seed
+from it with no special wire semantics. Call sites written as
+`Ty { field, ..Default::default() }` still compile and now send zeros, so every
+type that carried a non-zero default has a constructor supplying the values by
+name:
+
+| Type | `Default::default()` | Named constructor |
+|---|---|---|
+| `TaskOptions` | zero duration, 0 retries, priority 0 | `TaskOptions::recommended()` (`INFINITE_DURATION`, 1 retry, priority 1) |
+| `{applications,partitions,results,sessions,tasks}::list::Request`, `tasks::list_detailed::Request` | `page_size: 0`, unspecified sort direction | `Request::recommended()` (`page_size: 100`, ascending) |
+| `Sort<T>` / `SortMany<T>` | unspecified direction | `Sort::ascending(field)` / `Sort::descending(field)` |
+| `SortDirection` | `Unspecified` | `SortDirection::Asc` |
+| `Configuration`, `results::get_service_configuration::Response` | `data_chunk_max_size: 0` | the value the server answers with |
+| `tasks::Output` | `Error("")` | `Output::Success` |
+
+Ordering follows the same rule: an enum's variants carry their proto values as
+discriminants, so `Other(..)` (the zero value and any value unknown to this
+crate version) sorts before every named variant, ordered among themselves by the
+raw value.
 
 ## 7. Risks & mitigations
 
