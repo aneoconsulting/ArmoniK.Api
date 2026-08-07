@@ -185,7 +185,7 @@ use syn::DeriveInput;
 /// Rust type of its own. Registered as absorbed in `armonik::wire`, so the
 /// build script prunes it from the stubs and the differential harness counts it
 /// as covered through this parent. Repeatable. The other flatteners,
-/// [`transparent`](macro@Enum#transparent) chains and inline struct variants,
+/// [`transparent`](macro@enumeration#transparent) chains and inline struct variants,
 /// declare their absorbed messages automatically.
 ///
 /// ## present
@@ -260,7 +260,7 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// carries the std `#[default]` attribute.
 ///
 /// Enum-typed fields of derived messages are declared with
-/// [`Message`](macro@Message), which checks that the field type stands for the
+/// [`message`](macro@message), which checks that the field type stands for the
 /// proto enum the descriptor names.
 ///
 /// # Attributes
