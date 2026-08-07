@@ -199,12 +199,16 @@ async fn a_missing_credential_is_reported_as_such() {
         .await
         .expect_err("the proxy should have refused the tunnel");
 
-    // The message has to say credentials are what is missing, otherwise a 407 is a dead end for
-    // whoever hits it.
+    // The message has to name the options to set, otherwise a 407 is a dead end for whoever hits
+    // it.
     let rendered = error_chain(error.as_ref());
     assert!(
         rendered.contains("requires authentication"),
         "unexpected error: {rendered}"
+    );
+    assert!(
+        rendered.contains("ProxyUsername"),
+        "the error should say which options to set: {rendered}"
     );
     // And the failure has to be matchable by type, not only by text: `find_in` is how a caller
     // reacts to this case in particular, e.g. by prompting for credentials.
@@ -442,6 +446,58 @@ async fn an_https_proxy_from_the_environment_is_refused_before_dialling() {
             .as_ref(),
     );
     assert!(error.contains("only an `http` proxy"), "{error}");
+}
+
+// --- the string-form options, from the words to the tunnel ---
+
+#[cfg(feature = "serde")]
+#[tokio::test]
+async fn the_proxy_options_reach_the_tunnel() {
+    // Through serde on purpose, so the reading is under test along with the tunnelling: accepting
+    // the options and then not proxying is the defect the whole feature exists to fix.
+    let server = spawn_server().await;
+    let (proxy, tunnels) = spawn_proxy(ProxyAuth::Required("dXNlcjpzZWNyZXQ=")).await;
+
+    let config: HttpConfig = serde_json::from_value(serde_json::json!({
+        "Endpoint": server,
+        "AllowUnsafeConnection": "true",
+        "ProxyAddress": format!("http://{proxy}"),
+        "ProxyUsername": "user",
+        "ProxyPassword": "secret",
+    }))
+    .expect("a valid configuration");
+
+    let answer = call_through(config)
+        .await
+        .expect("the call should succeed through the proxy the options name");
+
+    assert_eq!(answer, common::REPLY);
+    assert_eq!(tunnels.load(Ordering::SeqCst), 1);
+}
+
+#[cfg(feature = "serde")]
+#[tokio::test]
+#[serial_test::serial(env)]
+async fn the_system_address_takes_the_proxy_from_the_environment() {
+    let environment = ProxyEnvironment::cleared();
+    let server = spawn_server().await;
+    let (proxy, tunnels) = spawn_proxy(ProxyAuth::None).await;
+
+    let config: HttpConfig = serde_json::from_value(serde_json::json!({
+        "Endpoint": server,
+        "AllowUnsafeConnection": "true",
+        "ProxyAddress": "system",
+    }))
+    .expect("a valid configuration");
+
+    environment.set("HTTP_PROXY", format!("http://{proxy}"));
+    let outcome = call_through(config).await;
+
+    assert_eq!(
+        outcome.expect("the call should go through the proxy the environment names"),
+        common::REPLY
+    );
+    assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
 
 // --- the handshake is bounded in time ---

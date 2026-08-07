@@ -4,8 +4,8 @@
 //! `serde` feature it also deserialises directly from a flat document of `PascalCase` options
 //! (`Endpoint`, `TcpKeepalive`, `Http2KeepAliveInterval`, ...), the same vocabulary every ArmoniK
 //! client reads; the thematic groups ([`TlsConfig`], [`TcpConfig`], [`Http2Config`],
-//! [`RetryConfig`]) flatten back into those names, so grouping the fields changes no option a
-//! deployment already sets.
+//! [`RetryConfig`], [`ProxyConfig`]) flatten back into those names, so grouping the fields changes
+//! no option a deployment already sets.
 //!
 //! The `schema` feature describes that same vocabulary as a JSON schema, derived from the types
 //! that define it rather than written out a second time, and the `env` feature reads it from
@@ -58,6 +58,13 @@ embed_prefixed!(
     crate::retry_config::RetryConfig,
     crate::retry_config::RawRetry,
     ""
+);
+#[cfg(feature = "serde")]
+embed_prefixed!(
+    proxy,
+    crate::proxy::ProxyConfig,
+    crate::proxy::ProxyShape,
+    "Proxy"
 );
 
 /// Options for creating a gRPC client.
@@ -134,11 +141,13 @@ pub struct HttpConfig {
     #[cfg_attr(feature = "serde", serde(deserialize_with = "user_agent"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub user_agent: Option<HeaderValue>,
-    /// HTTP proxy used to reach the endpoint, defaults to following the environment.
-    ///
-    /// Set programmatically: no option reads it, and a document that spells one is ignored rather
-    /// than refused, because a type with flattened fields cannot also deny unknown ones.
-    #[cfg_attr(feature = "serde", serde(skip))]
+    /// HTTP proxy used to reach the endpoint, read under the `Proxy` prefix (`ProxyAddress`,
+    /// `ProxyUsername`, `ProxyPassword`), defaults to following the environment.
+    #[cfg_attr(
+        feature = "serde",
+        serde(flatten, deserialize_with = "proxy::deserialize")
+    )]
+    #[cfg_attr(feature = "schema", schemars(schema_with = "proxy::schema"))]
     pub proxy: ProxyConfig,
 }
 
@@ -320,6 +329,7 @@ pub enum ConfigError {
 
 #[cfg(all(test, feature = "serde"))]
 mod tests {
+    use secrecy::ExposeSecret as _;
     use serde_json::json;
 
     use super::*;
@@ -379,18 +389,18 @@ mod tests {
     }
 
     #[test]
-    fn a_proxy_option_is_ignored_rather_than_refused() {
-        // The proxy is set programmatically, and flattening the units rules out denying unknown
-        // fields, so an option naming it passes through instead of failing the read. Whoever
-        // gives those options meaning has to add the reading, not assume a guard here.
+    fn a_proxy_option_is_read_rather_than_ignored() {
         let config = config(json!({
             "Endpoint": "http://localhost:5001",
             "ProxyAddress": "http://proxy.corp:3128",
             "ProxyUsername": "user",
         }));
 
-        assert_eq!(config.proxy.source, ProxySource::System);
-        assert!(config.proxy.username.is_empty());
+        let ProxySource::Explicit(uri) = &config.proxy.source else {
+            panic!("expected an explicit proxy");
+        };
+        assert_eq!(uri.host(), Some("proxy.corp"));
+        assert_eq!(config.proxy.username, "user");
     }
 
     #[test]
@@ -893,5 +903,226 @@ mod tests {
             config.retry.bounds().collect::<Vec<_>>(),
             [Duration::from_secs(2); 2]
         );
+    }
+
+    // --- the proxy ---
+
+    /// The configuration `ProxyAddress=value` produces, expected to be valid.
+    fn proxy_config(value: &str) -> HttpConfig {
+        config(json!({"Endpoint": "http://localhost:5001", "ProxyAddress": value}))
+    }
+
+    /// The error message `ProxyAddress=value` produces, expected to be a rejection.
+    fn proxy_error(value: &str) -> String {
+        error(json!({"Endpoint": "http://localhost:5001", "ProxyAddress": value}))
+    }
+
+    #[test]
+    fn an_empty_or_system_address_follows_the_environment() {
+        // The same reading as ArmoniK's C# client, where an unset option leaves the handler
+        // following the environment.
+        for value in ["", "system", "System", "SYSTEM"] {
+            let config = proxy_config(value);
+            assert_eq!(config.proxy.source, ProxySource::System, "{value:?}");
+        }
+    }
+
+    #[test]
+    fn none_forces_a_direct_connection() {
+        for value in ["none", "None", "NONE"] {
+            let config = proxy_config(value);
+            assert_eq!(config.proxy.source, ProxySource::Disabled, "{value:?}");
+        }
+    }
+
+    #[test]
+    fn a_proxy_url_defaults_to_the_http_scheme() {
+        let with_scheme = proxy_config("http://proxy.corp:3128");
+        let without_scheme = proxy_config("proxy.corp:3128");
+
+        let ProxySource::Explicit(with_scheme) = with_scheme.proxy.source else {
+            panic!("expected an explicit proxy");
+        };
+        let ProxySource::Explicit(without_scheme) = without_scheme.proxy.source else {
+            panic!("expected an explicit proxy");
+        };
+        assert_eq!(with_scheme, without_scheme);
+        assert_eq!(with_scheme.host(), Some("proxy.corp"));
+        assert_eq!(with_scheme.port_u16(), Some(3128));
+    }
+
+    #[test]
+    fn credentials_in_the_url_are_honoured_and_removed_from_it() {
+        let config = proxy_config("http://user:secret@proxy.corp:3128");
+
+        assert_eq!(config.proxy.username, "user");
+        assert_eq!(config.proxy.password.expose_secret(), "secret");
+        let ProxySource::Explicit(uri) = &config.proxy.source else {
+            panic!("expected an explicit proxy");
+        };
+        assert!(
+            !uri.to_string().contains("secret"),
+            "the URI is rendered in errors and logs: {uri}"
+        );
+    }
+
+    #[test]
+    fn the_dedicated_credential_options_are_read() {
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "ProxyAddress": "http://proxy.corp:3128",
+            "ProxyUsername": "user",
+            "ProxyPassword": "secret",
+        }));
+
+        assert_eq!(config.proxy.username, "user");
+        assert_eq!(config.proxy.password.expose_secret(), "secret");
+    }
+
+    #[test]
+    fn credentials_in_both_the_url_and_the_options_are_rejected() {
+        // Two ways in, not a merge: guessing which half of which source wins turns a mixed
+        // configuration into a silent surprise, so it is refused while it is being read. The
+        // message names both sources and echoes neither value.
+        for dedicated in [
+            json!({"ProxyUsername": "option-user", "ProxyPassword": "option-secret"}),
+            json!({"ProxyPassword": "option-secret"}),
+            json!({"ProxyUsername": "option-user"}),
+        ] {
+            let mut value = json!({
+                "Endpoint": "http://localhost:5001",
+                "ProxyAddress": "http://url-user:url-secret@proxy.corp:3128",
+            });
+            value
+                .as_object_mut()
+                .expect("a JSON object")
+                .extend(dedicated.as_object().expect("a JSON object").clone());
+
+            let rendered = error(value);
+            assert!(rendered.contains("set them one way"), "{rendered}");
+            assert!(rendered.contains("ProxyUsername"), "{rendered}");
+            assert!(
+                !rendered.contains("url-secret") && !rendered.contains("option-secret"),
+                "a password is echoed: {rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_configuration_keeps_the_password_out_of_its_debug_output() {
+        // `HttpConfig` is `Debug` and holds the password, so a careless `Debug` would put it
+        // anywhere a configuration gets printed. Both shapes are covered: a URL-carried password
+        // and a dedicated one.
+        for value in [
+            json!({
+                "Endpoint": "http://localhost:5001",
+                "ProxyAddress": "http://user:url-secret@proxy.corp:3128",
+            }),
+            json!({
+                "Endpoint": "http://localhost:5001",
+                "ProxyAddress": "http://proxy.corp:3128",
+                "ProxyUsername": "user",
+                "ProxyPassword": "option-secret",
+            }),
+        ] {
+            let rendered = format!("{:?}", config(value));
+            assert!(
+                !rendered.contains("option-secret") && !rendered.contains("url-secret"),
+                "password rendered: {rendered}"
+            );
+            assert!(
+                rendered.contains("user"),
+                "the username is not a secret and stays useful: {rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_rejected_proxy_url_does_not_echo_its_password() {
+        // A URL can be rejected for having no host, or for a "port" that is really a password
+        // whose `@host` part went missing, and still have carried a credential.
+        for value in ["http://user:s3cr3t@", "http://admin:hunter2"] {
+            let rendered = proxy_error(value);
+            assert!(
+                !rendered.contains("s3cr3t") && !rendered.contains("hunter2"),
+                "password echoed for {value:?}: {rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_proxy_url_whose_credentials_cannot_be_stripped_is_rejected_while_reading() {
+        // `@` is legal inside a bracketed authority, so this parses, yet what follows the
+        // credentials (`proxy]`) is not a host on its own. Accepting it would store the
+        // placeholder and fail only at connect time, against this option's fail-on-read contract;
+        // the rejection must not echo the password either.
+        let rendered = proxy_error("http://[user:s3cr3t@proxy]");
+
+        assert!(
+            rendered.contains("once its credentials are taken out"),
+            "{rendered}"
+        );
+        assert!(!rendered.contains("s3cr3t"), "password echoed: {rendered}");
+    }
+
+    #[test]
+    fn a_proxy_that_is_not_http_is_rejected_rather_than_reached_in_the_clear() {
+        // The `CONNECT` handshake goes out unencrypted, so a proxy expecting TLS would see
+        // gibberish. Accepting the URL and failing at connect time would report it as an
+        // unreachable proxy.
+        for value in ["https://proxy.corp:3128", "socks5://proxy.corp:1080"] {
+            let rendered = proxy_error(value);
+            assert!(
+                rendered.contains("only an `http` proxy"),
+                "{value}: {rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_proxy_without_a_host_is_rejected_and_names_its_own_option() {
+        // Reporting these through the endpoint's URI error would send whoever reads it looking at
+        // the wrong option.
+        for value in ["http:///no-host", "http://", "http://:3128", "://"] {
+            let rendered = proxy_error(value);
+            assert!(
+                rendered.contains("`ProxyAddress"),
+                "unexpected error for {value:?}: {rendered}"
+            );
+            assert!(
+                rendered.contains("is not a valid proxy URL"),
+                "unexpected error for {value:?}: {rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_port_that_is_not_one_is_rejected_rather_than_dialled_on_80() {
+        // `http::Uri` keeps the port as text and parses it lazily, so without the explicit check a
+        // typo would pass validation and the connector would quietly fall back to the scheme
+        // default.
+        for value in [
+            "proxy.corp:99999",
+            "proxy.corp:31z8",
+            "http://admin:hunter2",
+        ] {
+            let rendered = proxy_error(value);
+            assert!(
+                rendered.contains("does not name a valid port"),
+                "unexpected error for {value:?}: {rendered}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_ipv6_proxy_is_accepted_with_and_without_a_port() {
+        // The port check must not mistake the colons of an IPv6 literal for an invalid port.
+        for (value, port) in [("http://[::1]:3128", Some(3128)), ("http://[::1]", None)] {
+            let config = proxy_config(value);
+            let ProxySource::Explicit(uri) = &config.proxy.source else {
+                panic!("expected an explicit proxy for {value:?}");
+            };
+            assert_eq!(uri.port_u16(), port, "{value:?}");
+        }
     }
 }
