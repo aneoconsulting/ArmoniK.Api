@@ -326,13 +326,14 @@ pub(crate) mod empty_body {
 pub(crate) fn read_delimited<B: Buf + ?Sized>(
     buf: &mut B,
 ) -> Result<prost::bytes::buf::Take<&mut B>, DecodeError> {
-    let len = prost::encoding::decode_varint(&mut &mut *buf)? as usize;
-    if buf.remaining() < len {
+    // Compared as a `u64`: a length that does not fit a `usize` is an underflow, not a truncation.
+    let len = prost::encoding::decode_varint(&mut &mut *buf)?;
+    if (buf.remaining() as u64) < len {
         // prost offers no other public constructor; pinned to prost 0.14.
         #[allow(deprecated)]
         return Err(DecodeError::new("buffer underflow"));
     }
-    Ok(buf.take(len))
+    Ok(buf.take(len as usize))
 }
 
 /// Const string equality, for derive-emitted assertions.

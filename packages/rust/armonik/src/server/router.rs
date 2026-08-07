@@ -125,19 +125,11 @@ where
                 return handler(Arc::clone(&self.inner), req, self.config);
             }
         }
-        Box::pin(async move {
-            let mut response = http::Response::new(tonic::body::Body::default());
-            let headers = response.headers_mut();
-            headers.insert(
-                tonic::Status::GRPC_STATUS,
-                (tonic::Code::Unimplemented as i32).into(),
-            );
-            headers.insert(
-                http::header::CONTENT_TYPE,
-                tonic::metadata::GRPC_CONTENT_TYPE,
-            );
-            Ok(response)
-        })
+        // No route: a method of another service, or one this crate does not expose. The path names
+        // it, so the client's error says which.
+        let status =
+            tonic::Status::unimplemented(format!("{} is not implemented", req.uri().path()));
+        Box::pin(async move { Ok(status.into_http()) })
     }
 }
 
