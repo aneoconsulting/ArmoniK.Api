@@ -1,6 +1,6 @@
 //! Helpers for native-enum fields, which are `int32` varints on the wire.
 //!
-//! The `derive(armonik::Enum)` macro emits a [`ProtoField`](super::ProtoField)
+//! The `#[armonik_macros::enumeration]` expansion emits a [`ProtoField`](super::ProtoField)
 //! implementation delegating to these functions, with `T` converting to and
 //! from the raw `i32` through its (normalizing) `From` implementations.
 

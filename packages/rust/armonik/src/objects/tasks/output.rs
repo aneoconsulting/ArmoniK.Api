@@ -110,10 +110,9 @@ impl crate::differential::Normalize for Output {
     }
 }
 
-// Hand-written `Message` impls register through the same `register!` macro the derive emits, so
-// they carry their round-trip/`Normalize` hooks and their extern-map entry. `armonik` only externs
-// top-level messages (this one is nested in the extern'd `TaskDetailed`), but keeping it in the
-// registry holds the "every impl is harvested" invariant.
+// Hand-written `Message` impls register through the same `register!` macro the expansions emit, so
+// they carry their round-trip/`Normalize` hooks. This one is nested in `TaskDetailed` rather than a
+// message of its own, and registering it anyway holds the "every impl is harvested" invariant.
 crate::register!(message: Output, "armonik.api.grpc.v1.tasks.TaskDetailed.Output");
 
 // As a field, `Output` is an ordinary message: the blanket message-kind `ProtoField` impl frames
@@ -167,8 +166,8 @@ mod tests {
 
     use super::{Output, SUCCESS_TAG};
 
-    /// prost-derived reference of `TaskDetailed.Output` (extern'd, so no generated type exists),
-    /// and an independent codec: fixtures are built and encoded through it, then decoded through
+    /// prost-derived reference of `TaskDetailed.Output`, an independent codec: fixtures are built
+    /// and encoded through it, then decoded through
     /// our hand-written `Output`, so a bug in `merge_field`'s cross-field rule cannot hide behind a
     /// matching `Normalize`. The field-information ratchet probes one field at a time and never
     /// produces the `{ success, error }` combination.

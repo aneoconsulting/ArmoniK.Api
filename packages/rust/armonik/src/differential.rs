@@ -30,7 +30,7 @@ pub struct Entry {
 }
 
 /// Every registered type carrying harness hooks, so all but the type-less entries, projected from
-/// the single [`crate::wire::REGISTRY`].
+/// the single `crate::wire::REGISTRY`.
 pub fn entries() -> impl Iterator<Item = Entry> {
     crate::wire::REGISTRY.iter().filter_map(|registration| {
         registration.diff.as_ref().map(|diff| Entry {

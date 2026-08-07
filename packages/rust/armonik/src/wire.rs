@@ -2,8 +2,9 @@
 //! `#[armonik(absorbs = ...)]` annotations and the `service!` `unexposed(...)` declarations at
 //! compile time.
 //!
-//! Every `#[derive(Message)]`/`#[derive(Enum)]` (and the two hand-written impls) registers one
-//! [`Registration`] per proto name into [`REGISTRY`], a single `linkme` distributed slice. Its
+//! Every `#[armonik_macros::message]`/`#[armonik_macros::enumeration]` expansion (and the two
+//! hand-written impls) registers one [`Registration`] per proto name into `REGISTRY`, a single
+//! `linkme` distributed slice. Its
 //! consumer is the differential harness, which discovers every type's round-trip and `Normalize`
 //! projection through the [`Diff`] hooks (see [`crate::differential::entries`]), and whose coverage
 //! ratchet walks the registered proto names against [`DESCRIPTOR`].

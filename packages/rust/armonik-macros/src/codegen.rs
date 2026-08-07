@@ -200,8 +200,8 @@ pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream
 
 /// Register proto messages a flattening construct swallows into its parent (a `with` adapter's
 /// `absorbs`, a transparent chain's middle wrappers, an inline struct variant's message), so they
-/// have no Rust type of their own. `armonik`'s build script prunes them from the stubs and the
-/// differential harness counts them as covered.
+/// have no Rust type of their own, and the differential harness counts them as covered through
+/// their parent.
 pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
     if names.is_empty() {
         return TokenStream::new();
@@ -435,7 +435,7 @@ fn msg_impl(
 
 /// Codegen for a `#[armonik(transparent)]` struct: a single-field newtype whose `prost::Message`
 /// impl delegates entirely to the field, so it is wire-identical to the inner message and can stand
-/// for a whole RPC message in the stub signatures. The `Normalize` projection delegates likewise.
+/// for a whole RPC message. The `Normalize` projection delegates likewise.
 fn transparent_message(
     plan: &MessagePlan,
     impl_generics: &syn::ImplGenerics,
@@ -578,8 +578,8 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                 where_clause,
                 &[quote! { crate::differential::wrapper_chain(message); }],
             );
-            // Transparent enums also ARE their outermost wrapper message, so they can stand for RPC
-            // messages in stub signatures.
+            // Transparent enums also ARE their outermost wrapper message, so they can stand for
+            // whole RPC messages.
             let message = message_impl(
                 &impl_generics,
                 ident,

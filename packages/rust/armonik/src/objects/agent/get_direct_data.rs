@@ -1,6 +1,6 @@
-/// Shares its wire form (`DataRequest`) with the other data RPCs; the build
-/// script gives this RPC a distinct synthetic stub message so the calls stay
-/// fully distinct types.
+/// Shares its wire form (`DataRequest`) with the other data RPCs; a type of
+/// its own keeps the request types injective over RPCs, so `call` deduces this
+/// one from its argument.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
