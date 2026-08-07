@@ -2,6 +2,31 @@ use armonik::reexports::tokio_stream::StreamExt;
 use armonik::results;
 use armonik::server::{RequestContext, ResultsServiceExt};
 
+/// `WatchResults` is declared `unexposed`, so it has no route: the router answers UNIMPLEMENTED,
+/// naming the path it refused.
+#[tokio::test]
+async fn an_unrouted_path_is_named_in_the_status() {
+    use armonik::reexports::http;
+    use armonik::reexports::tonic;
+    use armonik::reexports::tonic::codegen::Service as _;
+
+    let mut router = Service::default().results_server();
+    let request = http::Request::builder()
+        .uri("/armonik.api.grpc.v1.results.Results/WatchResults")
+        .body(tonic::body::Body::default())
+        .expect("request");
+
+    let headers = router.call(request).await.expect("infallible");
+    let headers = headers.headers();
+
+    assert_eq!(headers["grpc-status"], "12");
+    let message = headers["grpc-message"].to_str().expect("ascii");
+    assert!(
+        message.contains("armonik.api.grpc.v1.results.Results/WatchResults"),
+        "unexpected message: {message}"
+    );
+}
+
 #[macro_use]
 mod common;
 

@@ -50,6 +50,8 @@ impl<T> crate::reexports::tokio_stream::Stream for ServerStream<T> {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        self.receiver.inner_mut().as_mut().poll_next(cx)
+        // Through the wrapper, which is what enters the span the router traces the response items
+        // under.
+        std::pin::Pin::new(&mut self.receiver).poll_next(cx)
     }
 }

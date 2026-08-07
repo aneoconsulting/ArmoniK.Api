@@ -168,6 +168,7 @@ macro_rules! __armonik_fields_request {
     };
 }
 #[doc(hidden)]
+#[cfg(feature = "_gen-client")]
 pub(crate) use __armonik_fields_request;
 
 #[doc(hidden)]

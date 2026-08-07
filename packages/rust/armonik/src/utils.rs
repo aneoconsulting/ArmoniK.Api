@@ -1,7 +1,10 @@
+/// Used by the client conveniences, which widen their arguments to `impl IntoIterator`.
+#[cfg(feature = "_gen-client")]
 pub(crate) trait IntoCollection<T> {
     fn into_collect(self) -> T;
 }
 
+#[cfg(feature = "_gen-client")]
 impl<X, Y, TX, TY> IntoCollection<TY> for TX
 where
     X: Into<Y>,
@@ -17,6 +20,7 @@ where
 /// The nested-filter collect shared by the `list`/`subscribe` convenience
 /// methods: two levels of `impl IntoIterator` into the service's
 /// `filter::Or { or: Vec<filter::And> }` shape.
+#[cfg(feature = "_gen-client")]
 pub(crate) fn into_filters<Field, And, Or>(
     filters: impl IntoIterator<Item = impl IntoIterator<Item = Field>>,
 ) -> Or

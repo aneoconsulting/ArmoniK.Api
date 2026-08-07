@@ -82,9 +82,12 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
         S::Item: Rpc<Service = Svc, Kind = ClientStream>,
     {
         let span = span_for::<S::Item>();
+        let stream_span = tracing::trace_span!(parent: &span, "stream");
         let grpc = &mut self.inner;
         let fut = async move {
             ready(grpc).await?;
+            // The caller's stream is polled while the call runs, under its own child span.
+            let request = tracing_futures::Instrument::instrument(request, stream_span);
             let mut request = tonic::IntoStreamingRequest::into_streaming_request(request);
             request.extensions_mut().insert(grpc_method::<S::Item>());
             Ok(grpc
