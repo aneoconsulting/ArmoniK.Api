@@ -8,6 +8,11 @@ use crate::codec::{ProtoAdapter, ProtoField};
 /// `string error = 2`) do not form a proto oneof, so the wire implementation is hand-written.
 /// `success = true` wins over any error message; an absent or empty message is an error with an
 /// empty message, which is also the `Default` (the proto zero value, like every armonik type).
+///
+/// One enum keeps one of the two fields, so the merge keeps one too: a `success` occurrence that
+/// selects `Success` drops any error message merged before it, and a later `success = false`
+/// leaves the empty error rather than that message. Repeating a singular field is the only way to
+/// reach this, since either field is read once per message otherwise.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Output {
@@ -118,7 +123,9 @@ impl crate::codec::Msg for Output {
 }
 
 /// `TaskSummary.error` (a plain string field) exposed as an [`Output`]: an empty error stands for
-/// success, like the historical conversion.
+/// success. The two sides carry different amounts of information, so the map is not injective:
+/// `Success` and `Error(String::new())` are the same wire value there, and decoding it yields
+/// `Success`.
 pub(crate) struct ErrorAdapter;
 
 impl ProtoAdapter<Output> for ErrorAdapter {
@@ -158,7 +165,7 @@ impl ProtoAdapter<Output> for ErrorAdapter {
 mod tests {
     use prost::Message;
 
-    use super::Output;
+    use super::{Output, SUCCESS_TAG};
 
     /// prost-derived reference of `TaskDetailed.Output` (extern'd, so no generated type exists),
     /// and an independent codec: fixtures are built and encoded through it, then decoded through
@@ -198,6 +205,64 @@ mod tests {
                 error: "boom".to_owned(),
             }),
             Output::Error("boom".to_owned()),
+        );
+    }
+
+    /// The merge keeps the last `success` occurrence, and the error message merged while it was
+    /// false only for as long as no occurrence selects `Success`.
+    #[test]
+    fn a_repeated_success_field_keeps_the_last_occurrence() {
+        let mut bytes = RefOutput {
+            success: true,
+            error: "boom".to_owned(),
+        }
+        .encode_to_vec();
+        // A second `success`, false this time. `error` is not repeated, so nothing restores it.
+        bytes.extend(
+            RefOutput {
+                success: false,
+                error: String::new(),
+            }
+            .encode_to_vec(),
+        );
+        // prost writes nothing for a false bool, so spell the occurrence out.
+        bytes.extend([(SUCCESS_TAG << 3) as u8, 0]);
+
+        assert_eq!(
+            Output::decode(bytes.as_slice()).expect("decodes"),
+            Output::Error(String::new()),
+        );
+    }
+
+    /// `TaskSummary` carries the output as a plain `error` string, where an empty message is
+    /// success: `Success` and `Error("")` are the same wire value, which reads back as `Success`.
+    #[test]
+    fn an_empty_task_summary_error_is_success() {
+        use crate::tasks::Summary;
+
+        let encoded = |output| {
+            Summary {
+                output,
+                ..Default::default()
+            }
+            .encode_to_vec()
+        };
+
+        assert_eq!(
+            encoded(Output::Error(String::new())),
+            encoded(Output::Success)
+        );
+        assert_eq!(
+            Summary::decode(encoded(Output::Error(String::new())).as_slice())
+                .expect("decodes")
+                .output,
+            Output::Success,
+        );
+        assert_eq!(
+            Summary::decode(encoded(Output::Error(String::from("boom"))).as_slice())
+                .expect("decodes")
+                .output,
+            Output::Error(String::from("boom")),
         );
     }
 
