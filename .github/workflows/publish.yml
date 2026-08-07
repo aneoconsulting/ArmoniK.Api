@@ -133,6 +133,24 @@ on:
         type: boolean
         default: false
 
+# One head SHA can arrive twice. `synchronize` fires whenever the merge ref has
+# to be recomputed, which happens both when the head moves and when the base
+# moves, so re-cutting a stack of pull requests delivers two events a second
+# apart for the same head. Both resolve the same pre-release version and race on
+# the same registry push, and the loser fails. The group is keyed on the ref,
+# `refs/pull/<n>/merge` for both deliveries, so the second cancels the first.
+#
+# Cancelling is confined to pull requests. A push to `main` or to a tag carries
+# its own version and collides with nothing, while interrupting one part way
+# through would leave some ecosystems pushed and the rest not, on registries
+# where a version cannot be pushed again; those runs queue instead.
+#
+# Group names are repository-wide, hence the workflow prefix: reusing `ci.yml`'s
+# bare `ci-<ref>` would make the two workflows cancel each other.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Deny everything by default and let each job grant itself the minimum. This has
 # to stay `{}` rather than be removed: the repository's default workflow token
 # permission is `write`, so a workflow with no `permissions` key at all hands a
