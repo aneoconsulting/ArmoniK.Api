@@ -18,7 +18,7 @@ pub mod raw;
 #[doc(hidden)]
 pub mod summary;
 
-pub use field::{Field, OtherSummaryField, SummaryField};
+pub use field::{Field, SummaryField, UnknownSummaryField};
 pub use output::Output;
 pub use raw::{Raw, Raw as Task};
 pub use summary::Summary;

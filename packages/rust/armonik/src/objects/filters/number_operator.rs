@@ -17,5 +17,5 @@ pub enum FilterNumberOperator {
     /// Is greater than the specified number.
     GreaterThan,
     /// Unknown to this crate version; round-trips losslessly.
-    Other(OtherFilterNumberOperator),
+    Unknown(UnknownFilterNumberOperator),
 }

@@ -11,5 +11,5 @@ pub enum Field {
     Namespace,
     Service,
     /// Unspecified (zero) or a field unknown to this crate version.
-    Other(OtherField),
+    Unknown(UnknownField),
 }

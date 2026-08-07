@@ -17,5 +17,5 @@ pub enum FilterDateOperator {
     /// Is after the specified date.
     After,
     /// Unknown to this crate version; round-trips losslessly.
-    Other(OtherFilterDateOperator),
+    Unknown(UnknownFilterDateOperator),
 }

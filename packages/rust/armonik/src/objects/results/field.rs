@@ -15,5 +15,5 @@ pub enum Field {
     OpaqueId,
     ManualDeletion,
     /// Unspecified (zero) or a field unknown to this crate version.
-    Other(OtherField),
+    Unknown(UnknownField),
 }

@@ -8,5 +8,5 @@ pub enum Status {
     Unhealthy,
     /// Unspecified (zero) or a status unknown to this crate version;
     /// round-trips losslessly.
-    Other(OtherStatus),
+    Unknown(UnknownStatus),
 }

@@ -9,5 +9,5 @@ pub enum FilterStatusOperator {
     /// Is not equal to the specified status.
     NotEqual,
     /// Unknown to this crate version; round-trips losslessly.
-    Other(OtherFilterStatusOperator),
+    Unknown(UnknownFilterStatusOperator),
 }

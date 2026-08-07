@@ -8,7 +8,7 @@ pub enum SortDirection {
     Asc,
     Desc,
     /// Unknown to this crate version.
-    Other(OtherSortDirection),
+    Unknown(UnknownSortDirection),
 }
 
 /// Sort on a single field; stands for the per-service `Sort` messages, whose

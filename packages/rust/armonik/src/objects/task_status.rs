@@ -18,7 +18,7 @@ pub enum TaskStatus {
     Paused,
     /// Unspecified (zero) or a status unknown to this crate version;
     /// round-trips losslessly.
-    Other(OtherTaskStatus),
+    Unknown(UnknownTaskStatus),
 }
 
 #[cfg(test)]
@@ -34,7 +34,7 @@ mod tests {
 
         // Unknown values are preserved and never shadow a known one.
         let unknown = TaskStatus::from(999);
-        assert!(matches!(unknown, TaskStatus::Other(raw) if raw.value() == 999));
+        assert!(matches!(unknown, TaskStatus::Unknown(raw) if raw.value() == 999));
         assert_eq!(i32::from(unknown), 999);
         assert_ne!(unknown, TaskStatus::UNSPECIFIED);
 

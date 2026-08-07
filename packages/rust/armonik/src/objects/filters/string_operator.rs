@@ -17,5 +17,5 @@ pub enum FilterStringOperator {
     /// Ends with the specified substring.
     EndsWith,
     /// Unknown to this crate version; round-trips losslessly.
-    Other(OtherFilterStringOperator),
+    Unknown(UnknownFilterStringOperator),
 }

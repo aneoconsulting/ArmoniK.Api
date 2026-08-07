@@ -12,5 +12,5 @@ pub enum ResultStatus {
     #[armonik(rename = "RESULT_STATUS_NOTFOUND")]
     NotFound,
     /// Unspecified (zero) or a status unknown to this crate version; round-trips losslessly.
-    Other(OtherResultStatus),
+    Unknown(UnknownResultStatus),
 }

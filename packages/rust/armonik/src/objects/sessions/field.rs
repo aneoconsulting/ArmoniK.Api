@@ -18,7 +18,7 @@ pub enum RawField {
     DeletedAt,
     Duration,
     /// Unspecified (zero) or a field unknown to this crate version.
-    Other(OtherRawField),
+    Unknown(UnknownRawField),
 }
 
 #[armonik_macros::message]
