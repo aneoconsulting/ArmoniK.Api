@@ -9,11 +9,13 @@ wants the services as well needs only that one.
 
 ## Reading the configuration
 
-`HttpConfig` is plain data: build it directly, or turn on the `serde` feature to make it
-deserializable (`Deserialize` only: a configuration that cannot be written out cannot leak its
-proxy password), from a flat document of PascalCase options (`Endpoint`, `TcpKeepalive`,
-`Http2KeepAliveInterval`, ...). The `CertPem`/`KeyPem` identity loads its files as the
-configuration is read, so a mistyped path fails there, naming the file.
+`HttpConfig` is plain data: build it directly, or turn on a feature to read it from somewhere. The
+`serde` feature makes it deserializable (`Deserialize` only: a configuration that cannot be written
+out cannot leak its proxy password), from a flat document of PascalCase options (`Endpoint`,
+`TcpKeepalive`, `Http2KeepAliveInterval`, ...). The `CertPem`/`KeyPem` identity loads its files as
+the configuration is read, so a mistyped path fails there, naming the file. The `env` feature adds
+`HttpConfig::from_env(prefix)`, reading each option from one environment variable under a prefix of
+the caller's choosing; the `armonik` crate reads them under the `GrpcClient__` prefix.
 
 ## Reaching the endpoint through a proxy
 

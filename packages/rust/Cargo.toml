@@ -24,6 +24,7 @@ async-stream = "0.3"
 base64 = "0.22"
 bytes = "1"
 eyre = "0.6"
+figment = { version = "0.10", default-features = false }
 futures = "0.3"
 http-body-util = "0.1"
 humantime = "2.3.0"

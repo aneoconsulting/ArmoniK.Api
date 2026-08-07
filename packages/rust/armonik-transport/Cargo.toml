@@ -14,11 +14,19 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 # `secrecy/serde` so the proxy password deserialises with the rest of the options. There is no
 # Serialize half to turn on: the type refuses to be written out.
 serde = ["dep:serde", "secrecy/serde", "dep:serde_with"]
+# Environment reading deserialises `HttpConfig`, whose option names are fixed at compile time
+# (`#[serde(rename_all = "PascalCase")]`), so it needs the derive `serde` turns on, plus `figment`'s
+# own `env` feature for its `Env` provider.
+env = ["serde", "dep:figment"]
 
 [dependencies]
 # `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
 # `http`/`tokio_stream` re-exports a dependent reaches through this crate.
 tonic = { workspace = true, features = ["channel", "codegen"] }
+# `HttpConfig::from_env`'s reader: its `Env` provider supports `#[serde(flatten)]`, and reads a
+# `PascalCase` variable correctly (unlike `config`'s `Environment`, which lower-cases a key before
+# any case conversion runs).
+figment = { workspace = true, optional = true, features = ["env"] }
 snafu.workspace = true
 tracing.workspace = true
 hyper = { workspace = true, features = ["client", "http1", "http2"] }
@@ -64,8 +72,8 @@ tokio = { workspace = true, features = ["net", "time"] }
 tower-service.workspace = true
 
 [dev-dependencies]
-# The proxy tests that follow the environment set process-global variables, hence one test at a
-# time.
+# The environment-reading tests and the proxy tests that follow the environment set
+# process-global variables, hence one test at a time.
 serial_test.workspace = true
 # The unit tests build configurations the way a caller does under the `serde` feature: from a JSON
 # document naming the flat options.

@@ -1,33 +1,13 @@
 //! ArmoniK's own environment vocabulary: `GrpcClient__*`.
 //!
-//! A deliberately small reader: every `GrpcClient__*` variable is handed to serde as the raw text
-//! it holds, and `armonik-transport`'s option readers do the interpreting. Reading the
-//! environment is integration work, ArmoniK's own vocabulary, so it lives in this crate rather
-//! than in the transport.
+//! `armonik-transport` reads any prefix, `PascalCase` always; `ARMONIK_PREFIX` is what tells it
+//! which, passed directly to `from_env` at the call site rather than read by this crate
+//! variable by variable.
 
-use armonik_transport::reexports::serde;
-use snafu::ResultExt;
-
-use super::{ConnectionError, HttpConfig};
+use super::{ConnectionError, EnvFieldError};
 
 /// The prefix every `GrpcClient` option is read under.
 pub const ARMONIK_PREFIX: &str = "GrpcClient__";
-
-/// Read every option from the `GrpcClient__*` variables.
-pub(super) fn config_from_env() -> Result<HttpConfig, NewClientError> {
-    use serde::Deserialize as _;
-
-    // Raw text, verbatim: each option's own reader parses what it needs, so nothing guesses a
-    // type here and a numeric-looking password survives byte for byte. Through `vars_os` and a
-    // lossy decode, because the plain iterator panics on any non-Unicode variable in the
-    // process, even one naming no option here.
-    let options = std::env::vars_os().filter_map(|(name, value)| {
-        let name = name.to_string_lossy();
-        let option = name.strip_prefix(ARMONIK_PREFIX)?;
-        Some((option.to_owned(), value.to_string_lossy().into_owned()))
-    });
-    HttpConfig::deserialize(serde::de::value::MapDeserializer::new(options)).context(EnvSnafu)
-}
 
 /// Creating a client from the environment.
 #[derive(Debug, snafu::Snafu)]
@@ -37,8 +17,8 @@ pub enum NewClientError {
     #[snafu(display("Could not read the client configuration from the environment [{location}]"))]
     #[non_exhaustive]
     Env {
-        #[snafu(source(from(serde::de::value::Error, Box::new)))]
-        source: Box<serde::de::value::Error>,
+        #[snafu(source(from(EnvFieldError, Box::new)))]
+        source: Box<EnvFieldError>,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -50,4 +30,68 @@ pub enum NewClientError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client::HttpConfig;
+
+    /// Puts back what the variable held, rather than removing it: these tests run in a process whose
+    /// environment may already carry a `GrpcClient__*` that other tests need. On drop, so that a
+    /// failing test does not take it away from them either.
+    struct Restore {
+        name: String,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            match self.previous.take() {
+                Some(previous) => std::env::set_var(&self.name, previous),
+                None => std::env::remove_var(&self.name),
+            }
+        }
+    }
+
+    fn with_var<T>(name: &str, value: Option<&str>, body: impl FnOnce() -> T) -> T {
+        let _restore = Restore {
+            name: name.to_owned(),
+            previous: std::env::var_os(name),
+        };
+        match value {
+            Some(value) => std::env::set_var(name, value),
+            None => std::env::remove_var(name),
+        }
+        body()
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn a_variable_reaches_the_field_that_carries_it() {
+        // The drift-prone half of ArmoniK's own vocabulary is the prefix and the naming, so that is
+        // what is checked; `armonik-transport`'s own tests cover the mapping from field to variable
+        // name in full. `UserAgent` on purpose: the tests that build a real client share this process
+        // and are not serialised against this one, so borrowing a variable any of them depends on, the
+        // endpoint above all, would send them somewhere else while this runs.
+        let config = with_var(
+            "GrpcClient__Endpoint",
+            Some("http://localhost:5001"),
+            || {
+                with_var("GrpcClient__UserAgent", Some("armonik-test/1"), || {
+                    HttpConfig::from_env(ARMONIK_PREFIX)
+                })
+            },
+        )
+        .expect("reading the environment must not fail");
+
+        assert_eq!(
+            config.user_agent,
+            Some(
+                armonik_transport::reexports::hyper::http::HeaderValue::from_static(
+                    "armonik-test/1"
+                )
+            )
+        );
+    }
 }
