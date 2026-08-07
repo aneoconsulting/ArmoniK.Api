@@ -71,17 +71,56 @@ macro_rules! embed_prefixed {
 #[cfg(feature = "serde")]
 pub(crate) use embed_prefixed;
 
-/// Remove every `default` from the generated schema, recursively.
+/// Rewrites a rustdoc intra-doc link into plain text: ``[`a::b::c`]`` becomes ```c```.
+///
+/// Only the last segment survives: the module path names types that exist on this side of code
+/// generation and nowhere else.
+#[cfg(feature = "schema")]
+fn plain_text(description: &str) -> String {
+    let mut out = String::with_capacity(description.len());
+    let mut rest = description;
+    while let Some(start) = rest.find("[`") {
+        let (before, from) = rest.split_at(start);
+        out.push_str(before);
+        let body = &from[2..];
+        // An opening delimiter with no closing one is not a link: the rest is prose, and rewriting
+        // it would eat text a reader needs.
+        let Some(end) = body.find("`]") else {
+            out.push_str(from);
+            return out;
+        };
+        let path = &body[..end];
+        out.push('`');
+        out.push_str(path.rsplit_once("::").map_or(path, |(_, last)| last));
+        out.push('`');
+        rest = &body[end + 2..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Take out of the generated schema what belongs to this crate rather than to the vocabulary:
+/// every `default`, and the rustdoc links inside every `description`. Recursive, because
+/// `schemars` is free to nest.
 ///
 /// A `default` here is a Rust field's `Default`, serialised in the field's own type rather than in
 /// the option's text form: `false` on an option whose schema type is string. Every option's real
 /// contract is already stated once, as text: an empty or absent option reads as its default.
+///
+/// A `description` is the doc comment verbatim, and reaches a generated options class the same
+/// way. A Rust path resolves to nothing there, and the brackets around it read as broken markup.
 #[cfg(feature = "schema")]
-pub(crate) fn strip_defaults(schema: &mut schemars::Schema) {
+pub(crate) fn strip_rust_details(schema: &mut schemars::Schema) {
+    fn clean(object: &mut serde_json::Map<String, serde_json::Value>) {
+        object.remove("default");
+        if let Some(serde_json::Value::String(description)) = object.get_mut("description") {
+            *description = plain_text(description);
+        }
+    }
     fn strip(value: &mut serde_json::Value) {
         match value {
             serde_json::Value::Object(object) => {
-                object.remove("default");
+                clean(object);
                 for child in object.values_mut() {
                     strip(child);
                 }
@@ -95,7 +134,7 @@ pub(crate) fn strip_defaults(schema: &mut schemars::Schema) {
         }
     }
     let object = schema.ensure_object();
-    object.remove("default");
+    clean(object);
     for child in object.values_mut() {
         strip(child);
     }

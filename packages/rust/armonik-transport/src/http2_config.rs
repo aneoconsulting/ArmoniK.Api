@@ -17,7 +17,7 @@ use std::time::Duration;
 #[cfg_attr(
     feature = "schema",
     derive(schemars::JsonSchema),
-    schemars(transform = crate::config_utils::strip_defaults)
+    schemars(transform = crate::config_utils::strip_rust_details)
 )]
 #[non_exhaustive]
 pub struct Http2Config {
