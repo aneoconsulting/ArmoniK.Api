@@ -37,6 +37,6 @@ pub struct Raw {
         serde(with = "crate::utils::serde_option_timestamp")
     )]
     pub deleted_at: Option<prost_types::Timestamp>,
-        #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_option_duration"))]
+    #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_option_duration"))]
     pub duration: Option<prost_types::Duration>,
 }

@@ -5,7 +5,7 @@ use super::Raw;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.CreateResultsMetaDataRequest.ResultCreate")]
 pub struct RequestItem {
-        pub name: String,
+    pub name: String,
     pub manual_deletion: bool,
 }
 

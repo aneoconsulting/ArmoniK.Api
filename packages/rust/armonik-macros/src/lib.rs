@@ -224,9 +224,12 @@ use syn::DeriveInput;
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
     if !attr.is_empty() {
-        return syn::Error::new(input.ident.span(), "#[armonik_macros::message] takes no arguments")
-            .into_compile_error()
-            .into();
+        return syn::Error::new(
+            input.ident.span(),
+            "#[armonik_macros::message] takes no arguments",
+        )
+        .into_compile_error()
+        .into();
     }
     docs::expand(input, docs::Mode::Message)
         .unwrap_or_else(syn::Error::into_compile_error)
@@ -763,4 +766,3 @@ fn doc_anchors(input: &DeriveInput, derive: &str) -> TokenStream2 {
 fn load_index(input: &DeriveInput) -> syn::Result<std::sync::Arc<DescriptorIndex>> {
     descriptor::index().map_err(|message| syn::Error::new(input.ident.span(), message))
 }
-

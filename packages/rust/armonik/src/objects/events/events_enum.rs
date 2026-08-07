@@ -5,7 +5,7 @@
 pub enum EventsEnum {
     NewTask,
     TaskStatusUpdate,
-        NewResult,
+    NewResult,
     ResultStatusUpdate,
     ResultOwnerUpdate,
     /// Unspecified (zero) or an event unknown to this crate version.

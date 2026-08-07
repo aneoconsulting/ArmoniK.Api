@@ -6,7 +6,7 @@ use super::super::TaskOptions;
 #[armonik(message = "armonik.api.grpc.v1.tasks.SubmitTasksRequest.TaskCreation")]
 pub struct RequestItem {
     pub expected_output_keys: Vec<String>,
-        pub data_dependencies: Vec<String>,
+    pub data_dependencies: Vec<String>,
     pub payload_id: String,
     pub task_options: Option<TaskOptions>,
 }
@@ -30,7 +30,7 @@ pub struct ResponseItem {
     pub task_id: String,
     pub expected_output_ids: Vec<String>,
     pub data_dependencies: Vec<String>,
-            pub payload_id: String,
+    pub payload_id: String,
 }
 
 #[armonik_macros::message]

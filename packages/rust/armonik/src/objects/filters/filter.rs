@@ -6,7 +6,7 @@ use super::{
 macro_rules! impl_filter_condition {
     ($name:ident, $proto:literal => $type:ty : $op:ident) => {
         #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, )]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $proto)]
         pub struct $name {

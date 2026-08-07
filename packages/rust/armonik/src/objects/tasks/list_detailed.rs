@@ -20,7 +20,7 @@ pub struct Request {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksDetailedResponse")]
 pub struct Response {
-        pub tasks: Vec<Raw>,
+    pub tasks: Vec<Raw>,
     pub page: i32,
     pub page_size: i32,
     pub total: i32,

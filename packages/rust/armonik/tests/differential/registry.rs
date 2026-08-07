@@ -69,8 +69,7 @@ fn normalize_value(value: &mut Value) -> bool {
 /// itself instead of restated: whatever a type emits for "nothing" is what
 /// an absent field or member is equivalent to.
 fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, Entry)> {
-    static CANONICALS: OnceLock<HashMap<&'static str, (DynamicMessage, Entry)>> =
-        OnceLock::new();
+    static CANONICALS: OnceLock<HashMap<&'static str, (DynamicMessage, Entry)>> = OnceLock::new();
     CANONICALS.get_or_init(|| {
         let pool = crate::pool();
         let mut map = HashMap::new();

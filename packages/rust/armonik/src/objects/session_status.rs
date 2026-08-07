@@ -4,7 +4,7 @@
 #[armonik(enum = "armonik.api.grpc.v1.session_status.SessionStatus")]
 pub enum SessionStatus {
     Running,
-        Cancelled,
+    Cancelled,
     Paused,
     Closed,
     Purged,

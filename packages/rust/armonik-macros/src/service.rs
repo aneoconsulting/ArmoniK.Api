@@ -556,7 +556,11 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
             .ok_or_else(|| {
                 syn::Error::new(
                     rpc.method.span(),
-                    format!("service `{}` has no method `{}`", def.name.value(), rpc.method),
+                    format!(
+                        "service `{}` has no method `{}`",
+                        def.name.value(),
+                        rpc.method
+                    ),
                 )
             })?;
         if !declared.insert(meta.name.clone()) {
@@ -568,21 +572,31 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
 
         if meta.client_streaming != rpc.client_stream.is_some() {
             return Err(syn::Error::new(
-                rpc.client_stream.map_or_else(|| rpc.method.span(), |kw| kw.span),
+                rpc.client_stream
+                    .map_or_else(|| rpc.method.span(), |kw| kw.span),
                 format!(
                     "`{}` {} client-streaming in the proto",
                     rpc.method,
-                    if meta.client_streaming { "is" } else { "is not" },
+                    if meta.client_streaming {
+                        "is"
+                    } else {
+                        "is not"
+                    },
                 ),
             ));
         }
         if meta.server_streaming != rpc.server_stream.is_some() {
             return Err(syn::Error::new(
-                rpc.server_stream.map_or_else(|| rpc.method.span(), |kw| kw.span),
+                rpc.server_stream
+                    .map_or_else(|| rpc.method.span(), |kw| kw.span),
                 format!(
                     "`{}` {} server-streaming in the proto",
                     rpc.method,
-                    if meta.server_streaming { "is" } else { "is not" },
+                    if meta.server_streaming {
+                        "is"
+                    } else {
+                        "is not"
+                    },
                 ),
             ));
         }
@@ -607,9 +621,7 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
         if !ergonomics.insert(ergonomic.to_string()) {
             return Err(syn::Error::new(
                 ergonomic.span(),
-                format!(
-                    "two RPCs would both be named `{ergonomic}`; disambiguate with `as name`"
-                ),
+                format!("two RPCs would both be named `{ergonomic}`; disambiguate with `as name`"),
             ));
         }
 
@@ -625,10 +637,7 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
         if !known(unexposed) {
             return Err(syn::Error::new(
                 unexposed.span(),
-                format!(
-                    "service `{}` has no method `{unexposed}`",
-                    def.name.value()
-                ),
+                format!("service `{}` has no method `{unexposed}`", def.name.value()),
             ));
         }
         if declared.contains(&unexposed.to_string()) {
