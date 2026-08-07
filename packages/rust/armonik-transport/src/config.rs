@@ -267,6 +267,24 @@ pub enum ConfigError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+    #[snafu(display("`CertP12`'s file `{path}` is not a valid PKCS#12 bundle [{location}]"))]
+    #[non_exhaustive]
+    Pkcs12 {
+        #[snafu(source(from(p12_keystore::error::Error, Box::new)))]
+        source: Box<p12_keystore::error::Error>,
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "`CertP12`'s file `{path}` carries no private key and certificate chain [{location}]"
+    ))]
+    #[non_exhaustive]
+    EmptyPkcs12 {
+        path: String,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
     #[snafu(display("{msg} [{location}]"))]
     #[non_exhaustive]
     IncompatibleOptions {
@@ -683,5 +701,86 @@ mod tests {
         }));
 
         assert!(rendered.contains("no/such/cert.pem"), "{rendered}");
+    }
+
+    #[test]
+    fn cert_p12_and_the_pem_pair_are_mutually_exclusive() {
+        // Two spellings of the identity at once is a contradiction whichever half of the PEM pair
+        // is set, and the message has to name both spellings so either one can be removed.
+        for (cert, key) in [("cert.pem", "key.pem"), ("cert.pem", ""), ("", "key.pem")] {
+            let rendered = error(json!({
+                "Endpoint": "http://localhost:5001",
+                "CertPem": cert,
+                "KeyPem": key,
+                "CertP12": "identity.p12",
+            }));
+
+            assert!(rendered.contains("CertP12"), "{rendered}");
+            assert!(rendered.contains("CertPem"), "{rendered}");
+        }
+    }
+
+    #[test]
+    fn a_p12_password_without_a_p12_is_rejected_without_echoing_it() {
+        // Both shapes the orphan takes: alone, and next to a PEM identity that is legal on its own.
+        for extra in [
+            json!({}),
+            json!({"CertPem": "cert.pem", "KeyPem": "key.pem"}),
+        ] {
+            let mut value = json!({
+                "Endpoint": "http://localhost:5001",
+                "CertP12Password": "s3cr3t",
+            });
+            value
+                .as_object_mut()
+                .expect("a JSON object")
+                .extend(extra.as_object().expect("a JSON object").clone());
+
+            let rendered = error(value);
+            assert!(rendered.contains("CertP12Password"), "{rendered}");
+            assert!(rendered.contains("CertP12"), "{rendered}");
+            assert!(!rendered.contains("s3cr3t"), "{rendered}");
+        }
+    }
+
+    #[test]
+    fn empty_p12_options_read_as_unset() {
+        // Including the password: an empty password next to no bundle is not "a password without a
+        // bundle", it is the shape a deployment with empty defaults declares.
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "CertP12": "",
+            "CertP12Password": "",
+        }));
+
+        assert!(config.tls.identity.is_none());
+    }
+
+    #[test]
+    fn an_empty_cert_p12_leaves_the_pem_pair_next_to_it_alone() {
+        // A present-but-empty `CertP12` names no bundle, so it is neither an identity of its own
+        // nor a contradiction with the PEM pair that is really set.
+        let rendered = error(json!({
+            "Endpoint": "http://localhost:5001",
+            "CertP12": "",
+            "CertPem": "no/such/cert.pem",
+            "KeyPem": "no/such/key.pem",
+        }));
+
+        assert!(rendered.contains("no/such/cert.pem"), "{rendered}");
+    }
+
+    #[test]
+    fn a_p12_path_that_leads_nowhere_fails_while_reading_and_names_it() {
+        // The bundle is loaded as the configuration is read, like the PEM pair, and the password
+        // it was opened with stays out of the message.
+        let rendered = error(json!({
+            "Endpoint": "http://localhost:5001",
+            "CertP12": "no/such/identity.p12",
+            "CertP12Password": "s3cr3t",
+        }));
+
+        assert!(rendered.contains("no/such/identity.p12"), "{rendered}");
+        assert!(!rendered.contains("s3cr3t"), "{rendered}");
     }
 }

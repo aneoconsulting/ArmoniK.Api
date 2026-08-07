@@ -51,6 +51,9 @@ hyper-rustls = { workspace = true, features = [
   "logging",
 ] }
 rustls = { workspace = true, features = ["ring", "logging", "std", "tls12"] }
+# Reads a certificate bundled with its key as a PKCS#12 file; pure Rust, so it pulls in no OpenSSL
+# of its own.
+p12-keystore.workspace = true
 serde = { workspace = true, optional = true }
 # `with_prefix!`, for a group of options whose flat names already share a literal prefix (`Tcp*`,
 # `Http2*`): it composes with `#[serde(flatten)]` to read the same names as before the grouping,
@@ -86,6 +89,10 @@ serial_test.workspace = true
 # The unit tests build configurations the way a caller does under the `serde` feature: from a JSON
 # document naming the flat options.
 serde_json.workspace = true
+# A CA-signed certificate and its key, generated fresh for the PKCS#12 tests: `p12-keystore`
+# rebuilds a bundle's chain by issuer, so proving the intermediates survive needs material that
+# really signed the leaf, which a committed fixture would also have to keep unexpired.
+rcgen.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 # The integration tests serve a gRPC service to call, which the regular build never does; these features
 # union with the `channel`/`codegen` above for test builds only.
