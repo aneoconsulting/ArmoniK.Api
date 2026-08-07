@@ -252,6 +252,7 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::proxy::ProxySource;
 
     /// The configuration `value` describes, expected to be valid.
     fn config(value: serde_json::Value) -> HttpConfig {
@@ -304,6 +305,21 @@ mod tests {
         assert_eq!(config.timeout, Some(Duration::from_secs(30)));
         assert!(config.tls.identity.is_none(), "an absent field defaults");
         assert!(!config.tls.allow_unsafe_connection);
+    }
+
+    #[test]
+    fn a_proxy_option_is_ignored_rather_than_refused() {
+        // The proxy is set programmatically, and flattening the units rules out denying unknown
+        // fields, so an option naming it passes through instead of failing the read. Whoever
+        // gives those options meaning has to add the reading, not assume a guard here.
+        let config = config(json!({
+            "Endpoint": "http://localhost:5001",
+            "ProxyAddress": "http://proxy.corp:3128",
+            "ProxyUsername": "user",
+        }));
+
+        assert_eq!(config.proxy.source, ProxySource::System);
+        assert!(config.proxy.username.is_empty());
     }
 
     #[test]
