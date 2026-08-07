@@ -5,20 +5,21 @@ use std::marker::PhantomData;
 
 use snafu::ResultExt;
 
-use crate::rpc::{ClientStream, Rpc, Service, ServerStream, Unary};
+use crate::rpc::{ClientStream, Rpc, ServerStream, Service, Unary};
 
 use super::RequestError;
 
 /// The channel bounds every client signature used to spell out, bundled.
 pub trait Channel:
     tonic::client::GrpcService<
-        tonic::body::Body,
-        Error: Into<tonic::codegen::StdError>,
-        ResponseBody: tonic::codegen::Body<
-            Data = tonic::codegen::Bytes,
-            Error: Into<tonic::codegen::StdError> + Send,
-        > + Send + 'static,
-    >
+    tonic::body::Body,
+    Error: Into<tonic::codegen::StdError>,
+    ResponseBody: tonic::codegen::Body<
+        Data = tonic::codegen::Bytes,
+        Error: Into<tonic::codegen::StdError> + Send,
+    > + Send
+                      + 'static,
+>
 {
 }
 
@@ -29,7 +30,8 @@ impl<T> Channel for T where
         ResponseBody: tonic::codegen::Body<
             Data = tonic::codegen::Bytes,
             Error: Into<tonic::codegen::StdError> + Send,
-        > + Send + 'static,
+        > + Send
+                          + 'static,
     >
 {
 }
@@ -84,9 +86,7 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
         let fut = async move {
             ready(grpc).await?;
             let mut request = tonic::IntoStreamingRequest::into_streaming_request(request);
-            request
-                .extensions_mut()
-                .insert(grpc_method::<S::Item>());
+            request.extensions_mut().insert(grpc_method::<S::Item>());
             Ok(grpc
                 .client_streaming(request, path::<S::Item>(), codec())
                 .await
@@ -189,8 +189,7 @@ impl Dispatch for ServerStream {
                 .await
                 .context(super::GrpcSnafu {})?
                 .into_inner();
-            let stream =
-                futures::StreamExt::map(stream, |item| item.context(super::GrpcSnafu {}));
+            let stream = futures::StreamExt::map(stream, |item| item.context(super::GrpcSnafu {}));
             Ok(futures::StreamExt::boxed(
                 tracing_futures::Instrument::instrument(stream, stream_span),
             ))

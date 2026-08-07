@@ -507,4 +507,3 @@ fn field_kind(field: &FieldDescriptorProto) -> Result<FieldKind, String> {
         Type::Group => return Err("proto2 groups are not supported".to_owned()),
     })
 }
-

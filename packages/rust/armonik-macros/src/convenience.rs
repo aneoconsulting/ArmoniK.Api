@@ -142,7 +142,10 @@ impl Parse for Emit {
 /// (`crate::sessions::get::Request` → `crate::sessions::get`, `request`).
 fn split(path: &Path) -> syn::Result<(Path, String)> {
     if path.segments.len() < 2 {
-        return Err(syn::Error::new_spanned(path, "expected a `module::Type` path"));
+        return Err(syn::Error::new_spanned(
+            path,
+            "expected a `module::Type` path",
+        ));
     }
     let mut segments = path.segments.iter().cloned().collect::<Vec<_>>();
     let last = segments.pop().expect("checked above");
@@ -231,10 +234,7 @@ pub(crate) fn expand(tokens: TokenStream) -> syn::Result<TokenStream> {
     let error = quote!(crate::client::RequestError);
 
     let (ret, body) = match (&project, emit.server_stream) {
-        (Project::Whole, false) => (
-            quote!(#response),
-            quote!(self.call(#literal).await),
-        ),
+        (Project::Whole, false) => (quote!(#response), quote!(self.call(#literal).await)),
         (Project::Field(field), false) => {
             let (resp_parent, resp_stem) = split(&emit.response)?;
             let ty = format_ident!("__armonik_ty_{resp_stem}_{field}");
@@ -319,13 +319,25 @@ mod tests {
         });
         assert!(out.contains("pub async fn list"), "{out}");
         assert!(out.contains("filters : impl :: core :: iter :: IntoIterator < Item = impl :: core :: iter :: IntoIterator < Item = crate :: sessions :: list :: __armonik_ty_request_filters_elem >"), "{out}");
-        assert!(out.contains("sort : crate :: sessions :: list :: __armonik_ty_request_sort"), "{out}");
+        assert!(
+            out.contains("sort : crate :: sessions :: list :: __armonik_ty_request_sort"),
+            "{out}"
+        );
         assert!(out.contains("name : impl :: core :: convert :: Into < crate :: sessions :: list :: __armonik_ty_request_name >"), "{out}");
-        assert!(out.contains("filters : crate :: utils :: into_filters (filters)"), "{out}");
-        assert!(out.contains("ids : crate :: utils :: IntoCollection :: into_collect (ids)"), "{out}");
+        assert!(
+            out.contains("filters : crate :: utils :: into_filters (filters)"),
+            "{out}"
+        );
+        assert!(
+            out.contains("ids : crate :: utils :: IntoCollection :: into_collect (ids)"),
+            "{out}"
+        );
         assert!(out.contains("map : map . into_iter () . map (| (key , value) | (key . into () , value . into ())) . collect ()"), "{out}");
         assert!(out.contains("name : name . into ()"), "{out}");
-        assert!(out.contains("self . call (crate :: sessions :: list :: Request {"), "{out}");
+        assert!(
+            out.contains("self . call (crate :: sessions :: list :: Request {"),
+            "{out}"
+        );
         assert!(out.contains("# [doc = \" Get a sessions list.\"]"), "{out}");
         assert!(!out.contains("deprecated"), "{out}");
     }
@@ -354,7 +366,10 @@ mod tests {
             fields { [filter plain] }
         });
         assert!(out.contains(". await ? ; Ok (())"), "{out}");
-        assert!(out.contains("Result < () , crate :: client :: RequestError >"), "{out}");
+        assert!(
+            out.contains("Result < () , crate :: client :: RequestError >"),
+            "{out}"
+        );
     }
 
     #[test]
@@ -366,8 +381,14 @@ mod tests {
             docs { }
             fields { [session_id into] }
         });
-        assert!(out.contains("crate :: sessions :: get :: __armonik_fields_response !"), "{out}");
-        assert!(out.contains("armonik_macros :: __emit_convenience !"), "{out}");
+        assert!(
+            out.contains("crate :: sessions :: get :: __armonik_fields_response !"),
+            "{out}"
+        );
+        assert!(
+            out.contains("armonik_macros :: __emit_convenience !"),
+            "{out}"
+        );
         assert!(!out.contains("pub async fn"), "{out}");
     }
 
@@ -391,7 +412,10 @@ mod tests {
             fields { }
             fields { [sessions plain] [total plain] }
         });
-        assert!(multi.contains("Result < crate :: sessions :: list :: Response ,"), "{multi}");
+        assert!(
+            multi.contains("Result < crate :: sessions :: list :: Response ,"),
+            "{multi}"
+        );
     }
 
     #[test]
@@ -412,8 +436,14 @@ mod tests {
             docs { }
             fields { [result_id into] }
         });
-        assert!(projected.contains("__armonik_ty_response_data_chunk"), "{projected}");
-        assert!(projected.contains("| item | item . map (| response | response . data_chunk)"), "{projected}");
+        assert!(
+            projected.contains("__armonik_ty_response_data_chunk"),
+            "{projected}"
+        );
+        assert!(
+            projected.contains("| item | item . map (| response | response . data_chunk)"),
+            "{projected}"
+        );
     }
 
     #[test]

@@ -169,9 +169,7 @@ impl<'a> Matcher<'a> {
     /// whole; a oneof is covered when every member was mapped individually.
     fn check_complete(&self, at: Span, errors: &mut Errors) {
         for (position, field) in self.meta.fields.iter().enumerate() {
-            let in_oneof_group = field
-                .oneof
-                .is_some_and(|oneof| self.consumed_oneofs[oneof]);
+            let in_oneof_group = field.oneof.is_some_and(|oneof| self.consumed_oneofs[oneof]);
             if !self.consumed[position] && !in_oneof_group {
                 errors.push(syn::Error::new(
                     at,
@@ -183,10 +181,7 @@ impl<'a> Matcher<'a> {
             }
         }
         for (index, oneof) in self.meta.oneofs.iter().enumerate() {
-            let members_covered = oneof
-                .fields
-                .iter()
-                .all(|&field| self.consumed[field]);
+            let members_covered = oneof.fields.iter().all(|&field| self.consumed[field]);
             if !self.consumed_oneofs[index] && !members_covered {
                 errors.push(syn::Error::new(
                     at,
@@ -289,7 +284,15 @@ pub(crate) fn message_plan(
 
     for (field_index, field) in data.fields.iter().enumerate() {
         let (span, access) = field_access(field, field_index);
-        let Some((FieldAttrs { rename, tag: explicit_tag, with, .. }, _)) = scan_attrs(
+        let Some((
+            FieldAttrs {
+                rename,
+                tag: explicit_tag,
+                with,
+                ..
+            },
+            _,
+        )) = scan_attrs(
             &field.attrs,
             Allowed {
                 rename: true,
@@ -300,7 +303,8 @@ pub(crate) fn message_plan(
             },
             "this armonik attribute is not valid on a message field",
             &mut errors,
-        ) else {
+        )
+        else {
             continue;
         };
         let with = with.map(|(_, ty)| ty);
@@ -403,7 +407,9 @@ pub(crate) fn message_plan(
             ty: field.ty.clone(),
             span,
             tag,
-            codec: FieldCodec::Field { adapter: with.map(Box::new) },
+            codec: FieldCodec::Field {
+                adapter: with.map(Box::new),
+            },
             checks,
             proto_path,
         });
@@ -549,7 +555,9 @@ fn generic_plan(
             ty: field.ty.clone(),
             span,
             tag,
-            codec: FieldCodec::Field { adapter: with.map(Box::new) },
+            codec: FieldCodec::Field {
+                adapter: with.map(Box::new),
+            },
             checks: FieldChecks::none(),
             proto_path,
         });
@@ -1487,7 +1495,13 @@ fn resolve_plain_variant(
             let mut parts = Vec::new();
             for part in &named.named {
                 let part_ident = part.ident.clone().expect("named fields have idents");
-                let Some((FieldAttrs { rename: part_rename, .. }, _)) = scan_attrs(
+                let Some((
+                    FieldAttrs {
+                        rename: part_rename,
+                        ..
+                    },
+                    _,
+                )) = scan_attrs(
                     &part.attrs,
                     Allowed {
                         rename: true,
@@ -1495,7 +1509,8 @@ fn resolve_plain_variant(
                     },
                     "this armonik attribute is not valid on a struct variant field",
                     errors,
-                ) else {
+                )
+                else {
                     continue;
                 };
                 let part_name = part_rename.unwrap_or_else(|| unraw(&part_ident));
@@ -1664,7 +1679,15 @@ pub(crate) fn oneof_plan(
     let mut absorbs: Vec<String> = Vec::new();
     for variant in &data.variants {
         let span = variant.ident.span();
-        let Some((FieldAttrs { rename, with, present, .. }, _)) = scan_attrs(
+        let Some((
+            FieldAttrs {
+                rename,
+                with,
+                present,
+                ..
+            },
+            _,
+        )) = scan_attrs(
             &variant.attrs,
             Allowed {
                 rename: true,
@@ -1675,7 +1698,8 @@ pub(crate) fn oneof_plan(
             },
             "this armonik attribute is not valid on a oneof variant",
             &mut errors,
-        ) else {
+        )
+        else {
             continue;
         };
 
@@ -1765,7 +1789,13 @@ pub(crate) fn oneof_plan(
             present,
         };
         let resolved = if !sibling_metas.is_empty() {
-            resolve_sibling_variant(&ctx, &sibling_metas, &mut sibling_bindings, &with, &mut errors)
+            resolve_sibling_variant(
+                &ctx,
+                &sibling_metas,
+                &mut sibling_bindings,
+                &with,
+                &mut errors,
+            )
         } else if present {
             resolve_marker_variant(&ctx, &with, &mut errors)
         } else {

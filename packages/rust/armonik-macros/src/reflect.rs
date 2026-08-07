@@ -55,7 +55,11 @@ pub(crate) fn expand_attribute(attr: TokenStream, item: TokenStream) -> syn::Res
         ));
     }
     let (source, stem) = source(&item)?;
-    let target = format_ident!("{}", snake(&item.ident.to_string()), span = item.ident.span());
+    let target = format_ident!(
+        "{}",
+        snake(&item.ident.to_string()),
+        span = item.ident.span()
+    );
     let source_callback = format_ident!("__armonik_fields_{stem}");
     let target_callback = format_ident!("__armonik_fields_{target}");
 
@@ -97,7 +101,11 @@ fn source(item: &ItemType) -> syn::Result<(Path, Ident)> {
             "a generic right-hand side carries no reflection (the derive emits none)",
         ));
     }
-    let stem = format_ident!("{}", snake(&last.ident.to_string()), span = last.ident.span());
+    let stem = format_ident!(
+        "{}",
+        snake(&last.ident.to_string()),
+        span = last.ident.span()
+    );
     if segments.last().is_none_or(|parent| parent.ident != stem) {
         segments.push(PathSegment::from(stem.clone()));
     }
@@ -179,7 +187,10 @@ mod tests {
             /// Docs stay.
             pub type Response = super::super::Count;
         });
-        assert!(out.contains("pub type Response = super :: super :: Count ;"), "{out}");
+        assert!(
+            out.contains("pub type Response = super :: super :: Count ;"),
+            "{out}"
+        );
         assert!(out.contains("# [doc = r\" Docs stay.\"]"), "{out}");
         assert!(
             out.contains(
@@ -211,7 +222,9 @@ mod tests {
     fn a_generic_right_hand_side_is_rejected() {
         let err = super::expand_attribute(
             proc_macro2::TokenStream::new(),
-            quote!(pub type Sort = super::Sort<Field>;),
+            quote!(
+                pub type Sort = super::Sort<Field>;
+            ),
         )
         .unwrap_err()
         .to_string();
@@ -226,7 +239,14 @@ mod tests {
         })
         .expect("expands")
         .to_string();
-        for suffix in ["values", "values_key", "values_value", "ids", "ids_elem", "name"] {
+        for suffix in [
+            "values",
+            "values_key",
+            "values_value",
+            "ids",
+            "ids_elem",
+            "name",
+        ] {
             assert!(
                 out.contains(&format!(
                     "pub (crate) use super :: super :: count :: __armonik_ty_count_{suffix} \

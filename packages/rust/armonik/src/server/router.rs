@@ -25,11 +25,12 @@ pub(crate) struct ServerConfig {
 }
 
 /// An erased request handler: one per RPC, stored in [`Routes::ROUTES`].
-pub(crate) type RouteFn<S> = fn(
-    Arc<S>,
-    http::Request<tonic::body::Body>,
-    ServerConfig,
-) -> BoxFuture<http::Response<tonic::body::Body>, std::convert::Infallible>;
+pub(crate) type RouteFn<S> =
+    fn(
+        Arc<S>,
+        http::Request<tonic::body::Body>,
+        ServerConfig,
+    ) -> BoxFuture<http::Response<tonic::body::Body>, std::convert::Infallible>;
 
 /// The request stream handed to client-streaming trait methods.
 pub(crate) type RequestStream<R> = futures::stream::BoxStream<'static, Result<R, tonic::Status>>;
@@ -155,10 +156,7 @@ struct Handler<S, F> {
 
 /// The traced, boxed response future shared by the unary and client-streaming
 /// call shapes.
-fn respond<T, Fut>(
-    fut: Fut,
-    span: tracing::Span,
-) -> BoxFuture<tonic::Response<T>, tonic::Status>
+fn respond<T, Fut>(fut: Fut, span: tracing::Span) -> BoxFuture<tonic::Response<T>, tonic::Status>
 where
     T: std::fmt::Debug,
     Fut: std::future::Future<Output = Result<T, tonic::Status>> + Send + 'static,
@@ -220,7 +218,10 @@ where
             stream,
             tracing::trace_span!(parent: &span, "stream"),
         ));
-        respond((self.handler)(Arc::clone(&self.inner), stream, context), span)
+        respond(
+            (self.handler)(Arc::clone(&self.inner), stream, context),
+            span,
+        )
     }
 }
 

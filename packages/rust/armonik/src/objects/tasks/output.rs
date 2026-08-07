@@ -42,9 +42,7 @@ impl prost::Message for Output {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         match self {
             Output::Success => <bool as ProtoField>::encode_field(SUCCESS_TAG, &true, buf),
-            Output::Error(message) => {
-                <String as ProtoField>::encode_field(ERROR_TAG, message, buf)
-            }
+            Output::Error(message) => <String as ProtoField>::encode_field(ERROR_TAG, message, buf),
         }
     }
 
@@ -220,7 +218,10 @@ mod tests {
             }),
             Output::Error(String::new()),
         );
-        assert_eq!(Output::decode([].as_slice()).expect("decodes"), Output::default());
+        assert_eq!(
+            Output::decode([].as_slice()).expect("decodes"),
+            Output::default()
+        );
         assert_eq!(Output::default(), Output::Error(String::new()));
     }
 }

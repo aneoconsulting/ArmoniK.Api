@@ -130,9 +130,7 @@ fn inject_enumeration(input: &mut DeriveInput, meta: &EnumMeta) -> syn::Result<(
             .zip(&meta.value_docs)
             .find(|((name, _), _)| match renamed(&variant.attrs) {
                 Some(rename) => name == &rename,
-                None => {
-                    variant.ident == pascal(name.strip_prefix(&prefix).unwrap_or(name))
-                }
+                None => variant.ident == pascal(name.strip_prefix(&prefix).unwrap_or(name)),
             })
             .map(|(_, docs)| docs.clone())
             .unwrap_or_default();

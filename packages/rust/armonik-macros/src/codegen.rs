@@ -68,7 +68,11 @@ fn card_description(card: Card) -> &'static str {
 /// Human form of the expected shape, for the assert message.
 fn describe(checks: &crate::resolve::FieldChecks) -> String {
     if let Some((key, value)) = &checks.map_kinds {
-        return format!("a map<{}, {}>", kind_description(key), kind_description(value));
+        return format!(
+            "a map<{}, {}>",
+            kind_description(key),
+            kind_description(value)
+        );
     }
     let cards = checks
         .cardinalities
@@ -143,7 +147,11 @@ fn field_asserts_for(
 /// A spanned compile error for a proto field whose wire kind the codec does
 /// not implement (the sint/fixed kinds — no ArmoniK field uses them, so the
 /// `codec::FieldKind` enum omits them).
-fn unsupported_kind_error(kind: &FieldKind, proto_path: &str, span: proc_macro2::Span) -> TokenStream {
+fn unsupported_kind_error(
+    kind: &FieldKind,
+    proto_path: &str,
+    span: proc_macro2::Span,
+) -> TokenStream {
     let message = format!(
         "armonik: proto field `{proto_path}` uses wire kind {}, which the codec does not implement",
         kind_description(kind),
@@ -350,7 +358,13 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             len
         },
     );
-    let proto_field = msg_impl(&impl_generics, ident, &ty_generics, where_clause, proto_names);
+    let proto_field = msg_impl(
+        &impl_generics,
+        ident,
+        &ty_generics,
+        where_clause,
+        proto_names,
+    );
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {
@@ -701,7 +715,10 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         })
         .partition(|(tag, _, _)| min_member_tag.is_some_and(|member| *tag < member));
     let sib_encode = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
-        entries.iter().map(|(_, encode, _)| encode.clone()).collect()
+        entries
+            .iter()
+            .map(|(_, encode, _)| encode.clone())
+            .collect()
     };
     let sib_len = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
         entries
@@ -732,7 +749,12 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         let var = &variant.ident;
         let tag = variant.tag;
         match &variant.shape {
-            OneofVariantShape::Payload { ty, adapter, checks, binding } => {
+            OneofVariantShape::Payload {
+                ty,
+                adapter,
+                checks,
+                binding,
+            } => {
                 let d = dispatch(ty, adapter.as_deref());
                 if adapter.is_some() {
                     normalize_fragments.push(quote! {
