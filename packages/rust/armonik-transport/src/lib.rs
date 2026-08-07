@@ -5,13 +5,20 @@
 //! the build.
 
 mod config;
+mod config_utils;
 mod connect;
+mod http2_config;
 mod proxy;
+mod tcp_config;
+mod tls_config;
 mod utils;
 
-pub use config::{ClientConfig, ClientConfigArgs, ConfigError};
+pub use config::{ConfigError, HttpConfig};
 pub use connect::{connect, https_connector, ConnectionError};
+pub use http2_config::Http2Config;
 pub use proxy::{ProxyConfig, ProxyError, ProxySource};
+pub use tcp_config::TcpConfig;
+pub use tls_config::{Identity, TlsConfig};
 // The password's own type, so a caller can build a `ProxyConfig` without declaring a dependency on
 // the `secrecy` crate this one happens to use.
 pub use secrecy::SecretString;
@@ -19,7 +26,6 @@ pub use secrecy::SecretString;
 // captured at its own call site. Hidden: this is how the error is built, not API to design against.
 #[doc(hidden)]
 pub use connect::{ConfigSnafu, IoSnafu, TlsSnafu, TransportSnafu};
-pub use utils::ReadEnvError;
 
 /// Re-exports of this crate's own dependencies, at the versions it was built with.
 ///

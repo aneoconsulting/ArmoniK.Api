@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use armonik_transport::{ClientConfig, ProxyConfig};
+use armonik_transport::{HttpConfig, ProxyConfig};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
@@ -95,7 +95,7 @@ fn through_proxy(
     endpoint: &str,
     proxy: SocketAddr,
     credentials: Option<(&str, &str)>,
-) -> ClientConfig {
+) -> HttpConfig {
     let mut config = common::config(endpoint, |_| {});
     let mut proxy = ProxyConfig::explicit(
         hyper::Uri::try_from(format!("http://{proxy}")).expect("a valid proxy URI"),
@@ -108,19 +108,19 @@ fn through_proxy(
 }
 
 /// A client that connects directly, whatever proxy the tests happen to be running.
-fn direct(endpoint: &str) -> ClientConfig {
+fn direct(endpoint: &str) -> HttpConfig {
     common::config(endpoint, |_| {})
 }
 
 /// The same client, following the environment.
-fn following_the_environment(endpoint: &str) -> ClientConfig {
+fn following_the_environment(endpoint: &str) -> HttpConfig {
     let mut config = common::config(endpoint, |_| {});
     config.proxy = ProxyConfig::system();
     config
 }
 
 /// Connect and make one call, returning what the server answered.
-async fn call_through(config: ClientConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
+async fn call_through(config: HttpConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
     let channel = armonik_transport::connect(config).await?;
     Ok(common::call(channel).await?)
 }

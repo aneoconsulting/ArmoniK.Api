@@ -9,7 +9,7 @@ wants the services as well needs only that one.
 
 ## Reaching the endpoint through a proxy
 
-`ClientConfig::proxy` decides how the connection goes out. The default is `ProxySource::System`, the
+`HttpConfig::proxy` decides how the connection goes out. The default is `ProxySource::System`, the
 same as ArmoniK's C# client: `ALL_PROXY`/`HTTPS_PROXY`/`HTTP_PROXY` are honoured and `NO_PROXY` is
 matched the way curl matches it, so a client that configures nothing follows its environment and
 connects directly when the environment names no proxy. `ProxyConfig::disabled()` forces a direct
@@ -20,7 +20,7 @@ itself carried.
 The connection is an HTTP `CONNECT` tunnel: TLS, mutual TLS included, is negotiated end to end with
 the real server, and the proxy only forwards opaque bytes. Because the `CONNECT` handshake itself goes
 out in the clear, the proxy's own URL has to be `http`. The handshake is bounded by
-`ClientConfig::connect_timeout`, 30 seconds when none is set.
+`HttpConfig::connect_timeout`, 60 seconds when none is set.
 
 ## Publishing
 
