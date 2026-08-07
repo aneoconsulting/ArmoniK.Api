@@ -98,19 +98,72 @@ fn registered_types_roundtrip() {
     }
 }
 
-/// The zero-default invariant: every type's `Default::default()` is the proto zero value, so
-/// decoding an empty message yields it. This is what lets decoding seed from `Default` with no
-/// special wire semantics.
+/// The zero-default invariant: every type's `Default::default()` is the proto zero value. This is
+/// what lets decoding seed from `Default` with no special wire semantics, and it is checked on the
+/// encoding of `Default::default()` alone: decoding starts from `Default`, so anything that goes
+/// through a round-trip agrees with whatever the default happens to be. A set oneof member is
+/// allowed as long as its payload is itself zero, which is what a defaulted oneof encodes to.
 #[test]
-fn empty_message_decodes_to_default() {
+fn default_encoding_is_the_proto_zero() {
+    let pool = pool();
     for entry in registry::entries() {
-        let reencoded = (entry.roundtrip)(&[]).expect("an empty message decodes");
-        assert_eq!(
-            reencoded,
-            (entry.default_encoding)(),
-            "`{}`: decoding an empty message must yield Default::default()",
-            entry.proto,
-        );
+        let desc = pool
+            .get_message_by_name(entry.proto)
+            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", entry.proto));
+        let message = DynamicMessage::decode(desc, (entry.default_encoding)().as_slice())
+            .unwrap_or_else(|err| {
+                panic!("the default encoding of `{}` decodes: {err}", entry.proto)
+            });
+        if let Some(field) = first_nonzero(&message) {
+            panic!(
+                "`{}`: Default::default() carries a non-zero `{field}`. Move the value to a named \
+                 constructor (`recommended()`, `Sort::ascending`, ...) and leave Default at the \
+                 proto zero.\n    default: {}",
+                entry.proto,
+                debug_fields(&message),
+            );
+        }
+    }
+}
+
+/// The path of the first field holding something other than the proto zero, if any.
+fn first_nonzero(message: &DynamicMessage) -> Option<String> {
+    use prost_reflect::ReflectMessage;
+
+    message.descriptor().fields().find_map(|field| {
+        if !message.has_field(&field) {
+            return None;
+        }
+        match message.get_field(&field).as_ref() {
+            prost_reflect::Value::Message(inner) => {
+                first_nonzero(inner).map(|path| format!("{}.{path}", field.name()))
+            }
+            value if is_nonzero(value) => Some(field.name().to_owned()),
+            _ => None,
+        }
+    })
+}
+
+/// Whether a value differs from the proto zero of its kind. A message is zero when every field it
+/// holds is, which is what [`first_nonzero`] recurses for; repeated and map fields are zero only
+/// when empty.
+fn is_nonzero(value: &prost_reflect::Value) -> bool {
+    use prost_reflect::Value;
+
+    match value {
+        Value::Message(inner) => first_nonzero(inner).is_some(),
+        Value::List(items) => !items.is_empty(),
+        Value::Map(entries) => !entries.is_empty(),
+        Value::Bool(value) => *value,
+        Value::I32(value) => *value != 0,
+        Value::I64(value) => *value != 0,
+        Value::U32(value) => *value != 0,
+        Value::U64(value) => *value != 0,
+        Value::F32(value) => *value != 0.0,
+        Value::F64(value) => *value != 0.0,
+        Value::EnumNumber(value) => *value != 0,
+        Value::String(value) => !value.is_empty(),
+        Value::Bytes(value) => !value.is_empty(),
     }
 }
 

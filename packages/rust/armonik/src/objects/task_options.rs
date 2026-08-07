@@ -153,8 +153,8 @@ mod tests {
     }
 
     /// Absent fields decode to `Default::default()`, which is the proto
-    /// zero value for every field (the zero-default invariant); the
-    /// historical defaults live in [`TaskOptions::recommended`].
+    /// zero value for every field (the zero-default invariant); usable
+    /// values live in [`TaskOptions::recommended`].
     #[test]
     fn absent_fields_decode_to_the_proto_zero() {
         let absent = RefOptions {
