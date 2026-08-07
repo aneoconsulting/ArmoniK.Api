@@ -71,7 +71,8 @@ use syn::DeriveInput;
 /// tuple structs must rename every field):
 ///
 /// ```ignore
-/// #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+/// #[armonik_macros::message]
+/// #[derive(Debug, Clone, Default, PartialEq, Eq)]
 /// #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 /// pub struct Response {
 ///     #[armonik(with = "crate::codec::adapters::PairMap<1, 2>")]
@@ -89,7 +90,8 @@ use syn::DeriveInput;
 /// case and becomes the `Default`:
 ///
 /// ```ignore
-/// #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+/// #[armonik_macros::message]
+/// #[derive(Debug, Clone, Default, PartialEq, Eq)]
 /// #[armonik(message = "armonik.api.grpc.v1.Output")]
 /// pub enum Output {
 ///     #[default]
@@ -118,7 +120,8 @@ use syn::DeriveInput;
 /// concrete instantiations instead:
 ///
 /// ```ignore
-/// #[derive(Debug, Clone, Default, PartialEq, Eq, armonik_macros::Message)]
+/// #[armonik_macros::message]
+/// #[derive(Debug, Clone, Default, PartialEq, Eq)]
 /// #[armonik(generic)]
 /// pub struct Sort<T> {
 ///     #[armonik(tag = 1)]
@@ -183,8 +186,8 @@ use syn::DeriveInput;
 /// [`with`](#with) adapter: the proto message the adapter flattens away (a
 /// pair-entry, `VecWrapper` or `StringWrapper` message), which therefore has no
 /// Rust type of its own. Registered as absorbed in `armonik::wire`, so the
-/// build script prunes it from the stubs and the differential harness counts it
-/// as covered through this parent. Repeatable. The other flatteners,
+/// differential harness counts it as covered through this parent. Repeatable.
+/// The other flatteners,
 /// [`transparent`](macro@enumeration#transparent) chains and inline struct variants,
 /// declare their absorbed messages automatically.
 ///
@@ -198,8 +201,8 @@ use syn::DeriveInput;
 ///
 /// `transparent`, on a single-field struct: the type delegates its whole
 /// `prost::Message` impl to that one field, so it is wire-identical to the
-/// field's message and can stand for a whole RPC message in the stub
-/// signatures (the struct sibling of the `derive(Enum)` wrapper mode). Name the
+/// field's message and can stand for a whole RPC message (the struct sibling of
+/// the [`enumeration`](macro@enumeration#transparent) wrapper mode). Name the
 /// inner message with [`message`](#message); the field is not matched against
 /// the descriptor. Typically wraps a shared message per RPC site (e.g.
 /// `struct Request { filter: TaskFilter }`), keeping request types injective
@@ -232,7 +235,8 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// struct it emits itself:
 ///
 /// ```ignore
-/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, armonik_macros::Enum)]
+/// #[armonik_macros::enumeration]
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 /// pub enum TaskStatus {
 ///     Creating,
@@ -284,10 +288,11 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// wrapper messages ending at an enum field, flattened into the Rust enum.
 /// Name the wrapper messages with [`message`](#message) instead of
 /// [`enum`](#enum). The type also implements `prost::Message` as the outermost
-/// wrapper, so it can stand for whole RPC messages in stub signatures:
+/// wrapper, so it can stand for whole RPC messages:
 ///
 /// ```ignore
-/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, armonik_macros::Enum)]
+/// #[armonik_macros::enumeration]
+/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 /// #[armonik(transparent, message = "armonik.api.grpc.v1.applications.ApplicationField")]
 /// pub enum ApplicationField {
 ///     // matched against the enum at the end of the wrapper chain

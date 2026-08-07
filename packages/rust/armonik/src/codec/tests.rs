@@ -13,7 +13,7 @@ use prost::Message;
 
 use super::{enumeration, ProtoField};
 
-/// Prototype of the `derive(armonik::Enum)` output (without the `Other` catch-all, which is
+/// Prototype of the `#[armonik_macros::enumeration]` output (without the `Other` catch-all, which is
 /// irrelevant to the wire format).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum TestEnum {
@@ -77,7 +77,7 @@ impl ProtoField for TestEnum {
     }
 }
 
-/// Prototype of the `derive(armonik::Message)` output for a plain struct, mirroring
+/// Prototype of the `#[armonik_macros::message]` output for a plain struct, mirroring
 /// `armonik.api.grpc.v1.TaskOptions` (map, non-`Option` message with absent-as-default semantics,
 /// scalars).
 #[derive(Debug, Clone, PartialEq, Default)]

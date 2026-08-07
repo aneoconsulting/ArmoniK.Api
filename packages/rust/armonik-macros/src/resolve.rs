@@ -267,7 +267,7 @@ pub(crate) fn message_plan(
     let syn::Data::Struct(data) = &input.data else {
         errors.push(syn::Error::new(
             input.ident.span(),
-            "#[derive(armonik::Message)] with `message = ...` expects a struct \
+            "#[armonik_macros::message] with `message = ...` expects a struct \
              (use `oneof = ...` for flattened oneofs)",
         ));
         return Err(errors);
@@ -919,7 +919,7 @@ pub(crate) fn enum_plan(
     let syn::Data::Enum(data) = &input.data else {
         errors.push(syn::Error::new(
             input.ident.span(),
-            "#[derive(armonik::Enum)] expects an enum",
+            "#[armonik_macros::enumeration] expects an enum",
         ));
         return Err(errors);
     };

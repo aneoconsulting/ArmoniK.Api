@@ -153,8 +153,8 @@ impl crate::differential::Normalize for Request {
     }
 }
 
-// Hand-written `Message` impls register through the same `register!` macro the derive emits
-// (round-trip/`Normalize` hooks + extern-map entry).
+// Hand-written `Message` impls register through the same `register!` macro the expansions emit,
+// so they carry their round-trip/`Normalize` hooks.
 crate::register!(message: Request, "armonik.api.grpc.v1.agent.NotifyResultDataRequest");
 
 // The field reflection a derive would emit (the `prost::Message` impl above is hand-written),
