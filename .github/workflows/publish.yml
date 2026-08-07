@@ -133,6 +133,34 @@ on:
         type: boolean
         default: false
 
+# One head SHA can arrive twice. `synchronize` fires whenever a pull request's
+# merge ref has to be recomputed, which happens both when the head moves and
+# when the base moves, so re-cutting a stack of pull requests delivers two
+# events a second apart for the same head. Both resolve the same pre-release
+# version and race on the same registry push, and the loser fails.
+#
+# Only such duplicates may share a group, hence the head SHA in the key. A later
+# commit on the same pull request, or a later push to `main`, lands in a group
+# of its own and is left alone: it carries a version of its own and races with
+# nothing, while stopping it part way would leave some ecosystems pushed and the
+# rest not, at a version none of these registries accepts a second time. Sharing
+# one group would not merely cancel those runs, it would drop them, a group
+# holding one running and one pending run and no more.
+#
+# `github.sha` cannot stand in for the head SHA here: on a pull request it is
+# the merge commit, which the two deliveries do not share once it is the base
+# that moved.
+#
+# Cancelling stays off outside pull requests, where the same ref twice is a
+# release published twice rather than one delivered twice.
+#
+# Group names share one repository-wide namespace, hence the workflow prefix:
+# reusing `ci.yml`'s bare `ci-<ref>` would make the two workflows cancel each
+# other.
+concurrency:
+  group: publish-${{ github.ref }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Deny everything by default and let each job grant itself the minimum. This has
 # to stay `{}` rather than be removed: the repository's default workflow token
 # permission is `write`, so a workflow with no `permissions` key at all hands a
