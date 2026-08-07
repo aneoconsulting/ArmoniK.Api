@@ -29,8 +29,6 @@ impl Default for TaskFilterIds {
 }
 
 /// Status selector of the filter.
-/// The `Include`/`Exclude` variants map to the *opposite* proto members
-/// (`excluded`/`included`), reproducing the historical conversions exactly.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -39,14 +37,16 @@ impl Default for TaskFilterIds {
     oneof = "statuses"
 )]
 pub enum TaskFilterStatuses {
+    /// Select the tasks whose status is one of these.
     #[armonik(
-        rename = "excluded",
+        rename = "included",
         with = "crate::codec::adapters::Wrapper<1>",
         absorbs = "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest"
     )]
     Include(Vec<TaskStatus>),
+    /// Select the tasks whose status is none of these.
     #[armonik(
-        rename = "included",
+        rename = "excluded",
         with = "crate::codec::adapters::Wrapper<1>",
         absorbs = "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest"
     )]
@@ -66,4 +66,105 @@ impl Default for TaskFilterStatuses {
 pub struct TaskFilter {
     pub ids: TaskFilterIds,
     pub statuses: TaskFilterStatuses,
+}
+
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+
+    use super::*;
+
+    /// prost-derived reference of `TaskFilter` (the generated type no longer
+    /// exists), with the two oneofs spelled out as optional fields.
+    #[derive(Clone, PartialEq, Message)]
+    struct RefFilter {
+        #[prost(message, optional, tag = "1")]
+        session: Option<RefIds>,
+        #[prost(message, optional, tag = "3")]
+        task: Option<RefIds>,
+        #[prost(message, optional, tag = "4")]
+        included: Option<RefStatuses>,
+        #[prost(message, optional, tag = "5")]
+        excluded: Option<RefStatuses>,
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefIds {
+        #[prost(string, repeated, tag = "1")]
+        ids: Vec<String>,
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefStatuses {
+        #[prost(int32, repeated, tag = "1")]
+        statuses: Vec<i32>,
+    }
+
+    fn statuses(status: TaskStatus) -> Option<RefStatuses> {
+        Some(RefStatuses {
+            statuses: vec![i32::from(status)],
+        })
+    }
+
+    /// Each selector variant names its own proto member, in both directions.
+    #[test]
+    fn selectors_bind_their_own_proto_member() {
+        for (ours, theirs) in [
+            (
+                TaskFilterStatuses::Include(vec![TaskStatus::Completed]),
+                RefFilter {
+                    included: statuses(TaskStatus::Completed),
+                    ..Default::default()
+                },
+            ),
+            (
+                TaskFilterStatuses::Exclude(vec![TaskStatus::Cancelled]),
+                RefFilter {
+                    excluded: statuses(TaskStatus::Cancelled),
+                    ..Default::default()
+                },
+            ),
+        ] {
+            let filter = TaskFilter {
+                ids: TaskFilterIds::Tasks(vec![String::from("task-id")]),
+                statuses: ours.clone(),
+            };
+            let expected = RefFilter {
+                task: Some(RefIds {
+                    ids: vec![String::from("task-id")],
+                }),
+                ..theirs.clone()
+            };
+
+            assert_eq!(
+                RefFilter::decode(filter.encode_to_vec().as_slice()).unwrap(),
+                expected
+            );
+            assert_eq!(
+                TaskFilter::decode(expected.encode_to_vec().as_slice()).unwrap(),
+                filter
+            );
+
+            // The id selector too, on the other oneof.
+            let filter = TaskFilter {
+                ids: TaskFilterIds::Sessions(vec![String::from("session-id")]),
+                statuses: ours,
+            };
+            let expected = RefFilter {
+                session: Some(RefIds {
+                    ids: vec![String::from("session-id")],
+                }),
+                ..theirs
+            };
+
+            assert_eq!(
+                RefFilter::decode(filter.encode_to_vec().as_slice()).unwrap(),
+                expected
+            );
+            assert_eq!(
+                TaskFilter::decode(expected.encode_to_vec().as_slice()).unwrap(),
+                filter
+            );
+        }
+    }
 }
