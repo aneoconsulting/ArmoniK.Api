@@ -43,6 +43,25 @@ mod tests {
         }
     }
 
+    /// The variants carry their proto values as discriminants, which is what the derived
+    /// `PartialOrd`/`Ord` compare.
+    #[test]
+    fn ordering_follows_the_proto_values() {
+        assert!(TaskStatus::Creating < TaskStatus::Submitted);
+        assert!(TaskStatus::Submitted < TaskStatus::Paused);
+
+        // The catch-all covers the zero value and the unknown ones, which sort before every named
+        // value, and among themselves by the raw value.
+        assert!(TaskStatus::UNSPECIFIED < TaskStatus::Creating);
+        assert!(TaskStatus::from(999) < TaskStatus::Creating);
+        assert!(TaskStatus::UNSPECIFIED < TaskStatus::from(999));
+
+        let mut sorted: Vec<TaskStatus> = (0..=13).rev().map(TaskStatus::from).collect();
+        sorted.sort();
+        let values: Vec<i32> = sorted.into_iter().map(i32::from).collect();
+        assert_eq!(values, (0..=13).collect::<Vec<i32>>());
+    }
+
     #[test]
     fn unspecified_is_matchable() {
         match TaskStatus::from(0) {

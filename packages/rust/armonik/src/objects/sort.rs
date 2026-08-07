@@ -36,3 +36,17 @@ pub struct SortMany<T> {
     #[armonik(tag = 2)]
     pub direction: SortDirection,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::SortDirection;
+
+    /// An enum whose zero value has a named variant: the catch-all covers only the unknown values,
+    /// and still sorts before every named one.
+    #[test]
+    fn ordering_follows_the_proto_values() {
+        assert!(SortDirection::Unspecified < SortDirection::Asc);
+        assert!(SortDirection::Asc < SortDirection::Desc);
+        assert!(SortDirection::from(77) < SortDirection::Unspecified);
+    }
+}
