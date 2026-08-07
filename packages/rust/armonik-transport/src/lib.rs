@@ -7,6 +7,8 @@
 mod config;
 mod config_utils;
 mod connect;
+#[cfg(feature = "env")]
+mod env;
 mod http2_config;
 mod proxy;
 mod retry_config;
@@ -16,6 +18,8 @@ mod utils;
 
 pub use config::{ConfigError, HttpConfig};
 pub use connect::{connect, https_connector, ConnectionError};
+#[cfg(feature = "env")]
+pub use env::EnvError;
 pub use http2_config::Http2Config;
 pub use proxy::{ProxyConfig, ProxyError, ProxySource};
 pub use retry_config::RetryConfig;
