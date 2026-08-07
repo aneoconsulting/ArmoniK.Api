@@ -39,6 +39,8 @@ pub mod reexports {
     pub use hyper_rustls;
     pub use hyper_util;
     pub use rustls;
+    #[cfg(feature = "schema")]
+    pub use schemars;
     pub use secrecy;
     #[cfg(feature = "serde")]
     pub use serde;

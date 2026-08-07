@@ -10,28 +10,41 @@ use std::time::Duration;
 #[cfg(feature = "serde")]
 serde_with::with_prefix!(pub(crate) prefix_tcp "Tcp");
 
+#[cfg(feature = "schema")]
+crate::config::make_schemars_prefix!(tcp_schema, TcpConfig, "Tcp");
+
 /// TCP-level socket options.
 ///
-/// Read from a `Tcp`-prefixed variable or JSON key, e.g. [`Self::keepalive`] is `TcpKeepalive`: see
-/// the module documentation for why.
+/// The `Tcp` prefix belongs to the embedding, not to these names: flattened into
+/// [`crate::HttpConfig`], [`Self::keepalive`] is read from `TcpKeepalive`, and a schema generated
+/// for this type on its own describes the unprefixed names it declares.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
+#[cfg_attr(
+    feature = "schema",
+    derive(schemars::JsonSchema),
+    schemars(transform = crate::config::strip_defaults)
+)]
 #[non_exhaustive]
 pub struct TcpConfig {
     /// TCP keepalive duration (e.g. `30s`), defaults to no keepalive. `TcpKeepalive`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "keepalive"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub keepalive: Option<Duration>,
     /// Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default.
     /// `TcpKeepaliveInterval`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "keepalive_interval"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub keepalive_interval: Option<Duration>,
     /// Number of TCP keepalive retries, defaults to OS default. `TcpKeepaliveRetries`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "keepalive_retries"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub keepalive_retries: Option<u32>,
     /// Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false. `TcpNagleAlgorithm`. See
     /// [`crate::TlsConfig::allow_unsafe_connection`] for the accepted spellings.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "nagle_algorithm"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub nagle_algorithm: bool,
 }
 

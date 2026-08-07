@@ -18,6 +18,10 @@ serde = ["dep:serde", "secrecy/serde", "dep:serde_with"]
 # (`#[serde(rename_all = "PascalCase")]`), so it needs the derive `serde` turns on, plus `figment`'s
 # own `env` feature for its `Env` provider.
 env = ["serde", "dep:figment"]
+# A JSON schema of the option vocabulary, for generating an options class in another language.
+# `serde_json` because the prefix helper rewrites the generated schema's property names, and a
+# schemars 1.x schema is edited as the JSON value it wraps.
+schema = ["serde", "dep:schemars", "dep:serde_json"]
 
 [dependencies]
 # `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
@@ -56,6 +60,9 @@ serde = { workspace = true, optional = true }
 # while keeping each option's definition in its own thematic file. `std` because `with_prefix!` is
 # gated behind it.
 serde_with = { workspace = true, optional = true, features = ["std"] }
+# The JSON schema of the option vocabulary, behind the `schema` feature.
+schemars = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 humantime.workspace = true
 # `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
 # nothing to the build.
@@ -85,3 +92,7 @@ tonic = { workspace = true, features = ["server", "router"] }
 # The test service's codec moves raw `Bytes`; production code here hands whole channels to its caller
 # rather than framing messages itself.
 bytes.workspace = true
+
+[[example]]
+name = "generate_schema"
+required-features = ["schema"]

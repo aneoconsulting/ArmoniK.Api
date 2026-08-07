@@ -15,7 +15,10 @@ out cannot leak its proxy password), from a flat document of PascalCase options 
 `TcpKeepalive`, `Http2KeepAliveInterval`, ...). The `CertPem`/`KeyPem` identity loads its files as
 the configuration is read, so a mistyped path fails there, naming the file. The `env` feature adds
 `HttpConfig::from_env(prefix)`, reading each option from one environment variable under a prefix of
-the caller's choosing; the `armonik` crate reads them under the `GrpcClient__` prefix.
+the caller's choosing; the `armonik` crate reads them under the `GrpcClient__` prefix. The
+`schema` feature derives a JSON schema of the same flat vocabulary (via `schemars`), for
+generating an options class in another language; `cargo run -p armonik-transport --features
+schema --example generate_schema` prints it.
 
 ## Reaching the endpoint through a proxy
 

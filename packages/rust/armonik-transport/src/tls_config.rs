@@ -110,14 +110,19 @@ pub struct TlsConfig {
 /// declares a variable with an empty default must not differ from one that leaves it out.
 #[cfg(feature = "serde")]
 #[derive(Debug, serde::Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "PascalCase")]
-struct RawTls {
+pub(crate) struct RawTls {
     #[serde(flatten)]
     identity: RawIdentity,
+    /// Path to the Certificate Authority file, in PEM format; empty for the system CAs.
     #[serde(default, deserialize_with = "crate::config::text")]
     ca_cert: String,
+    /// Accept any server certificate instead of verifying it: `1`, `true`, `yes`, `enable`,
+    /// `allow` or `authorize`, and their negatives; empty for false.
     #[serde(default, deserialize_with = "crate::config::text")]
     allow_unsafe_connection: String,
+    /// Override the endpoint name during SSL verification; empty for no override.
     #[serde(default, deserialize_with = "crate::config::text")]
     override_target_name: String,
 }
@@ -130,12 +135,15 @@ struct RawTls {
 /// [`RawIdentity::load`] is what reads empty as unset, whichever shape matched.
 #[cfg(feature = "serde")]
 #[derive(Debug, serde::Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 enum RawIdentity {
     /// A certificate chain and its key, each in its own PEM file.
     PemFiles {
+        /// Path to the certificate chain file, in PEM format; set together with `KeyPem`.
         #[serde(rename = "CertPem", deserialize_with = "crate::config::text")]
         cert_pem: String,
+        /// Path to the key file, in PEM format; set together with `CertPem`.
         #[serde(rename = "KeyPem", deserialize_with = "crate::config::text")]
         key_pem: String,
     },

@@ -36,37 +36,57 @@ pub(crate) const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(60);
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
+#[cfg_attr(
+    feature = "schema",
+    derive(schemars::JsonSchema),
+    schemars(transform = strip_defaults)
+)]
 #[non_exhaustive]
 pub struct HttpConfig {
     /// Endpoint for sending requests. `Endpoint`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "endpoint"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub endpoint: Uri,
     /// TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour.
     #[cfg_attr(feature = "serde", serde(flatten))]
+    #[cfg_attr(feature = "schema", schemars(with = "crate::tls_config::RawTls"))]
     pub tls: TlsConfig,
     /// Timeout for establishing a connection to the server, defaults to 60s. `ConnectTimeout`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "connect_timeout"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub connect_timeout: Option<Duration>,
     /// Timeout for each request, defaults to no timeout. `Timeout`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "timeout"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub timeout: Option<Duration>,
     /// Rate limit for requests, written `count/duration` (e.g. `100/1s`), defaults to no rate
     /// limit. `RateLimit`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "rate_limit"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub rate_limit: Option<(u64, Duration)>,
     /// TCP-level socket options, read under the `Tcp` prefix (`TcpKeepalive`, ...).
     #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_tcp"))]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(schema_with = "crate::tcp_config::tcp_schema")
+    )]
     pub tcp: TcpConfig,
     /// HTTP/2-level transport options, read under the `Http2` prefix (`Http2KeepAliveInterval`,
     /// ...).
     #[cfg_attr(feature = "serde", serde(flatten, with = "prefix_http2"))]
+    #[cfg_attr(
+        feature = "schema",
+        schemars(schema_with = "crate::http2_config::http2_schema")
+    )]
     pub http2: Http2Config,
     /// User-Agent header value sent with each request. `UserAgent`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "user_agent"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub user_agent: Option<HeaderValue>,
     /// HTTP proxy used to reach the endpoint (`Proxy`, `ProxyUsername`, `ProxyPassword`), defaults
     /// to following the environment.
     #[cfg_attr(feature = "serde", serde(flatten))]
+    #[cfg_attr(feature = "schema", schemars(with = "crate::proxy::ProxyShape"))]
     pub proxy: ProxyConfig,
 }
 
@@ -165,6 +185,79 @@ pub(crate) fn secret_text<'de, D: serde::Deserializer<'de>>(
 ) -> Result<secrecy::SecretString, D::Error> {
     text(deserializer).map(secrecy::SecretString::from)
 }
+
+/// Remove every `default` from the generated schema, recursively.
+///
+/// A `default` here is a Rust field's `Default`, serialised in the field's own type rather than
+/// in the option's text form: `false` on an option whose schema type is string. Every option's
+/// real contract is already stated once, as text: an empty or absent option reads as its default.
+#[cfg(feature = "schema")]
+pub(crate) fn strip_defaults(schema: &mut schemars::Schema) {
+    fn strip(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(object) => {
+                object.remove("default");
+                for child in object.values_mut() {
+                    strip(child);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    strip(item);
+                }
+            }
+            _ => {}
+        }
+    }
+    let object = schema.ensure_object();
+    object.remove("default");
+    for child in object.values_mut() {
+        strip(child);
+    }
+}
+
+/// `T`'s own schema with `prefix` glued onto every property, mirroring what
+/// [`serde_with::with_prefix!`] does to the names a flattened group is read from: `serde_with`
+/// has no `schemars` integration, so without this the schema would list `Keepalive` where the
+/// option is `TcpKeepalive`.
+#[cfg(feature = "schema")]
+pub(crate) fn schema_with_prefix<T: schemars::JsonSchema>(
+    generator: &mut schemars::SchemaGenerator,
+    prefix: &str,
+) -> schemars::Schema {
+    let mut schema = T::json_schema(generator);
+    let object = schema
+        .as_object_mut()
+        .expect("a struct's schema is an object");
+    if let Some(serde_json::Value::Object(properties)) = object.remove("properties") {
+        let properties: serde_json::Map<String, serde_json::Value> = properties
+            .into_iter()
+            .map(|(name, subschema)| (format!("{prefix}{name}"), subschema))
+            .collect();
+        object.insert(String::from("properties"), properties.into());
+    }
+    if let Some(serde_json::Value::Array(required)) = object.get_mut("required") {
+        for name in required {
+            if let serde_json::Value::String(name) = name {
+                *name = format!("{prefix}{name}");
+            }
+        }
+    }
+    schema
+}
+
+/// Mint the `schema_with` body for a [`serde_with::with_prefix!`]'d flattened field: `$ty`'s own
+/// schema, with `$prefix` on every property, under the name `$name`.
+#[cfg(feature = "schema")]
+macro_rules! make_schemars_prefix {
+    ($name:ident, $ty:ty, $prefix:literal) => {
+        pub(crate) fn $name(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+            crate::config::schema_with_prefix::<$ty>(generator, $prefix)
+        }
+    };
+}
+#[cfg(feature = "schema")]
+pub(crate) use make_schemars_prefix;
 
 /// Reads a boolean option, on the vocabulary every ArmoniK client accepts. `Err` carries the
 /// message, naming `option`: a flattened `serde` source buffers values before handing them over,

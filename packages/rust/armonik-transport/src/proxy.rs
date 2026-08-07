@@ -301,15 +301,35 @@ struct RawProxy {
 /// fields, is refused rather than merged: guessing which half of which source wins would turn a
 /// mixed configuration into a silent surprise.
 #[cfg(feature = "serde")]
-enum ProxyShape {
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema), schemars(untagged))]
+pub(crate) enum ProxyShape {
     /// A clean URL (or `system`/`none`/empty) next to dedicated credential fields.
     Fields {
+        /// Where to find the proxy: empty or `system` to follow the environment, `none` for a
+        /// direct connection, otherwise the proxy URL, carrying no credentials, whose scheme has
+        /// to be `http`.
+        #[cfg_attr(
+            feature = "schema",
+            schemars(rename = "Proxy", with = "String", default)
+        )]
         config: ProxyConfig,
+        /// Username for proxy authentication.
+        #[cfg_attr(feature = "schema", schemars(rename = "ProxyUsername", default))]
         username: String,
+        /// Password for proxy authentication.
+        #[cfg_attr(
+            feature = "schema",
+            schemars(rename = "ProxyPassword", with = "String", default)
+        )]
         password: SecretString,
     },
-    /// A URL that carries its credentials itself.
-    Embedded { config: ProxyConfig },
+    /// A URL that carries its credentials itself, `user:password@` in its authority; the
+    /// dedicated credential fields must stay empty.
+    Embedded {
+        /// The proxy URL, credentials included.
+        #[cfg_attr(feature = "schema", schemars(rename = "Proxy", with = "String"))]
+        config: ProxyConfig,
+    },
 }
 
 #[cfg(feature = "serde")]
