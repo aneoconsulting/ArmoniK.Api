@@ -13,7 +13,7 @@ use prost::Message;
 
 use super::{enumeration, ProtoField};
 
-/// Prototype of the `#[armonik_macros::enumeration]` output (without the `Other` catch-all, which is
+/// Prototype of the `#[armonik_macros::enumeration]` output (without the `Unknown` catch-all, which is
 /// irrelevant to the wire format).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum TestEnum {

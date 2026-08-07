@@ -9,5 +9,5 @@ pub enum EventsEnum {
     ResultStatusUpdate,
     ResultOwnerUpdate,
     /// Unspecified (zero) or an event unknown to this crate version.
-    Other(OtherEventsEnum),
+    Unknown(UnknownEventsEnum),
 }

@@ -27,7 +27,7 @@ pub enum SummaryField {
     PayloadId,
     CreatedBy,
     /// Unspecified (zero) or a field unknown to this crate version.
-    Other(OtherSummaryField),
+    Unknown(UnknownSummaryField),
 }
 
 #[armonik_macros::message]

@@ -243,15 +243,16 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///     Submitted,
 ///     // ...
 ///     /// Unspecified (0) or a value unknown to this crate version.
-///     Other(OtherTaskStatus),   // the derive emits `struct OtherTaskStatus`
+///     Unknown(UnknownTaskStatus),   // the expansion emits `struct UnknownTaskStatus`
 /// }
 /// ```
 ///
 /// Unit variants match proto values by name: either the prost-style short form
 /// (the value name with the enum-name prefix stripped, PascalCased, so
 /// `TASK_STATUS_CREATING` gives `Creating`) or the full proto value name via
-/// [`rename`](#rename). Every proto value needs a variant, except a
-/// conventional `*_UNSPECIFIED = 0`, which the catch-all covers.
+/// [`rename`](#rename). Every proto value needs a variant, except the zero
+/// one, which the catch-all may cover instead; the expansion then names it with
+/// an `UNSPECIFIED` associated const.
 ///
 /// The payload struct's field is private, so a catch-all value can only come
 /// from decoding or `From<i32>`, both of which normalize known values to their
@@ -299,7 +300,7 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///     Unspecified,
 ///     Name,
 ///     // ...
-///     Other(OtherApplicationField),
+///     Unknown(UnknownApplicationField),
 /// }
 /// ```
 ///
@@ -652,7 +653,7 @@ pub(crate) struct EnumTags {
     /// Named variants with their proto values.
     pub(crate) named: Vec<(syn::Ident, i32)>,
     /// The catch-all variant, which stands for no single value.
-    pub(crate) other: syn::Ident,
+    pub(crate) unknown: syn::Ident,
 }
 
 fn expand_enumeration(input: DeriveInput) -> syn::Result<(TokenStream2, EnumTags)> {
@@ -660,7 +661,7 @@ fn expand_enumeration(input: DeriveInput) -> syn::Result<(TokenStream2, EnumTags
     let plan = resolve::enum_plan(&input, &index).map_err(Errors::into_syn_error)?;
     let tags = EnumTags {
         named: plan.named.clone(),
-        other: plan.other_variant.clone(),
+        unknown: plan.unknown_variant.clone(),
     };
     let mut out = doc_anchors(&input, "enumeration");
     let mut absorbs = collect_absorbs(&input);

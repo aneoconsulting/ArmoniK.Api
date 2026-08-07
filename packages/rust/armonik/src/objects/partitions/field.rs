@@ -10,5 +10,5 @@ pub enum Field {
     PreemptionPercentage,
     Priority,
     /// Unspecified (zero) or a field unknown to this crate version.
-    Other(OtherField),
+    Unknown(UnknownField),
 }

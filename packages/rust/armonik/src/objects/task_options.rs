@@ -78,7 +78,7 @@ pub enum TaskOptionField {
     #[armonik(rename = "TASK_OPTION_ENUM_FIELD_ENGINE_TYPE")]
     ApplicationEngine,
     /// Unspecified (zero) or a field unknown to this crate version.
-    Other(OtherTaskOptionField),
+    Unknown(UnknownTaskOptionField),
 }
 
 #[cfg(test)]

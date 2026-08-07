@@ -17,7 +17,7 @@ pub mod field;
 #[doc(hidden)]
 pub mod raw;
 
-pub use field::{Field, OtherRawField, RawField};
+pub use field::{Field, RawField, UnknownRawField};
 pub use raw::Raw;
 
 #[armonik_macros::alias("armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort")]

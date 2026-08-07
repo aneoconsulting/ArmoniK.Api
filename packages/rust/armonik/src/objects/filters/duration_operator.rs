@@ -17,5 +17,5 @@ pub enum FilterDurationOperator {
     /// Is longer than the specified duration.
     LongerThan,
     /// Unknown to this crate version; round-trips losslessly.
-    Other(OtherFilterDurationOperator),
+    Unknown(UnknownFilterDurationOperator),
 }

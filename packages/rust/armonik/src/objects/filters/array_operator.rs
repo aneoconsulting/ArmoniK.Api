@@ -9,5 +9,5 @@ pub enum FilterArrayOperator {
     /// Does not contain the specified element.
     NotContains,
     /// Unknown to this crate version; round-trips losslessly.
-    Other(OtherFilterArrayOperator),
+    Unknown(UnknownFilterArrayOperator),
 }

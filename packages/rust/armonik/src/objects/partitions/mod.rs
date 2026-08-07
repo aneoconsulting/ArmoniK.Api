@@ -9,7 +9,7 @@ pub mod field;
 #[doc(hidden)]
 pub mod raw;
 
-pub use field::{Field, OtherField};
+pub use field::{Field, UnknownField};
 pub use raw::Raw;
 
 #[armonik_macros::alias("armonik.api.grpc.v1.partitions.ListPartitionsRequest.Sort")]

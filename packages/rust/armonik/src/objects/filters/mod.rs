@@ -17,17 +17,17 @@ pub mod status_operator;
 #[doc(hidden)]
 pub mod string_operator;
 
-pub use array_operator::{FilterArrayOperator, OtherFilterArrayOperator};
-pub use boolean_operator::{FilterBooleanOperator, OtherFilterBooleanOperator};
-pub use date_operator::{FilterDateOperator, OtherFilterDateOperator};
-pub use duration_operator::{FilterDurationOperator, OtherFilterDurationOperator};
+pub use array_operator::{FilterArrayOperator, UnknownFilterArrayOperator};
+pub use boolean_operator::{FilterBooleanOperator, UnknownFilterBooleanOperator};
+pub use date_operator::{FilterDateOperator, UnknownFilterDateOperator};
+pub use duration_operator::{FilterDurationOperator, UnknownFilterDurationOperator};
 pub use filter::{
     FilterArray, FilterBoolean, FilterDate, FilterDuration, FilterNumber, FilterStatus,
     FilterString,
 };
-pub use number_operator::{FilterNumberOperator, OtherFilterNumberOperator};
-pub use status_operator::{FilterStatusOperator, OtherFilterStatusOperator};
-pub use string_operator::{FilterStringOperator, OtherFilterStringOperator};
+pub use number_operator::{FilterNumberOperator, UnknownFilterNumberOperator};
+pub use status_operator::{FilterStatusOperator, UnknownFilterStatusOperator};
+pub use string_operator::{FilterStringOperator, UnknownFilterStringOperator};
 
 macro_rules! impl_filter {
     // Migrated form: direct wire implementations from the descriptor.

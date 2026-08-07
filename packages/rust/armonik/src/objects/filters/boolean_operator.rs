@@ -7,5 +7,5 @@ pub enum FilterBooleanOperator {
     #[default]
     Is,
     /// Unknown to this crate version; round-trips losslessly.
-    Other(OtherFilterBooleanOperator),
+    Unknown(UnknownFilterBooleanOperator),
 }

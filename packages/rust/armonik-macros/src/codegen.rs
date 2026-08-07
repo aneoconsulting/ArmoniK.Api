@@ -483,7 +483,7 @@ fn transparent_message(
 
 pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
     let ident = &plan.ident;
-    let other = &plan.other_variant;
+    let unknown = &plan.unknown_variant;
     let payload = &plan.payload;
     let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
@@ -519,7 +519,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
         quote! {
             impl #ident {
                 /// Unspecified (zero) value; usable in `match` patterns.
-                pub const UNSPECIFIED: Self = Self::#other(#payload(0));
+                pub const UNSPECIFIED: Self = Self::#unknown(#payload(0));
             }
         }
     });
@@ -629,7 +629,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             fn from(value: i32) -> Self {
                 match value {
                     #(#from_named_arms,)*
-                    other => Self::#other(#payload(other)),
+                    value => Self::#unknown(#payload(value)),
                 }
             }
         }
@@ -638,7 +638,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             fn from(value: #ident) -> Self {
                 match value {
                     #(#into_named_arms,)*
-                    #ident::#other(raw) => raw.0,
+                    #ident::#unknown(raw) => raw.0,
                 }
             }
         }

@@ -763,8 +763,8 @@ fn scan_field_attrs(
 /// Plan for a protobuf enum (or a transparent single-enum-field wrapper).
 pub(crate) struct EnumPlan {
     pub(crate) ident: syn::Ident,
-    /// The catch-all variant (`Other`) and its payload struct, which the derive emits.
-    pub(crate) other_variant: syn::Ident,
+    /// The catch-all variant (`Unknown`) and its payload struct, which the expansion emits.
+    pub(crate) unknown_variant: syn::Ident,
     pub(crate) payload: syn::Ident,
     /// Named variants with their proto numbers.
     pub(crate) named: Vec<(syn::Ident, i32)>,
@@ -927,7 +927,7 @@ pub(crate) fn enum_plan(
     // Collect variants: unit variants matched by name, plus exactly one catch-all tuple variant
     // whose payload struct the derive emits.
     let mut named: Vec<(syn::Ident, String)> = Vec::new();
-    let mut other: Option<(syn::Ident, syn::Ident)> = None;
+    let mut unknown: Option<(syn::Ident, syn::Ident)> = None;
     let mut has_std_default = false;
     for variant in &data.variants {
         has_std_default |= variant
@@ -964,24 +964,25 @@ pub(crate) fn enum_plan(
                     ));
                     continue;
                 };
-                if other.replace((variant.ident.clone(), payload)).is_some() {
+                if unknown.replace((variant.ident.clone(), payload)).is_some() {
                     errors.push(syn::Error::new(
                         variant.ident.span(),
-                        "derive(Enum) expects exactly one catch-all tuple variant",
+                        "#[armonik_macros::enumeration] expects exactly one catch-all tuple variant",
                     ));
                 }
             }
             _ => errors.push(syn::Error::new(
                 variant.ident.span(),
-                "derive(Enum) variants must be unit variants or the single catch-all \
-                 tuple variant",
+                "#[armonik_macros::enumeration] variants must be unit variants or the single \
+                 catch-all tuple variant",
             )),
         }
     }
-    let Some((other_variant, payload)) = other else {
+    let Some((unknown_variant, payload)) = unknown else {
         errors.push(syn::Error::new(
             input.ident.span(),
-            "derive(Enum) requires a catch-all tuple variant, e.g. `Other(OtherTaskStatus)`",
+            "#[armonik_macros::enumeration] requires a catch-all tuple variant, \
+             e.g. `Unknown(UnknownTaskStatus)`",
         ));
         return Err(errors);
     };
@@ -1030,8 +1031,8 @@ pub(crate) fn enum_plan(
         }
     }
 
-    // Completeness: every proto value needs a named variant, except a conventional `*_UNSPECIFIED =
-    // 0`, which the catch-all covers.
+    // Completeness: every proto value needs a named variant, except the zero one, which the
+    // catch-all covers losslessly and the emitted `UNSPECIFIED` const names.
     for (enum_name, meta) in &proto_enums {
         let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
         for (value_name, value) in &meta.values {
@@ -1039,7 +1040,7 @@ pub(crate) fn enum_plan(
             let covered = named
                 .iter()
                 .any(|(_, proto_name)| *proto_name == mapped || proto_name == value_name);
-            if !(covered || (*value == 0 && mapped == "Unspecified")) {
+            if !(covered || *value == 0) {
                 errors.push(syn::Error::new(
                     input.ident.span(),
                     format!(
@@ -1055,7 +1056,7 @@ pub(crate) fn enum_plan(
 
     Ok(EnumPlan {
         ident: input.ident.clone(),
-        other_variant,
+        unknown_variant,
         payload,
         named: resolved,
         zero_variant,

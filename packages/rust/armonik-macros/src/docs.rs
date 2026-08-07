@@ -54,7 +54,7 @@ fn tag_variants(input: &mut DeriveInput, tags: &crate::EnumTags) {
         return;
     };
     for variant in &mut data.variants {
-        let value: syn::Expr = if variant.ident == tags.other {
+        let value: syn::Expr = if variant.ident == tags.unknown {
             syn::parse_quote!(i32::MIN)
         } else {
             match tags.named.iter().find(|(name, _)| *name == variant.ident) {
