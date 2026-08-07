@@ -2,31 +2,6 @@ use armonik::reexports::tokio_stream::StreamExt;
 use armonik::results;
 use armonik::server::{RequestContext, ResultsServiceExt};
 
-/// `WatchResults` is declared `unexposed`, so it has no route: the router answers UNIMPLEMENTED,
-/// naming the path it refused.
-#[tokio::test]
-async fn an_unrouted_path_is_named_in_the_status() {
-    use armonik::reexports::http;
-    use armonik::reexports::tonic;
-    use armonik::reexports::tonic::codegen::Service as _;
-
-    let mut router = Service::default().results_server();
-    let request = http::Request::builder()
-        .uri("/armonik.api.grpc.v1.results.Results/WatchResults")
-        .body(tonic::body::Body::default())
-        .expect("request");
-
-    let headers = router.call(request).await.expect("infallible");
-    let headers = headers.headers();
-
-    assert_eq!(headers["grpc-status"], "12");
-    let message = headers["grpc-message"].to_str().expect("ascii");
-    assert!(
-        message.contains("armonik.api.grpc.v1.results.Results/WatchResults"),
-        "unexpected message: {message}"
-    );
-}
-
 #[macro_use]
 mod common;
 
@@ -414,4 +389,271 @@ rpc_tests! {
             })
         }
     }
+}
+
+/// `WatchResults` is declared `unexposed`, so it has no route: the router answers UNIMPLEMENTED,
+/// naming the path it refused.
+#[tokio::test]
+async fn an_unrouted_path_is_named_in_the_status() {
+    use armonik::reexports::http;
+    use armonik::reexports::tonic;
+    use armonik::reexports::tonic::codegen::Service as _;
+
+    let mut router = Service::default().results_server();
+    let request = http::Request::builder()
+        .uri("/armonik.api.grpc.v1.results.Results/WatchResults")
+        .body(tonic::body::Body::default())
+        .expect("request");
+
+    let response = router.call(request).await.expect("infallible");
+    let headers = response.headers();
+
+    assert_eq!(headers["grpc-status"], "12");
+    let message = headers["grpc-message"].to_str().expect("ascii");
+    assert!(
+        message.contains("armonik.api.grpc.v1.results.Results/WatchResults"),
+        "unexpected message: {message}"
+    );
+}
+
+/// A client whose fake sleeps for `wait` before answering, and cancels `token` when its handler is
+/// dropped. The clock is paused in these tests, so the timeouts below resolve instantly.
+fn slow_client(
+    token: &tokio_util::sync::CancellationToken,
+    early: bool,
+) -> armonik::client::Results<impl armonik::client::Channel> {
+    armonik::Client::with_channel(
+        Service {
+            early,
+            wait: Some(tokio::time::Duration::from_millis(10)),
+            dropped: token.clone(),
+            ..Default::default()
+        }
+        .results_server(),
+    )
+    .into_results()
+}
+
+/// A client whose fake answers `failure` instead of a response.
+fn failing_client(
+    message: &str,
+    early: bool,
+) -> armonik::client::Results<impl armonik::client::Channel> {
+    armonik::Client::with_channel(
+        Service {
+            early,
+            failure: Some(tonic::Status::invalid_argument(message)),
+            ..Default::default()
+        }
+        .results_server(),
+    )
+    .into_results()
+}
+
+/// The handler must be dropped, which is what tears the server side down when the client stops
+/// waiting.
+async fn assert_cancelled(token: tokio_util::sync::CancellationToken) {
+    if token
+        .run_until_cancelled(tokio::time::sleep(tokio::time::Duration::from_millis(10)))
+        .await
+        .is_some()
+    {
+        panic!("Expected a cancellation, but got a timeout")
+    }
+}
+
+/// The status a failing call must carry, whichever shape the call has.
+fn assert_invalid_argument<T: std::fmt::Debug>(
+    outcome: Result<T, armonik::client::RequestError>,
+    message: &str,
+) {
+    match outcome {
+        Ok(response) => panic!("Expected a failure, but got a response {response:?}"),
+        Err(armonik::client::RequestError::Grpc { source, .. }) => {
+            assert_eq!(source.code(), tonic::Code::InvalidArgument, "{source:?}");
+            assert_eq!(source.message(), message);
+        }
+        Err(err) => panic!("Got an unexpected type of failure {err:?}"),
+    }
+}
+
+// Cancellations: dropping the client future must tear the server handler down.
+
+#[tokio::test(start_paused = true)]
+async fn get_wait() {
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut client = slow_client(&token, false);
+
+    if let Ok(response) = tokio::time::timeout(
+        tokio::time::Duration::from_micros(10),
+        client.get("result-id"),
+    )
+    .await
+    {
+        panic!("Expected a timeout, but got a response: {response:?}");
+    }
+
+    assert_cancelled(token).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn download_wait_early() {
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut client = slow_client(&token, true);
+
+    if tokio::time::timeout(
+        tokio::time::Duration::from_micros(10),
+        client.download("session-id", "result-id"),
+    )
+    .await
+    .is_ok()
+    {
+        panic!("Expected a timeout, but got a response stream");
+    }
+
+    assert_cancelled(token).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn download_wait_late() {
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut client = slow_client(&token, false);
+
+    let mut stream = client.download("session-id", "result-id").await.unwrap();
+
+    if let Ok(response) =
+        tokio::time::timeout(tokio::time::Duration::from_micros(10), stream.next()).await
+    {
+        panic!("Expected a timeout, but got a response: {response:?}");
+    }
+
+    std::mem::drop(stream);
+
+    assert_cancelled(token).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn upload_wait_early() {
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut client = slow_client(&token, true);
+
+    let future = client.call_streaming(async_stream::stream! {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        yield results::upload::Request::Identifier {
+            session_id: String::from("session-id"),
+            result_id: String::from("result-id"),
+        }
+    });
+
+    if let Ok(response) = tokio::time::timeout(tokio::time::Duration::from_micros(10), future).await
+    {
+        panic!("Expected a timeout, but got a response: {response:?}");
+    }
+
+    assert_cancelled(token).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn upload_wait_late() {
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut client = slow_client(&token, false);
+
+    let future = client.upload(
+        "session-id",
+        "result-id",
+        async_stream::stream! {
+            yield bytes::Bytes::new();
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            yield bytes::Bytes::new();
+        },
+    );
+
+    if let Ok(response) = tokio::time::timeout(tokio::time::Duration::from_micros(10), future).await
+    {
+        panic!("Expected a timeout, but got a response: {response:?}");
+    }
+
+    assert_cancelled(token).await;
+}
+
+// Failures: a `Status` must reach the caller, wherever in the call it is raised.
+
+#[tokio::test]
+async fn get_failure() {
+    let mut client = failing_client("rpc-get-error", false);
+
+    assert_invalid_argument(client.get("result-id").await, "rpc-get-error");
+}
+
+#[tokio::test]
+async fn download_failure_early() {
+    let mut client = failing_client("rpc-download-early-error", true);
+
+    match client.download("session-id", "result-id").await {
+        Ok(_) => panic!("Expected a failure, but got a response stream"),
+        outcome => assert_invalid_argument(outcome.map(|_| ()), "rpc-download-early-error"),
+    }
+}
+
+#[tokio::test]
+async fn download_failure_late() {
+    let mut client = failing_client("rpc-download-late-error", false);
+
+    let mut stream = client.download("session-id", "result-id").await.unwrap();
+
+    match stream.next().await {
+        Some(outcome) => assert_invalid_argument(outcome, "rpc-download-late-error"),
+        None => panic!("Expected a failure, but got end of stream"),
+    }
+}
+
+#[tokio::test]
+async fn upload_failure_early() {
+    let mut client = failing_client("rpc-upload-early-error", true);
+
+    let future = client.call_streaming(async_stream::stream! {
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        yield results::upload::Request::Identifier {
+            session_id: String::from("session-id"),
+            result_id: String::from("result-id"),
+        }
+    });
+
+    match tokio::time::timeout(tokio::time::Duration::from_millis(10), future).await {
+        Ok(outcome) => assert_invalid_argument(outcome, "rpc-upload-early-error"),
+        Err(err) => panic!("Expected a failure, but got a timeout {err:?}"),
+    }
+}
+
+#[tokio::test]
+async fn upload_failure_late() {
+    let mut client = failing_client("rpc-upload-late-error", false);
+
+    let future = client.call_streaming(async_stream::stream! {
+        yield results::upload::Request::Identifier {
+            session_id: String::from("session-id"),
+            result_id: String::from("result-id"),
+        };
+
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        yield results::upload::Request::DataChunk(bytes::Bytes::new());
+    });
+
+    match tokio::time::timeout(tokio::time::Duration::from_millis(10), future).await {
+        Ok(outcome) => assert_invalid_argument(outcome, "rpc-upload-late-error"),
+        Err(err) => panic!("Expected a failure, but got a timeout {err:?}"),
+    }
+}
+
+#[tokio::test]
+async fn upload_failure_end() {
+    let mut client = failing_client("rpc-upload-end-error", false);
+
+    assert_invalid_argument(
+        client
+            .call_streaming(futures::stream::iter::<[results::upload::Request; 0]>([]))
+            .await,
+        "rpc-upload-end-error",
+    );
 }
