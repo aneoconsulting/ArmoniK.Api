@@ -43,9 +43,10 @@ impl std::cmp::PartialEq for TaskOptions {
 impl std::cmp::Eq for TaskOptions {}
 
 impl TaskOptions {
-    /// The options the conversion layer historically used as `Default`:
-    /// no time limit, one retry, priority 1. `Default::default()` is the
-    /// proto zero value, like every armonik type.
+    /// Options a task can run under with nothing else set: no time limit
+    /// ([`INFINITE_DURATION`]), one retry, priority 1. `Default::default()` is
+    /// the proto zero value, like every armonik type, so a zero deadline, no
+    /// retry and priority 0.
     pub fn recommended() -> Self {
         Self {
             max_duration: INFINITE_DURATION,
