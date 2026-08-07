@@ -217,8 +217,11 @@ mod tests {
             field: Option<RefWrapper>,
         }
 
-        // The old ApplicationEngine variant maps to the proto ENGINE_TYPE.
+        // `ApplicationEngine` stands for the proto ENGINE_TYPE.
         assert_eq!(i32::from(TaskOptionField::ApplicationEngine), 9);
+        // A transparent enum carries its proto values as discriminants too.
+        assert!(TaskOptionField::MaxDuration < TaskOptionField::ApplicationEngine);
+        assert!(TaskOptionField::from(0) < TaskOptionField::MaxDuration);
         assert_eq!(TaskOptionField::from(9), TaskOptionField::ApplicationEngine);
 
         for value in [

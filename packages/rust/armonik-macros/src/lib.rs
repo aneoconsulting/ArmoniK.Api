@@ -259,6 +259,13 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// (the zero value, per the crate's zero-default invariant) unless a variant
 /// carries the std `#[default]` attribute.
 ///
+/// The item is re-emitted `#[repr(i32)]`, each named variant carrying the proto
+/// value it stands for as its discriminant, so a derived `PartialOrd`/`Ord`
+/// (which compare discriminants) orders the type by proto value. The catch-all
+/// stands for no single value and takes `i32::MIN`, so the zero value and the
+/// unknown ones sort before every named value, and among themselves by the raw
+/// value.
+///
 /// Enum-typed fields of derived messages are declared with
 /// [`message`](macro@message), which checks that the field type stands for the
 /// proto enum the descriptor names.
@@ -634,15 +641,28 @@ fn sugar(ty: &syn::Type) -> Sugar {
     }
 }
 
-fn expand_enumeration(input: DeriveInput) -> syn::Result<TokenStream2> {
+/// The proto value each variant stands for, which the re-emitted item carries as its discriminant
+/// (see [`docs::tag_variants`]).
+pub(crate) struct EnumTags {
+    /// Named variants with their proto values.
+    pub(crate) named: Vec<(syn::Ident, i32)>,
+    /// The catch-all variant, which stands for no single value.
+    pub(crate) other: syn::Ident,
+}
+
+fn expand_enumeration(input: DeriveInput) -> syn::Result<(TokenStream2, EnumTags)> {
     let index = load_index(&input)?;
     let plan = resolve::enum_plan(&input, &index).map_err(Errors::into_syn_error)?;
+    let tags = EnumTags {
+        named: plan.named.clone(),
+        other: plan.other_variant.clone(),
+    };
     let mut out = doc_anchors(&input, "enumeration");
     let mut absorbs = collect_absorbs(&input);
     absorbs.extend(plan.absorbs.iter().cloned());
     out.extend(codegen::enumeration(&plan));
     out.extend(absorbed(absorbs));
-    Ok(out)
+    Ok((out, tags))
 }
 
 /// Visit the attributes of the type itself and of every field, variant and variant field: the

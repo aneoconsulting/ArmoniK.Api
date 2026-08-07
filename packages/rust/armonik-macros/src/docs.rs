@@ -21,20 +21,49 @@ pub(crate) enum Mode {
 }
 
 pub(crate) fn expand(mut input: DeriveInput, mode: Mode) -> syn::Result<TokenStream> {
-    // The old derive expansion first, over the pristine input (it reads the `#[armonik(...)]`
-    // attributes).
-    let expansion = match mode {
-        Mode::Message => crate::expand_message(input.clone())?,
-        Mode::Enumeration => crate::expand_enumeration(input.clone())?,
+    // The expansion first, over the pristine input (it reads the `#[armonik(...)]` attributes).
+    let (expansion, tags) = match mode {
+        Mode::Message => (crate::expand_message(input.clone())?, None),
+        Mode::Enumeration => {
+            let (expansion, tags) = crate::expand_enumeration(input.clone())?;
+            (expansion, Some(tags))
+        }
     };
 
     inject(&mut input, &mode)?;
     strip(&mut input);
+    if let Some(tags) = tags {
+        tag_variants(&mut input, &tags);
+    }
 
     Ok(quote! {
         #input
         #expansion
     })
+}
+
+/// Carry each variant's proto value as its discriminant, so that the ordering the type derives
+/// (`PartialOrd`/`Ord` compare discriminants) is the ordering of the proto values. The catch-all
+/// stands for the zero value and for every value unknown to this crate version, which share no
+/// single number: it takes `i32::MIN`, so they sort before every named value and among themselves
+/// by the raw value their payload holds.
+fn tag_variants(input: &mut DeriveInput, tags: &crate::EnumTags) {
+    // Explicit discriminants on an enum that has a dataful variant need a primitive representation.
+    input.attrs.push(syn::parse_quote!(#[repr(i32)]));
+    let syn::Data::Enum(data) = &mut input.data else {
+        return;
+    };
+    for variant in &mut data.variants {
+        let value: syn::Expr = if variant.ident == tags.other {
+            syn::parse_quote!(i32::MIN)
+        } else {
+            match tags.named.iter().find(|(name, _)| *name == variant.ident) {
+                Some((_, value)) => syn::parse_quote!(#value),
+                None => continue,
+            }
+        };
+        variant.discriminant = Some((syn::token::Eq::default(), value));
+    }
 }
 
 /// Inject the harvested `#[doc]`s: on the type, its named fields, its oneof variants (matched to
