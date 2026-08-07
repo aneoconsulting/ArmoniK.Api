@@ -59,14 +59,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
 
-    // Input of the armonik-macros derives, and — through the `wire` module's
-    // `DESCRIPTOR` const — the descriptor the `armonik` crate prunes into its
-    // tonic stubs.
+    // Input of the armonik-macros expansions, and, through the `wire` module's `DESCRIPTOR` const,
+    // the descriptor the `armonik` crate prunes into its tonic stubs.
     write_if_changed(&out_dir.join("descriptor.bin"), &bytes)?;
 
-    // Staleness anchor: included in the crate through `include!` so that any
-    // descriptor change invalidates the crate in rustc's dep-info, and
-    // cross-checked by a const-assert emitted by every derive.
+    // Staleness anchor: included in the crate through `include!` so that any descriptor change
+    // invalidates the crate in rustc's dep-info, and cross-checked by a const-assert emitted by
+    // every derive.
     let fingerprint = {
         use std::hash::Hasher as _;
         let mut hasher = fnv::FnvHasher::default();

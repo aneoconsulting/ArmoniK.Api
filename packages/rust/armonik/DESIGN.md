@@ -25,9 +25,9 @@ The ergonomic layer exists for good reasons and its shape is kept:
 - message fields that are semantically "absent = default" are plain fields,
   not `Option`;
 - messages consisting of a single oneof are flattened into a Rust enum
-  (`events::Update`, `DataChunk`, …);
+  (`events::Update`, `DataChunk`, ...);
 - per-rpc module layout (`sessions::list::Request`), field renames
-  (`Session.id` → `session_id`), unified types shared across services
+  (`Session.id` -> `session_id`), unified types shared across services
   (`TaskOptionField`).
 
 The goal of this revamp: **the ergonomic types implement `prost::Message`
@@ -37,7 +37,7 @@ the conversion layer, and the double decode/convert pass disappear.
 
 ### 1.1 Complexity ledger (honest accounting)
 
-Total system complexity did not shrink — it **relocated**, and this section
+Total system complexity did not shrink, it **relocated**, and this section
 says so plainly so the trade is reviewed on its merits. The ~6,700-line
 hand-written mirror plus its `From` conversions are gone, but hand-maintained
 *production* code across the three crates is now larger in aggregate (the
@@ -52,7 +52,7 @@ This is the usual, and here the correct, infra-vs-boilerplate trade: the old
 lines were *O(messages)* and drifted silently with no automated net, while the
 new machinery is fixed-cost and the marginal message is near-free (the derive
 self-registers; a plain field's `Normalize` is the identity). But the payoff is
-"complexity amortized and made drift-proof", not "complexity removed" — approve
+"complexity amortized and made drift-proof", not "complexity removed", so approve
 the beta break on that basis, not on a per-message line count.
 
 ## 2. Decisions (settled)
@@ -63,7 +63,7 @@ the beta break on that basis, not on a per-message line count.
 | Descriptor access | Hybrid: `protox` in `build.rs` compiles descriptors; derive reads the compiled `descriptor.bin`; fingerprint const-assert guards staleness |
 | Public API | Same shapes as today; minor breaks allowed (crate is beta on purpose) |
 | Raw generated types | Removed entirely, including from tonic stub signatures (`extern_path`) |
-| Unknown enum values | Single merged catch-all `Other(Raw…)` dataful variant covering unspecified (0) and unknown values; opaque payload; lossless round-trip |
+| Unknown enum values | Single merged catch-all `Other(Raw...)` dataful variant covering unspecified (0) and unknown values; opaque payload; lossless round-trip |
 | Message-field presence | Non-`Option` message fields: decode absent as default, **always written on encode** (a default nested message goes out as an empty one; no default is ever skipped); `Option` fields keep exact presence |
 | `bytes` fields | `bytes::Bytes` everywhere (zero-copy decode from tonic buffers) |
 | Migration | Big-bang branch; `main` untouched until the branch lands |
@@ -74,11 +74,11 @@ the beta break on that basis, not on a per-message line count.
 
 ### 3.1 Crate layout
 
-> **Superseded by Part II §3.1**: `armonik-types` merged into `armonik` once
+> **Superseded by Part II section 3.1**: `armonik-types` merged into `armonik` once
 > the extern-map harvest (its reason to exist) was deleted along with the stub
 > codegen. The final layout is `armonik-macros` / `armonik` /
 > `armonik-transport`, one build script, one `=` pin
-> (`armonik` → `armonik-macros`). The historical rationale below is kept for
+> (`armonik` -> `armonik-macros`). The historical rationale below is kept for
 > the record.
 
 ```
@@ -88,32 +88,32 @@ packages/rust/
   armonik-types/      # the message types: ergonomic structs/enums implementing
                       #   prost::Message directly (objects + codec + the
                       #   differential harness); its build.rs compiles the
-                      #   descriptor. A pure-types dependency — no tonic graph.
+                      #   descriptor. A pure-types dependency, no tonic graph.
   armonik-macros/     # proc-macro crate: derive(Message), derive(Enum)
                       #   deps: syn, quote, prost (descriptor decode only)
 ```
 
-The three crates are version-locked with `=` pins (`armonik` → `armonik-types`
-→ `armonik-macros`) and published in that order. The derives are internal-use
-— they emit `crate::codec::…` paths, so they only expand inside
-`armonik-types` — and `#[doc(hidden)]`: the attribute grammar is not a
+The three crates are version-locked with `=` pins (`armonik` -> `armonik-types`
+-> `armonik-macros`) and published in that order. The derives are internal-use
+(they emit `crate::codec::...` paths, so they only expand inside
+`armonik-types`) and `#[doc(hidden)]`: the attribute grammar is not a
 supported public API.
 
 `armonik-types` exists so downstream can depend on the wire types without the
-client/server stubs and their tonic/hyper/rustls graph, and — the reason the
-split earns its keep — so `armonik`'s build script can **harvest** the
-proto-name → Rust-path extern map, the per-RPC substitutions and the absorbed
+client/server stubs and their tonic/hyper/rustls graph, and (the reason the
+split earns its keep) so `armonik`'s build script can **harvest** the
+proto-name -> Rust-path extern map, the per-RPC substitutions and the absorbed
 (flattened-away) messages from the `#[armonik(...)]` annotations instead of
 hand-maintaining them. `armonik-types` is a build-dependency of `armonik`;
-every derive and the two hand-written impls register — through one `register!`
-macro (the single home of the registry's layout) — one `Registration` per
+every derive and the two hand-written impls register, through one `register!`
+macro (the single home of the registry's layout), one `Registration` per
 proto name into a single `linkme` slice (`armonik_types::wire::REGISTRY`, gated
 behind the base `_registry` feature the build-dependency enables). Each entry's
 `Role` is `Message { rust_path }`, `Replace(Replacement)`, or `Absorbed`;
 `armonik`'s `build.rs` reads `extern_mapping()`, `replacements()` and
-`absorbed()`, which filter the one slice. The map is fully harvested — no
+`absorbed()`, which filter the one slice. The map is fully harvested, with no
 hand-maintained residue: entries that cannot be a plain extern mapping (the
-shared `Empty`, `TaskFilter`, … sites) carry `#[armonik(replace(...))]` and
+shared `Empty`, `TaskFilter`, ... sites) carry `#[armonik(replace(...))]` and
 register a `Replacement` instead. Two build-time guards keep it honest:
 `guard_all_messages_externed` fails the build if any top-level message survives
 stub pruning without an extern entry, and `guard_unique_extern` fails it if two
@@ -128,7 +128,7 @@ downstream pure-types build of `armonik-types` pulls neither.
 
 ### 3.2 Build pipeline (`build.rs`)
 
-> **Superseded by Part II §3.2**: there is no stub generation any more —
+> **Superseded by Part II section 3.2**: there is no stub generation any more;
 > `armonik/build.rs` only compiles the descriptor (protox) and writes
 > `descriptor.bin` + the fingerprint anchor. Everything below describing the
 > pruning/extern pipeline is historical.
@@ -136,12 +136,12 @@ downstream pure-types build of `armonik-types` pulls neither.
 > **Stubs-only generation.** The descriptor set is compiled once (protox)
 > and used twice: the full set becomes `descriptor.bin` for the derives and
 > the differential harness, while the tonic stub generation receives a
-> *pruned* copy — the never-exposed WatchResults methods are dropped
+> *pruned* copy: the never-exposed WatchResults methods are dropped
 > (tonic answers UNIMPLEMENTED for unrouted paths), every message that
 > nothing generated references (field wrappers, watch messages, legacy) is
 > removed alongside all file-level enums, and every RPC slot carrying a
 > `#[armonik(replace(...))]` type (the `Empty` sites, the shared `TaskFilter`
-> / request wrappers, …) is rewritten to a distinct synthetic message
+> / request wrappers, ...) is rewritten to a distinct synthetic message
 > extern'd to its API type (message type names never appear on the wire,
 > so wire-compatible signature rewrites are free). Combined with the
 > harvested extern map, the generated module (`crate::stubs`, private)
@@ -155,14 +155,14 @@ downstream pure-types build of `armonik-types` pulls neither.
 
 The pipeline is split across the two crates. **`armonik-types/build.rs`**:
 
-1. `protox` compiles `protos/V1/*.proto` → `FileDescriptorSet`
+1. `protox` compiles `protos/V1/*.proto` -> `FileDescriptorSet`
    (pure Rust; `protoc` no longer required; `cargo:rerun-if-changed` per
    proto file).
 2. Writes `$OUT_DIR/descriptor.bin` (input of the derive) and
    `$OUT_DIR/schema_meta.rs` containing
-   `pub(crate) const DESCRIPTOR_FINGERPRINT: u128 = …;`
+   `pub(crate) const DESCRIPTOR_FINGERPRINT: u128 = ...;`
    (hash of the descriptor bytes). `lib.rs` pulls the latter in via
-   `include!`, which puts it in rustc's dep-info — tracked by cargo, sccache,
+   `include!`, which puts it in rustc's dep-info, tracked by cargo, sccache,
    and any hermetic build system. The descriptor bytes are also re-exported as
    `armonik_types::wire::DESCRIPTOR`.
 
@@ -173,24 +173,24 @@ compiled first and its derives have run):
    it, and feeds it to `tonic-prost-build` via `compile_fds` to generate
    **service stubs only**:
    - the `extern_path` entries come from `armonik_types::wire::extern_mapping()`
-     — the annotations, harvested — mapping each RPC type to its ergonomic type
+     (the annotations, harvested) mapping each RPC type to its ergonomic type
      (`.armonik.api.grpc.v1.sessions.ListSessionsRequest`
-     → `::armonik_types::sessions::list::Request`), plus one entry per
+     -> `::armonik_types::sessions::list::Request`), plus one entry per
      `replacements()` substitution mapping its synthetic target message to the
      standing-in type; there is no hand-maintained extern list;
    - extern'd messages are not generated at all, and since nested types never
      appear in stub signatures, **only the top-level RPC types need entries**;
    - `guard_all_messages_externed` fails the build if any top-level message
      survives pruning without an extern entry, and `guard_unique_extern` fails
-     it if two Rust types claim one proto name — the ratchets that keep the
-     harvested map honest as the schema evolves.
+     it if two Rust types claim one proto name. These are the ratchets that
+     keep the harvested map honest as the schema evolves.
 
 ### 3.3 The derive
 
 > **Superseded in one respect**: the two derives later became the attribute
 > macros `#[armonik_macros::message]` / `#[armonik_macros::enumeration]`, so
 > the item can be re-emitted with the proto documentation injected (type,
-> fields, oneof variants, enum values — the same harvest `service!` does for
+> fields, oneof variants, enum values, the same harvest `service!` does for
 > services); the hand-transcribed doc comments were deleted from `objects/`.
 > Everything else below still holds; the `#[armonik(...)]` grammar is
 > unchanged (and now stripped from the re-emitted item).
@@ -201,28 +201,28 @@ alone stands for the *whole* message: its single oneof is inferred, and any
 non-oneof field of the message is a *sibling*, declared in every variant
 (including the attribute-less "no member set" one) so the per-field merge
 stays stateless and order-independent. `oneof = "..."` declares an enum for
-one oneof of a larger message, embedded in a struct — and is rejected when
+one oneof of a larger message, embedded in a struct, and is rejected when
 the oneof covers the whole message, keeping the two shapes visually
 distinct. At expansion time the macro:
 
 1. reads `$OUT_DIR/descriptor.bin` (env `OUT_DIR`; one prost decode, cached
    in a `OnceLock` for the whole rustc/rust-analyzer process; clear error if
    the file is missing, i.e. build scripts have not run);
-2. resolves the message named by `#[armonik(message = "…")]` and matches Rust
+2. resolves the message named by `#[armonik(message = "...")]` and matches Rust
    fields against proto fields **by name** (renames via attribute);
-3. pulls tag, wire kind and cardinality from the descriptor — nothing is
+3. pulls tag, wire kind and cardinality from the descriptor, so nothing is
    duplicated in the source (packedness is decided by the Rust element
    type's `ProtoField` impl);
 4. validates: unknown field, type/kind mismatch, missing proto field
-   (completeness), proto3 explicit-`optional` scalar not mapped to `Option` —
+   (completeness), proto3 explicit-`optional` scalar not mapped to `Option`:
    all **spanned compile errors** naming both sides;
 5. emits the `prost::Message` impl (`encode_raw`, `merge_field`,
    `encoded_len`, `clear`) built from `prost::encoding::*` helpers, plus a
-   one-line `Msg` impl — picked up by the codec's blanket message-kind
-   `ProtoField` impl — so the type composes as a field of other messages;
+   one-line `Msg` impl, picked up by the codec's blanket message-kind
+   `ProtoField` impl, so the type composes as a field of other messages;
 6. emits the staleness tripwire:
    `const _: () = assert!(crate::__schema::DESCRIPTOR_FINGERPRINT == <seen>);`
-   — if any caching layer ever replays an expansion against a newer
+   If any caching layer ever replays an expansion against a newer
    descriptor, compilation fails instead of silently drifting.
 
 Point 6 is what makes the hybrid sound: descriptor *reads* happen in the
@@ -237,11 +237,11 @@ Wire representation is chosen by the type system, not guessed from syntax:
 ```rust
 pub(crate) trait ProtoField: Default {           // `Default` = the decode seed;
                                                  // nothing compares against it
-    const SHAPE: Shape;                          // kind/cardinality/names/map — one
+    const SHAPE: Shape;                          // kind/cardinality/names/map: one
                                                  // derive-emitted assert per field
                                                  // checks it against the descriptor
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut);
-    fn merge_field(wire: WireType, value: &mut Self, buf: &mut impl Buf, ctx: DecodeContext) -> Result<…>;
+    fn merge_field(wire: WireType, value: &mut Self, buf: &mut impl Buf, ctx: DecodeContext) -> Result<...>;
     fn encoded_len_field(tag: u32, value: &Self) -> usize;
     // + repeated forms with unpacked defaults
 }
@@ -250,8 +250,8 @@ pub(crate) trait ProtoField: Default {           // `Default` = the decode seed;
 Concrete implementations: scalars, `String`, `bytes::Bytes`, `Vec<T>`
 (repeated, packed for the numeric kinds), `HashMap<K, V>`, `Option<T>`
 (presence), and plain proto enums (emitted by `derive(Enum)`). Every
-message-shaped type — derived messages, transparent wrapper enums, the
-well-known types — instead carries a one-line `Msg` marker impl
+message-shaped type (derived messages, transparent wrapper enums, the
+well-known types) instead carries a one-line `Msg` marker impl
 (just `NAMES`), and a single blanket
 `impl<T: Msg> ProtoField for T` frames it through `prost::encoding::message`.
 The blanket is coherence-safe because `Msg` is crate-local: rustc knows the
@@ -269,9 +269,9 @@ Everything not listed here is inferred from the descriptor.
 | `enum = "full.proto.Name"` | type | proto enum for `derive(Enum)`; variants matched by name (prefix-stripped PascalCase, as prost does) |
 | `rename = "id"` | field / variant | proto name differs from Rust name |
 | `oneof = "type"` | type (enum) | the enum stands for one oneof of a larger message, embedded in a struct (without it, an enum stands for the whole single-oneof message); variants matched against oneof members |
-| `present` | variant | oneof variant carried by presence alone (e.g. `DataChunk::Complete` ⇔ `dataComplete: true`) |
-| `transparent` | type | single-field message flattened into its field's type (message `TaskOptionField { field: enum }` ⇔ Rust enum) |
-| `with = "path::to::module"` | field | custom codec — see §3.5 |
+| `present` | variant | oneof variant carried by presence alone (e.g. `DataChunk::Complete` <-> `dataComplete: true`) |
+| `transparent` | type | single-field message flattened into its field's type (message `TaskOptionField { field: enum }` <-> Rust enum) |
+| `with = "path::to::module"` | field | custom codec, see section 3.5 |
 | `tag = N` | field | optional; validated against the descriptor rather than trusted |
 
 ### 3.4 Enums: the merged `Other` variant
@@ -281,24 +281,24 @@ proto3 enums are open; today unknown wire values collapse to
 `derive(Enum)`:
 
 ```rust
-#[derive(armonik::Enum, …)]
+#[derive(armonik::Enum, ...)]
 #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 pub enum TaskStatus {
     Creating,              // = 1, names matched against the proto
     Submitted,             // = 2
-    …
+    ...
     Retried,               // = 11
     /// Unspecified (0) or a value unknown to this crate version.
     Other(OtherTaskStatus),
 }
 
 impl TaskStatus {
-    /// Matchable in patterns: `TaskStatus::UNSPECIFIED => …`
+    /// Matchable in patterns: `TaskStatus::UNSPECIFIED => ...`
     pub const UNSPECIFIED: Self = Self::Other(OtherTaskStatus(0));
 }
 ```
 
-- **One catch-all arm** covers "I don't know this" — unspecified and unknown
+- **One catch-all arm** covers "I don't know this": unspecified and unknown
   are handled identically by application code anyway.
 - **Lossless**: the raw value round-trips through decode/encode.
 - **Opaque payload**: `OtherTaskStatus` has a private field, so `Other` can
@@ -314,7 +314,7 @@ impl TaskStatus {
 - Size is 8 bytes (discriminant + payload) instead of 4. Same-layout-as-`i32`
   with a payload variant is not expressible on stable Rust (niche-range
   control / pattern types are unstable); since decode now constructs enum
-  values directly — no `Vec<i32>` → `Vec<enum>` passes remain — the only cost
+  values directly (no `Vec<i32>` -> `Vec<enum>` passes remain), the only cost
   is memory density in small repeated fields. Revisit if pattern types
   (RFC 3628) stabilize.
 - Casts: `as i32` no longer works on a dataful enum; `From<TaskStatus> for
@@ -340,11 +340,11 @@ pub struct Response {
 The named type implements `ProtoAdapter<T>` (`encode_field`/`merge_field`/
 `encoded_len_field`, tag still supplied from the descriptor; `ProtoField` and
 `ProtoAdapter` share method names, so the emitter only switches the dispatch
-prefix). The crate ships generic building blocks —
+prefix). The crate ships generic building blocks,
 `PairMap` (delegating to prost's real-map codec) and `Wrapper<TAG>` (a
-single-field wrapper message flattened to its `String`/`Vec` payload) — so
-a new adapter is a few lines. `with` fields skip the shape check — the
-adapter is asserting a non-standard mapping on purpose — and are covered by
+single-field wrapper message flattened to its `String`/`Vec` payload), so
+a new adapter is a few lines. `with` fields skip the shape check (the
+adapter is asserting a non-standard mapping on purpose) and are covered by
 the differential harness instead (each adapter also declares its value-level
 loss through `normalize_dynamic`).
 
@@ -358,7 +358,7 @@ loss through `normalize_dynamic`).
 > (`empty_message_decodes_to_default`). The historical non-zero defaults
 > (infinite `max_duration`, `priority = 1`, 80 KiB chunks, `page_size =
 > 100`, the `SessionId`/`TaskId`/`ResultId`/`Asc` sort defaults) are gone
-> from `Default` — `TaskOptions::recommended()` and the exported
+> from `Default`; `TaskOptions::recommended()` and the exported
 > `INFINITE_DURATION` carry the useful ones. This removed the
 > `wire_default()` trait method, the reset-if-seed merge guards, the
 > keeps-api-default rule and the generic-mode runtime seed decisions, plus
@@ -370,7 +370,7 @@ loss through `normalize_dynamic`).
 > absent oneof with that member present (there is no `None` state);
 > pair-map fields lose entry order and collapse duplicate keys;
 > `tasks::Output` folds `success = true` over any error message, and its
-> `Default` is `Error("")` — the proto zero — so an absent output is an
+> `Default` is `Error("")`, the proto zero, so an absent output is an
 > empty *error* (the old conversion said success; the wire semantics of
 > `TaskDetailed.Output` agree with the new reading).
 
@@ -401,7 +401,7 @@ loss through `normalize_dynamic`).
   submission where `None` inherits session defaults): `None` omits,
   `Some(default)` is emitted. Exact presence preserved; this is the only
   presence knob left, and it lives in the Rust type.
-- proto3 explicit `optional` scalars must be `Option` in Rust — validated by
+- proto3 explicit `optional` scalars must be `Option` in Rust, validated by
   the derive.
 - Empty containers still encode to nothing: a `Vec` writes one field per
   element and a `HashMap` one per entry, so zero elements is zero bytes with
@@ -409,17 +409,17 @@ loss through `normalize_dynamic`).
   `== default` key/value subfields (the canonical entry encoding; decoders fill
   them back in), and that is where `HashMap`'s `PartialEq` bound on the value
   type comes from.
-- Flattened oneofs: decode with no variant set → the default/`Invalid`
+- Flattened oneofs: decode with no variant set -> the default/`Invalid`
   variant; the active member is written even when its payload is the default,
   and an `Invalid`/no-member variant writes nothing (there is no member to
   write, not a skipped default).
-- Unknown *fields* are skipped on decode and not preserved on re-encode —
+- Unknown *fields* are skipped on decode and not preserved on re-encode,
   same as prost and as today. Only unknown enum *values* become lossless.
 
 ### 3.7 Performance
 
 - The decode-then-convert double pass disappears on both directions of every
-  call, and with it the re-collection of vectors (`Vec<i32>` ⇔ `Vec<enum>`,
+  call, and with it the re-collection of vectors (`Vec<i32>` <-> `Vec<enum>`,
   nested filter vecs) and map rebuilds.
 - All proto `bytes` fields become `bytes::Bytes`: decoding slices the tonic
   receive buffer instead of copying (`DataChunk::Data`, result
@@ -434,26 +434,26 @@ loss through `normalize_dynamic`).
 
 ## 4. Validation & testing
 
-Two layers — independent for the derived majority, with one caveat called out
+Two layers, independent for the derived majority, with one caveat called out
 below for the two hand-written cross-field impls:
 
 1. **Compile time** (derive vs descriptor): wrong/missing/extra fields, kind
-   mismatches, presence-rule violations, enum variant name/value mismatches —
+   mismatches, presence-rule violations, enum variant name/value mismatches:
    all spanned errors; fingerprint tripwire against stale expansions.
-2. **Differential round-trip harness** (test-time, generic — no per-type test
+2. **Differential round-trip harness** (test-time, generic, no per-type test
    code):
    - `protox` compiles the protos in-test; `prost-reflect` generates
      randomized `DynamicMessage`s per descriptor;
-   - round-trip both directions: dynamic → bytes → armonik type → bytes →
-     dynamic, compared semantically (field-set equality, not byte equality —
+   - round-trip both directions: dynamic -> bytes -> armonik type -> bytes ->
+     dynamic, compared semantically (field-set equality, not byte equality:
      absent and present-but-default nested messages are interchangeable per
-     §3.6, and the encoder picks the second form);
+     section 3.6, and the encoder picks the second form);
    - the equivalence classes are **computed, not restated**: each type's
      `default_encoding` (what it emits for "nothing") is folded into
      messages where those fields are absent, deriving the default-member
      projection from the implementation itself; the
      value-level projections live in a `Normalize` impl per type, generated
-     from the same constructs that shape the codec — each `with` adapter
+     from the same constructs that shape the codec: each `with` adapter
      declares its own loss (`PairMap` order/duplicates), `present` markers
      and `transparent` chains emit theirs. For the two hand-written
      cross-field impls (`tasks::Output`, `agent::notify_result_data`) the
@@ -463,13 +463,13 @@ below for the two hand-written cross-field impls:
      checked-in unit fixtures built and encoded through prost-derived
      reference messages (an independent codec), covering the cross-field
      combinations the field-information ratchet cannot reach probing one
-     field at a time — `{ success, error }` both set, multi-pair differing
+     field at a time: `{ success, error }` both set, multi-pair differing
      session ids. Registration still requires the impl, so a projection is
      never forgotten;
    - the proto-to-type mapping is **self-registering**: each derive (and
      hand-written impl) pushes its entry into a `linkme` distributed slice
      under the private `_differential` feature, enabled only through the
-     self dev-dependency — new messages are covered with zero harness
+     self dev-dependency, so new messages are covered with zero harness
      changes, and only the generic instantiations are hand-listed;
    - a coverage test iterates *all* messages in the descriptor pool and
      fails on any message with no registered Rust type (explicit allowlist
@@ -480,12 +480,12 @@ below for the two hand-written cross-field impls:
      value that survives normalization distinguishably (all declared enum
      values are tried, plus an unknown one) and round-trips one field at a
      time; a field the quotient erases entirely must be justified in an
-     explicit allowlist — one entry exists today (`v1.Output.ok`, the zero
+     explicit allowlist; one entry exists today (`v1.Output.ok`, the zero
      value itself);
    - covers `with` adapters, generics (`FilterStatus<T>` instantiations
      checked against each service's concrete proto), and unified types.
 3. Existing integration tests (`tests/*.rs`, client vs in-process server)
-   continue to pass unchanged in spirit — they exercise the public API, which
+   continue to pass unchanged in spirit: they exercise the public API, which
    keeps its shape.
 
 ## 5. Migration plan (big-bang branch)
@@ -501,13 +501,13 @@ even though the branch lands as one unit:
    `descriptor.bin` + `schema_meta.rs`; stubs via `compile_fds`. (`protoc`
    removed from CI images and docs.)
 3. **Differential harness** landed early, running against whatever is
-   already derived — it is the safety net for everything after.
+   already derived; it is the safety net for everything after.
 4. **Annotate `objects/`** service by service (enums and shared objects
    first, then per-service modules): add derives/attributes, delete the
    type's `From` impls as it becomes self-encoding.
 5. **`extern_path` the RPC types**; simplify `client/*` (drop conversion in
    `GrpcCall` paths) and `server/*` (`impl_trait_methods!` loses its
-   conversion layer — traits and stubs now speak the same types).
+   conversion layer: traits and stubs now speak the same types).
 6. **Delete** `impl_convert!` and the manual `IntoRequest` impls (tonic's
    blanket impl covers the native types); internalize `api/v3.rs` (stubs +
    `Empty` remain, `pub(crate)`). `IntoCollection` stays: the client
@@ -522,11 +522,11 @@ even though the branch lands as one unit:
 - `armonik::api::v3` removed entirely (goal of the revamp). What remains
   of the generation is exactly the tonic client/server stubs, exposed per
   service as `armonik::client::<service>::stub` and
-  `armonik::server::<service>::stub` — presentable as public API because
+  `armonik::server::<service>::stub`, presentable as public API because
   every message in their signatures is an armonik type (the five
   `Empty`-signature RPCs each speak their own wire-compatible `{}` type),
   and the leftovers are pruned from generation.
-- The message types moved to the new `armonik-types` crate (see §3.1), which
+- The message types moved to the new `armonik-types` crate (see section 3.1), which
   `armonik` re-exports wholesale: `armonik::applications::Raw`,
   `armonik::TaskOptions`, etc. keep resolving, so this is source-compatible.
   Downstream that wants only the types (no tonic graph) can depend on
@@ -537,7 +537,7 @@ even though the branch lands as one unit:
   signature expresses well; the historical coherence argument from the crate
   split is moot since Part II merged the crates back). The named methods
   (`Agent::create_tasks`, `Results::upload`, `Submitter::create_large_tasks`)
-  are unchanged — they delegate to it.
+  are unchanged; they delegate to it.
 - Rust types sharing one wire message stay distinct and convert at the
   stub boundary (`tasks::list_detailed`, the agent data RPCs, the
   submitter request wrappers), so `client.call(...)` dispatch is
@@ -546,10 +546,10 @@ even though the branch lands as one unit:
   discriminants for ClientSubmission/WorkerSubmission/ClosedAt/PurgedAt/
   DeletedAt, which disagreed with `SessionRawEnumField`; values are now
   matched by name against the descriptor.
-- Enums: dataful `Other(…)` variant replaces `Unspecified` unit variants
+- Enums: dataful `Other(...)` variant replaces `Unspecified` unit variants
   (`UNSPECIFIED` const provided); `as i32` casts replaced by `From` impls;
   `#[repr(i32)]` gone; matches need an `Other`/catch-all arm.
-- All `bytes` payload fields: `Vec<u8>` → `bytes::Bytes`.
+- All `bytes` payload fields: `Vec<u8>` -> `bytes::Bytes`.
 - `Default::default()` is the proto zero value for every type (the
   zero-default invariant): `TaskOptions`, `Configuration`, the list
   requests and the sort/field enums lose their historical non-zero
@@ -574,7 +574,7 @@ even though the branch lands as one unit:
 
 ## 8. Future work
 
-- Pattern types (RFC 3628) would allow `Other(i32 is …)` niches → 4-byte
+- Pattern types (RFC 3628) would allow `Other(i32 is ...)` niches -> 4-byte
   enums; revisit when stable.
 - `deprecated` submitter service could be dropped instead of migrated if its
   removal is scheduled anyway.
@@ -583,13 +583,13 @@ even though the branch lands as one unit:
 
 ---
 
-# Part II — RPC definitions, and dropping the stub codegen
+# Part II: RPC definitions, and dropping the stub codegen
 
 Status: **implemented** (branch `rust/direct-message-impls`; decisions settled
 in review 2026-08-03, landed 2026-08-04)
 Prerequisite: the direct-message revamp (Part I) landed.
 
-> **All of §8 has landed.** The spike validated the table-driven router and
+> **All of section 8 has landed.** The spike validated the table-driven router and
 > the client dispatch on `Results` first (the full `tests/results.rs` scenario
 > matrix in all three old/new combinations, plus calls against the dotnet mock
 > over a real HTTP/2 connection); every later step was subtraction, verified
@@ -608,7 +608,7 @@ Measured on `rust/direct-message-impls`:
 
 | Site | Lines | Information content |
 |---|---|---|
-| `client/*.rs` `impl_call!` + manual `GrpcCall`/`GrpcCallStream` impls | ~870 | `Request type → stub method` |
+| `client/*.rs` `impl_call!` + manual `GrpcCall`/`GrpcCallStream` impls | ~870 | `Request type -> stub method` |
 | `client/*.rs` struct + `where` bounds + `with_channel` + `call` + `call_streaming` | ~330 | service name |
 | `client/mod.rs` `Client::{svc, into_svc}` pairs | ~190 | 12 service names |
 | `server/*.rs` `define_trait_methods!` lists | ~120 | method name + doc comment |
@@ -650,12 +650,12 @@ Unlike the message revamp, this round is net-negative in hand-written code, and
 it removes a mechanism rather than relocating one.
 
 Measured on the landed branch (`a00dcd90..510538f8`, `packages/rust`): **2,248
-insertions, 5,702 deletions — net −3,454 lines**. Deleted: `armonik/build.rs`
+insertions, 5,702 deletions, net -3,454 lines**. Deleted: `armonik/build.rs`
 (344), `stubs.rs`, the client dispatch arms and per-service boilerplate, the
 `Client` accessor pairs, the two server lists and `ServiceExt` boilerplate, the
 19 `#[armonik(replace(...))]` annotations, `ReplaceSpec` + its emitter, the
 build-facing half of `wire.rs`, the hand-maintained `UNEXPOSED_RPC_MESSAGES`,
-and the per-RPC path tests (13 round-trips remain, §4). Added: the `service!`
+and the per-RPC path tests (13 round-trips remain, section 4). Added: the `service!`
 proc macro with validation and doc harvest (~500), the generic router plus the
 three `serve_*` bodies (~380 with docs), `ServiceClient` + `Dispatch` (~230),
 the `Rpc`/`Service`/kind markers and `Channel` (~100), and the 12 invocations
@@ -666,7 +666,7 @@ surgery, the `replace` substitution machinery, and the `linkme` harvest across a
 build-dependency edge. What replaces them is not new infrastructure but reuse of
 the descriptor-reading proc-macro that already exists.
 
-The one thing that gets worse: the server router becomes ours. See §7.
+The one thing that gets worse: the server router becomes ours. See section 7.
 
 ## 2. Decisions (settled)
 
@@ -683,14 +683,14 @@ The one thing that gets worse: the server router becomes ours. See §7.
 | Client dispatch | One `ServiceClient<Svc, T>`; `call` deduces the RPC from the request type |
 | `GrpcCall` / `GrpcCallStream` | Deleted, replaced by `Rpc` + kind dispatch |
 | Server trait | Generated by `service!` from the same invocation |
-| Router shape | One generic `tower::Service` + `NamedService` over per-service const route tables emitted by `service!`; match-emission is the spike fallback (§3.6) |
-| Convenience methods | Kept hand-written, bodies unchanged; no `Request::new` emitter. Compression re-evaluated after the cutover, with numbers (§3.7, §9) |
-| Doc comments | Harvested by `service!` from the descriptor's `SourceCodeInfo` (build retains it); the invocation carries no prose (§3.3) |
+| Router shape | One generic `tower::Service` + `NamedService` over per-service const route tables emitted by `service!`; match-emission is the spike fallback (section 3.6) |
+| Convenience methods | Kept hand-written, bodies unchanged; no `Request::new` emitter. Compression re-evaluated after the cutover, with numbers (section 3.7, section 9) |
+| Doc comments | Harvested by `service!` from the descriptor's `SourceCodeInfo` (build retains it); the invocation carries no prose (section 3.3) |
 | `unexposed(...)` | Declared in the invocation; the macro emits the differential harness's message allowlist from it, retiring the hand-maintained `UNEXPOSED_RPC_MESSAGES` |
 | `tonic-prost` | Kept: it provides `ProstCodec`. Only `tonic-prost-build` is dropped |
-| Tests | Per-service round-trips through one convenience method (12) plus one per streaming kind (3) replace the per-RPC path tests (§4) |
+| Tests | Per-service round-trips through one convenience method (12) plus one per streaming kind (3) replace the per-RPC path tests (section 4) |
 | `tonic::Status` in public signatures | Kept for this branch; REST is not on the roadmap |
-| Span names | Not load-bearing (confirmed): fixed client callsite with `rpc` / `otel.name` fields; server keeps per-RPC literals, free in the emitted route closures (§3.6, §7) |
+| Span names | Not load-bearing (confirmed): fixed client callsite with `rpc` / `otel.name` fields; server keeps per-RPC literals, free in the emitted route closures (section 3.6, section 7) |
 
 ## 3. Architecture
 
@@ -706,9 +706,9 @@ packages/rust/
 ```
 
 `armonik-types` folds into `armonik` wholesale. Its stated reasons to exist
-(Part I §3.1) were a pure-types dependency and, "the reason the split earns
+(Part I section 3.1) were a pure-types dependency and, "the reason the split earns
 its keep", the extern-map harvest across the build-dependency edge. The harvest
-is deleted by §3.2, and no consumer of the pure-types build exists in the
+is deleted by section 3.2, and no consumer of the pure-types build exists in the
 repository. By Part I's own test the split stops earning its keep.
 
 Consequences worth taking while merging:
@@ -716,7 +716,7 @@ Consequences worth taking while merging:
 - `objects/` goes back to private with the flat `pub use` re-exports as the only
   surface. It is currently `pub` + `#[doc(hidden)]` solely so the paths
   registered into `wire::REGISTRY` resolve from the `armonik` crate.
-- `Msg` and the rest of `codec` stay `pub(crate)`; the const-asserts of §3.3 no
+- `Msg` and the rest of `codec` stay `pub(crate)`; the const-asserts of section 3.3 no
   longer need to cross a crate boundary.
 - The `=` pin chain shortens from two links to one; `scripts/versions/` loses a
   crate. `armonik-transport` stays independent and version-unlocked.
@@ -729,7 +729,7 @@ One build script, `armonik/build.rs`, which is `armonik-types/build.rs` moved
 verbatim:
 
 1. `protox` compiles `protos/V1/*.proto` into a `FileDescriptorSet`, retaining
-   `SourceCodeInfo` (the leading comments feed the doc harvest, §3.3).
+   `SourceCodeInfo` (the leading comments feed the doc harvest, section 3.3).
 2. Write `$OUT_DIR/descriptor.bin` (read by all three macros) and
    `$OUT_DIR/schema_meta.rs` with `DESCRIPTOR_FINGERPRINT`, pulled in by
    `include!` so rustc's dep-info tracks it.
@@ -771,9 +771,9 @@ schema syntax, not a config field, and a reader looks for it there.
 
 **Doc comments are harvested, not transcribed.** The invocation carries no
 prose: `service!` reads the leading comments from the descriptor's
-`SourceCodeInfo` (retained by the build, §3.2) and emits `#[doc]` on the
+`SourceCodeInfo` (retained by the build, section 3.2) and emits `#[doc]` on the
 service marker, the server trait and its methods. The two hand-transcribed
-copies that drifted (§1) become uncopyable.
+copies that drifted (section 1) become uncopyable.
 
 The ergonomic method name (server trait method, telemetry label) is the module
 segment of the request path (`list`, `get_owner_task_id`, `download`), the same
@@ -793,7 +793,7 @@ module convention.
 
 **Invariant: request types are injective over RPCs.** `impl Rpc for
 <module>::Request` requires every RPC to have a globally unique Rust request
-type — across services too, since `Rpc::Service` is part of the impl. This
+type, across services too, since `Rpc::Service` is part of the impl. This
 already holds: where the proto shares one message across RPCs (`Empty`,
 `TaskFilter`, `ListTasksRequest`, `DataRequest`), the crate already gives each
 site a distinct wire-compatible struct (the former `replace` types, which
@@ -808,7 +808,7 @@ invocation:
 - ungated: one `impl Rpc for <module>::Request` per line
 - `_gen-server`: the `ResultsService` trait with the harvested doc comments
   attached, `ResultsServiceExt`, and the `Routes` table the generic router
-  consumes (§3.6)
+  consumes (section 3.6)
 - `_gen-client`: `pub type Results<T> = ServiceClient<services::Results, T>`
 
 The `Rpc` impls must be **unconditional**. A server-only build (`server` enables
@@ -898,7 +898,7 @@ prost 0.14; the request/response tracing needs it.)
 
 Everything here is `concat!` or `stringify!` over the invocation, so no
 descriptor read is needed to *emit* it. The descriptor read exists only for the
-validation in §3.3.
+validation in section 3.3.
 
 ### 3.5 Client
 
@@ -986,7 +986,7 @@ the concrete alias (legal: local generic type, concrete type argument, so
 
 ### 3.6 Server: the router
 
-This is the only new code, and the reason for the spike in §8.
+This is the only new code, and the reason for the spike in section 8.
 
 The resolution of an apparent contradiction earlier in the discussion: what
 earns its keep is **`tonic::server::Grpc`**, which does the protocol work, not
@@ -1032,7 +1032,7 @@ deleted outright: since the extern'ing landed they are `Into<T> for T` no-ops.
 
 Three facts make the table sound: non-capturing closures coerce to `fn`
 pointers in const context; the `debug_span!` statics inside them name no
-generic parameter, so per-RPC literal span names survive (§5.13 only forbids
+generic parameter, so per-RPC literal span names survive (section 5.13 only forbids
 *generic* names); and the `BoxFuture` costs nothing relative to today, because
 tonic's generated servers already declare `type Future = BoxFuture<...>` and
 box every handler. If the spike finds the table fighting the type system
@@ -1054,18 +1054,18 @@ go away.
 ### 3.7 The convenience layer is fully derived from the request structs
 
 The convenience methods have **zero per-method source**: `service!` emits
-them, and their *signatures* come from the request structs' own fields — the
-one place the Rust types (not the proto types, §5.8) are visible. Parameters
+them, and their *signatures* come from the request structs' own fields, the
+one place the Rust types (not the proto types, section 5.8) are visible. Parameters
 mirror the fields in declaration order (field order is wire-irrelevant, so
 structs are reordered where ergonomics demand), widened by a sugar class the
 derive infers from each field's type:
 
 | field type | parameter | conversion |
 |---|---|---|
-| `String`, `Bytes`, `Vec<u8>` | `impl Into<…>` | `.into()` |
+| `String`, `Bytes`, `Vec<u8>` | `impl Into<...>` | `.into()` |
 | `Vec<T>` | `impl IntoIterator<Item = impl Into<T>>` | `.into_collect()` |
 | `HashMap<K, V>` | `impl IntoIterator<Item = (impl Into<K>, impl Into<V>)>` | pair map |
-| `filter::Or` | nested `impl IntoIterator` of `filter::Field` | `into_filters(…)` |
+| `filter::Or` | nested `impl IntoIterator` of `filter::Field` | `into_filters(...)` |
 | anything else | itself | moved |
 
 The mechanism is a cross-macro handshake: `#[derive(Message)]` emits, next to
@@ -1097,11 +1097,11 @@ convention). It carries `submitter::{count_tasks, wait_for_completion}`, whose
 before the revamp. Generic aliases (the per-service `Sort`/`FilterStatus`
 instantiations) have no reflection to carry and are rejected.
 
-**Opt-out**: `manual` on the rpc line emits nothing — the escape for custom
-wiring or a wrong mechanical default. Client-streaming RPCs are always manual
-(their entry point is `call_streaming`). Today that leaves six hand-written
-methods (`results::upload`, `worker::process` — nine exploded parameters is a
-wrong default — `submitter::{create_small_tasks, create_large_tasks,
+**Opt-out**: `manual` on the rpc line emits nothing: the escape for custom
+wiring or a wrong mechanical default. Client-streaming RPCs are required to
+carry it (their entry point is `call_streaming`). Today that leaves six hand-written
+methods (`results::upload`, `worker::process`, where nine exploded parameters is
+a wrong default, `submitter::{create_small_tasks, create_large_tasks,
 try_get_task_output}`, `agent::create_tasks`); the hand-written
 `notify_result_data::Request` carries hand-written reflection to stay
 generated.
@@ -1126,13 +1126,13 @@ what actually deletes the layer. The nested-filter collect shared by the
 - kept, because the differential coverage ratchet consumes them: `REGISTRY`,
   `Registration`, `Role::{Message, Absorbed}`, `absorbed()`, `DESCRIPTOR`,
   `Diff`; `UNEXPOSED_RPC_MESSAGES` survives as a name the harness consumes but
-  is now emitted by `service!` from the `unexposed(...)` declarations (§3.3)
+  is now emitted by `service!` from the `unexposed(...)` declarations (section 3.3)
   rather than hand-maintained;
 - deleted, because their only consumer was `armonik/build.rs`: `Direction`,
   `Replacement`, `Role::Replace`, `replacements()`, `extern_mapping()`.
 
 The RPC side needs no `linkme` at all: completeness is checked at expansion
-against the descriptor (§3.3), not by collecting a distributed slice.
+against the descriptor (section 3.3), not by collecting a distributed slice.
 
 ## 4. Validation & testing
 
@@ -1146,7 +1146,7 @@ against the descriptor (§3.3), not by collecting a distributed slice.
    unchanged in spirit, and they become the primary evidence that the router
    behaves. `tests/results.rs` covers both streaming directions.
 5. **Retired**: the ~1500 lines of per-RPC `#[cfg(test)] mod tests` path
-   assertions in `client/*.rs`, subsumed by (1) and (2) — but only *after* the
+   assertions in `client/*.rs`, subsumed by (1) and (2), but only *after* the
    cutover, so they cover it for free while it happens. What replaces them: one
    round-trip per service through a representative convenience method (12
    tests, catching the one class the compiler cannot: a convenience method
@@ -1173,8 +1173,8 @@ three. A descriptor scan cannot decide which RPC a message type stands for,
 which is exactly why `replace` had to be invented in the first place. Writing
 the relation down per RPC in the invocation sidesteps the inference entirely,
 and the *Rust* request types are already distinct per RPC (the former `replace`
-types), so the emitted impls stay coherent — see the injectivity invariant in
-§3.3.
+types), so the emitted impls stay coherent; see the injectivity invariant in
+section 3.3.
 
 Secondary objection: a pure-types crate has no business knowing about services,
 paths or streaming kinds.
@@ -1192,7 +1192,7 @@ realisation is what deletes `armonik/build.rs` entirely.
 
 Conceptually clean, and it would make the table a first-class typed artifact.
 Rejected: a longer `=`-pinned lockstep release chain (already listed as a risk
-in Part I §7) for no consumer. Superseded outright by §5.2 and by the merge.
+in Part I section 7) for no consumer. Superseded outright by section 5.2 and by the merge.
 
 ### 5.4 A central `const RPCS: &[Def]` array
 
@@ -1201,20 +1201,20 @@ service's file, and should read as Rust rather than as data fed to a generator.
 
 ### 5.5 Distributed `const RPCS` per module, plus a central `&[&[Def]]`
 
-The obvious repair to §5.4. Rejected because the central list is a second place
+The obvious repair to section 5.4. Rejected because the central list is a second place
 to forget an entry, which is the failure mode this whole exercise removes.
 
 ### 5.6 `linkme` in `armonik` to collect distributed RPC registrations
 
-The other repair to §5.5, and the one that follows the "registration and
+The other repair to section 5.5, and the one that follows the "registration and
 implementation are the same act" principle `DESIGN.md` already states for
-`Normalize`. Made unnecessary by expansion-time completeness checking (§3.3),
+`Normalize`. Made unnecessary by expansion-time completeness checking (section 3.3),
 which is strictly better: a compile error at the invocation instead of a test
 failure listing a name.
 
 ### 5.7 The convenience methods as the RPC definition
 
-Attractive, and once §5.2 removed the build-script visibility objection it
+Attractive, and once section 5.2 removed the build-script visibility objection it
 looked viable. Killed by feature gating: the `Rpc` impls must be unconditional
 because a server-only build has no client module, and convenience methods are
 `_gen-client` by construction. Two supporting objections: a proc macro cannot
@@ -1237,8 +1237,8 @@ filters` is `filter::Or`, `TaskOptionField` is a transparent enum,
 `GetOwnerTaskIdResponse.result_task` is a `PairMap` adapter. Descriptor-driven
 convenience generation would be wrong exactly on the types that were hand-shaped.
 
-Resolved by not generating the convenience layer at all (§3.7): the methods
-stay hand-written, and the merge is justified by §3.1 alone.
+Resolved by not generating the convenience layer at all (section 3.7): the methods
+stay hand-written, and the merge is justified by section 3.1 alone.
 
 ### 5.9 Dropping the tonic runtime for pure prost / tower / hyper
 
@@ -1260,7 +1260,7 @@ control plane. tonic is tested against gRPC's interop suite.
 The dependency argument does not hold either. Removing tonic removes tonic;
 hyper, h2, tower, tokio, prost and http are already direct dependencies, and
 `armonik-transport` already owns hyper and hyper-rustls. Compile time is
-dominated by `protox` and `tonic-prost-build` in build scripts, which is §3.2,
+dominated by `protox` and `tonic-prost-build` in build scripts, which is section 3.2,
 not the runtime.
 
 ### 5.10 Keeping the generated server stubs
@@ -1268,7 +1268,7 @@ not the runtime.
 The initial position, on the grounds that the router is non-trivial protocol
 code. Refined rather than reversed: the protocol code lives in
 `tonic::server::Grpc`, which we keep and call. The *generated* `XServer` is a
-path match plus that call, twelve times. See §3.6.
+path match plus that call, twelve times. See section 3.6.
 
 ### 5.11 Feature-gating tonic to preserve a pure-types build after the merge
 
@@ -1284,7 +1284,7 @@ impl<R: Rpc<Kind = ServerStream>> ClientCall for R { ... }
 ```
 
 E0119. Coherence does not reason about associated-type disequality. Hanging the
-dispatch off the kind type (§3.5) has no coherence question at all: two impls on
+dispatch off the kind type (section 3.5) has no coherence question at all: two impls on
 two distinct concrete types.
 
 ### 5.13 Per-RPC span names from a generic dispatcher
@@ -1293,7 +1293,7 @@ two distinct concrete types.
 META: Metadata` plus `static CALLSITE`, and statics cannot reference generic
 parameters. Constructing `Metadata` by hand per monomorphization is possible in
 principle (`Metadata::new` is const) but needs a `Callsite` and leans on
-`tracing-core` internals. See §7 for the accepted consequence.
+`tracing-core` internals. See section 7 for the accepted consequence.
 
 ### 5.14 Inferring the streaming kind from the convenience method's return type
 
@@ -1323,7 +1323,7 @@ if `feat-implements-rest-json` or `wk/feat/rust-proxy` becomes real.
   `client.call_streaming(stream)` keep their behaviour; `call` now accepts
   `impl IntoRequest<R>`, so per-call metadata and deadlines become possible.
   `call_streaming` stays separate: the coherence argument for the split
-  (Part I §6, request types foreign to the client crate) is moot after the
+  (Part I section 6, request types foreign to the client crate) is moot after the
   merge, but a client-streaming call takes a `Stream<Item = R>` rather than an
   `R`, which no single signature expresses well. One inference wart: passing a
   bare message infers `R`, but passing a pre-built `tonic::Request` needs a
@@ -1338,7 +1338,7 @@ if `feat-implements-rest-json` or `wk/feat/rust-proxy` becomes real.
   surface already.
 - `#[armonik(replace(...))]` is removed from the attribute grammar (which is
   `#[doc(hidden)]` and unsupported, so this is not a public break).
-- The client's `tracing` span names change; see §7.
+- The client's `tracing` span names change; see section 7.
 - `Rpc`, `Service`, `Unary`, `ServerStream`, `ClientStream`, `Dispatch` and
   `Channel` are new public API. `Rpc` should be supported and documented, unlike
   the attribute grammar.
@@ -1349,11 +1349,11 @@ if `feat-implements-rest-json` or `wk/feat/rust-proxy` becomes real.
 
 | Risk | Mitigation |
 |---|---|
-| The router is ours now, and it is protocol-adjacent | Dispatch into `tonic::server::Grpc`, so framing and status handling stay tonic's. Spike the table-driven shape on `Results` against `tests/results.rs` before anything else (§8); match-emission is the in-step fallback |
+| The router is ours now, and it is protocol-adjacent | Dispatch into `tonic::server::Grpc`, so framing and status handling stay tonic's. Spike the table-driven shape on `Results` against `tests/results.rs` before anything else (section 8); match-emission is the in-step fallback |
 | Client span names change | Resolved: confirmed not load-bearing (human debugging only; no dashboards or `EnvFilter` directives depend on them). Fixed callsite `"armonik.rpc"` plus `rpc = R::LABEL` and `otel.name = R::LABEL` fields |
-| Server span names | Preserved: the emitted route closures are per-RPC callsites, so the literal names survive (§3.6) |
+| Server span names | Preserved: the emitted route closures are per-RPC callsites, so the literal names survive (section 3.6) |
 | `service!` reads a file at expansion | Same mechanism, same `OnceLock` cache and same fingerprint tripwire as the existing derives. Not a new class of coupling |
-| Losing the two build-time extern guards | Replaced by expansion-time completeness (§3.3) and the const asserts. The duplicate-generated-struct failure `guard_all_messages_externed` prevented cannot occur without codegen |
+| Losing the two build-time extern guards | Replaced by expansion-time completeness (section 3.3) and the const asserts. The duplicate-generated-struct failure `guard_all_messages_externed` prevented cannot occur without codegen |
 | One larger crate, worse incrementality | Accepted. Touching a client file now recompiles the codec; ~16k lines total |
 | Feature matrix consolidates into one crate | `_differential` now lives alongside the client. The self dev-dependency trick already in use keeps `prost-reflect` out of normal builds; verify under resolver v2 |
 | tonic 0.14 internals (`client::Grpc`, `server::Grpc`, `GrpcMethod`) | These are public API, and they are exactly what the generated code calls. Breakage tracks tonic majors we would upgrade deliberately |
@@ -1369,7 +1369,7 @@ for the reason recorded in step 8 itself.
    still in place alongside: the `Channel` bundle, hand-written
    `Rpc`/`Service`/kind markers, `Dispatch` for `Unary` and `ServerStream`,
    `ServiceClient::{call, call_streaming}`, and the table-driven router of
-   §3.6. Everything after this step is subtraction; this step is the only
+   section 3.6. Everything after this step is subtraction; this step is the only
    addition that could fail. Do not proceed on estimate.
 1. `Channel` supertrait bundle adopted across the existing code. Mechanical,
    no API change, shrinks every signature the later steps touch.
@@ -1422,22 +1422,22 @@ for the reason recorded in step 8 itself.
 
 ## 9. Future work
 
-- **`armonik::Status`** (§5.16), if a second transport materialises.
+- **`armonik::Status`** (section 5.16), if a second transport materialises.
 - **Convenience method compression** (`macro_rules!` over the common shape), if
   the bodies turn out uniform enough to be worth its diagnostics cost. Evaluate
-  after step 9, with real numbers, not before (§3.7).
+  after step 9, with real numbers, not before (section 3.7).
 - **Reflection service**, now cheap: the descriptor is embedded already, and
   nothing prunes it any more.
 
 ## 10. Resolved questions
 
-1. **Grammar**: as in §3.3, with the `as` override for the two `create_tasks`
+1. **Grammar**: as in section 3.3, with the `as` override for the two `create_tasks`
    methods and `stream` as a position prefix.
 2. **`unexposed`**: in the invocation; the macro emits the harness allowlist
-   from it (§3.3, §3.8), so the two allowlists cannot drift.
+   from it (section 3.3, section 3.8), so the two allowlists cannot drift.
 3. **Span names**: confirmed not load-bearing (human debugging only); free to
-   change (§7).
+   change (section 7).
 4. **`armonik-transport`**: stays a separate crate. Unlike `armonik-types` the
-   split costs nothing — no `=` pin in the chain, no build-dependency edge, no
-   macro coupling — and it quarantines the hyper/rustls surface, with
+   split costs nothing (no `=` pin in the chain, no build-dependency edge, no
+   macro coupling) and it quarantines the hyper/rustls surface, with
    `wk/feat/rust-proxy` a plausible second consumer.

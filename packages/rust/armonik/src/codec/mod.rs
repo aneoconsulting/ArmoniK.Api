@@ -1,32 +1,25 @@
 //! Runtime support for the wire representation of the API types.
 //!
-//! The `armonik-macros` derives emit implementations of [`prost::Message`]
-//! built from the building blocks in this module:
+//! The `armonik-macros` expansions build their [`prost::Message`] impls out of the pieces here:
 //!
-//! - [`ProtoField`] is implemented by every type that can appear as a field
-//!   of a message (scalars, `String`, `Bytes`, containers, well-known types,
-//!   and — through the derives — every API message and enum). The wire
-//!   representation is chosen by the type system through this trait, while
-//!   tags and expected kinds come from the protobuf descriptor at expansion
-//!   time.
-//! - [`ProtoOneof`] is implemented by flattened-oneof enums; the containing
-//!   message routes the oneof's tag set to it.
-//! - [`ProtoAdapter`] is the escape hatch for fields whose Rust
-//!   representation differs structurally from the proto (e.g. a repeated
-//!   pair message exposed as a `HashMap`).
+//! - [`ProtoField`], implemented by every type that can appear as a field of a message: scalars,
+//!   `String`, `Bytes`, containers, well-known types, and, through the derives, every API message
+//!   and enum. The trait picks the wire representation from the Rust type, while tags and expected
+//!   kinds come from the descriptor at expansion time.
+//! - [`ProtoOneof`], implemented by flattened-oneof enums, to which the containing message routes
+//!   the oneof's tag set.
+//! - [`ProtoAdapter`], the escape hatch for fields whose Rust representation differs structurally
+//!   from the proto (a repeated pair message exposed as a `HashMap`).
 //!
-//! [`ProtoField::SHAPE`] exists so that one derive-emitted `const` assertion
-//! per field can check the Rust type against the descriptor at compile time
-//! (see [`shape_matches`]).
+//! [`ProtoField::SHAPE`] lets one derive-emitted `const` assertion per field check the Rust type
+//! against the descriptor at compile time (see [`shape_matches`]).
 //!
-//! There is no notion of a default value on the encode side: every field a
-//! type declares is written, whatever it holds. Zeros and empty nested
-//! messages therefore appear on the wire, which proto3 receivers read exactly
-//! like an absent implicit-presence field, and the decode side keeps its
-//! "absent = default" reading (seeded from `Default`, the proto zero for every
-//! armonik type). Presence that *is* meaningful is carried by the Rust type
-//! instead: `Option<T>` omits `None`, a oneof emits its active member, and the
-//! empty containers encode to nothing on their own.
+//! The encode side has no notion of a default value: every declared field is written, whatever it
+//! holds. Zeros and empty nested messages therefore appear on the wire, which a proto3 receiver
+//! reads exactly like an absent implicit-presence field, and the decode side keeps its "absent =
+//! default" reading (seeded from `Default`, the proto zero for every armonik type). Meaningful
+//! presence rides on the Rust type instead: `Option<T>` omits `None`, a oneof emits its active
+//! member, empty containers encode to nothing.
 
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{DecodeContext, WireType};
@@ -38,11 +31,10 @@ pub(crate) mod enumeration;
 mod leaves;
 pub(crate) mod wrapper_enum;
 
-/// Wire-level kind of a protobuf field, checked by derive-emitted
-/// const-asserts against the descriptor. Only the kinds with a [`ProtoField`]
-/// impl are listed, so every variant is live; a proto field of any other wire
-/// kind (`sint*`/`fixed*`/`sfixed*`, which no ArmoniK field uses) is a spanned
-/// "unsupported wire kind" compile error from the derive rather than a
+/// Wire-level kind of a protobuf field, checked by derive-emitted const-asserts against the
+/// descriptor. Only the kinds with a [`ProtoField`] impl are listed, so every variant is live; a
+/// proto field of any other wire kind (`sint*`/`fixed*`/`sfixed*`, which no ArmoniK field uses) is
+/// a spanned "unsupported wire kind" compile error from the derive rather than a
 /// silently-unmatchable pattern.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FieldKind {
@@ -65,8 +57,7 @@ impl FieldKind {
     }
 }
 
-/// Cardinality of a protobuf field, checked by derive-emitted const-asserts
-/// against the descriptor.
+/// Cardinality of a protobuf field, checked by derive-emitted const-asserts against the descriptor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Cardinality {
     /// Singular proto3 field: implicit presence.
@@ -85,15 +76,15 @@ impl Cardinality {
     }
 }
 
-/// Compile-time shape of a [`ProtoField`] impl. The derive emits one const
-/// assert per descriptor-checked field, comparing the field type's `SHAPE`
-/// against an [`Expect`] built from the descriptor.
+/// Compile-time shape of a [`ProtoField`] impl. The derive emits one const assert per
+/// descriptor-checked field, comparing the field type's `SHAPE` against an [`Expect`] built from
+/// the descriptor.
 #[derive(Clone, Copy)]
 pub(crate) struct Shape {
     pub(crate) kind: FieldKind,
     pub(crate) cardinality: Cardinality,
-    /// Full proto type names this Rust type can stand for; empty means
-    /// unchecked. Containers propagate the names of their element type.
+    /// Full proto type names this Rust type can stand for; empty means unchecked. Containers
+    /// propagate the names of their element type.
     pub(crate) names: &'static [&'static str],
     /// Key/value kinds when `cardinality` is [`Cardinality::Map`].
     pub(crate) map: Option<(FieldKind, FieldKind)>,
@@ -117,16 +108,15 @@ impl Shape {
     }
 }
 
-/// What the descriptor expects of one field, tokenized as a const literal by
-/// the derive.
+/// What the descriptor expects of one field, tokenized as a const literal by the derive.
 pub(crate) struct Expect {
     /// `None` for map fields (their kinds live in `map`).
     pub(crate) kind: Option<FieldKind>,
-    /// Acceptable cardinalities (e.g. a singular message field may be either
-    /// `Singular` or `Optional` in Rust).
+    /// Acceptable cardinalities (e.g. a singular message field may be either `Singular` or
+    /// `Optional` in Rust).
     pub(crate) cardinalities: &'static [Cardinality],
-    /// Expected proto type name for message/enum (element) kinds; a `SHAPE`
-    /// with empty `names` is unchecked (scalars, adapters, generics).
+    /// Expected proto type name for message/enum (element) kinds; a `SHAPE` with empty `names` is
+    /// unchecked (scalars, adapters, generics).
     pub(crate) name: Option<&'static str>,
     pub(crate) map: Option<(FieldKind, FieldKind)>,
 }
@@ -171,9 +161,8 @@ pub(crate) const fn shape_matches(shape: &Shape, expect: &Expect) -> bool {
 
 /// A type that can be encoded and decoded as a single protobuf field.
 ///
-/// `Default` is what decoding seeds a field from (the proto zero value for
-/// every armonik type); nothing here ever compares a value *against* that
-/// default, so no `PartialEq` is required.
+/// `Default` is what decoding seeds a field from (the proto zero value for every armonik type);
+/// nothing here ever compares a value *against* that default, so no `PartialEq` is required.
 pub(crate) trait ProtoField: Default {
     const SHAPE: Shape;
 
@@ -186,8 +175,8 @@ pub(crate) trait ProtoField: Default {
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &Self) -> usize;
 
-    // Repeated forms, used by `Vec<Self>`. Packable kinds override them with
-    // their packed encodings; the defaults implement the unpacked form.
+    // Repeated forms, used by `Vec<Self>`. Packable kinds override them with their packed
+    // encodings; the defaults implement the unpacked form.
 
     fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
         for value in values {
@@ -215,23 +204,20 @@ pub(crate) trait ProtoField: Default {
     }
 }
 
-/// Marker: this Rust type IS the protobuf message(s) in [`Msg::NAMES`]. The
-/// blanket impl below is the single [`ProtoField`] impl for every
-/// message-shaped type — derived messages, transparent wrapper enums,
-/// well-known types — so the derives emit a one-line `Msg` impl instead of a
-/// full `ProtoField` one.
+/// Marker: this Rust type is the protobuf messages in [`Msg::NAMES`]. The blanket impl below is the
+/// single [`ProtoField`] impl covering every message-shaped type (derived messages, transparent
+/// wrapper enums, well-known types), so the derives emit a one-line `Msg` impl instead of a full
+/// `ProtoField` one.
 ///
-/// A type implements `Msg` XOR a concrete `ProtoField`: only message-kind
-/// types belong here. Plain proto enums keep concrete impls — a second
-/// blanket would overlap this one (E0119).
+/// A type implements `Msg` xor a concrete `ProtoField`: only message-kind types belong here. Plain
+/// proto enums keep concrete impls, since a second blanket would overlap this one (E0119).
 pub(crate) trait Msg: prost::Message + Default {
     /// See [`Shape::names`].
     const NAMES: &'static [&'static str];
 }
 
-/// Whether `names` contains `name`; const, so the `service!`-emitted asserts
-/// can check at compile time that a type implements an RPC's input or output
-/// message.
+/// Whether `names` contains `name`; const, so the `service!`-emitted asserts can check at compile
+/// time that a type implements an RPC's input or output message.
 pub(crate) const fn names_contain(names: &'static [&'static str], name: &str) -> bool {
     let name = name.as_bytes();
     let mut i = 0;
@@ -279,8 +265,8 @@ impl<T: Msg> ProtoField for T {
     // Repeated forms: the trait's unpacked defaults (messages never pack).
 }
 
-/// A flattened-oneof enum: the value encodes its own variant tag, and the
-/// containing message routes the oneof's whole tag set to `merge_oneof`.
+/// A flattened-oneof enum: the value encodes its own variant tag, and the containing message routes
+/// the oneof's whole tag set to `merge_oneof`.
 pub(crate) trait ProtoOneof: Sized {
     fn encode_oneof(value: &Self, buf: &mut impl BufMut);
     fn merge_oneof(
@@ -293,9 +279,8 @@ pub(crate) trait ProtoOneof: Sized {
     fn encoded_len_oneof(value: &Self) -> usize;
 }
 
-/// Custom codec for a field whose Rust representation differs structurally
-/// from its proto counterpart (`#[armonik(with = "...")]`). Implementations
-/// are zero-sized marker types.
+/// Custom codec for a field whose Rust representation differs structurally from its proto
+/// counterpart (`#[armonik(with = "...")]`). Implementations are zero-sized marker types.
 pub(crate) trait ProtoAdapter<T> {
     fn encode_field(tag: u32, value: &T, buf: &mut impl BufMut);
     fn merge_field(
@@ -306,11 +291,10 @@ pub(crate) trait ProtoAdapter<T> {
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &T) -> usize;
 
-    /// Project the field at `tag` of a dynamic message onto the equivalence
-    /// classes this adapter's Rust representation defines (for the
-    /// differential harness; see `crate::differential::Normalize`). The
-    /// default is the identity: adapters that only restructure the wire
-    /// representation lose nothing.
+    /// Project the field at `tag` of a dynamic message onto the equivalence classes this adapter's
+    /// Rust representation defines (for the differential harness; see
+    /// `crate::differential::Normalize`). The default is the identity: adapters that only
+    /// restructure the wire representation lose nothing.
     #[cfg(feature = "_differential")]
     fn normalize_dynamic(
         message: &mut crate::differential::prost_reflect::DynamicMessage,
@@ -320,9 +304,9 @@ pub(crate) trait ProtoAdapter<T> {
     }
 }
 
-/// An empty length-delimited field: what a `#[armonik(present)]` message
-/// marker encodes, and the zero of any other length-delimited kind (an empty
-/// string or `bytes`) when no value is held to encode from.
+/// An empty length-delimited field: what a `#[armonik(present)]` message marker encodes, and the
+/// zero of any other length-delimited kind (an empty string or `bytes`) when no value is held to
+/// encode from.
 pub(crate) mod empty_body {
     use prost::bytes::BufMut;
     use prost::encoding::{self, WireType};
@@ -337,8 +321,8 @@ pub(crate) mod empty_body {
     }
 }
 
-/// Read a length-delimited sub-buffer: decode the length varint, guard
-/// against a truncated buffer, and return a `Take` limited to the body.
+/// Read a length-delimited sub-buffer: decode the length varint, guard against a truncated buffer,
+/// and return a `Take` limited to the body.
 pub(crate) fn read_delimited<B: Buf + ?Sized>(
     buf: &mut B,
 ) -> Result<prost::bytes::buf::Take<&mut B>, DecodeError> {

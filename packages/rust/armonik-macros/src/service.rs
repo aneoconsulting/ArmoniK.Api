@@ -24,8 +24,8 @@
 //! every `rpc` names one of its methods, the `stream` keywords agree with the
 //! streaming flags, no method is declared twice, and every method of the
 //! service is declared or listed in `unexposed(...)`. What tokens cannot
-//! prove — that the named types implement the method's input and output
-//! messages — is emitted as const asserts over the codec's `NAMES`.
+//! prove, that the named types implement the method's input and output
+//! messages, is emitted as const asserts over the codec's `NAMES`.
 
 use std::collections::HashSet;
 
@@ -65,9 +65,8 @@ struct RpcDef {
     manual: bool,
 }
 
-/// What the generated convenience method returns: decided from the response
-/// type's field count (`Auto`), or overridden on the rpc line (`=> *` whole,
-/// `=> field`, `=> ()` discard).
+/// What the generated convenience method returns: decided from the response type's field count
+/// (`Auto`), or overridden on the rpc line (`=> *` whole, `=> field`, `=> ()` discard).
 enum Project {
     Auto,
     Whole,
@@ -144,9 +143,9 @@ impl Parse for ServiceDef {
             } else {
                 false
             };
-            // A request stream has no single message to spread into parameters,
-            // so no convenience method can be derived. Spelling `manual` out
-            // keeps "no convenience method" readable from the rpc line alone.
+            // A request stream has no single message to spread into parameters, so no convenience
+            // method can be derived. Spelling `manual` out keeps "no convenience method" readable
+            // from the rpc line alone.
             if let (Some(stream), false) = (&client_stream, manual) {
                 return Err(syn::Error::new_spanned(
                     stream,
@@ -186,8 +185,8 @@ fn parse_stream(input: ParseStream) -> syn::Result<Option<kw::stream>> {
     }
 }
 
-/// The three call shapes; drives kind markers, trait signatures and the
-/// `serve_*` helper each route dispatches into.
+/// The three call shapes; drives kind markers, trait signatures and the `serve_*` helper each route
+/// dispatches into.
 #[derive(Clone, Copy, PartialEq)]
 enum CallKind {
     Unary,
@@ -233,9 +232,9 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         .map(|entry| expand_convenience(&def, entry))
         .collect::<syn::Result<Vec<_>>>()?;
 
-    // The unexposed RPCs' messages have no Rust type; register them for the
-    // differential harness's coverage ratchet, so the message allowlist is
-    // derived from the same declaration as the RPC one.
+    // The unexposed RPCs' messages have no Rust type; register them for the differential harness's
+    // coverage ratchet, so the message allowlist is derived from the same declaration as the RPC
+    // one.
     let unexposed_messages = def
         .unexposed
         .iter()
@@ -278,12 +277,11 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
     })
 }
 
-/// The client convenience method of one RPC: an invocation of the request
-/// type's field-reflection callback, continued into `__emit_convenience`,
-/// which builds the method from the fields (see `convenience.rs`).
-/// `manual` lines emit nothing — the opt-out for custom wiring or a wrong
-/// sugar default. Client-streaming lines are required to carry it (enforced
-/// while parsing), so this one condition covers them too.
+/// The client convenience method of one RPC: an invocation of the request type's field-reflection
+/// callback, continued into `__emit_convenience`, which builds the method from the fields (see
+/// `convenience.rs`). `manual` lines emit nothing: the opt-out for custom wiring or a wrong sugar
+/// default. Client-streaming lines are required to carry it (enforced while parsing), so this one
+/// condition covers them too.
 fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<TokenStream> {
     if entry.rpc.manual {
         return Ok(TokenStream::new());
@@ -386,9 +384,8 @@ fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenS
     }
 }
 
-/// The server side of one invocation: the service trait (harvested docs,
-/// streaming shapes from the descriptor), the one-line `Ext`, and the routing
-/// table the generic `Router` dispatches through.
+/// The server side of one invocation: the service trait (harvested docs, streaming shapes from the
+/// descriptor), the one-line `Ext`, and the routing table the generic `Router` dispatches through.
 fn expand_server(
     def: &ServiceDef,
     resolved: &[Resolved<'_>],

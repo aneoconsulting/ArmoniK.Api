@@ -21,7 +21,7 @@ agent = ["_gen-client", "_gen-server"]
 worker = ["_gen-client", "_gen-server"]
 _gen-client = ["tonic/channel", "dep:armonik-transport"]
 _gen-server = ["tonic/server", "tonic/router", "dep:tokio"]
-# Internal: the differential harness — each type's round-trip and `Normalize`
+# Internal: the differential harness. Each type's round-trip and `Normalize`
 # projection over `prost_reflect::DynamicMessage`, self-registered into the
 # `wire::REGISTRY` distributed slice. Enabled through the self dev-dependency,
 # so tests always see it and downstream builds never do.

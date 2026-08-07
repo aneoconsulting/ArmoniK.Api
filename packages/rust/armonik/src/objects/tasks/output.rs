@@ -4,12 +4,10 @@ use prost::DecodeError;
 
 use crate::codec::{ProtoAdapter, ProtoField};
 
-/// Stands for the `TaskDetailed.Output` message, whose two plain fields
-/// (`bool success = 1`, `string error = 2`) do not form a proto oneof: the
-/// wire implementation is hand-written. `success = true` wins over any
-/// error message; an absent or empty message is an error with an empty
-/// message — which is also the `Default` (the proto zero value, like every
-/// armonik type).
+/// Stands for the `TaskDetailed.Output` message, whose two plain fields (`bool success = 1`,
+/// `string error = 2`) do not form a proto oneof, so the wire implementation is hand-written.
+/// `success = true` wins over any error message; an absent or empty message is an error with an
+/// empty message, which is also the `Default` (the proto zero value, like every armonik type).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Output {
@@ -26,18 +24,16 @@ impl Default for Output {
 const SUCCESS_TAG: u32 = 1;
 const ERROR_TAG: u32 = 2;
 
-// Hand-written rather than derived. Everything the derive emits (encode
-// fragments, merge arms, decode seeds, descriptor asserts) is generated from
-// a one-Rust-field-to-one-proto-field correspondence — Rust enums map to
-// proto oneofs (or whole single-oneof messages), one variant per member, and
-// `with` adapters can change how a single field is encoded, but not that
-// arity. Here two *plain* fields project onto one enum, and the projection
-// is cross-field: which variant a `success` occurrence produces depends on
-// whether an `error` was merged, and vice versa. Teaching the derive this
-// shape would cost more grammar and codegen than the two hand-written impls
-// it would replace (this one and `agent::notify_result_data::Request`), each
-// used exactly once. The differential harness fuzzes them against
-// `DynamicMessage` ground truth exactly like the derived types.
+// Hand-written rather than derived. Everything the derive emits (encode fragments, merge arms,
+// decode seeds, descriptor asserts) is generated from a one-Rust-field-to-one-proto-field
+// correspondence: Rust enums map to proto oneofs (or whole single-oneof messages), one variant per
+// member, and `with` adapters can change how a single field is encoded, but not that arity. Here
+// two plain fields project onto one enum, and the projection is cross-field: which variant a
+// `success` occurrence produces depends on whether an `error` was merged, and vice versa. Teaching
+// the derive this shape would cost more grammar and codegen than the two hand-written impls it
+// would replace (this one and `agent::notify_result_data::Request`), each used exactly once. The
+// differential harness fuzzes them against `DynamicMessage` ground truth exactly like the derived
+// types.
 impl prost::Message for Output {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         match self {
@@ -65,8 +61,8 @@ impl prost::Message for Output {
                 Ok(())
             }
             ERROR_TAG => {
-                // The message is kept only when the task did not succeed,
-                // but the field must be consumed either way.
+                // The message is kept only when the task did not succeed, but the field must be
+                // consumed either way.
                 let mut message = String::new();
                 <String as ProtoField>::merge_field(wire_type, &mut message, buf, ctx)?;
                 if !matches!(self, Output::Success) {
@@ -92,8 +88,8 @@ impl prost::Message for Output {
 
 #[cfg(feature = "_differential")]
 impl crate::differential::Normalize for Output {
-    /// `success = true` wins over any error message: the enum keeps one of
-    /// the two plain fields, so the losing `error` carries no information.
+    /// `success = true` wins over any error message: the enum keeps one of the two plain fields, so
+    /// the losing `error` carries no information.
     fn normalize(message: &mut crate::differential::prost_reflect::DynamicMessage) {
         use crate::differential::prost_reflect::{ReflectMessage, Value};
         let descriptor = message.descriptor();
@@ -109,21 +105,20 @@ impl crate::differential::Normalize for Output {
     }
 }
 
-// Hand-written `Message` impls register through the same `register!` macro the
-// derive emits, so they carry their round-trip/`Normalize` hooks and their
-// extern-map entry. `armonik` only externs top-level messages (this one is
-// nested in the extern'd `TaskDetailed`), but keeping it in the registry holds
-// the "every impl is harvested" invariant.
+// Hand-written `Message` impls register through the same `register!` macro the derive emits, so
+// they carry their round-trip/`Normalize` hooks and their extern-map entry. `armonik` only externs
+// top-level messages (this one is nested in the extern'd `TaskDetailed`), but keeping it in the
+// registry holds the "every impl is harvested" invariant.
 crate::register!(message: Output, "armonik.api.grpc.v1.tasks.TaskDetailed.Output");
 
-// As a field, `Output` is an ordinary message: the blanket message-kind
-// `ProtoField` impl frames the hand-written `prost::Message` impl above.
+// As a field, `Output` is an ordinary message: the blanket message-kind `ProtoField` impl frames
+// the hand-written `prost::Message` impl above.
 impl crate::codec::Msg for Output {
     const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.tasks.TaskDetailed.Output"];
 }
 
-/// `TaskSummary.error` (a plain string field) exposed as an [`Output`]: an
-/// empty error stands for success, like the historical conversion.
+/// `TaskSummary.error` (a plain string field) exposed as an [`Output`]: an empty error stands for
+/// success, like the historical conversion.
 pub(crate) struct ErrorAdapter;
 
 impl ProtoAdapter<Output> for ErrorAdapter {
@@ -165,12 +160,11 @@ mod tests {
 
     use super::Output;
 
-    /// prost-derived reference of `TaskDetailed.Output` (extern'd, so no
-    /// generated type exists). An independent codec — the fixtures are built
-    /// and encoded through it, then decoded through our hand-written `Output`,
-    /// so a bug in `merge_field`'s cross-field rule cannot hide behind a
-    /// matching `Normalize` (the field-information ratchet, which probes one
-    /// field at a time, never produces the `{ success, error }` combination).
+    /// prost-derived reference of `TaskDetailed.Output` (extern'd, so no generated type exists),
+    /// and an independent codec: fixtures are built and encoded through it, then decoded through
+    /// our hand-written `Output`, so a bug in `merge_field`'s cross-field rule cannot hide behind a
+    /// matching `Normalize`. The field-information ratchet probes one field at a time and never
+    /// produces the `{ success, error }` combination.
     #[derive(Clone, PartialEq, Message)]
     struct RefOutput {
         #[prost(bool, tag = "1")]
@@ -185,8 +179,8 @@ mod tests {
 
     #[test]
     fn success_wins_over_a_set_error() {
-        // Both fields set on the wire — the adversarial case the ratchet can't
-        // reach. `TaskDetailed.Output` collapses to success.
+        // Both fields set on the wire, the adversarial case the ratchet cannot reach.
+        // `TaskDetailed.Output` collapses to success.
         assert_eq!(
             decode(RefOutput {
                 success: true,
@@ -209,8 +203,8 @@ mod tests {
 
     #[test]
     fn absent_output_is_the_empty_error() {
-        // Both a `{ success: false, error: "" }` message and a wholly empty
-        // one decode to the zero-default, an empty error.
+        // Both a `{ success: false, error: "" }` message and a wholly empty one decode to the
+        // zero-default, an empty error.
         assert_eq!(
             decode(RefOutput {
                 success: false,

@@ -4,10 +4,9 @@ use prost::DecodeError;
 
 use crate::codec::ProtoField;
 
-/// The proto message carries `repeated ResultIdentifier { session_id,
-/// result_id }` pairs, flattened here into one session ID shared by all the
-/// results: the wire implementation is hand-written. Encoding replicates the
-/// session ID in every pair; decoding keeps the first non-empty one.
+/// The proto message carries `repeated ResultIdentifier { session_id, result_id }` pairs, flattened
+/// here into one session ID shared by all the results: the wire implementation is hand-written.
+/// Encoding replicates the session ID in every pair; decoding keeps the first non-empty one.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
@@ -31,14 +30,12 @@ impl Request {
     }
 }
 
-// Hand-written rather than derived. The derive (and its `with` adapters)
-// maps one Rust field to one proto field, but `ids` splits into TWO Rust
-// fields: each encoded pair combines the shared `session_id` with one
-// element of `result_ids`, and each decoded pair updates both — the
-// first-non-empty-session rule reads the partially merged struct itself.
-// Teaching the derive this one-off shape would cost more than the impl
-// (see `tasks::Output` for the full tradeoff); the differential harness
-// fuzzes it like any derived type.
+// Hand-written rather than derived. The derive, and its `with` adapters, maps one Rust field to one
+// proto field, but `ids` splits into two Rust fields: each encoded pair combines the shared
+// `session_id` with one element of `result_ids`, and each decoded pair updates both, since the
+// first-non-empty-session rule reads the partially merged struct itself. Teaching the derive this
+// one-off shape would cost more than the impl (see `tasks::Output` for the full tradeoff). The
+// differential harness fuzzes it like any derived type.
 impl prost::Message for Request {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         for result_id in &self.result_ids {
@@ -117,9 +114,8 @@ impl prost::Message for Request {
 
 #[cfg(feature = "_differential")]
 impl crate::differential::Normalize for Request {
-    /// The `ResultIdentifier` pairs are flattened into one shared session ID
-    /// (the first non-empty one) plus the result IDs: every pair's
-    /// `session_id` is equivalent to that shared one.
+    /// The `ResultIdentifier` pairs are flattened into one shared session ID (the first non-empty
+    /// one) plus the result IDs: every pair's `session_id` is equivalent to that shared one.
     fn normalize(message: &mut crate::differential::prost_reflect::DynamicMessage) {
         use crate::differential::prost_reflect::{ReflectMessage, Value};
         let Some(ids) = message.descriptor().get_field(IDS_TAG) else {
@@ -157,12 +153,12 @@ impl crate::differential::Normalize for Request {
     }
 }
 
-// Hand-written `Message` impls register through the same `register!` macro the
-// derive emits (round-trip/`Normalize` hooks + extern-map entry).
+// Hand-written `Message` impls register through the same `register!` macro the derive emits
+// (round-trip/`Normalize` hooks + extern-map entry).
 crate::register!(message: Request, "armonik.api.grpc.v1.agent.NotifyResultDataRequest");
 
-// The field reflection a derive would emit (the `prost::Message` impl above
-// is hand-written), consumed by the `service!` convenience emission.
+// The field reflection a derive would emit (the `prost::Message` impl above is hand-written),
+// consumed by the `service!` convenience emission.
 #[doc(hidden)]
 macro_rules! __armonik_fields_request {
     ($($cont:tt)::* ! { $($ctx:tt)* }) => {
@@ -187,17 +183,16 @@ pub(crate) type __armonik_ty_request_result_ids = Vec<String>;
 #[allow(non_camel_case_types, dead_code)]
 pub(crate) type __armonik_ty_request_result_ids_elem = String;
 
-// The one-line `Msg` marker every message-shaped type carries: `service!`'s
-// const asserts read `NAMES` from it. It also grants the blanket `ProtoField`
-// (nesting as a field), which is moot: no proto message has a field of this
-// type, and the derives validate field shapes against the descriptor.
+// The one-line `Msg` marker every message-shaped type carries: `service!`'s const asserts read
+// `NAMES` from it. It also grants the blanket `ProtoField` (nesting as a field), which is moot: no
+// proto message has a field of this type, and the derives validate field shapes against the
+// descriptor.
 impl crate::codec::Msg for Request {
     const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.agent.NotifyResultDataRequest"];
 }
 
-// The `ResultIdentifier` pair message is flattened into the request's shared
-// session ID and result IDs, so no Rust type stands for it — declared absorbed
-// the same way a `with` adapter would.
+// The `ResultIdentifier` pair message is flattened into the request's shared session ID and result
+// IDs, so no Rust type stands for it. Declared absorbed the same way a `with` adapter would.
 crate::register!(absorbed: "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier");
 
 #[armonik_macros::message]
@@ -214,10 +209,9 @@ mod tests {
 
     use super::Request;
 
-    /// prost-derived reference of `NotifyResultDataRequest` and its
-    /// `ResultIdentifier` pairs (both absorbed, so no generated type exists).
-    /// An independent codec: the multi-pair fixture is encoded through it and
-    /// decoded through our hand-written flattening `Request`, exercising the
+    /// prost-derived reference of `NotifyResultDataRequest` and its `ResultIdentifier` pairs (both
+    /// absorbed, so no generated type exists). An independent codec: the multi-pair fixture is
+    /// encoded through it and decoded through our hand-written flattening `Request`, exercising the
     /// cross-pair session-collapse the field-information ratchet cannot probe.
     #[derive(Clone, PartialEq, Message)]
     struct RefIdentifier {
@@ -248,8 +242,8 @@ mod tests {
                     result_id: "r1".to_owned(),
                 },
                 RefIdentifier {
-                    // A differing session on a later pair is dropped — the
-                    // request carries one shared session id.
+                    // A differing session on a later pair is dropped: the request carries one
+                    // shared session id.
                     session_id: "s2".to_owned(),
                     result_id: "r2".to_owned(),
                 },

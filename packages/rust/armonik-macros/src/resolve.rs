@@ -1,7 +1,6 @@
-//! Resolution of a derived type against the protobuf descriptor: field
-//! matching, tag/kind/cardinality extraction, and all the validation that
-//! can be done at expansion time. The output is a plan consumed by
-//! [`crate::codegen`].
+//! Resolution of a derived type against the protobuf descriptor: field matching,
+//! tag/kind/cardinality extraction, and all the validation that can be done at expansion time. The
+//! output is a plan consumed by [`crate::codegen`].
 
 use proc_macro2::Span;
 use syn::spanned::Spanned;
@@ -14,13 +13,13 @@ pub(crate) struct MessagePlan {
     pub(crate) ident: syn::Ident,
     /// Full proto names the type stands for (several for unified types).
     pub(crate) proto_names: Vec<String>,
-    /// Fields sorted by tag (canonical encode order). In `transparent` mode
-    /// this holds exactly the single delegate field.
+    /// Fields sorted by tag (canonical encode order). In `transparent` mode this holds exactly the
+    /// single delegate field.
     pub(crate) fields: Vec<FieldPlan>,
     pub(crate) generics: syn::Generics,
     pub(crate) fingerprint: u64,
-    /// `#[armonik(transparent)]` on a struct: the type delegates its whole
-    /// `prost::Message` impl to its single field.
+    /// `#[armonik(transparent)]` on a struct: the type delegates its whole `prost::Message` impl to
+    /// its single field.
     pub(crate) transparent: bool,
 }
 
@@ -30,16 +29,15 @@ pub(crate) enum FieldAccess {
 }
 
 pub(crate) enum FieldCodec {
-    /// An ordinary field; `adapter` is the `#[armonik(with = "...")]` type
-    /// when present (which skips the shape checks by design).
+    /// An ordinary field; `adapter` is the `#[armonik(with = "...")]` type when present (which
+    /// skips the shape checks by design).
     Field { adapter: Option<Box<syn::Type>> },
-    /// The field covers a whole oneof of the message and is encoded through
-    /// `ProtoOneof`; `tags` are the member field tags routed to it.
+    /// The field covers a whole oneof of the message and is encoded through `ProtoOneof`; `tags`
+    /// are the member field tags routed to it.
     OneofGroup { tags: Vec<u32> },
 }
 
-/// Fieldless mirror of the codec-side `Cardinality`, tokenized into the
-/// emitted shape asserts.
+/// Fieldless mirror of the codec-side `Cardinality`, tokenized into the emitted shape asserts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Card {
     Singular,
@@ -48,13 +46,13 @@ pub(crate) enum Card {
     Map,
 }
 
-/// Compile-time checks emitted alongside the implementation, mirroring the
-/// codec-side `Expect` (one shape assert per checked field).
+/// Compile-time checks emitted alongside the implementation, mirroring the codec-side `Expect` (one
+/// shape assert per checked field).
 pub(crate) struct FieldChecks {
     /// `None` for map fields (their kinds live in `map_kinds`).
     pub(crate) kind: Option<FieldKind>,
-    /// Acceptable runtime cardinalities (e.g. a singular message field may
-    /// be either `Singular` or `Optional` in Rust).
+    /// Acceptable runtime cardinalities (e.g. a singular message field may be either `Singular` or
+    /// `Optional` in Rust).
     pub(crate) cardinalities: Vec<Card>,
     /// Expected proto type name for message/enum (element) kinds.
     pub(crate) name: Option<String>,
@@ -77,8 +75,7 @@ pub(crate) struct FieldPlan {
     pub(crate) access: FieldAccess,
     pub(crate) ty: syn::Type,
     pub(crate) span: Span,
-    /// Tag of the field (or the lowest member tag for oneof groups), used
-    /// for ordering.
+    /// Tag of the field (or the lowest member tag for oneof groups), used for ordering.
     pub(crate) tag: u32,
     pub(crate) codec: FieldCodec,
     pub(crate) checks: FieldChecks,
@@ -86,10 +83,10 @@ pub(crate) struct FieldPlan {
     pub(crate) proto_path: String,
 }
 
-/// Field-or-oneof lookup with coverage over one proto message: resolves
-/// names, records what was consumed, reports misses with the sorted
-/// "available:" list, and turns leftovers into completeness errors. One per
-/// unified message in [`message_plan`]; also drives inline struct variants.
+/// Field-or-oneof lookup with coverage over one proto message: resolves names, records what was
+/// consumed, reports misses with the sorted "available:" list, and turns leftovers into
+/// completeness errors. One per unified message in [`message_plan`]; also drives inline struct
+/// variants.
 struct Matcher<'a> {
     message_name: &'a str,
     meta: &'a MessageMeta,
@@ -112,9 +109,9 @@ impl<'a> Matcher<'a> {
         }
     }
 
-    /// Look `proto_name` up among the message's fields and oneofs, marking
-    /// it consumed. `None` (with a spanned error) when nothing matches or
-    /// the field can only be mapped through its oneof.
+    /// Look `proto_name` up among the message's fields and oneofs, marking it consumed. `None`
+    /// (with a spanned error) when nothing matches or the field can only be mapped through its
+    /// oneof.
     fn find(&mut self, proto_name: &str, span: Span, errors: &mut Errors) -> Option<Found<'a>> {
         if let Some(position) = self
             .meta
@@ -164,9 +161,9 @@ impl<'a> Matcher<'a> {
         None
     }
 
-    /// Completeness: every uncovered proto field and oneof is an error at
-    /// `at`. A field is covered through its oneof when the oneof was mapped
-    /// whole; a oneof is covered when every member was mapped individually.
+    /// Completeness: every uncovered proto field and oneof is an error at `at`. A field is covered
+    /// through its oneof when the oneof was mapped whole; a oneof is covered when every member was
+    /// mapped individually.
     fn check_complete(&self, at: Span, errors: &mut Errors) {
         for (position, field) in self.meta.fields.iter().enumerate() {
             let in_oneof_group = field.oneof.is_some_and(|oneof| self.consumed_oneofs[oneof]);
@@ -321,8 +318,8 @@ pub(crate) fn message_plan(
             }
         };
 
-        // Resolve against every proto message the type stands for; all of
-        // them must agree on the wire contract.
+        // Resolve against every proto message the type stands for; all of them must agree on the
+        // wire contract.
         let mut resolved: Option<Found> = None;
         let mut failed = false;
         for matcher in &mut matchers {
@@ -415,8 +412,8 @@ pub(crate) fn message_plan(
         });
     }
 
-    // Completeness: every proto field and oneof of every unified message
-    // must be covered by a Rust field.
+    // Completeness: every proto field and oneof of every unified message must be covered by a Rust
+    // field.
     for matcher in &matchers {
         matcher.check_complete(input.ident.span(), &mut errors);
     }
@@ -434,11 +431,10 @@ pub(crate) fn message_plan(
     })
 }
 
-/// Plan for a `#[armonik(transparent)]` struct: a single-field newtype that
-/// delegates its whole `prost::Message` impl to the field, so it is
-/// wire-identical to the inner message. The field is not matched against the
-/// descriptor (the inner type already validates itself); only the named proto
-/// message is checked to exist, and it is used for registration.
+/// Plan for a `#[armonik(transparent)]` struct: a single-field newtype that delegates its whole
+/// `prost::Message` impl to the field, so it is wire-identical to the inner message. The field is
+/// not matched against the descriptor (the inner type already validates itself); only the named
+/// proto message is checked to exist, and it is used for registration.
 fn transparent_plan(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
@@ -501,8 +497,8 @@ fn transparent_plan(
     })
 }
 
-/// Plan for a generic type: no descriptor validation, explicit tags; the
-/// concrete instantiations are covered by the differential harness.
+/// Plan for a generic type: no descriptor validation, explicit tags; the concrete instantiations
+/// are covered by the differential harness.
 fn generic_plan(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
@@ -579,8 +575,8 @@ fn generic_plan(
 /// Compile-time checks for a plain field, derived from the descriptor.
 fn expected_checks(field: &FieldMeta) -> FieldChecks {
     let mut checks = FieldChecks::none();
-    // The Map arm is the outlier: it leaves `kind` unset, checks the
-    // key/value kinds, and names the value type.
+    // The Map arm is the outlier: it leaves `kind` unset, checks the key/value kinds, and names the
+    // value type.
     checks.cardinalities = match &field.cardinality {
         Cardinality::Map { key, value } => {
             checks.map_kinds = Some((key.clone(), value.clone()));
@@ -589,8 +585,8 @@ fn expected_checks(field: &FieldMeta) -> FieldChecks {
         }
         Cardinality::Repeated => vec![Card::Repeated],
         Cardinality::Optional => vec![Card::Optional],
-        // Singular message fields may be either plain ("absent = default")
-        // or `Option` (presence-significant) in Rust.
+        // Singular message fields may be either plain ("absent = default") or `Option`
+        // (presence-significant) in Rust.
         Cardinality::Singular if matches!(field.kind, FieldKind::Message(_)) => {
             vec![Card::Singular, Card::Optional]
         }
@@ -614,9 +610,8 @@ fn unraw(ident: &syn::Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
 }
 
-/// Parse + scan one field/variant's attributes per the site's [`Allowed`]
-/// set; `None` (with the error pushed) when the attribute list itself does
-/// not parse.
+/// Parse + scan one field/variant's attributes per the site's [`Allowed`] set; `None` (with the
+/// error pushed) when the attribute list itself does not parse.
 fn scan_attrs(
     attrs: &[syn::Attribute],
     allowed: Allowed,
@@ -654,8 +649,8 @@ fn not_found(span: Span, what: &str, name: &str) -> syn::Error {
     )
 }
 
-/// "no <what> named `name` in <container> (available: ...); <hint>" — the
-/// shared shape of every name-lookup miss.
+/// The shared shape of every name-lookup miss: "no <what> named `name` in <container> (available:
+/// ...); <hint>".
 fn unknown_name(
     span: Span,
     what: &str,
@@ -674,8 +669,8 @@ fn unknown_name(
     )
 }
 
-/// Parse the adapter type in `#[armonik(with = "path::To::Adapter")]`,
-/// pushing a spanned error (and returning `None`) when it does not parse.
+/// Parse the adapter type in `#[armonik(with = "path::To::Adapter")]`, pushing a spanned error (and
+/// returning `None`) when it does not parse.
 fn parse_adapter_type(lit: &syn::LitStr, span: Span, errors: &mut Errors) -> Option<syn::Type> {
     match syn::parse_str::<syn::Type>(&lit.value()) {
         Ok(ty) => Some(ty),
@@ -689,9 +684,8 @@ fn parse_adapter_type(lit: &syn::LitStr, span: Span, errors: &mut Errors) -> Opt
     }
 }
 
-/// The field/variant-level `#[armonik(...)]` keys collected by
-/// [`scan_field_attrs`]. Each site reads only the keys it opted into through
-/// [`Allowed`]; the rest stay at their defaults.
+/// The field/variant-level `#[armonik(...)]` keys collected by [`scan_field_attrs`]. Each site
+/// reads only the keys it opted into through [`Allowed`]; the rest stay at their defaults.
 #[derive(Default)]
 struct FieldAttrs {
     rename: Option<String>,
@@ -700,11 +694,10 @@ struct FieldAttrs {
     present: bool,
 }
 
-/// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a
-/// spanned `reject` error, so each site keeps rejecting exactly what it did
-/// before — in particular `absorbs`, which is merely *tolerated* (it is
-/// harvested separately by [`crate::expand`]) at the sites that enable it and
-/// rejected like any stray key everywhere else.
+/// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a spanned `reject` error,
+/// so each site keeps rejecting exactly what it did before. `absorbs` in particular is only
+/// tolerated where enabled ([`crate::expand`] harvests it separately), and rejected like any stray
+/// key elsewhere.
 #[derive(Clone, Copy, Default)]
 struct Allowed {
     rename: bool,
@@ -714,11 +707,10 @@ struct Allowed {
     absorbs: bool,
 }
 
-/// Scan one field's or variant's `#[armonik(...)]` entries into a
-/// [`FieldAttrs`], pushing `reject` (spanned) for any key outside `allowed`
-/// and for a malformed `tag`/`with`. Returns the collected attributes and
-/// whether every entry was accepted — callers that abandon a malformed field
-/// gate on the bool; the rest rely on the pushed errors alone and ignore it.
+/// Scan one field's or variant's `#[armonik(...)]` entries into a [`FieldAttrs`], pushing `reject`
+/// (spanned) for any key outside `allowed` and for a malformed `tag` or `with`. Returns the
+/// collected attributes and whether every entry was accepted. Callers that abandon a malformed
+/// field gate on the bool; the rest rely on the pushed errors and ignore it.
 fn scan_field_attrs(
     entries: &[attrs::AttrEntry],
     allowed: Allowed,
@@ -771,31 +763,30 @@ fn scan_field_attrs(
 /// Plan for a protobuf enum (or a transparent single-enum-field wrapper).
 pub(crate) struct EnumPlan {
     pub(crate) ident: syn::Ident,
-    /// The catch-all variant (`Other`) and its payload struct, which the
-    /// derive emits.
+    /// The catch-all variant (`Other`) and its payload struct, which the derive emits.
     pub(crate) other_variant: syn::Ident,
     pub(crate) payload: syn::Ident,
     /// Named variants with their proto numbers.
     pub(crate) named: Vec<(syn::Ident, i32)>,
-    /// Named variant covering 0, when there is one; otherwise the derive
-    /// emits an `UNSPECIFIED` const based on the catch-all.
+    /// Named variant covering 0, when there is one; otherwise the derive emits an `UNSPECIFIED`
+    /// const based on the catch-all.
     pub(crate) zero_variant: Option<syn::Ident>,
-    /// Whether a variant carries the standard `#[default]` attribute, in
-    /// which case the user derives `Default` and the macro must not.
+    /// Whether a variant carries the standard `#[default]` attribute, in which case the user
+    /// derives `Default` and the macro must not.
     pub(crate) has_std_default: bool,
     pub(crate) mode: EnumMode,
     pub(crate) fingerprint: u64,
-    /// Intermediate wrapper messages the transparent chain flattens away, so
-    /// they have no Rust type of their own (see [`crate::codegen`]).
+    /// Intermediate wrapper messages the transparent chain flattens away, so they have no Rust type
+    /// of their own (see [`crate::codegen`]).
     pub(crate) absorbs: Vec<String>,
 }
 
 pub(crate) enum EnumMode {
     /// The Rust enum is a proto enum, an `int32` varint on the wire.
     Plain { names: Vec<String> },
-    /// The Rust enum stands for proto message(s) wrapping an enum field
-    /// through a chain of single-field wrappers; `path` holds the tags from
-    /// the outermost wrapper down to the enum field.
+    /// The Rust enum stands for proto message(s) wrapping an enum field through a chain of
+    /// single-field wrappers; `path` holds the tags from the outermost wrapper down to the enum
+    /// field.
     Transparent { names: Vec<String>, path: Vec<u32> },
 }
 
@@ -825,11 +816,11 @@ pub(crate) fn enum_plan(
         }
     }
 
-    // Resolve the proto enum(s) the variants are matched against, and the
-    // wrapper tag in transparent mode.
+    // Resolve the proto enum(s) the variants are matched against, and the wrapper tag in
+    // transparent mode.
     let mut proto_enums: Vec<(String, &crate::descriptor::EnumMeta)> = Vec::new();
-    // Intermediate wrapper messages walked through in transparent mode: they
-    // have no Rust type, so they are registered as absorbed.
+    // Intermediate wrapper messages walked through in transparent mode: they have no Rust type, so
+    // they are registered as absorbed.
     let mut absorbs: Vec<String> = Vec::new();
     let mode = if transparent {
         if message_names.is_empty() {
@@ -861,8 +852,8 @@ pub(crate) fn enum_plan(
                 match &field.kind {
                     FieldKind::Enum(inner) => break Some(inner.clone()),
                     FieldKind::Message(inner) => {
-                        // A wrapper layer between the root message and the
-                        // enum: no Rust type stands for it.
+                        // A wrapper layer between the root message and the enum: no Rust type
+                        // stands for it.
                         absorbs.push(inner.clone());
                         current = inner.clone();
                     }
@@ -933,8 +924,8 @@ pub(crate) fn enum_plan(
         return Err(errors);
     };
 
-    // Collect variants: unit variants matched by name, plus exactly one
-    // catch-all tuple variant whose payload struct the derive emits.
+    // Collect variants: unit variants matched by name, plus exactly one catch-all tuple variant
+    // whose payload struct the derive emits.
     let mut named: Vec<(syn::Ident, String)> = Vec::new();
     let mut other: Option<(syn::Ident, syn::Ident)> = None;
     let mut has_std_default = false;
@@ -1039,8 +1030,8 @@ pub(crate) fn enum_plan(
         }
     }
 
-    // Completeness: every proto value needs a named variant, except a
-    // conventional `*_UNSPECIFIED = 0`, which the catch-all covers.
+    // Completeness: every proto value needs a named variant, except a conventional `*_UNSPECIFIED =
+    // 0`, which the catch-all covers.
     for (enum_name, meta) in &proto_enums {
         let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
         for (value_name, value) in &meta.values {
@@ -1075,8 +1066,8 @@ pub(crate) fn enum_plan(
     })
 }
 
-/// prost-style variant name for a proto enum value: upper-camel the value
-/// name, then strip the enum-name prefix when present.
+/// prost-style variant name for a proto enum value: upper-camel the value name, then strip the
+/// enum-name prefix when present.
 fn variant_name(enum_simple_name: &str, value_name: &str) -> String {
     let camel = upper_camel(value_name);
     match camel.strip_prefix(enum_simple_name) {
@@ -1104,36 +1095,33 @@ fn upper_camel(screaming_snake: &str) -> String {
         .collect()
 }
 
-/// Plan for a oneof-shaped enum: either a whole message whose fields are a
-/// single oneof plus optional sibling fields (`message = ...` alone), or
-/// just the oneof `oneof_name` of the message, to be embedded in a struct
-/// (`message = ...` + `oneof = ...`).
+/// Plan for a oneof-shaped enum: either a whole message whose fields are a single oneof plus
+/// optional sibling fields (`message = ...` alone), or just the oneof `oneof_name` of the message,
+/// to be embedded in a struct (`message = ...`
+/// + `oneof = ...`).
 pub(crate) struct OneofPlan {
     pub(crate) ident: syn::Ident,
     pub(crate) proto_name: String,
-    /// All member tags, for routing by containers and the whole-message
-    /// implementation.
+    /// All member tags, for routing by containers and the whole-message implementation.
     pub(crate) tags: Vec<u32>,
-    /// Whether the enum stands for the whole message (annotation without
-    /// `oneof = ...`), in which case it gets `prost::Message` +
-    /// `ProtoField` implementations.
+    /// Whether the enum stands for the whole message (annotation without `oneof = ...`), in which
+    /// case it gets `prost::Message` + `ProtoField` implementations.
     pub(crate) whole_message: bool,
-    /// Non-oneof fields of the message, replicated in every variant
-    /// (whole-message enums only; empty when the oneof is the only field).
+    /// Non-oneof fields of the message, replicated in every variant (whole-message enums only;
+    /// empty when the oneof is the only field).
     pub(crate) siblings: Vec<SiblingPlan>,
     pub(crate) variants: Vec<OneofVariant>,
-    /// The attribute-less variant standing for "no member set", if any: a
-    /// unit variant, or a struct variant carrying exactly the sibling
-    /// fields when there are siblings.
+    /// The attribute-less variant standing for "no member set", if any: a unit variant, or a struct
+    /// variant carrying exactly the sibling fields when there are siblings.
     pub(crate) default_variant: Option<syn::Ident>,
     pub(crate) fingerprint: u64,
-    /// Messages inlined into struct variants (their fields are spread into the
-    /// variant), so they have no Rust type of their own.
+    /// Messages inlined into struct variants (their fields are spread into the variant), so they
+    /// have no Rust type of their own.
     pub(crate) absorbs: Vec<String>,
 }
 
-/// A non-oneof field of a whole-message enum, present in every variant
-/// under the same name and type.
+/// A non-oneof field of a whole-message enum, present in every variant under the same name and
+/// type.
 pub(crate) struct SiblingPlan {
     pub(crate) ident: syn::Ident,
     pub(crate) ty: syn::Type,
@@ -1152,11 +1140,10 @@ pub(crate) struct OneofVariant {
 }
 
 pub(crate) enum OneofVariantShape {
-    /// The member value, carried by `Variant(T)` — or, in a whole-message
-    /// enum with sibling fields, by the `binding` field of
-    /// `Variant { payload, ...siblings }`. Encoded through the type's
-    /// `ProtoField` impl or a `ProtoAdapter` (`#[armonik(with = "...")]`,
-    /// which skips the shape checks by design).
+    /// The member value, carried by `Variant(T)`, or by the `binding` field of `Variant { payload,
+    /// ...siblings }` in a whole-message enum with sibling fields. Encoded through the type's
+    /// `ProtoField` impl or a `ProtoAdapter` (`#[armonik(with = "...")]`, which skips the shape
+    /// checks by design).
     Payload {
         ty: Box<syn::Type>,
         adapter: Option<Box<syn::Type>>,
@@ -1180,22 +1167,20 @@ pub(crate) struct InlinePart {
     pub(crate) checks: FieldChecks,
 }
 
-/// Outcome of matching a struct variant's named fields against the
-/// whole-message enum's sibling fields (see [`sibling_variant_fields`]).
+/// Outcome of matching a struct variant's named fields against the whole-message enum's sibling
+/// fields (see [`sibling_variant_fields`]).
 enum SiblingSplit {
     /// Every field is a sibling: the attribute-less "no member set" variant.
     NoMemberSet,
-    /// One field is the member payload: its ident, type, and optional
-    /// `#[armonik(with = ...)]` adapter. Boxed: `syn::Type` dwarfs the other
-    /// variants.
+    /// One field is the member payload: its ident, type, and optional `#[armonik(with = ...)]`
+    /// adapter. Boxed: `syn::Type` dwarfs the other variants.
     Payload(Box<(syn::Ident, syn::Type, Option<syn::Type>)>),
     /// The variant is malformed; errors were already pushed.
     Failed,
 }
 
-/// Partition the named fields of a variant into the message's sibling
-/// fields (updating/checking the cross-variant bindings) and at most one
-/// remaining field, the member payload.
+/// Partition the named fields of a variant into the message's sibling fields (updating/checking the
+/// cross-variant bindings) and at most one remaining field, the member payload.
 fn sibling_variant_fields(
     named: &syn::FieldsNamed,
     sibling_metas: &[&FieldMeta],
@@ -1304,10 +1289,10 @@ fn sibling_variant_fields(
     }
 }
 
-/// Read-only context shared by the per-shape variant resolvers below: the
-/// variant being resolved and everything already known about the oneof member
-/// it maps to. The mutable state each resolver touches (`errors`, and the
-/// `absorbs`/`sibling_bindings` a particular shape feeds) is passed alongside.
+/// Read-only context shared by the per-shape variant resolvers below: the variant being resolved
+/// and everything already known about the oneof member it maps to. The mutable state each resolver
+/// touches (`errors`, and the `absorbs`/`sibling_bindings` a particular shape feeds) is passed
+/// alongside.
 struct VariantCtx<'a> {
     variant: &'a syn::Variant,
     field_meta: &'a FieldMeta,
@@ -1320,12 +1305,12 @@ struct VariantCtx<'a> {
     present: bool,
 }
 
-/// A resolver returns the variant's shape, or `Err(())` after pushing the
-/// error(s) that make this variant unresolvable (the caller skips it).
+/// A resolver returns the variant's shape, or `Err(())` after pushing the error(s) that make this
+/// variant unresolvable (the caller skips it).
 type ResolvedShape = Result<OneofVariantShape, ()>;
 
-/// Whole-message enum with sibling fields: a struct variant carrying one
-/// member payload plus every non-oneof field.
+/// Whole-message enum with sibling fields: a struct variant carrying one member payload plus every
+/// non-oneof field.
 fn resolve_sibling_variant(
     ctx: &VariantCtx,
     sibling_metas: &[&FieldMeta],
@@ -1392,8 +1377,7 @@ fn resolve_sibling_variant(
     })
 }
 
-/// `#[armonik(present)]` unit variant selected by a `bool` or empty-message
-/// member.
+/// `#[armonik(present)]` unit variant selected by a `bool` or empty-message member.
 fn resolve_marker_variant(
     ctx: &VariantCtx,
     with: &Option<(Span, syn::Type)>,
@@ -1430,10 +1414,9 @@ fn resolve_marker_variant(
     }
 }
 
-/// The payload shapes: `Variant(T)` (a single-payload member, optionally
-/// through a `with = "..."` adapter) or `Variant { .. }` (a struct variant
-/// inlining the fields of a message member, whose message is therefore
-/// absorbed).
+/// The payload shapes: `Variant(T)` (a single-payload member, optionally through a `with = "..."`
+/// adapter) or `Variant { .. }` (a struct variant inlining the fields of a message member, whose
+/// message is therefore absorbed).
 fn resolve_plain_variant(
     ctx: &VariantCtx,
     with: Option<(Span, syn::Type)>,
@@ -1587,10 +1570,9 @@ pub(crate) fn oneof_plan(
         errors.push(not_found(message_span, "message", &proto_name));
         return Err(errors);
     };
-    // `message = ...` alone: the enum stands for the whole message, whose
-    // single oneof is inferred and whose non-oneof fields become siblings
-    // replicated in every variant. `oneof = ...` declares a partial enum
-    // embedded in a struct, and is rejected when the oneof is the whole
+    // `message = ...` alone: the enum stands for the whole message, whose single oneof is inferred
+    // and whose non-oneof fields become siblings replicated in every variant. `oneof = ...`
+    // declares a partial enum embedded in a struct, and is rejected when the oneof is the whole
     // message so the two shapes stay visually distinct.
     let (oneof, whole_message) = match &oneof_name {
         Some((oneof_span, oneof_name)) => {
@@ -1635,7 +1617,7 @@ pub(crate) fn oneof_plan(
                     input.ident.span(),
                     format!(
                         "proto message `{proto_name}` has {n} oneofs; an enum can stand \
-                         for the whole message only when there is exactly one — declare \
+                         for the whole message only when there is exactly one. Declare \
                          one enum per oneof with #[armonik(oneof = \"...\")] and compose \
                          them in a struct"
                     ),
@@ -1659,8 +1641,8 @@ pub(crate) fn oneof_plan(
     } else {
         Vec::new()
     };
-    // Rust-side binding of each sibling (ident + type), fixed by the first
-    // variant that declares it and checked for consistency in the others.
+    // Rust-side binding of each sibling (ident + type), fixed by the first variant that declares it
+    // and checked for consistency in the others.
     let mut sibling_bindings: Vec<Option<(syn::Ident, syn::Type)>> =
         (0..sibling_metas.len()).map(|_| None).collect();
 
@@ -1703,9 +1685,9 @@ pub(crate) fn oneof_plan(
             continue;
         };
 
-        // The attribute-less unit variant is "no member set"; with sibling
-        // fields, that case is a struct variant carrying exactly them and is
-        // detected below, after member-name matching fails.
+        // The attribute-less unit variant is "no member set"; with sibling fields, that case is a
+        // struct variant carrying exactly them and is detected below, after member-name matching
+        // fails.
         if matches!(variant.fields, syn::Fields::Unit)
             && !present
             && rename.is_none()
@@ -1752,8 +1734,8 @@ pub(crate) fn oneof_plan(
                         }
                         continue;
                     }
-                    // A payload is present but the name matches no member:
-                    // fall through to the member error below.
+                    // A payload is present but the name matches no member: fall through to the
+                    // member error below.
                     SiblingSplit::Payload(..) => {}
                     SiblingSplit::Failed => continue,
                 }
@@ -1832,8 +1814,8 @@ pub(crate) fn oneof_plan(
 
     let mut siblings = Vec::new();
     for (meta_field, binding) in sibling_metas.iter().zip(&sibling_bindings) {
-        // Missing bindings are only possible when every variant errored;
-        // those errors were reported above.
+        // Missing bindings are only possible when every variant errored; those errors were reported
+        // above.
         let Some((ident, ty)) = binding else { continue };
         siblings.push(SiblingPlan {
             span: ident.span(),
@@ -1877,12 +1859,11 @@ fn snake_case(camel: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    //! Guards for [`scan_field_attrs`], the one place that decides which
-    //! `#[armonik(...)]` keys each field/variant site accepts. The full
-    //! derives can only be exercised inside the `armonik` crate (they read the
-    //! build-script descriptor), and the differential harness only fuzzes
-    //! *valid* input — so the per-site *rejection* rules, which the shared
-    //! collector could silently weaken, are pinned here instead.
+    //! Guards for [`scan_field_attrs`], the one place deciding which `#[armonik(...)]` keys each
+    //! field or variant site accepts. The full expansions only run inside the `armonik` crate (they
+    //! read the build-script descriptor), and the differential harness only fuzzes valid input, so
+    //! the per-site rejection rules, which the shared collector could silently weaken, are pinned
+    //! here instead.
 
     use proc_macro2::Span;
 
@@ -1905,10 +1886,9 @@ mod tests {
         (collected, ok, errors.into_result().is_ok())
     }
 
-    /// `absorbs` must stay rejected where a site does not opt in, and be
-    /// tolerated (no error — it is harvested by `collect_absorbs` in lib.rs)
-    /// where it does. This is the exact rule a naive shared collector would
-    /// drop, and there is no other test that would catch it.
+    /// `absorbs` stays rejected where a site does not opt in, and is tolerated where it does (no
+    /// error; `collect_absorbs` in lib.rs harvests it). This is the exact rule a naive shared
+    /// collector would drop, and no other test would catch it.
     #[test]
     fn absorbs_is_gated_per_site() {
         let (_, ok, clean) = scan(

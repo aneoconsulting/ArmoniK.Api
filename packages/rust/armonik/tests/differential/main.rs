@@ -1,9 +1,8 @@
-//! Differential harness: randomized `DynamicMessage`s generated from the
-//! real protobuf descriptors are round-tripped through the armonik types
-//! (decode + re-encode) and compared semantically. Two ratchets keep the
-//! quotient honest: every message of the descriptor pool must be registered
-//! or tracked, and every field of every registered message must stay
-//! information-bearing under the types' own `Normalize` projections.
+//! Differential harness: randomized `DynamicMessage`s generated from the real protobuf descriptors
+//! are round-tripped through the armonik types (decode + re-encode) and compared semantically. Two
+//! ratchets keep the quotient honest: every message of the descriptor pool must be registered or
+//! tracked, and every field of every registered message must stay information-bearing under the
+//! types' own `Normalize` projections.
 //!
 //! Every randomized failure prints the seed needed to replay the exact case.
 
@@ -25,8 +24,8 @@ fn pool() -> DescriptorPool {
     DescriptorPool::decode(DESCRIPTOR).expect("embedded descriptor set decodes")
 }
 
-/// Compact `name: value` dump of the set fields (recursive), for failure
-/// messages — the `Debug` impl of `DynamicMessage` prints whole descriptors.
+/// Recursive `name: value` dump of the set fields, for failure messages; `DynamicMessage`'s `Debug`
+/// impl prints whole descriptors.
 fn debug_fields(message: &DynamicMessage) -> String {
     use prost_reflect::ReflectMessage;
     use std::fmt::Write;
@@ -99,9 +98,9 @@ fn registered_types_roundtrip() {
     }
 }
 
-/// The zero-default invariant: every type's `Default::default()` is the
-/// proto zero value, so decoding an empty message yields it. This is what
-/// lets decoding seed from `Default` with no special wire semantics.
+/// The zero-default invariant: every type's `Default::default()` is the proto zero value, so
+/// decoding an empty message yields it. This is what lets decoding seed from `Default` with no
+/// special wire semantics.
 #[test]
 fn empty_message_decodes_to_default() {
     for entry in registry::entries() {
@@ -115,17 +114,14 @@ fn empty_message_decodes_to_default() {
     }
 }
 
-/// Fields that collapse to "nothing" under the quotient by design: their
-/// only representations are equivalent to the empty message (the default
-/// member of a oneof whose payload carries no data). Every other field must
-/// stay information-bearing — since the `Normalize` projections are
-/// generated from the same attributes as the codecs, this ratchet is what
-/// keeps a codec bug from hiding behind a matching projection bug: a field
-/// erased by both shows up here and must be justified by hand.
+/// Fields that collapse to "nothing" under the quotient by design: their only representations are
+/// equivalent to the empty message (the default member of a oneof whose payload carries no data).
+/// Every other field must stay information-bearing. The `Normalize` projections come from the same
+/// attributes as the codecs, so this ratchet is what keeps a codec bug from hiding behind a
+/// matching projection bug: a field erased by both shows up here and has to be justified by hand.
 const UNINFORMATIVE_FIELDS: &[&str] = &[
-    // The `Ok` member is the `Output` default and its payload is `Empty`:
-    // `{ ok: {} }` IS the zero value, indistinguishable from an absent
-    // message by the zero-default invariant.
+    // The `Ok` member is the `Output` default and its payload is `Empty`: `{ ok: {} }` IS the zero
+    // value, indistinguishable from an absent message by the zero-default invariant.
     "armonik.api.grpc.v1.Output.ok",
 ];
 
@@ -156,8 +152,8 @@ fn field_information_ratchet() {
                 }
                 informative = true;
 
-                // The candidate distinguishes, so it must survive the
-                // round-trip — deterministically, one field at a time.
+                // The candidate distinguishes, so it must survive the round-trip,
+                // deterministically, one field at a time.
                 let reencoded = (entry.roundtrip)(&bytes).unwrap_or_else(|err| {
                     panic!("armonik type failed to decode a probe of `{qualified}`: {err}")
                 });
@@ -192,19 +188,18 @@ fn field_information_ratchet() {
     }
 }
 
-/// Messages present in the schema but referenced by nothing; see
-/// `wire::UNREFERENCED_MESSAGES`. The messages of *unexposed RPCs* are not
-/// listed anywhere by hand: `service!` registers them from its
-/// `unexposed(...)` declaration (`wire::unexposed()`), so that allowlist
-/// cannot drift from the RPC one.
+/// Messages present in the schema but referenced by nothing; see `wire::UNREFERENCED_MESSAGES`. The
+/// messages of *unexposed RPCs* are not listed anywhere by hand: `service!` registers them from its
+/// `unexposed(...)` declaration (`wire::unexposed()`), so that allowlist cannot drift from the RPC
+/// one.
 const PERMANENT_UNMAPPED: &[&str] = armonik::wire::UNREFERENCED_MESSAGES;
 
 #[test]
 fn descriptor_coverage_ratchet() {
     let pool = pool();
     let registered: Vec<&str> = registry::entries().map(|entry| entry.proto).collect();
-    // Messages flattened into a parent type, harvested from the annotations,
-    // and messages of unexposed RPCs, registered by `service!`.
+    // Messages flattened into a parent type, harvested from the annotations, and messages of
+    // unexposed RPCs, registered by `service!`.
     let absorbed = armonik::wire::absorbed();
     let unexposed = armonik::wire::unexposed();
 
@@ -230,8 +225,7 @@ fn descriptor_coverage_ratchet() {
         missing.join("\",\n    \"")
     );
 
-    // A message with a Rust type cannot also be absorbed (an `absorbs`
-    // pointed at a real type).
+    // A message with a Rust type cannot also be absorbed (an `absorbs` pointed at a real type).
     let conflicts: Vec<&str> = absorbed
         .iter()
         .copied()
@@ -242,8 +236,8 @@ fn descriptor_coverage_ratchet() {
         "these messages are both registered and absorbed:\n    {conflicts:?}"
     );
 
-    // Every absorbed name must exist (a flattened message that was renamed or
-    // removed leaves a stale `absorbs`).
+    // Every absorbed name must exist (a flattened message that was renamed or removed leaves a
+    // stale `absorbs`).
     for name in &absorbed {
         assert!(
             pool.get_message_by_name(name).is_some(),
@@ -251,8 +245,8 @@ fn descriptor_coverage_ratchet() {
         );
     }
 
-    // Every tracked name must actually exist (a renamed or removed message
-    // leaves a stale allowlist entry).
+    // Every tracked name must actually exist (a renamed or removed message leaves a stale allowlist
+    // entry).
     for name in PERMANENT_UNMAPPED {
         assert!(
             pool.get_message_by_name(name).is_some(),

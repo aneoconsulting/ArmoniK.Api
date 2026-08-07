@@ -1,14 +1,12 @@
 //! Doc harvesting for the message types: the `#[armonik_macros::message]` /
-//! `#[armonik_macros::enumeration]` attribute macros re-emit the annotated
-//! item with `#[doc]` attributes extracted from the protos' comments
-//! (type, fields, oneof variants, enum values), then append the same
-//! expansion the old derives produced.
+//! `#[armonik_macros::enumeration]` attribute macros re-emit the annotated item with `#[doc]`
+//! attributes extracted from the protos' comments (type, fields, oneof variants, enum values), then
+//! append the same expansion the old derives produced.
 //!
-//! An attribute macro (unlike a derive) may rewrite the item — that is the
-//! whole reason these are attributes: the proto prose becomes uncopyable, as
-//! it already is for the services. Injected docs come first; hand-written doc
-//! comments remain after them, for Rust-specific notes. The `#[armonik(...)]`
-//! attributes are consumed here and stripped from the re-emitted item.
+//! Only an attribute macro may rewrite the item, which is the whole reason these are attributes:
+//! the proto prose becomes uncopyable, as it already is for the services. Injected docs come first,
+//! hand-written ones after, for Rust-specific notes. The `#[armonik(...)]` attributes are consumed
+//! here and stripped from the re-emitted item.
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -23,8 +21,8 @@ pub(crate) enum Mode {
 }
 
 pub(crate) fn expand(mut input: DeriveInput, mode: Mode) -> syn::Result<TokenStream> {
-    // The old derive expansion first, over the pristine input (it reads the
-    // `#[armonik(...)]` attributes).
+    // The old derive expansion first, over the pristine input (it reads the `#[armonik(...)]`
+    // attributes).
     let expansion = match mode {
         Mode::Message => crate::expand_message(input.clone())?,
         Mode::Enumeration => crate::expand_enumeration(input.clone())?,
@@ -39,13 +37,12 @@ pub(crate) fn expand(mut input: DeriveInput, mode: Mode) -> syn::Result<TokenStr
     })
 }
 
-/// Inject the harvested `#[doc]`s: on the type, its named fields, its oneof
-/// variants (matched to members like the resolver does, by snake_cased name
-/// or `rename`), its struct-variant fields, and its enum values.
+/// Inject the harvested `#[doc]`s: on the type, its named fields, its oneof variants (matched to
+/// members like the resolver does, by snake_cased name or `rename`), its struct-variant fields, and
+/// its enum values.
 fn inject(input: &mut DeriveInput, mode: &Mode) -> syn::Result<()> {
-    // The proto the type stands for: the first `message =` / `enum =` name
-    // (unified types agree on their shape, the first one documents it).
-    // `generic` types name no proto and get nothing.
+    // The proto the type stands for: the first `message =` / `enum =` name (unified types agree on
+    // their shape, the first one documents it). `generic` types name no proto and get nothing.
     let entries = attrs::parse(&input.attrs)?;
     let proto = entries.iter().find_map(|entry| match &entry.item {
         AttrItem::Message(lit) | AttrItem::Enum(lit) => Some(lit.value()),
@@ -88,8 +85,8 @@ fn inject(input: &mut DeriveInput, mode: &Mode) -> syn::Result<()> {
             }
         }
         syn::Data::Enum(data) => {
-            // Whole-message and embedded-oneof enums: variants are oneof
-            // members; struct-variant fields are sibling or inlined fields.
+            // Whole-message and embedded-oneof enums: variants are oneof members; struct-variant
+            // fields are sibling or inlined fields.
             for variant in &mut data.variants {
                 let name = renamed(&variant.attrs)
                     .unwrap_or_else(|| crate::service::snake(&variant.ident.to_string()));
@@ -119,9 +116,8 @@ fn inject_enumeration(input: &mut DeriveInput, meta: &EnumMeta) -> syn::Result<(
     let syn::Data::Enum(data) = &mut input.data else {
         return Ok(());
     };
-    // prost-style value matching, as the resolver does: the value name with
-    // the enum-name prefix stripped, PascalCased — or the full name via
-    // `rename`.
+    // prost-style value matching, as the resolver does: the value name with the enum-name prefix
+    // stripped and PascalCased, or the full name via `rename`.
     let prefix = format!("{}_", crate::service::snake(&input.ident.to_string())).to_uppercase();
     for variant in &mut data.variants {
         let docs = meta
@@ -164,16 +160,16 @@ fn pascal(name: &str) -> String {
         .collect()
 }
 
-/// Put the harvested docs *before* the existing attributes, so hand-written
-/// doc comments read as additional notes after the proto prose.
+/// Put the harvested docs *before* the existing attributes, so hand-written doc comments read as
+/// additional notes after the proto prose.
 fn prepend(attrs: &mut Vec<syn::Attribute>, docs: &[String]) {
     for line in docs.iter().rev() {
         attrs.insert(0, syn::parse_quote!(#[doc = #line]));
     }
 }
 
-/// Remove every `#[armonik(...)]` attribute: they were consumed by the
-/// expansion and are not registered anywhere once the item is re-emitted.
+/// Remove every `#[armonik(...)]` attribute: they were consumed by the expansion and are not
+/// registered anywhere once the item is re-emitted.
 fn strip(input: &mut DeriveInput) {
     fn retain(attrs: &mut Vec<syn::Attribute>) {
         attrs.retain(|attr| !attr.path().is_ident("armonik"));

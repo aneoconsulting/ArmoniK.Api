@@ -1,7 +1,7 @@
 //! `GrpcClient__Timeout` and `GrpcClient__RateLimit` reaching the channel.
 //!
-//! Through a real connection to a real server, measuring what the caller gets: asserting on the parsing
-//! alone would say nothing about whether either option reaches the channel.
+//! Through a real connection to a real server, measuring what the caller gets: asserting on the
+//! parsing alone would say nothing about whether either option reaches the channel.
 
 mod common;
 
@@ -29,8 +29,8 @@ async fn a_request_timeout_ends_a_call_the_server_is_too_slow_to_answer() {
         elapsed < Duration::from_secs(5),
         "the call took {elapsed:?}, so the timeout was not applied"
     );
-    // The message is `tower`'s, reached through `tonic`; asserting on the timing above is the real
-    // check, and this only pins that the failure is the timeout rather than something else.
+    // The message is `tower`'s, reached through `tonic`. Asserting on the timing above is the real
+    // check; this only pins that the failure is the timeout rather than something else.
     let rendered = format!("{status:?}").to_lowercase();
     assert!(
         rendered.contains("time") || rendered.contains("elapsed") || rendered.contains("cancel"),
@@ -54,8 +54,9 @@ async fn no_timeout_lets_a_slow_call_finish() {
 
 #[tokio::test]
 async fn a_rate_limit_is_accepted_and_still_lets_calls_through() {
-    // Testing that `Endpoint::rate_limit` throttles would be testing `tower`. What is worth pinning is
-    // that passing the option on does not break the call, which is how wiring one through goes wrong.
+    // Testing that `Endpoint::rate_limit` throttles would be testing `tower`. What is worth pinning
+    // is that passing the option on does not break the call, which is how wiring one through goes
+    // wrong.
     let endpoint = serve(SlowService::new(Duration::ZERO)).await;
 
     let channel = armonik_transport::connect(config(&endpoint, |args| {

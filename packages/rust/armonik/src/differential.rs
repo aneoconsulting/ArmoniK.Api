@@ -1,18 +1,15 @@
-//! Registry of every message type for the differential harness: the derives
-//! register each descriptor-validated type here (hand-written impls register
-//! themselves), so the harness discovers the proto-to-type mapping instead
-//! of maintaining it. Test-only: the `_differential` feature is enabled
-//! through the self dev-dependency.
+//! Registry of every message type for the differential harness: the derives register each
+//! descriptor-validated type here (hand-written impls register themselves), so the harness
+//! discovers the proto-to-type mapping instead of maintaining it. Test-only: the `_differential`
+//! feature is enabled through the self dev-dependency.
 //!
-//! Each entry also carries the type's [`Normalize`] projection: the
-//! value-level equivalence classes its Rust representation defines (map
-//! adapters losing order and duplicates, presence-only markers, transparent
-//! wrapper chains, the cross-field rules of the hand-written impls). The
-//! projections are declared by the same constructs that cause them —
-//! adapters, attributes, hand-written impls — so the harness never restates
-//! them; what it checks independently is that every field stays
-//! information-bearing through the quotient (the field-information ratchet)
-//! and that round-trips are lossless up to it.
+//! Each entry also carries the type's [`Normalize`] projection: the value-level equivalence classes
+//! its Rust representation defines (map adapters losing order and duplicates, presence-only
+//! markers, transparent wrapper chains, the cross-field rules of the hand-written impls). The same
+//! constructs that cause a projection declare it (adapters, attributes, hand-written impls), so the
+//! harness never restates them. What it checks independently is that every field stays
+//! information-bearing through the quotient (the field-information ratchet) and that round-trips
+//! are lossless up to it.
 
 use std::collections::BTreeMap;
 
@@ -20,11 +17,10 @@ pub use prost_reflect;
 
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
-/// A registered type's round-trip and projection hooks, as the harness
-/// consumes them. Projected from the `_differential`-gated
-/// [`crate::wire::Diff`] on each [`crate::wire::Registration`] (see
-/// [`entries`]); the `default_encoding` doubles as the zero-default invariant
-/// and the harness's canonical-absence fold.
+/// A registered type's round-trip and projection hooks, as the harness consumes them. Projected
+/// from the `_differential`-gated [`crate::wire::Diff`] on each [`crate::wire::Registration`] (see
+/// [`entries`]); the `default_encoding` doubles as the zero-default invariant and the harness's
+/// canonical-absence fold.
 #[derive(Clone, Copy)]
 pub struct Entry {
     pub proto: &'static str,
@@ -33,8 +29,8 @@ pub struct Entry {
     pub normalize: fn(&mut DynamicMessage),
 }
 
-/// Every registered type that carries harness hooks — all but the absorbed,
-/// type-less entries — projected from the single [`crate::wire::REGISTRY`].
+/// Every registered type carrying harness hooks, so all but the type-less entries, projected from
+/// the single [`crate::wire::REGISTRY`].
 pub fn entries() -> impl Iterator<Item = Entry> {
     crate::wire::REGISTRY.iter().filter_map(|registration| {
         registration.diff.as_ref().map(|diff| Entry {
@@ -46,21 +42,19 @@ pub fn entries() -> impl Iterator<Item = Entry> {
     })
 }
 
-/// Projection of a dynamic message onto the equivalence classes this type's
-/// wire implementation defines: two messages are the same value exactly when
-/// their projections match (up to proto3 presence semantics and the
-/// canonical-absence fold, which the harness owns).
+/// Projection of a dynamic message onto the equivalence classes this type's wire implementation
+/// defines: two messages are the same value exactly when their projections match (up to proto3
+/// presence semantics and the canonical-absence fold, which the harness owns).
 ///
-/// Derived types get an implementation generated from the same attributes
-/// that shape their codec; hand-written `prost::Message` impls write it by
-/// hand next to the codec. Registration requires it, so a hand-written type
-/// cannot forget its projection.
+/// Derived types get an implementation generated from the same attributes that shape their codec;
+/// hand-written `prost::Message` impls write it by hand next to the codec. Registration requires
+/// it, so a hand-written type cannot forget its projection.
 pub trait Normalize {
     fn normalize(message: &mut DynamicMessage);
 }
 
-/// `#[armonik(present)]` bool member: only its presence survives (an
-/// explicit `false` reads as set).
+/// `#[armonik(present)]` bool member: only its presence survives (an explicit `false` reads as
+/// set).
 pub fn bool_marker(message: &mut DynamicMessage, tag: u32) {
     let Some(field) = message.descriptor().get_field(tag) else {
         return;
@@ -70,9 +64,9 @@ pub fn bool_marker(message: &mut DynamicMessage, tag: u32) {
     }
 }
 
-/// Transparent enum wrapper (chain) message: when the chained enum value is
-/// zero, every representation (absent members, explicit zeros, empty inner
-/// wrappers) is equivalent to the empty message.
+/// Transparent enum wrapper (chain) message: when the chained enum value is zero, every
+/// representation (absent members, explicit zeros, empty inner wrappers) is equivalent to the empty
+/// message.
 pub fn wrapper_chain(message: &mut DynamicMessage) {
     let mut number = 0;
     let mut cursor = Value::Message(message.clone());
@@ -99,24 +93,22 @@ pub fn wrapper_chain(message: &mut DynamicMessage) {
     }
 }
 
-/// Fold a repeated message field exposed as a `HashMap` keyed by the pair
-/// subfield with number `key_tag`: duplicates collapse (last wins) and order
-/// is lost, so entries are sorted by key.
+/// Fold a repeated message field exposed as a `HashMap` keyed by the pair subfield with number
+/// `key_tag`: duplicates collapse (last wins) and order is lost, so entries are sorted by key.
 pub fn fold_pairs_by_tag(message: &mut DynamicMessage, tag: u32, key_tag: u32) {
     fold_pairs(message, tag, |pair| pair.descriptor().get_field(key_tag));
 }
 
-/// [`fold_pairs_by_tag`], with the key subfield located by name (for
-/// adapters keyed on a field of the entries' own message type).
+/// [`fold_pairs_by_tag`], with the key subfield located by name (for adapters keyed on a field of
+/// the entries' own message type).
 pub fn fold_pairs_by_name(message: &mut DynamicMessage, tag: u32, key_name: &str) {
     fold_pairs(message, tag, |pair| {
         pair.descriptor().get_field_by_name(key_name)
     });
 }
 
-/// Total order over the pair-key values the adapters accept (`Eq + Hash`
-/// scalars); the order itself is arbitrary, it only has to be deterministic
-/// on both sides of a round-trip.
+/// Total order over the pair-key values the adapters accept (`Eq + Hash` scalars); the order itself
+/// is arbitrary, it only has to be deterministic on both sides of a round-trip.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum MapKey {
     Bool(bool),

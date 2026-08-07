@@ -1,16 +1,14 @@
-//! Helpers for "transparent" enums: Rust enums standing for proto message
-//! wrappers around an enum field — either a single wrapper (e.g.
-//! `sessions.TaskOptionField`) or a chain of single-field wrappers (e.g.
-//! `applications.ApplicationField` wrapping `ApplicationRawField` wrapping
-//! the enum). `path` holds the field tags from the outermost wrapper down to
-//! the enum field.
+//! Helpers for "transparent" enums: Rust enums standing for proto message wrappers around an enum
+//! field, either a single wrapper (`sessions.TaskOptionField`) or a chain of single-field wrappers
+//! (`applications.ApplicationField` wrapping `ApplicationRawField` wrapping the enum). `path` holds
+//! the field tags from the outermost wrapper down to the enum field.
 
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, key_len, DecodeContext, WireType};
 use prost::DecodeError;
 
-// The recursion is dynamic over `dyn Buf`: a generic recursion would
-// monomorphize an unbounded tower of `Take<&mut Take<...>>` types.
+// The recursion is dynamic over `dyn Buf`: a generic recursion would monomorphize an unbounded
+// tower of `Take<&mut Take<...>>` types.
 fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
     path: &[u32],
     wire_type: WireType,
@@ -37,16 +35,14 @@ fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
     Ok(())
 }
 
-// Body forms of the outermost wrapper (no containing field key), for the
-// `prost::Message` impls of transparent enums standing for RPC messages. The
-// outermost wrapper itself is framed by the blanket message-kind `ProtoField`
-// impl over those `prost::Message` impls.
+// Body forms of the outermost wrapper (no containing field key), for the `prost::Message` impls of
+// transparent enums standing for RPC messages. The outermost wrapper itself is framed by the
+// blanket message-kind `ProtoField` impl over those `prost::Message` impls.
 //
-// Nothing along the chain is ever skipped, so the shape is a function of
-// `path` alone: the enum's `int32` field at the last tag, wrapped in one
-// length-delimited message per tag above it. Both halves are therefore a fold
-// from the enum field outwards, rather than a recursion that has to ask the
-// value where it bottoms out.
+// Nothing along the chain is ever skipped, so the shape is a function of `path` alone: the enum's
+// `int32` field at the last tag, wrapped in one length-delimited message per tag above it. Both
+// halves are therefore a fold from the enum field outwards, rather than a recursion that has to ask
+// the value where it bottoms out.
 
 pub(crate) fn encoded_len_raw<T: Copy + Into<i32>>(path: &[u32], value: &T) -> usize {
     let (&leaf, wrappers) = path.split_last().expect("non-empty wrapper path");

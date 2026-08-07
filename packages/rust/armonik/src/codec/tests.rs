@@ -1,9 +1,8 @@
-//! Differential tests of the codec building blocks against prost-generated
-//! ground truth.
+//! Differential tests of the codec building blocks against prost-generated ground truth.
 //!
-//! The hand-written [`prost::Message`] implementations in this module are
-//! also the prototypes of the code the `armonik-macros` derives emit: any
-//! change to the emitted shape should be reflected here first.
+//! The hand-written [`prost::Message`] implementations in this module are also the prototypes of
+//! the code the `armonik-macros` derives emit: any change to the emitted shape should be reflected
+//! here first.
 
 use std::collections::HashMap;
 
@@ -14,8 +13,8 @@ use prost::Message;
 
 use super::{enumeration, ProtoField};
 
-/// Prototype of the `derive(armonik::Enum)` output (without the `Other`
-/// catch-all, which is irrelevant to the wire format).
+/// Prototype of the `derive(armonik::Enum)` output (without the `Other` catch-all, which is
+/// irrelevant to the wire format).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum TestEnum {
     #[default]
@@ -78,9 +77,9 @@ impl ProtoField for TestEnum {
     }
 }
 
-/// Prototype of the `derive(armonik::Message)` output for a plain struct,
-/// mirroring `armonik.api.grpc.v1.TaskOptions` (map, non-`Option` message
-/// with absent-as-default semantics, scalars).
+/// Prototype of the `derive(armonik::Message)` output for a plain struct, mirroring
+/// `armonik.api.grpc.v1.TaskOptions` (map, non-`Option` message with absent-as-default semantics,
+/// scalars).
 #[derive(Debug, Clone, PartialEq, Default)]
 struct TestOptions {
     options: HashMap<String, String>,
@@ -262,8 +261,8 @@ fn sample_options() -> TestOptions {
     }
 }
 
-/// prost-derived reference for `armonik.api.grpc.v1.TaskOptions` (extern'd,
-/// so no generated type exists anymore).
+/// prost-derived reference for `armonik.api.grpc.v1.TaskOptions` (extern'd, so no generated type
+/// exists anymore).
 #[derive(Clone, PartialEq, Message)]
 struct RefOptions {
     #[prost(map = "string, string", tag = "1")]
@@ -318,8 +317,8 @@ fn absent_message_field_decodes_as_default() {
 
 #[test]
 fn default_message_field_is_emitted_as_an_empty_message() {
-    // No field is ever skipped: a default nested message goes on the wire as
-    // an empty one, which is what "absent = default" reads back as anyway.
+    // No field is ever skipped: a default nested message goes on the wire as an empty one, which is
+    // what "absent = default" reads back as anyway.
     let ours = TestOptions {
         max_retries: 7,
         ..Default::default()
@@ -382,8 +381,8 @@ fn shapes_roundtrip_through_prost_derive() {
     let back = OurShapes::decode(theirs.encode_to_vec().as_slice()).unwrap();
     assert_eq!(back, ours);
 
-    // Without maps (whose iteration order is unstable), the encoding should
-    // be byte-identical to prost's.
+    // Without maps (whose iteration order is unstable), the encoding should be byte-identical to
+    // prost's.
     assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
 }
 
@@ -404,8 +403,8 @@ fn optional_presence_is_exact() {
 
 #[test]
 fn unpacked_repeated_scalars_are_accepted() {
-    // Conforming proto3 writers pack numeric repeated fields, but decoders
-    // must accept the unpacked form too.
+    // Conforming proto3 writers pack numeric repeated fields, but decoders must accept the unpacked
+    // form too.
     let mut buf = Vec::new();
     for value in [1i32, -1, 300] {
         prost::encoding::int32::encode(1, &value, &mut buf);
@@ -425,16 +424,15 @@ fn message_clear_resets_to_default() {
     assert_eq!(ours, OurShapes::default());
 }
 
-// ---------------------------------------------------------------------------
-// Prototypes of the whole-message-oneof shape (template for the `oneof`
-// derive mode). Ground truth: the derive-emitted `crate::InitTaskRequest` /
-// `crate::DataChunk` — an independent expansion of the same proto messages.
-// ---------------------------------------------------------------------------
+// --------------------------------------------------------------------------- Prototypes of the
+// whole-message-oneof shape, the template for the `oneof` derive mode. Ground truth: the
+// derive-emitted `crate::InitTaskRequest` and `crate::DataChunk`, an independent expansion of the
+// same proto messages. ---------------------------------------------------------------------------
 
 use super::ProtoOneof;
 
-/// Mirror of `armonik.api.grpc.v1.DataChunk`: whole-message oneof
-/// { bytes data = 1; bool data_complete = 2; }, default variant `Data("")`.
+/// Mirror of `armonik.api.grpc.v1.DataChunk`: whole-message oneof { bytes data = 1; bool
+/// data_complete = 2; }, default variant `Data("")`.
 #[derive(Debug, Clone, PartialEq)]
 enum TestDataChunk {
     Data(Bytes),
@@ -449,8 +447,8 @@ impl Default for TestDataChunk {
 
 impl ProtoOneof for TestDataChunk {
     fn encode_oneof(value: &Self, buf: &mut impl BufMut) {
-        // The active member carries the oneof's presence, so it is emitted
-        // even when its payload is the default.
+        // The active member carries the oneof's presence, so it is emitted even when its payload is
+        // the default.
         match value {
             Self::Data(data) => ProtoField::encode_field(1, data, buf),
             Self::Complete => ProtoField::encode_field(2, &true, buf),
@@ -520,15 +518,13 @@ impl Message for TestDataChunk {
     }
 }
 
-// Like the emitter: the message-kind `ProtoField` impl comes from the `Msg`
-// blanket.
+// Like the emitter: the message-kind `ProtoField` impl comes from the `Msg` blanket.
 impl super::Msg for TestHeader {
     const NAMES: &'static [&'static str] = &[];
 }
 
-/// Mirror of `armonik.api.grpc.v1.InitTaskRequest`: whole-message oneof
-/// { TaskRequestHeader header = 1; bool last_task = 2; } with a message
-/// payload and a marker variant.
+/// Mirror of `armonik.api.grpc.v1.InitTaskRequest`: whole-message oneof { TaskRequestHeader header
+/// = 1; bool last_task = 2; } with a message payload and a marker variant.
 #[derive(Debug, Clone, PartialEq, Default)]
 enum TestInitTask {
     #[default]
@@ -650,9 +646,8 @@ impl Message for TestInitTask {
     }
 }
 
-/// The derives also emit a [`Msg`](super::Msg) impl for every message type —
-/// the blanket message-kind [`ProtoField`] impl picks it up so the type
-/// composes as a field of other messages; this is its template.
+/// Template for the [`Msg`](super::Msg) impl the derives emit for every message type. The blanket
+/// message-kind [`ProtoField`] impl picks it up, so the type composes as a field of other messages.
 impl super::Msg for TestOptions {
     const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.TaskOptions"];
 }
@@ -693,8 +688,8 @@ fn whole_message_oneof_roundtrips() {
     assert!(!ours.encode_to_vec().is_empty());
 }
 
-/// The PairMap delegation must keep rejecting a mis-typed field key: the
-/// wire-type check lives in the `HashMap` `ProtoField` impl it delegates to.
+/// The PairMap delegation must keep rejecting a mis-typed field key: the wire-type check lives in
+/// the `HashMap` `ProtoField` impl it delegates to.
 #[test]
 fn pair_map_rejects_non_delimited_wire_type() {
     use super::adapters::PairMap;

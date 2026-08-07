@@ -7,10 +7,10 @@ pub enum ResultStatus {
     Completed,
     Aborted,
     Deleted,
-    /// Result was not found. Whether this is a temporary or definitive state depends on the reliability of the sender.
+    /// Result was not found. Whether that is temporary or definitive depends on the reliability of
+    /// the sender.
     #[armonik(rename = "RESULT_STATUS_NOTFOUND")]
     NotFound,
-    /// Unspecified (zero) or a status unknown to this crate version;
-    /// round-trips losslessly.
+    /// Unspecified (zero) or a status unknown to this crate version; round-trips losslessly.
     Other(OtherResultStatus),
 }

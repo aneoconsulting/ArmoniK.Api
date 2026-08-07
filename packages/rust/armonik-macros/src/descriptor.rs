@@ -1,10 +1,9 @@
-//! Loading and indexing of the protobuf descriptor set compiled by the
-//! `armonik` build script into `$OUT_DIR/descriptor.bin`.
+//! Loading and indexing of the protobuf descriptor set compiled by the `armonik` build script into
+//! `$OUT_DIR/descriptor.bin`.
 //!
-//! The index is cached per (mtime, len) of the descriptor file so that
-//! long-lived proc-macro hosts (rust-analyzer in particular) pick up
-//! descriptor changes without a restart, while plain builds decode the file
-//! only once.
+//! The index is cached per (mtime, len) of the descriptor file so that long-lived proc-macro hosts
+//! (rust-analyzer in particular) pick up descriptor changes without a restart, while plain builds
+//! decode the file only once.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -18,9 +17,8 @@ use prost_types::{
     FileDescriptorSet,
 };
 
-/// Scalar/wire kind of a protobuf field, mirrored from the descriptor. The
-/// `armonik` codec keeps an equivalent runtime classification that the
-/// emitted shape asserts are checked against.
+/// Scalar/wire kind of a protobuf field, mirrored from the descriptor. The `armonik` codec keeps an
+/// equivalent runtime classification that the emitted shape asserts are checked against.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum FieldKind {
     Double,
@@ -36,9 +34,8 @@ pub(crate) enum FieldKind {
     Message(String),
     /// Full name of the enum type, without leading dot.
     Enum(String),
-    /// A wire kind the codec does not implement (`sint*`/`fixed*`/`sfixed*`
-    /// — no ArmoniK field uses them); resolving a field of this kind is a
-    /// spanned compile error naming it.
+    /// A wire kind the codec does not implement (`sint*`, `fixed*`, `sfixed*`; no ArmoniK field
+    /// uses them). Resolving a field of this kind is a spanned compile error naming it.
     Unsupported(&'static str),
 }
 
@@ -49,8 +46,8 @@ pub(crate) enum Cardinality {
     Singular,
     /// `optional` proto3 field: explicit presence.
     Optional,
-    /// Repeated field (packedness is decided by the Rust element type's
-    /// `ProtoField` impl, not restated from the descriptor).
+    /// Repeated field (packedness is decided by the Rust element type's `ProtoField` impl, not
+    /// restated from the descriptor).
     Repeated,
     /// Map field, folded from its synthetic `*Entry` message.
     Map { key: FieldKind, value: FieldKind },
@@ -64,9 +61,8 @@ pub(crate) struct FieldMeta {
     pub(crate) cardinality: Cardinality,
     /// Leading comment from the proto, cleaned up line by line.
     pub(crate) docs: Vec<String>,
-    /// Index into [`MessageMeta::oneofs`] when the field is a member of a
-    /// real oneof (synthetic proto3-optional oneofs are folded into
-    /// [`Cardinality::Optional`] instead).
+    /// Index into [`MessageMeta::oneofs`] when the field is a member of a real oneof (synthetic
+    /// proto3-optional oneofs are folded into [`Cardinality::Optional`] instead).
     pub(crate) oneof: Option<usize>,
 }
 
@@ -124,8 +120,8 @@ pub(crate) struct ServiceMeta {
     pub(crate) docs: Vec<String>,
 }
 
-/// Index of every message, enum and service in the descriptor set, keyed by
-/// full name without leading dot (e.g. `armonik.api.grpc.v1.TaskOptions`).
+/// Index of every message, enum and service in the descriptor set, keyed by full name without
+/// leading dot (e.g. `armonik.api.grpc.v1.TaskOptions`).
 pub(crate) struct DescriptorIndex {
     pub(crate) fingerprint: u64,
     pub(crate) messages: HashMap<String, MessageMeta>,
@@ -143,8 +139,8 @@ static CACHE: Mutex<Option<Cached>> = Mutex::new(None);
 
 /// Load (or reuse) the descriptor index.
 ///
-/// Errors are strings with remediation guidance; the derive entry points
-/// attach them to the span of the derived type.
+/// Errors are strings with remediation guidance; the derive entry points attach them to the span of
+/// the derived type.
 pub(crate) fn index() -> Result<Arc<DescriptorIndex>, String> {
     let out_dir = std::env::var_os("OUT_DIR").ok_or_else(|| {
         "OUT_DIR is not set: the armonik derives can only be used from within \
@@ -195,8 +191,8 @@ pub(crate) fn index() -> Result<Arc<DescriptorIndex>, String> {
 }
 
 fn build_index(fingerprint: u64, fds: &FileDescriptorSet) -> Result<DescriptorIndex, String> {
-    // First pass: collect the synthetic map-entry messages so that map fields
-    // can be folded into `Cardinality::Map` in the second pass.
+    // First pass: collect the synthetic map-entry messages so that map fields can be folded into
+    // `Cardinality::Map` in the second pass.
     let mut map_entries = HashMap::new();
     for file in &fds.file {
         let prefix = file.package();
@@ -235,9 +231,9 @@ const MESSAGE_NESTED: i32 = 3;
 const MESSAGE_ENUM: i32 = 4;
 const ENUM_VALUE: i32 = 2;
 
-/// The cleaned comment of every location in the file, keyed by path. The
-/// protos mix styles: block comments above messages, trailing comments on
-/// fields — take the leading one, else the trailing one.
+/// The cleaned comment of every location in the file, keyed by path. The protos mix styles (block
+/// comments above messages, trailing comments on fields), so take the leading one, else the
+/// trailing one.
 fn comments(file: &FileDescriptorProto) -> HashMap<Vec<i32>, Vec<String>> {
     file.source_code_info
         .as_ref()
@@ -256,9 +252,8 @@ fn comments(file: &FileDescriptorProto) -> HashMap<Vec<i32>, Vec<String>> {
         .unwrap_or_default()
 }
 
-/// Field numbers of `FileDescriptorProto.service` and
-/// `ServiceDescriptorProto.method`, the `SourceCodeInfo` path components for
-/// service and method comments.
+/// Field numbers of `FileDescriptorProto.service` and `ServiceDescriptorProto.method`, the
+/// `SourceCodeInfo` path components for service and method comments.
 const FILE_SERVICE: i32 = 6;
 const SERVICE_METHOD: i32 = 2;
 
@@ -301,8 +296,8 @@ fn add_services(file: &FileDescriptorProto, index: &mut DescriptorIndex) {
     }
 }
 
-/// Clean a proto leading comment into rustdoc lines: drop the javadoc-style
-/// `*` filler lines and the common leading space, trim trailing whitespace.
+/// Clean a proto leading comment into rustdoc lines: drop the javadoc-style `*` filler lines and
+/// the common leading space, trim trailing whitespace.
 fn clean_comment(comment: &str) -> Vec<String> {
     let mut lines: Vec<String> = comment
         .lines()
@@ -396,8 +391,8 @@ fn add_message(
         field_path.extend([MESSAGE_FIELD, field_idx as i32]);
 
         let (cardinality, oneof) = if field.proto3_optional() {
-            // proto3 `optional` is encoded as a synthetic single-field oneof;
-            // fold it into an explicit-presence cardinality instead.
+            // proto3 `optional` is encoded as a synthetic single-field oneof; fold it into an
+            // explicit-presence cardinality instead.
             (Cardinality::Optional, None)
         } else if field.label() == Label::Repeated {
             if let FieldKind::Message(type_name) = &kind {
