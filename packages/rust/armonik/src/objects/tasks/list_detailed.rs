@@ -4,7 +4,7 @@ use super::{filter, Raw, Sort};
 /// a distinct type keeps the two RPCs' requests distinct (request types are
 /// injective over RPCs).
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksRequest")]
 pub struct Request {
@@ -16,7 +16,7 @@ pub struct Request {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksDetailedResponse")]
 pub struct Response {
