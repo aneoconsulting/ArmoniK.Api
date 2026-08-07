@@ -5,12 +5,20 @@ use snafu::{ResultExt, Snafu};
 // Re-exported here, so a caller reaches them through the client rather than through the transport
 // crate.
 #[cfg(feature = "_gen-client")]
-use armonik_transport::ConfigSnafu;
-#[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
-    ConfigError, ConnectionError, HttpConfig, HttpConfigArgs, ProxyConfig, ProxyError, ProxySource,
-    ReadEnvError, SecretString,
+    ConfigError, ConnectionError, Http2Config, HttpConfig, Identity, ProxyConfig, ProxyError,
+    ProxySource, SecretString, TcpConfig, TlsConfig,
 };
+
+#[cfg(feature = "_gen-client")]
+mod env;
+#[cfg(feature = "_gen-client")]
+pub use env::{NewClientError, ARMONIK_PREFIX};
+// Snafu's context selectors, so a caller in another crate can build the error with the location
+// captured at its own call site. Hidden: this is how the error is built, not API to design against.
+#[cfg(feature = "_gen-client")]
+#[doc(hidden)]
+pub use env::{ConnectSnafu, EnvSnafu};
 
 #[cfg(feature = "worker")]
 mod agent;
@@ -70,9 +78,11 @@ pub struct Client<T = tonic::transport::Channel> {
 }
 
 impl Client<tonic::transport::Channel> {
-    /// Create a new client using the configuration from the environment variables
-    pub async fn new() -> Result<Self, ConnectionError> {
-        Self::with_config(HttpConfig::from_env().context(ConfigSnafu {})?).await
+    /// Create a new client using the configuration from the environment variables, read under
+    /// [`ARMONIK_PREFIX`]
+    pub async fn new() -> Result<Self, NewClientError> {
+        let config = env::config_from_env()?;
+        Self::with_config(config).await.context(ConnectSnafu)
     }
 
     /// Create a new client with the specified client configuration
@@ -96,7 +106,7 @@ impl Client<tonic::transport::Channel> {
         use http_body_util::BodyExt;
         use hyper_util::rt::TokioExecutor;
 
-        let mut config = HttpConfig::from_env().unwrap();
+        let mut config = env::config_from_env().unwrap();
 
         match std::env::var("Http__Endpoint") {
             Ok(value) if !value.is_empty() => {

@@ -286,28 +286,22 @@ pub fn error_chain(error: &dyn std::error::Error) -> String {
     rendered.join(" -> ")
 }
 
-/// Build a [`HttpConfig`] from the string form, applying `set` to the arguments first.
+/// Build an [`armonik_transport::HttpConfig`] for a loopback test server, applying `set` last.
 ///
-/// Going through `HttpConfigArgs` keeps the parsing inside what is under test. It is a helper at all
-/// because both structs are `#[non_exhaustive]`: a test outside the crate cannot write either as a
-/// struct expression, and `..Default::default()` is the form that is forbidden.
+/// It is a helper at all because the struct is `#[non_exhaustive]`: a test outside the crate cannot
+/// write it as a struct expression, so the fields are assigned onto a default one.
 #[allow(clippy::field_reassign_with_default)]
 pub fn config(
     endpoint: &str,
-    set: impl FnOnce(&mut armonik_transport::HttpConfigArgs),
+    set: impl FnOnce(&mut armonik_transport::HttpConfig),
 ) -> armonik_transport::HttpConfig {
-    let mut args = armonik_transport::HttpConfigArgs::default();
-    args.endpoint = endpoint.to_owned();
-    args.allow_unsafe_connection = true;
-    set(&mut args);
+    let mut config = armonik_transport::HttpConfig::default();
+    config.endpoint = endpoint.parse().expect("a valid endpoint");
+    config.tls.allow_unsafe_connection = true;
     // An unset proxy option follows the machine's environment; a test has to name its proxy
     // deliberately, or a developer's own HTTP_PROXY would route these loopback calls somewhere
     // real.
-    let follow_environment = args.proxy.is_empty();
-    let mut config = armonik_transport::HttpConfig::from_config_args(args)
-        .expect("the configuration should be valid");
-    if follow_environment {
-        config.proxy = armonik_transport::ProxyConfig::disabled();
-    }
+    config.proxy = armonik_transport::ProxyConfig::disabled();
+    set(&mut config);
     config
 }
