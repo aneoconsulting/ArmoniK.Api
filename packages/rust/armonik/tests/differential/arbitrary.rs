@@ -1,6 +1,6 @@
-//! Randomized `DynamicMessage` generation from a descriptor, probing the
-//! presence edges on purpose: empty nested messages, default-valued scalars,
-//! unknown enum values, empty and populated containers.
+//! Randomized `DynamicMessage` generation from a descriptor, probing the presence edges on purpose:
+//! empty nested messages, default-valued scalars, unknown enum values, empty and populated
+//! containers.
 
 use std::collections::HashMap;
 
@@ -86,8 +86,8 @@ fn field_value(kind: &Kind, rng: &mut SplitMix64, depth: u32) -> Value {
         }
         Kind::Enum(desc) => {
             let values: Vec<i32> = desc.values().map(|value| value.number()).collect();
-            // Known values, zero, or a value unknown to the schema
-            // (proto3 open enums must round-trip losslessly).
+            // Known values, zero, or a value unknown to the schema (proto3 open enums must
+            // round-trip losslessly).
             let choice = rng.below(values.len() as u64 + 2);
             let number = match values.get(choice as usize) {
                 Some(number) => *number,
@@ -143,7 +143,15 @@ fn f64_sample(rng: &mut SplitMix64) -> f64 {
 }
 
 fn string_sample(rng: &mut SplitMix64) -> String {
-    const POOL: &[&str] = &["", "a", "value", "id-1234", "namespace/path", "éàü-unicode"];
+    // The last sample is multi-byte UTF-8 on purpose, spelled with escapes to keep this file ASCII.
+    const POOL: &[&str] = &[
+        "",
+        "a",
+        "value",
+        "id-1234",
+        "namespace/path",
+        "\u{e9}\u{e0}\u{fc}-unicode",
+    ];
     POOL[rng.below(POOL.len() as u64) as usize].to_owned()
 }
 

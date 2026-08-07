@@ -1,23 +1,19 @@
-//! `__emit_convenience`: the consuming side of the field reflection the
-//! derives emit — builds one client convenience method per RPC, entirely from
-//! the request struct's fields.
+//! `__emit_convenience`: the consuming side of the field reflection the derives emit. Builds one
+//! client convenience method per RPC, entirely from the request struct's fields.
 //!
-//! `service!` emits, per convenience-eligible RPC, an invocation of the
-//! request type's `__armonik_fields_*` callback with this macro as the
-//! continuation; the callback appends a `fields { [name class]* }` block (the
-//! handshake and its shared parsing live in `callback.rs`). For
-//! `project { auto }` a second hop through the *response* type's callback
-//! decides the projection (exactly one field → project it, else whole
-//! response). Field and element types are never transported as tokens —
-//! relative paths would re-resolve wrongly here — but as the flat
-//! `__armonik_ty_*` aliases the derive defines next to each struct.
+//! Per convenience-eligible RPC, `service!` invokes the request type's `__armonik_fields_*`
+//! callback with this macro as the continuation, and the callback appends a `fields { [name class]*
+//! }` block (the handshake and its shared parsing live in `callback.rs`). `project { auto }` takes
+//! a second hop through the response type's callback: exactly one field projects it, several keep
+//! the whole response. Field and element types travel as the flat `__armonik_ty_*` aliases the
+//! derive defines next to each struct, never as tokens, since relative paths would re-resolve
+//! wrongly here.
 //!
-//! The generated method: parameters mirror the request fields in declaration
-//! order, widened per sugar class (`String`/`Bytes` → `impl Into`, `Vec<T>` →
-//! `impl IntoIterator<Item = impl Into<T>>`, `HashMap<K, V>` → pair iterators,
-//! `filter::Or` → nested iterators); the body is `self.call(request)` plus
-//! the projection. `manual` on the rpc line opts a method out entirely, and
-//! client-streaming lines are required to carry it.
+//! In the generated method, parameters mirror the request fields in declaration order, widened per
+//! sugar class: `String`/`Bytes` to `impl Into`, `Vec<T>` to `impl IntoIterator<Item = impl
+//! Into<T>>`, `HashMap<K, V>` to pair iterators, `filter::Or` to nested iterators. The body is
+//! `self.call(request)` plus the projection. `manual` on the rpc line opts a method out entirely,
+//! and client-streaming lines are required to carry it.
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -138,8 +134,8 @@ impl Parse for Emit {
     }
 }
 
-/// The parent module path and the `__armonik_*` mangling stem of a type path
-/// (`crate::sessions::get::Request` → `crate::sessions::get`, `request`).
+/// The parent module path and the `__armonik_*` mangling stem of a type path:
+/// `crate::sessions::get::Request` gives `crate::sessions::get` and `request`.
 fn split(path: &Path) -> syn::Result<(Path, String)> {
     if path.segments.len() < 2 {
         return Err(syn::Error::new_spanned(
@@ -161,8 +157,7 @@ fn split(path: &Path) -> syn::Result<(Path, String)> {
 pub(crate) fn expand(tokens: TokenStream) -> syn::Result<TokenStream> {
     let emit: Emit = syn::parse2(tokens.clone())?;
 
-    // `auto` projection needs the response's fields: chain through its
-    // callback once, then decide.
+    // `auto` projection needs the response's fields: chain through its callback once, then decide.
     let project = match &emit.project {
         Project::Auto => match &emit.response_fields {
             None => {

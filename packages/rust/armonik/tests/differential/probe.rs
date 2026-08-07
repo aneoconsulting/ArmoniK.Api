@@ -1,17 +1,16 @@
-//! Deterministic distinguishing probes for the field-information ratchet:
-//! per-field candidate values that should survive the quotient.
+//! Deterministic distinguishing probes for the field-information ratchet: per-field candidate
+//! values that should survive the quotient.
 
 use std::collections::HashMap;
 
 use armonik::reexports::bytes::Bytes;
 use prost_reflect::{DynamicMessage, FieldDescriptor, Kind, MapKey, MessageDescriptor, Value};
 
-/// Candidate distinguishing values for a field. The field carries
-/// information iff at least one candidate normalizes differently from the
-/// absent field. Enums get one candidate per declared nonzero value plus an
-/// unknown one, because a single value can legitimately coincide with the
-/// type's canonical "absent" form (an explicit ascending sort direction is
-/// indistinguishable from no direction — a descending one is not).
+/// Candidate distinguishing values for a field. The field carries information iff at least one
+/// candidate normalizes differently from the absent field. Enums get one candidate per declared
+/// nonzero value plus an unknown one, because a single value can legitimately coincide with the
+/// type's canonical "absent" form: an explicit ascending sort direction is indistinguishable from
+/// no direction, a descending one is not.
 pub fn candidates(field: &FieldDescriptor, depth: u32) -> Vec<Value> {
     if field.is_map() {
         let Kind::Message(entry) = field.kind() else {
@@ -63,10 +62,9 @@ fn elements(kind: &Kind, depth: u32) -> Vec<Value> {
     }
 }
 
-/// [`rich`], plus one variant per further member of each real oneof (a
-/// member may carry no data — the `Ok` of a status oneof is equivalent to
-/// the whole message being absent — so no single choice can witness the
-/// message's information).
+/// [`rich`], plus one variant per further member of each real oneof. A member may carry no data
+/// (the `Ok` of a status oneof is equivalent to the whole message being absent), so no single
+/// choice can witness the message's information.
 fn rich_variants(desc: &MessageDescriptor, depth: u32) -> Vec<DynamicMessage> {
     let base = rich(desc, depth);
     let mut variants = vec![base.clone()];
@@ -89,10 +87,9 @@ fn rich_variants(desc: &MessageDescriptor, depth: u32) -> Vec<DynamicMessage> {
     variants
 }
 
-/// A message with every field set to a distinguishing value (the first
-/// candidate), and the first member of every real oneof set. Depth-limited:
-/// at zero it degrades to the empty message, whose distinguishing power then
-/// rests on the fields above it.
+/// A message with every field set to a distinguishing value (the first candidate), and the first
+/// member of every real oneof set. Depth-limited: at zero it degrades to the empty message, whose
+/// distinguishing power then rests on the fields above it.
 fn rich(desc: &MessageDescriptor, depth: u32) -> DynamicMessage {
     let mut message = DynamicMessage::new(desc.clone());
     if depth == 0 {

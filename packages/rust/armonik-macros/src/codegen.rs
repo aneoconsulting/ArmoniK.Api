@@ -15,11 +15,10 @@ impl quote::ToTokens for FieldAccess {
     }
 }
 
-/// Runtime path of a descriptor kind, for const-assert patterns. `None` for
-/// the sint/fixed wire kinds the codec does not implement (no ArmoniK field
-/// uses them); the caller turns that into a clear "unsupported wire kind"
-/// compile error rather than referencing a `codec::FieldKind` variant that no
-/// longer exists.
+/// Runtime path of a descriptor kind, for const-assert patterns. `None` for the sint/fixed wire
+/// kinds the codec does not implement (no ArmoniK field uses them); the caller turns that into a
+/// clear "unsupported wire kind" compile error rather than referencing a `codec::FieldKind` variant
+/// that no longer exists.
 fn kind_pattern(kind: &FieldKind) -> Option<TokenStream> {
     let variant = match kind {
         FieldKind::Double => quote!(Double),
@@ -86,8 +85,8 @@ fn describe(checks: &crate::resolve::FieldChecks) -> String {
     }
 }
 
-/// One spanned shape assert per checked field: the field type's `SHAPE`
-/// against the descriptor's `Expect`.
+/// One spanned shape assert per checked field: the field type's `SHAPE` against the descriptor's
+/// `Expect`.
 fn field_asserts_for(
     ty: &syn::Type,
     span: proc_macro2::Span,
@@ -144,9 +143,8 @@ fn field_asserts_for(
     }
 }
 
-/// A spanned compile error for a proto field whose wire kind the codec does
-/// not implement (the sint/fixed kinds — no ArmoniK field uses them, so the
-/// `codec::FieldKind` enum omits them).
+/// A spanned compile error for a proto field whose wire kind the codec does not implement (the
+/// sint/fixed kinds; no ArmoniK field uses them, so `codec::FieldKind` omits them).
 fn unsupported_kind_error(
     kind: &FieldKind,
     proto_path: &str,
@@ -159,9 +157,9 @@ fn unsupported_kind_error(
     quote_spanned! {span=> ::core::compile_error!(#message); }
 }
 
-/// Qualified dispatch prefix for a field's codec: `ProtoField` and
-/// `ProtoAdapter` share their method names, so every fragment is written
-/// once and prefixed with whichever the field encodes through.
+/// Qualified dispatch prefix for a field's codec: `ProtoField` and `ProtoAdapter` share their
+/// method names, so every fragment is written once and prefixed with whichever the field encodes
+/// through.
 fn dispatch(ty: &syn::Type, adapter: Option<&syn::Type>) -> TokenStream {
     match adapter {
         Some(adapter) => quote!(<#adapter as crate::codec::ProtoAdapter<#ty>>),
@@ -169,13 +167,12 @@ fn dispatch(ty: &syn::Type, adapter: Option<&syn::Type>) -> TokenStream {
     }
 }
 
-/// The `(tag, encode statement, length expression)` fragments for one field,
-/// where `value` is the expression holding it. Every field is written the same
-/// way, nothing being conditional on what it holds, so a plain struct field, a
-/// oneof sibling, an active oneof member and one part of an inline variant all
-/// reduce to this. The encode statement writes into a `buf` in scope; the
-/// length is an expression, so a caller can sum it into an accumulator or
-/// return it straight out of a match arm.
+/// The `(tag, encode statement, length expression)` fragments for one field, where `value` is the
+/// expression holding it. Every field is written the same way, nothing being conditional on what it
+/// holds, so a plain struct field, a oneof sibling, an active oneof member and one part of an
+/// inline variant all reduce to this. The encode statement writes into a `buf` in scope; the length
+/// is an expression, so a caller can sum it into an accumulator or return it straight out of a
+/// match arm.
 fn field_fragments(
     dispatch: &TokenStream,
     tag: u32,
@@ -188,10 +185,10 @@ fn field_fragments(
     )
 }
 
-/// Register the type's proto name(s) via `armonik`'s `register!` macro —
-/// the single home of the registry's layout (the `linkme` slice, the feature
-/// gates, and the `_differential` round-trip/`Normalize` hooks). Empty `names`
-/// (generic types, covered through their aliases) register nothing.
+/// Register the type's proto names via `armonik`'s `register!` macro, the single home of the
+/// registry's layout (the `linkme` slice, the feature gates, the `_differential` round-trip and
+/// `Normalize` hooks). Empty `names` (generic types, covered through their aliases) register
+/// nothing.
 pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
     if names.is_empty() {
         return TokenStream::new();
@@ -201,11 +198,10 @@ pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream
     }
 }
 
-/// Register proto messages a flattening construct swallows into its parent
-/// (a `with` adapter's `absorbs`, a transparent chain's middle wrappers, an
-/// inline struct variant's message), so they have no Rust type of their own.
-/// `armonik`'s build script prunes them from the stubs and the differential
-/// harness counts them as covered.
+/// Register proto messages a flattening construct swallows into its parent (a `with` adapter's
+/// `absorbs`, a transparent chain's middle wrappers, an inline struct variant's message), so they
+/// have no Rust type of their own. `armonik`'s build script prunes them from the stubs and the
+/// differential harness counts them as covered.
 pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
     if names.is_empty() {
         return TokenStream::new();
@@ -215,9 +211,9 @@ pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
     }
 }
 
-/// Test-only `Normalize` impl: the type's value-level projection for the
-/// differential harness, stitched from the same constructs that shape the
-/// codec (adapters, presence markers, wrapper chains, oneof delegation).
+/// Test-only `Normalize` impl: the type's value-level projection for the differential harness,
+/// stitched from the same constructs that shape the codec (adapters, presence markers, wrapper
+/// chains, oneof delegation).
 fn normalize_impl(
     impl_generics: &syn::ImplGenerics,
     ident: &syn::Ident,
@@ -238,9 +234,9 @@ fn normalize_impl(
     }
 }
 
-/// The compile-time tripwire: a const-assert that the descriptor fingerprint
-/// the derive was expanded against still matches the schema baked into the
-/// crate. Emitted (in a `const _: () = { ... };` block) by every derive.
+/// The compile-time tripwire: a const-assert that the descriptor fingerprint the derive was
+/// expanded against still matches the schema baked into the crate. Emitted (in a `const _: () = {
+/// ... };` block) by every derive.
 fn tripwire(fingerprint: &proc_macro2::Literal) -> TokenStream {
     quote! {
         assert!(
@@ -382,10 +378,9 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     }
 }
 
-/// The `prost::Message` impl skeleton shared by every emission site (plain
-/// struct, transparent struct, transparent enum, whole-message oneof).
-/// `clear` is always a whole-value reset: every derived type is `Default`,
-/// and the zero-default invariant makes that the proto zero.
+/// The `prost::Message` impl skeleton shared by every emission site (plain struct, transparent
+/// struct, transparent enum, whole-message oneof). `clear` is always a whole-value reset: every
+/// derived type is `Default`, and the zero-default invariant makes that the proto zero.
 fn message_impl(
     impl_generics: &syn::ImplGenerics,
     ident: &syn::Ident,
@@ -422,9 +417,8 @@ fn message_impl(
     }
 }
 
-/// The one-line `Msg` implementation for a message-shaped type: the blanket
-/// `ProtoField` impl in `codec` picks it up, so the type composes as a field
-/// of other derived messages.
+/// The one-line `Msg` implementation for a message-shaped type: the blanket `ProtoField` impl in
+/// `codec` picks it up, so the type composes as a field of other derived messages.
 fn msg_impl(
     impl_generics: &syn::ImplGenerics,
     ident: &syn::Ident,
@@ -439,10 +433,9 @@ fn msg_impl(
     }
 }
 
-/// Codegen for a `#[armonik(transparent)]` struct: a single-field newtype
-/// whose `prost::Message` impl delegates entirely to the field, so it is
-/// wire-identical to the inner message and can stand for a whole RPC message
-/// in the stub signatures. The `Normalize` projection delegates likewise.
+/// Codegen for a `#[armonik(transparent)]` struct: a single-field newtype whose `prost::Message`
+/// impl delegates entirely to the field, so it is wire-identical to the inner message and can stand
+/// for a whole RPC message in the stub signatures. The `Normalize` projection delegates likewise.
 fn transparent_message(
     plan: &MessagePlan,
     impl_generics: &syn::ImplGenerics,
@@ -576,8 +569,8 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
             let registrations = registrations(ident, names);
             let generics = syn::Generics::default();
             let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-            // Zero, absent and present-but-empty carry no information at any
-            // depth of the wrapper chain.
+            // Zero, absent and present-but-empty carry no information at any depth of the wrapper
+            // chain.
             let normalize = normalize_impl(
                 &impl_generics,
                 ident,
@@ -585,8 +578,8 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                 where_clause,
                 &[quote! { crate::differential::wrapper_chain(message); }],
             );
-            // Transparent enums also ARE their outermost wrapper message, so
-            // they can stand for RPC messages in stub signatures.
+            // Transparent enums also ARE their outermost wrapper message, so they can stand for RPC
+            // messages in stub signatures.
             let message = message_impl(
                 &impl_generics,
                 ident,
@@ -600,8 +593,8 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                 },
                 quote! { crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self) },
             );
-            // As a field, the enum is its wrapper message: the blanket
-            // `ProtoField` impl frames the `prost::Message` impl above.
+            // As a field, the enum is its wrapper message: the blanket `ProtoField` impl frames the
+            // `prost::Message` impl above.
             let msg = msg_impl(&impl_generics, ident, &ty_generics, where_clause, names);
             quote! {
                 #registrations
@@ -658,14 +651,12 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
     }
 }
 
-/// Emission for oneof-shaped enums: embedded oneofs get a `ProtoOneof`
-/// impl; whole-message enums frame the same impl with `prost::Message` and
-/// register. With sibling fields (non-oneof fields of a whole-message enum),
-/// every variant — including the "no member set" default — carries all of
-/// them, which keeps the per-field merge stateless and order-independent: a
-/// sibling occurrence merges into the current variant's slot, and a member
-/// occurrence switches variants while carrying the siblings over. A
-/// sibling-free enum is the degenerate case with an empty sibling list.
+/// Emission for oneof-shaped enums: embedded oneofs get a `ProtoOneof` impl, whole-message enums
+/// frame the same impl with `prost::Message` and register. With sibling fields (non-oneof fields of
+/// a whole-message enum), every variant carries all of them, the "no member set" default included,
+/// which keeps the per-field merge stateless and order-independent: a sibling occurrence merges
+/// into the current variant's slot, a member occurrence switches variants while carrying the
+/// siblings over. A sibling-free enum is the degenerate case with an empty sibling list.
 pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     use crate::resolve::OneofVariantShape;
 
@@ -673,11 +664,10 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let proto_name = &plan.proto_name;
     let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
-    // Sibling machinery (empty and inert without siblings): all-variant
-    // patterns binding a subset of the siblings, plus the sibling fields'
-    // fragments. Every variant carries every sibling, so the fragments are
-    // emitted once *around* the member match rather than inside each of its
-    // arms, and the arms only have to deal with the member.
+    // Sibling machinery (empty and inert without siblings): all-variant patterns binding a subset
+    // of the siblings, plus the sibling fields' fragments. Every variant carries every sibling, so
+    // the fragments are emitted once *around* the member match rather than inside each of its arms,
+    // and the arms only have to deal with the member.
     let sib_idents: Vec<&syn::Ident> = plan.siblings.iter().map(|sibling| &sibling.ident).collect();
     let variant_idents: Vec<&syn::Ident> = plan
         .variants
@@ -701,9 +691,9 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
             };
         }
     });
-    // Ascending tags across the whole message: the siblings below the oneof's
-    // tags are written before the member, the ones above it after. (The shapes
-    // the derive accepts never interleave the two.)
+    // Ascending tags across the whole message: the siblings below the oneof's tags are written
+    // before the member, the ones above it after. (The shapes the derive accepts never interleave
+    // the two.)
     let min_member_tag = plan.variants.iter().map(|variant| variant.tag).min();
     let (low, high): (Vec<_>, Vec<_>) = plan
         .siblings
@@ -770,13 +760,12 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                     ));
                 }
 
-                // The active member carries the oneof's presence, so it is
-                // emitted even with a default payload, like every other field.
+                // The active member carries the oneof's presence, so it is emitted even with a
+                // default payload, like every other field.
                 let (_, encode, len) = field_fragments(&d, tag, quote!(payload));
 
-                // Matching binds the member as `payload` and ignores the
-                // siblings; constructing one needs them, so merging a member
-                // takes them along.
+                // Matching binds the member as `payload` and ignores the siblings; constructing one
+                // needs them, so merging a member takes them along.
                 let pattern = match binding {
                     None => quote!(Self::#var(payload)),
                     Some(field) => quote!(Self::#var { #field: payload, .. }),
@@ -814,8 +803,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 });
             }
             OneofVariantShape::MarkerBool => {
-                // Only the member's presence survives (an explicit `false`
-                // reads as set).
+                // Only the member's presence survives (an explicit `false` reads as set).
                 normalize_fragments.push(quote! {
                     crate::differential::bool_marker(message, #tag);
                 });
@@ -866,9 +854,9 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                         quote!(<#ty as ::core::default::Default>::default())
                     })
                     .collect();
-                // The variant's parts are ordinary fields of the inline
-                // message; only its framing is hand-rolled, since the message
-                // is absorbed and has no Rust type to delegate to.
+                // The variant's parts are ordinary fields of the inline message; only its framing
+                // is hand-rolled, since the message is absorbed and has no Rust type to delegate
+                // to.
                 let fragments: Vec<_> = parts
                     .iter()
                     .map(|part| {
@@ -962,9 +950,9 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         });
     }
 
-    // The "no member set" variant has no member to write; its siblings are
-    // written outside the match like every other variant's. `{ .. }` matches
-    // whatever shape the variant has (unit, or carrying the siblings).
+    // The "no member set" variant has no member to write; its siblings are written outside the
+    // match like every other variant's. `{ .. }` matches whatever shape the variant has (unit, or
+    // carrying the siblings).
     let default_encode_arm = plan
         .default_variant
         .as_ref()
@@ -1017,8 +1005,8 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         }
     });
 
-    // Emitted for embedded oneofs too: the containing message's `Normalize`
-    // delegates to it (the members live on the parent's dynamic message).
+    // Emitted for embedded oneofs too: the containing message's `Normalize` delegates to it (the
+    // members live on the parent's dynamic message).
     let normalize = normalize_impl(
         &impl_generics,
         ident,

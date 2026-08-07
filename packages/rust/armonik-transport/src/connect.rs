@@ -56,7 +56,6 @@ pub async fn connect(config: ClientConfig) -> Result<tonic::transport::Channel, 
             .expect("HeaderValue is already validated, conversion is infallible");
     }
 
-    // Build the actual channel from the configuration
     transport_endpoint
         .connect_with_connector(https)
         .await
@@ -75,52 +74,45 @@ pub async fn https_connector(
 ) -> Result<HttpsConnector<HttpConnector>, ConnectionError> {
     let endpoint = config.endpoint;
 
-    // Get the default crypto provider or fallback to the ring crypto provider
     let crypto_provider = rustls::crypto::CryptoProvider::get_default()
         .cloned()
         .unwrap_or_else(|| Arc::new(rustls::crypto::ring::default_provider()));
 
-    // Configure TLS with sane protocol defaults
     let tls_config = rustls::ClientConfig::builder_with_provider(crypto_provider)
         .with_safe_default_protocol_versions()
         .with_context(|_| TlsSnafu {
             endpoint: endpoint.clone(),
         })?;
 
-    // Configure the server verification
+    // Server verification: no verification at all, a pinned CA, or the system trust store.
     let tls_config = if config.allow_unsafe_connection {
-        // Do not verify the server
         tls_config
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(crate::utils::InsecureCertVerifier))
     } else if let Some(cacert) = config.cacert {
-        // Verify that the server certificate is signed with a specific CA cert
         let mut root_cert_store = rustls::RootCertStore::empty();
         root_cert_store.add(cacert).with_context(|_| TlsSnafu {
             endpoint: endpoint.clone(),
         })?;
         tls_config.with_root_certificates(root_cert_store)
     } else {
-        // Verify the server certificate using the system CAs
         tls_config
             .with_native_roots()
             .with_context(|_| IoSnafu {})?
     };
 
-    // Configure client identity for mTLS
+    // A client identity turns this into mTLS.
     let tls_config = if let Some((cert, key)) = config.identity {
-        // Use the the specified client certificate and key for the client authentication
         tls_config
             .with_client_auth_cert(vec![cert], key)
             .with_context(|_| TlsSnafu {
                 endpoint: endpoint.clone(),
             })?
     } else {
-        // No mTLS
         tls_config.with_no_client_auth()
     };
 
-    // Configure the connector to use http or https depending on the URI scheme
+    // `https_or_http` picks the scheme off the URI.
     let mut https = hyper_rustls::HttpsConnectorBuilder::new()
         .with_tls_config(tls_config)
         .https_or_http();
@@ -177,8 +169,8 @@ fn override_server_name(target: &Uri) -> Result<ServerName<'static>, ConnectionE
 /// Everything that can go wrong between a [`ClientConfig`] and a usable channel.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
-// snafu keeps its generated context selectors module-private by default. Public so that a caller in
-// another crate can build one of these errors with the location captured at its own call site.
+// snafu keeps its context selectors module-private by default. Public so a caller in another crate
+// can build one of these errors with the location captured at its own call site.
 #[snafu(visibility(pub))]
 pub enum ConnectionError {
     #[snafu(display("Could not read the client config [{location}]"))]

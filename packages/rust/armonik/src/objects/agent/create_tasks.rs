@@ -8,10 +8,9 @@ pub struct InitRequest {
     pub task_options: Option<TaskOptions>,
 }
 
-/// The `CreateTaskRequest` message: one oneof (tags 1-3) plus a sibling
-/// `communication_token = 4`, carried by every variant — including
-/// `Invalid`, the "no member set" case, so a token is preserved in any wire
-/// field order.
+/// The `CreateTaskRequest` message: one oneof (tags 1-3) plus a sibling `communication_token = 4`,
+/// carried by every variant, `Invalid` (the "no member set" case) included, so a token survives any
+/// wire field order.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -64,10 +63,9 @@ impl Default for Status {
     }
 }
 
-/// The `CreateTaskReply` message: one oneof (tags 1-2, with the
-/// `CreationStatusList` wrapper flattened through `VecWrapper`) plus a
-/// sibling `communication_token = 4` carried by both variants. There is no
-/// "no member set" variant: an absent oneof decodes to the `Error` default.
+/// The `CreateTaskReply` message: one oneof (tags 1-2, with the `CreationStatusList` wrapper
+/// flattened through `VecWrapper`) plus a sibling `communication_token = 4` carried by both
+/// variants. There is no "no member set" variant: an absent oneof decodes to the `Error` default.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -104,8 +102,8 @@ mod tests {
     use super::{Request, Response, Status};
     use crate::objects::{DataChunk, InitTaskRequest, TaskRequestHeader};
 
-    // prost-derived ground truth, mirroring the proto definitions (the
-    // generated types no longer exist for these extern'd messages).
+    // prost-derived ground truth, mirroring the proto definitions (the generated types no longer
+    // exist for these extern'd messages).
 
     #[derive(Clone, PartialEq, Message)]
     struct RefRequest {
@@ -240,9 +238,8 @@ mod tests {
 
     #[test]
     fn request_token_without_member_keeps_token() {
-        // `Invalid` carries the sibling token like every variant, so a
-        // memberless message is lossless (the historical conversion used to
-        // drop the token here).
+        // `Invalid` carries the sibling token like every variant, so a memberless message is
+        // lossless (the historical conversion used to drop the token here).
         let mut buf = Vec::new();
         prost::encoding::string::encode(4, &"lonely".to_owned(), &mut buf);
         let ours = Request::decode(buf.as_slice()).unwrap();

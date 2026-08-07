@@ -1,7 +1,8 @@
 //! A gRPC service that answers slowly, and a raw client to call it with.
 //!
 //! Hand-rolled rather than generated: this crate has no protos and deliberately no `protoc` in its
-//! build, so the codec moves opaque bytes and the service is one method that sleeps before replying.
+//! build, so the codec moves opaque bytes and the service is one method that sleeps before
+//! replying.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -23,7 +24,8 @@ pub const METHOD_PATH: &str = "/armonik_transport.test.Slow/Call";
 /// empty one.
 pub const REPLY: &[u8] = b"served";
 
-/// A codec whose wire representation *is* the message: no framing beyond what gRPC already adds.
+/// A codec whose wire representation is the message itself: no framing beyond what gRPC already
+/// adds.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct BytesCodec;
 
@@ -79,8 +81,8 @@ impl NamedService for SlowService {
     const NAME: &'static str = "armonik_transport.test.Slow";
 }
 
-/// The gRPC handler. `tonic::server::UnaryService` is a blanket implementation over a `tower` service
-/// of the right shape rather than a trait to implement, so this is where the handler goes.
+/// The gRPC handler. `tonic::server::UnaryService` is a blanket impl over a `tower` service of the
+/// right shape rather than a trait to implement, so this is where the handler goes.
 impl Service<Request<Bytes>> for SlowService {
     type Response = Response<Bytes>;
     type Error = Status;
@@ -150,8 +152,8 @@ pub async fn call(
     .expect("a valid method path");
 
     let mut grpc = armonik_transport::reexports::tonic::client::Grpc::new(channel);
-    // Generated clients always do this first, and `Grpc::unary` does not do it implicitly: skipping it
-    // trips `tower::Buffer`'s "send_item called without first calling poll_reserve" assertion.
+    // Generated clients always do this first, and `Grpc::unary` does not do it implicitly: skipping
+    // it trips `tower::Buffer`'s "send_item called without first calling poll_reserve" assertion.
     grpc.ready()
         .await
         .map_err(|error| Status::unknown(format!("the channel was not ready: {error}")))?;
@@ -164,9 +166,9 @@ pub async fn call(
 
 /// Build a [`ClientConfig`] from the string form, applying `set` to the arguments first.
 ///
-/// Going through `ClientConfigArgs` keeps the parsing inside what is under test. It is a helper at all
-/// because both structs are `#[non_exhaustive]`: a test outside the crate cannot write either as a
-/// struct expression, and `..Default::default()` is the form that is forbidden.
+/// Going through `ClientConfigArgs` keeps the parsing inside what is under test. It is a helper at
+/// all because both structs are `#[non_exhaustive]`: a test outside the crate cannot write either
+/// as a struct expression, and `..Default::default()` is the form that is forbidden.
 #[allow(clippy::field_reassign_with_default)]
 pub fn config(
     endpoint: &str,

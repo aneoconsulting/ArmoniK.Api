@@ -1,10 +1,9 @@
 //! Parsing of `#[armonik(...)]` helper attributes.
 //!
-//! The grammar is parsed by hand (rather than through `parse_nested_meta`)
-//! because `enum` is a Rust keyword and must still be accepted as a key.
-//! Also hosts the multi-error accumulator ([`Errors`]) the resolvers fill.
-//! The user-facing documentation of the grammar lives on the two derive
-//! macros in `lib.rs` — keep it in sync.
+//! Parsed by hand rather than through `parse_nested_meta`, because `enum` is a Rust keyword and
+//! must still be accepted as a key. Also hosts the multi-error accumulator ([`Errors`]) the
+//! resolvers fill. The user-facing grammar documentation lives on the two macros in `lib.rs`; keep
+//! it in sync.
 
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
@@ -12,34 +11,29 @@ use syn::{Attribute, LitInt, LitStr, Token};
 
 /// A single `key` or `key = value` entry inside `#[armonik(...)]`.
 pub(crate) enum AttrItem {
-    /// `message = "full.proto.Name"` — proto message backing the type
-    /// (repeatable for unified types) or, on an enum with `transparent`,
-    /// the single-field wrapper message(s).
+    /// `message = "full.proto.Name"`: proto message backing the type (repeatable for unified types)
+    /// or, on an enum with `transparent`, the single-field wrapper messages.
     Message(LitStr),
-    /// `enum = "full.proto.Name"` — proto enum backing the type.
+    /// `enum = "full.proto.Name"`: proto enum backing the type.
     Enum(LitStr),
-    /// `oneof = "name"` — the type is the flattened oneof of that name.
+    /// `oneof = "name"`: the type is the flattened oneof of that name.
     Oneof(LitStr),
-    /// `generic` — no descriptor validation; fields carry explicit
-    /// `tag` attributes.
+    /// `generic`: no descriptor validation; fields carry explicit `tag`s.
     Generic,
-    /// `transparent` — single-field wrapper message flattened into its field.
+    /// `transparent`: single-field wrapper message flattened into its field.
     Transparent,
-    /// `rename = "proto_name"` — proto field/value name differs from the
-    /// Rust name.
+    /// `rename = "proto_name"`: the proto field or value name differs from the Rust name.
     Rename(LitStr),
-    /// `tag = N` — explicit field tag, cross-checked against the descriptor
-    /// unless in `generic` mode where it is authoritative.
+    /// `tag = N`: explicit field tag, cross-checked against the descriptor except in `generic`
+    /// mode, where it is authoritative.
     Tag(LitInt),
-    /// `with = "path::to::Adapter"` — custom codec for a non-standard
-    /// representation.
+    /// `with = "path::to::Adapter"`: custom codec for a non-standard representation.
     With(LitStr),
-    /// `present` — marker oneof variant selected by field presence.
+    /// `present`: marker oneof variant selected by field presence.
     Present,
-    /// `absorbs = "full.proto.Name"` — on a field/variant carrying a `with`
-    /// adapter: the proto message the adapter flattens away, which therefore
-    /// has no Rust type of its own. Harvested so the build script prunes it
-    /// and the differential harness counts it as covered.
+    /// `absorbs = "full.proto.Name"`, on a field or variant carrying a `with` adapter: the proto
+    /// message the adapter flattens away, which therefore has no Rust type of its own. Harvested so
+    /// the build script prunes it and the differential harness counts it as covered.
     Absorbs(LitStr),
 }
 
@@ -48,8 +42,8 @@ pub(crate) struct AttrEntry {
     pub(crate) item: AttrItem,
 }
 
-/// Parse the `= <value>` tail shared by every `key = value` entry; the value
-/// type (`LitStr`/`LitInt`) is inferred from the `AttrItem` constructor.
+/// Parse the `= <value>` tail shared by every `key = value` entry; the value type
+/// (`LitStr`/`LitInt`) is inferred from the `AttrItem` constructor.
 fn eq_then<T: Parse>(input: ParseStream) -> syn::Result<T> {
     input.parse::<Token![=]>()?;
     input.parse()
@@ -114,9 +108,9 @@ pub(crate) fn parse(attrs: &[Attribute]) -> syn::Result<Vec<AttrEntry>> {
     Ok(entries)
 }
 
-/// Span of every key token of every `#[armonik(...)]` attribute in `attrs`,
-/// for the hover-documentation anchors (see `doc_anchors` in lib.rs).
-/// Malformed attributes are skipped — the real parse reports them.
+/// Span of every key token of every `#[armonik(...)]` attribute in `attrs`, for the
+/// hover-documentation anchors (see `doc_anchors` in lib.rs). Malformed attributes are skipped; the
+/// real parse reports them.
 pub(crate) fn key_spans(attrs: &[Attribute]) -> Vec<Span> {
     attrs
         .iter()

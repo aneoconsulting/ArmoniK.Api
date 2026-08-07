@@ -1,31 +1,28 @@
 //! [`rpc_tests!`]: everything one RPC needs, declared once.
 //!
-//! Every suite is a single `rpc_tests!` block. From one case per RPC it emits
-//! the fake server, and two pairs of tests:
+//! Every suite is a single `rpc_tests!` block. From one case per RPC it emits the fake server, and
+//! two pairs of tests:
 //!
-//! * `<rpc>::mock::{call, convenience}` drives the RPC against
-//!   `ArmoniK.Api.Mock`, which CI starts (see `scripts/mock_test.sh`) and points
-//!   `GrpcClient__Endpoint` at, once per TLS configuration. The mock counts
-//!   calls per service and method and serves the tally at `/calls.json`, so this
-//!   pair checks the call reached the RPC it was aimed at, over a real
-//!   connection. Nothing is asserted about the response: the mock answers with
-//!   stub data.
-//! * `<rpc>::in_process::{call, convenience}` drives it against the generated
-//!   fake over an in-memory channel, and asserts what comes back.
+//! * `<rpc>::mock::{call, convenience}` drives the RPC against `ArmoniK.Api.Mock`, which CI starts
+//!   (see `scripts/mock_test.sh`) and points `GrpcClient__Endpoint` at, once per TLS configuration.
+//!   The mock counts calls per service and method and serves the tally at `/calls.json`, so this
+//!   pair checks the call reached the RPC it was aimed at, over a real connection. Nothing is
+//!   asserted about the response: the mock answers with stub data.
+//! * `<rpc>::in_process::{call, convenience}` drives it against the generated fake over an
+//!   in-memory channel, and asserts what comes back.
 //!
-//! In both pairs, `call` goes through `ServiceClient::call` (or
-//! `call_streaming`) with a request message built by hand, and `convenience`
-//! goes through the method `service!` derives from that request's fields.
+//! In both pairs, `call` goes through `ServiceClient::call` (or `call_streaming`) with a request
+//! message built by hand, and `convenience` goes through the method `service!` derives from that
+//! request's fields.
 //!
-//! These suites compile against `armonik` from the outside, so they also stand
-//! as the proof that the public API is usable: everything they touch has to be
-//! `pub`, which no in-crate test could establish.
+//! These suites compile against `armonik` from the outside, so they also stand as the proof that
+//! the public API is usable: everything they touch has to be `pub`, which no in-crate test could
+//! establish.
 
 use std::collections::HashMap;
 
-/// Honour the `wait`/`failure` knobs the fake carries, then produce the
-/// response. Sleeping first is what the cancellation tests hang their timeouts
-/// on.
+/// Honour the `wait`/`failure` knobs the fake carries, then produce the response. Sleeping first is
+/// what the cancellation tests hang their timeouts on.
 #[allow(unused)]
 pub(crate) async fn stub<Response>(
     duration: Option<tokio::time::Duration>,
@@ -43,10 +40,10 @@ pub(crate) async fn stub<Response>(
     }
 }
 
-/// Apply a `respond:` clause. A closure that is called directly gets no expected
-/// signature, so its parameter type cannot be inferred; going through a generic
-/// `FnOnce` bound is what lets the clauses be written with no type annotation on
-/// them. Same for [`project`], [`check`] and [`check_async`].
+/// Apply a `respond:` clause. A closure that is called directly gets no expected signature, so its
+/// parameter type cannot be inferred; going through a generic `FnOnce` bound is what lets the
+/// clauses be written with no type annotation on them. Same for [`project`], [`check`] and
+/// [`check_async`].
 #[allow(unused)]
 pub(crate) fn respond<Request, Response>(
     request: Request,
@@ -79,8 +76,8 @@ pub(crate) async fn check_async<Value, Fut: std::future::Future<Output = ()>>(
     check(value).await
 }
 
-/// Drive a server-streaming response to its end, so the call completes instead
-/// of being dropped half-read.
+/// Drive a server-streaming response to its end, so the call completes instead of being dropped
+/// half-read.
 #[allow(unused)]
 pub(crate) async fn drain<S, T>(
     outcome: Result<S, armonik::client::RequestError>,
@@ -98,8 +95,8 @@ pub(crate) fn no_error(_: &tonic::Status) -> bool {
     false
 }
 
-/// The counterpart of [`drain`] for a response that is already a value, so that
-/// the mock pair can settle either kind through one call.
+/// The counterpart of [`drain`] for a response that is already a value, so that the mock pair can
+/// settle either kind through one call.
 #[allow(unused)]
 pub(crate) async fn keep<T>(
     outcome: Result<T, armonik::client::RequestError>,
@@ -107,9 +104,9 @@ pub(crate) async fn keep<T>(
     outcome
 }
 
-/// Accept the outcome of one call against the mock. A few RPCs answer its stub
-/// data with a gRPC failure, which still counts as the call having landed;
-/// `accepted` says which failure that RPC may give, and defaults to none.
+/// Accept the outcome of one call against the mock. A few RPCs answer its stub data with a gRPC
+/// failure, which still counts as the call having landed; `accepted` says which failure that RPC
+/// may give, and defaults to none.
 #[allow(unused)]
 pub(crate) fn accept<T>(
     outcome: Result<T, armonik::client::RequestError>,
@@ -124,10 +121,10 @@ pub(crate) fn accept<T>(
     }
 }
 
-/// The method name `/calls.json` files an RPC under, taken from the `Rpc`
-/// identity `service!` validates against the descriptor, so a test cannot end up
-/// watching the wrong counter. It reads the name off a request *value* rather
-/// than a type parameter, which is what lets a case spell the request out once.
+/// The method name `/calls.json` files an RPC under, taken from the `Rpc` identity `service!`
+/// validates against the descriptor, so a test cannot end up watching the wrong counter. It reads
+/// the name off a request *value* rather than a type parameter, which is what lets a case spell the
+/// request out once.
 #[allow(unused)]
 pub(crate) fn method_of<R: armonik::rpc::Rpc>(_: &R) -> &'static str {
     R::METHOD
@@ -143,14 +140,14 @@ where
     <S::Item as armonik::rpc::Rpc>::METHOD
 }
 
-/// The mock's tally of calls to one RPC. Driven through the same connector
-/// `armonik-transport` builds for the gRPC channel, so it follows the endpoint
-/// and TLS configuration the suite is running under.
+/// The mock's tally of calls to one RPC. Driven through the same connector `armonik-transport`
+/// builds for the gRPC channel, so it follows the endpoint and TLS configuration the suite is
+/// running under.
 async fn nb_requests(service: &str, method: &str) -> usize {
     let mut config = armonik::ClientConfig::from_env().expect("client configuration");
 
-    // The mock serves `/calls.json` over plain HTTP on its own port in some
-    // configurations, and alongside gRPC in others.
+    // The mock serves `/calls.json` over plain HTTP on its own port in some configurations, and
+    // alongside gRPC in others.
     match std::env::var("Http__Endpoint") {
         Ok(value) if !value.is_empty() => {
             config.endpoint = hyper::Uri::try_from(value).expect("HTTP endpoint");
@@ -181,8 +178,8 @@ async fn nb_requests(service: &str, method: &str) -> usize {
         .expect("Invalid JSON response")[service][method]
 }
 
-/// The `/calls.json` tally for one RPC, read before the call so that
-/// [`Counter::assert_one_call`] can check the delta afterwards.
+/// The `/calls.json` tally for one RPC, read before the call so that [`Counter::assert_one_call`]
+/// can check the delta afterwards.
 #[allow(unused)]
 pub(crate) struct Counter {
     service: &'static str,
@@ -245,20 +242,20 @@ impl Counter {
 /// The header says how to reach the service: the `Client` accessor, the server
 /// trait with its `Router` builder, and the name the mock files its counters
 /// under. That last is the name of the C# class implementing it, so not always
-/// the proto service name (`Authentication`, `HealthChecks`); `mock: none;` drops
-/// the mock pair for a service the mock does not implement. It doubles as the
-/// `serial_test` group, since the two halves of a pair share one counter and
+/// the proto service name (`Authentication`, `HealthChecks`), and `mock: none;`
+/// drops the mock pair for a service the mock does not implement. It doubles as
+/// the `serial_test` group, since the two halves of a pair share one counter and
 /// would race.
 ///
-/// Then one `rpc` line per RPC, the keyword after it being the call kind (`unary`,
-/// `client_stream` for a stream of request messages, `server_stream` for a
-/// stream of responses). Clauses, in this order:
+/// Then one `rpc` line per RPC, the keyword after it being the call kind
+/// (`unary`, `client_stream` for a stream of request messages, `server_stream`
+/// for a stream of responses). Clauses, in this order:
 ///
 /// * `request:` is driven through `call`, or `call_streaming` under
 ///   `client_stream`. Written as a struct literal, which is also where the macro
 ///   reads the request type from to emit the handler signature.
-/// * `respond:` is the fake's answer, and generates the handler. Omit it when the
-///   handler cannot be a plain function of the request, and hand-write that
+/// * `respond:` is the fake's answer, and generates the handler. Omit it when
+///   the handler cannot be a plain function of the request, and hand-write that
 ///   method in the `manual { .. }` block instead; the streaming kinds always
 ///   need this.
 /// * `convenience:` is the derived method and the arguments to call it with.
@@ -282,8 +279,8 @@ macro_rules! rpc_tests {
         $( rpc $kind:ident $name:ident { $($case:tt)* } )*
         $( manual { $($manual:item)* } )?
     ) => {
-        /// The fake this suite's in-process pairs run against, generated from the
-        /// `respond:` clauses below.
+        /// The fake this suite's in-process pairs run against, generated from the `respond:`
+        /// clauses below.
         #[derive(Debug, Clone, Default)]
         struct Service {
             #[allow(dead_code)]
@@ -311,8 +308,8 @@ macro_rules! rpc_tests {
         )*
     };
 
-    // ---- the fake's handler, for a `respond:` that is a plain function of the
-    // ---- request. Anything else is hand-written in `manual { .. }`.
+    // ---- the fake's handler, for a `respond:` that is a plain function of the ---- request.
+    // Anything else is hand-written in `manual { .. }`.
 
     (@handler unary $name:ident {
         request: $($request_ty:ident)::+ { $($request_fields:tt)* },
@@ -402,8 +399,8 @@ macro_rules! rpc_tests {
                     .call($($request_ty)::+ { $($request_fields)* })
                     .await
                     .unwrap();
-                // Boxed, so that the check sees the very type the convenience
-                // method returns rather than an adaptor wrapped around it.
+                // Boxed, so that the check sees the very type the convenience method returns rather
+                // than an adaptor wrapped around it.
                 let stream = futures::StreamExt::boxed(futures::StreamExt::map(stream, |item| {
                     Result::map(item, |response| {
                         $( let response = crate::common::project(response, $project); )?
@@ -484,8 +481,8 @@ macro_rules! rpc_tests {
 
             /// The failure this RPC may answer the mock's stub data with.
             fn accepted() -> fn(&tonic::Status) -> bool {
-                // Defaulted, then overwritten when the case names a failure; one
-                // of the two writes is always dead.
+                // Defaulted, then overwritten when the case names a failure; one of the two writes
+                // is always dead.
                 #[allow(unused_mut, unused_assignments)]
                 let mut accepted: fn(&tonic::Status) -> bool = crate::common::no_error;
                 $( accepted = $mock_error; )?

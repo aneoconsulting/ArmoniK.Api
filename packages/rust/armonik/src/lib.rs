@@ -1,14 +1,12 @@
 //! Rust bindings for the ArmoniK API
 //!
-//! Ergonomic Rust structs and enums that implement [`prost::Message`]
-//! directly against the ArmoniK protobuf schema — no generated intermediate
-//! representation, no conversion layer — plus the gRPC clients and servers
-//! speaking them natively.
+//! Ergonomic Rust structs and enums implementing [`prost::Message`] directly against the ArmoniK
+//! protobuf schema, with no generated intermediate representation and no conversion layer, plus the
+//! gRPC clients and servers speaking them natively.
 
-// Staleness anchor for the wire-representation derives and the `service!`
-// invocations: `include!` puts the generated file in rustc's dep-info, so any
-// descriptor change invalidates the crate; every expansion const-asserts
-// against this fingerprint.
+// Staleness anchor for the wire-representation derives and the `service!` invocations: `include!`
+// puts the generated file in rustc's dep-info, so any descriptor change invalidates the crate;
+// every expansion const-asserts against this fingerprint.
 mod __schema {
     include!(concat!(env!("OUT_DIR"), "/schema_meta.rs"));
 }
@@ -16,16 +14,15 @@ mod __schema {
 pub(crate) mod codec;
 pub(crate) mod utils;
 
-/// Register a type's proto name(s) into [`wire::REGISTRY`]. The single place
-/// the registration shape (the `linkme` slice, the feature gates, the `Diff`
-/// hooks) is written — the derives and `service!` emit `crate::register!(...)`
-/// and the two hand-written impls call it directly, so none restates the
+/// Register a type's proto names into [`wire::REGISTRY`]. The one place the registration shape is
+/// written (the `linkme` slice, the feature gates, the `Diff` hooks): the macros emit
+/// `crate::register!(...)` and the two hand-written impls call it directly, so none restates the
 /// slice's layout.
 ///
-/// - `message: Ty, "proto.Name", ...` — a Rust type implementing the message(s);
-/// - `absorbed: "proto.Name", ...` — a message flattened into a parent (no type);
-/// - `unexposed: "proto.Name", ...` — a message of an RPC the crate does not
-///   expose (no type either), emitted by `service!` from `unexposed(...)`.
+/// - `message: Ty, "proto.Name", ...`: a Rust type implementing the messages;
+/// - `absorbed: "proto.Name", ...`: a message flattened into a parent, no type;
+/// - `unexposed: "proto.Name", ...`: a message of an RPC the crate does not expose, no type either,
+///   emitted by `service!` from `unexposed(...)`.
 macro_rules! register {
     (message: $ty:ident, $($proto:literal),+ $(,)?) => {
         $($crate::register!(@type $proto, $ty);)+
@@ -50,8 +47,7 @@ macro_rules! register {
         };
     };
 
-    // One registration for a real Rust type, with the harness
-    // round-trip/projection hooks.
+    // One registration for a real Rust type, with the harness round-trip/projection hooks.
     (@type $proto:literal, $ty:ident) => {
         #[cfg(feature = "_differential")]
         const _: () = {
@@ -74,13 +70,13 @@ macro_rules! register {
 }
 pub(crate) use register;
 
-// The object tree carries the ergonomic types; they are re-exported flat
-// below, the only supported surface.
+// The object tree carries the ergonomic types; they are re-exported flat below, the only supported
+// surface.
 mod objects;
 pub use objects::*;
 
-// The differential harness (test-only). Enabled only through the self
-// dev-dependency, so tests always see it and downstream builds never do.
+// The differential harness (test-only). Enabled only through the self dev-dependency, so tests
+// always see it and downstream builds never do.
 #[cfg(feature = "_differential")]
 #[doc(hidden)]
 pub mod differential;
@@ -103,13 +99,12 @@ pub use armonik_transport as transport;
 #[cfg(feature = "_gen-client")]
 pub use client::{Client, ClientConfig};
 
-/// The crate's (transitive) dependencies, re-exported so consumers can name
-/// them at the exact versions armonik was built with — whether or not the
-/// crate itself still uses them internally.
+/// The crate's transitive dependencies, re-exported so consumers can name them at the exact
+/// versions armonik was built with, whether or not the crate itself still uses them internally.
 pub mod reexports {
     pub use bytes;
-    // Through `armonik-transport`, which owns these now, so `armonik::reexports::rustls` cannot differ
-    // from the `rustls` the connection was built with.
+    // Through `armonik-transport`, which owns these now, so `armonik::reexports::rustls` cannot
+    // differ from the `rustls` the connection was built with.
     #[cfg(feature = "_gen-client")]
     pub use armonik_transport::reexports::{hyper, hyper_rustls, rustls};
     pub use prost;
