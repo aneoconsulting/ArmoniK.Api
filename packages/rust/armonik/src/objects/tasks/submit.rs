@@ -1,7 +1,7 @@
 use super::super::TaskOptions;
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.SubmitTasksRequest.TaskCreation")]
 pub struct RequestItem {
@@ -12,7 +12,7 @@ pub struct RequestItem {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.SubmitTasksRequest")]
 pub struct Request {

@@ -1,7 +1,7 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions};
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest")]
 pub struct InitRequest {
@@ -12,7 +12,7 @@ pub struct InitRequest {
 /// carried by every variant, `Invalid` (the "no member set" case) included, so a token survives any
 /// wire field order.
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest")]
 pub enum Request {

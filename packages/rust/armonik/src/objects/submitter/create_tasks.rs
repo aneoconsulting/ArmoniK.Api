@@ -1,7 +1,7 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions, TaskRequest};
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateSmallTaskRequest")]
 pub struct SmallRequest {
@@ -11,7 +11,7 @@ pub struct SmallRequest {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest")]
 pub struct InitRequest {
@@ -20,7 +20,7 @@ pub struct InitRequest {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest")]
 pub enum LargeRequest {
