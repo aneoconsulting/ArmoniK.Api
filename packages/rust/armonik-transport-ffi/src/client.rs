@@ -489,26 +489,31 @@ mod tests {
         );
     }
 
-    #[test]
-    #[cfg_attr(miri, ignore)]
-    fn a_tls_failure_crosses_flattened_rather_than_as_its_outer_sentence() {
-        // A certificate and a key that belong to different identities. `rustls` refuses that pair
-        // while the client configuration is assembled, so it is the one TLS failure that happens
-        // before a socket is opened - and the one that shows what the flattening is for: the outer
-        // error says a TLS connection could not be established, and only its cause says why.
+    /// A configuration whose certificate and key belong to different identities.
+    ///
+    /// `rustls` refuses that pair while the client configuration is assembled, which makes it the
+    /// one TLS failure reachable before a socket is opened.
+    fn mismatched_identity(dir: &FixtureDir) -> String {
         let identity = rcgen::generate_simple_self_signed(["test".to_owned()])
             .expect("a self-signed certificate");
         let stranger = rcgen::KeyPair::generate().expect("a second key");
-
-        let dir = FixtureDir::new("mismatched-identity");
         let cert = dir.write("cert.pem", identity.cert.pem());
         let key = dir.write("key.pem", stranger.serialize_pem());
 
-        let created = create(&format!(
+        format!(
             r#"{{"Endpoint": "https://localhost:443/", "CertPem": "{cert}", "KeyPem": "{key}"}}"#
-        ));
+        )
+    }
 
-        assert_eq!(created.status, ak_status::AK_CONNECTION_FAILED.code());
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn a_tls_failure_crosses_flattened_rather_than_as_its_outer_sentence() {
+        // What the flattening is for: the outer error says a TLS connection could not be
+        // established, and only its cause says why.
+        let dir = FixtureDir::new("mismatched-identity");
+        let created = create(&mismatched_identity(&dir));
+
+        assert_eq!(created.status, ak_status::AK_INVALID_CONFIG.code());
         assert!(
             created
                 .message
@@ -522,6 +527,39 @@ mod tests {
              the flattening: {}",
             created.message
         );
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn no_failure_here_is_reported_as_a_connection_failure() {
+        // The invariant behind the code each test above asserts, stated once so that a path added
+        // later cannot quietly break it. This entry point opens no connection, so it has none to
+        // report failing: `AK_CONNECTION_FAILED` would send its reader to check network
+        // reachability over a mistake in a document or a file.
+        let dir = FixtureDir::new("no-connection-failure");
+        for document in [
+            String::from("not json at all"),
+            String::from("{}"),
+            String::from(r#"{"Endpoint": "not a uri"}"#),
+            String::from(r#"{"Endpoint": "http://127.0.0.1:1/", "RateLimit": "0/1s"}"#),
+            String::from(r#"{"Endpoint": "https://localhost:443/", "CaCert": "no/such/file.pem"}"#),
+            mismatched_identity(&dir),
+        ] {
+            let created = create(&document);
+
+            assert_ne!(
+                created.status,
+                ak_status::AK_CONNECTION_FAILED.code(),
+                "`{document}` was refused as a connection failure: {}",
+                created.message
+            );
+            assert_eq!(
+                created.status,
+                ak_status::AK_INVALID_CONFIG.code(),
+                "`{document}`: {}",
+                created.message
+            );
+        }
     }
 
     #[test]

@@ -115,7 +115,15 @@ pub(crate) enum FfiError {
     /// The configuration blob was not JSON, or named an option the transport refused.
     InvalidJson(String),
     Config(armonik_transport::ConfigError),
-    Connection(armonik_transport::ConnectionError),
+    /// The options were read, and the connector they describe could not be assembled: a CA file
+    /// that is not a certificate, a client certificate and key that do not belong together.
+    ///
+    /// A configuration failure, not a connection failure. The two are told apart by type rather than
+    /// by inspection: this one is [`armonik_transport::ConnectionError`], which comes from
+    /// `https_connector` alone, and that function opens no socket. A failure that does reach the
+    /// network arrives as the HTTP client's own error type and is reported as
+    /// [`ak_status::AK_CONNECTION_FAILED`].
+    Connector(armonik_transport::ConnectionError),
     InvalidHandle,
     InvalidState(&'static str),
 }
@@ -255,7 +263,7 @@ impl fmt::Display for FfiError {
                 write!(f, "invalid configuration: {}", strip_location(source))
             }
             Self::Config(source) => write!(f, "{}", describe(source)),
-            Self::Connection(source) => write!(f, "{}", describe(source)),
+            Self::Connector(source) => write!(f, "{}", describe(source)),
             Self::InvalidHandle => write!(f, "the handle is invalid or has already been released"),
             Self::InvalidState(reason) => write!(f, "{reason}"),
         }
@@ -268,8 +276,14 @@ impl FfiError {
         match self {
             Self::NullArgument(_) => ak_status::AK_NULL_ARGUMENT.code(),
             Self::InvalidUtf8 => ak_status::AK_INVALID_UTF8.code(),
-            Self::InvalidJson(_) | Self::Config(_) => ak_status::AK_INVALID_CONFIG.code(),
-            Self::Connection(_) => ak_status::AK_CONNECTION_FAILED.code(),
+            // The connector is assembled out of the options and opens nothing, so a failure to
+            // assemble one is a failure of the configuration. Reporting it as a connection failure
+            // would contradict the entry point that raises it, which promises to open no connection,
+            // and would send whoever reads it to check network reachability instead of their
+            // certificate files.
+            Self::InvalidJson(_) | Self::Config(_) | Self::Connector(_) => {
+                ak_status::AK_INVALID_CONFIG.code()
+            }
             Self::InvalidHandle => ak_status::AK_INVALID_HANDLE.code(),
             Self::InvalidState(_) => ak_status::AK_INVALID_STATE.code(),
         }
@@ -294,7 +308,7 @@ impl From<armonik_transport::ConfigError> for FfiError {
 
 impl From<armonik_transport::ConnectionError> for FfiError {
     fn from(source: armonik_transport::ConnectionError) -> Self {
-        Self::Connection(source)
+        Self::Connector(source)
     }
 }
 
