@@ -30,10 +30,11 @@ pub type Connector = HttpsConnector<ProxyConnector<HttpConnector>>;
 /// the server certificate is verified against when `OverrideTargetName` moves it off the endpoint.
 /// Taken rather than resolved here, so a caller that needs it for the engine it builds on top
 /// resolves it once.
-pub async fn https_connector(
-    config: HttpConfig,
-    origin: Uri,
-) -> Result<Connector, ConnectionError> {
+///
+/// Synchronous: this assembles a connector out of certificates the configuration already loaded,
+/// and opens nothing. That matters to a caller with no runtime, and to one already inside the only
+/// runtime it has, where blocking on a future would panic rather than wait.
+pub fn https_connector(config: HttpConfig, origin: Uri) -> Result<Connector, ConnectionError> {
     let endpoint = config.endpoint;
 
     // Get the default crypto provider or fallback to the ring crypto provider

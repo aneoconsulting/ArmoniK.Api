@@ -127,7 +127,6 @@ impl Client<tonic::transport::Channel> {
 
         let origin = hyper::Uri::try_from(&config).expect("An addressable endpoint");
         let https = armonik_transport::https_connector(config, origin)
-            .await
             .expect("Build connection information");
 
         let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(https);

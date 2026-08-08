@@ -5,7 +5,8 @@ configuration parsing, and TLS/mTLS connection setup.
 
 `https_connector` is where the crate stops: it hands back the connector a request goes out through,
 TCP then the proxy tunnel then TLS, and wrapping that in an HTTP/2 engine belongs to whoever
-consumes it. [`armonik`](../armonik) wraps it in a `tonic` channel.
+consumes it. [`armonik`](../armonik) wraps it in a `tonic` channel. It is synchronous and opens no
+connection, so it needs no runtime and can be called from inside one.
 
 Depend on it when you need the connection layer without generated protobuf types or a
 `protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
