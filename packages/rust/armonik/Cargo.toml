@@ -102,6 +102,11 @@ required-features = ["client", "server"]
 name = "results"
 required-features = ["client", "server"]
 
+# `client` alone: this reads the transport's retry policy, it makes no call.
+[[test]]
+name = "retry"
+required-features = ["client"]
+
 [[test]]
 name = "sessions"
 required-features = ["client", "server"]

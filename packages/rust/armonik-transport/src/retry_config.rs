@@ -21,12 +21,18 @@ const DEFAULT_INITIAL_BACK_OFF: Duration = Duration::from_secs(1);
 const DEFAULT_MAX_BACK_OFF: Duration = Duration::from_secs(5);
 /// What each wait is multiplied by, when the option is left unset.
 const DEFAULT_BACK_OFF_MULTIPLIER: f64 = 1.5;
+/// gRPC status codes, as the wire numbers them.
+///
+/// Spelled out rather than taken from a gRPC crate: this crate reads options and builds connectors,
+/// and naming three constants is cheaper than depending on a whole gRPC stack for them.
+mod code {
+    pub const UNKNOWN: i32 = 2;
+    pub const ABORTED: i32 = 10;
+    pub const UNAVAILABLE: i32 = 14;
+}
+
 /// Failures worth sending the request again for, the same three ArmoniK's other clients fix.
-const DEFAULT_RETRYABLE_STATUS_CODES: [tonic::Code; 3] = [
-    tonic::Code::Unavailable,
-    tonic::Code::Aborted,
-    tonic::Code::Unknown,
-];
+const DEFAULT_RETRYABLE_STATUS_CODES: [i32; 3] = [code::UNAVAILABLE, code::ABORTED, code::UNKNOWN];
 
 /// Replaying a failed request: how many attempts, how long between them, and which failures are
 /// worth another try.
@@ -51,11 +57,15 @@ pub struct RetryConfig {
     pub max_back_off: Duration,
     /// What each wait is multiplied by.
     pub back_off_multiplier: f64,
-    /// Failures worth sending the request again for.
+    /// Failures worth sending the request again for, as gRPC status codes: 14 `UNAVAILABLE`, 10
+    /// `ABORTED`, 2 `UNKNOWN`.
+    ///
+    /// The wire numbers, so that naming them costs no gRPC dependency here; whoever makes the calls
+    /// converts from the type its own stack reports.
     ///
     /// Set programmatically: no option reads it, as in ArmoniK's other clients, which fix the same
     /// three codes.
-    pub retryable_status_codes: Vec<tonic::Code>,
+    pub retryable_status_codes: Vec<i32>,
 }
 
 impl Default for RetryConfig {
@@ -71,8 +81,8 @@ impl Default for RetryConfig {
 }
 
 impl RetryConfig {
-    /// Whether a request that failed with `code` is worth sending again.
-    pub fn is_retryable(&self, code: tonic::Code) -> bool {
+    /// Whether a request that failed with gRPC status `code` is worth sending again.
+    pub fn is_retryable(&self, code: i32) -> bool {
         self.retryable_status_codes.contains(&code)
     }
 
@@ -256,10 +266,12 @@ mod tests {
         assert_eq!(policy.initial_back_off, Duration::from_secs(1));
         assert_eq!(policy.max_back_off, Duration::from_secs(5));
         assert_eq!(policy.back_off_multiplier, 1.5);
-        assert!(policy.is_retryable(tonic::Code::Unavailable));
-        assert!(policy.is_retryable(tonic::Code::Aborted));
-        assert!(policy.is_retryable(tonic::Code::Unknown));
-        assert!(!policy.is_retryable(tonic::Code::InvalidArgument));
+        // The literals rather than the constants: what has to hold is that these are the numbers
+        // gRPC gives `UNAVAILABLE`, `ABORTED` and `UNKNOWN`, and 3 is `INVALID_ARGUMENT`.
+        assert!(policy.is_retryable(14));
+        assert!(policy.is_retryable(10));
+        assert!(policy.is_retryable(2));
+        assert!(!policy.is_retryable(3));
     }
 
     #[test]
