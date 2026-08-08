@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["armonik", "armonik-transport"]
+members = ["armonik", "armonik-transport", "armonik-transport-ffi"]
 
 # Shared so that a version bump, or a change of MSRV or licence, is made once rather than drifting per
 # crate. Members opt in per field with `xxx.workspace = true`.
@@ -12,7 +12,7 @@ repository = "https://github.com/aneoconsulting/ArmoniK.Api"
 rust-version = "1.88.0"
 version = "3.29.2-beta-0"
 
-# Every version lives here, so the two crates cannot resolve to two different `tonic`s, or two
+# Every version lives here, so the members cannot resolve to two different `tonic`s, or two
 # different `rustls`es, in one build. That matters because they hand each other types from both.
 # Members list the dependency and their own features; the version comes from here.
 [workspace.dependencies]

@@ -1,0 +1,19 @@
+[package]
+name = "armonik-transport-ffi"
+description = "C ABI over armonik-transport, for host applications that cannot link Rust directly"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+# Nothing outside this workspace consumes this crate, and its ABI is not a contract anyone has been
+# offered yet.
+publish = false
+include = ["**/*.rs", "Cargo.toml", "README.md"]
+
+# Both are needed: `cdylib` is what a host application loads, `lib` is what the tests link against.
+[lib]
+crate-type = ["lib", "cdylib"]
+name = "armonik_transport_ffi"
