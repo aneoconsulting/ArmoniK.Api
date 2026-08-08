@@ -122,6 +122,7 @@ version = "3.29.2-beta-0"
 dependencies = [
  "armonik-transport",
  "bytes",
+ "tokio",
 ]
 
 [[package]]

@@ -29,5 +29,9 @@ mod handle;
 mod test_support;
 
 pub mod status;
+// Public, and hidden, for exactly one reason: `runtime::alive_tasks` lets leak assertions check that
+// the runtime comes back to rest. Nothing in it is `extern "C"`, so none of it is part of the ABI.
+#[doc(hidden)]
+pub mod runtime;
 
 pub use error::{ak_bytes, ak_bytes_in, ak_bytes_release};
