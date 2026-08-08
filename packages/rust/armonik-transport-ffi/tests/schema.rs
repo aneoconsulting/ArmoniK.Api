@@ -9,6 +9,11 @@
 //! comparison below rather than a rebuild. A change to the vocabulary therefore shows up as a diff
 //! in a pull request, which is the point: whoever generates an options class in another language
 //! reads this file, and a stale one is an option that silently does nothing.
+//!
+//! Being current is half of it. The other half is the ledger: every option the schema declares is
+//! named in one of two lists here, applied or deliberately not, so an option added to the vocabulary
+//! fails this crate's build until somebody decides which it is. That is what keeps an option from
+//! reaching a caller's options class and then doing nothing at all.
 
 use armonik_transport::reexports::schemars;
 
@@ -71,4 +76,189 @@ fn the_committed_schema_carries_no_carriage_returns() {
         !COMMITTED.contains('\r'),
         "the checkout translated the line endings of a pinned artefact"
     );
+}
+
+/// Every option this library reads, and what each one reaches.
+///
+/// Half of the ledger below. An option that is here does something: the note says what, so that
+/// "applied" is a claim someone can check rather than a name on a list.
+const APPLIED: &[(&str, &str)] = &[
+    (
+        "Endpoint",
+        "dialled by the connector, and the origin a request is addressed to",
+    ),
+    ("CertPem", "the client's certificate chain, for mTLS"),
+    ("KeyPem", "the key of that chain"),
+    ("CertP12", "the same identity as one PKCS#12 bundle"),
+    ("CertP12Password", "opens that bundle"),
+    ("CaCert", "the authority the server is verified against"),
+    (
+        "AllowUnsafeConnection",
+        "verifies no server certificate at all",
+    ),
+    (
+        "OverrideTargetName",
+        "moves the verified name and the origin off the endpoint",
+    ),
+    ("ConnectTimeout", "bounds opening a socket, and the tunnel"),
+    ("Timeout", "the whole-request bound the client carries"),
+    ("PoolIdleTimeout", "closes an idle pooled connection"),
+    ("RateLimit", "the limiter the client holds"),
+    ("TcpKeepalive", "the socket's keepalive"),
+    ("TcpKeepaliveInterval", "between its probes"),
+    ("TcpKeepaliveRetries", "before it gives up"),
+    ("TcpNagleAlgorithm", "off is `TCP_NODELAY`"),
+    ("Http2KeepAliveInterval", "between PING frames"),
+    ("Http2KeepAliveTimeout", "waits for the PING to come back"),
+    (
+        "Http2KeepAliveWhileIdle",
+        "PINGs a connection carrying no request",
+    ),
+    ("Http2MaxHeaderListSize", "bounds one request's headers"),
+    (
+        "UserAgent",
+        "the header the client carries onto every request",
+    ),
+    (
+        "ProxyAddress",
+        "tunnelled through, under the connector's TLS",
+    ),
+    ("ProxyUsername", "authenticates that tunnel"),
+    ("ProxyPassword", "likewise"),
+];
+
+/// Every option this library deliberately does not read, and why not.
+///
+/// The other half. An option is here only because applying it at this layer would be wrong, not
+/// because nobody has got to it: what is written beside each name is a reason, and a reason is what
+/// a reviewer weighs.
+const NOT_APPLIED: &[(&str, &str)] = &[
+    (
+        "MaxAttempts",
+        "a replay is a new request, and which failures are worth one is keyed on a `grpc-status` \
+         this library never sees: it moves bytes, and the gRPC stack above it is what has a call to \
+         retry",
+    ),
+    ("InitialBackOff", "the same schedule, for the same reason"),
+    ("MaxBackOff", "likewise"),
+    ("BackOffMultiplier", "likewise"),
+];
+
+/// Every property name the schema declares, wherever it declares it: at the top level, inside an
+/// `anyOf` or `allOf` branch, or under `$defs`.
+fn property_names(value: &serde_json::Value, names: &mut Vec<String>) {
+    match value {
+        serde_json::Value::Object(object) => {
+            for (key, child) in object {
+                if key == "properties" {
+                    if let serde_json::Value::Object(properties) = child {
+                        names.extend(properties.keys().cloned());
+                    }
+                }
+                property_names(child, names);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                property_names(item, names);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The vocabulary, deduplicated: an alternative repeats the options it shares with its siblings.
+fn vocabulary() -> Vec<String> {
+    let schema: serde_json::Value =
+        serde_json::from_str(COMMITTED).expect("the committed schema is JSON");
+    let mut names = Vec::new();
+    property_names(&schema, &mut names);
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+#[test]
+fn every_option_of_the_vocabulary_is_either_applied_or_deliberately_not() {
+    // The ledger. An option added to the vocabulary fails this until somebody decides which of the
+    // two it is, which is the only way an option reaches a caller's options class and then does
+    // nothing at all. Nothing here is allowed to be silently dropped.
+    let undecided: Vec<String> = vocabulary()
+        .into_iter()
+        .filter(|option| {
+            !APPLIED.iter().any(|(name, _)| name == option)
+                && !NOT_APPLIED.iter().any(|(name, _)| name == option)
+        })
+        .collect();
+
+    assert!(
+        undecided.is_empty(),
+        "these options are in the vocabulary and in neither list: {undecided:?}. Add each to \
+         `APPLIED` with what it reaches, or to `NOT_APPLIED` with why this layer is the wrong one \
+         to read it"
+    );
+}
+
+#[test]
+fn nothing_is_on_both_lists_and_nothing_is_on_a_list_twice() {
+    let mut listed: Vec<&str> = APPLIED
+        .iter()
+        .chain(NOT_APPLIED)
+        .map(|(name, _)| *name)
+        .collect();
+    let total = listed.len();
+    listed.sort_unstable();
+    listed.dedup();
+
+    assert_eq!(
+        listed.len(),
+        total,
+        "an option is listed more than once, so one of the two entries says nothing"
+    );
+}
+
+#[test]
+fn no_entry_of_either_list_has_left_the_vocabulary() {
+    // The other direction, which is what catches an option renamed in the transport: an entry
+    // naming nothing would go on satisfying the ledger while the option it stood for went unread.
+    let vocabulary = vocabulary();
+    let stale: Vec<&str> = APPLIED
+        .iter()
+        .chain(NOT_APPLIED)
+        .map(|(name, _)| *name)
+        .filter(|name| !vocabulary.iter().any(|option| option == name))
+        .collect();
+
+    assert!(
+        stale.is_empty(),
+        "these are listed but are no longer options: {stale:?}"
+    );
+}
+
+#[test]
+fn the_retry_schedule_is_the_whole_of_what_this_layer_leaves_alone() {
+    // What the ledger is worth depends on how short this list is. It is exactly the retry schedule,
+    // and that is not an accident of what was convenient: a replay is a new request, judged on a
+    // status this library never parses.
+    let left_alone: Vec<&str> = NOT_APPLIED.iter().map(|(name, _)| *name).collect();
+
+    assert_eq!(
+        left_alone,
+        [
+            "MaxAttempts",
+            "InitialBackOff",
+            "MaxBackOff",
+            "BackOffMultiplier"
+        ],
+        "an option other than the retry schedule is being left unread"
+    );
+}
+
+#[test]
+fn every_entry_says_what_it_does_or_why_it_does_not() {
+    // A list of bare names would pass the ledger while telling a reviewer nothing. The note is the
+    // part that can be argued with.
+    for (name, note) in APPLIED.iter().chain(NOT_APPLIED) {
+        assert!(!note.trim().is_empty(), "`{name}` carries no note");
+    }
 }
