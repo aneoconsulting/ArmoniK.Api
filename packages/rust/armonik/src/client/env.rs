@@ -6,7 +6,7 @@
 
 use snafu::ResultExt;
 
-use super::{ConnectionError, HttpConfig};
+use super::{ChannelError, HttpConfig};
 
 /// The prefix every `GrpcClient` option is read under.
 pub const ARMONIK_PREFIX: &str = "GrpcClient__";
@@ -40,8 +40,8 @@ pub enum NewClientError {
     #[snafu(display("Could not connect with that configuration [{location}]"))]
     #[non_exhaustive]
     Connect {
-        #[snafu(source(from(ConnectionError, Box::new)))]
-        source: Box<ConnectionError>,
+        #[snafu(source(from(ChannelError, Box::new)))]
+        source: Box<ChannelError>,
         #[snafu(implicit)]
         location: snafu::Location,
     },

@@ -3,6 +3,10 @@
 Transport layer for the [ArmoniK](https://github.com/aneoconsulting/ArmoniK) Rust client:
 configuration parsing, and TLS/mTLS connection setup.
 
+`https_connector` is where the crate stops: it hands back the connector a request goes out through,
+TCP then the proxy tunnel then TLS, and wrapping that in an HTTP/2 engine belongs to whoever
+consumes it. [`armonik`](../armonik) wraps it in a `tonic` channel.
+
 Depend on it when you need the connection layer without generated protobuf types or a
 `protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
 wants the services as well needs only that one.
@@ -53,7 +57,7 @@ password-protected bundle is not portable to it.
 `HttpConfig::retry` holds the policy: `MaxAttempts`, `InitialBackOff`, `MaxBackOff` and
 `BackOffMultiplier`, defaulting to what ArmoniK's other clients hand grpc-dotnet, so a deployment
 that sets nothing behaves the same whichever client talks to it. It is applied by whoever makes the
-calls: a channel carries no notion of a call, so `connect` does not read it.
+calls: a channel carries no notion of a call, so nothing that builds one reads it.
 
 `BackOffMultiplier` is spelled `BackoffMultiplier`, with a lowercase o, by the C# client. Until that
 client is renamed to match, a deployment setting `GrpcClient__BackoffMultiplier` is read by C# and

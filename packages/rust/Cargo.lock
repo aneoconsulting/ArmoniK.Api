@@ -67,6 +67,7 @@ version = "3.29.2-beta-0"
 dependencies = [
  "armonik-transport",
  "async-stream",
+ "bytes",
  "eyre",
  "futures",
  "http-body-util",
@@ -83,6 +84,7 @@ dependencies = [
  "tonic",
  "tonic-prost",
  "tonic-prost-build",
+ "tower-service",
  "tracing",
  "tracing-futures",
  "tracing-subscriber",
@@ -93,7 +95,6 @@ name = "armonik-transport"
 version = "3.29.2-beta-0"
 dependencies = [
  "base64",
- "bytes",
  "humantime",
  "hyper",
  "hyper-rustls",
@@ -108,7 +109,6 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_with",
- "serial_test",
  "snafu",
  "tokio",
  "tonic",
