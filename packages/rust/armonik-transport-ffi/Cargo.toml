@@ -11,7 +11,7 @@ version.workspace = true
 # Nothing outside this workspace consumes this crate, and its ABI is not a contract anyone has been
 # offered yet.
 publish = false
-include = ["**/*.rs", "Cargo.toml", "README.md"]
+include = ["**/*.rs", "Cargo.toml", "README.md", "cbindgen.toml", "include/*"]
 
 # Both are needed: `cdylib` is what a host application loads, `lib` is what the tests link against.
 [lib]
@@ -44,3 +44,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 # `Bytes` is what an owned buffer handed across the ABI is built on: it may be a refcounted view
 # into a larger allocation, so a buffer this crate already holds crosses without being copied.
 bytes.workspace = true
+
+[build-dependencies]
+cbindgen.workspace = true
+csbindgen.workspace = true

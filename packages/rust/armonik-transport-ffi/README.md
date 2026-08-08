@@ -7,6 +7,17 @@ Configuration, TLS, mTLS and proxying all come from `armonik-transport`. This cr
 boundary: result codes, owned and borrowed buffers, reference-counted handles, panic guards, and the
 one key/value encoding every list of pairs travels in.
 
+## Artefacts
+
+Two files under `include/` are generated at build time and committed, so that a change to the
+contract shows up in a diff rather than only in a compiled library:
+
+- [`armonik_transport_ffi.h`](include/armonik_transport_ffi.h), the C header. It is the whole
+  contract in one file: the conventions a signature cannot carry are written into its preamble.
+- [`NativeMethods.g.cs`](include/NativeMethods.g.cs), the C# declarations. Generated rather than
+  hand-copied, and targeted at netstandard2.0: `IntPtr` rather than `nint`, delegates rather than
+  function pointers, and `CallingConvention.Cdecl` spelled out on every entry point.
+
 ## Features
 
 `error-locations` keeps the locations that errors carry in the message that crosses the ABI: the

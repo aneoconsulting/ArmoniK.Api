@@ -14,8 +14,8 @@
 //!
 //! Integers are in native byte order. Both ends of this ABI are one process built for one target, so
 //! a reader decodes exactly what the writer encoded, whatever that target's byte order happens to
-//! be. The only thing that would make byte order anyone else's business is this encoding being
-//! mistaken for a wire format.
+//! be. The generated header says as much, because the only thing that would make byte order anyone
+//! else's business is this encoding being mistaken for a wire format.
 //!
 //! Keys and values are opaque bytes: a caller that needs text validates it itself. A `-bin` header
 //! value is raw binary, and leaving it alone keeps the decoder free of any policy.

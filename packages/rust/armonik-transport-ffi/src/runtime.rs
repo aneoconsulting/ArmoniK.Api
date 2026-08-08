@@ -22,7 +22,7 @@ pub(crate) fn handle() -> &'static Runtime {
 
 /// How many tasks are currently alive on the shared runtime.
 ///
-/// Not part of the C ABI - nothing here is `extern "C"`, so none of it crosses the boundary -
+/// Not part of the C ABI - nothing here is `extern "C"`, so none of it reaches the generated header -
 /// and not something a consumer is meant to call. It exists because leak assertions have nothing
 /// else to look at: work that left a task parked forever is invisible from the outside, and "the
 /// tests passed" is not evidence that the runtime came back to rest.

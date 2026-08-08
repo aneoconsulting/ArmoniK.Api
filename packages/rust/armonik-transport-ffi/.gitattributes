@@ -1,0 +1,9 @@
+# The artefacts under `include/` are compared byte for byte, not merely read: `build.rs` regenerates
+# them on every build, and a rebuild that leaves the working tree dirty turns "the ABI changed" into
+# something a developer sees after changing nothing. Their generator writes LF, so LF is what a
+# checkout has to leave behind, on every platform.
+#
+# `cbindgen.toml` is here for the same reason at one remove: its `header` string is embedded in the
+# generated header verbatim, so a CR in the checkout is a CR in the artefact.
+cbindgen.toml text eol=lf
+include/** text eol=lf
