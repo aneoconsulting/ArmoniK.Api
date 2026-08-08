@@ -40,11 +40,14 @@ hyper = { workspace = true, features = ["client", "http1", "http2"] }
 # `hyper-rustls` happens to turn it on: depending on that would break the day it stops.
 # `client-proxy` for the proxy matcher: the `*_PROXY` convention, `NO_PROXY` on curl's rules, and
 # taking credentials out of a proxy URL, none of which is worth writing again here.
+# `http1` and `http2` gate the legacy `Client` itself, which exists only if one of them is on, and
+# HTTP/2 is what a dependent driving this connector over `reexports::hyper_util` speaks.
 hyper-util = { workspace = true, features = [
   "client",
   "client-legacy",
   "client-proxy",
   "http1",
+  "http2",
   "tokio",
 ] }
 hyper-rustls = { workspace = true, features = [
