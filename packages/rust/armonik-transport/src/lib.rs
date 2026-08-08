@@ -18,11 +18,12 @@ mod tls_config;
 mod utils;
 
 pub use config::{ConfigError, HttpConfig};
-pub use connector::{https_connector, ConnectionError};
+pub use connector::{https_connector, ConnectionError, Connector};
 #[cfg(feature = "env")]
 pub use env::EnvError;
 pub use http2_config::Http2Config;
-pub use proxy::{ProxyConfig, ProxyError, ProxySource};
+// `ProxyConnector` is a layer of the stack `Connector` names, so it has to be nameable too.
+pub use proxy::{ProxyConfig, ProxyConnector, ProxyError, ProxySource};
 pub use retry_config::RetryConfig;
 pub use tcp_config::TcpConfig;
 pub use tls_config::{Identity, TlsConfig};

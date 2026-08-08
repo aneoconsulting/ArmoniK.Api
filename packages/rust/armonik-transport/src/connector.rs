@@ -17,6 +17,12 @@ use snafu::{ResultExt, Snafu};
 use crate::proxy::ProxyConnector;
 use crate::HttpConfig;
 
+/// The connector stack [`https_connector`] builds: TCP, then the proxy tunnel, then TLS or mTLS.
+///
+/// Named because it has to be nameable. A consumer wraps this in an HTTP/2 engine of its own and
+/// then has to hold the result, and Rust offers no way to infer the type of a struct field.
+pub type Connector = HttpsConnector<ProxyConnector<HttpConnector>>;
+
 /// Build the connector stack, TCP then the proxy tunnel then TLS or mTLS, that reaches the endpoint
 /// `config` names.
 ///
@@ -24,14 +30,10 @@ use crate::HttpConfig;
 /// the server certificate is verified against when `OverrideTargetName` moves it off the endpoint.
 /// Taken rather than resolved here, so a caller that needs it for the engine it builds on top
 /// resolves it once.
-///
-/// Hidden because its return type names this crate's dependencies rather than its own; `pub` only
-/// so the signature is expressible.
-#[doc(hidden)]
 pub async fn https_connector(
     config: HttpConfig,
     origin: Uri,
-) -> Result<HttpsConnector<ProxyConnector<HttpConnector>>, ConnectionError> {
+) -> Result<Connector, ConnectionError> {
     let endpoint = config.endpoint;
 
     // Get the default crypto provider or fallback to the ring crypto provider

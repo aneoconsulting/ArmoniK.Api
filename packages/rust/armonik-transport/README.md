@@ -13,6 +13,11 @@ wants the services as well needs only that one.
 
 ## Driving the connection yourself
 
+`Connector` is the stack `https_connector` returns, TCP then the proxy tunnel then TLS, so a
+consumer that wraps it in an engine of its own can name what it holds: `Client<Connector, B>` rather
+than a trait object erasing the connector. `ProxyConnector`, one of its layers, is exported for the
+same reason; it is assembled from an `HttpConfig`, never by hand.
+
 `armonik_transport::reexports` carries the crates the connector is built from and spoken to: `http`,
 `hyper`, `hyper_util`, `hyper_rustls`, `rustls`, `h2`, `http_body_util` and `tokio`. Take them from
 there rather than declaring your own requirement for the same crates, and no version of a shared
