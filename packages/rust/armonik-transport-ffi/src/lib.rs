@@ -48,6 +48,8 @@ mod error;
 mod guard;
 #[allow(dead_code)]
 mod handle;
+#[allow(dead_code)]
+mod rate_limit;
 #[cfg(test)]
 mod test_support;
 

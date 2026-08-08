@@ -22,6 +22,7 @@ use bytes::Bytes;
 
 use crate::error::{ak_bytes, FfiError};
 use crate::handle::Registry;
+use crate::rate_limit::RateLimiter;
 use crate::status::ak_status;
 
 /// How a request body reports that it cannot produce the rest of itself.
@@ -59,6 +60,12 @@ pub struct ak_client {
     pub(crate) timeout: Option<Duration>,
     /// `UserAgent`: sent on every request that carries no header of its own.
     pub(crate) user_agent: Option<HeaderValue>,
+    /// `RateLimit`: how many requests a window admits, `None` for no limit.
+    ///
+    /// State the pool carries rather than a layer wrapped around it, because a permit belongs to
+    /// one request: it is taken by whoever sends, and one limiter serves every request on the
+    /// client, which is what "per client" means.
+    pub(crate) rate_limit: Option<RateLimiter>,
 }
 
 /// The live clients, by the address the caller holds.
@@ -128,6 +135,9 @@ fn build(config_json: &[u8]) -> Result<ak_client, FfiError> {
     let user_agent = config.user_agent.clone();
     let http2 = config.http2;
     let pool_idle_timeout = config.pool_idle_timeout;
+    // The reader refuses a zero count and a zero window, so the limiter's own assertions are not
+    // reachable through a configuration document.
+    let rate_limit = config.rate_limit.map(RateLimiter::new);
 
     let connector = https_connector(config, origin.clone())?;
 
@@ -170,6 +180,7 @@ fn build(config_json: &[u8]) -> Result<ak_client, FfiError> {
         origin,
         timeout,
         user_agent,
+        rate_limit,
     })
 }
 
@@ -354,6 +365,56 @@ mod tests {
             "{}",
             created.message
         );
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn a_rate_limit_becomes_a_limiter_the_client_holds() {
+        let limited = create(r#"{"Endpoint": "http://127.0.0.1:1/", "RateLimit": "100/1s"}"#);
+        assert_eq!(
+            limited.status,
+            ak_status::AK_OK.code(),
+            "{}",
+            limited.message
+        );
+        assert!(
+            get(limited.handle)
+                .expect("a live client")
+                .rate_limit
+                .is_some(),
+            "the option is implemented, not read and dropped"
+        );
+
+        let unlimited = create(r#"{"Endpoint": "http://127.0.0.1:1/"}"#);
+        assert!(
+            get(unlimited.handle)
+                .expect("a live client")
+                .rate_limit
+                .is_none(),
+            "an absent option costs a request nothing"
+        );
+    }
+
+    #[test]
+    fn a_rate_limit_that_admits_nothing_is_refused_at_creation() {
+        // The one shape the limiter itself asserts against. Refusing it while the option is read is
+        // what keeps that assertion out of reach of any document a caller can write.
+        for spelling in ["0/1s", "10/0s", "nonsense", "100"] {
+            let created = create(&format!(
+                r#"{{"Endpoint": "http://127.0.0.1:1/", "RateLimit": "{spelling}"}}"#
+            ));
+
+            assert_eq!(
+                created.status,
+                ak_status::AK_INVALID_CONFIG.code(),
+                "`RateLimit={spelling}` was accepted"
+            );
+            assert!(
+                created.message.contains("RateLimit") || created.message.contains("Rate limit"),
+                "the option at fault has to be named: {}",
+                created.message
+            );
+        }
     }
 
     #[test]
