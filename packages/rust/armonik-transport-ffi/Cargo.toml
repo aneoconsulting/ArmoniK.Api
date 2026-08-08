@@ -17,3 +17,8 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 [lib]
 crate-type = ["lib", "cdylib"]
 name = "armonik_transport_ffi"
+
+[dependencies]
+# `Bytes` is what an owned buffer handed across the ABI is built on: it may be a refcounted view
+# into a larger allocation, so a buffer this crate already holds crosses without being copied.
+bytes.workspace = true

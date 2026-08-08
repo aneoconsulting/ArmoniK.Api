@@ -119,6 +119,9 @@ dependencies = [
 [[package]]
 name = "armonik-transport-ffi"
 version = "3.29.2-beta-0"
+dependencies = [
+ "bytes",
+]
 
 [[package]]
 name = "asn1-rs"

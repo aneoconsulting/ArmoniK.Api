@@ -11,12 +11,14 @@
 //! to a C ABI.
 
 #![deny(missing_docs)]
-// The FFI type names mirror the C header, e.g. `ak_status`.
+// The FFI type names mirror the C header, e.g. `ak_bytes`.
 #![allow(non_camel_case_types)]
 
 // `dead_code` asks whether an item is reachable from this crate's public Rust API. That is not this
 // crate's contract: what it offers is the `extern "C"` surface, and these modules are the primitives
 // behind it, each covered by its own tests.
+#[allow(dead_code)]
+mod error;
 #[allow(dead_code)]
 mod guard;
 #[allow(dead_code)]
@@ -25,3 +27,5 @@ mod handle;
 mod test_support;
 
 pub mod status;
+
+pub use error::{ak_bytes, ak_bytes_in, ak_bytes_release};
