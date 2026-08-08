@@ -120,6 +120,7 @@ dependencies = [
 name = "armonik-transport-ffi"
 version = "3.29.2-beta-0"
 dependencies = [
+ "armonik-transport",
  "bytes",
 ]
 

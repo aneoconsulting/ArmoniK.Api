@@ -81,7 +81,8 @@ pub(crate) async fn catch_unwind_future<'a, T>(
 ///
 /// The payload survives in every build. It is prose this crate wrote - "a handle was registered at
 /// an address already in use" - and names no file and no type; a panic's location goes to the panic
-/// hook rather than into the payload.
+/// hook rather than into the payload. What a released build must not disclose is where in a source
+/// something sits, and that is the `error-locations` feature's business, not this function's.
 pub(crate) fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
     if let Some(message) = payload.downcast_ref::<&str>() {
         format!("panicked: {message}")

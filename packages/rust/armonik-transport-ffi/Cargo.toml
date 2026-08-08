@@ -18,7 +18,26 @@ include = ["**/*.rs", "Cargo.toml", "README.md"]
 crate-type = ["lib", "cdylib"]
 name = "armonik_transport_ffi"
 
+[features]
+# Keep the locations that errors carry in the message that crosses the ABI: the ` [file.rs:12:34]`
+# of a Rust source, and the ` at line 1 column 56` position `serde_json` names in the configuration
+# document.
+#
+# Off by default, and that is a disclosure rule rather than a matter of taste: a released build says
+# what went wrong, never whereabouts in the source it happened. Being open source changes nothing -
+# what someone can find by reading a repository is not what a library volunteers in a log. What the
+# messages say stays the same either way; only the coordinates go.
+#
+# Compile-time rather than a configuration option, so a released library carries neither the branch
+# nor the choice. The ABI is the same either way, so the two builds are interchangeable and a
+# consumer picks one by which library it ships.
+error-locations = []
+
 [dependencies]
+# The whole connection layer - options, TLS, mTLS, proxy - comes from here, and its errors are what
+# the ABI's configuration and connection statuses report. Depending on this rather than on `armonik`
+# keeps protobuf codegen, and the `protoc` it would need, out of this crate's build entirely.
+armonik-transport.workspace = true
 # `Bytes` is what an owned buffer handed across the ABI is built on: it may be a refcounted view
 # into a larger allocation, so a buffer this crate already holds crosses without being copied.
 bytes.workspace = true
