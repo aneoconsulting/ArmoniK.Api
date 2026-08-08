@@ -53,6 +53,10 @@ tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
 bytes.workspace = true
 
 [dev-dependencies]
+# `schema` so that the committed `include/http_config.schema.json` can be regenerated and compared.
+# The artefact is generated from the transport's own types, so this crate's build script has no way
+# to write it; a test is what makes a change to the vocabulary show up as a diff.
+armonik-transport = { workspace = true, features = ["schema"] }
 # A certificate and a key that do not belong together, generated fresh: the one configuration that
 # makes assembling the TLS stack fail, and so the one that proves a TLS failure reaches the caller
 # with its cause rather than as a summary. A committed fixture would also have to keep unexpired.

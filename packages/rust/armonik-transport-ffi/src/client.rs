@@ -78,8 +78,8 @@ fn live() -> &'static Registry<ak_client> {
 ///
 /// `config_json` names the flat options of the transport's vocabulary - `Endpoint`, `CaCert`,
 /// `AllowUnsafeConnection`, `Tcp*`, `Http2*`, `Proxy*`, and the rest - as a single JSON object of
-/// strings. An option the document does not name reads as its own default, so a caller writes only
-/// what it changes.
+/// strings. `include/http_config.schema.json` is that vocabulary in full; an option the document
+/// does not name reads as its own default, so a caller writes only what it changes.
 ///
 /// Synchronous, and it opens no connection: this reads the options, loads whatever certificates they
 /// name, and assembles the connector. A failure here is therefore a configuration failure, reported
