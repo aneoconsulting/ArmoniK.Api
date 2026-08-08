@@ -138,6 +138,14 @@ pub(crate) struct RawTls {
 ///
 /// Selection is on key presence alone, so a present-but-empty option still selects a shape;
 /// [`RawIdentity::load`] is what reads empty as unset, whichever shape matched.
+///
+/// The shapes say which options exist and which arrive together, not which combinations are legal:
+/// half a PEM pair matches `Bare`, so the schema accepts it and [`RawIdentity::load`] refuses it.
+/// A relationship between options is enforced once, where the message can name both, rather than
+/// encoded a second time in the schema. `dependentRequired` could express this one, but a rule
+/// written twice drifts, and the reader is the copy that decides. This paragraph does not reach
+/// the schema - schemars keeps only variant docs for a flattened enum - so the part a consumer
+/// needs is on `Bare` itself.
 #[cfg(feature = "serde")]
 #[derive(Debug, serde::Deserialize)]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -153,8 +161,9 @@ enum RawIdentity {
         #[serde(deserialize_with = "crate::config_utils::text")]
         key_pem: String,
     },
-    /// At most one identity option present: no identity, or half of one, which [`Self::load`]
-    /// rejects by name.
+    /// Neither identity option set, or only one of them. Setting only one is refused when the
+    /// configuration is read, naming both options: this alternative admits it so the vocabulary
+    /// stays one list, and the reader is what decides a pair is a pair.
     #[serde(rename_all = "PascalCase")]
     Bare {
         /// Path to the certificate chain file, in PEM format; set together with `KeyPem`.
