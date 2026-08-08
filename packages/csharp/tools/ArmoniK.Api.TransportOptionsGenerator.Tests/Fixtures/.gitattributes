@@ -1,0 +1,3 @@
+# The generator writes one byte sequence on every platform and the check compares bytes, so the
+# fixture and the golden file keep their newlines through checkout.
+* text eol=lf
