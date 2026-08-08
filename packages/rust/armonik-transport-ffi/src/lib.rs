@@ -15,10 +15,12 @@
 #![allow(non_camel_case_types)]
 
 // `dead_code` asks whether an item is reachable from this crate's public Rust API. That is not this
-// crate's contract: what it offers is the `extern "C"` surface, and this module is a primitive
-// behind it, covered by its own tests.
+// crate's contract: what it offers is the `extern "C"` surface, and these modules are the primitives
+// behind it, each covered by its own tests.
 #[allow(dead_code)]
 mod guard;
+#[allow(dead_code)]
+mod handle;
 #[cfg(test)]
 mod test_support;
 
