@@ -79,6 +79,7 @@ fn every_option_appears_under_its_flat_name() {
         "OverrideTargetName",
         "ConnectTimeout",
         "Timeout",
+        "PoolIdleTimeout",
         "RateLimit",
         "TcpKeepalive",
         "TcpKeepaliveInterval",

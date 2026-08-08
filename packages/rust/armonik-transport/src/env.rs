@@ -217,6 +217,17 @@ mod tests {
     }
 
     #[test]
+    fn an_option_nothing_here_applies_is_read_all_the_same() {
+        // `PoolIdleTimeout` is for whoever drives a pool, so the read is the only thing that
+        // proves the option exists at all.
+        let config =
+            HttpConfig::from_env_vars("Prefix__", variables([("Prefix__PoolIdleTimeout", "90s")]))
+                .expect("a valid configuration");
+
+        assert_eq!(config.pool_idle_timeout, Some(Duration::from_secs(90)));
+    }
+
+    #[test]
     fn a_variable_declared_empty_reads_as_the_option_default_like_an_absent_one() {
         // A deployment that declares every variable with an empty default has to behave exactly
         // like one that declares none.

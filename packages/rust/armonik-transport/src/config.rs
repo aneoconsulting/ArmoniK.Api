@@ -106,6 +106,13 @@ pub struct HttpConfig {
     #[cfg_attr(feature = "serde", serde(deserialize_with = "optional_duration"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub timeout: Option<Duration>,
+    /// How long an idle connection is kept in a pool before it is closed. `PoolIdleTimeout`.
+    ///
+    /// Applied by whoever drives the pool: a channel is one connection and has none, so nothing
+    /// in `connect` reads it.
+    #[cfg_attr(feature = "serde", serde(deserialize_with = "optional_duration"))]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
+    pub pool_idle_timeout: Option<Duration>,
     /// Rate limit for requests, written `count/duration` (e.g. `100/1s`), defaults to no rate
     /// limit. `RateLimit`.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "rate_limit"))]
@@ -158,6 +165,7 @@ impl Default for HttpConfig {
             tls: TlsConfig::default(),
             connect_timeout: Some(DEFAULT_CONNECT_TIMEOUT),
             timeout: None,
+            pool_idle_timeout: None,
             rate_limit: None,
             tcp: TcpConfig::default(),
             http2: Http2Config::default(),
@@ -411,6 +419,7 @@ mod tests {
             "Endpoint": "http://localhost:5001",
             "ConnectTimeout": "",
             "Timeout": "",
+            "PoolIdleTimeout": "",
             "RateLimit": "",
             "TcpKeepalive": "",
             "TcpKeepaliveRetries": "",
@@ -423,6 +432,7 @@ mod tests {
 
         assert_eq!(config.connect_timeout, Some(DEFAULT_CONNECT_TIMEOUT));
         assert_eq!(config.timeout, None);
+        assert_eq!(config.pool_idle_timeout, None);
         assert_eq!(config.rate_limit, None);
         assert_eq!(config.tcp.keepalive, None);
         assert_eq!(config.tcp.keepalive_retries, None);
@@ -437,12 +447,14 @@ mod tests {
         let config = config(json!({
             "Endpoint": "http://localhost:5001",
             "ConnectTimeout": "500ms",
+            "PoolIdleTimeout": "90s",
             "TcpKeepalive": "30s",
             "TcpKeepaliveInterval": "2m",
             "Http2KeepAliveInterval": "1h",
         }));
 
         assert_eq!(config.connect_timeout, Some(Duration::from_millis(500)));
+        assert_eq!(config.pool_idle_timeout, Some(Duration::from_secs(90)));
         assert_eq!(config.tcp.keepalive, Some(Duration::from_secs(30)));
         assert_eq!(
             config.tcp.keepalive_interval,
