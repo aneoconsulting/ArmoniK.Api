@@ -16,6 +16,11 @@
 
 using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Text.Json;
+
+using ArmoniK.Api.Client.Native;
 
 using NUnit.Framework;
 
@@ -27,6 +32,9 @@ namespace ArmoniK.Api.TransportOptionsGenerator.Tests
   [TestFixture]
   public class GeneratorTest
   {
+    // Spelled in two pieces so that no editor reads it as an escape and rewrites it as one character.
+    private const string EscapedUnitSeparator = "\\" + "u001f";
+
     private static string FixturePath(string name)
       => Path.Combine(TestContext.CurrentContext.TestDirectory,
                       "Fixtures",
@@ -34,6 +42,9 @@ namespace ArmoniK.Api.TransportOptionsGenerator.Tests
 
     private static string Schema
       => File.ReadAllText(FixturePath("http_config.schema.json"));
+
+    private static PropertyInfo[] Options
+      => typeof(TransportOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
     [Test]
     public void GeneratedFileMatchesTheGoldenFile()
@@ -58,6 +69,86 @@ namespace ArmoniK.Api.TransportOptionsGenerator.Tests
     public void AnOptionNotSpelledInPascalCaseIsRefused()
       => Assert.That(() => Generator.Generate(@"{""properties"":{""class"":{""type"":""string""}}}"),
                      Throws.InstanceOf<InvalidOperationException>());
+
+    [Test]
+    public void OptionsThatAreNotSetAreLeftOut()
+      => Assert.That(new TransportOptions().ToTransportJson(),
+                     Is.EqualTo("{}"));
+
+    [Test]
+    public void OnlyTheOptionsThatAreSetAreWritten()
+    {
+      var options = new TransportOptions
+                    {
+                      Endpoint    = "http://localhost:5001",
+                      MaxAttempts = "3",
+                    };
+
+      Assert.That(options.ToTransportJson(),
+                  Is.EqualTo(@"{""Endpoint"":""http://localhost:5001"",""MaxAttempts"":""3""}"));
+    }
+
+    [Test]
+    public void QuotesBackslashesAndControlCharactersAreEscaped()
+    {
+      var options = new TransportOptions
+                    {
+                      ProxyPassword = "a\"b\\c\nd" + (char)0x1f + "e",
+                    };
+
+      Assert.That(options.ToTransportJson(),
+                  Is.EqualTo(@"{""ProxyPassword"":""a\""b\\c\nd" + EscapedUnitSeparator + @"e""}"));
+    }
+
+    /// <summary>
+    ///   Reads every option back out of the document, so that an escape closing its string early or
+    ///   swallowing a character is caught wherever it happens.
+    /// </summary>
+    [Test]
+    public void EveryOptionSurvivesTheRoundTrip()
+    {
+      var properties = Options;
+      var options = new TransportOptions();
+
+      foreach (var property in properties)
+      {
+        property.SetValue(options,
+                          $"{property.Name} \"\\ /\b\f\n\r\t" + (char)0 + " end");
+      }
+
+      using var document = JsonDocument.Parse(options.ToTransportJson());
+
+      Assert.That(document.RootElement.EnumerateObject()
+                          .Count(),
+                  Is.EqualTo(properties.Length));
+
+      foreach (var property in properties)
+      {
+        Assert.That(document.RootElement.GetProperty(property.Name)
+                            .GetString(),
+                    Is.EqualTo(property.GetValue(options)),
+                    property.Name);
+      }
+    }
+
+    [Test]
+    public void EveryOptionIsTextDefaultingToTheEmptyString()
+    {
+      var options = new TransportOptions();
+
+      Assert.Multiple(() =>
+                      {
+                        foreach (var property in Options)
+                        {
+                          Assert.That(property.PropertyType,
+                                      Is.EqualTo(typeof(string)),
+                                      property.Name);
+                          Assert.That(property.GetValue(options),
+                                      Is.EqualTo(""),
+                                      property.Name);
+                        }
+                      });
+    }
 
     /// <summary>
     ///   The schema describes <c>ProxyAddress</c> twice, once per proxy shape. The generated
