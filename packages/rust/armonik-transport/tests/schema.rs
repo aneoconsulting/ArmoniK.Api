@@ -72,7 +72,7 @@ fn every_option_appears_under_its_flat_name() {
         "Endpoint",
         "CertPem",
         "KeyPem",
-        "CaCert",
+        "CaCertPath",
         "AllowUnsafeConnection",
         "OverrideTargetName",
         "ConnectTimeout",

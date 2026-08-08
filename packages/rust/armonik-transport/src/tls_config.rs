@@ -2,7 +2,7 @@
 //! verification behaves rather than what is verified.
 //!
 //! Unlike the TCP and HTTP/2 units, these fields share no common prefix in the environment
-//! (`CertPem`, `CaCert`, `AllowUnsafeConnection`, `OverrideTargetName`, ...), so the embedding
+//! (`CertPem`, `CaCertPath`, `AllowUnsafeConnection`, `OverrideTargetName`, ...), so the embedding
 //! composes them with a plain [`serde(flatten)`](serde::Deserialize) and no prefix at all.
 //!
 //! Every option naming a file loads it while the configuration is read: [`TlsConfig`] holds the
@@ -98,7 +98,7 @@ pub struct TlsConfig {
     /// `CertPem`/`KeyPem`, whose files are loaded as the configuration is read.
     pub identity: Option<Identity>,
     /// The Certificate Authority the server is verified against, `None` for the system CAs. Read
-    /// from `CaCert`, whose PEM file is loaded as the configuration is read.
+    /// from `CaCertPath`, whose PEM file is loaded as the configuration is read.
     pub ca_cert: Option<CertificateDer<'static>>,
     /// Override the endpoint name during SSL verification. `OverrideTargetName`.
     pub override_target_name: Option<String>,
@@ -122,7 +122,7 @@ pub(crate) struct RawTls {
     identity: RawIdentity,
     /// Path to the Certificate Authority file, in PEM format; empty for the system CAs.
     #[serde(default, deserialize_with = "crate::config_utils::text")]
-    ca_cert: String,
+    ca_cert_path: String,
     /// Accept any server certificate instead of verifying it: `1`, `true`, `yes`, `enable`,
     /// `allow` or `authorize`, and their negatives; empty for false.
     #[serde(default, deserialize_with = "crate::config_utils::text")]
@@ -211,7 +211,7 @@ impl TryFrom<RawTls> for TlsConfig {
     fn try_from(raw: RawTls) -> Result<Self, Self::Error> {
         let RawTls {
             identity,
-            ca_cert,
+            ca_cert_path,
             allow_unsafe_connection,
             override_target_name,
         } = raw;
@@ -223,11 +223,11 @@ impl TryFrom<RawTls> for TlsConfig {
             )
             .map_err(|msg| IncompatibleOptionsSnafu { msg }.build())?,
             identity: identity.load()?,
-            ca_cert: if ca_cert.is_empty() {
+            ca_cert: if ca_cert_path.is_empty() {
                 None
             } else {
-                let pem = std::fs::read_to_string(&ca_cert).context(IoSnafu {
-                    path: ca_cert.clone(),
+                let pem = std::fs::read_to_string(&ca_cert_path).context(IoSnafu {
+                    path: ca_cert_path.clone(),
                 })?;
                 Some(CertificateDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {})?)
             },
@@ -438,7 +438,7 @@ MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
         // The CA is loaded with the rest of the configuration, so a typo in the option names the
         // file instead of surfacing as a failed handshake.
         let error = serde_json::from_value::<TlsConfig>(serde_json::json!({
-            "CaCert": "no/such/ca.pem",
+            "CaCertPath": "no/such/ca.pem",
         }))
         .expect_err("a missing file must be reported");
 
@@ -452,7 +452,7 @@ MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
         let ca = dir.write("ca.pem", LEAF_CERT);
 
         let config = serde_json::from_value::<TlsConfig>(serde_json::json!({
-            "CaCert": ca.display().to_string(),
+            "CaCertPath": ca.display().to_string(),
         }))
         .expect("a readable CA file");
 

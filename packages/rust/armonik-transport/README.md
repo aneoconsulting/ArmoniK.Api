@@ -17,6 +17,10 @@ generates an options class of its own. Nothing is committed; print it with:
 cargo run -p armonik-transport --features schema --example generate_schema
 ```
 
+The Certificate Authority is named `CaCertPath`, where ArmoniK's C# client spells it `CaCert`. The
+option is a path to a PEM file, not the certificate, and the name says so. Until the C# client is
+renamed to match, a deployment serving both names the file twice.
+
 ## Reaching the endpoint through a proxy
 
 `HttpConfig::proxy` decides how the connection goes out. The default is `ProxySource::System`, the

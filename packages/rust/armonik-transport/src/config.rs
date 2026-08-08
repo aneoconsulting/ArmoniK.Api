@@ -73,7 +73,7 @@ pub struct HttpConfig {
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub endpoint: Uri,
     /// TLS and mTLS: the client's own identity, the server's CA, and SSL verification behaviour,
-    /// read under no prefix (`CertPem`, `CaCert`, `AllowUnsafeConnection`, ...).
+    /// read under no prefix (`CertPem`, `CaCertPath`, `AllowUnsafeConnection`, ...).
     #[cfg_attr(
         feature = "serde",
         serde(flatten, deserialize_with = "tls::deserialize")
