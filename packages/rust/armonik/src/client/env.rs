@@ -26,15 +26,32 @@ fn config_from(
     use serde::Deserialize as _;
 
     // Raw text, verbatim: each option's own reader parses what it needs, so nothing guesses a
-    // type here and a numeric-looking password survives byte for byte. Through `OsString` and a
-    // lossy decode, because the plain `vars` iterator panics on any non-Unicode variable in the
-    // process, even one naming no option here.
-    let options = variables.filter_map(|(name, value)| {
+    // type here and a numeric-looking password survives byte for byte.
+    //
+    // A name is decoded lossily, because the plain `vars` iterator panics on any non-Unicode
+    // variable in the process, even one naming no option here, and a mangled name just fails to
+    // match the prefix. A value is not: it is the option's content, and a byte replaced by U+FFFD
+    // would name a different file or a different password, which fails later and somewhere else.
+    //
+    // The prefix is matched exactly. Windows resolves variable names case-insensitively, so
+    // `GRPCCLIENT__ENDPOINT` reaches the same variable there and no option here; the spelling
+    // every ArmoniK client documents is the one that is read, on every platform alike.
+    let mut options = Vec::new();
+    for (name, value) in variables {
         let name = name.to_string_lossy();
-        let option = name.strip_prefix(ARMONIK_PREFIX)?;
-        Some((option.to_owned(), value.to_string_lossy().into_owned()))
-    });
-    HttpConfig::deserialize(serde::de::value::MapDeserializer::new(options)).context(EnvSnafu)
+        let Some(option) = name.strip_prefix(ARMONIK_PREFIX) else {
+            continue;
+        };
+        let Some(value) = value.to_str() else {
+            return NotUnicodeSnafu {
+                option: format!("{ARMONIK_PREFIX}{option}"),
+            }
+            .fail();
+        };
+        options.push((option.to_owned(), value.to_owned()));
+    }
+    HttpConfig::deserialize(serde::de::value::MapDeserializer::new(options.into_iter()))
+        .context(EnvSnafu)
 }
 
 /// Creating a client from the environment.
@@ -47,6 +64,13 @@ pub enum NewClientError {
     Env {
         #[snafu(source(from(serde::de::value::Error, Box::new)))]
         source: Box<serde::de::value::Error>,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("`{option}` is not valid Unicode [{location}]"))]
+    #[non_exhaustive]
+    NotUnicode {
+        option: String,
         #[snafu(implicit)]
         location: snafu::Location,
     },
@@ -142,6 +166,31 @@ mod tests {
     }
 
     #[test]
+    fn a_non_unicode_value_is_refused_rather_than_rewritten() {
+        // Lossy decoding would put U+FFFD inside a path or a password, so the option would name a
+        // different file, or authenticate as a different secret, and fail somewhere that cannot
+        // say why.
+        let error = config_from(
+            [
+                (
+                    std::ffi::OsString::from("GrpcClient__Endpoint"),
+                    std::ffi::OsString::from("http://localhost:5001"),
+                ),
+                (
+                    std::ffi::OsString::from("GrpcClient__CertPem"),
+                    lossy_value(),
+                ),
+            ]
+            .into_iter(),
+        )
+        .expect_err("a non-Unicode value must be refused");
+
+        let rendered = chain(&error);
+        assert!(rendered.contains("GrpcClient__CertPem"), "{rendered}");
+        assert!(!rendered.contains('\u{FFFD}'), "{rendered}");
+    }
+
+    #[test]
     fn a_variable_that_is_not_unicode_does_not_bring_the_read_down() {
         // `std::env::vars` panics on one of these, wherever in the process it came from, so the
         // read goes through `OsString` and decodes lossily instead.
@@ -159,6 +208,19 @@ mod tests {
         .expect("a non-Unicode variable names no option and must not fail the read");
 
         assert_eq!(config.endpoint.host(), Some("localhost"));
+    }
+
+    /// A variable value that is not valid Unicode, built the way each platform allows.
+    #[cfg(windows)]
+    fn lossy_value() -> std::ffi::OsString {
+        use std::os::windows::ffi::OsStringExt as _;
+        std::ffi::OsString::from_wide(&[0x0063, 0xD800, 0x002E, 0x0070, 0x0065, 0x006D])
+    }
+
+    #[cfg(not(windows))]
+    fn lossy_value() -> std::ffi::OsString {
+        use std::os::unix::ffi::OsStringExt as _;
+        std::ffi::OsString::from_vec(vec![0x63, 0xFF, 0x2E, 0x70, 0x65, 0x6D])
     }
 
     /// A variable name that is not valid Unicode, built the way each platform allows.
