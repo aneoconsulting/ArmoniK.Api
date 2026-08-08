@@ -18,6 +18,8 @@
 // crate's contract: what it offers is the `extern "C"` surface, and these modules are the primitives
 // behind it, each covered by its own tests.
 #[allow(dead_code)]
+mod blob;
+#[allow(dead_code)]
 mod error;
 #[allow(dead_code)]
 mod guard;
