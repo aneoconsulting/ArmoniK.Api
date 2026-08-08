@@ -13,7 +13,12 @@ fn every_entry_point_is_declared_and_called_the_way_the_library_expects() {
     // `CallingConvention.Cdecl` is not the platform default, and on x86 the difference is a stack
     // the callee cleans up twice. 32-bit hosts are still in use, so this is spelled out per entry
     // point rather than assumed.
-    for symbol in ["ak_abi_version", "ak_bytes_release"] {
+    for symbol in [
+        "ak_abi_version",
+        "ak_bytes_release",
+        "ak_client_create",
+        "ak_client_release",
+    ] {
         let declaration = format!(
             "[DllImport(__DllName, EntryPoint = \"{symbol}\", \
              CallingConvention = CallingConvention.Cdecl"
@@ -66,6 +71,9 @@ fn every_type_of_the_contract_is_declared() {
         "public unsafe partial struct ak_bytes",
         "public unsafe partial struct ak_bytes_in",
         "public enum ak_status : int",
+        // Opaque on this side too: the struct carries no field, and exists only so that a handle
+        // has a type to be a pointer to.
+        "public unsafe partial struct ak_client",
     ] {
         assert!(
             BINDINGS.contains(declaration),

@@ -39,6 +39,41 @@ namespace ArmoniK.Api.Client.Native
         public static extern int ak_abi_version();
 
         /// <summary>
+        ///  Create a client from a UTF-8 JSON configuration document.
+        ///
+        ///  `config_json` names the flat options of the transport's vocabulary - `Endpoint`, `CaCert`,
+        ///  `AllowUnsafeConnection`, `Tcp*`, `Http2*`, `Proxy*`, and the rest - as a single JSON object of
+        ///  strings. An option the document does not name reads as its own default, so a caller writes only
+        ///  what it changes.
+        ///
+        ///  Synchronous, and it opens no connection: this reads the options, loads whatever certificates they
+        ///  name, and assembles the connector. A failure here is therefore a configuration failure, reported
+        ///  straight away with its whole cause chain flattened into `out_err`.
+        ///
+        ///  Safety:
+        ///
+        ///  `config_json` must point to `len` readable bytes. `out` must be a writable `ak_client*`, and
+        ///  receives a handle to be given up by exactly one `ak_client_release`. `out_err`, when non-null,
+        ///  must be a writable `ak_bytes` and receives a message to give up with
+        ///  `ak_bytes_release`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ak_client_create", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern int ak_client_create(byte* config_json, System.UIntPtr len, ak_client** @out, ak_bytes* out_err);
+
+        /// <summary>
+        ///  Give up the caller's reference to a client.
+        ///
+        ///  Requests already under way keep the pool alive and run to completion: this gives back one
+        ///  reference, not necessarily the last one. Null is accepted and does nothing.
+        ///
+        ///  Safety:
+        ///
+        ///  `client` must be a handle from `ak_client_create` that has not been released, or null.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "ak_client_release", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        public static extern void ak_client_release(ak_client* client);
+
+        /// <summary>
         ///  Give up an `ak_bytes` previously returned by this library.
         ///
         ///  Safety:
@@ -51,6 +86,18 @@ namespace ArmoniK.Api.Client.Native
         public static extern void ak_bytes_release(ak_bytes bytes);
 
 
+    }
+
+    /// <summary>
+    ///  A connection pool, and the options every request on it inherits.
+    ///
+    ///  Handed to the caller as an opaque pointer. The registry owns it, and a request takes a counted
+    ///  reference for as long as it runs, so a pool outlives an `ak_client_release` that lands while
+    ///  work is still on it.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe partial struct ak_client
+    {
     }
 
     /// <summary>

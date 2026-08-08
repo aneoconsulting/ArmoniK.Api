@@ -41,6 +41,7 @@
 // behind it, each covered by its own tests.
 #[allow(dead_code)]
 mod blob;
+mod client;
 #[allow(dead_code)]
 mod error;
 #[allow(dead_code)]
@@ -57,6 +58,7 @@ pub mod status;
 #[doc(hidden)]
 pub mod runtime;
 
+pub use client::{ak_client, ak_client_create, ak_client_release};
 pub use error::{ak_bytes, ak_bytes_in, ak_bytes_release};
 
 /// The revision of this ABI that this library implements.

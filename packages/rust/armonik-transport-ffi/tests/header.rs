@@ -35,7 +35,12 @@ fn every_entry_point_is_declared() {
     // The header is what a caller's own declarations are written against, so an entry point missing
     // from it is a function no caller can reach. Only `#[no_mangle] pub extern "C"` items are
     // emitted, so this catches one losing its attribute as much as a generation failure.
-    for symbol in ["ak_abi_version", "ak_bytes_release"] {
+    for symbol in [
+        "ak_abi_version",
+        "ak_bytes_release",
+        "ak_client_create",
+        "ak_client_release",
+    ] {
         assert!(
             HEADER.contains(symbol),
             "`{symbol}` is missing from the generated header"
@@ -52,6 +57,9 @@ fn every_type_of_the_contract_is_declared() {
         "typedef struct ak_bytes {",
         "typedef struct ak_bytes_in {",
         "enum ak_status",
+        // Opaque: a handle is an address the caller passes back, and its fields are none of a
+        // caller's business. The typedef is what lets one be declared at all.
+        "typedef struct ak_client ak_client;",
     ] {
         assert!(
             HEADER.contains(declaration),

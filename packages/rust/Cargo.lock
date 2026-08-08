@@ -126,6 +126,8 @@ dependencies = [
  "bytes",
  "cbindgen",
  "csbindgen",
+ "rcgen",
+ "serde_json",
  "tokio",
 ]
 

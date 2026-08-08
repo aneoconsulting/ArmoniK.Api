@@ -77,6 +77,7 @@ fn generate_header(crate_dir: &Path, header: &Path) {
 fn generate_csharp(crate_dir: &Path, bindings: &Path) {
     let result = csbindgen::Builder::default()
         .input_extern_file(crate_dir.join("src").join("lib.rs"))
+        .input_extern_file(crate_dir.join("src").join("client.rs"))
         .input_extern_file(crate_dir.join("src").join("error.rs"))
         .input_extern_file(crate_dir.join("src").join("status.rs"))
         .csharp_namespace("ArmoniK.Api.Client.Native")
