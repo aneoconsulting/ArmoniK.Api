@@ -448,6 +448,9 @@ impl TryFrom<&ClientConfig> for tonic::transport::Endpoint {
 
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
+// snafu keeps its generated context selectors module-private by default. Visible to the crate so that
+// `connect` can report a bad option value as the configuration error it is.
+#[snafu(visibility(pub(crate)))]
 pub enum ConfigError {
     #[snafu(display("Could not read environment variable [{location}]"))]
     #[non_exhaustive]
