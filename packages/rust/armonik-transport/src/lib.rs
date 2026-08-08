@@ -39,6 +39,7 @@ pub use connector::{IoSnafu, TlsSnafu};
 /// A dependent should take these rather than declare its own requirement for the same crates, so it
 /// cannot end up with a `rustls` other than the one the connection was built with.
 pub mod reexports {
+    pub use http;
     pub use hyper;
     pub use hyper_rustls;
     pub use hyper_util;
@@ -48,5 +49,4 @@ pub mod reexports {
     pub use secrecy;
     #[cfg(feature = "serde")]
     pub use serde;
-    pub use tonic;
 }

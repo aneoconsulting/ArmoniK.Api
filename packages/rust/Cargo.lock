@@ -95,6 +95,7 @@ name = "armonik-transport"
 version = "3.29.2-beta-0"
 dependencies = [
  "base64",
+ "http",
  "humantime",
  "hyper",
  "hyper-rustls",
@@ -111,7 +112,6 @@ dependencies = [
  "serde_with",
  "snafu",
  "tokio",
- "tonic",
  "tower-service",
  "tracing",
 ]

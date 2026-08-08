@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(config.tls.override_target_name.as_deref(), Some("[::1]"));
         assert_eq!(
             config.user_agent,
-            Some(hyper::http::HeaderValue::from_static("1.0"))
+            Some(http::HeaderValue::from_static("1.0"))
         );
     }
 
@@ -245,7 +245,7 @@ mod tests {
             .expect("an absent variable must not fail the read");
 
         for config in [&declared, &absent] {
-            assert_eq!(config.endpoint, hyper::Uri::default());
+            assert_eq!(config.endpoint, http::Uri::default());
             assert_eq!(config.timeout, None);
             assert_eq!(config.tcp.keepalive, None);
             assert_eq!(config.tls.identity, None);

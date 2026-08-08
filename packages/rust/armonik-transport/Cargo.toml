@@ -28,9 +28,10 @@ env = ["serde"]
 schema = ["serde", "dep:schemars", "dep:serde_json"]
 
 [dependencies]
-# Only re-exported, so a dependent assembling a channel reaches the version the workspace pins.
-# Nothing here builds against it.
-tonic.workspace = true
+# The URIs, headers and status types the options are read into, and re-exported so a dependent
+# building a `HeaderValue` for `UserAgent` uses the same `http` this crate parsed one with. Declared
+# directly rather than reached through `hyper`, which only re-exports part of it.
+http.workspace = true
 snafu.workspace = true
 tracing.workspace = true
 hyper = { workspace = true, features = ["client", "http1", "http2"] }
@@ -71,8 +72,8 @@ serde_path_to_error = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 humantime.workspace = true
-# `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
-# nothing to the build.
+# `Proxy-Authorization: Basic` needs it. Already in the tree through `hyper-util`, so declaring it
+# adds nothing to the build.
 base64.workspace = true
 # Decodes percent-escapes in a proxy URL's userinfo. Already resolved in the workspace lockfile
 # through another crate's transitive tree, so declaring it directly adds no new crate to the build.

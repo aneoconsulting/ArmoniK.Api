@@ -13,7 +13,7 @@
 
 use std::time::Duration;
 
-use hyper::{http::HeaderValue, Uri};
+use http::{HeaderValue, Uri};
 use snafu::Snafu;
 
 use crate::http2_config::Http2Config;
@@ -171,7 +171,7 @@ pub struct HttpConfig {
     /// How long an idle connection is kept in a pool before it is closed. `PoolIdleTimeout`.
     ///
     /// Applied by whoever drives the pool: a channel is one connection and has none, so nothing
-    /// in `connect` reads it.
+    /// that builds one reads it.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "optional_duration"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub pool_idle_timeout: Option<Duration>,
@@ -418,8 +418,8 @@ pub enum ConfigError {
     #[snafu(display("Endpoint URI is not valid: `{uri}` [{location}]"))]
     #[non_exhaustive]
     Uri {
-        #[snafu(source(from(hyper::http::uri::InvalidUri, Box::new)))]
-        source: Box<hyper::http::uri::InvalidUri>,
+        #[snafu(source(from(http::uri::InvalidUri, Box::new)))]
+        source: Box<http::uri::InvalidUri>,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -427,8 +427,8 @@ pub enum ConfigError {
     #[snafu(display("Override URI is not valid: `{uri}` [{location}]"))]
     #[non_exhaustive]
     Http {
-        #[snafu(source(from(hyper::http::Error, Box::new)))]
-        source: Box<hyper::http::Error>,
+        #[snafu(source(from(http::Error, Box::new)))]
+        source: Box<http::Error>,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,

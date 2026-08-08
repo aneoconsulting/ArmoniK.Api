@@ -10,9 +10,9 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use base64::Engine;
-use hyper::http::uri::Scheme;
-use hyper::http::HeaderValue;
-use hyper::Uri;
+use http::uri::Scheme;
+use http::HeaderValue;
+use http::Uri;
 use hyper_util::client::legacy::connect::proxy::Tunnel;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::TokioIo;

@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use hyper::Uri;
+use http::Uri;
 use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver, HttpsConnector};
 use hyper_util::client::legacy::connect::HttpConnector;
 use rustls::pki_types::ServerName;
