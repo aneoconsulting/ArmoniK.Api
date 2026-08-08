@@ -154,7 +154,7 @@ pub struct TlsConfig {
 #[cfg_attr(
     feature = "schema",
     derive(schemars::JsonSchema),
-    schemars(transform = crate::config_utils::strip_rust_details)
+    schemars(transform = crate::config::strip_rust_details)
 )]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct RawTls {

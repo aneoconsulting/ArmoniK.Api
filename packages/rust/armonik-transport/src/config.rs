@@ -67,6 +67,63 @@ embed_prefixed!(
     "Proxy"
 );
 
+/// What an intra-doc link into a unit renders as: the name a doc comment links to that unit by,
+/// the prefix this configuration reads it under, and the fields of it that name one option each.
+///
+/// Here, next to the embeddings that choose those prefixes, rather than in `config_utils`: the
+/// same unit is a different set of names under a different prefix.
+///
+/// The fields are listed rather than derived because a rustdoc path says nothing about what it
+/// landed on: `username` and `explicit` are spelled alike, and so are an option's field and one
+/// that groups several options or that no option reads. A name built for either would be a name
+/// no source spells - the very thing this rewriting exists to keep out of the schema.
+#[cfg(feature = "schema")]
+const OPTION_FIELDS: &[crate::config_utils::PrefixedUnit<'static>] = &[
+    (
+        "TlsConfig",
+        "",
+        &["allow_unsafe_connection", "ca_cert", "override_target_name"],
+    ),
+    (
+        "TcpConfig",
+        "Tcp",
+        &[
+            "keepalive",
+            "keepalive_interval",
+            "keepalive_retries",
+            "nagle_algorithm",
+        ],
+    ),
+    (
+        "Http2Config",
+        "Http2",
+        &[
+            "keep_alive_interval",
+            "keep_alive_timeout",
+            "keep_alive_while_idle",
+            "max_header_list_size",
+        ],
+    ),
+    (
+        "RetryConfig",
+        "",
+        &[
+            "max_attempts",
+            "initial_back_off",
+            "max_back_off",
+            "back_off_multiplier",
+        ],
+    ),
+    ("ProxyConfig", "Proxy", &["username", "password"]),
+];
+
+/// [`crate::config_utils::strip_rust_details`] over this configuration's own units: every type of
+/// the vocabulary transforms its schema through here, so all of them render a link the same way.
+#[cfg(feature = "schema")]
+pub(crate) fn strip_rust_details(schema: &mut schemars::Schema) {
+    crate::config_utils::strip_rust_details(OPTION_FIELDS, schema);
+}
+
 /// Options for creating a gRPC client.
 ///
 /// Deserializable but deliberately not serializable: the proxy password is a secret, and a type
@@ -82,7 +139,7 @@ embed_prefixed!(
 #[cfg_attr(
     feature = "schema",
     derive(schemars::JsonSchema),
-    schemars(transform = crate::config_utils::strip_rust_details)
+    schemars(transform = crate::config::strip_rust_details)
 )]
 #[non_exhaustive]
 pub struct HttpConfig {
@@ -353,6 +410,53 @@ mod tests {
         serde_json::from_value::<HttpConfig>(value)
             .expect_err("the configuration should be rejected")
             .to_string()
+    }
+
+    /// Every property name the schema declares, wherever `schemars` nested it.
+    #[cfg(feature = "schema")]
+    fn property_names(value: &serde_json::Value, names: &mut Vec<String>) {
+        match value {
+            serde_json::Value::Object(object) => {
+                for (key, child) in object {
+                    if key == "properties" {
+                        if let serde_json::Value::Object(properties) = child {
+                            names.extend(properties.keys().cloned());
+                        }
+                    }
+                    property_names(child, names);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    property_names(item, names);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    #[cfg(feature = "schema")]
+    #[test]
+    fn every_field_a_link_resolves_through_names_an_option_the_schema_declares() {
+        // The table is written by hand, so this is what keeps it from drifting: a field listed
+        // there under the wrong prefix, or one that stopped being an option, would put a name no
+        // deployment can set into a description a consumer generates its class from.
+        let schema = serde_json::to_value(schemars::schema_for!(HttpConfig))
+            .expect("a schema serialises to JSON");
+        let mut names = Vec::new();
+        property_names(&schema, &mut names);
+
+        for (unit, _, fields) in OPTION_FIELDS {
+            for field in *fields {
+                let path = format!("{unit}::{field}");
+                let flat = crate::config_utils::flat_name(&path, OPTION_FIELDS)
+                    .unwrap_or_else(|| panic!("`{path}` is listed and has to resolve"));
+                assert!(
+                    names.contains(&flat),
+                    "`{path}` renders `{flat}`, which no option spells"
+                );
+            }
+        }
     }
 
     #[test]

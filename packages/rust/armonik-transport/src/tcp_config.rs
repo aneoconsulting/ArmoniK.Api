@@ -17,7 +17,7 @@ use std::time::Duration;
 #[cfg_attr(
     feature = "schema",
     derive(schemars::JsonSchema),
-    schemars(transform = crate::config_utils::strip_rust_details)
+    schemars(transform = crate::config::strip_rust_details)
 )]
 #[non_exhaustive]
 pub struct TcpConfig {
