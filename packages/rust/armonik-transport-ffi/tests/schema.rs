@@ -11,9 +11,14 @@
 //! reads this file, and a stale one is an option that silently does nothing.
 //!
 //! Being current is half of it. The other half is the ledger: every option the schema declares is
-//! named in one of two lists here, applied or deliberately not, so an option added to the vocabulary
+//! named in one of two lists here, applied or not applied, so an option added to the vocabulary
 //! fails this crate's build until somebody decides which it is. That is what keeps an option from
 //! reaching a caller's options class and then doing nothing at all.
+//!
+//! Both lists say what is true of this library as it stands, which is the only way a ledger is worth
+//! reading. An option the client parses and holds but nothing acts on is not applied, and putting it
+//! on the other list would turn "nobody has checked" into "a test says this is fine" - the one
+//! failure a ledger exists to catch.
 
 use armonik_transport::reexports::schemars;
 
@@ -78,10 +83,12 @@ fn the_committed_schema_carries_no_carriage_returns() {
     );
 }
 
-/// Every option this library reads, and what each one reaches.
+/// Every option this library applies, and what each one reaches.
 ///
-/// Half of the ledger below. An option that is here does something: the note says what, so that
-/// "applied" is a claim someone can check rather than a name on a list.
+/// Half of the ledger below. An option is here only if something in this library reads it and acts
+/// on it: the note says what it reaches, so that "applied" is a claim a reader can go and check
+/// rather than a name on a list. Carrying a value on the client is not applying it - an option
+/// nothing acts on belongs in [`NOT_APPLIED`], however faithfully it was parsed.
 const APPLIED: &[(&str, &str)] = &[
     (
         "Endpoint",
@@ -101,9 +108,7 @@ const APPLIED: &[(&str, &str)] = &[
         "moves the verified name and the origin off the endpoint",
     ),
     ("ConnectTimeout", "bounds opening a socket, and the tunnel"),
-    ("Timeout", "the whole-request bound the client carries"),
     ("PoolIdleTimeout", "closes an idle pooled connection"),
-    ("RateLimit", "the limiter the client holds"),
     ("TcpKeepalive", "the socket's keepalive"),
     ("TcpKeepaliveInterval", "between its probes"),
     ("TcpKeepaliveRetries", "before it gives up"),
@@ -116,10 +121,6 @@ const APPLIED: &[(&str, &str)] = &[
     ),
     ("Http2MaxHeaderListSize", "bounds one request's headers"),
     (
-        "UserAgent",
-        "the header the client carries onto every request",
-    ),
-    (
         "ProxyAddress",
         "tunnelled through, under the connector's TLS",
     ),
@@ -127,11 +128,15 @@ const APPLIED: &[(&str, &str)] = &[
     ("ProxyPassword", "likewise"),
 ];
 
-/// Every option this library deliberately does not read, and why not.
+/// Every option nothing in this library acts on, and why not.
 ///
-/// The other half. An option is here only because applying it at this layer would be wrong, not
-/// because nobody has got to it: what is written beside each name is a reason, and a reason is what
-/// a reviewer weighs.
+/// The other half, and the one that has to stay honest for either to be worth anything. Two reasons
+/// put an option here, and the note says which. Either the option belongs to a layer above this one,
+/// or it is applied per request and nothing here sends a request: the client holds the value, and
+/// holding a value changes no behaviour.
+///
+/// Whoever makes this library send a request moves the second group across, and the ledger fails
+/// until they do. That is the ledger working, not a hole in it.
 const NOT_APPLIED: &[(&str, &str)] = &[
     (
         "MaxAttempts",
@@ -142,6 +147,21 @@ const NOT_APPLIED: &[(&str, &str)] = &[
     ("InitialBackOff", "the same schedule, for the same reason"),
     ("MaxBackOff", "likewise"),
     ("BackOffMultiplier", "likewise"),
+    (
+        "Timeout",
+        "read onto the client as `ak_client::timeout`, and applied by whoever sends a request: \
+         nothing below the sender can time a request out, and nothing here sends one",
+    ),
+    (
+        "RateLimit",
+        "read onto the client as the limiter in `ak_client::rate_limit`, whose permit is taken by \
+         whoever sends a request; nothing here takes one",
+    ),
+    (
+        "UserAgent",
+        "read onto the client as `ak_client::user_agent`, and set on a request by whoever builds \
+         one; nothing here builds one",
+    ),
 ];
 
 /// Every property name the schema declares, wherever it declares it: at the top level, inside an
@@ -236,10 +256,12 @@ fn no_entry_of_either_list_has_left_the_vocabulary() {
 }
 
 #[test]
-fn the_retry_schedule_is_the_whole_of_what_this_layer_leaves_alone() {
-    // What the ledger is worth depends on how short this list is. It is exactly the retry schedule,
-    // and that is not an accident of what was convenient: a replay is a new request, judged on a
-    // status this library never parses.
+fn what_is_left_unapplied_is_the_retry_schedule_and_what_a_request_carries() {
+    // The list spelled out, so that growing it is a decision somebody makes here rather than the
+    // path of least resistance when an option turns out to be inconvenient. Two groups, and no
+    // third: the retry schedule, which belongs to the gRPC stack above this library, and the three
+    // options a request applies, which the client holds and nothing acts on because nothing here
+    // sends a request. Shortening this list is the work; nothing may lengthen it quietly.
     let left_alone: Vec<&str> = NOT_APPLIED.iter().map(|(name, _)| *name).collect();
 
     assert_eq!(
@@ -248,9 +270,12 @@ fn the_retry_schedule_is_the_whole_of_what_this_layer_leaves_alone() {
             "MaxAttempts",
             "InitialBackOff",
             "MaxBackOff",
-            "BackOffMultiplier"
+            "BackOffMultiplier",
+            "Timeout",
+            "RateLimit",
+            "UserAgent",
         ],
-        "an option other than the retry schedule is being left unread"
+        "an option outside those two groups is being left unapplied"
     );
 }
 

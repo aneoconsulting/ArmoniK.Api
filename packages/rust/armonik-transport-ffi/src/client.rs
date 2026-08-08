@@ -39,13 +39,17 @@ pub(crate) type BodyError = Box<dyn std::error::Error + Send + Sync>;
 /// pool whose type would otherwise be decided by whichever request shape was written first.
 pub(crate) type RequestBody = BoxBody<Bytes, BodyError>;
 
-/// A connection pool, and the options every request on it inherits.
+/// A connection pool, and the options a request on it draws from.
 ///
 /// Handed to the caller as an opaque pointer. The registry owns it, and a request takes a counted
 /// reference for as long as it runs, so a pool outlives an [`ak_client_release`] that lands while
 /// work is still on it.
-// The fields are what a request inherits from the pool. `dead_code` measures reachability from this
-// crate's Rust API, which is not the surface this crate offers.
+///
+/// The last three fields are read by whoever sends a request, and nothing here does: they are
+/// parsed and held, which changes no behaviour on its own. `tests/schema.rs` says as much, and lists
+/// them among the options this library does not apply.
+// `dead_code` measures reachability from this crate's Rust API, which is not the surface this crate
+// offers.
 #[allow(dead_code)]
 pub struct ak_client {
     /// The pool, over the connector the configuration assembles.
@@ -55,16 +59,16 @@ pub struct ak_client {
     pub(crate) origin: Uri,
     /// `Timeout`: the whole-request bound, `None` for none.
     ///
-    /// Held here rather than applied to the pool, because `hyper` has no notion of a request taking
-    /// too long: nothing below the caller of a request can time one out.
+    /// Held rather than set on the pool, because `hyper` has no notion of a request taking too long:
+    /// nothing below the sender of a request can time one out.
     pub(crate) timeout: Option<Duration>,
-    /// `UserAgent`: sent on every request that carries no header of its own.
+    /// `UserAgent`: the header value a request carries when it has none of its own, `None` for none.
     pub(crate) user_agent: Option<HeaderValue>,
     /// `RateLimit`: how many requests a window admits, `None` for no limit.
     ///
-    /// State the pool carries rather than a layer wrapped around it, because a permit belongs to
-    /// one request: it is taken by whoever sends, and one limiter serves every request on the
-    /// client, which is what "per client" means.
+    /// State the pool carries rather than a layer wrapped around it, because a permit belongs to one
+    /// request: it is taken by the sender, and one limiter serves every request on the client, which
+    /// is what "per client" means.
     pub(crate) rate_limit: Option<RateLimiter>,
 }
 
@@ -382,7 +386,7 @@ mod tests {
                 .expect("a live client")
                 .rate_limit
                 .is_some(),
-            "the option is implemented, not read and dropped"
+            "the option becomes a limiter on the client rather than being read and dropped"
         );
 
         let unlimited = create(r#"{"Endpoint": "http://127.0.0.1:1/"}"#);

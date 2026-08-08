@@ -157,11 +157,15 @@ typedef int32_t ak_status;
 #endif // __cplusplus
 
 /**
- * A connection pool, and the options every request on it inherits.
+ * A connection pool, and the options a request on it draws from.
  *
  * Handed to the caller as an opaque pointer. The registry owns it, and a request takes a counted
  * reference for as long as it runs, so a pool outlives an `ak_client_release` that lands while
  * work is still on it.
+ *
+ * The last three fields are read by whoever sends a request, and nothing here does: they are
+ * parsed and held, which changes no behaviour on its own. `tests/schema.rs` says as much, and lists
+ * them among the options this library does not apply.
  */
 typedef struct ak_client ak_client;
 
