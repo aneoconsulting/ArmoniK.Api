@@ -126,6 +126,8 @@ fn build(config_json: &[u8]) -> Result<ak_client, FfiError> {
     let origin = Uri::try_from(&config)?;
     let timeout = config.timeout;
     let user_agent = config.user_agent.clone();
+    let http2 = config.http2;
+    let pool_idle_timeout = config.pool_idle_timeout;
 
     let connector = https_connector(config, origin.clone())?;
 
@@ -142,6 +144,26 @@ fn build(config_json: &[u8]) -> Result<ak_client, FfiError> {
         .http2_only(true)
         .timer(TokioTimer::new())
         .pool_timer(TokioTimer::new());
+
+    // Each option is set only when the document names it, so an unset one leaves whatever `hyper`
+    // defaults to rather than being written over with a `None` this crate invented.
+    if let Some(interval) = http2.keep_alive_interval {
+        builder.http2_keep_alive_interval(interval);
+    }
+    if let Some(timeout) = http2.keep_alive_timeout {
+        builder.http2_keep_alive_timeout(timeout);
+    }
+    // Not optional, so no branch: `false` is what both the option and `hyper` default to, and
+    // setting it either way says the same thing.
+    builder.http2_keep_alive_while_idle(http2.keep_alive_while_idle);
+    if let Some(max) = http2.max_header_list_size {
+        builder.http2_max_header_list_size(max);
+    }
+    // `PoolIdleTimeout` exists in the vocabulary for a consumer that pools, which is what this is:
+    // a channel is one connection and has none, so nothing that builds one reads it.
+    if let Some(idle) = pool_idle_timeout {
+        builder.pool_idle_timeout(idle);
+    }
 
     Ok(ak_client {
         pool: builder.build(connector),
@@ -286,6 +308,52 @@ mod tests {
 
         let client = get(created.handle).expect("a live client");
         assert_eq!(client.origin.host(), Some("server.example.com"));
+    }
+
+    /// Every option this pool carries onto the `hyper` builder, each with a value nothing defaults
+    /// to, so an option that is dropped on the way cannot pass for one that was left alone.
+    const EVERY_POOL_OPTION: &str = r#"{
+        "Endpoint": "http://127.0.0.1:1/",
+        "Http2KeepAliveInterval": "20s",
+        "Http2KeepAliveTimeout": "10s",
+        "Http2KeepAliveWhileIdle": "true",
+        "Http2MaxHeaderListSize": "16384",
+        "PoolIdleTimeout": "90s"
+    }"#;
+
+    #[test]
+    fn the_pool_options_are_read_under_the_names_this_abi_documents() {
+        // The names in a caller's document are part of this ABI, and the values behind them belong
+        // to the transport's vocabulary. `hyper` offers no way to read a setting back off a built
+        // client, so what a test can hold is the step before it: that these spellings really are
+        // the ones the configuration reads, and that they arrive as the values written here.
+        let config: HttpConfig =
+            serde_json::from_str(EVERY_POOL_OPTION).expect("the option names the ABI documents");
+
+        assert_eq!(
+            config.http2.keep_alive_interval,
+            Some(Duration::from_secs(20))
+        );
+        assert_eq!(
+            config.http2.keep_alive_timeout,
+            Some(Duration::from_secs(10))
+        );
+        assert!(config.http2.keep_alive_while_idle);
+        assert_eq!(config.http2.max_header_list_size, Some(16384));
+        assert_eq!(config.pool_idle_timeout, Some(Duration::from_secs(90)));
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn a_document_naming_every_pool_option_produces_a_client() {
+        let created = create(EVERY_POOL_OPTION);
+
+        assert_eq!(
+            created.status,
+            ak_status::AK_OK.code(),
+            "{}",
+            created.message
+        );
     }
 
     #[test]
