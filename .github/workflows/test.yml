@@ -18,12 +18,12 @@ jobs:
       matrix:
         language:
           - lang: C#
-            cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
+            cmd: dotnet test -f net4.6 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
             env: {}
           - lang: C#
-            cmd: dotnet test -f net4.7 --logger "trx;LogFileName=test-results.trx"
+            cmd: dotnet test -f net4.6 --logger "trx;LogFileName=test-results.trx"
             dir: csharp/ArmoniK.Api.Client.Test
             dotnet: ''
             env:
