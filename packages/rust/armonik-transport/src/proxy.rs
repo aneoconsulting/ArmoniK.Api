@@ -309,8 +309,13 @@ struct RawProxy {
 #[cfg(feature = "serde")]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema), schemars(untagged))]
 pub(crate) enum ProxyShape {
-    /// A clean URL (or `system`/`none`/empty) next to dedicated credential fields.
-    Fields {
+    /// Credentials in the dedicated options, and an address carrying none.
+    ///
+    /// The address is a plain string here as everywhere, so this alternative cannot say that its
+    /// own `user:password@` is what the other one is for. Reading refuses an address carrying
+    /// credentials next to a non-empty `Username` or `Password`; a document validating against
+    /// this alternative is not therefore one the reader accepts.
+    AddressWithoutCredentials {
         /// Where to find the proxy: empty or `system` to follow the environment, `none` for a
         /// direct connection, otherwise the proxy URL, carrying no credentials, whose scheme has
         /// to be `http`.
@@ -329,9 +334,9 @@ pub(crate) enum ProxyShape {
         )]
         password: SecretString,
     },
-    /// A URL that carries its credentials itself, `user:password@` in its authority; the dedicated
-    /// credential fields must stay empty.
-    Embedded {
+    /// Credentials written into the address itself, `user:password@` in its authority, with the
+    /// dedicated options left unset. Setting both ways is refused rather than merged.
+    AddressCarryingCredentials {
         /// The proxy URL, credentials included.
         #[cfg_attr(feature = "schema", schemars(rename = "Address", with = "String"))]
         config: ProxyConfig,
@@ -357,8 +362,8 @@ impl ProxyShape {
                 ),
             }
             .fail(),
-            (true, false) => Ok(Self::Embedded { config }),
-            (false, _) => Ok(Self::Fields {
+            (true, false) => Ok(Self::AddressCarryingCredentials { config }),
+            (false, _) => Ok(Self::AddressWithoutCredentials {
                 config,
                 username: raw.username,
                 password: raw.password,
@@ -369,8 +374,8 @@ impl ProxyShape {
     /// The configuration either shape describes.
     fn resolve(self) -> ProxyConfig {
         match self {
-            Self::Embedded { config } => config,
-            Self::Fields {
+            Self::AddressCarryingCredentials { config } => config,
+            Self::AddressWithoutCredentials {
                 config,
                 username,
                 password,
