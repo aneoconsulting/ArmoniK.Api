@@ -542,7 +542,9 @@ mod tests {
             String::from("{}"),
             String::from(r#"{"Endpoint": "not a uri"}"#),
             String::from(r#"{"Endpoint": "http://127.0.0.1:1/", "RateLimit": "0/1s"}"#),
-            String::from(r#"{"Endpoint": "https://localhost:443/", "CaCertPath": "no/such/file.pem"}"#),
+            String::from(
+                r#"{"Endpoint": "https://localhost:443/", "CaCertPath": "no/such/file.pem"}"#,
+            ),
             mismatched_identity(&dir),
         ] {
             let created = create(&document);
