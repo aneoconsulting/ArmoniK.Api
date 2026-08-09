@@ -169,11 +169,24 @@ impl TryFrom<RawRetry> for RetryConfig {
             }
         );
 
+        let back_off_multiplier = back_off_multiplier.unwrap_or(DEFAULT_BACK_OFF_MULTIPLIER);
+        // `f64` parses `nan`, `inf` and every negative as happily as a real multiplier, and none of
+        // them backs anything off: below 1 each wait is shorter than the last, and a value that is
+        // not a finite number makes the schedule meaningless rather than long.
+        snafu::ensure!(
+            back_off_multiplier.is_finite() && back_off_multiplier >= 1.0,
+            IncompatibleOptionsSnafu {
+                msg: format!(
+                    "`BackOffMultiplier` ({back_off_multiplier}) is not a finite number of at least 1"
+                ),
+            }
+        );
+
         Ok(Self {
             max_attempts: max_attempts.map_or(DEFAULT_MAX_ATTEMPTS, std::num::NonZeroU32::get),
             initial_back_off,
             max_back_off,
-            back_off_multiplier: back_off_multiplier.unwrap_or(DEFAULT_BACK_OFF_MULTIPLIER),
+            back_off_multiplier,
             retryable_status_codes: DEFAULT_RETRYABLE_STATUS_CODES.to_vec(),
         })
     }
@@ -189,6 +202,49 @@ mod tests {
             max_attempts,
             ..RetryConfig::default()
         }
+    }
+
+    /// The policy `BackOffMultiplier=value` produces, whichever way it turns out.
+    #[cfg(feature = "serde")]
+    fn from_multiplier(value: &str) -> Result<RetryConfig, ConfigError> {
+        use serde::Deserialize as _;
+        RetryConfig::deserialize(serde::de::value::MapDeserializer::<
+            _,
+            serde::de::value::Error,
+        >::new([("BackOffMultiplier", value)].into_iter()))
+        .map_err(|error| {
+            IncompatibleOptionsSnafu {
+                msg: error.to_string(),
+            }
+            .build()
+        })
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_multiplier_that_backs_nothing_off_is_refused() {
+        // `f64` parses every one of these, and each would make the schedule something other than a
+        // backoff: no wait at all, waits that shrink, or a number that is not one.
+        for value in ["0", "-1", "0.5", "nan", "inf", "-inf"] {
+            let rendered = from_multiplier(value)
+                .err()
+                .map(|error| error.to_string())
+                .unwrap_or_else(|| panic!("`{value}` should be refused"));
+
+            assert!(
+                rendered.contains("BackOffMultiplier"),
+                "{value}: {rendered}"
+            );
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn a_multiplier_of_one_is_a_constant_wait_and_allowed() {
+        // The edge of the rule, and a legitimate policy: retry at a fixed interval.
+        let policy = from_multiplier("1").expect("a constant wait is a policy");
+
+        assert_eq!(policy.back_off_multiplier, 1.0);
     }
 
     #[test]
