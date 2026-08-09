@@ -22,6 +22,12 @@ version = "3.29.2-beta-0"
 armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
 async-stream = "0.3"
 bytes = "1"
+# Benchmark harness. `default-features = false` drops the HTML report and its
+# plotting/rayon tree; `async_tokio` is what drives the in-process round trips.
+criterion = { version = "0.5", default-features = false, features = [
+  "async_tokio",
+  "cargo_bench_support",
+] }
 eyre = "0.6"
 futures = "0.3"
 http-body-util = "0.1"
