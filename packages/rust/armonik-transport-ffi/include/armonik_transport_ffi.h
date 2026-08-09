@@ -245,7 +245,7 @@ int32_t ak_abi_version(void);
 /**
  * Create a client from a UTF-8 JSON configuration document.
  *
- * `config_json` names the flat options of the transport's vocabulary - `Endpoint`, `CaCert`,
+ * `config_json` names the flat options of the transport's vocabulary - `Endpoint`, `CaCertPath`,
  * `AllowUnsafeConnection`, `Tcp*`, `Http2*`, `Proxy*`, and the rest - as a single JSON object of
  * strings. `include/http_config.schema.json` is that vocabulary in full; an option the document
  * does not name reads as its own default, so a caller writes only what it changes.

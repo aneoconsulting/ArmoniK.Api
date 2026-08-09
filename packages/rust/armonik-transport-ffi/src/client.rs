@@ -80,7 +80,7 @@ fn live() -> &'static Registry<ak_client> {
 
 /// Create a client from a UTF-8 JSON configuration document.
 ///
-/// `config_json` names the flat options of the transport's vocabulary - `Endpoint`, `CaCert`,
+/// `config_json` names the flat options of the transport's vocabulary - `Endpoint`, `CaCertPath`,
 /// `AllowUnsafeConnection`, `Tcp*`, `Http2*`, `Proxy*`, and the rest - as a single JSON object of
 /// strings. `include/http_config.schema.json` is that vocabulary in full; an option the document
 /// does not name reads as its own default, so a caller writes only what it changes.
@@ -479,7 +479,7 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     fn an_unreadable_certificate_is_reported_with_its_cause_rather_than_a_summary() {
         let created =
-            create(r#"{"Endpoint": "https://localhost:443/", "CaCert": "no/such/file.pem"}"#);
+            create(r#"{"Endpoint": "https://localhost:443/", "CaCertPath": "no/such/file.pem"}"#);
 
         assert_eq!(created.status, ak_status::AK_INVALID_CONFIG.code());
         assert!(
@@ -542,7 +542,7 @@ mod tests {
             String::from("{}"),
             String::from(r#"{"Endpoint": "not a uri"}"#),
             String::from(r#"{"Endpoint": "http://127.0.0.1:1/", "RateLimit": "0/1s"}"#),
-            String::from(r#"{"Endpoint": "https://localhost:443/", "CaCert": "no/such/file.pem"}"#),
+            String::from(r#"{"Endpoint": "https://localhost:443/", "CaCertPath": "no/such/file.pem"}"#),
             mismatched_identity(&dir),
         ] {
             let created = create(&document);

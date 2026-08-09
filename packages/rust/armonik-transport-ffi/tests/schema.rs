@@ -98,7 +98,10 @@ const APPLIED: &[(&str, &str)] = &[
     ("KeyPem", "the key of that chain"),
     ("CertP12", "the same identity as one PKCS#12 bundle"),
     ("CertP12Password", "opens that bundle"),
-    ("CaCert", "the authority the server is verified against"),
+    (
+        "CaCertPath",
+        "read for the authority the server is verified against",
+    ),
     (
         "AllowUnsafeConnection",
         "verifies no server certificate at all",
