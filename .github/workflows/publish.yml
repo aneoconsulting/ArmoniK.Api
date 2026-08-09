@@ -188,12 +188,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          # The version generator reads the current branch name, so a pull
-          # request has to build on its head rather than on the detached merge
-          # ref: otherwise every PR resolves to the same `-head.*` version.
-          # Empty on every other event, which leaves the default checkout.
-          ref: ${{ github.head_ref }}
+          # The commit that triggered the run, not the merge ref and not the
+          # branch: a branch name resolves to wherever the branch stands when
+          # this step runs, so a run that waits in the queue while its branch
+          # moves builds, and names, a commit that is not its own head. Empty on
+          # every other event, which leaves the default checkout.
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+
+      # The checkout above is detached, and the version generator reads the
+      # current branch name (`git rev-parse --abbrev-ref HEAD`) both as the
+      # pre-release label and as the end of the commit range it counts. Detached
+      # that name is `HEAD`, which makes every pull request resolve to the same
+      # `-head.*` version. Name the pinned commit without moving it, so the
+      # generator sees the branch and the commit the run was triggered on.
+      - name: Restore the branch name
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: git checkout -B "$HEAD_REF"
 
       - run: npm i -g --ignore-scripts pnpm@10.18.0 @antfu/ni@30.3.0
 
@@ -435,9 +448,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          # Build the pull request's head, as the previous workflow did, not the
-          # merge ref. Empty on every other event.
-          ref: ${{ github.head_ref }}
+          # The commit that triggered the run, not the merge ref and not the
+          # branch, which resolves to wherever it has moved by now. This is the
+          # commit the version resolved by the context job names. Empty on every
+          # other event.
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Install .NET Core
@@ -684,9 +699,11 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          # Build the pull request's head, as the previous workflow did, not the
-          # merge ref. Empty on every other event.
-          ref: ${{ github.head_ref }}
+          # The commit that triggered the run, not the merge ref and not the
+          # branch, which resolves to wherever it has moved by now. This is the
+          # commit the version resolved by the context job names. Empty on every
+          # other event.
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       # Pinned: the angular package is published from its generated `dist`
