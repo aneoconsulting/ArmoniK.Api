@@ -211,7 +211,7 @@ namespace ArmoniK.Api.TransportOptionsGenerator
         if (seen.Add(property.Name))
         {
           options.Add(new Option(property.Name,
-                                 Description(property)));
+                                 ReadDescription(property)));
         }
       }
 
@@ -280,7 +280,7 @@ namespace ArmoniK.Api.TransportOptionsGenerator
 
     // An option with nothing to say about itself is documented by its own name, which is at least
     // the name a deployment sets.
-    private static string Description(JsonProperty option)
+    private static string ReadDescription(JsonProperty option)
       => option.Value.TryGetProperty("description",
                                      out var description)
            ? description.GetString() ?? option.Name
