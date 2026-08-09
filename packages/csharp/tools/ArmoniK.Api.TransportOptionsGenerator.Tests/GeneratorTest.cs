@@ -70,6 +70,16 @@ namespace ArmoniK.Api.TransportOptionsGenerator.Tests
       => Assert.That(() => Generator.Generate(@"{""properties"":{""class"":{""type"":""string""}}}"),
                      Throws.InstanceOf<InvalidOperationException>());
 
+    /// <summary>
+    ///   A schema naming nothing would generate a class with no option and no complaint, which is
+    ///   the one outcome a caller cannot debug.
+    /// </summary>
+    [Test]
+    public void ASchemaNamingNoOptionIsRefused()
+      => Assert.That(() => Generator.Generate("{}"),
+                     Throws.InstanceOf<InvalidOperationException>()
+                           .With.Message.Contains("no option"));
+
     [Test]
     public void OptionsThatAreNotSetAreLeftOut()
       => Assert.That(new TransportOptions().ToTransportJson(),
