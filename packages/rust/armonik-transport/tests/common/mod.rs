@@ -19,6 +19,10 @@ use tower_service::Service;
 /// The one method the test service answers to.
 pub const METHOD_PATH: &str = "/armonik_transport.test.Slow/Call";
 
+/// What the service answers once it has finished sleeping, so a test can tell a real reply from an
+/// empty one.
+pub const REPLY: &[u8] = b"served";
+
 /// A codec whose wire representation *is* the message: no framing beyond what gRPC already adds.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct BytesCodec;
@@ -90,7 +94,7 @@ impl Service<Request<Bytes>> for SlowService {
         let delay = self.delay;
         Box::pin(async move {
             tokio::time::sleep(delay).await;
-            Ok(Response::new(Bytes::from_static(b"late")))
+            Ok(Response::new(Bytes::from_static(REPLY)))
         })
     }
 }
