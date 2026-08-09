@@ -12,7 +12,7 @@
       "description": "What each wait is multiplied by; empty for the default.",
       "type": "string"
     },
-    "CaCert": {
+    "CaCertPath": {
       "description": "Path to the Certificate Authority file, in PEM format; empty for the system CAs.",
       "type": "string"
     },
@@ -144,7 +144,7 @@
           ]
         },
         {
-          "description": "No identity option is required: none of them set, half a PEM pair, or a password naming no\nbundle, each of which `load` rejects by name.",
+          "description": "Neither identity option set, or an incomplete one: half a PEM pair, or a password naming no\nbundle. Each is refused when the configuration is read, naming the options involved; this\nalternative admits them so the vocabulary stays one list, and the reader is what decides\nwhich combinations make an identity.",
           "type": "object",
           "properties": {
             "CertP12": {
@@ -170,7 +170,7 @@
     {
       "anyOf": [
         {
-          "description": "A clean URL (or `system`/`none`/empty) next to dedicated credential fields.",
+          "description": "Credentials in the dedicated options, and an address carrying none.\n\nThe address is a plain string here as everywhere, so this alternative cannot say that its\nown `user:password@` is what the other one is for. Reading refuses an address carrying\ncredentials next to a non-empty `Username` or `Password`; a document validating against\nthis alternative is not therefore one the reader accepts.",
           "type": "object",
           "properties": {
             "ProxyAddress": {
@@ -188,7 +188,7 @@
           }
         },
         {
-          "description": "A URL that carries its credentials itself, `user:password@` in its authority; the dedicated\ncredential fields must stay empty.",
+          "description": "Credentials written into the address itself, `user:password@` in its authority, with the\ndedicated options left unset. Setting both ways is refused rather than merged.",
           "type": "object",
           "properties": {
             "ProxyAddress": {

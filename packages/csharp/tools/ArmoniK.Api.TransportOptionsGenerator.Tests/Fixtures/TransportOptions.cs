@@ -61,7 +61,7 @@ namespace ArmoniK.Api.Client.Native
     /// <summary>
     ///   Path to the Certificate Authority file, in PEM format; empty for the system CAs.
     /// </summary>
-    public string CaCert { get; set; } = "";
+    public string CaCertPath { get; set; } = "";
 
     /// <summary>
     ///   Timeout for establishing a connection to the server, defaults to 60s. `ConnectTimeout`.
@@ -222,8 +222,8 @@ namespace ArmoniK.Api.Client.Native
                    "BackOffMultiplier",
                    BackOffMultiplier);
       AppendOption(builder,
-                   "CaCert",
-                   CaCert);
+                   "CaCertPath",
+                   CaCertPath);
       AppendOption(builder,
                    "ConnectTimeout",
                    ConnectTimeout);
