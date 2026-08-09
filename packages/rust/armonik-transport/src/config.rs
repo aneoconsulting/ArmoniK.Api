@@ -80,9 +80,11 @@ embed_prefixed!(
 #[cfg(feature = "schema")]
 const OPTION_FIELDS: &[crate::config_utils::PrefixedUnit<'static>] = &[
     (
+        // `ca_cert` is absent: it holds the certificate the reader loaded, where the option names
+        // the path it was read from, so a link to the field resolves to no option at all.
         "TlsConfig",
         "",
-        &["allow_unsafe_connection", "ca_cert", "override_target_name"],
+        &["allow_unsafe_connection", "override_target_name"],
     ),
     (
         "TcpConfig",
