@@ -16,6 +16,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 
@@ -192,23 +193,25 @@ namespace ArmoniK.Api.TransportOptionsGenerator
       var options = new List<Option>();
       var seen = new HashSet<string>(StringComparer.Ordinal);
 
-      Collect(root);
-
-      if (root.TryGetProperty("allOf",
-                              out var allOf))
+      foreach (var property in PropertyBags(root)
+                 .SelectMany(bag => bag.EnumerateObject()))
       {
-        foreach (var entry in allOf.EnumerateArray())
+        if (!IsOptionName(property.Name))
         {
-          Collect(entry);
+          throw new InvalidOperationException($"Option '{property.Name}' is not a PascalCase name");
+        }
 
-          if (entry.TryGetProperty("anyOf",
-                                   out var anyOf))
-          {
-            foreach (var branch in anyOf.EnumerateArray())
-            {
-              Collect(branch);
-            }
-          }
+        // Every value is text by contract. An option typed otherwise is a change of contract, and
+        // belongs in a decision rather than in a conversion invented here.
+        if (!IsText(property.Value))
+        {
+          throw new InvalidOperationException($"Option '{property.Name}' is not typed as a string");
+        }
+
+        if (seen.Add(property.Name))
+        {
+          options.Add(new Option(property.Name,
+                                 Description(property)));
         }
       }
 
@@ -218,43 +221,70 @@ namespace ArmoniK.Api.TransportOptionsGenerator
       }
 
       return options;
+    }
 
-      void Collect(JsonElement element)
+    /// <summary>
+    ///   Every <c>properties</c> object the schema holds, in the order it holds them.
+    /// </summary>
+    /// <remarks>
+    ///   A schema object that names no option is skipped rather than refused: an <c>allOf</c> entry
+    ///   usually does nothing but group the branches under it.
+    /// </remarks>
+    private static IEnumerable<JsonElement> PropertyBags(JsonElement root)
+    {
+      if (TryProperties(root,
+                        out var rootBag))
       {
-        if (!element.TryGetProperty("properties",
-                                    out var properties) || properties.ValueKind != JsonValueKind.Object)
+        yield return rootBag;
+      }
+
+      if (!root.TryGetProperty("allOf",
+                               out var allOf))
+      {
+        yield break;
+      }
+
+      foreach (var entry in allOf.EnumerateArray())
+      {
+        if (TryProperties(entry,
+                          out var entryBag))
         {
-          return;
+          yield return entryBag;
         }
 
-        foreach (var property in properties.EnumerateObject())
+        if (!entry.TryGetProperty("anyOf",
+                                  out var anyOf))
         {
-          if (!IsOptionName(property.Name))
-          {
-            throw new InvalidOperationException($"Option '{property.Name}' is not a PascalCase name");
-          }
+          continue;
+        }
 
-          // Every value is text by contract. An option typed otherwise is a change of contract, and
-          // belongs in a decision rather than in a conversion invented here.
-          if (!property.Value.TryGetProperty("type",
-                                             out var type) || type.ValueKind != JsonValueKind.String || type.GetString() != "string")
+        foreach (var branch in anyOf.EnumerateArray())
+        {
+          if (TryProperties(branch,
+                            out var branchBag))
           {
-            throw new InvalidOperationException($"Option '{property.Name}' is not typed as a string");
+            yield return branchBag;
           }
-
-          if (!seen.Add(property.Name))
-          {
-            continue;
-          }
-
-          options.Add(new Option(property.Name,
-                                 property.Value.TryGetProperty("description",
-                                                               out var description)
-                                   ? description.GetString() ?? property.Name
-                                   : property.Name));
         }
       }
     }
+
+    private static bool TryProperties(JsonElement element,
+                                      out JsonElement properties)
+      => element.TryGetProperty("properties",
+                                out properties) && properties.ValueKind == JsonValueKind.Object;
+
+    private static bool IsText(JsonElement option)
+      => option.TryGetProperty("type",
+                               out var type) && type.ValueKind == JsonValueKind.String && type.GetString() == "string";
+
+    // An option with nothing to say about itself is documented by its own name, which is at least
+    // the name a deployment sets.
+    private static string Description(JsonProperty option)
+      => option.Value.TryGetProperty("description",
+                                     out var description)
+           ? description.GetString() ?? option.Name
+           : option.Name;
 
     private static string Emit(List<Option> options)
     {
