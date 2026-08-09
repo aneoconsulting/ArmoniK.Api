@@ -365,14 +365,14 @@ namespace ArmoniK.Api.TransportOptionsGenerator
       Line(builder,
            "");
 
-      foreach (var option in options)
+      foreach (var name in options.Select(option => option.Name))
       {
         Line(builder,
              "      AppendOption(builder,");
         Line(builder,
-             $"                   \"{option.Name}\",");
+             $"                   \"{name}\",");
         Line(builder,
-             $"                   {option.Name});");
+             $"                   {name});");
       }
 
       Line(builder,
@@ -441,22 +441,7 @@ namespace ArmoniK.Api.TransportOptionsGenerator
     // The vocabulary is PascalCase, and the leading capital is what makes the name safe to declare:
     // every C# keyword is lower case, so no option can collide with one.
     private static bool IsOptionName(string name)
-    {
-      if (name.Length == 0 || !char.IsUpper(name[0]))
-      {
-        return false;
-      }
-
-      foreach (var c in name)
-      {
-        if (!char.IsLetterOrDigit(c) && c != '_')
-        {
-          return false;
-        }
-      }
-
-      return true;
-    }
+      => name.Length > 0 && char.IsUpper(name[0]) && name.All(c => char.IsLetterOrDigit(c) || c == '_');
 
     private readonly record struct Option(string Name,
                                           string Description);

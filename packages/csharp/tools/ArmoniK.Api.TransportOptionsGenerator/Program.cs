@@ -53,22 +53,27 @@ The same schema always gives the same bytes, so regenerating and diffing is a ch
       string? schemaPath = null;
       string? outputPath = null;
 
-      for (var i = 0; i < args.Length; i++)
+      // One rule, applied twice where an option takes a value: reading an argument consumes it.
+      var read = 0;
+
+      while (read < args.Length)
       {
-        switch (args[i])
+        var argument = args[read++];
+
+        switch (argument)
         {
           case "-h":
           case "--help":
             Console.Out.WriteLine(Usage);
             return 0;
-          case "--schema" when i + 1 < args.Length:
-            schemaPath = args[++i];
+          case "--schema" when read < args.Length:
+            schemaPath = args[read++];
             break;
-          case "--output" when i + 1 < args.Length:
-            outputPath = args[++i];
+          case "--output" when read < args.Length:
+            outputPath = args[read++];
             break;
           default:
-            Console.Error.WriteLine($"Unexpected argument '{args[i]}'.");
+            Console.Error.WriteLine($"Unexpected argument '{argument}'.");
             Console.Error.WriteLine(Usage);
             return 1;
         }
