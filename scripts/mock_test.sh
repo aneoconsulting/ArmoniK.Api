@@ -25,7 +25,24 @@ fi
 
 "$working_dir/csharp/out/ArmoniK.Api.Mock.exe" &
   server_pid=$!
-sleep 5
+
+# Wait for the mock to answer rather than assuming it started: a mock that failed to come up used
+# to look like a test failure in whichever language was running.
+endpoint="${GrpcClient__Endpoint:-http://localhost:5000}"
+waited=0
+until curl --silent --output /dev/null --insecure --max-time 1 "$endpoint/calls.json"; do
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    echo "the mock server exited before it began answering" >&2
+    exit 1
+  fi
+  waited=$((waited + 1))
+  if [ "$waited" -ge 15 ]; then
+    echo "the mock server is not answering at $endpoint after ${waited}s" >&2
+    kill "$server_pid"
+    exit 1
+  fi
+  sleep 1
+done
 
 cd "$working_dir/$TEST_DIR"
 
