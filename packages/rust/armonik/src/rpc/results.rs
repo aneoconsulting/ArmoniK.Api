@@ -3,13 +3,13 @@ super::service! {
     unexposed(WatchResults);
 
     rpc ListResults(list::Request) -> list::Response;
-    rpc GetResult(get::Request) -> get::Response;
+    rpc GetResult(get::Request) -> get::Response => result;
     rpc GetOwnerTaskId(get_owner_task_id::Request) -> get_owner_task_id::Response => result_task;
-    rpc CreateResultsMetaData(create_metadata::Request) -> create_metadata::Response;
-    rpc CreateResults(create::Request) -> create::Response;
+    rpc CreateResultsMetaData(create_metadata::Request) -> create_metadata::Response => results;
+    rpc CreateResults(create::Request) -> create::Response => results;
     rpc UploadResultData(stream upload::Request) -> upload::Response manual;
-    rpc DownloadResultData(download::Request) -> stream download::Response;
+    rpc DownloadResultData(download::Request) -> stream download::Response => data_chunk;
     rpc DeleteResultsData(delete_data::Request) -> delete_data::Response => result_ids;
-    rpc ImportResultsData(import::Request) -> import::Response;
-    rpc GetServiceConfiguration(get_service_configuration::Request) -> get_service_configuration::Response => *;
+    rpc ImportResultsData(import::Request) -> import::Response => results;
+    rpc GetServiceConfiguration(get_service_configuration::Request) -> get_service_configuration::Response;
 }

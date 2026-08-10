@@ -366,7 +366,7 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     rpc DownloadResultData(download::Request) -> stream download::Response;
 ///     rpc UploadResultData(stream upload::Request) -> upload::Response;
 ///     rpc GetServiceConfiguration(get_service_configuration::Request)
-///         -> get_service_configuration::Response => *;
+///         -> get_service_configuration::Response;
 /// }
 /// ```
 ///
@@ -423,15 +423,21 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// # Projection
 ///
-/// What the convenience method returns:
+/// What the convenience method returns, spelled on the line rather than
+/// inferred:
 ///
-/// - *(default)* the response's fields decide: exactly one field yields that
-///   field, several yield the whole response;
+/// - *(default)* the whole response;
 /// - `=> field`: that field of the response, mapped over the stream items on a
 ///   server-streaming RPC (`download` yielding `Bytes`);
-/// - `=> *`: the whole response, always. Required when the response type is an
-///   alias or an enum, which carry no field reflection;
 /// - `=> ()`: discard it and return `()`.
+///
+/// A bare line used to mean "the response's fields decide: exactly one field
+/// yields that field, several yield the whole response". That made the return
+/// type of 30 methods a function of a proto message's field count, so adding a
+/// second field to any of them silently changed the public API, and it needed a
+/// second pass through the response type's reflection callback, which is why a
+/// response with none (an enum, an alias) failed to resolve a mangled name
+/// instead of saying so.
 ///
 /// # Validation
 ///
