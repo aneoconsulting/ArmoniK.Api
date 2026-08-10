@@ -30,9 +30,10 @@
 use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, quote_spanned};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
 use syn::{Ident, LitStr, Path, Token};
 
 use crate::descriptor::{DescriptorIndex, MethodMeta, ServiceMeta};
@@ -143,16 +144,6 @@ impl Parse for ServiceDef {
             } else {
                 false
             };
-            // A request stream has no single message to spread into parameters, so no convenience
-            // method can be derived. Spelling `manual` out keeps "no convenience method" readable
-            // from the rpc line alone.
-            if let (Some(stream), false) = (&client_stream, manual) {
-                return Err(syn::Error::new_spanned(
-                    stream,
-                    "a client-streaming rpc needs `manual`: its entry point is \
-                     `call_streaming`, and no convenience method is derived",
-                ));
-            }
             input.parse::<Token![;]>()?;
             rpcs.push(RpcDef {
                 method,
@@ -280,7 +271,7 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
 /// The client convenience method of one RPC: an invocation of the request type's field-reflection
 /// callback, continued into `__emit_convenience`, which builds the method from the fields (see
 /// `convenience.rs`). `manual` lines emit nothing: the opt-out for custom wiring or a wrong sugar
-/// default. Client-streaming lines are required to carry it (enforced while parsing), so this one
+/// default. Client-streaming lines are required to carry it (enforced in `validate`), so this one
 /// condition covers them too.
 fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<TokenStream> {
     if entry.rpc.manual {
@@ -353,6 +344,28 @@ fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenS
     let input = &entry.meta.input;
     let output = &entry.meta.output;
 
+    // Spanned onto the rpc line's own type paths rather than onto the invocation: a `service!` body
+    // holds up to 15 rpc lines, and an assert spanned at the invocation says only that one of them
+    // names the wrong type.
+    let request_assert = quote_spanned! { request.span() =>
+        const _: () = assert!(
+            crate::codec::names_contain(
+                <#module::#request as crate::codec::Msg>::NAMES,
+                #input,
+            ),
+            "the request type does not implement this RPC's input message",
+        );
+    };
+    let response_assert = quote_spanned! { response.span() =>
+        const _: () = assert!(
+            crate::codec::names_contain(
+                <#module::#response as crate::codec::Msg>::NAMES,
+                #output,
+            ),
+            "the response type does not implement this RPC's output message",
+        );
+    };
+
     quote! {
         #(#[doc = #docs])*
         impl crate::rpc::Rpc for #module::#request {
@@ -365,22 +378,8 @@ fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenS
             const LABEL: &'static str = #label;
         }
 
-        const _: () = {
-            assert!(
-                crate::codec::names_contain(
-                    <#module::#request as crate::codec::Msg>::NAMES,
-                    #input,
-                ),
-                "the request type does not implement this RPC's input message",
-            );
-            assert!(
-                crate::codec::names_contain(
-                    <#module::#response as crate::codec::Msg>::NAMES,
-                    #output,
-                ),
-                "the response type does not implement this RPC's output message",
-            );
-        };
+        #request_assert
+        #response_assert
     }
 }
 
@@ -595,6 +594,21 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
                         "is not"
                     },
                 ),
+            ));
+        }
+
+        // After the descriptor checks above, not while parsing: `stream` on a method the proto does
+        // not stream is one mistake, and asking for `manual` first would answer a question the
+        // author never meant to ask.
+        //
+        // A request stream has no single message to spread into parameters, so no convenience
+        // method can be derived. Spelling `manual` out keeps "no convenience method" readable from
+        // the rpc line alone.
+        if let (Some(stream), false) = (&rpc.client_stream, rpc.manual) {
+            return Err(syn::Error::new(
+                stream.span,
+                "a client-streaming rpc needs `manual`: its entry point is \
+                 `call_streaming`, and no convenience method is derived",
             ));
         }
 
