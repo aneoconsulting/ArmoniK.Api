@@ -14,6 +14,10 @@ pub use armonik_transport::{
 mod service_client;
 pub use service_client::{Channel, Dispatch, ServiceClient};
 
+// The four use-case features are four distinct use cases, and a user normally wants exactly one.
+// `Agent` and `Worker` are therefore gated on the *other* one of the pair, which reads as a typo
+// and is not: a worker is what calls an agent, and an agent is what calls a worker. The rest of
+// the services are what a `client` calls.
 #[cfg(feature = "worker")]
 pub mod agent;
 #[cfg(feature = "client")]
