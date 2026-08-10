@@ -1,655 +1,177 @@
-//! Differential tests of the codec building blocks against prost-generated ground truth.
+//! What the differential harness structurally cannot see.
 //!
-//! The hand-written [`prost::Message`] implementations in this module are also the prototypes of
-//! the code the `armonik-macros` derives emit: any change to the emitted shape should be reflected
-//! here first.
+//! The harness fuzzes every registered type against `prost-reflect` and compares semantically,
+//! which covers the derived majority far better than a hand-copied prototype of the emitter's
+//! output ever did. Four properties escape it, and they are what is left here, asserted on real
+//! `objects/` types rather than on mirrors of them:
+//!
+//! * **unpacked repeated scalars decode.** `prost-reflect` always *encodes* packed, so the harness
+//!   never produces the other form, which a conformant sender may send at any time.
+//! * **`Option` presence is exact.** The harness compares after `Normalize`, whose
+//!   canonical-absence fold is precisely the distinction between `None` and `Some(default)`.
+//! * **`clear()` resets to the proto zero.** Nothing on the round-trip path calls it.
+//! * **a default nested message still goes on the wire.** The encode side has no notion of a
+//!   default value (see the module docs); that is a byte-level fact, and the harness compares
+//!   values.
+//!
+//! Plus the `ProtoField` impls no API field instantiates, which therefore have no other coverage at
+//! all.
+//!
+//! This file used to be 707 lines, about 550 of them hand-copied derive output under a standing
+//! obligation to be updated before the emitter, which nothing enforced and which the harness had
+//! made redundant.
 
-use std::collections::HashMap;
-
-use ::bytes::Bytes;
-use prost::bytes::{Buf, BufMut};
+use prost::bytes::BufMut;
 use prost::encoding::{DecodeContext, WireType};
 use prost::Message;
 
-use super::{enumeration, ProtoField};
+use super::ProtoField;
 
-/// Prototype of the `#[armonik_macros::enumeration]` output (without the `Unknown` catch-all, which is
-/// irrelevant to the wire format).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-enum TestEnum {
-    #[default]
-    Zero,
-    One,
-    Two,
+/// Encode and decode back, the way a peer would.
+fn roundtrip<T: Message + Default>(value: &T) -> T {
+    T::decode(value.encode_to_vec().as_slice()).expect("a self-encoded message decodes")
 }
 
-impl From<i32> for TestEnum {
-    fn from(value: i32) -> Self {
-        match value {
-            1 => Self::One,
-            2 => Self::Two,
-            _ => Self::Zero,
+/// A repeated enum arrives packed or unpacked at the sender's discretion; both decode, and this
+/// crate sends the packed form.
+#[test]
+fn unpacked_repeated_enums_are_accepted() {
+    use crate::SessionStatus;
+
+    let expected = vec![SessionStatus::Running, SessionStatus::Cancelled];
+
+    let mut packed = Vec::new();
+    <SessionStatus as ProtoField>::encode_repeated(1, &expected, &mut packed);
+
+    // The same values as one key per element, which is what a sender that does not pack emits.
+    let mut unpacked = Vec::new();
+    for status in &expected {
+        prost::encoding::encode_key(1, WireType::Varint, &mut unpacked);
+        prost::encoding::encode_varint(i32::from(*status) as u64, &mut unpacked);
+    }
+    assert_ne!(packed, unpacked, "the two forms are distinguishable");
+
+    for (form, bytes) in [("packed", &packed), ("unpacked", &unpacked)] {
+        let mut rest = bytes.as_slice();
+        let mut decoded: Vec<SessionStatus> = Vec::new();
+        while !rest.is_empty() {
+            let (tag, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");
+            assert_eq!(tag, 1);
+            <SessionStatus as ProtoField>::merge_repeated(
+                wire_type,
+                &mut decoded,
+                &mut rest,
+                DecodeContext::default(),
+            )
+            .expect("the values merge");
         }
+        assert_eq!(decoded, expected, "the {form} form decodes");
     }
 }
 
-impl From<TestEnum> for i32 {
-    fn from(value: TestEnum) -> Self {
-        value as i32
-    }
-}
-
-impl ProtoField for TestEnum {
-    const SHAPE: super::Shape = super::Shape::enumeration(&[]);
-
-    fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
-        enumeration::encode(tag, value, buf);
-    }
-
-    fn merge_field(
-        wire_type: WireType,
-        value: &mut Self,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        enumeration::merge(wire_type, value, buf, ctx)
-    }
-
-    fn encoded_len_field(tag: u32, value: &Self) -> usize {
-        enumeration::encoded_len(tag, value)
-    }
-
-    fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
-        enumeration::encode_repeated(tag, values, buf);
-    }
-
-    fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-        enumeration::encoded_len_repeated(tag, values)
-    }
-
-    fn merge_repeated(
-        wire_type: WireType,
-        values: &mut Vec<Self>,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        enumeration::merge_repeated(wire_type, values, buf, ctx)
-    }
-}
-
-/// Prototype of the `#[armonik_macros::message]` output for a plain struct, mirroring
-/// `armonik.api.grpc.v1.TaskOptions` (map, non-`Option` message with absent-as-default semantics,
-/// scalars).
-#[derive(Debug, Clone, PartialEq, Default)]
-struct TestOptions {
-    options: HashMap<String, String>,
-    max_duration: prost_types::Duration,
-    max_retries: i32,
-    priority: i32,
-    partition_id: String,
-    application_name: String,
-    application_version: String,
-    application_namespace: String,
-    application_service: String,
-    engine_type: String,
-}
-
-impl Message for TestOptions {
-    fn encode_raw(&self, buf: &mut impl BufMut) {
-        ProtoField::encode_field(1, &self.options, buf);
-        ProtoField::encode_field(2, &self.max_duration, buf);
-        ProtoField::encode_field(3, &self.max_retries, buf);
-        ProtoField::encode_field(4, &self.priority, buf);
-        ProtoField::encode_field(5, &self.partition_id, buf);
-        ProtoField::encode_field(6, &self.application_name, buf);
-        ProtoField::encode_field(7, &self.application_version, buf);
-        ProtoField::encode_field(8, &self.application_namespace, buf);
-        ProtoField::encode_field(9, &self.application_service, buf);
-        ProtoField::encode_field(10, &self.engine_type, buf);
-    }
-
-    fn merge_field(
-        &mut self,
-        tag: u32,
-        wire_type: WireType,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        match tag {
-            1 => ProtoField::merge_field(wire_type, &mut self.options, buf, ctx),
-            2 => ProtoField::merge_field(wire_type, &mut self.max_duration, buf, ctx),
-            3 => ProtoField::merge_field(wire_type, &mut self.max_retries, buf, ctx),
-            4 => ProtoField::merge_field(wire_type, &mut self.priority, buf, ctx),
-            5 => ProtoField::merge_field(wire_type, &mut self.partition_id, buf, ctx),
-            6 => ProtoField::merge_field(wire_type, &mut self.application_name, buf, ctx),
-            7 => ProtoField::merge_field(wire_type, &mut self.application_version, buf, ctx),
-            8 => ProtoField::merge_field(wire_type, &mut self.application_namespace, buf, ctx),
-            9 => ProtoField::merge_field(wire_type, &mut self.application_service, buf, ctx),
-            10 => ProtoField::merge_field(wire_type, &mut self.engine_type, buf, ctx),
-            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
-        }
-    }
-
-    fn encoded_len(&self) -> usize {
-        let mut len = 0;
-        len += ProtoField::encoded_len_field(1, &self.options);
-        len += ProtoField::encoded_len_field(2, &self.max_duration);
-        len += ProtoField::encoded_len_field(3, &self.max_retries);
-        len += ProtoField::encoded_len_field(4, &self.priority);
-        len += ProtoField::encoded_len_field(5, &self.partition_id);
-        len += ProtoField::encoded_len_field(6, &self.application_name);
-        len += ProtoField::encoded_len_field(7, &self.application_version);
-        len += ProtoField::encoded_len_field(8, &self.application_namespace);
-        len += ProtoField::encoded_len_field(9, &self.application_service);
-        len += ProtoField::encoded_len_field(10, &self.engine_type);
-        len
-    }
-
-    fn clear(&mut self) {
-        *self = ::core::default::Default::default();
-    }
-}
-
-/// prost-derived ground truth covering every container/presence shape.
-#[derive(Clone, PartialEq, Message)]
-struct RefShapes {
-    #[prost(int32, repeated, tag = "1")]
-    numbers: Vec<i32>,
-    #[prost(string, optional, tag = "2")]
-    name: Option<String>,
-    #[prost(bytes = "vec", tag = "3")]
-    blob: Vec<u8>,
-    #[prost(string, repeated, tag = "4")]
-    names: Vec<String>,
-    #[prost(message, repeated, tag = "5")]
-    durations: Vec<prost_types::Duration>,
-    #[prost(int32, repeated, tag = "6")]
-    enums: Vec<i32>,
-    #[prost(double, tag = "7")]
-    real: f64,
-    #[prost(uint64, tag = "8")]
-    big: u64,
-    #[prost(bool, tag = "9")]
-    flag: bool,
-}
-
-/// Our mirror of [`RefShapes`], in the derive-emitted shape.
-#[derive(Debug, Clone, PartialEq, Default)]
-struct OurShapes {
-    numbers: Vec<i32>,
-    name: Option<String>,
-    blob: Bytes,
-    names: Vec<String>,
-    durations: Vec<prost_types::Duration>,
-    enums: Vec<TestEnum>,
-    real: f64,
-    big: u64,
-    flag: bool,
-}
-
-impl Message for OurShapes {
-    fn encode_raw(&self, buf: &mut impl BufMut) {
-        ProtoField::encode_field(1, &self.numbers, buf);
-        ProtoField::encode_field(2, &self.name, buf);
-        ProtoField::encode_field(3, &self.blob, buf);
-        ProtoField::encode_field(4, &self.names, buf);
-        ProtoField::encode_field(5, &self.durations, buf);
-        ProtoField::encode_field(6, &self.enums, buf);
-        ProtoField::encode_field(7, &self.real, buf);
-        ProtoField::encode_field(8, &self.big, buf);
-        ProtoField::encode_field(9, &self.flag, buf);
-    }
-
-    fn merge_field(
-        &mut self,
-        tag: u32,
-        wire_type: WireType,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        match tag {
-            1 => ProtoField::merge_field(wire_type, &mut self.numbers, buf, ctx),
-            2 => ProtoField::merge_field(wire_type, &mut self.name, buf, ctx),
-            3 => ProtoField::merge_field(wire_type, &mut self.blob, buf, ctx),
-            4 => ProtoField::merge_field(wire_type, &mut self.names, buf, ctx),
-            5 => ProtoField::merge_field(wire_type, &mut self.durations, buf, ctx),
-            6 => ProtoField::merge_field(wire_type, &mut self.enums, buf, ctx),
-            7 => ProtoField::merge_field(wire_type, &mut self.real, buf, ctx),
-            8 => ProtoField::merge_field(wire_type, &mut self.big, buf, ctx),
-            9 => ProtoField::merge_field(wire_type, &mut self.flag, buf, ctx),
-            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
-        }
-    }
-
-    fn encoded_len(&self) -> usize {
-        let mut len = 0;
-        len += ProtoField::encoded_len_field(1, &self.numbers);
-        len += ProtoField::encoded_len_field(2, &self.name);
-        len += ProtoField::encoded_len_field(3, &self.blob);
-        len += ProtoField::encoded_len_field(4, &self.names);
-        len += ProtoField::encoded_len_field(5, &self.durations);
-        len += ProtoField::encoded_len_field(6, &self.enums);
-        len += ProtoField::encoded_len_field(7, &self.real);
-        len += ProtoField::encoded_len_field(8, &self.big);
-        len += ProtoField::encoded_len_field(9, &self.flag);
-        len
-    }
-
-    fn clear(&mut self) {
-        *self = ::core::default::Default::default();
-    }
-}
-
-fn sample_options() -> TestOptions {
-    TestOptions {
-        options: [("key1", "value1"), ("key2", "value2")]
-            .into_iter()
-            .map(|(k, v)| (k.to_owned(), v.to_owned()))
-            .collect(),
-        max_duration: prost_types::Duration {
-            seconds: 300,
-            nanos: 42,
-        },
-        max_retries: 5,
-        priority: -3,
-        partition_id: "partition".into(),
-        application_name: "app".into(),
-        application_version: "1.2.3".into(),
-        application_namespace: "ns".into(),
-        application_service: "svc".into(),
-        engine_type: "engine".into(),
-    }
-}
-
-/// prost-derived reference for `armonik.api.grpc.v1.TaskOptions` (extern'd, so no generated type
-/// exists anymore).
-#[derive(Clone, PartialEq, Message)]
-struct RefOptions {
-    #[prost(map = "string, string", tag = "1")]
-    options: HashMap<String, String>,
-    #[prost(message, optional, tag = "2")]
-    max_duration: Option<prost_types::Duration>,
-    #[prost(int32, tag = "3")]
-    max_retries: i32,
-    #[prost(int32, tag = "4")]
-    priority: i32,
-    #[prost(string, tag = "5")]
-    partition_id: String,
-    #[prost(string, tag = "6")]
-    application_name: String,
-    #[prost(string, tag = "7")]
-    application_version: String,
-    #[prost(string, tag = "8")]
-    application_namespace: String,
-    #[prost(string, tag = "9")]
-    application_service: String,
-    #[prost(string, tag = "10")]
-    engine_type: String,
-}
-
-#[test]
-fn options_roundtrip_through_generated_type() {
-    let ours = sample_options();
-    let theirs = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
-
-    assert_eq!(theirs.options, ours.options);
-    assert_eq!(theirs.max_duration, Some(ours.max_duration));
-    assert_eq!(theirs.max_retries, ours.max_retries);
-    assert_eq!(theirs.priority, ours.priority);
-    assert_eq!(theirs.partition_id, ours.partition_id);
-    assert_eq!(theirs.engine_type, ours.engine_type);
-
-    let back = TestOptions::decode(theirs.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(back, ours);
-}
-
-#[test]
-fn absent_message_field_decodes_as_default() {
-    let theirs = RefOptions {
-        max_duration: None,
-        max_retries: 7,
-        ..Default::default()
-    };
-    let ours = TestOptions::decode(theirs.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(ours.max_duration, prost_types::Duration::default());
-    assert_eq!(ours.max_retries, 7);
-}
-
-#[test]
-fn default_message_field_is_emitted_as_an_empty_message() {
-    // No field is ever skipped: a default nested message goes on the wire as an empty one, which is
-    // what "absent = default" reads back as anyway.
-    let ours = TestOptions {
-        max_retries: 7,
-        ..Default::default()
-    };
-    let theirs = RefOptions::decode(ours.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(theirs.max_duration, Some(prost_types::Duration::default()));
-
-    let back = TestOptions::decode(theirs.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(back, ours);
-}
-
-#[test]
-fn present_default_message_field_decodes_as_default() {
-    let theirs = RefOptions {
-        max_duration: Some(prost_types::Duration::default()),
-        ..Default::default()
-    };
-    let ours = TestOptions::decode(theirs.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(ours.max_duration, prost_types::Duration::default());
-}
-
-fn sample_shapes() -> OurShapes {
-    OurShapes {
-        numbers: vec![0, 1, -1, i32::MAX, i32::MIN, 300],
-        name: Some(String::new()),
-        blob: Bytes::from_static(b"\x00\x01\x02payload"),
-        names: vec![String::new(), "second".to_owned()],
-        durations: vec![
-            prost_types::Duration::default(),
-            prost_types::Duration {
-                seconds: -5,
-                nanos: -500,
-            },
-        ],
-        enums: vec![TestEnum::Zero, TestEnum::Two, TestEnum::One],
-        real: -2.5,
-        big: u64::MAX,
-        flag: true,
-    }
-}
-
-#[test]
-fn shapes_roundtrip_through_prost_derive() {
-    let ours = sample_shapes();
-    let theirs = RefShapes::decode(ours.encode_to_vec().as_slice()).unwrap();
-
-    assert_eq!(theirs.numbers, ours.numbers);
-    assert_eq!(theirs.name, ours.name);
-    assert_eq!(theirs.blob, ours.blob);
-    assert_eq!(theirs.names, ours.names);
-    assert_eq!(theirs.durations, ours.durations);
-    assert_eq!(
-        theirs.enums,
-        ours.enums.iter().map(|e| i32::from(*e)).collect::<Vec<_>>()
-    );
-    assert_eq!(theirs.real, ours.real);
-    assert_eq!(theirs.big, ours.big);
-    assert_eq!(theirs.flag, ours.flag);
-
-    let back = OurShapes::decode(theirs.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(back, ours);
-
-    // Without maps (whose iteration order is unstable), the encoding should be byte-identical to
-    // prost's.
-    assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
-}
-
+/// `None` and `Some(default)` are different on the wire and stay different through a round trip.
+/// This is the one distinction the harness's canonical-absence fold deliberately erases.
 #[test]
 fn optional_presence_is_exact() {
-    // `Some("")` must stay distinguishable from `None`.
-    let ours = OurShapes {
-        name: Some(String::new()),
+    let absent = crate::sessions::Raw::default();
+    assert_eq!(absent.created_at, None);
+    assert_eq!(roundtrip(&absent).created_at, None);
+
+    let present = crate::sessions::Raw {
+        created_at: Some(prost_types::Timestamp::default()),
         ..Default::default()
     };
-    let theirs = RefShapes::decode(ours.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(theirs.name, Some(String::new()));
-
-    let ours = OurShapes::default();
-    let theirs = RefShapes::decode(ours.encode_to_vec().as_slice()).unwrap();
-    assert_eq!(theirs.name, None);
-}
-
-#[test]
-fn unpacked_repeated_scalars_are_accepted() {
-    // Conforming proto3 writers pack numeric repeated fields, but decoders must accept the unpacked
-    // form too.
-    let mut buf = Vec::new();
-    for value in [1i32, -1, 300] {
-        prost::encoding::int32::encode(1, &value, &mut buf);
-    }
-    for value in [2i32, 1] {
-        prost::encoding::int32::encode(6, &value, &mut buf);
-    }
-    let ours = OurShapes::decode(buf.as_slice()).unwrap();
-    assert_eq!(ours.numbers, vec![1, -1, 300]);
-    assert_eq!(ours.enums, vec![TestEnum::Two, TestEnum::One]);
-}
-
-#[test]
-fn message_clear_resets_to_default() {
-    let mut ours = sample_shapes();
-    ours.clear();
-    assert_eq!(ours, OurShapes::default());
-}
-
-// --------------------------------------------------------------------------- Prototypes of the
-// whole-message-oneof shape, the template for the `oneof` derive mode. Ground truth: the
-// derive-emitted `crate::InitTaskRequest` and `crate::DataChunk`, an independent expansion of the
-// same proto messages. ---------------------------------------------------------------------------
-
-/// Mirror of `armonik.api.grpc.v1.DataChunk`: whole-message oneof { bytes data = 1; bool
-/// data_complete = 2; }, default variant `Data("")`.
-#[derive(Debug, Clone, PartialEq)]
-enum TestDataChunk {
-    Data(Bytes),
-    Complete,
-}
-
-impl Default for TestDataChunk {
-    fn default() -> Self {
-        Self::Data(Bytes::new())
-    }
-}
-
-impl Message for TestDataChunk {
-    fn encode_raw(&self, buf: &mut impl BufMut) {
-        // The active member carries the oneof's presence, so it is emitted even when its payload is
-        // the default.
-        match self {
-            Self::Data(data) => ProtoField::encode_field(1, data, buf),
-            Self::Complete => ProtoField::encode_field(2, &true, buf),
-        }
-    }
-
-    fn merge_field(
-        &mut self,
-        tag: u32,
-        wire_type: WireType,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        match tag {
-            1 => {
-                let mut data = Bytes::new();
-                ProtoField::merge_field(wire_type, &mut data, buf, ctx)?;
-                *self = Self::Data(data);
-                Ok(())
-            }
-            2 => {
-                let mut set = false;
-                ProtoField::merge_field(wire_type, &mut set, buf, ctx)?;
-                *self = Self::Complete;
-                Ok(())
-            }
-            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
-        }
-    }
-
-    fn encoded_len(&self) -> usize {
-        match self {
-            Self::Data(data) => ProtoField::encoded_len_field(1, data),
-            Self::Complete => ProtoField::encoded_len_field(2, &true),
-        }
-    }
-
-    fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-// Like the emitter: the message-kind `ProtoField` impl comes from the `Msg` blanket.
-impl super::Msg for TestHeader {
-    const NAMES: &'static [&'static str] = &[];
-}
-
-/// Mirror of `armonik.api.grpc.v1.InitTaskRequest`: whole-message oneof { TaskRequestHeader header
-/// = 1; bool last_task = 2; } with a message payload and a marker variant.
-#[derive(Debug, Clone, PartialEq, Default)]
-enum TestInitTask {
-    #[default]
-    Invalid,
-    Header(TestHeader),
-    LastTask,
-}
-
-/// Mirror of `armonik.api.grpc.v1.TaskRequestHeader`.
-#[derive(Debug, Clone, PartialEq, Default)]
-struct TestHeader {
-    expected_output_keys: Vec<String>,
-    data_dependencies: Vec<String>,
-}
-
-impl Message for TestHeader {
-    fn encode_raw(&self, buf: &mut impl BufMut) {
-        ProtoField::encode_field(1, &self.expected_output_keys, buf);
-        ProtoField::encode_field(2, &self.data_dependencies, buf);
-    }
-
-    fn merge_field(
-        &mut self,
-        tag: u32,
-        wire_type: WireType,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        match tag {
-            1 => ProtoField::merge_field(wire_type, &mut self.expected_output_keys, buf, ctx),
-            2 => ProtoField::merge_field(wire_type, &mut self.data_dependencies, buf, ctx),
-            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
-        }
-    }
-
-    fn encoded_len(&self) -> usize {
-        let mut len = 0;
-        len += ProtoField::encoded_len_field(1, &self.expected_output_keys);
-        len += ProtoField::encoded_len_field(2, &self.data_dependencies);
-        len
-    }
-
-    fn clear(&mut self) {
-        *self = ::core::default::Default::default();
-    }
-}
-
-impl Message for TestInitTask {
-    fn encode_raw(&self, buf: &mut impl BufMut) {
-        match self {
-            Self::Invalid => {}
-            Self::Header(header) => <TestHeader as ProtoField>::encode_field(1, header, buf),
-            Self::LastTask => ProtoField::encode_field(2, &true, buf),
-        }
-    }
-
-    fn merge_field(
-        &mut self,
-        tag: u32,
-        wire_type: WireType,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        match tag {
-            1 => {
-                // Same-variant occurrences merge into the payload, like prost.
-                let mut header = if let Self::Header(header) = self {
-                    std::mem::take(header)
-                } else {
-                    TestHeader::default()
-                };
-                <TestHeader as ProtoField>::merge_field(wire_type, &mut header, buf, ctx)?;
-                *self = Self::Header(header);
-                Ok(())
-            }
-            2 => {
-                let mut marker = false;
-                ProtoField::merge_field(wire_type, &mut marker, buf, ctx)?;
-                *self = Self::LastTask;
-                Ok(())
-            }
-            _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
-        }
-    }
-
-    fn encoded_len(&self) -> usize {
-        match self {
-            Self::Invalid => 0,
-            Self::Header(header) => <TestHeader as ProtoField>::encoded_len_field(1, header),
-            Self::LastTask => ProtoField::encoded_len_field(2, &true),
-        }
-    }
-
-    fn clear(&mut self) {
-        *self = Self::default();
-    }
-}
-
-/// Template for the [`Msg`](super::Msg) impl the derives emit for every message type. The blanket
-/// message-kind [`ProtoField`] impl picks it up, so the type composes as a field of other messages.
-impl super::Msg for TestOptions {
-    const NAMES: &'static [&'static str] = &["armonik.api.grpc.v1.TaskOptions"];
-}
-
-#[test]
-fn whole_message_oneof_roundtrips() {
-    let cases = [
-        (
-            TestInitTask::Header(TestHeader {
-                expected_output_keys: vec!["a".into()],
-                data_dependencies: vec![],
-            }),
-            crate::InitTaskRequest::Header(crate::TaskRequestHeader {
-                expected_output_keys: vec!["a".into()],
-                data_dependencies: vec![],
-            }),
-        ),
-        (TestInitTask::LastTask, crate::InitTaskRequest::LastTask),
-    ];
-    for (ours, theirs) in cases {
-        assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
-        assert_eq!(
-            TestInitTask::decode(theirs.encode_to_vec().as_slice()).unwrap(),
-            ours
-        );
-    }
-    // "No member set" encodes to nothing and decodes to the default variant.
-    assert!(TestInitTask::Invalid.encode_to_vec().is_empty());
     assert_eq!(
-        TestInitTask::decode(&[][..]).unwrap(),
-        TestInitTask::Invalid
+        roundtrip(&present).created_at,
+        Some(prost_types::Timestamp::default()),
+        "an explicitly present zero timestamp survives as present",
+    );
+    assert!(
+        present.encoded_len() > absent.encoded_len(),
+        "and it costs bytes the absent one does not",
+    );
+}
+
+/// `clear` is a whole-value reset: every derived type is `Default`, and the zero-default invariant
+/// makes that the proto zero.
+#[test]
+fn clear_resets_to_the_proto_zero() {
+    let mut raw = crate::sessions::Raw {
+        session_id: String::from("session"),
+        status: crate::SessionStatus::Running,
+        partition_ids: vec![String::from("partition")],
+        created_at: Some(prost_types::Timestamp::default()),
+        ..Default::default()
+    };
+    raw.clear();
+    assert_eq!(raw, crate::sessions::Raw::default());
+}
+
+/// The encode side skips nothing: a nested message holding only defaults is still written, which a
+/// proto3 receiver reads exactly like an absent implicit-presence field.
+#[test]
+fn a_default_nested_message_is_still_written() {
+    // `results::get::Response` is a single message-typed field, `result`, at tag 1.
+    let response = crate::results::get::Response::default();
+    let bytes = response.encode_to_vec();
+    assert!(
+        !bytes.is_empty(),
+        "the default response is not the empty encoding",
     );
 
-    // Default-payload oneof fields are still emitted (oneof presence).
-    let ours = TestDataChunk::Data(Bytes::new());
-    let theirs = crate::DataChunk::Data(Bytes::new());
-    assert_eq!(ours.encode_to_vec(), theirs.encode_to_vec());
-    assert!(!ours.encode_to_vec().is_empty());
+    let mut rest = bytes.as_slice();
+    let (tag, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");
+    assert_eq!((tag, wire_type), (1, WireType::LengthDelimited));
+
+    assert_eq!(roundtrip(&response), response);
 }
 
-/// The PairMap delegation must keep rejecting a mis-typed field key: the wire-type check lives in
-/// the `HashMap` `ProtoField` impl it delegates to.
+/// The `ProtoField` impls no API field instantiates: every `Option` field in the schema holds a
+/// message, and no field is a `double` or a `uint64`.
+#[test]
+fn the_leaf_impls_no_api_field_reaches() {
+    fn roundtrip_field<T: ProtoField + PartialEq + std::fmt::Debug>(value: T) {
+        let mut buf = Vec::new();
+        T::encode_field(1, &value, &mut buf);
+        assert_eq!(T::encoded_len_field(1, &value), buf.len());
+
+        let mut rest = buf.as_slice();
+        let mut decoded = T::default();
+        if !rest.is_empty() {
+            let (tag, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");
+            assert_eq!(tag, 1);
+            T::merge_field(wire_type, &mut decoded, &mut rest, DecodeContext::default())
+                .expect("the value merges");
+        }
+        assert_eq!(decoded, value);
+    }
+
+    roundtrip_field(1.5f64);
+    roundtrip_field(u64::MAX);
+    // `None` writes nothing, so nothing is what decodes back to it.
+    roundtrip_field(Option::<u64>::None);
+    roundtrip_field(Some(7u64));
+}
+
+/// The `PairMap` delegation must keep rejecting a mis-typed field key: the wire-type check lives in
+/// prost's map codec, and forwarding to it is the whole implementation.
 #[test]
 fn pair_map_rejects_non_delimited_wire_type() {
+    use std::collections::HashMap;
+
     use super::adapters::PairMap;
     use super::ProtoAdapter;
+
+    let mut buf = Vec::new();
+    buf.put_u8(0);
 
     let mut map = HashMap::<String, String>::new();
     let err = <PairMap as ProtoAdapter<HashMap<String, String>>>::merge_field(
         WireType::Varint,
         &mut map,
-        &mut [0x08u8].as_slice(),
+        &mut buf.as_slice(),
         DecodeContext::default(),
-    );
-    assert!(err.is_err(), "a varint-typed pair field must not decode");
-    assert!(map.is_empty());
+    )
+    .expect_err("a varint where a length-delimited entry belongs is a decode error");
+    assert!(format!("{err}").contains("invalid wire type"), "{err}");
 }
