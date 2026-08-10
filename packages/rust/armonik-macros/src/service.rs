@@ -489,11 +489,17 @@ fn expand_server(
         }
 
         #[cfg(feature = "_gen-server")]
-        impl<S> crate::server::router::Routes<S> for #marker
+        impl<S, B> crate::server::router::Routes<S, B> for #marker
         where
             S: #trait_ident + ::std::marker::Send + ::std::marker::Sync + 'static,
+            B: ::tonic::codegen::Body<Data = ::prost::bytes::Bytes>
+                + ::std::marker::Send
+                + 'static,
+            B::Error: ::std::convert::Into<::tonic::codegen::StdError>
+                + ::std::marker::Send
+                + 'static,
         {
-            const ROUTES: &'static [(&'static str, crate::server::router::RouteFn<S>)] = &[
+            const ROUTES: &'static [(&'static str, crate::server::router::RouteFn<S, B>)] = &[
                 #(#routes),*
             ];
         }
