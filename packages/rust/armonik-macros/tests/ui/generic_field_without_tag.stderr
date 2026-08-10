@@ -1,0 +1,5 @@
+error: generic-mode fields need an explicit #[armonik(tag = ...)]
+  --> tests/ui/generic_field_without_tag.rs:10:9
+   |
+10 |     pub second: String,
+   |         ^^^^^^

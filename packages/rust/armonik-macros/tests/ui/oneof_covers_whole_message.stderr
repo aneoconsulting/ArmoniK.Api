@@ -1,0 +1,5 @@
+error: the oneof `pick` covers the whole message `fixture.OnlyOneof`; drop the oneof attribute: #[armonik(message = ...)] alone declares a whole-message enum
+  --> tests/ui/oneof_covers_whole_message.rs:10:42
+   |
+10 | #[armonik(message = "fixture.OnlyOneof", oneof = "pick")]
+   |                                          ^^^^^

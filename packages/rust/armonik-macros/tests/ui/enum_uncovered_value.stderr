@@ -1,0 +1,5 @@
+error: proto enum value `fixture.Colour.COLOUR_GREEN` (= 2) is not covered by any Rust variant
+ --> tests/ui/enum_uncovered_value.rs:9:10
+  |
+9 | pub enum Colour {
+  |          ^^^^^^

@@ -1,0 +1,10 @@
+include!("../support/prelude.rs");
+
+// A request stream has no single message to spread into convenience parameters.
+armonik_macros::service! {
+    Fixture in crate::fixture @ "fixture.Fixture";
+
+    rpc Get(get::Request) -> get::Response;
+    rpc Watch(watch::Request) -> stream watch::Response;
+    rpc Push(stream push::Request) -> push::Response;
+}

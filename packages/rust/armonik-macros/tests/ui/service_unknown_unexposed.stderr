@@ -1,0 +1,5 @@
+error: service `fixture.Fixture` has no method `Nope`
+ --> tests/ui/service_unknown_unexposed.rs:5:15
+  |
+5 |     unexposed(Nope);
+  |               ^^^^

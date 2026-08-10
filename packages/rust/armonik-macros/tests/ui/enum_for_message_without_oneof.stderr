@@ -1,0 +1,5 @@
+error: proto message `fixture.Simple` has no oneof; a message without a oneof is derived on a struct
+ --> tests/ui/enum_for_message_without_oneof.rs:6:10
+  |
+6 | pub enum Simple {
+  |          ^^^^^^

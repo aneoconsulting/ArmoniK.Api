@@ -169,8 +169,18 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
         }
     } else {
         // `Msg: prost::Message + Default`, and a type whose expansion failed has no emitted
-        // `Default`. Carrying the bound rather than assuming it makes the impl silently
-        // inapplicable, rather than a second error, for a type that does not derive one.
+        // `Default` of its own. An enumeration gets one below; anything else has to derive it, and
+        // where it does not the `Msg` stub is skipped rather than bounded: `where Self: Default` on
+        // a concrete type is rejected outright (`trivial_bounds`), which would add the second error
+        // this whole path exists to avoid.
+        let msg = (matches!(mode, Mode::Enumeration) || derives_default(input)).then(|| {
+            quote! {
+                impl #impl_generics crate::codec::Msg for #ident #ty_generics #where_clause {
+                    const NAMES: &'static [&'static str] = &[#(#proto_names),*];
+                }
+            }
+        });
+
         quote! {
             impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
                 fn encode_raw(&self, _buf: &mut impl ::prost::bytes::BufMut) {
@@ -196,12 +206,7 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
                 }
             }
 
-            impl #impl_generics crate::codec::Msg for #ident #ty_generics
-            where
-                #ident #ty_generics: ::core::default::Default,
-            {
-                const NAMES: &'static [&'static str] = &[#(#proto_names),*];
-            }
+            #msg
         }
     };
 
@@ -209,6 +214,18 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
         out.extend(enumeration_stubs(input, ident));
     }
     out
+}
+
+/// Whether the item carries `Default` in a `#[derive(...)]`.
+fn derives_default(input: &DeriveInput) -> bool {
+    input.attrs.iter().any(|attr| {
+        attr.path().is_ident("derive")
+            && attr
+                .parse_args_with(
+                    syn::punctuated::Punctuated::<syn::Path, syn::Token![,]>::parse_terminated,
+                )
+                .is_ok_and(|paths| paths.iter().any(|path| path.is_ident("Default")))
+    })
 }
 
 /// The enumeration expansion owns more than the trait impls: the catch-all payload struct, the two
@@ -255,8 +272,9 @@ fn enumeration_stubs(input: &DeriveInput, ident: &syn::Ident) -> TokenStream {
 
     quote! {
         #(
+            // No serde derive, unlike the real one: a stub next to a `compile_error!` is never
+            // serialized, and the `cfg` would be one the crate under test need not know about.
             #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             pub struct #payloads(i32);
 
             impl #payloads {

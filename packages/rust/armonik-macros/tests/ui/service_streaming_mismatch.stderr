@@ -1,0 +1,5 @@
+error: `Get` is not client-streaming in the proto
+ --> tests/ui/service_streaming_mismatch.rs:7:13
+  |
+7 |     rpc Get(stream get::Request) -> get::Response manual;
+  |             ^^^^^^

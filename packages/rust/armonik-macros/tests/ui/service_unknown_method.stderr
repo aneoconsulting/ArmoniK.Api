@@ -1,0 +1,5 @@
+error: service `fixture.Fixture` has no method `Pull`
+ --> tests/ui/service_unknown_method.rs:9:9
+  |
+9 |     rpc Pull(pull::Request) -> pull::Response;
+  |         ^^^^
