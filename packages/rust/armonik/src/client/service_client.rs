@@ -1,5 +1,11 @@
 //! Generic gRPC client: one [`ServiceClient`] type for every service, with
 //! the RPC deduced from the request type through [`Rpc`].
+//!
+//! One entry point, [`ServiceClient::call`], serves all three call kinds. The
+//! *output* shape hangs off the call kind ([`Dispatch`], a GAT keyed on
+//! [`Unary`] / [`ServerStream`] / [`ClientStream`]); the *input* shape picks its
+//! own dispatch through [`IntoCall`], whose marker parameter is what keeps
+//! "a message" and "a stream of messages" from being one overlapping impl.
 
 use std::marker::PhantomData;
 
@@ -60,43 +66,29 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
         }
     }
 
-    /// Perform a gRPC call. The RPC is deduced from the request type.
-    pub async fn call<R>(
+    /// Perform a gRPC call. The RPC, and with it the call kind, is deduced from
+    /// the request type, so all three kinds go through this one method:
+    ///
+    /// * a unary or server-streaming RPC takes its request message, or a
+    ///   [`tonic::Request`] wrapping it (for per-call metadata and deadlines),
+    ///   and gives back the response message or a stream of response items;
+    /// * a client-streaming RPC takes a [`Stream`](futures::Stream) of its
+    ///   request messages, or a [`tonic::Request`] wrapping one, and gives back
+    ///   the single response message.
+    ///
+    /// Both `R` and the marker `M` (see [`IntoCall`]) are inferred from the
+    /// input, including when it is a pre-built [`tonic::Request`]. `M` never
+    /// needs naming, but a turbofish has to leave room for it:
+    /// `call::<R, _>(..)`.
+    pub async fn call<R, M>(
         &mut self,
-        request: impl tonic::IntoRequest<R>,
+        input: impl IntoCall<R, M>,
     ) -> Result<<R::Kind as Dispatch>::Output<R>, RequestError>
     where
         R: Rpc<Service = Svc>,
         R::Kind: Dispatch,
     {
-        <R::Kind as Dispatch>::dispatch(&mut self.inner, request.into_request()).await
-    }
-
-    /// Perform a client-streaming gRPC call from a raw request stream.
-    pub async fn call_streaming<S>(
-        &mut self,
-        request: S,
-    ) -> Result<<S::Item as Rpc>::Response, RequestError>
-    where
-        S: futures::Stream + Send + 'static,
-        S::Item: Rpc<Service = Svc, Kind = ClientStream>,
-    {
-        let span = span_for::<S::Item>();
-        let stream_span = tracing::trace_span!(parent: &span, "stream");
-        let grpc = &mut self.inner;
-        let fut = async move {
-            ready(grpc).await?;
-            // The caller's stream is polled while the call runs, under its own child span.
-            let request = tracing_futures::Instrument::instrument(request, stream_span);
-            let mut request = tonic::IntoStreamingRequest::into_streaming_request(request);
-            request.extensions_mut().insert(grpc_method::<S::Item>());
-            Ok(grpc
-                .client_streaming(request, path::<S::Item>(), codec())
-                .await
-                .context(super::GrpcSnafu {})?
-                .into_inner())
-        };
-        tracing_futures::Instrument::instrument(fut, span).await
+        input.into_call(&mut self.inner).await
     }
 
     /// Compress requests with the given encoding, if the server supports it.
@@ -128,13 +120,21 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
     }
 }
 
-/// Client-side dispatch for one call kind: how to drive `tonic::client::Grpc`
-/// and what shape the output has.
+/// What [`ServiceClient::call`] hands back for one call kind.
+///
+/// Split from [`DispatchMessage`] because every kind has an output shape, but
+/// only the two whose request is a single message share a dispatch signature.
 pub trait Dispatch: Sized {
-    /// What `call` returns: the response message for unary RPCs, a stream of
-    /// response items for server-streaming ones.
+    /// What `call` returns: the response message for unary and client-streaming
+    /// RPCs, a stream of response items for server-streaming ones.
     type Output<R: Rpc<Kind = Self>>;
+}
 
+/// The call kinds whose request is a single message: [`Unary`] and
+/// [`ServerStream`]. [`ClientStream`] is deliberately absent, which is what
+/// makes "you cannot call a client-streaming RPC with one message" a compile
+/// error.
+pub trait DispatchMessage: Dispatch {
     /// Perform the call.
     #[allow(async_fn_in_trait)]
     async fn dispatch<T, R>(
@@ -148,7 +148,9 @@ pub trait Dispatch: Sized {
 
 impl Dispatch for Unary {
     type Output<R: Rpc<Kind = Self>> = R::Response;
+}
 
+impl DispatchMessage for Unary {
     async fn dispatch<T, R>(
         grpc: &mut tonic::client::Grpc<T>,
         mut request: tonic::Request<R>,
@@ -173,7 +175,13 @@ impl Dispatch for Unary {
 impl Dispatch for ServerStream {
     type Output<R: Rpc<Kind = Self>> =
         futures::stream::BoxStream<'static, Result<R::Response, RequestError>>;
+}
 
+impl Dispatch for ClientStream {
+    type Output<R: Rpc<Kind = Self>> = R::Response;
+}
+
+impl DispatchMessage for ServerStream {
     async fn dispatch<T, R>(
         grpc: &mut tonic::client::Grpc<T>,
         mut request: tonic::Request<R>,
@@ -199,6 +207,136 @@ impl Dispatch for ServerStream {
         };
         tracing_futures::Instrument::instrument(fut, span).await
     }
+}
+
+/// Anything [`ServiceClient::call`] accepts, together with the RPC it starts.
+///
+/// The request type alone determines the RPC, so `call` does not fork on the
+/// call kind; this trait is what lets one signature take a message, a
+/// [`tonic::Request`] around one, a stream of messages, or a `tonic::Request`
+/// around a stream. Those four input shapes cannot be four impls of a
+/// one-parameter trait — `impl IntoCall<R> for S where S: Stream<Item = R>`
+/// and `impl IntoCall<R> for R` overlap as far as coherence is concerned,
+/// since nothing stops an upstream crate implementing `Stream` for a request
+/// type. `M` is an inert marker, distinct per impl, that makes the impls
+/// disjoint by their *trait arguments* rather than by their self types (the
+/// trick `axum::handler::Handler` uses). It is inferred at every call site
+/// alongside `R` and never named.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a valid input for `call`",
+    label = "invalid `call` input",
+    note = "`call` takes the RPC's request message, a `tonic::Request` wrapping it, or — for a \
+            client-streaming RPC — a `Stream` of its request messages",
+    note = "a client-streaming RPC's request message is not a valid input on its own: send a \
+            stream of them (`futures::stream::iter([..])`, `async_stream::stream!`, ...)"
+)]
+pub trait IntoCall<R, M>
+where
+    R: Rpc,
+    R::Kind: Dispatch,
+{
+    /// Perform the call this input describes.
+    #[allow(async_fn_in_trait)]
+    async fn into_call<T: Channel>(
+        self,
+        grpc: &mut tonic::client::Grpc<T>,
+    ) -> Result<<R::Kind as Dispatch>::Output<R>, RequestError>;
+}
+
+/// [`IntoCall`] marker: the input is the request message itself.
+pub struct ByMessage;
+/// [`IntoCall`] marker: the input is a [`tonic::Request`] around the message.
+pub struct ByRequest;
+/// [`IntoCall`] marker: the input is a stream of request messages.
+pub struct ByStream;
+/// [`IntoCall`] marker: the input is a [`tonic::Request`] around such a stream.
+pub struct ByStreamRequest;
+
+impl<R> IntoCall<R, ByMessage> for R
+where
+    R: Rpc,
+    R::Kind: DispatchMessage,
+{
+    async fn into_call<T: Channel>(
+        self,
+        grpc: &mut tonic::client::Grpc<T>,
+    ) -> Result<<R::Kind as Dispatch>::Output<R>, RequestError> {
+        <R::Kind as DispatchMessage>::dispatch(grpc, tonic::Request::new(self)).await
+    }
+}
+
+// `do_not_recommend`: when no impl applies, listing the `tonic::Request` ones as
+// "other types that implement `IntoCall`" is noise; the `on_unimplemented` note
+// says the same thing in words.
+#[diagnostic::do_not_recommend]
+impl<R> IntoCall<R, ByRequest> for tonic::Request<R>
+where
+    R: Rpc,
+    R::Kind: DispatchMessage,
+{
+    async fn into_call<T: Channel>(
+        self,
+        grpc: &mut tonic::client::Grpc<T>,
+    ) -> Result<<R::Kind as Dispatch>::Output<R>, RequestError> {
+        <R::Kind as DispatchMessage>::dispatch(grpc, self).await
+    }
+}
+
+impl<R, S> IntoCall<R, ByStream> for S
+where
+    R: Rpc<Kind = ClientStream>,
+    S: futures::Stream<Item = R> + Send + 'static,
+{
+    async fn into_call<T: Channel>(
+        self,
+        grpc: &mut tonic::client::Grpc<T>,
+    ) -> Result<R::Response, RequestError> {
+        client_streaming(grpc, tonic::Request::new(self)).await
+    }
+}
+
+#[diagnostic::do_not_recommend]
+impl<R, S> IntoCall<R, ByStreamRequest> for tonic::Request<S>
+where
+    R: Rpc<Kind = ClientStream>,
+    S: futures::Stream<Item = R> + Send + 'static,
+{
+    async fn into_call<T: Channel>(
+        self,
+        grpc: &mut tonic::client::Grpc<T>,
+    ) -> Result<R::Response, RequestError> {
+        client_streaming(grpc, self).await
+    }
+}
+
+/// The client-streaming dispatch. Not a [`DispatchMessage`] impl: it is keyed on
+/// the *input* being a stream, and [`ClientStream`] is the only kind it serves,
+/// so there is nothing for a kind-generic signature to abstract over.
+async fn client_streaming<T, R, S>(
+    grpc: &mut tonic::client::Grpc<T>,
+    request: tonic::Request<S>,
+) -> Result<R::Response, RequestError>
+where
+    T: Channel,
+    R: Rpc<Kind = ClientStream>,
+    S: futures::Stream<Item = R> + Send + 'static,
+{
+    let span = span_for::<R>();
+    let stream_span = tracing::trace_span!(parent: &span, "stream");
+    let fut = async move {
+        ready(grpc).await?;
+        let (metadata, mut extensions, stream) = request.into_parts();
+        extensions.insert(grpc_method::<R>());
+        // The caller's stream is polled while the call runs, under its own child span.
+        let stream = tracing_futures::Instrument::instrument(stream, stream_span);
+        let request = tonic::Request::from_parts(metadata, extensions, stream);
+        Ok(grpc
+            .client_streaming(request, path::<R>(), codec())
+            .await
+            .context(super::GrpcSnafu {})?
+            .into_inner())
+    };
+    tracing_futures::Instrument::instrument(fut, span).await
 }
 
 fn span_for<R: Rpc>() -> tracing::Span {

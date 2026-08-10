@@ -6,7 +6,7 @@ use armonik::server::{RequestContext, ResultsServiceExt};
 mod common;
 
 /// The stream `UploadResultData` is driven with, in both halves of the pair. The
-/// convenience method prepends the identifier itself, so the `call_streaming`
+/// convenience method prepends the identifier itself, so the `call`
 /// side has to spell it out to send the same thing.
 fn upload_request() -> impl futures::Stream<Item = results::upload::Request> {
     futures::stream::iter([
@@ -537,7 +537,7 @@ async fn upload_wait_early() {
     let token = tokio_util::sync::CancellationToken::new();
     let mut client = slow_client(&token, true);
 
-    let future = client.call_streaming(async_stream::stream! {
+    let future = client.call(async_stream::stream! {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         yield results::upload::Request::Identifier {
             session_id: String::from("session-id"),
@@ -611,7 +611,7 @@ async fn download_failure_late() {
 async fn upload_failure_early() {
     let mut client = failing_client("rpc-upload-early-error", true);
 
-    let future = client.call_streaming(async_stream::stream! {
+    let future = client.call(async_stream::stream! {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         yield results::upload::Request::Identifier {
             session_id: String::from("session-id"),
@@ -629,7 +629,7 @@ async fn upload_failure_early() {
 async fn upload_failure_late() {
     let mut client = failing_client("rpc-upload-late-error", false);
 
-    let future = client.call_streaming(async_stream::stream! {
+    let future = client.call(async_stream::stream! {
         yield results::upload::Request::Identifier {
             session_id: String::from("session-id"),
             result_id: String::from("result-id"),
@@ -652,7 +652,7 @@ async fn upload_failure_end() {
 
     assert_invalid_argument(
         client
-            .call_streaming(futures::stream::iter::<[results::upload::Request; 0]>([]))
+            .call(futures::stream::iter::<[results::upload::Request; 0]>([]))
             .await,
         "rpc-upload-end-error",
     );

@@ -12,7 +12,10 @@ pub use armonik_transport::{
 };
 
 mod service_client;
-pub use service_client::{Channel, Dispatch, ServiceClient};
+pub use service_client::{
+    ByMessage, ByRequest, ByStream, ByStreamRequest, Channel, Dispatch, DispatchMessage, IntoCall,
+    ServiceClient,
+};
 
 // The four use-case features are four distinct use cases, and a user normally wants exactly one.
 // `Agent` and `Worker` are therefore gated on the *other* one of the pair, which reads as a typo

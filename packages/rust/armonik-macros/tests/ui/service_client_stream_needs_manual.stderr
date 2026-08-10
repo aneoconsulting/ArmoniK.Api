@@ -1,4 +1,4 @@
-error: a client-streaming rpc needs `manual`: its entry point is `call_streaming`, and no convenience method is derived
+error: a client-streaming rpc needs `manual`: its request is a stream, so there is no message to spread into a convenience method's parameters
  --> tests/ui/service_client_stream_needs_manual.rs:9:14
   |
 9 |     rpc Push(stream push::Request) -> push::Response;

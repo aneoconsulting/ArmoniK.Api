@@ -24,6 +24,6 @@ impl<T: super::Channel> super::ServiceClient<services::Results, T> {
         }]);
         let request = request.chain(data.map(|chunk| upload::Request::DataChunk(chunk.into())));
 
-        Ok(self.call_streaming(request).await?.result)
+        Ok(self.call(request).await?.result)
     }
 }

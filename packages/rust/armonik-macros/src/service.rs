@@ -577,18 +577,23 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
             ));
         }
 
-        // After the descriptor checks above, not while parsing: `stream` on a method the proto does
-        // not stream is one mistake, and asking for `manual` first would answer a question the
+        // After the descriptor checks above, not while parsing: `stream` on a method the proto
+        // does not stream is one mistake, and asking for `manual` first would answer a question the
         // author never meant to ask.
         //
-        // A request stream has no single message to spread into parameters, so no convenience
-        // method can be derived. Spelling `manual` out keeps "no convenience method" readable from
-        // the rpc line alone.
+        // A request stream has no single message to spread into parameters, so the derivation this
+        // macro performs -- one parameter per request field -- has nothing to work from. (The
+        // *entry point* is no longer the reason: `call` takes all three kinds since the `IntoCall`
+        // unification. A `stream in, response out` method would be derivable now, but all three
+        // client-streaming RPCs need a hand-written body anyway -- two turn a oneof response into
+        // an error, the third builds the request stream -- so deriving it would be an emission path
+        // with no consumer.) Spelling `manual` out keeps "no convenience method" readable from the
+        // rpc line alone.
         if let (Some(stream), false) = (&rpc.client_stream, rpc.manual) {
             return Err(syn::Error::new(
                 stream.span,
-                "a client-streaming rpc needs `manual`: its entry point is \
-                 `call_streaming`, and no convenience method is derived",
+                "a client-streaming rpc needs `manual`: its request is a stream, so there is \
+                 no message to spread into a convenience method's parameters",
             ));
         }
 

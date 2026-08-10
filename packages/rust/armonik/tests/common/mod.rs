@@ -11,9 +11,9 @@
 //! * `<rpc>::in_process::{call, convenience}` drives it against the generated fake over an
 //!   in-memory channel, and asserts what comes back.
 //!
-//! In both pairs, `call` goes through `ServiceClient::call` (or `call_streaming`) with a request
-//! message built by hand, and `convenience` goes through the method `service!` derives from that
-//! request's fields.
+//! In both pairs, `call` goes through `ServiceClient::call` with a request message (or, under
+//! `client_stream`, a stream of them) built by hand, and `convenience` goes through the method
+//! `service!` derives from that request's fields.
 //!
 //! These suites compile against `armonik` from the outside, so they also stand as the proof that
 //! the public API is usable: everything they touch has to be `pub`, which no in-crate test could
@@ -251,9 +251,10 @@ impl Counter {
 /// (`unary`, `client_stream` for a stream of request messages, `server_stream`
 /// for a stream of responses). Clauses, in this order:
 ///
-/// * `request:` is driven through `call`, or `call_streaming` under
-///   `client_stream`. Written as a struct literal, which is also where the macro
-///   reads the request type from to emit the handler signature.
+/// * `request:` is driven through `call`, which takes all three kinds: a request
+///   message, or a stream of them under `client_stream`. Written as a struct
+///   literal, which is also where the macro reads the request type from to emit
+///   the handler signature.
 /// * `respond:` is the fake's answer, and generates the handler. Omit it when
 ///   the handler cannot be a plain function of the request, and hand-write that
 ///   method in the `manual { .. }` block instead; the streaming kinds always
@@ -428,7 +429,7 @@ macro_rules! rpc_tests {
     }) => {
         rpc_tests!(@mock $mock, $into, method_of_stream,
             request = ($request),
-            call = (call_streaming),
+            call = (call),
             convenience = ($method($($arg),*)),
             settle = (keep),
             mock_error = ($($mock_error)?),
@@ -441,7 +442,7 @@ macro_rules! rpc_tests {
             #[tokio::test]
             async fn call() {
                 let mut client = rpc_tests!(@client $into, $server);
-                let response = client.call_streaming($request).await.unwrap();
+                let response = client.call($request).await.unwrap();
                 let value = response;
                 $( let value = crate::common::project(value, $project); )?
                 crate::common::check(value, $check);
