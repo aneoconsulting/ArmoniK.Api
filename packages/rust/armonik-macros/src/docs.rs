@@ -162,12 +162,12 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
                 }
             }
 
-            #[cfg(feature = "_differential")]
+            #[cfg(test)]
             impl #impl_generics crate::differential::Normalize for #ident #ty_generics
                 #where_clause
             {
                 fn normalize(
-                    _message: &mut crate::differential::prost_reflect::DynamicMessage,
+                    _message: &mut ::prost_reflect::DynamicMessage,
                 ) {
                     ::core::unimplemented!()
                 }

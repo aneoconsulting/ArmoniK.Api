@@ -112,12 +112,12 @@ impl prost::Message for Request {
     }
 }
 
-#[cfg(feature = "_differential")]
+#[cfg(test)]
 impl crate::differential::Normalize for Request {
     /// The `ResultIdentifier` pairs are flattened into one shared session ID (the first non-empty
     /// one) plus the result IDs: every pair's `session_id` is equivalent to that shared one.
-    fn normalize(message: &mut crate::differential::prost_reflect::DynamicMessage) {
-        use crate::differential::prost_reflect::{ReflectMessage, Value};
+    fn normalize(message: &mut ::prost_reflect::DynamicMessage) {
+        use ::prost_reflect::{ReflectMessage, Value};
         let Some(ids) = message.descriptor().get_field(IDS_TAG) else {
             return;
         };

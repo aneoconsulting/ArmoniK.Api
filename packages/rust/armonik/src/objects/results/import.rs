@@ -61,11 +61,8 @@ impl ProtoAdapter<HashMap<String, Raw>> for RawByName {
     }
 
     /// The `HashMap` loses entry order and collapses duplicate names.
-    #[cfg(feature = "_differential")]
-    fn normalize_dynamic(
-        message: &mut crate::differential::prost_reflect::DynamicMessage,
-        tag: u32,
-    ) {
+    #[cfg(test)]
+    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
         crate::differential::fold_pairs_by_name(message, tag, "name");
     }
 }

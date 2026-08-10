@@ -3,25 +3,30 @@
 //! compile time.
 //!
 //! Every `#[armonik_macros::message]`/`#[armonik_macros::enumeration]` expansion (and the two
-//! hand-written impls) registers one [`Registration`] per proto name into `REGISTRY`, a single
-//! `linkme` distributed slice. Its
-//! consumer is the differential harness, which discovers every type's round-trip and `Normalize`
-//! projection through the [`Diff`] hooks (see [`crate::differential::entries`]), and whose coverage
-//! ratchet walks the registered proto names against [`DESCRIPTOR`].
+//! hand-written impls) registers one [`Registration`] per proto name into [`REGISTRY`], a single
+//! `linkme` distributed slice. Its consumer is the differential harness next door, which discovers
+//! every type's round-trip and `Normalize` projection through the [`Hooks`] a [`Role::Message`]
+//! carries, and whose coverage ratchet walks the registered names against the descriptor pool.
 
-/// The full protobuf descriptor set (encoded `FileDescriptorSet`), embedded from the build script.
-pub const DESCRIPTOR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptor.bin"));
+use prost_reflect::DynamicMessage;
 
 /// Messages present in the schema but referenced by nothing: no RPC, no containing message. They
 /// have no Rust type, and the coverage ratchet allows them from this list.
-pub const UNREFERENCED_MESSAGES: &[&str] = &["armonik.api.grpc.v1.submitter.SessionList"];
+pub(crate) const UNREFERENCED_MESSAGES: &[&str] = &["armonik.api.grpc.v1.submitter.SessionList"];
+
+/// One registration: a proto name and what stands for it on the Rust side.
+pub(crate) struct Registration {
+    pub proto: &'static str,
+    pub role: Role,
+}
 
 /// How a proto name is realized on the Rust side.
-pub enum Role {
-    /// A Rust type implements this proto message directly.
-    Message,
+pub(crate) enum Role {
+    /// A Rust type implements this proto message directly; these are the hooks the harness drives
+    /// it through.
+    Message(Hooks),
     /// No Rust type stands for this message: a flattening construct absorbs it into a parent,
-    /// through which the differential harness counts it as covered.
+    /// through which the harness counts it as covered.
     Absorbed,
     /// No Rust type stands for this message: it belongs to an RPC the crate deliberately does not
     /// expose (the router answers UNIMPLEMENTED for its path). Registered by `service!` from the
@@ -29,28 +34,30 @@ pub enum Role {
     Unexposed,
 }
 
-/// Test-only round-trip and projection hooks for a registered type (see [`crate::differential`]).
+/// A registered type's round-trip and projection hooks.
 #[derive(Clone, Copy)]
-pub struct Diff {
+pub(crate) struct Hooks {
     /// Decode the bytes as the armonik type and re-encode them.
-    pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, ::prost::DecodeError>,
+    pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, prost::DecodeError>,
     /// Canonical encoding of the type's `Default` (the zero-default invariant, and the harness's
     /// canonical-absence fold).
     pub default_encoding: fn() -> Vec<u8>,
-    /// The type's value-level projection, from its [`crate::differential::Normalize`] impl.
-    pub normalize: fn(&mut crate::differential::prost_reflect::DynamicMessage),
-}
-
-/// One registration: a proto name, how Rust realizes it, and its harness hooks (`None` only for the
-/// type-less [`Role::Absorbed`] and [`Role::Unexposed`]).
-pub struct Registration {
-    pub proto: &'static str,
-    pub role: Role,
-    pub diff: Option<Diff>,
+    /// The type's value-level projection, from its [`super::Normalize`] impl.
+    pub normalize: fn(&mut DynamicMessage),
 }
 
 #[linkme::distributed_slice]
-pub static REGISTRY: [Registration];
+pub(crate) static REGISTRY: [Registration];
+
+/// Every registered proto name that a Rust type implements, with that type's hooks.
+pub(crate) fn typed() -> impl Iterator<Item = (&'static str, Hooks)> {
+    REGISTRY
+        .iter()
+        .filter_map(|registration| match &registration.role {
+            Role::Message(hooks) => Some((registration.proto, *hooks)),
+            _ => None,
+        })
+}
 
 fn collect(role: fn(&Role) -> bool) -> Vec<&'static str> {
     let mut entries: Vec<&'static str> = REGISTRY
@@ -63,11 +70,11 @@ fn collect(role: fn(&Role) -> bool) -> Vec<&'static str> {
 }
 
 /// The [`Role::Absorbed`] proto names, sorted and de-duplicated.
-pub fn absorbed() -> Vec<&'static str> {
+pub(crate) fn absorbed() -> Vec<&'static str> {
     collect(|role| matches!(role, Role::Absorbed))
 }
 
 /// The [`Role::Unexposed`] proto names, sorted and de-duplicated.
-pub fn unexposed() -> Vec<&'static str> {
+pub(crate) fn unexposed() -> Vec<&'static str> {
     collect(|role| matches!(role, Role::Unexposed))
 }

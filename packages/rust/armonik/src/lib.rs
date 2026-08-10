@@ -25,10 +25,10 @@ mod __schema {
 pub(crate) mod codec;
 pub(crate) mod utils;
 
-/// Register a type's proto names into [`wire::REGISTRY`]. The one place the registration shape is
-/// written (the `linkme` slice, the feature gates, the `Diff` hooks): the macros emit
-/// `crate::register!(...)` and the two hand-written impls call it directly, so none restates the
-/// slice's layout.
+/// Register a type's proto names into the differential harness's registry. The one place the
+/// registration shape is written (the `linkme` slice, the `cfg(test)` gate, the hooks): the macros
+/// emit `crate::register!(...)` and the two hand-written impls call it directly, so none restates
+/// the slice's layout.
 ///
 /// - `message: Ty, "proto.Name", ...`: a Rust type implementing the messages;
 /// - `absorbed: "proto.Name", ...`: a message flattened into a parent, no type;
@@ -47,35 +47,39 @@ macro_rules! register {
 
     // One registration for a proto name with no Rust type of its own.
     (@untyped $proto:literal, $role:ident) => {
-        #[cfg(feature = "_differential")]
+        #[cfg(test)]
         const _: () = {
-            #[::linkme::distributed_slice($crate::wire::REGISTRY)]
-            static R: $crate::wire::Registration = $crate::wire::Registration {
-                proto: $proto,
-                role: $crate::wire::Role::$role,
-                diff: ::core::option::Option::None,
-            };
+            #[::linkme::distributed_slice($crate::differential::registrations::REGISTRY)]
+            static R: $crate::differential::registrations::Registration =
+                $crate::differential::registrations::Registration {
+                    proto: $proto,
+                    role: $crate::differential::registrations::Role::$role,
+                };
         };
     };
 
     // One registration for a real Rust type, with the harness round-trip/projection hooks.
     (@type $proto:literal, $ty:ident) => {
-        #[cfg(feature = "_differential")]
+        #[cfg(test)]
         const _: () = {
-            #[::linkme::distributed_slice($crate::wire::REGISTRY)]
-            static R: $crate::wire::Registration = $crate::wire::Registration {
-                proto: $proto,
-                role: $crate::wire::Role::Message,
-                diff: ::core::option::Option::Some($crate::wire::Diff {
-                    roundtrip: |bytes| ::core::result::Result::Ok(
-                        ::prost::Message::encode_to_vec(&<$ty as ::prost::Message>::decode(bytes)?),
+            #[::linkme::distributed_slice($crate::differential::registrations::REGISTRY)]
+            static R: $crate::differential::registrations::Registration =
+                $crate::differential::registrations::Registration {
+                    proto: $proto,
+                    role: $crate::differential::registrations::Role::Message(
+                        $crate::differential::registrations::Hooks {
+                            roundtrip: |bytes| ::core::result::Result::Ok(
+                                ::prost::Message::encode_to_vec(
+                                    &<$ty as ::prost::Message>::decode(bytes)?,
+                                ),
+                            ),
+                            default_encoding: || ::prost::Message::encode_to_vec(
+                                &<$ty as ::core::default::Default>::default(),
+                            ),
+                            normalize: <$ty as $crate::differential::Normalize>::normalize,
+                        },
                     ),
-                    default_encoding: || ::prost::Message::encode_to_vec(
-                        &<$ty as ::core::default::Default>::default(),
-                    ),
-                    normalize: <$ty as $crate::differential::Normalize>::normalize,
-                }),
-            };
+                };
         };
     };
 }
@@ -86,16 +90,10 @@ pub(crate) use register;
 mod objects;
 pub use objects::*;
 
-// The differential harness (test-only). Enabled only through the self dev-dependency, so tests
-// always see it and downstream builds never do.
-#[cfg(feature = "_differential")]
-#[doc(hidden)]
-pub mod differential;
-
-// The self-registering type registry, consumed by the differential harness.
-#[cfg(feature = "_differential")]
-#[doc(hidden)]
-pub mod wire;
+// The differential harness and its registry: a unit-test module, so what the suites link is the
+// artifact the crate ships.
+#[cfg(test)]
+mod differential;
 
 pub mod rpc;
 
