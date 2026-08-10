@@ -135,6 +135,15 @@ impl Errors {
         self.errors.push(error);
     }
 
+    /// Record one spanned error.
+    ///
+    /// A diagnostic is a span and a message; spelling out `push(syn::Error::new(` and its closing
+    /// parens around each of the 60-odd in `resolve.rs` was five lines of scaffolding for one
+    /// string, and made the message the least visible thing at the site.
+    pub(crate) fn at(&mut self, span: Span, message: impl std::fmt::Display) {
+        self.errors.push(syn::Error::new(span, message));
+    }
+
     /// `Ok(())` when no error was recorded, the combined error otherwise.
     pub(crate) fn into_result(self) -> Result<(), Errors> {
         if self.errors.is_empty() {

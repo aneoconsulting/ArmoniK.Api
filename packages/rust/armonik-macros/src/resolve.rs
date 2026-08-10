@@ -111,14 +111,14 @@ impl<'a> Matcher<'a> {
             self.consumed[position] = true;
             let field = &self.meta.fields[position];
             if field.oneof.is_some() {
-                errors.push(syn::Error::new(
+                errors.at(
                     span,
                     format!(
                         "proto field `{}.{proto_name}` belongs to a oneof; \
                          map the whole oneof to one field named after it",
                         self.message_name
                     ),
-                ));
+                );
                 return None;
             }
             return Some(Found::Field(field));
@@ -157,25 +157,25 @@ impl<'a> Matcher<'a> {
         for (position, field) in self.meta.fields.iter().enumerate() {
             let in_oneof_group = field.oneof.is_some_and(|oneof| self.consumed_oneofs[oneof]);
             if !self.consumed[position] && !in_oneof_group {
-                errors.push(syn::Error::new(
+                errors.at(
                     at,
                     format!(
                         "proto field `{}.{}` (tag {}) is not covered by any Rust field",
                         self.message_name, field.name, field.tag
                     ),
-                ));
+                );
             }
         }
         for (index, oneof) in self.meta.oneofs.iter().enumerate() {
             let members_covered = oneof.fields.iter().all(|&field| self.consumed[field]);
             if !self.consumed_oneofs[index] && !members_covered {
-                errors.push(syn::Error::new(
+                errors.at(
                     at,
                     format!(
                         "proto oneof `{}.{}` is not covered by any Rust field",
                         self.message_name, oneof.name
                     ),
-                ));
+                );
             }
         }
     }
@@ -201,10 +201,7 @@ pub(crate) fn message_plan(
             AttrItem::Generic => generic = true,
             AttrItem::Transparent => transparent = true,
             AttrItem::Oneof(_) => {
-                errors.push(syn::Error::new(
-                    entry.span,
-                    "this armonik attribute mode is not valid here",
-                ));
+                errors.at(entry.span, "this armonik attribute mode is not valid here");
             }
             _ => errors.push(syn::Error::new(
                 entry.span,
@@ -214,11 +211,11 @@ pub(crate) fn message_plan(
     }
     if generic {
         if !proto_names.is_empty() {
-            errors.push(syn::Error::new(
+            errors.at(
                 input.ident.span(),
                 "#[armonik(generic)] types are not validated against the descriptor; \
                  remove the message attribute",
-            ));
+            );
             return Err(errors);
         }
         return generic_plan(input, index, errors);
@@ -227,18 +224,18 @@ pub(crate) fn message_plan(
         return transparent_plan(input, index, proto_names, errors);
     }
     if proto_names.is_empty() {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "missing #[armonik(message = \"full.proto.Name\")] \
              (or #[armonik(generic)] with explicit tags)",
-        ));
+        );
         return Err(errors);
     }
     if !input.generics.params.is_empty() {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "descriptor-validated types cannot be generic; use #[armonik(generic)]",
-        ));
+        );
         return Err(errors);
     }
 
@@ -247,10 +244,10 @@ pub(crate) fn message_plan(
     // machinery for it (resolve every field against every message, then check the messages agree on
     // its tag, kind and cardinality) was 55 lines nothing exercised.
     for (span, _) in proto_names.iter().skip(1) {
-        errors.push(syn::Error::new(
+        errors.at(
             *span,
             "a struct stands for one proto message; declare one #[armonik(message = ...)]",
-        ));
+        );
     }
     let (name, meta) = {
         let (span, name) = &proto_names[0];
@@ -264,11 +261,11 @@ pub(crate) fn message_plan(
     };
 
     let syn::Data::Struct(data) = &input.data else {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik_macros::message] with `message = ...` expects a struct \
              (use `oneof = ...` for flattened oneofs)",
-        ));
+        );
         return Err(errors);
     };
 
@@ -299,10 +296,10 @@ pub(crate) fn message_plan(
             (Some(name), _) => name.clone(),
             (None, Some(ident)) => unraw(ident),
             (None, None) => {
-                errors.push(syn::Error::new(
+                errors.at(
                     span,
                     "tuple struct fields need #[armonik(rename = \"proto_field_name\")]",
-                ));
+                );
                 continue;
             }
         };
@@ -316,10 +313,10 @@ pub(crate) fn message_plan(
         let (tag, checks) = match resolved {
             Found::Oneof { tags } => {
                 if with.is_some() {
-                    errors.push(syn::Error::new(
+                    errors.at(
                         span,
                         "with/tag attributes are not supported on oneof fields",
-                    ));
+                    );
                     continue;
                 }
                 let min_tag = tags.iter().copied().min().unwrap_or_default();
@@ -382,17 +379,17 @@ fn transparent_plan(
     mut errors: Errors,
 ) -> Result<MessagePlan, Errors> {
     if !input.generics.params.is_empty() {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik(transparent)] structs cannot be generic",
-        ));
+        );
     }
     if proto_names.len() != 1 {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik(transparent)] structs need exactly one \
              #[armonik(message = \"full.proto.Name\")]",
-        ));
+        );
     }
     for (span, name) in &proto_names {
         if !index.messages.contains_key(name) {
@@ -400,17 +397,17 @@ fn transparent_plan(
         }
     }
     let syn::Data::Struct(data) = &input.data else {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik(transparent)] expects a struct",
-        ));
+        );
         return Err(errors);
     };
     if data.fields.len() != 1 {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik(transparent)] structs must have exactly one field, delegated to",
-        ));
+        );
         return Err(errors);
     }
     let field = data.fields.iter().next().expect("one field");
@@ -445,10 +442,7 @@ fn generic_plan(
     mut errors: Errors,
 ) -> Result<MessagePlan, Errors> {
     let syn::Data::Struct(data) = &input.data else {
-        errors.push(syn::Error::new(
-            input.ident.span(),
-            "#[armonik(generic)] expects a struct",
-        ));
+        errors.at(input.ident.span(), "#[armonik(generic)] expects a struct");
         return Err(errors);
     };
 
@@ -470,10 +464,10 @@ fn generic_plan(
         let tag = tag.map(|(_, tag)| tag);
         let with = with.map(|(_, ty)| ty);
         let Some(tag) = tag else {
-            errors.push(syn::Error::new(
+            errors.at(
                 span,
                 "generic-mode fields need an explicit #[armonik(tag = ...)]",
-            ));
+            );
             continue;
         };
 
@@ -582,10 +576,7 @@ fn parse_adapter_type(lit: &syn::LitStr, span: Span, errors: &mut Errors) -> Opt
     match syn::parse_str::<syn::Type>(&lit.value()) {
         Ok(ty) => Some(ty),
         Err(err) => {
-            errors.push(syn::Error::new(
-                span,
-                format!("invalid adapter type in with = ...: {err}"),
-            ));
+            errors.at(span, format!("invalid adapter type in with = ...: {err}"));
             None
         }
     }
@@ -638,7 +629,7 @@ fn scan_field_attrs(
                     true
                 }
                 Err(err) => {
-                    errors.push(syn::Error::new(entry.span, err));
+                    errors.at(entry.span, err);
                     false
                 }
             },
@@ -658,7 +649,7 @@ fn scan_field_attrs(
             // Harvested by `collect_absorbs` in lib.rs; only tolerated here.
             AttrItem::Absorbs(_) if allowed.absorbs => true,
             _ => {
-                errors.push(syn::Error::new(entry.span, reject));
+                errors.at(entry.span, reject);
                 false
             }
         };
@@ -731,11 +722,11 @@ pub(crate) fn enum_plan(
     let mut absorbs: Vec<String> = Vec::new();
     let mode = if transparent {
         if message_names.is_empty() {
-            errors.push(syn::Error::new(
+            errors.at(
                 input.ident.span(),
                 "#[armonik(transparent)] requires #[armonik(message = \"full.proto.Name\")] \
                  naming the single-field wrapper message",
-            ));
+            );
             return Err(errors);
         }
         let mut wrapper_path: Option<Vec<u32>> = None;
@@ -749,10 +740,10 @@ pub(crate) fn enum_plan(
                     break None;
                 };
                 let [field] = meta.fields.as_slice() else {
-                    errors.push(syn::Error::new(
+                    errors.at(
                         *span,
                         format!("`{current}` is not a single-field wrapper message"),
-                    ));
+                    );
                     break None;
                 };
                 path.push(field.tag);
@@ -765,13 +756,13 @@ pub(crate) fn enum_plan(
                         current = inner.clone();
                     }
                     other => {
-                        errors.push(syn::Error::new(
+                        errors.at(
                             *span,
                             format!(
                                 "the single field of `{current}` is neither an enum nor a \
                                  wrapper message ({other:?})"
                             ),
-                        ));
+                        );
                         break None;
                     }
                 }
@@ -781,10 +772,10 @@ pub(crate) fn enum_plan(
             };
             if let Some(previous) = &wrapper_path {
                 if *previous != path {
-                    errors.push(syn::Error::new(
+                    errors.at(
                         *span,
                         "transparent wrapper messages disagree on the wrapper tag path",
-                    ));
+                    );
                 }
             } else {
                 wrapper_path = Some(path);
@@ -803,10 +794,10 @@ pub(crate) fn enum_plan(
         }
     } else {
         if enum_names.is_empty() {
-            errors.push(syn::Error::new(
+            errors.at(
                 input.ident.span(),
                 "missing #[armonik(enum = \"full.proto.Name\")]",
-            ));
+            );
             return Err(errors);
         }
         for (span, name) in &enum_names {
@@ -824,10 +815,10 @@ pub(crate) fn enum_plan(
     }
 
     let syn::Data::Enum(data) = &input.data else {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik_macros::enumeration] expects an enum",
-        ));
+        );
         return Err(errors);
     };
 
@@ -864,18 +855,15 @@ pub(crate) fn enum_plan(
                     _ => None,
                 };
                 let Some(payload) = payload else {
-                    errors.push(syn::Error::new(
+                    errors.at(
                         variant.ident.span(),
                         "the catch-all payload must be a bare type name; the derive emits \
                          that struct",
-                    ));
+                    );
                     continue;
                 };
                 if unknown.replace((variant.ident.clone(), payload)).is_some() {
-                    errors.push(syn::Error::new(
-                        variant.ident.span(),
-                        "#[armonik_macros::enumeration] expects exactly one catch-all tuple variant",
-                    ));
+                    errors.at(variant.ident.span(), "#[armonik_macros::enumeration] expects exactly one catch-all tuple variant");
                 }
             }
             _ => errors.push(syn::Error::new(
@@ -886,11 +874,11 @@ pub(crate) fn enum_plan(
         }
     }
     let Some((unknown_variant, payload)) = unknown else {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik_macros::enumeration] requires a catch-all tuple variant, \
              e.g. `Unknown(UnknownTaskStatus)`",
-        ));
+        );
         return Err(errors);
     };
 
@@ -908,10 +896,10 @@ pub(crate) fn enum_plan(
             match matched {
                 Some((_, value)) => {
                     if *number.get_or_insert(*value) != *value {
-                        errors.push(syn::Error::new(
+                        errors.at(
                             ident.span(),
                             format!("unified proto enums disagree on the value of `{proto_name}`"),
-                        ));
+                        );
                     }
                 }
                 None => {
@@ -949,13 +937,13 @@ pub(crate) fn enum_plan(
                 .iter()
                 .any(|(_, proto_name)| *proto_name == mapped || proto_name == value_name);
             if !(covered || *value == 0) {
-                errors.push(syn::Error::new(
+                errors.at(
                     input.ident.span(),
                     format!(
                         "proto enum value `{enum_name}.{value_name}` (= {value}) is not \
                          covered by any Rust variant"
                     ),
-                ));
+                );
             }
         }
     }
@@ -1093,11 +1081,11 @@ fn sibling_variant_fields(
         let name = rename.unwrap_or_else(|| unraw(&ident));
         if let Some(position) = sibling_metas.iter().position(|meta| meta.name == name) {
             if let Some((with_span, _)) = with {
-                errors.push(syn::Error::new(
+                errors.at(
                     with_span,
                     "with = ... is only valid on the member payload field, not on a \
                      sibling field",
-                ));
+                );
                 failed = true;
             }
             seen[position] = true;
@@ -1105,39 +1093,39 @@ fn sibling_variant_fields(
                 None => sibling_bindings[position] = Some((ident, field.ty.clone())),
                 Some((bound_ident, bound_ty)) => {
                     if *bound_ident != ident {
-                        errors.push(syn::Error::new(
+                        errors.at(
                             ident.span(),
                             format!(
                                 "sibling field `{name}` must use the same name in every \
                                  variant (`{bound_ident}` elsewhere)"
                             ),
-                        ));
+                        );
                         failed = true;
                     }
                     if quote::quote!(#bound_ty).to_string() != {
                         let ty = &field.ty;
                         quote::quote!(#ty).to_string()
                     } {
-                        errors.push(syn::Error::new(
+                        errors.at(
                             field.ty.span(),
                             format!(
                                 "sibling field `{name}` must use the same type in every \
                                  variant"
                             ),
-                        ));
+                        );
                         failed = true;
                     }
                 }
             }
         } else if payload.is_some() {
-            errors.push(syn::Error::new(
+            errors.at(
                 ident.span(),
                 format!(
                     "only one field of the variant may be the member payload; the others \
                      must match the non-oneof fields of `{proto_name}` (use \
                      #[armonik(rename = \"...\")] if the names differ)"
                 ),
-            ));
+            );
             failed = true;
         } else {
             payload = Some((ident, field.ty.clone(), with.map(|(_, ty)| ty)));
@@ -1145,7 +1133,7 @@ fn sibling_variant_fields(
     }
     for (position, field_seen) in seen.iter().enumerate() {
         if !field_seen {
-            errors.push(syn::Error::new(
+            errors.at(
                 variant_span,
                 format!(
                     "the variant must carry the sibling field `{}` of `{proto_name}` \
@@ -1153,7 +1141,7 @@ fn sibling_variant_fields(
                      fields)",
                     sibling_metas[position].name
                 ),
-            ));
+            );
             failed = true;
         }
     }
@@ -1197,27 +1185,27 @@ fn resolve_sibling_variant(
     errors: &mut Errors,
 ) -> ResolvedShape {
     if ctx.present {
-        errors.push(syn::Error::new(
+        errors.at(
             ctx.span,
             "#[armonik(present)] markers are not supported in whole-message \
              enums with sibling fields",
-        ));
+        );
         return Err(());
     }
     if let Some((with_span, _)) = with {
-        errors.push(syn::Error::new(
+        errors.at(
             *with_span,
             "in whole-message enums with sibling fields, put with = ... on the \
              member payload field",
-        ));
+        );
         return Err(());
     }
     let syn::Fields::Named(named) = &ctx.variant.fields else {
-        errors.push(syn::Error::new(
+        errors.at(
             ctx.span,
             "variants of a whole-message enum with sibling fields must be \
              struct variants carrying the sibling fields",
-        ));
+        );
         return Err(());
     };
     let (payload, ty, adapter) = match sibling_variant_fields(
@@ -1230,14 +1218,14 @@ fn resolve_sibling_variant(
     ) {
         SiblingSplit::Payload(payload) => *payload,
         SiblingSplit::NoMemberSet => {
-            errors.push(syn::Error::new(
+            errors.at(
                 ctx.span,
                 format!(
                     "the variant needs a payload field for the member \
                      `{}`",
                     ctx.member_name
                 ),
-            ));
+            );
             return Err(());
         }
         SiblingSplit::Failed => return Err(()),
@@ -1262,31 +1250,31 @@ fn resolve_marker_variant(
     errors: &mut Errors,
 ) -> ResolvedShape {
     if let Some((with_span, _)) = with {
-        errors.push(syn::Error::new(
+        errors.at(
             *with_span,
             "with = ... and present cannot be combined on a oneof variant",
-        ));
+        );
         return Err(());
     }
     if !matches!(ctx.variant.fields, syn::Fields::Unit) {
-        errors.push(syn::Error::new(
+        errors.at(
             ctx.span,
             "#[armonik(present)] variants must be unit variants",
-        ));
+        );
         return Err(());
     }
     match &ctx.field_meta.kind {
         FieldKind::Bool => Ok(OneofVariantShape::MarkerBool),
         FieldKind::Message(_) => Ok(OneofVariantShape::MarkerMessage),
         other => {
-            errors.push(syn::Error::new(
+            errors.at(
                 ctx.span,
                 format!(
                     "#[armonik(present)] needs a bool or message member, but \
                      `{}` is {other:?}",
                     ctx.proto_path
                 ),
-            ));
+            );
             Err(())
         }
     }
@@ -1317,39 +1305,33 @@ fn resolve_plain_variant(
         }
         _ if with.is_some() => {
             let (with_span, _) = with.expect("checked above");
-            errors.push(syn::Error::new(
-                with_span,
-                "with = ... needs a single-payload tuple variant",
-            ));
+            errors.at(with_span, "with = ... needs a single-payload tuple variant");
             Err(())
         }
         syn::Fields::Named(named) => {
             let FieldKind::Message(inner_name) = &ctx.field_meta.kind else {
-                errors.push(syn::Error::new(
+                errors.at(
                     ctx.span,
                     format!(
                         "struct variants inline a message member, but `{}` \
                          is not a message",
                         ctx.proto_path
                     ),
-                ));
+                );
                 return Err(());
             };
             let Some(inner) = ctx.index.messages.get(inner_name) else {
-                errors.push(syn::Error::new(
-                    ctx.span,
-                    format!("proto message `{inner_name}` not found"),
-                ));
+                errors.at(ctx.span, format!("proto message `{inner_name}` not found"));
                 return Err(());
             };
             if !inner.oneofs.is_empty() {
-                errors.push(syn::Error::new(
+                errors.at(
                     ctx.span,
                     format!(
                         "`{inner_name}` contains a oneof; it cannot be inlined into \
                          a struct variant"
                     ),
-                ));
+                );
                 return Err(());
             }
             let mut matcher = Matcher::new(inner_name, inner);
@@ -1396,11 +1378,11 @@ fn resolve_plain_variant(
             Ok(OneofVariantShape::Inline { parts })
         }
         _ => {
-            errors.push(syn::Error::new(
+            errors.at(
                 ctx.span,
                 "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
                  #[armonik(present)] marker, or the attribute-less default",
-            ));
+            );
             Err(())
         }
     }
@@ -1423,10 +1405,10 @@ pub(crate) fn oneof_plan(
         match &entry.item {
             AttrItem::Message(lit) => {
                 if proto_name.replace((entry.span, lit.value())).is_some() {
-                    errors.push(syn::Error::new(
+                    errors.at(
                         entry.span,
                         "flattened oneofs support a single proto message",
-                    ));
+                    );
                 }
             }
             AttrItem::Oneof(lit) => oneof_name = Some((entry.span, lit.value())),
@@ -1437,10 +1419,10 @@ pub(crate) fn oneof_plan(
         }
     }
     let Some((message_span, proto_name)) = proto_name else {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "oneof-shaped enums need #[armonik(message = \"...\")]",
-        ));
+        );
         return Err(errors);
     };
 
@@ -1455,10 +1437,10 @@ pub(crate) fn oneof_plan(
     let (oneof, whole_message) = match &oneof_name {
         Some((oneof_span, oneof_name)) => {
             let Some((oneof_index, oneof)) = meta.oneof(oneof_name) else {
-                errors.push(syn::Error::new(
+                errors.at(
                     *oneof_span,
                     format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
-                ));
+                );
                 return Err(errors);
             };
             if meta
@@ -1466,14 +1448,14 @@ pub(crate) fn oneof_plan(
                 .iter()
                 .all(|field| field.oneof == Some(oneof_index))
             {
-                errors.push(syn::Error::new(
+                errors.at(
                     *oneof_span,
                     format!(
                         "the oneof `{oneof_name}` covers the whole message `{proto_name}`; \
                          drop the oneof attribute: #[armonik(message = ...)] alone declares \
                          a whole-message enum"
                     ),
-                ));
+                );
                 return Err(errors);
             }
             (oneof, false)
@@ -1481,17 +1463,17 @@ pub(crate) fn oneof_plan(
         None => match meta.oneofs.len() {
             1 => (&meta.oneofs[0], true),
             0 => {
-                errors.push(syn::Error::new(
+                errors.at(
                     input.ident.span(),
                     format!(
                         "proto message `{proto_name}` has no oneof; a message without a \
                          oneof is derived on a struct"
                     ),
-                ));
+                );
                 return Err(errors);
             }
             n => {
-                errors.push(syn::Error::new(
+                errors.at(
                     input.ident.span(),
                     format!(
                         "proto message `{proto_name}` has {n} oneofs; an enum can stand \
@@ -1499,7 +1481,7 @@ pub(crate) fn oneof_plan(
                          one enum per oneof with #[armonik(oneof = \"...\")] and compose \
                          them in a struct"
                     ),
-                ));
+                );
                 return Err(errors);
             }
         },
@@ -1519,10 +1501,10 @@ pub(crate) fn oneof_plan(
         (0..sibling_metas.len()).map(|_| None).collect();
 
     let syn::Data::Enum(data) = &input.data else {
-        errors.push(syn::Error::new(
+        errors.at(
             input.ident.span(),
             "#[armonik(oneof = ...)] expects an enum",
-        ));
+        );
         return Err(errors);
     };
 
@@ -1566,11 +1548,11 @@ pub(crate) fn oneof_plan(
             && sibling_metas.is_empty()
         {
             if default_variant.replace(variant.ident.clone()).is_some() {
-                errors.push(syn::Error::new(
+                errors.at(
                     span,
                     "at most one attribute-less unit variant (the \"no member set\" case) \
                      is allowed",
-                ));
+                );
             }
             continue;
         }
@@ -1598,11 +1580,11 @@ pub(crate) fn oneof_plan(
                     // All fields are siblings: the "no member set" variant.
                     SiblingSplit::NoMemberSet => {
                         if default_variant.replace(variant.ident.clone()).is_some() {
-                            errors.push(syn::Error::new(
+                            errors.at(
                                 span,
                                 "at most one attribute-less variant (the \"no member \
                                  set\" case) is allowed",
-                            ));
+                            );
                         }
                         continue;
                     }
@@ -1672,13 +1654,13 @@ pub(crate) fn oneof_plan(
     for (position, member_covered) in covered.iter().enumerate() {
         if !member_covered {
             let field = &meta.fields[oneof.fields[position]];
-            errors.push(syn::Error::new(
+            errors.at(
                 input.ident.span(),
                 format!(
                     "oneof member `{proto_name}.{}` (tag {}) is not covered by any variant",
                     field.name, field.tag
                 ),
-            ));
+            );
         }
     }
 
