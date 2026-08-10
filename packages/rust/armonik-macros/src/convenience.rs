@@ -150,7 +150,7 @@ fn split(path: &Path) -> syn::Result<(Path, String)> {
             leading_colon: path.leading_colon,
             segments: segments.into_iter().collect(),
         },
-        crate::service::snake(&last.ident.to_string()),
+        crate::names::snake(&last.ident.to_string()),
     ))
 }
 

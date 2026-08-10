@@ -23,6 +23,7 @@ mod codegen;
 mod convenience;
 mod descriptor;
 mod docs;
+mod names;
 mod reflect;
 mod resolve;
 mod service;
@@ -544,7 +545,7 @@ fn reflection(input: &DeriveInput) -> TokenStream2 {
         return TokenStream2::new();
     }
 
-    let snake = service::snake(&input.ident.to_string());
+    let snake = names::snake(&input.ident.to_string());
     let fields_macro = quote::format_ident!("__armonik_fields_{snake}");
 
     let mut units = Vec::new();
