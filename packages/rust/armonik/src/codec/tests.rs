@@ -429,8 +429,6 @@ fn message_clear_resets_to_default() {
 // derive-emitted `crate::InitTaskRequest` and `crate::DataChunk`, an independent expansion of the
 // same proto messages. ---------------------------------------------------------------------------
 
-use super::ProtoOneof;
-
 /// Mirror of `armonik.api.grpc.v1.DataChunk`: whole-message oneof { bytes data = 1; bool
 /// data_complete = 2; }, default variant `Data("")`.
 #[derive(Debug, Clone, PartialEq)]
@@ -445,55 +443,14 @@ impl Default for TestDataChunk {
     }
 }
 
-impl ProtoOneof for TestDataChunk {
-    fn encode_oneof(value: &Self, buf: &mut impl BufMut) {
+impl Message for TestDataChunk {
+    fn encode_raw(&self, buf: &mut impl BufMut) {
         // The active member carries the oneof's presence, so it is emitted even when its payload is
         // the default.
-        match value {
+        match self {
             Self::Data(data) => ProtoField::encode_field(1, data, buf),
             Self::Complete => ProtoField::encode_field(2, &true, buf),
         }
-    }
-
-    fn merge_oneof(
-        tag: u32,
-        wire_type: WireType,
-        value: &mut Self,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        match tag {
-            1 => {
-                let mut data = if let Self::Data(data) = value {
-                    std::mem::take(data)
-                } else {
-                    Bytes::new()
-                };
-                ProtoField::merge_field(wire_type, &mut data, buf, ctx)?;
-                *value = Self::Data(data);
-                Ok(())
-            }
-            2 => {
-                let mut marker = false;
-                ProtoField::merge_field(wire_type, &mut marker, buf, ctx)?;
-                *value = Self::Complete;
-                Ok(())
-            }
-            _ => unreachable!("oneof tags are routed by the containing message"),
-        }
-    }
-
-    fn encoded_len_oneof(value: &Self) -> usize {
-        match value {
-            Self::Data(data) => ProtoField::encoded_len_field(1, data),
-            Self::Complete => ProtoField::encoded_len_field(2, &true),
-        }
-    }
-}
-
-impl Message for TestDataChunk {
-    fn encode_raw(&self, buf: &mut impl BufMut) {
-        ProtoOneof::encode_oneof(self, buf);
     }
 
     fn merge_field(
@@ -504,13 +461,27 @@ impl Message for TestDataChunk {
         ctx: DecodeContext,
     ) -> Result<(), prost::DecodeError> {
         match tag {
-            1..=2 => ProtoOneof::merge_oneof(tag, wire_type, self, buf, ctx),
+            1 => {
+                let mut data = Bytes::new();
+                ProtoField::merge_field(wire_type, &mut data, buf, ctx)?;
+                *self = Self::Data(data);
+                Ok(())
+            }
+            2 => {
+                let mut set = false;
+                ProtoField::merge_field(wire_type, &mut set, buf, ctx)?;
+                *self = Self::Complete;
+                Ok(())
+            }
             _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
         }
     }
 
     fn encoded_len(&self) -> usize {
-        ProtoOneof::encoded_len_oneof(self)
+        match self {
+            Self::Data(data) => ProtoField::encoded_len_field(1, data),
+            Self::Complete => ProtoField::encoded_len_field(2, &true),
+        }
     }
 
     fn clear(&mut self) {
@@ -572,56 +543,13 @@ impl Message for TestHeader {
     }
 }
 
-impl ProtoOneof for TestInitTask {
-    fn encode_oneof(value: &Self, buf: &mut impl BufMut) {
-        match value {
+impl Message for TestInitTask {
+    fn encode_raw(&self, buf: &mut impl BufMut) {
+        match self {
             Self::Invalid => {}
             Self::Header(header) => <TestHeader as ProtoField>::encode_field(1, header, buf),
             Self::LastTask => ProtoField::encode_field(2, &true, buf),
         }
-    }
-
-    fn merge_oneof(
-        tag: u32,
-        wire_type: WireType,
-        value: &mut Self,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), prost::DecodeError> {
-        match tag {
-            1 => {
-                // Same-variant occurrences merge into the payload, like prost.
-                let mut header = if let Self::Header(header) = value {
-                    std::mem::take(header)
-                } else {
-                    TestHeader::default()
-                };
-                <TestHeader as ProtoField>::merge_field(wire_type, &mut header, buf, ctx)?;
-                *value = Self::Header(header);
-                Ok(())
-            }
-            2 => {
-                let mut marker = false;
-                ProtoField::merge_field(wire_type, &mut marker, buf, ctx)?;
-                *value = Self::LastTask;
-                Ok(())
-            }
-            _ => unreachable!("oneof tags are routed by the containing message"),
-        }
-    }
-
-    fn encoded_len_oneof(value: &Self) -> usize {
-        match value {
-            Self::Invalid => 0,
-            Self::Header(header) => <TestHeader as ProtoField>::encoded_len_field(1, header),
-            Self::LastTask => ProtoField::encoded_len_field(2, &true),
-        }
-    }
-}
-
-impl Message for TestInitTask {
-    fn encode_raw(&self, buf: &mut impl BufMut) {
-        ProtoOneof::encode_oneof(self, buf);
     }
 
     fn merge_field(
@@ -632,13 +560,33 @@ impl Message for TestInitTask {
         ctx: DecodeContext,
     ) -> Result<(), prost::DecodeError> {
         match tag {
-            1..=2 => ProtoOneof::merge_oneof(tag, wire_type, self, buf, ctx),
+            1 => {
+                // Same-variant occurrences merge into the payload, like prost.
+                let mut header = if let Self::Header(header) = self {
+                    std::mem::take(header)
+                } else {
+                    TestHeader::default()
+                };
+                <TestHeader as ProtoField>::merge_field(wire_type, &mut header, buf, ctx)?;
+                *self = Self::Header(header);
+                Ok(())
+            }
+            2 => {
+                let mut marker = false;
+                ProtoField::merge_field(wire_type, &mut marker, buf, ctx)?;
+                *self = Self::LastTask;
+                Ok(())
+            }
             _ => prost::encoding::skip_field(wire_type, tag, buf, ctx),
         }
     }
 
     fn encoded_len(&self) -> usize {
-        ProtoOneof::encoded_len_oneof(self)
+        match self {
+            Self::Invalid => 0,
+            Self::Header(header) => <TestHeader as ProtoField>::encoded_len_field(1, header),
+            Self::LastTask => ProtoField::encoded_len_field(2, &true),
+        }
     }
 
     fn clear(&mut self) {
@@ -696,7 +644,7 @@ fn pair_map_rejects_non_delimited_wire_type() {
     use super::ProtoAdapter;
 
     let mut map = HashMap::<String, String>::new();
-    let err = <PairMap<1, 2> as ProtoAdapter<HashMap<String, String>>>::merge_field(
+    let err = <PairMap as ProtoAdapter<HashMap<String, String>>>::merge_field(
         WireType::Varint,
         &mut map,
         &mut [0x08u8].as_slice(),

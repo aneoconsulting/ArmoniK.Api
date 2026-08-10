@@ -82,7 +82,7 @@ fn salvage(mut input: DeriveInput, mode: &Mode, error: syn::Error) -> TokenStrea
 ///
 /// The trait a field site reaches for depends on the shape: a struct or whole-message enum is
 /// reached through `codec::Msg` (which blankets `ProtoField`), an embedded oneof through
-/// `codec::ProtoOneof`, a plain enumeration through `codec::ProtoField` directly. The `SHAPE` of a
+/// `prost::Message` alone, a plain enumeration through `codec::ProtoField` directly. The `SHAPE` of a
 /// stub names no proto message, which the const-asserts read as "unchecked", so the field sites
 /// that merely mention the type stay quiet.
 fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
@@ -139,25 +139,30 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
             }
         }
     } else if has(|item| matches!(item, AttrItem::Oneof(_))) {
-        // An embedded oneof is carried by a field of the struct that owns it, which reaches it
-        // through `ProtoOneof` and projects it through `Normalize`.
+        // An embedded oneof is carried by a field of the struct that owns it, which encodes it
+        // through `prost::Message` and projects it through `Normalize`. Unlike a whole message it
+        // gets no `Msg`: it stands for a fragment of one, not for a message.
         quote! {
-            impl #impl_generics crate::codec::ProtoOneof for #ident #ty_generics #where_clause {
-                fn encode_oneof(_value: &Self, _buf: &mut impl ::prost::bytes::BufMut) {
+            impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
+                fn encode_raw(&self, _buf: &mut impl ::prost::bytes::BufMut) {
                     ::core::unimplemented!()
                 }
 
-                fn merge_oneof(
+                fn merge_field(
+                    &mut self,
                     _tag: u32,
                     _wire_type: ::prost::encoding::WireType,
-                    _value: &mut Self,
                     _buf: &mut impl ::prost::bytes::Buf,
                     _ctx: ::prost::encoding::DecodeContext,
                 ) -> ::core::result::Result<(), ::prost::DecodeError> {
                     ::core::unimplemented!()
                 }
 
-                fn encoded_len_oneof(_value: &Self) -> usize {
+                fn encoded_len(&self) -> usize {
+                    ::core::unimplemented!()
+                }
+
+                fn clear(&mut self) {
                     ::core::unimplemented!()
                 }
             }
@@ -166,9 +171,7 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
             impl #impl_generics crate::differential::Normalize for #ident #ty_generics
                 #where_clause
             {
-                fn normalize(
-                    _message: &mut ::prost_reflect::DynamicMessage,
-                ) {
+                fn normalize(_message: &mut ::prost_reflect::DynamicMessage) {
                     ::core::unimplemented!()
                 }
             }

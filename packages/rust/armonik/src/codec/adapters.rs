@@ -16,16 +16,25 @@ use super::{ProtoAdapter, ProtoField};
 /// Entry order is not preserved and duplicate keys collapse (last wins),
 /// exactly like the historical conversions.
 ///
-/// The wire methods delegate to the [`HashMap`] `ProtoField` implementation
-/// (prost's real-map codec), which hardcodes entry tags 1/2, the same tags
-/// the pair messages use. The implementation therefore only exists for
-/// `PairMap<1, 2>` (every use); other tag pairs would need the hand-rolled
-/// framing back. prost's map codec skips `== default` key/value subfields,
-/// which the pair messages read back as the same values (the zero-default
-/// invariant); the differential harness guards it.
-pub(crate) struct PairMap<const KT: u32, const VT: u32>;
+/// The three wire methods are pure forwards to the [`HashMap`] `ProtoField`
+/// implementation and change no bytes: prost's real-map codec hardcodes entry
+/// tags 1 and 2, which is exactly what the pair messages use. What this adapter
+/// is actually for is suppressing the shape assert (the proto side is a
+/// repeated message, the Rust side a map), carrying `normalize_dynamic`, and
+/// hosting `absorbs`.
+///
+/// Key and value tags are therefore hardcoded, not parameters: the type used to
+/// read `PairMap<KT, VT>` while having exactly one implementation, for `<1, 2>`,
+/// and one instantiation across its six sites. Any other pair would need the
+/// hand-rolled framing back, and asking for one gave an unsatisfied-bound error
+/// pointing into expanded tokens.
+///
+/// prost's map codec skips `== default` key/value subfields, which the pair
+/// messages read back as the same values (the zero-default invariant); the
+/// differential harness guards it.
+pub(crate) struct PairMap;
 
-impl<K, V> ProtoAdapter<HashMap<K, V>> for PairMap<1, 2>
+impl<K, V> ProtoAdapter<HashMap<K, V>> for PairMap
 where
     K: ProtoField + Eq + Hash + Ord,
     V: ProtoField + PartialEq,
@@ -73,16 +82,14 @@ impl<V: ProtoField, const TAG: u32> ProtoAdapter<V> for Wrapper<TAG> {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
         encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let mut wrapper = super::read_delimited(buf)?;
-        while wrapper.has_remaining() {
-            let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
+        encoding::merge_loop(value, buf, ctx, |value, buf, ctx| {
+            let (tag, wire_type) = encoding::decode_key(buf)?;
             if tag == TAG {
-                V::merge_field(wire_type, value, &mut wrapper, ctx.clone())?;
+                V::merge_field(wire_type, value, buf, ctx)
             } else {
-                encoding::skip_field(wire_type, tag, &mut wrapper, ctx.clone())?;
+                encoding::skip_field(wire_type, tag, buf, ctx)
             }
-        }
-        Ok(())
+        })
     }
 
     fn encoded_len_field(tag: u32, value: &V) -> usize {

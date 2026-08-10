@@ -7,31 +7,48 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, key_len, DecodeContext, WireType};
 use prost::DecodeError;
 
-// The recursion is dynamic over `dyn Buf`: a generic recursion would monomorphize an unbounded
-// tower of `Take<&mut Take<...>>` types.
-fn merge_dyn<T: Copy + Into<i32> + From<i32>>(
+/// Merge the body of one wrapper level, recursing into the next.
+///
+/// `merge_loop` reads the length prefix and loops on the *same* buffer, bounded by a byte count,
+/// rather than handing out a sub-buffer (prost 0.14 `src/encoding.rs:139-164`). So the recursion is
+/// plainly generic: it used to go through `dyn Buf` to stop a generic one monomorphizing an
+/// unbounded tower of `Take<&mut Take<...>>`, and there is no tower any more. Depth is the wrapper
+/// path's length, which the descriptor fixes at expansion time.
+///
+/// Going through prost also brings what the hand-rolled framing did not have: the recursion and
+/// length limits `ctx` carries, and the exact-length check that rejects a body whose fields run
+/// past their declared end.
+fn merge_body<T: Copy + Into<i32> + From<i32>, B: Buf>(
     path: &[u32],
     wire_type: WireType,
     value: &mut T,
-    buf: &mut dyn Buf,
+    buf: &mut B,
     ctx: DecodeContext,
 ) -> Result<(), DecodeError> {
     encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
     let (&inner_tag, rest) = path.split_first().expect("non-empty wrapper path");
-    let mut wrapper = super::read_delimited(buf)?;
-    while wrapper.has_remaining() {
-        let (tag, wire_type) = encoding::decode_key(&mut wrapper)?;
+    encoding::merge_loop(value, buf, ctx, |value, buf, ctx| {
+        let (tag, wire_type) = encoding::decode_key(buf)?;
         if tag != inner_tag {
-            encoding::skip_field(wire_type, tag, &mut wrapper, ctx.clone())?;
+            encoding::skip_field(wire_type, tag, buf, ctx)
         } else if rest.is_empty() {
-            let mut raw: i32 = (*value).into();
-            encoding::int32::merge(wire_type, &mut raw, &mut wrapper, ctx.clone())?;
-            *value = T::from(raw);
+            merge_leaf(wire_type, value, buf, ctx)
         } else {
-            let inner: &mut dyn Buf = &mut wrapper;
-            merge_dyn(rest, wire_type, value, inner, ctx.clone())?;
+            merge_body(rest, wire_type, value, buf, ctx)
         }
-    }
+    })
+}
+
+/// The enum itself, at the bottom of the chain: an `int32` field.
+fn merge_leaf<T: Copy + Into<i32> + From<i32>>(
+    wire_type: WireType,
+    value: &mut T,
+    buf: &mut impl Buf,
+    ctx: DecodeContext,
+) -> Result<(), DecodeError> {
+    let mut raw: i32 = (*value).into();
+    encoding::int32::merge(wire_type, &mut raw, buf, ctx)?;
+    *value = T::from(raw);
     Ok(())
 }
 
@@ -76,11 +93,8 @@ pub(crate) fn merge_root_field<T: Copy + Into<i32> + From<i32>>(
         return encoding::skip_field(wire_type, tag, buf, ctx);
     }
     if rest.is_empty() {
-        let mut raw: i32 = (*value).into();
-        encoding::int32::merge(wire_type, &mut raw, buf, ctx)?;
-        *value = T::from(raw);
-        Ok(())
+        merge_leaf(wire_type, value, buf, ctx)
     } else {
-        merge_dyn(rest, wire_type, value, buf, ctx)
+        merge_body(rest, wire_type, value, buf, ctx)
     }
 }

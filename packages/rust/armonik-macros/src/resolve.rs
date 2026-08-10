@@ -32,7 +32,7 @@ pub(crate) enum FieldCodec {
     /// An ordinary field; `adapter` is the `#[armonik(with = "...")]` type when present (which
     /// skips the shape checks by design).
     Field { adapter: Option<Box<syn::Type>> },
-    /// The field covers a whole oneof of the message and is encoded through `ProtoOneof`; `tags`
+    /// The field covers a whole oneof of the message and is encoded through `prost::Message`; `tags`
     /// are the member field tags routed to it.
     OneofGroup { tags: Vec<u32> },
 }
@@ -982,8 +982,6 @@ pub(crate) fn enum_plan(
 pub(crate) struct OneofPlan {
     pub(crate) ident: syn::Ident,
     pub(crate) proto_name: String,
-    /// All member tags, for routing by containers and the whole-message implementation.
-    pub(crate) tags: Vec<u32>,
     /// Whether the enum stands for the whole message (annotation without `oneof = ...`), in which
     /// case it gets `prost::Message` + `ProtoField` implementations.
     pub(crate) whole_message: bool,
@@ -1506,12 +1504,6 @@ pub(crate) fn oneof_plan(
             }
         },
     };
-    let tags: Vec<u32> = oneof
-        .fields
-        .iter()
-        .map(|&field| meta.fields[field].tag)
-        .collect();
-
     // Non-oneof fields of a whole-message enum, replicated in every variant.
     let sibling_metas: Vec<&FieldMeta> = if whole_message {
         meta.fields
@@ -1712,7 +1704,6 @@ pub(crate) fn oneof_plan(
     Ok(OneofPlan {
         ident: input.ident.clone(),
         proto_name,
-        tags,
         whole_message,
         siblings,
         variants,

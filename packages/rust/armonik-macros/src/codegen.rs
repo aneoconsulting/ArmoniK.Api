@@ -329,15 +329,15 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             }
             FieldCodec::OneofGroup { tags } => {
                 encode_fragments.push(quote! {
-                    <#ty as crate::codec::ProtoOneof>::encode_oneof(&self.#access, buf);
+                    <#ty as ::prost::Message>::encode_raw(&self.#access, buf);
                 });
                 merge_arms.push(quote! {
-                    #(#tags)|* => <#ty as crate::codec::ProtoOneof>::merge_oneof(
-                        tag, wire_type, &mut self.#access, buf, ctx,
+                    #(#tags)|* => <#ty as ::prost::Message>::merge_field(
+                        &mut self.#access, tag, wire_type, buf, ctx,
                     )
                 });
                 len_fragments.push(quote! {
-                    len += <#ty as crate::codec::ProtoOneof>::encoded_len_oneof(&self.#access);
+                    len += <#ty as ::prost::Message>::encoded_len(&self.#access);
                 });
                 normalize_fragments.push(quote! {
                     <#ty as crate::differential::Normalize>::normalize(message);
@@ -670,8 +670,8 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
     }
 }
 
-/// Emission for oneof-shaped enums: embedded oneofs get a `ProtoOneof` impl, whole-message enums
-/// frame the same impl with `prost::Message` and register. With sibling fields (non-oneof fields of
+/// Emission for oneof-shaped enums: one `prost::Message` impl either way, plus registration and the
+/// `Msg` marker when the enum stands for a whole message. With sibling fields (non-oneof fields of
 /// a whole-message enum), every variant carries all of them, the "no member set" default included,
 /// which keeps the per-field merge stateless and order-independent: a sibling occurrence merges
 /// into the current variant's slot, a member occurrence switches variants while carrying the
@@ -921,20 +921,30 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                         } else {
                             (#(#part_seeds),*)
                         };
-                        let mut body = crate::codec::read_delimited(buf)?;
-                        while ::prost::bytes::Buf::has_remaining(&body) {
-                            let (tag, wire_type) = ::prost::encoding::decode_key(&mut body)?;
-                            match tag {
-                                #(
-                                    #part_tags => <#part_tys as crate::codec::ProtoField>::merge_field(
-                                        wire_type, &mut #part_idents, &mut body, ctx.clone(),
-                                    )?,
-                                )*
-                                _ => ::prost::encoding::skip_field(
-                                    wire_type, tag, &mut body, ctx.clone(),
-                                )?,
-                            }
-                        }
+                        // Through prost's own framing, which brings the recursion and length
+                        // limits `ctx` carries and rejects a body that runs past its declared end.
+                        #[allow(unused_parens)]
+                        let mut parts = (#(#part_idents),*);
+                        ::prost::encoding::merge_loop(
+                            &mut parts,
+                            buf,
+                            ctx,
+                            |parts, buf, ctx| {
+                                let (tag, wire_type) = ::prost::encoding::decode_key(buf)?;
+                                #[allow(unused_parens)]
+                                let (#(#part_idents),*) = parts;
+                                match tag {
+                                    #(
+                                        #part_tags => <#part_tys as crate::codec::ProtoField>::merge_field(
+                                            wire_type, #part_idents, buf, ctx,
+                                        ),
+                                    )*
+                                    _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+                                }
+                            },
+                        )?;
+                        #[allow(unused_parens)]
+                        let (#(#part_idents),*) = parts;
                         *value = Self::#var { #(#part_idents),* };
                         ::core::result::Result::Ok(())
                     }
@@ -984,30 +994,13 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let generics = syn::Generics::default();
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    // A whole-message enum is additionally the message itself: it registers and gets the `Msg`
+    // marker, which is what makes it usable as an RPC message and as a field of another message.
+    // The `prost::Message` impl below is shared with the embedded case; nothing is layered on top
+    // of it, because there is nothing left to add. The old forwarding layer wrapped the same match
+    // in a second one whose default arm was `skip_field`, which the inner match already ends with.
     let whole_message = plan.whole_message.then(|| {
         let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
-        let routed: Vec<u32> = plan
-            .tags
-            .iter()
-            .copied()
-            .chain(plan.siblings.iter().map(|sibling| sibling.tag))
-            .collect();
-        let message = message_impl(
-            &impl_generics,
-            ident,
-            &ty_generics,
-            where_clause,
-            quote! { crate::codec::ProtoOneof::encode_oneof(self, buf); },
-            quote! {
-                match tag {
-                    #(#routed)|* => crate::codec::ProtoOneof::merge_oneof(
-                        tag, wire_type, self, buf, ctx,
-                    ),
-                    _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
-                }
-            },
-            quote! { crate::codec::ProtoOneof::encoded_len_oneof(self) },
-        );
         let msg = msg_impl(
             &impl_generics,
             ident,
@@ -1017,8 +1010,6 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         );
         quote! {
             #registrations
-
-            #message
 
             #msg
         }
@@ -1034,6 +1025,44 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
         &normalize_fragments,
     );
 
+    // `let value = self;` is the whole cost of the change: the emitted bodies are written against a
+    // `value` binding, and `prost::Message` takes a receiver where the deleted `ProtoOneof` took an
+    // argument.
+    let message = message_impl(
+        &impl_generics,
+        ident,
+        &ty_generics,
+        where_clause,
+        quote! {
+            let value = self;
+            #bind_siblings
+            #(#low_encode)*
+            match value {
+                #(#encode_arms)*
+                #default_encode_arm
+            }
+            #(#high_encode)*
+        },
+        quote! {
+            let value = self;
+            match tag {
+                #(#merge_arms)*
+                _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+            }
+        },
+        quote! {
+            let value = self;
+            #bind_siblings
+            let mut len = match value {
+                #(#len_arms)*
+                #default_len_arm
+            };
+            #(#low_len)*
+            #(#high_len)*
+            len
+        },
+    );
+
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {
@@ -1043,41 +1072,7 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
 
         #normalize
 
-        impl crate::codec::ProtoOneof for #ident {
-            fn encode_oneof(value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                #bind_siblings
-                #(#low_encode)*
-                match value {
-                    #(#encode_arms)*
-                    #default_encode_arm
-                }
-                #(#high_encode)*
-            }
-
-            fn merge_oneof(
-                tag: u32,
-                wire_type: ::prost::encoding::WireType,
-                value: &mut Self,
-                buf: &mut impl ::prost::bytes::Buf,
-                ctx: ::prost::encoding::DecodeContext,
-            ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                match tag {
-                    #(#merge_arms)*
-                    _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
-                }
-            }
-
-            fn encoded_len_oneof(value: &Self) -> usize {
-                #bind_siblings
-                let mut len = match value {
-                    #(#len_arms)*
-                    #default_len_arm
-                };
-                #(#low_len)*
-                #(#high_len)*
-                len
-            }
-        }
+        #message
 
         #whole_message
     }

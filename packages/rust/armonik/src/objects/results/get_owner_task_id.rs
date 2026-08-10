@@ -15,7 +15,7 @@ pub struct Request {
 pub struct Response {
     /// Map to get the owner task id for each result id.
     #[armonik(
-        with = "crate::codec::adapters::PairMap<1, 2>",
+        with = "crate::codec::adapters::PairMap",
         absorbs = "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse.MapResultTask"
     )]
     pub result_task: HashMap<String, String>,
