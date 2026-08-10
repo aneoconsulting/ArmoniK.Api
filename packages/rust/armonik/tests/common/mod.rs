@@ -489,7 +489,13 @@ macro_rules! rpc_tests {
                 accepted
             }
 
+            // Both cases below need the C# mock server, which `scripts/mock_test.sh` starts and
+            // points `GrpcClient__Endpoint` at. Without it each fails with `InvalidUri(Empty)`,
+            // which made a plain `cargo test` a poor signal: half of every service suite failed for
+            // a reason that has nothing to do with the code. CI runs them with
+            // `--include-ignored`.
             #[tokio::test]
+            #[ignore = "needs the ArmoniK.Api.Mock server; see scripts/mock_test.sh"]
             #[serial_test::serial($into)]
             async fn call() {
                 let counter = crate::common::Counter::read(
@@ -504,6 +510,7 @@ macro_rules! rpc_tests {
             }
 
             #[tokio::test]
+            #[ignore = "needs the ArmoniK.Api.Mock server; see scripts/mock_test.sh"]
             #[serial_test::serial($into)]
             async fn convenience() {
                 let counter = crate::common::Counter::read(

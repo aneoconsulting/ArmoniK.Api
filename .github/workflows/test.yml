@@ -59,12 +59,12 @@ jobs:
             env: {}
           - lang: Rust
             toolchain: stable
-            cmd: cargo test --locked --workspace --all-features
+            cmd: cargo test --locked --workspace --all-features -- --include-ignored
             dir: rust
             env: {}
           - lang: Rust
             toolchain: nightly
-            cmd: cargo test --locked --workspace --all-features
+            cmd: cargo test --locked --workspace --all-features -- --include-ignored
             dir: rust
             env: {}
         plateform:
