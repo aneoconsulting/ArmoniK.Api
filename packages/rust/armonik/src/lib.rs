@@ -128,6 +128,8 @@ pub mod reexports {
     pub use tonic::async_trait;
     pub use tonic::codegen::http;
     pub use tonic::codegen::tokio_stream;
+    #[cfg(any(feature = "_gen-client", feature = "_gen-server"))]
     pub use tracing;
+    #[cfg(any(feature = "_gen-client", feature = "_gen-server"))]
     pub use tracing_futures;
 }

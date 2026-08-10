@@ -247,6 +247,43 @@ jobs:
         run: |
           cargo clippy --workspace --all-features --no-deps -- -Dwarnings -Dunused-crate-dependencies
 
+  features-rust:
+    name: Check Rust feature configurations
+    # The gate above runs once, with every feature on. That is the one configuration nobody ships:
+    # the four use-case features are alternatives, and a user normally picks exactly one. Each of
+    # these is a configuration someone can actually select, and the crate checks in about three
+    # seconds, so covering them all costs less than the one build above.
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - ""
+          - serde
+          - client
+          - server
+          - agent
+          - worker
+          - client,server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/rust
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
+        with:
+          tool: sccache
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Clippy
+        run: |
+          cargo clippy -p armonik --locked --no-default-features --features "${{ matrix.features }}" \
+            --no-deps -- -Dwarnings -Dunused-crate-dependencies
+
   lint-js:
     name: Lint JS
     runs-on: ubuntu-latest

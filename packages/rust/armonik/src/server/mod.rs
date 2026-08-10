@@ -11,6 +11,8 @@ pub(crate) mod router;
 pub use request_context::RequestContext;
 pub use router::Router;
 
+// Mirror of the crossing in `client/mod.rs`: an `agent` build is the one that *serves* the agent
+// service, a `worker` build the one that serves the worker service, and each calls the other.
 #[cfg(feature = "agent")]
 pub use crate::rpc::agent::{AgentService, AgentServiceExt};
 #[cfg(feature = "server")]
