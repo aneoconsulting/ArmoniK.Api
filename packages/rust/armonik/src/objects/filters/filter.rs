@@ -7,7 +7,6 @@ macro_rules! impl_filter_condition {
     ($name:ident, $proto:literal => $type:ty : $op:ident) => {
         #[armonik_macros::message]
         #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $proto)]
         pub struct $name {
             pub value: $type,
@@ -23,7 +22,6 @@ impl_filter_condition!(FilterBoolean, "armonik.api.grpc.v1.FilterBoolean" => boo
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.FilterDate")]
 pub struct FilterDate {
     #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_timestamp"))]
@@ -33,7 +31,6 @@ pub struct FilterDate {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.FilterDuration")]
 pub struct FilterDuration {
     #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_duration"))]
@@ -45,7 +42,6 @@ pub struct FilterDuration {
 /// instantiations are validated by the differential harness.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(generic)]
 pub struct FilterStatus<T> {
     #[armonik(tag = 1)]

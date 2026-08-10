@@ -2,7 +2,6 @@ use super::super::TaskOptions;
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.SubmitTasksRequest.TaskCreation")]
 pub struct RequestItem {
     pub expected_output_keys: Vec<String>,
@@ -13,7 +12,6 @@ pub struct RequestItem {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.SubmitTasksRequest")]
 pub struct Request {
     pub communication_token: String,
@@ -25,7 +23,6 @@ pub struct Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.SubmitTasksResponse.TaskInfo")]
 pub struct ResponseItem {
     pub task_id: String,
@@ -36,7 +33,6 @@ pub struct ResponseItem {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.SubmitTasksResponse")]
 pub struct Response {
     pub communication_token: String,

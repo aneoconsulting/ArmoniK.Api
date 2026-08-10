@@ -2,7 +2,6 @@
 /// `TaskOutputRequest` message at the Submitter.TryGetTaskOutput RPC.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.TaskOutputRequest")]
 pub struct Request {
     #[armonik(rename = "session")]

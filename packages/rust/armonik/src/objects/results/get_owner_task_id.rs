@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.GetOwnerTaskIdRequest")]
 pub struct Request {
     pub session_id: String,
@@ -12,7 +11,6 @@ pub struct Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse")]
 pub struct Response {
     /// Map to get the owner task id for each result id.

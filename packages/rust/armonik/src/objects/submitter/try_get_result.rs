@@ -4,7 +4,6 @@ use super::super::{DataChunk, TaskError};
 /// at the Submitter.TryGetResultStream RPC.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.ResultRequest")]
 pub struct Request {
     #[armonik(rename = "session")]
@@ -14,7 +13,6 @@ pub struct Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.ResultReply")]
 pub enum Response {
     #[armonik(rename = "result")]

@@ -2,7 +2,6 @@ use super::super::{DataChunk, InitTaskRequest, TaskOptions};
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest")]
 pub struct InitRequest {
     pub task_options: Option<TaskOptions>,
@@ -13,7 +12,6 @@ pub struct InitRequest {
 /// wire field order.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest")]
 pub enum Request {
     Invalid {
@@ -45,7 +43,6 @@ impl Default for Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus")]
 pub enum Status {
     TaskInfo {
@@ -68,7 +65,6 @@ impl Default for Status {
 /// variants. There is no "no member set" variant: an absent oneof decodes to the `Error` default.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply")]
 pub enum Response {
     #[armonik(rename = "creation_status_list")]

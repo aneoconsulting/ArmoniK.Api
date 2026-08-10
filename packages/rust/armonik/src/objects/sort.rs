@@ -1,6 +1,5 @@
 #[armonik_macros::enumeration]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(enum = "armonik.api.grpc.v1.sort_direction.SortDirection")]
 pub enum SortDirection {
     #[default]
@@ -15,7 +14,6 @@ pub enum SortDirection {
 /// concrete instantiations are validated by the differential harness.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(generic)]
 pub struct Sort<T> {
     #[armonik(tag = 1)]
@@ -46,7 +44,6 @@ impl<T> Sort<T> {
 /// repeated fields.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(generic)]
 pub struct SortMany<T> {
     #[armonik(tag = 1)]

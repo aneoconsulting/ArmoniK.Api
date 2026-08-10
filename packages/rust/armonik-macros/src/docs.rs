@@ -40,6 +40,12 @@ pub(crate) fn expand(mut input: DeriveInput, mode: Mode) -> syn::Result<TokenStr
     if let Some(tags) = tags {
         tag_variants(&mut input, &tags);
     }
+    // Every one of these types is serializable under the `serde` feature, and the line saying so
+    // was byte-identical at every site. The `#[derive(...)]` line above it is *not* emitted: it
+    // varies across ten shapes, and hiding it would take the derive set off the type.
+    input
+        .attrs
+        .push(syn::parse_quote!(#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]));
 
     Ok(quote! {
         #input

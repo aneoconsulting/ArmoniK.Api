@@ -257,8 +257,8 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         param
             .bounds
             .push(syn::parse_quote!(crate::codec::ProtoField));
-        param.bounds.push(syn::parse_quote!(::core::cmp::PartialEq));
-        param.bounds.push(syn::parse_quote!(::core::fmt::Debug));
+        // `Send`/`Sync` because `prost::Message` requires them. Nothing else: `PartialEq` and
+        // `Debug` were here for the deleted `is_default` family and no emitted code needs them.
         param.bounds.push(syn::parse_quote!(::core::marker::Send));
         param.bounds.push(syn::parse_quote!(::core::marker::Sync));
     }

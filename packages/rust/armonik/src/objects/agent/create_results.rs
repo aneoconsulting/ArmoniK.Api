@@ -2,7 +2,6 @@ use super::ResultMetaData;
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateResultsRequest.ResultCreate")]
 pub struct RequestItem {
     pub name: String,
@@ -20,7 +19,6 @@ impl<K: Into<String>, V: Into<bytes::Bytes>> From<(K, V)> for RequestItem {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateResultsRequest")]
 pub struct Request {
     pub communication_token: String,
@@ -30,7 +28,6 @@ pub struct Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateResultsResponse")]
 pub struct Response {
     pub communication_token: String,
