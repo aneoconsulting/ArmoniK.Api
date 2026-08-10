@@ -995,7 +995,8 @@ pub(crate) fn enum_plan(
         for (enum_name, meta) in &proto_enums {
             let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
             let matched = meta.values.iter().find(|(value_name, _)| {
-                value_name == proto_name || variant_name(simple, value_name) == *proto_name
+                value_name == proto_name
+                    || crate::names::variant_name(simple, value_name) == *proto_name
             });
             match matched {
                 Some((_, value)) => {
@@ -1010,7 +1011,7 @@ pub(crate) fn enum_plan(
                     let available = meta
                         .values
                         .iter()
-                        .map(|(value_name, _)| variant_name(simple, value_name))
+                        .map(|(value_name, _)| crate::names::variant_name(simple, value_name))
                         .collect();
                     errors.push(unknown_name(
                         ident.span(),
@@ -1036,7 +1037,7 @@ pub(crate) fn enum_plan(
     for (enum_name, meta) in &proto_enums {
         let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
         for (value_name, value) in &meta.values {
-            let mapped = variant_name(simple, value_name);
+            let mapped = crate::names::variant_name(simple, value_name);
             let covered = named
                 .iter()
                 .any(|(_, proto_name)| *proto_name == mapped || proto_name == value_name);
@@ -1065,35 +1066,6 @@ pub(crate) fn enum_plan(
         fingerprint: index.fingerprint,
         absorbs,
     })
-}
-
-/// prost-style variant name for a proto enum value: upper-camel the value name, then strip the
-/// enum-name prefix when present.
-fn variant_name(enum_simple_name: &str, value_name: &str) -> String {
-    let camel = upper_camel(value_name);
-    match camel.strip_prefix(enum_simple_name) {
-        Some(stripped)
-            if !stripped.is_empty() && !stripped.starts_with(|c: char| c.is_ascii_digit()) =>
-        {
-            stripped.to_owned()
-        }
-        _ => camel,
-    }
-}
-
-fn upper_camel(screaming_snake: &str) -> String {
-    screaming_snake
-        .split('_')
-        .filter(|part| !part.is_empty())
-        .map(|part| {
-            let mut chars = part.chars();
-            let first = chars.next().map(|c| c.to_ascii_uppercase());
-            first
-                .into_iter()
-                .chain(chars.map(|c| c.to_ascii_lowercase()))
-                .collect::<String>()
-        })
-        .collect()
 }
 
 /// Plan for a oneof-shaped enum: either a whole message whose fields are a single oneof plus
@@ -1706,7 +1678,7 @@ pub(crate) fn oneof_plan(
 
         let member_name = rename
             .clone()
-            .unwrap_or_else(|| snake_case(&unraw(&variant.ident)));
+            .unwrap_or_else(|| crate::names::snake_case(&unraw(&variant.ident)));
         let member = oneof
             .fields
             .iter()
@@ -1841,21 +1813,6 @@ pub(crate) fn oneof_plan(
         fingerprint: index.fingerprint,
         absorbs,
     })
-}
-
-fn snake_case(camel: &str) -> String {
-    let mut out = String::with_capacity(camel.len() + 4);
-    for (i, c) in camel.chars().enumerate() {
-        if c.is_ascii_uppercase() {
-            if i != 0 {
-                out.push('_');
-            }
-            out.push(c.to_ascii_lowercase());
-        } else {
-            out.push(c);
-        }
-    }
-    out
 }
 
 #[cfg(test)]

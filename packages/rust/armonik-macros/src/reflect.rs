@@ -37,7 +37,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Ident, ItemType, Path, PathArguments, PathSegment, Type};
 
 use crate::callback::{braced, fields, Class};
-use crate::service::snake;
+use crate::names::snake;
 
 mod kw {
     syn::custom_keyword!(source);

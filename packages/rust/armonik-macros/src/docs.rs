@@ -348,7 +348,7 @@ fn inject(input: &mut DeriveInput, mode: &Mode) -> syn::Result<()> {
     let index = crate::load_index(input)?;
 
     if let (Mode::Enumeration, Some(meta)) = (&mode, index.enums.get(&proto)) {
-        return inject_enumeration(input, meta);
+        return inject_enumeration(input, &proto, meta);
     }
     let Some(meta) = index.messages.get(&proto) else {
         // Transparent enums name wrapper *messages*; type docs only.
@@ -383,7 +383,7 @@ fn inject(input: &mut DeriveInput, mode: &Mode) -> syn::Result<()> {
             // fields are sibling or inlined fields.
             for variant in &mut data.variants {
                 let name = renamed(&variant.attrs)
-                    .unwrap_or_else(|| crate::service::snake(&variant.ident.to_string()));
+                    .unwrap_or_else(|| crate::names::snake(&variant.ident.to_string()));
                 let docs = meta
                     .fields
                     .iter()
@@ -404,15 +404,16 @@ fn inject(input: &mut DeriveInput, mode: &Mode) -> syn::Result<()> {
     Ok(())
 }
 
-fn inject_enumeration(input: &mut DeriveInput, meta: &EnumMeta) -> syn::Result<()> {
+fn inject_enumeration(input: &mut DeriveInput, proto: &str, meta: &EnumMeta) -> syn::Result<()> {
     prepend(&mut input.attrs, &meta.docs);
 
     let syn::Data::Enum(data) = &mut input.data else {
         return Ok(());
     };
-    // prost-style value matching, as the resolver does: the value name with the enum-name prefix
-    // stripped and PascalCased, or the full name via `rename`.
-    let prefix = format!("{}_", crate::service::snake(&input.ident.to_string())).to_uppercase();
+    // Matched exactly as the resolver matches: through `names::variant_name`, off the *proto* enum's
+    // simple name. Harvesting used to strip a SCREAMING_SNAKE spelling of the Rust type's name
+    // instead, which silently harvested nothing whenever the two names differed.
+    let simple = proto.rsplit('.').next().unwrap_or(proto);
     for variant in &mut data.variants {
         let docs = meta
             .values
@@ -420,7 +421,7 @@ fn inject_enumeration(input: &mut DeriveInput, meta: &EnumMeta) -> syn::Result<(
             .zip(&meta.value_docs)
             .find(|((name, _), _)| match renamed(&variant.attrs) {
                 Some(rename) => name == &rename,
-                None => variant.ident == pascal(name.strip_prefix(&prefix).unwrap_or(name)),
+                None => variant.ident == crate::names::variant_name(simple, name),
             })
             .map(|(_, docs)| docs.clone())
             .unwrap_or_default();
@@ -437,21 +438,6 @@ fn renamed(attrs: &[syn::Attribute]) -> Option<String> {
             _ => None,
         })
     })
-}
-
-/// `SCREAMING_SNAKE` (or anything underscored) to `PascalCase`.
-fn pascal(name: &str) -> String {
-    name.split('_')
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                Some(first) => {
-                    first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
-                }
-                None => String::new(),
-            }
-        })
-        .collect()
 }
 
 /// Put the harvested docs *before* the existing attributes, so hand-written doc comments read as

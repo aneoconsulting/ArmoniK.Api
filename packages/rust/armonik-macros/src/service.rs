@@ -294,7 +294,8 @@ fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<Tok
     }
     let parents = request.segments.iter().take(request.segments.len() - 1);
     let req_parent = quote!(#(#parents)::*);
-    let req_stem = snake(&request.segments.last().expect("checked").ident.to_string());
+    let req_stem =
+        crate::names::snake(&request.segments.last().expect("checked").ident.to_string());
     let callback = quote::format_ident!("__armonik_fields_{req_stem}");
 
     let kind = match entry.kind {
@@ -382,7 +383,7 @@ fn expand_server(
     let module = &def.module;
     let trait_ident = quote::format_ident!("{}Service", marker);
     let ext_ident = quote::format_ident!("{}ServiceExt", marker);
-    let server_fn = quote::format_ident!("{}_server", snake(&marker.to_string()));
+    let server_fn = quote::format_ident!("{}_server", crate::names::snake(&marker.to_string()));
 
     let methods = resolved.iter().map(|entry| {
         let ergonomic = &entry.ergonomic;
@@ -496,22 +497,6 @@ fn expand_server(
             ];
         }
     }
-}
-
-/// `HealthChecks` -> `health_checks`.
-pub(crate) fn snake(name: &str) -> String {
-    let mut out = String::new();
-    for (i, ch) in name.chars().enumerate() {
-        if ch.is_uppercase() {
-            if i != 0 {
-                out.push('_');
-            }
-            out.extend(ch.to_lowercase());
-        } else {
-            out.push(ch);
-        }
-    }
-    out
 }
 
 /// The module segment of `list::Request`, the default ergonomic name.

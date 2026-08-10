@@ -231,25 +231,80 @@ const MESSAGE_NESTED: i32 = 3;
 const MESSAGE_ENUM: i32 = 4;
 const ENUM_VALUE: i32 = 2;
 
-/// The cleaned comment of every location in the file, keyed by path. The protos mix styles (block
-/// comments above messages, trailing comments on fields), so take the leading one, else the
-/// trailing one.
+/// The cleaned comment of every location in the file, keyed by path.
+///
+/// The protos mix styles: a block comment above a message, a `//` or `/** */` comment on the same
+/// line as a field or an enum value. `protox` reads the first two the way protoc does, but a
+/// same-line `/** */` it records as the *leading* comment of the **next** element rather than as
+/// the trailing comment of the one it follows. Taken at face value that shifts a whole enum's
+/// prose by one value: on this schema every `TaskStatus` variant documented itself as its
+/// predecessor, and the first value of each run lost its comment entirely.
+///
+/// So a leading comment is re-attributed to the previous sibling whenever there was no line for it
+/// to sit on: if the previous element ends on the line before this one starts, nothing can be
+/// written above this one, and what protox recorded there was written after that one.
 fn comments(file: &FileDescriptorProto) -> HashMap<Vec<i32>, Vec<String>> {
-    file.source_code_info
-        .as_ref()
-        .map(|info| {
-            info.location
-                .iter()
-                .filter_map(|location| {
-                    let comment = location
-                        .leading_comments
-                        .as_deref()
-                        .or(location.trailing_comments.as_deref())?;
-                    Some((location.path.clone(), clean_comment(comment)))
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+    use prost_types::source_code_info::Location;
+
+    let Some(info) = file.source_code_info.as_ref() else {
+        return HashMap::new();
+    };
+
+    // `span` is [line, col, end_col] on one line, [line, col, end_line, end_col] across several.
+    let start_line = |location: &Location| location.span.first().copied().unwrap_or(0);
+    let end_line = |location: &Location| match location.span.len() {
+        4 => location.span[2],
+        _ => start_line(location),
+    };
+
+    let by_path: HashMap<&[i32], &Location> = info
+        .location
+        .iter()
+        .map(|location| (location.path.as_slice(), location))
+        .collect();
+
+    let mut docs: HashMap<Vec<i32>, Vec<String>> = HashMap::new();
+
+    // Trailing comments are recorded against the element they follow, which protox gets right.
+    for location in &info.location {
+        if let Some(trailing) = location.trailing_comments.as_deref() {
+            docs.insert(location.path.clone(), clean_comment(trailing));
+        }
+    }
+
+    // Leading comments, moved onto the previous sibling where they cannot have been written above
+    // this element. `or_insert_with` so a same-line comment never displaces an element's own.
+    for location in &info.location {
+        let Some(leading) = location.leading_comments.as_deref() else {
+            continue;
+        };
+        let owner = previous_sibling(&location.path)
+            .filter(|previous| {
+                by_path
+                    .get(previous.as_slice())
+                    .is_some_and(|previous| end_line(previous) + 1 >= start_line(location))
+            })
+            .unwrap_or_else(|| location.path.clone());
+        docs.entry(owner).or_insert_with(|| clean_comment(leading));
+    }
+
+    docs
+}
+
+/// The path of the element declared just before `path` among its siblings, if any.
+///
+/// Every path this is asked about ends in a repeated-field index (`[4, m, 2, f]` for a field,
+/// `[5, e, 2, v]` for an enum value), so the sibling is that index minus one. A path ending in
+/// anything else yields at worst an entry nothing looks up.
+fn previous_sibling(path: &[i32]) -> Option<Vec<i32>> {
+    match path.split_last() {
+        Some((&index, head)) if index > 0 => {
+            let mut previous = head.to_vec();
+            previous.push(index - 1);
+            Some(previous)
+        }
+        _ => None,
+    }
 }
 
 /// Field numbers of `FileDescriptorProto.service` and `ServiceDescriptorProto.method`, the
