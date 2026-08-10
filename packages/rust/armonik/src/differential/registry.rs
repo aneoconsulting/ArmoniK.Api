@@ -1,9 +1,9 @@
 //! Discovery of the proto-to-type mapping, and the projection of messages onto the armonik types'
 //! documented equivalence classes.
 //!
-//! The mapping is self-registering: every derived (and hand-written) message type pushes an
-//! [`Entry`] into `armonik::differential::REGISTRY` under the private `_differential` feature, so
-//! new messages are covered without touching the harness. Each entry carries the type's own
+//! The mapping is self-registering: every derived (and hand-written) message type pushes a
+//! [`Registration`] into [`registrations::REGISTRY`], so new messages are covered without touching
+//! the harness. Each registration carries the type's own
 //! `Normalize` projection, generated from the same constructs that shape its codec (adapters,
 //! markers, wrapper chains) or hand-written next to the hand-written impls. The generic
 //! instantiations (`Sort`, `FilterStatus`) self-register the same way through
@@ -14,10 +14,11 @@ use std::sync::OnceLock;
 
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
-pub use armonik::differential::Entry;
+pub(crate) use super::registrations::Hooks;
 
-pub fn entries() -> impl Iterator<Item = Entry> {
-    armonik::differential::entries()
+/// Every proto name a Rust type implements, with that type's hooks.
+pub fn entries() -> impl Iterator<Item = (&'static str, Hooks)> {
+    super::registrations::typed()
 }
 
 /// Project a message (recursively) onto the equivalence classes of its armonik type, so that the
@@ -65,18 +66,18 @@ fn normalize_value(value: &mut Value) -> bool {
 /// back dynamically. This is the harness's only own contribution to the quotient, derived from the
 /// implementation itself instead of restated: whatever a type emits for "nothing" is what an absent
 /// field or member is equivalent to.
-fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, Entry)> {
-    static CANONICALS: OnceLock<HashMap<&'static str, (DynamicMessage, Entry)>> = OnceLock::new();
+fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, Hooks)> {
+    static CANONICALS: OnceLock<HashMap<&'static str, (DynamicMessage, Hooks)>> = OnceLock::new();
     CANONICALS.get_or_init(|| {
-        let pool = crate::pool();
+        let pool = super::harness::pool();
         let mut map = HashMap::new();
-        for entry in entries() {
-            let Some(desc) = pool.get_message_by_name(entry.proto) else {
+        for (proto, hooks) in entries() {
+            let Some(desc) = pool.get_message_by_name(proto) else {
                 continue;
             };
-            let canonical = DynamicMessage::decode(desc, (entry.default_encoding)().as_slice())
+            let canonical = DynamicMessage::decode(desc, (hooks.default_encoding)().as_slice())
                 .expect("the default encoding decodes");
-            map.entry(entry.proto).or_insert((canonical, entry));
+            map.entry(proto).or_insert((canonical, hooks));
         }
         map
     })
@@ -84,11 +85,11 @@ fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, Entry)> {
 
 fn apply_rules(message: &mut DynamicMessage) {
     let name = message.descriptor().full_name().to_owned();
-    let Some((canonical, entry)) = canonicals().get(name.as_str()) else {
+    let Some((canonical, hooks)) = canonicals().get(name.as_str()) else {
         return;
     };
     // The value projections declared by the type itself.
-    (entry.normalize)(message);
+    (hooks.normalize)(message);
     // The canonical-absence fold: whatever the type emits for "nothing" (default oneof members, and
     // the zero fields the encoder writes rather than skips) materializes where it is absent, except
     // into a oneof that already carries another member.

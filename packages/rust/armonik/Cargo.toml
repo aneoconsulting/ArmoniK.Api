@@ -21,19 +21,12 @@ agent = ["_gen-client", "_gen-server"]
 worker = ["_gen-client", "_gen-server"]
 _gen-client = ["tonic/channel", "dep:armonik-transport", "dep:futures", "dep:snafu", "dep:tonic-prost", "dep:tracing", "dep:tracing-futures"]
 _gen-server = ["tonic/server", "tonic/router", "dep:tokio", "dep:futures", "dep:tonic-prost", "dep:tracing", "dep:tracing-futures"]
-# Internal: the differential harness. Each type's round-trip and `Normalize`
-# projection over `prost_reflect::DynamicMessage`, self-registered into the
-# `wire::REGISTRY` distributed slice. Enabled through the self dev-dependency,
-# so tests always see it and downstream builds never do.
-_differential = ["dep:linkme", "dep:prost-reflect"]
 
 [dependencies]
 # TLS, mTLS and the rest of the connection story live in `armonik-transport`; this crate keeps the
 # services and the generated types (which need `bytes` for zero-copy `bytes::Bytes` fields).
 armonik-transport = { workspace = true, optional = true }
 bytes = "1"
-linkme = { version = "0.3", optional = true }
-prost-reflect = { version = "0.16", optional = true }
 tonic = { workspace = true, features = ["codegen"] }
 tonic-prost = { workspace = true, optional = true }
 prost.workspace = true
@@ -53,8 +46,10 @@ version = "=3.29.2-beta-0"
 
 [dev-dependencies]
 criterion.workspace = true
-# The differential harness: enabled for tests only, through the self dev-dependency.
-armonik = { path = ".", features = ["_differential"] }
+# The differential harness (`src/differential`), a `cfg(test)` module: each type's
+# round-trip and `Normalize` projection over `prost_reflect::DynamicMessage`,
+# self-registered into a `linkme` distributed slice.
+linkme = "0.3"
 prost-reflect = "0.16"
 # Only the `get_nb_request` test helper needs these: it drives a raw HTTP request through the connector
 # `armonik-transport` builds, to read the mock server's `/calls.json`.

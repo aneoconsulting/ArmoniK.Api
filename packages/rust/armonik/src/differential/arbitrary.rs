@@ -4,10 +4,10 @@
 
 use std::collections::HashMap;
 
-use armonik::reexports::bytes::Bytes;
+use bytes::Bytes;
 use prost_reflect::{DynamicMessage, Kind, MapKey, MessageDescriptor, Value};
 
-use crate::rng::SplitMix64;
+use super::rng::SplitMix64;
 
 pub fn message(desc: &MessageDescriptor, rng: &mut SplitMix64, depth: u32) -> DynamicMessage {
     let mut message = DynamicMessage::new(desc.clone());

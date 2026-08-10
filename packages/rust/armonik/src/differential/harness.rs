@@ -1,26 +1,22 @@
-//! Differential harness: randomized `DynamicMessage`s generated from the real protobuf descriptors
-//! are round-tripped through the armonik types (decode + re-encode) and compared semantically. Two
-//! ratchets keep the quotient honest: every message of the descriptor pool must be registered or
-//! tracked, and every field of every registered message must stay information-bearing under the
-//! types' own `Normalize` projections.
+//! The four differential tests: randomized `DynamicMessage`s generated from the real protobuf
+//! descriptors are round-tripped through the armonik types (decode + re-encode) and compared
+//! semantically. Two ratchets keep the quotient honest: every message of the descriptor pool must
+//! be registered or tracked, and every field of every registered message must stay
+//! information-bearing under the types' own `Normalize` projections.
 //!
 //! Every randomized failure prints the seed needed to replay the exact case.
 
-mod arbitrary;
-mod compare;
-mod probe;
-mod registry;
-mod rng;
-
-use armonik::reexports::prost::Message;
+use prost::Message;
 use prost_reflect::{DescriptorPool, DynamicMessage};
+
+use super::{arbitrary, compare, probe, registrations, registry, rng};
 
 static DESCRIPTOR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptor.bin"));
 
 const ITERATIONS: u64 = 64;
 const RECURSION_DEPTH: u32 = 3;
 
-fn pool() -> DescriptorPool {
+pub(super) fn pool() -> DescriptorPool {
     DescriptorPool::decode(DESCRIPTOR).expect("embedded descriptor set decodes")
 }
 
@@ -56,21 +52,21 @@ fn debug_value(value: &prost_reflect::Value) -> String {
 #[test]
 fn registered_types_roundtrip() {
     let pool = pool();
-    for entry in registry::entries() {
+    for (proto, hooks) in registry::entries() {
         let desc = pool
-            .get_message_by_name(entry.proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", entry.proto));
+            .get_message_by_name(proto)
+            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
         for iteration in 0..ITERATIONS {
-            let seed = rng::seed(entry.proto, iteration);
+            let seed = rng::seed(proto, iteration);
             let mut rng = rng::SplitMix64::new(seed);
             let mut original = arbitrary::message(&desc, &mut rng, RECURSION_DEPTH);
             let bytes = original.encode_to_vec();
 
-            let reencoded = (entry.roundtrip)(&bytes).unwrap_or_else(|err| {
+            let reencoded = (hooks.roundtrip)(&bytes).unwrap_or_else(|err| {
                 panic!(
                     "armonik type failed to decode `{}` (seed {seed:#018x}): {err}\n\
                      original: {original:#?}",
-                    entry.proto
+                    proto
                 )
             });
             let mut back = DynamicMessage::decode(desc.clone(), reencoded.as_slice())
@@ -78,7 +74,7 @@ fn registered_types_roundtrip() {
                     panic!(
                         "re-encoded bytes of `{}` do not decode (seed {seed:#018x}): {err}\n\
                          original: {original:#?}",
-                        entry.proto
+                        proto
                     )
                 });
 
@@ -90,7 +86,7 @@ fn registered_types_roundtrip() {
                 "semantic mismatch for `{}` (seed {seed:#018x})\n\
                  original:   {}\n\
                  round-trip: {}",
-                entry.proto,
+                proto,
                 debug_fields(&original),
                 debug_fields(&back),
             );
@@ -106,20 +102,18 @@ fn registered_types_roundtrip() {
 #[test]
 fn default_encoding_is_the_proto_zero() {
     let pool = pool();
-    for entry in registry::entries() {
+    for (proto, hooks) in registry::entries() {
         let desc = pool
-            .get_message_by_name(entry.proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", entry.proto));
-        let message = DynamicMessage::decode(desc, (entry.default_encoding)().as_slice())
-            .unwrap_or_else(|err| {
-                panic!("the default encoding of `{}` decodes: {err}", entry.proto)
-            });
+            .get_message_by_name(proto)
+            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
+        let message = DynamicMessage::decode(desc, (hooks.default_encoding)().as_slice())
+            .unwrap_or_else(|err| panic!("the default encoding of `{}` decodes: {err}", proto));
         if let Some(field) = first_nonzero(&message) {
             panic!(
                 "`{}`: Default::default() carries a non-zero `{field}`. Move the value to a named \
                  constructor (`recommended()`, `Sort::ascending`, ...) and leave Default at the \
                  proto zero.\n    default: {}",
-                entry.proto,
+                proto,
                 debug_fields(&message),
             );
         }
@@ -183,15 +177,15 @@ const PROBE_DEPTH: u32 = 3;
 #[test]
 fn field_information_ratchet() {
     let pool = pool();
-    for entry in registry::entries() {
+    for (proto, hooks) in registry::entries() {
         let desc = pool
-            .get_message_by_name(entry.proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", entry.proto));
+            .get_message_by_name(proto)
+            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
         let mut empty = DynamicMessage::new(desc.clone());
         registry::normalize(&mut empty);
 
         for field in desc.fields() {
-            let qualified = format!("{}.{}", entry.proto, field.name());
+            let qualified = format!("{}.{}", proto, field.name());
             let mut informative = false;
             for candidate in probe::candidates(&field, PROBE_DEPTH) {
                 let mut probe = DynamicMessage::new(desc.clone());
@@ -207,7 +201,7 @@ fn field_information_ratchet() {
 
                 // The candidate distinguishes, so it must survive the round-trip,
                 // deterministically, one field at a time.
-                let reencoded = (entry.roundtrip)(&bytes).unwrap_or_else(|err| {
+                let reencoded = (hooks.roundtrip)(&bytes).unwrap_or_else(|err| {
                     panic!("armonik type failed to decode a probe of `{qualified}`: {err}")
                 });
                 let mut back = DynamicMessage::decode(desc.clone(), reencoded.as_slice())
@@ -241,20 +235,20 @@ fn field_information_ratchet() {
     }
 }
 
-/// Messages present in the schema but referenced by nothing; see `wire::UNREFERENCED_MESSAGES`. The
+/// Messages present in the schema but referenced by nothing; see `registrations::UNREFERENCED_MESSAGES`. The
 /// messages of *unexposed RPCs* are not listed anywhere by hand: `service!` registers them from its
-/// `unexposed(...)` declaration (`wire::unexposed()`), so that allowlist cannot drift from the RPC
+/// `unexposed(...)` declaration (`registrations::unexposed()`), so that allowlist cannot drift from the RPC
 /// one.
-const PERMANENT_UNMAPPED: &[&str] = armonik::wire::UNREFERENCED_MESSAGES;
+const PERMANENT_UNMAPPED: &[&str] = registrations::UNREFERENCED_MESSAGES;
 
 #[test]
 fn descriptor_coverage_ratchet() {
     let pool = pool();
-    let registered: Vec<&str> = registry::entries().map(|entry| entry.proto).collect();
+    let registered: Vec<&str> = registry::entries().map(|(proto, _)| proto).collect();
     // Messages flattened into a parent type, harvested from the annotations, and messages of
     // unexposed RPCs, registered by `service!`.
-    let absorbed = armonik::wire::absorbed();
-    let unexposed = armonik::wire::unexposed();
+    let absorbed = registrations::absorbed();
+    let unexposed = registrations::unexposed();
 
     let mut missing = Vec::new();
     for message in pool.all_messages() {

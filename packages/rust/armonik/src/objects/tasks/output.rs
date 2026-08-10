@@ -91,12 +91,12 @@ impl prost::Message for Output {
     }
 }
 
-#[cfg(feature = "_differential")]
+#[cfg(test)]
 impl crate::differential::Normalize for Output {
     /// `success = true` wins over any error message: the enum keeps one of the two plain fields, so
     /// the losing `error` carries no information.
-    fn normalize(message: &mut crate::differential::prost_reflect::DynamicMessage) {
-        use crate::differential::prost_reflect::{ReflectMessage, Value};
+    fn normalize(message: &mut ::prost_reflect::DynamicMessage) {
+        use ::prost_reflect::{ReflectMessage, Value};
         let descriptor = message.descriptor();
         let (Some(success), Some(error)) = (
             descriptor.get_field(SUCCESS_TAG),

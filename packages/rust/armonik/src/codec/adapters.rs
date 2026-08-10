@@ -48,11 +48,8 @@ where
     }
 
     /// The `HashMap` loses entry order and collapses duplicate keys.
-    #[cfg(feature = "_differential")]
-    fn normalize_dynamic(
-        message: &mut crate::differential::prost_reflect::DynamicMessage,
-        tag: u32,
-    ) {
+    #[cfg(test)]
+    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
         crate::differential::fold_pairs_by_tag(message, tag, 1);
     }
 }

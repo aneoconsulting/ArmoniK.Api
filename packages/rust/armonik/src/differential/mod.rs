@@ -1,46 +1,39 @@
-//! Registry of every message type for the differential harness: the derives register each
-//! descriptor-validated type here (hand-written impls register themselves), so the harness
-//! discovers the proto-to-type mapping instead of maintaining it. Test-only: the `_differential`
-//! feature is enabled through the self dev-dependency.
+//! The differential harness and the registry it discovers types through.
 //!
-//! Each entry also carries the type's [`Normalize`] projection: the value-level equivalence classes
-//! its Rust representation defines (map adapters losing order and duplicates, presence-only
+//! Randomized `DynamicMessage`s generated from the real protobuf descriptors are round-tripped
+//! through the armonik types and compared semantically; two ratchets keep the quotient honest. The
+//! derives register each descriptor-validated type into [`registrations::REGISTRY`] (hand-written
+//! impls register themselves), so the harness discovers the proto-to-type mapping instead of
+//! maintaining it.
+//!
+//! Each registration also carries the type's [`Normalize`] projection: the value-level equivalence
+//! classes its Rust representation defines (map adapters losing order and duplicates, presence-only
 //! markers, transparent wrapper chains, the cross-field rules of the hand-written impls). The same
 //! constructs that cause a projection declare it (adapters, attributes, hand-written impls), so the
 //! harness never restates them. What it checks independently is that every field stays
 //! information-bearing through the quotient (the field-information ratchet) and that round-trips
 //! are lossless up to it.
+//!
+//! # Why the whole module is `#[cfg(test)]`
+//!
+//! It used to be a `_differential` feature turned on through a dev-dependency of the crate on
+//! itself, which meant every integration suite linked a lib built with the harness compiled in:
+//! the tested artifact was not the shipped one, and the shipped configuration was built by CI but
+//! never tested. It also forced `Normalize`, the registry and its hooks to be `pub`. Under
+//! `cfg(test)` the harness is a unit-test module like any other, `linkme` and `prost-reflect` are
+//! plain dev-dependencies, and none of it is public.
 
 use std::collections::BTreeMap;
 
-pub use prost_reflect;
-
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 
-/// A registered type's round-trip and projection hooks, as the harness consumes them. Projected
-/// from the `_differential`-gated [`crate::wire::Diff`] on each [`crate::wire::Registration`] (see
-/// [`entries`]); the `default_encoding` doubles as the zero-default invariant and the harness's
-/// canonical-absence fold.
-#[derive(Clone, Copy)]
-pub struct Entry {
-    pub proto: &'static str,
-    pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, prost::DecodeError>,
-    pub default_encoding: fn() -> Vec<u8>,
-    pub normalize: fn(&mut DynamicMessage),
-}
-
-/// Every registered type carrying harness hooks, so all but the type-less entries, projected from
-/// the single `crate::wire::REGISTRY`.
-pub fn entries() -> impl Iterator<Item = Entry> {
-    crate::wire::REGISTRY.iter().filter_map(|registration| {
-        registration.diff.as_ref().map(|diff| Entry {
-            proto: registration.proto,
-            roundtrip: diff.roundtrip,
-            default_encoding: diff.default_encoding,
-            normalize: diff.normalize,
-        })
-    })
-}
+mod arbitrary;
+mod compare;
+mod harness;
+mod probe;
+pub(crate) mod registrations;
+mod registry;
+mod rng;
 
 /// Projection of a dynamic message onto the equivalence classes this type's wire implementation
 /// defines: two messages are the same value exactly when their projections match (up to proto3

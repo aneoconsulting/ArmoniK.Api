@@ -318,11 +318,8 @@ pub(crate) trait ProtoAdapter<T> {
     /// Rust representation defines (for the differential harness; see
     /// `crate::differential::Normalize`). The default is the identity: adapters that only
     /// restructure the wire representation lose nothing.
-    #[cfg(feature = "_differential")]
-    fn normalize_dynamic(
-        message: &mut crate::differential::prost_reflect::DynamicMessage,
-        tag: u32,
-    ) {
+    #[cfg(test)]
+    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
         let _ = (message, tag);
     }
 }

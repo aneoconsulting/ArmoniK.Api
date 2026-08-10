@@ -59,8 +59,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
 
-    // Input of the armonik-macros expansions, and, through the `wire` module's `DESCRIPTOR` const,
-    // of the differential harness.
+    // Input of the armonik-macros expansions, and of the differential harness, which embeds it
+    // with its own `include_bytes!`.
     write_if_changed(&out_dir.join("descriptor.bin"), &bytes)?;
 
     // Staleness anchor: included in the crate through `include!` so that any descriptor change

@@ -56,7 +56,7 @@ use syn::DeriveInput;
 ///   `prost_types::{Timestamp, Duration}`, and every derived type);
 /// - a fingerprint const-assert that fails the build once the expansion goes
 ///   stale against a newer descriptor;
-/// - under the private `_differential` feature, the type's registration into
+/// - under `cfg(test)`, the type's registration into
 ///   `armonik::wire::REGISTRY`, with its `Normalize` projection and harness
 ///   hooks.
 ///
@@ -337,8 +337,8 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// The alias is re-emitted verbatim, plus the `crate::register!` entry a
 /// derive would emit for that proto name (into `armonik::wire::REGISTRY`, with
-/// its `_differential` harness hooks). The aliased type must implement
-/// `prost::Message`, and `Normalize` under `_differential`.
+/// its harness hooks). The aliased type must implement `prost::Message`,
+/// and `Normalize` under `cfg(test)`.
 ///
 /// ```ignore
 /// #[armonik_macros::alias("armonik.api.grpc.v1.tasks.ListTasksRequest.Sort")]
@@ -443,7 +443,7 @@ pub fn __emit_reflect(input: TokenStream) -> TokenStream {
 ///   `Service` impl; one `Rpc` impl per line, with const asserts that the
 ///   request and response types implement the method's input and output
 ///   messages, and a fingerprint tripwire against stale expansions.
-/// - **`_differential`**: the unexposed RPCs' message names, registered for the
+/// - **under `cfg(test)`**: the unexposed RPCs' message names, registered for the
 ///   coverage ratchet. Derived from `unexposed(...)`, so the two allowlists
 ///   cannot drift.
 /// - **`_gen-server`**: the `<Marker>Service` trait (one method per RPC, docs

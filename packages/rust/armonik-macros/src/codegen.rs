@@ -186,7 +186,7 @@ fn field_fragments(
 }
 
 /// Register the type's proto names via `armonik`'s `register!` macro, the single home of the
-/// registry's layout (the `linkme` slice, the feature gates, the `_differential` round-trip and
+/// registry's layout (the `linkme` slice, the `cfg(test)` gate, the round-trip and
 /// `Normalize` hooks). Empty `names` (generic types, covered through their aliases) register
 /// nothing.
 pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream {
@@ -222,10 +222,10 @@ fn normalize_impl(
     fragments: &[TokenStream],
 ) -> TokenStream {
     quote! {
-        #[cfg(feature = "_differential")]
+        #[cfg(test)]
         impl #impl_generics crate::differential::Normalize for #ident #ty_generics #where_clause {
             fn normalize(
-                message: &mut crate::differential::prost_reflect::DynamicMessage,
+                message: &mut ::prost_reflect::DynamicMessage,
             ) {
                 let _ = &message;
                 #(#fragments)*
