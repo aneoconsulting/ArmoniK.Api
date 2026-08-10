@@ -17,7 +17,7 @@ pub struct Response {
     /// The status of each result.
     #[armonik(
         rename = "id_statuses",
-        with = "crate::codec::adapters::PairMap<1, 2>",
+        with = "crate::codec::adapters::PairMap",
         absorbs = "armonik.api.grpc.v1.submitter.GetResultStatusReply.IdStatus"
     )]
     pub statuses: HashMap<String, ResultStatus>,

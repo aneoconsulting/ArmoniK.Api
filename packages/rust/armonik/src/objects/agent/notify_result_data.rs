@@ -58,27 +58,20 @@ impl prost::Message for Request {
         match tag {
             IDS_TAG => {
                 encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-                let mut pair = crate::codec::read_delimited(buf)?;
-                let mut session_id = String::new();
-                let mut result_id = String::new();
-                while pair.has_remaining() {
-                    let (tag, wire_type) = encoding::decode_key(&mut pair)?;
+                let mut pair = (String::new(), String::new());
+                encoding::merge_loop(&mut pair, buf, ctx, |pair, buf, ctx| {
+                    let (tag, wire_type) = encoding::decode_key(buf)?;
                     match tag {
-                        PAIR_SESSION_TAG => <String as ProtoField>::merge_field(
-                            wire_type,
-                            &mut session_id,
-                            &mut pair,
-                            ctx.clone(),
-                        )?,
-                        PAIR_RESULT_TAG => <String as ProtoField>::merge_field(
-                            wire_type,
-                            &mut result_id,
-                            &mut pair,
-                            ctx.clone(),
-                        )?,
-                        _ => encoding::skip_field(wire_type, tag, &mut pair, ctx.clone())?,
+                        PAIR_SESSION_TAG => {
+                            <String as ProtoField>::merge_field(wire_type, &mut pair.0, buf, ctx)
+                        }
+                        PAIR_RESULT_TAG => {
+                            <String as ProtoField>::merge_field(wire_type, &mut pair.1, buf, ctx)
+                        }
+                        _ => encoding::skip_field(wire_type, tag, buf, ctx),
                     }
-                }
+                })?;
+                let (session_id, result_id) = pair;
                 if self.session_id.is_empty() {
                     self.session_id = session_id;
                 }

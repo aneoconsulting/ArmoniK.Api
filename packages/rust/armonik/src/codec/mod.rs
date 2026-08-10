@@ -6,8 +6,6 @@
 //!   `String`, `Bytes`, containers, well-known types, and, through the derives, every API message
 //!   and enum. The trait picks the wire representation from the Rust type, while tags and expected
 //!   kinds come from the descriptor at expansion time.
-//! - [`ProtoOneof`], implemented by flattened-oneof enums, to which the containing message routes
-//!   the oneof's tag set.
 //! - [`ProtoAdapter`], the escape hatch for fields whose Rust representation differs structurally
 //!   from the proto (a repeated pair message exposed as a `HashMap`).
 //!
@@ -288,20 +286,6 @@ impl<T: Msg> ProtoField for T {
     // Repeated forms: the trait's unpacked defaults (messages never pack).
 }
 
-/// A flattened-oneof enum: the value encodes its own variant tag, and the containing message routes
-/// the oneof's whole tag set to `merge_oneof`.
-pub(crate) trait ProtoOneof: Sized {
-    fn encode_oneof(value: &Self, buf: &mut impl BufMut);
-    fn merge_oneof(
-        tag: u32,
-        wire_type: WireType,
-        value: &mut Self,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), DecodeError>;
-    fn encoded_len_oneof(value: &Self) -> usize;
-}
-
 /// Custom codec for a field whose Rust representation differs structurally from its proto
 /// counterpart (`#[armonik(with = "...")]`). Implementations are zero-sized marker types.
 pub(crate) trait ProtoAdapter<T> {
@@ -339,21 +323,6 @@ pub(crate) mod empty_body {
     pub(crate) fn encoded_len(tag: u32) -> usize {
         encoding::key_len(tag) + 1
     }
-}
-
-/// Read a length-delimited sub-buffer: decode the length varint, guard against a truncated buffer,
-/// and return a `Take` limited to the body.
-pub(crate) fn read_delimited<B: Buf + ?Sized>(
-    buf: &mut B,
-) -> Result<prost::bytes::buf::Take<&mut B>, DecodeError> {
-    // Compared as a `u64`: a length that does not fit a `usize` is an underflow, not a truncation.
-    let len = prost::encoding::decode_varint(&mut &mut *buf)?;
-    if (buf.remaining() as u64) < len {
-        // prost offers no other public constructor; pinned to prost 0.14.
-        #[allow(deprecated)]
-        return Err(DecodeError::new("buffer underflow"));
-    }
-    Ok(buf.take(len as usize))
 }
 
 /// Const string equality, for derive-emitted assertions.

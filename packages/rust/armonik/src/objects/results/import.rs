@@ -14,7 +14,7 @@ use super::Raw;
 pub struct Request {
     pub session_id: String,
     #[armonik(
-        with = "crate::codec::adapters::PairMap<1, 2>",
+        with = "crate::codec::adapters::PairMap",
         absorbs = "armonik.api.grpc.v1.results.ImportResultsDataRequest.ResultOpaqueId"
     )]
     pub results: HashMap<String, bytes::Bytes>,

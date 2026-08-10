@@ -85,16 +85,4 @@ pub mod codec {
         }
     }
 
-    /// An embedded oneof, carried by a field of the message that owns it.
-    pub trait ProtoOneof: Sized {
-        fn encode_oneof(value: &Self, buf: &mut impl ::prost::bytes::BufMut);
-        fn merge_oneof(
-            tag: u32,
-            wire_type: ::prost::encoding::WireType,
-            value: &mut Self,
-            buf: &mut impl ::prost::bytes::Buf,
-            ctx: ::prost::encoding::DecodeContext,
-        ) -> Result<(), ::prost::DecodeError>;
-        fn encoded_len_oneof(value: &Self) -> usize;
-    }
 }

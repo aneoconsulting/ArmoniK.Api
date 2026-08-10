@@ -76,7 +76,7 @@ use syn::DeriveInput;
 /// #[derive(Debug, Clone, Default, PartialEq, Eq)]
 /// #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 /// pub struct Response {
-///     #[armonik(with = "crate::codec::adapters::PairMap<1, 2>")]
+///     #[armonik(with = "crate::codec::adapters::PairMap")]
 ///     pub task_results: HashMap<String, Vec<String>>,
 /// }
 /// ```
