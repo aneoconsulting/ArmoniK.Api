@@ -1,0 +1,11 @@
+include!("../support/prelude.rs");
+
+// `generic` names no proto message, so every field must carry its own tag.
+#[armonik_macros::message]
+#[derive(Debug)]
+#[armonik(generic)]
+pub struct Generic<T> {
+    #[armonik(tag = 1)]
+    pub first: T,
+    pub second: String,
+}

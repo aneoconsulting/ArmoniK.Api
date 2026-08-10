@@ -1,0 +1,5 @@
+error: #[armonik_macros::enumeration] requires a catch-all tuple variant, e.g. `Unknown(UnknownTaskStatus)`
+ --> tests/ui/enum_missing_catch_all.rs:9:10
+  |
+9 | pub enum Colour {
+  |          ^^^^^^

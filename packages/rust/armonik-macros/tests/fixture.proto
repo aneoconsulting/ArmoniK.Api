@@ -1,0 +1,79 @@
+// Fixture schema for the compile-fail suite.
+//
+// Deliberately tiny and deliberately *not* the ArmoniK schema: a diagnostic test wants a message
+// whose shape it can state in one line, and every error class below needs one field, one value or
+// one method to point at. Compiled by `build.rs` into this crate's `OUT_DIR`, which is what the
+// derives read at expansion time.
+syntax = "proto3";
+
+package fixture;
+
+// A plain message: two scalars of different kinds, so a wrong Rust type is a shape mismatch rather
+// than a missing field.
+message Simple {
+  string name = 1;
+  int32 count = 2;
+}
+
+// The enum classes: a zero value, two named values, and a prefix to strip.
+enum Colour {
+  COLOUR_UNSPECIFIED = 0;
+  COLOUR_RED = 1;
+  COLOUR_GREEN = 2;
+}
+
+// An enum-typed and a message-typed field, for the wrong-type-at-the-right-tag classes.
+message Typed {
+  Colour colour = 1;
+  Simple simple = 2;
+  repeated string tags = 3;
+  map<string, string> labels = 4;
+}
+
+// A oneof with a sibling field, which is what the whole-message-enum shapes are matched against.
+message Choice {
+  string shared = 1;
+  oneof choice {
+    string text = 2;
+    Simple simple = 3;
+    Empty flag = 4;
+  }
+}
+
+// A fieldless message, for the `present` marker.
+message Empty {}
+
+// A single-field wrapper, for the transparent shapes.
+message ColourWrapper {
+  Colour value = 1;
+}
+
+// A message that is nothing but a oneof, so `oneof = "..."` on it is redundant.
+message OnlyOneof {
+  oneof pick {
+    string first = 1;
+    string second = 2;
+  }
+}
+
+// Two oneofs, which no single enum can stand for.
+message TwoOneofs {
+  oneof left {
+    string a = 1;
+  }
+  oneof right {
+    string b = 2;
+  }
+}
+
+// A wire kind the codec does not implement, so that its diagnostic has a field to point at.
+message Unsupported {
+  sfixed32 packed = 1;
+}
+
+// One method per call kind, so the `service!` grammar has something of each to disagree with.
+service Fixture {
+  rpc Get(Simple) returns (Simple);
+  rpc Watch(Simple) returns (stream Simple);
+  rpc Push(stream Simple) returns (Simple);
+}

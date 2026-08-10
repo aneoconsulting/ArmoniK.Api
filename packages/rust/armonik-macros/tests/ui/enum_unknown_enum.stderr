@@ -1,0 +1,5 @@
+error: proto enum `fixture.Nope` not found in the compiled descriptor set
+ --> tests/ui/enum_unknown_enum.rs:7:11
+  |
+7 | #[armonik(enum = "fixture.Nope")]
+  |           ^^^^

@@ -22,3 +22,11 @@ prost-types = "0.14"
 # Descriptor-fingerprint hash; the same crate hashes it in armonik's build
 # script, so the two sides cannot diverge (see `descriptor::index`).
 fnv = "1"
+
+[dev-dependencies]
+# The compile-fail suite compiles its own fixture schema, the way `armonik`'s
+# build script compiles the real one. A dev-dependency and not a build script:
+# the fixture is only ever wanted by `tests/ui.rs`, and a build script would
+# make every consumer of this crate build protox to produce it.
+protox = "0.9"
+trybuild = "1.0"
