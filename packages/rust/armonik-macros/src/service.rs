@@ -66,10 +66,15 @@ struct RpcDef {
     manual: bool,
 }
 
-/// What the generated convenience method returns: decided from the response type's field count
-/// (`Auto`), or overridden on the rpc line (`=> *` whole, `=> field`, `=> ()` discard).
+/// What the generated convenience method returns, as the rpc line spells it: the whole response
+/// when the line says nothing, one projected field after `=> field`, or nothing after `=> ()`.
+///
+/// There used to be a fifth reading, `auto`, under which a bare line meant "project the single
+/// field, or return the whole response if there are several". That made 30 methods' return type a
+/// function of a proto message's field count: adding a second field to any of them silently
+/// changed the public API. It also cost the emitter a second pass through the response type's
+/// reflection callback, which was the only reason a response needed one.
 enum Project {
-    Auto,
     Whole,
     Discard,
     Field(Ident),
@@ -122,10 +127,7 @@ impl Parse for ServiceDef {
             };
             let project = if input.peek(Token![=>]) {
                 input.parse::<Token![=>]>()?;
-                if input.peek(Token![*]) {
-                    input.parse::<Token![*]>()?;
-                    Project::Whole
-                } else if input.peek(syn::token::Paren) {
+                if input.peek(syn::token::Paren) {
                     let unit;
                     syn::parenthesized!(unit in input);
                     if !unit.is_empty() {
@@ -136,7 +138,7 @@ impl Parse for ServiceDef {
                     Project::Field(input.parse()?)
                 }
             } else {
-                Project::Auto
+                Project::Whole
             };
             let manual = if input.peek(kw::manual) {
                 input.parse::<kw::manual>()?;
@@ -304,7 +306,6 @@ fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<Tok
         CallKind::ClientStream => unreachable!("filtered above"),
     };
     let project = match &entry.rpc.project {
-        Project::Auto => quote!(auto),
         Project::Whole => quote!(whole),
         Project::Discard => quote!(discard),
         Project::Field(field) => quote!(field #field),

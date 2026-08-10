@@ -6,7 +6,7 @@ super::service! {
     rpc CreateResults(create_results::Request) -> create_results::Response => results;
     rpc NotifyResultData(notify_result_data::Request) -> notify_result_data::Response => result_ids;
     rpc SubmitTasks(submit_tasks::Request) -> submit_tasks::Response => items;
-    rpc GetResourceData(get_resource_data::Request) -> get_resource_data::Response;
-    rpc GetCommonData(get_common_data::Request) -> get_common_data::Response;
-    rpc GetDirectData(get_direct_data::Request) -> get_direct_data::Response;
+    rpc GetResourceData(get_resource_data::Request) -> get_resource_data::Response => result_id;
+    rpc GetCommonData(get_common_data::Request) -> get_common_data::Response => result_id;
+    rpc GetDirectData(get_direct_data::Request) -> get_direct_data::Response => result_id;
 }

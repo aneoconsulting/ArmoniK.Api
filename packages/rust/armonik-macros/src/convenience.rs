@@ -3,11 +3,12 @@
 //!
 //! Per convenience-eligible RPC, `service!` invokes the request type's `__armonik_fields_*`
 //! callback with this macro as the continuation, and the callback appends a `fields { [name class]*
-//! }` block (the handshake and its shared parsing live in `callback.rs`). `project { auto }` takes
-//! a second hop through the response type's callback: exactly one field projects it, several keep
-//! the whole response. Field and element types travel as the flat `__armonik_ty_*` aliases the
-//! derive defines next to each struct, never as tokens, since relative paths would re-resolve
-//! wrongly here.
+//! }` block (the handshake and its shared parsing live in `callback.rs`). Field and element types
+//! travel as the flat `__armonik_ty_*` aliases the derive defines next to each struct, never as
+//! tokens, since relative paths would re-resolve wrongly here.
+//!
+//! `project { ... }` is whatever the rpc line said, and nothing here re-enters the response type:
+//! that second hop was the only reason a *response* needed a reflection callback at all.
 //!
 //! In the generated method, parameters mirror the request fields in declaration order, widened per
 //! sugar class: `String`/`Bytes` to `impl Into`, `Vec<T>` to `impl IntoIterator<Item = impl
@@ -34,7 +35,6 @@ mod kw {
     syn::custom_keyword!(fields);
     syn::custom_keyword!(unary);
     syn::custom_keyword!(server_stream);
-    syn::custom_keyword!(auto);
     syn::custom_keyword!(whole);
     syn::custom_keyword!(field);
     syn::custom_keyword!(discard);
@@ -50,11 +50,9 @@ pub(crate) struct Emit {
     deprecated: bool,
     docs: Vec<LitStr>,
     request_fields: Vec<(Ident, Class)>,
-    response_fields: Option<Vec<(Ident, Class)>>,
 }
 
 enum Project {
-    Auto,
     Whole,
     Discard,
     Field(Ident),
@@ -82,10 +80,7 @@ impl Parse for Emit {
         })?;
         input.parse::<kw::project>()?;
         let project = braced(input, |c| {
-            Ok(if c.peek(kw::auto) {
-                c.parse::<kw::auto>()?;
-                Project::Auto
-            } else if c.peek(kw::whole) {
+            Ok(if c.peek(kw::whole) {
                 c.parse::<kw::whole>()?;
                 Project::Whole
             } else if c.peek(kw::discard) {
@@ -112,12 +107,6 @@ impl Parse for Emit {
 
         input.parse::<kw::fields>()?;
         let request_fields = braced(input, fields)?;
-        let response_fields = if input.peek(kw::fields) {
-            input.parse::<kw::fields>()?;
-            Some(braced(input, fields)?)
-        } else {
-            None
-        };
 
         Ok(Emit {
             marker,
@@ -129,7 +118,6 @@ impl Parse for Emit {
             deprecated,
             docs,
             request_fields,
-            response_fields,
         })
     }
 }
@@ -155,28 +143,8 @@ fn split(path: &Path) -> syn::Result<(Path, String)> {
 }
 
 pub(crate) fn expand(tokens: TokenStream) -> syn::Result<TokenStream> {
-    let emit: Emit = syn::parse2(tokens.clone())?;
-
-    // `auto` projection needs the response's fields: chain through its callback once, then decide.
-    let project = match &emit.project {
-        Project::Auto => match &emit.response_fields {
-            None => {
-                let (parent, stem) = split(&emit.response)?;
-                let callback = format_ident!("__armonik_fields_{stem}");
-                return Ok(quote! {
-                    #parent::#callback! { armonik_macros::__emit_convenience! { #tokens } }
-                });
-            }
-            Some(fields) => match &fields[..] {
-                [] => Project::Discard,
-                [(name, _)] => Project::Field(name.clone()),
-                _ => Project::Whole,
-            },
-        },
-        Project::Whole => Project::Whole,
-        Project::Discard => Project::Discard,
-        Project::Field(name) => Project::Field(name.clone()),
-    };
+    let emit: Emit = syn::parse2(tokens)?;
+    let project = &emit.project;
 
     let (req_parent, req_stem) = split(&emit.request)?;
     let alias = |suffix: String| {
@@ -273,7 +241,6 @@ pub(crate) fn expand(tokens: TokenStream) -> syn::Result<TokenStream> {
                 "`=> ()` is not valid on a server-streaming rpc",
             ))
         }
-        (Project::Auto, _) => unreachable!("resolved above"),
     };
 
     let marker = &emit.marker;
@@ -364,52 +331,6 @@ mod tests {
         assert!(
             out.contains("Result < () , crate :: client :: RequestError >"),
             "{out}"
-        );
-    }
-
-    #[test]
-    fn auto_without_response_fields_chains_the_response_callback() {
-        let out = expand(quote! {
-            marker { Sessions } method { get }
-            request { crate::sessions::get::Request } response { crate::sessions::get::Response }
-            kind { unary } project { auto } deprecated { false }
-            docs { }
-            fields { [session_id into] }
-        });
-        assert!(
-            out.contains("crate :: sessions :: get :: __armonik_fields_response !"),
-            "{out}"
-        );
-        assert!(
-            out.contains("armonik_macros :: __emit_convenience !"),
-            "{out}"
-        );
-        assert!(!out.contains("pub async fn"), "{out}");
-    }
-
-    #[test]
-    fn auto_projects_a_single_response_field_and_returns_whole_otherwise() {
-        let single = expand(quote! {
-            marker { Sessions } method { get }
-            request { crate::sessions::get::Request } response { crate::sessions::get::Response }
-            kind { unary } project { auto } deprecated { false }
-            docs { }
-            fields { [session_id into] }
-            fields { [session plain] }
-        });
-        assert!(single.contains(". await ? . session)"), "{single}");
-
-        let multi = expand(quote! {
-            marker { Sessions } method { list }
-            request { crate::sessions::list::Request } response { crate::sessions::list::Response }
-            kind { unary } project { auto } deprecated { false }
-            docs { }
-            fields { }
-            fields { [sessions plain] [total plain] }
-        });
-        assert!(
-            multi.contains("Result < crate :: sessions :: list :: Response ,"),
-            "{multi}"
         );
     }
 
