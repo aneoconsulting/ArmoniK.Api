@@ -24,12 +24,13 @@ fn filter_session(filter: &submitter::TaskFilter) -> &str {
     }
 }
 
-fn counts() -> armonik::Count {
-    armonik::Count {
-        values: [(armonik::TaskStatus::Creating, 1337)]
-            .into_iter()
-            .collect(),
-    }
+/// The `Count` payload. `count_tasks` and `wait_for_completion` return the same proto message and
+/// each declares its own Rust type for it, which is what the crate does everywhere else a message
+/// is shared across RPC sites.
+fn count_values() -> std::collections::HashMap<armonik::TaskStatus, i32> {
+    [(armonik::TaskStatus::Creating, 1337)]
+        .into_iter()
+        .collect()
 }
 
 fn statuses(task_id: &str) -> submitter::create_tasks::Response {
@@ -196,7 +197,9 @@ rpc_tests! {
         },
         respond: |request: submitter::count_tasks::Request| {
             assert_eq!(filter_session(&request.filter), "count-tasks-input");
-            counts()
+            submitter::count_tasks::Response {
+                values: count_values(),
+            }
         },
         convenience: count_tasks(task_filter("count-tasks-input")),
         project: |response| response.values,
@@ -268,7 +271,9 @@ rpc_tests! {
         },
         respond: |request: submitter::wait_for_completion::Request| {
             assert_eq!(filter_session(&request.filter), "wait-for-completion-input");
-            counts()
+            submitter::wait_for_completion::Response {
+                values: count_values(),
+            }
         },
         convenience: wait_for_completion(
             task_filter("wait-for-completion-input"),

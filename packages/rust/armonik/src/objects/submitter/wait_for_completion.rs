@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use super::super::TaskStatus;
+
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.WaitRequest")]
@@ -7,5 +11,17 @@ pub struct Request {
     pub stop_on_first_task_cancellation: bool,
 }
 
-#[armonik_macros::reflect]
-pub type Response = super::super::Count;
+/// Number of tasks per status, from the repeated `StatusCount` pairs (duplicate statuses collapse,
+/// last wins).
+///
+/// A scoped response rather than an alias to [`Count`](crate::Count): the convenience emitter finds
+/// a type's field reflection by mangling the path written on the rpc line, and an alias has no
+/// reflection of its own. Duplicating the object per RPC site is what the crate does everywhere
+/// else a proto message is shared, and it is what let the second proc macro go.
+#[armonik_macros::message]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[armonik(message = "armonik.api.grpc.v1.Count")]
+pub struct Response {
+    #[armonik(with = "crate::codec::adapters::PairMap")]
+    pub values: HashMap<TaskStatus, i32>,
+}

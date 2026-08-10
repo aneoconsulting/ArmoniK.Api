@@ -4,13 +4,11 @@
 //! `__armonik_fields_*` callback macro carrying that struct's fields CPS-style:
 //! invoked as `callback! { cont::path! { ctx } }`, it re-invokes the
 //! continuation with a `fields { [name class]* }` block appended (see
-//! `reflection` in `lib.rs` for the emitting side). Two proc macros continue it:
-//! `__emit_convenience` (client methods) and `__emit_reflect` (reflection for a
-//! type alias of a message).
+//! `reflection` in `lib.rs` for the emitting side). `__emit_convenience`, which
+//! builds the client methods, continues it.
 //!
-//! This module holds what both parse: the braced blocks of the protocol, the
-//! sugar class of a field, and the `__armonik_ty_*` suffixes each class stands
-//! for.
+//! This module holds what it parses: the braced blocks of the protocol and the
+//! sugar class of a field.
 
 use syn::parse::ParseStream;
 use syn::Ident;
@@ -25,20 +23,6 @@ pub(crate) enum Class {
     Iter,
     Pairs,
     Filters,
-}
-
-impl Class {
-    /// The `__armonik_ty_*` suffixes the derive emitted for a field of this
-    /// class: the field's own type, plus the element or key/value types the
-    /// sugar widens over.
-    pub(crate) fn suffixes(&self, name: &Ident) -> Vec<String> {
-        let name = name.to_string();
-        match self {
-            Class::Plain | Class::Into => vec![name],
-            Class::Iter | Class::Filters => vec![format!("{name}_elem"), name],
-            Class::Pairs => vec![format!("{name}_key"), format!("{name}_value"), name],
-        }
-    }
 }
 
 /// The `fields { [name class]* }` block the callback appends.
