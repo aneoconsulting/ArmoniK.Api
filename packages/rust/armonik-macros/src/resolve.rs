@@ -37,37 +37,26 @@ pub(crate) enum FieldCodec {
     OneofGroup { tags: Vec<u32> },
 }
 
-/// Fieldless mirror of the codec-side `Cardinality`, tokenized into the emitted shape asserts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Card {
-    Singular,
-    Optional,
-    Repeated,
-    Map,
+/// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
+/// the descriptor's own vocabulary.
+///
+/// There used to be a `Card` mirroring [`Cardinality`] and a `FieldChecks` mirroring the codec's
+/// `Expect`, with four functions whose whole job was to launder one into the other. The rules they
+/// encoded (a singular message field may be `Option` in Rust; a map checks its key and value kinds
+/// and names its value type) are not resolution decisions, so they live with the emitter instead.
+pub(crate) struct Expectation {
+    pub(crate) kind: FieldKind,
+    pub(crate) cardinality: Cardinality,
 }
 
-/// Compile-time checks emitted alongside the implementation, mirroring the codec-side `Expect` (one
-/// shape assert per checked field).
-pub(crate) struct FieldChecks {
-    /// `None` for map fields (their kinds live in `map_kinds`).
-    pub(crate) kind: Option<FieldKind>,
-    /// Acceptable runtime cardinalities (e.g. a singular message field may be either `Singular` or
-    /// `Optional` in Rust).
-    pub(crate) cardinalities: Vec<Card>,
-    /// Expected proto type name for message/enum (element) kinds.
-    pub(crate) name: Option<String>,
-    /// Expected map key/value kinds.
-    pub(crate) map_kinds: Option<(FieldKind, FieldKind)>,
-}
-
-impl FieldChecks {
-    fn none() -> Self {
-        Self {
-            kind: None,
-            cardinalities: Vec::new(),
-            name: None,
-            map_kinds: None,
-        }
+impl Expectation {
+    /// The expectation for a descriptor field, or `None` where there is nothing to check: a `with`
+    /// adapter, a oneof group, a generic field.
+    fn of(field: &FieldMeta) -> Option<Self> {
+        Some(Self {
+            kind: field.kind.clone(),
+            cardinality: field.cardinality.clone(),
+        })
     }
 }
 
@@ -78,7 +67,7 @@ pub(crate) struct FieldPlan {
     /// Tag of the field (or the lowest member tag for oneof groups), used for ordering.
     pub(crate) tag: u32,
     pub(crate) codec: FieldCodec,
-    pub(crate) checks: FieldChecks,
+    pub(crate) checks: Option<Expectation>,
     /// `TypeName.field_name` of the proto field, for diagnostics.
     pub(crate) proto_path: String,
 }
@@ -253,16 +242,26 @@ pub(crate) fn message_plan(
         return Err(errors);
     }
 
-    let mut messages: Vec<(&str, &MessageMeta)> = Vec::new();
-    for (span, name) in &proto_names {
+    // One proto message per struct. `message = ...` is repeatable on an *enum*, where a unified
+    // type stands for several identical protos; the struct side of that never had a user, and the
+    // machinery for it (resolve every field against every message, then check the messages agree on
+    // its tag, kind and cardinality) was 55 lines nothing exercised.
+    for (span, _) in proto_names.iter().skip(1) {
+        errors.push(syn::Error::new(
+            *span,
+            "a struct stands for one proto message; declare one #[armonik(message = ...)]",
+        ));
+    }
+    let (name, meta) = {
+        let (span, name) = &proto_names[0];
         match index.messages.get(name) {
-            Some(meta) => messages.push((name, meta)),
-            None => errors.push(not_found(*span, "message", name)),
+            Some(meta) => (name.as_str(), meta),
+            None => {
+                errors.push(not_found(*span, "message", name));
+                return Err(errors);
+            }
         }
-    }
-    if messages.is_empty() {
-        return Err(errors);
-    }
+    };
 
     let syn::Data::Struct(data) = &input.data else {
         errors.push(syn::Error::new(
@@ -274,34 +273,24 @@ pub(crate) fn message_plan(
     };
 
     let mut fields = Vec::new();
-    let mut matchers: Vec<Matcher> = messages
-        .iter()
-        .map(|(name, meta)| Matcher::new(name, meta))
-        .collect();
+    let mut matcher = Matcher::new(name, meta);
 
     for (field_index, field) in data.fields.iter().enumerate() {
         let (span, access) = field_access(field, field_index);
-        let Some((
-            FieldAttrs {
-                rename,
-                tag: explicit_tag,
-                with,
-                ..
-            },
-            _,
-        )) = scan_attrs(
+        // No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one
+        // of the six `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct,
+        // which `generic_plan` handles. Spelling one here only ever restated what the proto says.
+        let Some((FieldAttrs { rename, with, .. }, _)) = scan_attrs(
             &field.attrs,
             Allowed {
                 rename: true,
-                tag: true,
                 with: true,
                 absorbs: true,
                 ..Allowed::default()
             },
             "this armonik attribute is not valid on a message field",
             &mut errors,
-        )
-        else {
+        ) else {
             continue;
         };
         let with = with.map(|(_, ty)| ty);
@@ -318,48 +307,15 @@ pub(crate) fn message_plan(
             }
         };
 
-        // Resolve against every proto message the type stands for; all of them must agree on the
-        // wire contract.
-        let mut resolved: Option<Found> = None;
-        let mut failed = false;
-        for matcher in &mut matchers {
-            let Some(found) = matcher.find(&proto_name, span, &mut errors) else {
-                failed = true;
-                continue;
-            };
-            match &resolved {
-                None => resolved = Some(found),
-                Some(previous) => {
-                    let agree = match (previous, &found) {
-                        (Found::Field(a), Found::Field(b)) => {
-                            a.tag == b.tag && a.kind == b.kind && a.cardinality == b.cardinality
-                        }
-                        (Found::Oneof { tags: a }, Found::Oneof { tags: b }) => a == b,
-                        _ => false,
-                    };
-                    if !agree {
-                        errors.push(syn::Error::new(
-                            span,
-                            format!(
-                                "unified messages disagree on `{proto_name}` \
-                                 (tag/kind/cardinality differ); it cannot be derived"
-                            ),
-                        ));
-                        failed = true;
-                    }
-                }
-            }
-        }
-        let Some(resolved) = resolved else { continue };
-        if failed {
+        let Some(resolved) = matcher.find(&proto_name, span, &mut errors) else {
             continue;
-        }
+        };
 
-        let proto_path = format!("{}.{proto_name}", messages[0].0);
+        let proto_path = format!("{name}.{proto_name}");
 
         let (tag, checks) = match resolved {
             Found::Oneof { tags } => {
-                if with.is_some() || explicit_tag.is_some() {
+                if with.is_some() {
                     errors.push(syn::Error::new(
                         span,
                         "with/tag attributes are not supported on oneof fields",
@@ -373,28 +329,15 @@ pub(crate) fn message_plan(
                     span,
                     tag: min_tag,
                     codec: FieldCodec::OneofGroup { tags },
-                    checks: FieldChecks::none(),
+                    checks: None,
                     proto_path,
                 });
                 continue;
             }
             Found::Field(field_meta) => {
-                if let Some((tag_span, tag_value)) = explicit_tag {
-                    if tag_value != field_meta.tag {
-                        errors.push(syn::Error::new(
-                            tag_span,
-                            format!(
-                                "tag {tag_value} does not match proto field \
-                                 `{proto_path}` (= {})",
-                                field_meta.tag
-                            ),
-                        ));
-                        continue;
-                    }
-                }
                 let checks = match &with {
-                    Some(_) => FieldChecks::none(),
-                    None => expected_checks(field_meta),
+                    Some(_) => None,
+                    None => Expectation::of(field_meta),
                 };
                 (field_meta.tag, checks)
             }
@@ -412,11 +355,8 @@ pub(crate) fn message_plan(
         });
     }
 
-    // Completeness: every proto field and oneof of every unified message must be covered by a Rust
-    // field.
-    for matcher in &matchers {
-        matcher.check_complete(input.ident.span(), &mut errors);
-    }
+    // Completeness: every proto field and oneof must be covered by a Rust field.
+    matcher.check_complete(input.ident.span(), &mut errors);
 
     errors.into_result()?;
 
@@ -481,7 +421,7 @@ fn transparent_plan(
         span: field.ty.span(),
         tag: 0,
         codec: FieldCodec::Field { adapter: None },
-        checks: FieldChecks::none(),
+        checks: None,
         proto_path: String::new(),
     };
 
@@ -554,7 +494,7 @@ fn generic_plan(
             codec: FieldCodec::Field {
                 adapter: with.map(Box::new),
             },
-            checks: FieldChecks::none(),
+            checks: None,
             proto_path,
         });
     }
@@ -573,39 +513,6 @@ fn generic_plan(
 }
 
 /// Compile-time checks for a plain field, derived from the descriptor.
-fn expected_checks(field: &FieldMeta) -> FieldChecks {
-    let mut checks = FieldChecks::none();
-    // The Map arm is the outlier: it leaves `kind` unset, checks the key/value kinds, and names the
-    // value type.
-    checks.cardinalities = match &field.cardinality {
-        Cardinality::Map { key, value } => {
-            checks.map_kinds = Some((key.clone(), value.clone()));
-            checks.name = type_name(value).map(str::to_owned);
-            vec![Card::Map]
-        }
-        Cardinality::Repeated => vec![Card::Repeated],
-        Cardinality::Optional => vec![Card::Optional],
-        // Singular message fields may be either plain ("absent = default") or `Option`
-        // (presence-significant) in Rust.
-        Cardinality::Singular if matches!(field.kind, FieldKind::Message(_)) => {
-            vec![Card::Singular, Card::Optional]
-        }
-        Cardinality::Singular => vec![Card::Singular],
-    };
-    if checks.map_kinds.is_none() {
-        checks.kind = Some(field.kind.clone());
-        checks.name = type_name(&field.kind).map(str::to_owned);
-    }
-    checks
-}
-
-fn type_name(kind: &FieldKind) -> Option<&str> {
-    match kind {
-        FieldKind::Message(name) | FieldKind::Enum(name) => Some(name),
-        _ => None,
-    }
-}
-
 fn unraw(ident: &syn::Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
 }
@@ -1101,7 +1008,7 @@ pub(crate) struct SiblingPlan {
     pub(crate) span: Span,
     pub(crate) tag: u32,
     pub(crate) proto_path: String,
-    pub(crate) checks: FieldChecks,
+    pub(crate) checks: Option<Expectation>,
 }
 
 pub(crate) struct OneofVariant {
@@ -1120,7 +1027,7 @@ pub(crate) enum OneofVariantShape {
     Payload {
         ty: Box<syn::Type>,
         adapter: Option<Box<syn::Type>>,
-        checks: Box<FieldChecks>,
+        checks: Box<Option<Expectation>>,
         binding: Option<syn::Ident>,
     },
     /// `#[armonik(present)]` unit variant selected by a `bool` member.
@@ -1137,7 +1044,7 @@ pub(crate) struct InlinePart {
     pub(crate) span: Span,
     pub(crate) tag: u32,
     pub(crate) proto_path: String,
-    pub(crate) checks: FieldChecks,
+    pub(crate) checks: Option<Expectation>,
 }
 
 /// Outcome of matching a struct variant's named fields against the whole-message enum's sibling
@@ -1338,9 +1245,9 @@ fn resolve_sibling_variant(
         SiblingSplit::Failed => return Err(()),
     };
     let checks = if adapter.is_some() {
-        FieldChecks::none()
+        None
     } else {
-        expected_checks(ctx.field_meta)
+        Expectation::of(ctx.field_meta)
     };
     Ok(OneofVariantShape::Payload {
         ty: Box::new(ty),
@@ -1400,8 +1307,8 @@ fn resolve_plain_variant(
         syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
             let adapter = with.map(|(_, adapter)| Box::new(adapter));
             let checks = match &adapter {
-                Some(_) => FieldChecks::none(),
-                None => expected_checks(ctx.field_meta),
+                Some(_) => None,
+                None => Expectation::of(ctx.field_meta),
             };
             Ok(OneofVariantShape::Payload {
                 ty: Box::new(fields.unnamed[0].ty.clone()),
@@ -1482,7 +1389,7 @@ fn resolve_plain_variant(
                     ty: part.ty.clone(),
                     tag: part_meta.tag,
                     proto_path: format!("{inner_name}.{}", part_meta.name),
-                    checks: expected_checks(part_meta),
+                    checks: Expectation::of(part_meta),
                 });
             }
             matcher.check_complete(ctx.span, errors);
@@ -1796,7 +1703,7 @@ pub(crate) fn oneof_plan(
             ty: ty.clone(),
             tag: meta_field.tag,
             proto_path: format!("{proto_name}.{}", meta_field.name),
-            checks: expected_checks(meta_field),
+            checks: Expectation::of(meta_field),
         });
     }
     siblings.sort_by_key(|sibling| sibling.tag);

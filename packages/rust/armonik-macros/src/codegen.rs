@@ -3,8 +3,8 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
-use crate::descriptor::FieldKind;
-use crate::resolve::{Card, EnumMode, EnumPlan, FieldAccess, FieldCodec, MessagePlan};
+use crate::descriptor::{Cardinality, FieldKind};
+use crate::resolve::{EnumMode, EnumPlan, Expectation, FieldAccess, FieldCodec, MessagePlan};
 
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -46,43 +46,54 @@ fn kind_description(kind: &FieldKind) -> String {
     }
 }
 
-fn card_token(card: Card) -> TokenStream {
-    match card {
-        Card::Singular => quote!(crate::codec::Cardinality::Singular),
-        Card::Optional => quote!(crate::codec::Cardinality::Optional),
-        Card::Repeated => quote!(crate::codec::Cardinality::Repeated),
-        Card::Map => quote!(crate::codec::Cardinality::Map),
+/// The cardinalities a Rust type may use for a descriptor cardinality.
+///
+/// One rule that is not a restatement: a singular *message* field may be either plain in Rust
+/// ("absent reads as default") or `Option` (presence is significant), so both are accepted.
+fn cardinalities(expect: &Expectation) -> Vec<(TokenStream, &'static str)> {
+    let one = |token, description| vec![(token, description)];
+    match &expect.cardinality {
+        Cardinality::Map { .. } => one(quote!(crate::codec::Cardinality::Map), "map"),
+        Cardinality::Repeated => one(quote!(crate::codec::Cardinality::Repeated), "repeated"),
+        Cardinality::Optional => one(
+            quote!(crate::codec::Cardinality::Optional),
+            "optional (explicit presence)",
+        ),
+        Cardinality::Singular if matches!(expect.kind, FieldKind::Message(_)) => vec![
+            (quote!(crate::codec::Cardinality::Singular), "singular"),
+            (
+                quote!(crate::codec::Cardinality::Optional),
+                "optional (explicit presence)",
+            ),
+        ],
+        Cardinality::Singular => one(quote!(crate::codec::Cardinality::Singular), "singular"),
     }
 }
 
-fn card_description(card: Card) -> &'static str {
-    match card {
-        Card::Singular => "singular",
-        Card::Optional => "optional (explicit presence)",
-        Card::Repeated => "repeated",
-        Card::Map => "map",
+/// The proto type a message- or enum-kind field names, which the assert checks the Rust type
+/// against. Scalars name nothing and go unchecked.
+fn type_name(kind: &FieldKind) -> Option<&str> {
+    match kind {
+        FieldKind::Message(name) | FieldKind::Enum(name) => Some(name),
+        _ => None,
     }
 }
 
 /// Human form of the expected shape, for the assert message.
-fn describe(checks: &crate::resolve::FieldChecks) -> String {
-    if let Some((key, value)) = &checks.map_kinds {
+fn describe(expect: &Expectation) -> String {
+    if let Cardinality::Map { key, value } = &expect.cardinality {
         return format!(
             "a map<{}, {}>",
             kind_description(key),
             kind_description(value)
         );
     }
-    let cards = checks
-        .cardinalities
+    let cards = cardinalities(expect)
         .iter()
-        .map(|card| card_description(*card))
+        .map(|(_, description)| *description)
         .collect::<Vec<_>>()
         .join(" or ");
-    match &checks.kind {
-        Some(kind) => format!("{cards} {}", kind_description(kind)),
-        None => cards,
-    }
+    format!("{cards} {}", kind_description(&expect.kind))
 }
 
 /// One spanned shape assert per checked field: the field type's `SHAPE` against the descriptor's
@@ -91,23 +102,25 @@ fn field_asserts_for(
     ty: &syn::Type,
     span: proc_macro2::Span,
     proto_path: &str,
-    checks: &crate::resolve::FieldChecks,
+    checks: &Option<Expectation>,
     type_ident: &syn::Ident,
 ) -> TokenStream {
-    if checks.cardinalities.is_empty() {
-        // `FieldChecks::none()`: adapters, oneof groups, generic fields.
+    let Some(expect) = checks else {
         return TokenStream::new();
-    }
-    let kind_expr = match &checks.kind {
-        None => quote!(::core::option::Option::None),
-        Some(kind) => match kind_pattern(kind) {
-            Some(token) => quote!(::core::option::Option::Some(#token)),
-            None => return unsupported_kind_error(kind, proto_path, span),
-        },
     };
-    let map_expr = match &checks.map_kinds {
-        None => quote!(::core::option::Option::None),
-        Some((key, value)) => match (kind_pattern(key), kind_pattern(value)) {
+
+    // A map's own kind is not checked: what it is made of is, through `map`.
+    let is_map = matches!(expect.cardinality, Cardinality::Map { .. });
+    let kind_expr = if is_map {
+        quote!(::core::option::Option::None)
+    } else {
+        match kind_pattern(&expect.kind) {
+            Some(token) => quote!(::core::option::Option::Some(#token)),
+            None => return unsupported_kind_error(&expect.kind, proto_path, span),
+        }
+    };
+    let map_expr = match &expect.cardinality {
+        Cardinality::Map { key, value } => match (kind_pattern(key), kind_pattern(value)) {
             (Some(key_token), Some(value_token)) => {
                 quote!(::core::option::Option::Some((#key_token, #value_token)))
             }
@@ -116,16 +129,22 @@ fn field_asserts_for(
                 return unsupported_kind_error(unsupported, proto_path, span);
             }
         },
+        _ => quote!(::core::option::Option::None),
     };
-    let name_expr = match &checks.name {
-        None => quote!(::core::option::Option::None),
+    // A map names its *value* type, everything else its own.
+    let named = match &expect.cardinality {
+        Cardinality::Map { value, .. } => type_name(value),
+        _ => type_name(&expect.kind),
+    };
+    let name_expr = match named {
         Some(name) => quote!(::core::option::Option::Some(#name)),
+        None => quote!(::core::option::Option::None),
     };
-    let cards = checks.cardinalities.iter().copied().map(card_token);
+    let cards = cardinalities(expect).into_iter().map(|(token, _)| token);
     let message = format!(
         "armonik: the Rust type of the field of `{type_ident}` mapping to proto field \
          `{proto_path}` does not have the expected shape ({})",
-        describe(checks),
+        describe(expect),
     );
     quote_spanned! {span=>
         assert!(
