@@ -9,7 +9,6 @@ pub const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.TaskOptions")]
 pub struct TaskOptions {
     pub options: HashMap<String, String>,
@@ -61,7 +60,6 @@ impl TaskOptions {
 /// `sessions.TaskOptionField` and `tasks.TaskOptionField`.
 #[armonik_macros::enumeration]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(transparent)]
 #[armonik(message = "armonik.api.grpc.v1.sessions.TaskOptionField")]
 #[armonik(message = "armonik.api.grpc.v1.tasks.TaskOptionField")]

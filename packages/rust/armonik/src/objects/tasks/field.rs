@@ -2,7 +2,6 @@ use super::super::TaskOptionField;
 
 #[armonik_macros::enumeration]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(transparent, message = "armonik.api.grpc.v1.tasks.TaskSummaryField")]
 pub enum SummaryField {
     TaskId,
@@ -32,7 +31,6 @@ pub enum SummaryField {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.TaskField")]
 pub enum Field {
     #[armonik(rename = "task_summary_field")]

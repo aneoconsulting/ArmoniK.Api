@@ -3,7 +3,6 @@ use super::super::TaskStatus;
 /// Task selector of the filter.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter", oneof = "ids")]
 pub enum TaskFilterIds {
     /// Select the tasks from their session IDs.
@@ -31,7 +30,6 @@ impl Default for TaskFilterIds {
 /// Status selector of the filter.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(
     message = "armonik.api.grpc.v1.submitter.TaskFilter",
     oneof = "statuses"
@@ -61,7 +59,6 @@ impl Default for TaskFilterStatuses {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter")]
 pub struct TaskFilter {
     pub ids: TaskFilterIds,

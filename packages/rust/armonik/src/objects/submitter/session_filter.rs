@@ -3,7 +3,6 @@ use super::super::SessionStatus;
 /// Status selector of the filter.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(
     message = "armonik.api.grpc.v1.submitter.SessionFilter",
     oneof = "statuses"
@@ -33,7 +32,6 @@ impl Default for SessionFilterStatuses {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.SessionFilter")]
 pub struct SessionFilter {
     #[armonik(rename = "sessions")]

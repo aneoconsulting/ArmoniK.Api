@@ -1,6 +1,5 @@
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.DeleteResultsDataRequest")]
 pub struct Request {
     pub session_id: String,
@@ -10,7 +9,6 @@ pub struct Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.results.DeleteResultsDataResponse")]
 pub struct Response {
     pub session_id: String,

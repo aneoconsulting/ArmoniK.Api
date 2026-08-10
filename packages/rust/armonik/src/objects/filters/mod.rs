@@ -34,7 +34,6 @@ macro_rules! impl_filter {
     (Filter[$field:ty, $condition:ty]: protos[$or_proto:literal, $and_proto:literal, $field_proto:literal]) => {
         #[armonik_macros::message]
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $or_proto)]
         pub struct Or {
             pub or: Vec<And>,
@@ -42,7 +41,6 @@ macro_rules! impl_filter {
 
         #[armonik_macros::message]
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $and_proto)]
         pub struct And {
             pub and: Vec<Field>,
@@ -50,7 +48,6 @@ macro_rules! impl_filter {
 
         #[armonik_macros::message]
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[armonik(message = $field_proto)]
         pub struct Field {
             pub field: $field,

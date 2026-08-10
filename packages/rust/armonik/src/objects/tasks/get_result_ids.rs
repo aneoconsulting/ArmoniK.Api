@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsRequest")]
 pub struct Request {
     #[armonik(rename = "task_id")]
@@ -11,7 +10,6 @@ pub struct Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 pub struct Response {
     #[armonik(

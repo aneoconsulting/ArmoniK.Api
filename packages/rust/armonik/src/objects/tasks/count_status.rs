@@ -2,7 +2,6 @@ use super::{super::StatusCount, filter};
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.CountTasksByStatusRequest")]
 pub struct Request {
     pub filters: filter::Or,
@@ -10,7 +9,6 @@ pub struct Request {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.tasks.CountTasksByStatusResponse")]
 pub struct Response {
     pub status: Vec<StatusCount>,

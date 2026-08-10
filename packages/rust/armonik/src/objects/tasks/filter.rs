@@ -18,7 +18,6 @@ pub type Status = super::super::FilterStatus<TaskStatus>;
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(
     message = "armonik.api.grpc.v1.tasks.FilterField",
     oneof = "value_condition"

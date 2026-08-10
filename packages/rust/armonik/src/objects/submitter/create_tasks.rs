@@ -2,7 +2,6 @@ use super::super::{DataChunk, InitTaskRequest, TaskOptions, TaskRequest};
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateSmallTaskRequest")]
 pub struct SmallRequest {
     pub session_id: String,
@@ -12,7 +11,6 @@ pub struct SmallRequest {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest")]
 pub struct InitRequest {
     pub session_id: String,
@@ -21,7 +19,6 @@ pub struct InitRequest {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest")]
 pub enum LargeRequest {
     #[default]
@@ -35,7 +32,6 @@ pub enum LargeRequest {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus")]
 pub enum Status {
     TaskInfo {
@@ -55,7 +51,6 @@ impl Default for Status {
 
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply")]
 pub enum Response {
     /// The creation statuses, one per task creation request.

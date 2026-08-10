@@ -348,22 +348,10 @@ fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenS
     // holds up to 15 rpc lines, and an assert spanned at the invocation says only that one of them
     // names the wrong type.
     let request_assert = quote_spanned! { request.span() =>
-        const _: () = assert!(
-            crate::codec::names_contain(
-                <#module::#request as crate::codec::Msg>::NAMES,
-                #input,
-            ),
-            "the request type does not implement this RPC's input message",
-        );
+        const _: () = crate::codec::assert_request_message::<#module::#request>(#input);
     };
     let response_assert = quote_spanned! { response.span() =>
-        const _: () = assert!(
-            crate::codec::names_contain(
-                <#module::#response as crate::codec::Msg>::NAMES,
-                #output,
-            ),
-            "the response type does not implement this RPC's output message",
-        );
+        const _: () = crate::codec::assert_response_message::<#module::#response>(#output);
     };
 
     quote! {

@@ -237,6 +237,29 @@ pub(crate) const fn names_contain(names: &'static [&'static str], name: &str) ->
     false
 }
 
+/// What tokens cannot prove about an rpc line: that the type it names is the one the descriptor's
+/// method signature calls for.
+///
+/// One call per type rather than the `assert!` spelled out at each: those were eight emitted lines
+/// apiece, 944 across the twelve `service!` invocations, and identical but for a string literal.
+/// Failing here, rustc names the concrete type in a `note: inside assert_request_message::<...>`
+/// frame, which the inlined form did not do. Two functions and not one taking both types, so that
+/// each call carries the span of the type path it checks.
+pub(crate) const fn assert_request_message<T: Msg>(input: &'static str) {
+    assert!(
+        names_contain(<T as Msg>::NAMES, input),
+        "the request type does not implement this RPC's input message",
+    );
+}
+
+/// The response half of [`assert_request_message`].
+pub(crate) const fn assert_response_message<T: Msg>(output: &'static str) {
+    assert!(
+        names_contain(<T as Msg>::NAMES, output),
+        "the response type does not implement this RPC's output message",
+    );
+}
+
 impl<T: Msg> ProtoField for T {
     const SHAPE: Shape = Shape {
         kind: FieldKind::Message,
