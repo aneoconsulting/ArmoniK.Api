@@ -51,6 +51,10 @@ criterion.workspace = true
 # self-registered into a `linkme` distributed slice.
 linkme = "0.3"
 prost-reflect = "0.16"
+# `gzip` so the router's two compression knobs can actually be called: every
+# `CompressionEncoding` variant is behind one of tonic's compression features,
+# and the library enables none of them.
+tonic = { workspace = true, features = ["gzip"] }
 # Only the `get_nb_request` test helper needs these: it drives a raw HTTP request through the connector
 # `armonik-transport` builds, to read the mock server's `/calls.json`.
 hyper = { workspace = true, features = ["client", "http1"] }
@@ -102,6 +106,10 @@ required-features = ["client", "server"]
 
 [[test]]
 name = "results"
+required-features = ["client", "server"]
+
+[[test]]
+name = "server_mounting"
 required-features = ["client", "server"]
 
 [[test]]

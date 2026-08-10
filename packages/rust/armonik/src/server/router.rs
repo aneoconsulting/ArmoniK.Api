@@ -15,8 +15,11 @@ use crate::rpc::{Rpc, Service};
 
 use super::RequestContext;
 
+/// How much of an unrouted path the UNIMPLEMENTED status repeats back.
+const MAX_REPORTED_PATH: usize = 128;
+
 /// Compression and message-size configuration, applied per call.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub(crate) struct ServerConfig {
     accept_compression_encodings: EnabledCompressionEncodings,
     send_compression_encodings: EnabledCompressionEncodings,
@@ -25,10 +28,17 @@ pub(crate) struct ServerConfig {
 }
 
 /// An erased request handler: one per RPC, stored in [`Routes::ROUTES`].
-pub(crate) type RouteFn<S> =
+///
+/// Generic over the request body, like the tonic-generated servers this replaces
+/// (`tonic-build-0.14.6/src/server.rs:151`). Fixing it at `tonic::body::Body` went unnoticed
+/// because `Server::add_service` asks only for `Service<Request<tonic::body::Body>>`
+/// (`transport/server/mod.rs:511`), and it is exactly what a router mounted on plain hyper
+/// (`hyper::body::Incoming`), nested in an `axum::Router` through `route_service`, or sitting under
+/// a layer that changes the body type, needs.
+pub(crate) type RouteFn<S, B> =
     fn(
         Arc<S>,
-        http::Request<tonic::body::Body>,
+        http::Request<B>,
         ServerConfig,
     ) -> BoxFuture<http::Response<tonic::body::Body>, std::convert::Infallible>;
 
@@ -37,13 +47,19 @@ pub(crate) type RequestStream<R> = futures::stream::BoxStream<'static, Result<R,
 
 /// The routing table of the service marker `Self` over a service
 /// implementation `S`.
-pub(crate) trait Routes<S: 'static>: Service {
+pub(crate) trait Routes<S: 'static, B: 'static>: Service {
     /// `(path, handler)`, one entry per RPC.
-    const ROUTES: &'static [(&'static str, RouteFn<S>)];
+    const ROUTES: &'static [(&'static str, RouteFn<S, B>)];
 }
 
 /// A gRPC server for the service marker `Svc`, routing requests to the
 /// service implementation `S`.
+///
+/// Mount it with `tonic::transport::Server::add_service`, nest it in an `axum::Router` with
+/// `route_service`, or drive it straight from hyper: the `Service` impl takes any request body a
+/// tonic-generated server would. There is no `with_interceptor` constructor; wrap the router in
+/// `tonic::service::interceptor::InterceptedService::new` for that.
+#[derive(Debug)]
 pub struct Router<Svc, S> {
     inner: Arc<S>,
     config: ServerConfig,
@@ -104,9 +120,9 @@ impl<Svc, S> Clone for Router<Svc, S> {
     }
 }
 
-impl<Svc, S: 'static> tonic::codegen::Service<http::Request<tonic::body::Body>> for Router<Svc, S>
+impl<Svc, S: 'static, B: 'static> tonic::codegen::Service<http::Request<B>> for Router<Svc, S>
 where
-    Svc: Routes<S>,
+    Svc: Routes<S, B>,
 {
     type Response = http::Response<tonic::body::Body>;
     type Error = std::convert::Infallible;
@@ -119,16 +135,27 @@ where
         std::task::Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: http::Request<tonic::body::Body>) -> Self::Future {
+    fn call(&mut self, req: http::Request<B>) -> Self::Future {
         for (path, handler) in Svc::ROUTES {
             if *path == req.uri().path() {
                 return handler(Arc::clone(&self.inner), req, self.config);
             }
         }
         // No route: a method of another service, or one this crate does not expose. The path names
-        // it, so the client's error says which.
-        let status =
-            tonic::Status::unimplemented(format!("{} is not implemented", req.uri().path()));
+        // it, so the client's error says which, truncated because it is client-supplied and the
+        // `grpc-message` header percent-encodes it: a maximal path would expand to roughly three
+        // times its length in a response header. Tonic's own codegen answers with no message at
+        // all, so this is new surface.
+        let mut path = req.uri().path();
+        let truncated = path.len() > MAX_REPORTED_PATH;
+        if truncated {
+            path = &path[..MAX_REPORTED_PATH];
+        }
+        let status = tonic::Status::unimplemented(if truncated {
+            format!("{path}... is not implemented")
+        } else {
+            format!("{path} is not implemented")
+        });
         Box::pin(async move { Ok(status.into_http()) })
     }
 }
@@ -266,9 +293,9 @@ where
 
 /// Serve one unary request: decode through `tonic::server::Grpc`, hand the
 /// message and its [`RequestContext`] to `handler`, encode the result.
-pub(crate) async fn serve_unary<S, R, F, Fut>(
+pub(crate) async fn serve_unary<S, R, F, Fut, B>(
     svc: Arc<S>,
-    req: http::Request<tonic::body::Body>,
+    req: http::Request<B>,
     config: ServerConfig,
     handler: F,
     span: tracing::Span,
@@ -278,6 +305,8 @@ where
     S: Send + Sync + 'static,
     F: Fn(Arc<S>, R, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
+    B: tonic::codegen::Body<Data = ::prost::bytes::Bytes> + Send + 'static,
+    B::Error: Into<tonic::codegen::StdError> + Send + 'static,
 {
     let mut grpc = grpc(config);
     Ok(grpc
@@ -293,9 +322,9 @@ where
 }
 
 /// Serve one client-streaming request; `handler` receives the request stream.
-pub(crate) async fn serve_client_stream<S, R, F, Fut>(
+pub(crate) async fn serve_client_stream<S, R, F, Fut, B>(
     svc: Arc<S>,
-    req: http::Request<tonic::body::Body>,
+    req: http::Request<B>,
     config: ServerConfig,
     handler: F,
     span: tracing::Span,
@@ -305,6 +334,8 @@ where
     S: Send + Sync + 'static,
     F: Fn(Arc<S>, RequestStream<R>, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
+    B: tonic::codegen::Body<Data = ::prost::bytes::Bytes> + Send + 'static,
+    B::Error: Into<tonic::codegen::StdError> + Send + 'static,
 {
     let mut grpc = grpc(config);
     Ok(grpc
@@ -320,9 +351,9 @@ where
 }
 
 /// Serve one server-streaming request; `handler` returns the response stream.
-pub(crate) async fn serve_server_stream<S, R, F, Fut, St>(
+pub(crate) async fn serve_server_stream<S, R, F, Fut, St, B>(
     svc: Arc<S>,
-    req: http::Request<tonic::body::Body>,
+    req: http::Request<B>,
     config: ServerConfig,
     handler: F,
     span: tracing::Span,
@@ -333,6 +364,8 @@ where
     F: Fn(Arc<S>, R, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<St, tonic::Status>> + Send + 'static,
     St: futures::Stream<Item = Result<R::Response, tonic::Status>> + Send + 'static,
+    B: tonic::codegen::Body<Data = ::prost::bytes::Bytes> + Send + 'static,
+    B::Error: Into<tonic::codegen::StdError> + Send + 'static,
 {
     let mut grpc = grpc(config);
     Ok(grpc
