@@ -13,7 +13,7 @@ impl<T: super::Channel> super::ServiceClient<services::Agent, T> {
         &mut self,
         request: impl Stream<Item = create_tasks::Request> + Send + 'static,
     ) -> Result<Vec<create_tasks::Status>, super::RequestError> {
-        let response = self.call_streaming(request).await?;
+        let response = self.call(request).await?;
 
         match response {
             create_tasks::Response::Status {

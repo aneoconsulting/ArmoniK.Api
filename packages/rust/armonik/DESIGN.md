@@ -511,8 +511,8 @@ below for the two hand-written cross-field impls:
    real connection (checking the call landed on the RPC it was aimed at,
    through the mock's `/calls.json` tally) and `in_process::{call,
    convenience}` against the generated fake, asserting the response. Each pair
-   covers both entry points, `ServiceClient::call`/`call_streaming` with a
-   hand-built request and the method `service!` derives from that request's
+   covers both entry points, `ServiceClient::call` with a hand-built request
+   (or request stream) and the method `service!` derives from that request's
    fields. Hand-written tests cover what a per-RPC case cannot: cancellation
    (a dropped client future must tear the server handler down, on a paused
    clock) and failure propagation early, mid-stream and at end of stream, plus
@@ -562,11 +562,9 @@ even though the branch lands as one unit:
   `armonik::TaskOptions`, etc. keep resolving, so this is source-compatible.
   Downstream that wants only the types (no tonic graph) can depend on
   `armonik-types` directly.
-- Client-streaming calls have their own entry point, `client.call_streaming(
-  stream)`, separate from the unary `client.call(request)` (a client-streaming
-  call takes a `Stream<Item = R>` rather than an `R`, which no single
-  signature expresses well; the historical coherence argument from the crate
-  split is moot since Part II merged the crates back). The named methods
+- Client-streaming calls go through the same entry point as every other kind,
+  `client.call(stream)` (superseded: this bullet used to describe a separate
+  `call_streaming`; see Part II section 3.5 and 5.17). The named methods
   (`Agent::create_tasks`, `Results::upload`, `Submitter::create_large_tasks`)
   are unchanged; they delegate to it.
 - Rust types sharing one wire message stay distinct and convert at the
@@ -667,7 +665,7 @@ Measured on `rust/direct-message-impls`:
 | Site | Lines | Information content |
 |---|---|---|
 | `client/*.rs` `impl_call!` + manual `GrpcCall`/`GrpcCallStream` impls | ~870 | `Request type -> stub method` |
-| `client/*.rs` struct + `where` bounds + `with_channel` + `call` + `call_streaming` | ~330 | service name |
+| `client/*.rs` struct + `where` bounds + `with_channel` + `call` | ~330 | service name |
 | `client/mod.rs` `Client::{svc, into_svc}` pairs | ~190 | 12 service names |
 | `server/*.rs` `define_trait_methods!` lists | ~120 | method name + doc comment |
 | `server/*.rs` `impl_trait_methods!` lists | ~90 | stub method name; the rest restates the line above |
@@ -991,16 +989,12 @@ pub struct ServiceClient<Svc, T = tonic::transport::Channel> {
 impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
     pub fn with_channel(channel: T) -> Self { /* once */ }
 
-    /// Perform a gRPC call. The RPC is deduced from the request type.
-    pub async fn call<R>(&mut self, request: impl tonic::IntoRequest<R>)
+    /// Perform a gRPC call. The RPC, and with it the kind, is deduced from the
+    /// request type: one entry point for all three kinds.
+    pub async fn call<R, M>(&mut self, input: impl IntoCall<R, M>)
         -> Result<<R::Kind as Dispatch>::Output<R>, RequestError>
     where R: Rpc<Service = Svc>, R::Kind: Dispatch
-    { R::Kind::dispatch(&mut self.inner, request.into_request()).await }
-
-    pub async fn call_streaming<S, R>(&mut self, stream: S) -> Result<R::Response, RequestError>
-    where S: futures::Stream<Item = R> + Send + 'static,
-          R: Rpc<Service = Svc, Kind = ClientStream>
-    { /* once */ }
+    { input.into_call(&mut self.inner).await }
 
     // knobs that are unreachable today, because `inner` is private
     pub fn send_compressed(self, e: CompressionEncoding) -> Self { ... }
@@ -1008,32 +1002,67 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
 }
 ```
 
-Dispatch hangs off the **kind** type, with a GAT for the return shape:
+The **output shape** hangs off the kind type, with a GAT, and the **dispatch**
+hangs off the *input* shape, through a marker-disambiguated trait:
 
 ```rust
-pub trait Dispatch {
+pub trait Dispatch: Sized {
     type Output<R: Rpc<Kind = Self>>;
-    fn dispatch<T, R>(grpc: &mut tonic::client::Grpc<T>, req: tonic::Request<R>)
-        -> impl Future<Output = Result<Self::Output<R>, RequestError>> + Send
-    where T: Channel + Send, R: Rpc<Kind = Self>;
 }
-
-impl Dispatch for Unary {
-    type Output<R: Rpc<Kind = Self>> = R::Response;
-    // one body: ready, ProstCodec, PathAndQuery::from_static(R::PATH),
-    //           GrpcMethod extension, unary, into_inner, GrpcSnafu
-}
+impl Dispatch for Unary        { type Output<R: Rpc<Kind = Self>> = R::Response; }
+impl Dispatch for ClientStream { type Output<R: Rpc<Kind = Self>> = R::Response; }
 impl Dispatch for ServerStream {
     type Output<R: Rpc<Kind = Self>> =
         futures::stream::BoxStream<'static, Result<R::Response, RequestError>>;
 }
+
+/// The kinds whose request is a single message. `ClientStream` is deliberately
+/// absent: that absence is what rejects `call(one_message)` on an upload.
+pub trait DispatchMessage: Dispatch {
+    async fn dispatch<T, R>(grpc: &mut tonic::client::Grpc<T>, req: tonic::Request<R>)
+        -> Result<Self::Output<R>, RequestError>
+    where T: Channel, R: Rpc<Kind = Self>;
+}
+impl DispatchMessage for Unary { /* ready, ProstCodec, PathAndQuery::from_static(R::PATH),
+                                    GrpcMethod extension, unary, into_inner, GrpcSnafu */ }
+impl DispatchMessage for ServerStream { ... }
+
+pub trait IntoCall<R, M> where R: Rpc, R::Kind: Dispatch {
+    async fn into_call<T: Channel>(self, grpc: &mut tonic::client::Grpc<T>)
+        -> Result<<R::Kind as Dispatch>::Output<R>, RequestError>;
+}
+pub struct ByMessage; pub struct ByRequest; pub struct ByStream; pub struct ByStreamRequest;
+
+impl<R: Rpc<Kind: DispatchMessage>> IntoCall<R, ByMessage> for R { ... }
+impl<R: Rpc<Kind: DispatchMessage>> IntoCall<R, ByRequest> for tonic::Request<R> { ... }
+impl<R: Rpc<Kind = ClientStream>, S: Stream<Item = R> + Send + 'static>
+    IntoCall<R, ByStream> for S { ... }
+impl<R: Rpc<Kind = ClientStream>, S: Stream<Item = R> + Send + 'static>
+    IntoCall<R, ByStreamRequest> for tonic::Request<S> { ... }
 ```
 
-`GrpcCall` and `GrpcCallStream` are deleted. `client.call(request)` keeps its
-contract and gains one: `R: Rpc<Service = Svc>` makes "you cannot call a
-Sessions RPC on a Tasks client" an explicit bound rather than a property of
-which impls happened to be written. `call` taking `impl IntoRequest<R>` also
-makes per-call metadata and deadlines expressible, which they are not today.
+`M` is inert: it exists only so the four impls are disjoint by their *trait
+arguments*, since they are not disjoint by their self types as far as coherence
+is concerned (nothing stops an upstream crate implementing `Stream` for a
+request type — see section 5.17). This is the trick `axum::handler::Handler`
+uses. `M` is inferred at every call site alongside `R` and is never named; the
+only trace it leaves is that an explicit turbofish has to leave room for it,
+`call::<R, _>(..)`.
+
+Writing the four input shapes out by hand, rather than reusing
+`impl tonic::IntoRequest<R>`, is also what **removes** the inference wart: with
+tonic's two blanket impls, `call(tonic::Request::new(msg))` could not infer `R`
+and needed `call::<R>(..)`; with `R: Rpc` on our own impls, the `T`-for-`T` arm
+is rejected (a `tonic::Request` is not an `Rpc`) and `R` is inferred. It also
+buys per-call metadata and deadlines on *client-streaming* calls, which no
+shape of `call_streaming` ever offered.
+
+`GrpcCall`, `GrpcCallStream` and `call_streaming` are deleted. `client.call(x)`
+keeps its contract and gains two: `R: Rpc<Service = Svc>` makes "you cannot call
+a Sessions RPC on a Tasks client" an explicit bound rather than a property of
+which impls happened to be written, and the entry point no longer forks on the
+call kind, which is the point — the request type conveys all the information
+about the RPC, so the caller should not have to restate it in the method name.
 
 Per-service files then hold only the convenience methods, as inherent impls on
 the concrete alias (legal: local generic type, concrete type argument, so
@@ -1164,7 +1193,13 @@ instantiations) have no reflection to carry and are rejected.
 
 **Opt-out**: `manual` on the rpc line emits nothing: the escape for custom
 wiring or a wrong mechanical default. Client-streaming RPCs are required to
-carry it (their entry point is `call_streaming`). Today that leaves six hand-written
+carry it: their request is a stream, so there is no message to spread into
+parameters. (Since the `IntoCall` unification their *entry point* is `call`
+like everyone else's, so a `stream in, projected response out` method would now
+be derivable -- but all three client-streaming RPCs need a hand-written body
+anyway, two to turn a oneof response into an error and one to build the request
+stream, so deriving it would be an emission path with no consumer, which
+section 5.11's rule rejects.) Today that leaves six hand-written
 methods (`results::upload`, `worker::process`, where nine exploded parameters is
 a wrong default, `submitter::{create_small_tasks, create_large_tasks,
 try_get_task_output}`, `agent::create_tasks`); the hand-written
@@ -1207,7 +1242,7 @@ the time the peer polls a stream it returned:
 
 | Side | Span | Child `stream` span |
 |---|---|---|
-| Client | `armonik.rpc` (fields `rpc`/`otel.name` = `R::LABEL`, section 5.13) | the caller's request stream in `call_streaming`, and the response stream of a server-streaming call |
+| Client | `armonik.rpc` (fields `rpc`/`otel.name` = `R::LABEL`, section 5.13) | the caller's request stream in a client-streaming call, and the response stream of a server-streaming call |
 | Server | the per-RPC `debug_span!` from the route closure (section 3.6) | the inbound request stream of a client-streaming RPC, and the response stream, which carries the `Response item` traces |
 
 The response-stream case is why `ServerStream` polls through its
@@ -1369,6 +1404,10 @@ E0119. Coherence does not reason about associated-type disequality. Hanging the
 dispatch off the kind type (section 3.5) has no coherence question at all: two impls on
 two distinct concrete types.
 
+This is also why `IntoCall` needs its marker parameter: `impl IntoCall<R> for R`
+and `impl IntoCall<R> for S where S: Stream<Item = R>` are the same collision in
+another costume, and no amount of bound-writing separates them (section 5.17).
+
 ### 5.13 Per-RPC span names from a generic dispatcher
 
 `tracing::debug_span!(R::LABEL)` cannot compile: the macro expands to `static
@@ -1397,20 +1436,91 @@ existed. REST is not on the roadmap, the crate is beta, and the RPC table leaves
 exactly one conversion site per kind, so this stays a cheap follow-up. Revisit
 if `feat-implements-rest-json` or `wk/feat/rust-proxy` becomes real.
 
-## 6. Public API changes (breaking, accepted)
+### 5.17 The shapes tried before `IntoCall`, for one `call` over all three kinds
+
+The separate `call_streaming` was originally kept on the grounds that "a
+client-streaming call takes a `Stream<Item = R>` rather than an `R`, which no
+single signature expresses well". That is true of a signature written in terms
+of `R` alone; it is not true once the *input* gets to pick the impl. Four shapes
+were compiled against the real request types before section 3.5's landed. All
+outputs below are rustc 1.95.0.
+
+**(a) An `Input<R>` GAT on `Dispatch`** (`type Input<R>` = `R` for the message
+kinds, `BoxStream<'static, R>` for `ClientStream`, `call(input: <R::Kind as
+Dispatch>::Input<R>)`). Compiles, and does serve all three kinds — but the
+argument is now behind a projection, and Rust cannot invert one, so *every* call
+site loses inference, including the ones that have it today:
+
+```
+error[E0284]: type annotations needed
+   = note: cannot satisfy `<_ as Rpc>::Kind == _`
+help: consider specifying the generic argument
+   |     let _ = client.call::<R>(sessions::list::Request::default());
+```
+
+A turbofish on every call, and a boxed request stream. Strictly worse than the
+`call`/`call_streaming` split.
+
+**(b) The input as a method parameter with an associated-type-equality bound**
+(`call<R, I>(input: I) where R::Kind: Dispatch<Input<R> = I>`) instead of a
+projection in argument position. Identical failure — the equality bound still
+has to be solved right-to-left — and now the turbofish takes both parameters:
+`call::<R, sessions::list::Request>(..)`.
+
+**(c) The marker derived from the kind instead of free**
+(`Dispatch::Marker`, with `call<R>(input: impl IntoCall<R, <R::Kind as
+Dispatch>::Marker>)`). This one *works*, and is in one respect nicer: `call`
+keeps a single type parameter, so an explicit turbofish stays `call::<R>(..)`.
+It was rejected because it cannot accept a `tonic::Request` around a request
+stream: with the marker pinned to the kind, that impl has to share `ByStream`
+with the bare-stream impl, and then
+
+```
+error[E0119]: conflicting implementations of trait `IntoCall<_, ByStream>` for type `tonic::Request<_>`
+   = note: upstream crates may add a new impl of trait `futures::Stream` for type `tonic::Request<_>` in future versions
+```
+
+A free marker separates them by trait argument and the conflict evaporates. The
+capability that buys — metadata and deadlines on a client-streaming call — is
+worth more than the `, _` in a turbofish that nothing in the crate needs.
+Deriving the marker from the kind also leans on trait selection with a
+*projection of an inference variable* in the trait arguments, which is a less
+travelled path than the axum pattern.
+
+**(d) A wrapper type at the call site** (`client.call(Streaming(s))`) as the
+fallback. It does not remove the need for a marker: `impl IntoCall<R> for R` and
+`impl IntoCall<R> for Streaming<S>` still overlap, because coherence cannot rule
+out `Streaming<S>: Rpc`. It only works if the message side stops being blanket
+(one emitted impl per request type, from `service!`), at which point the call
+site is uglier *and* the machinery is bigger. Not needed.
+
+**Is this the same wall tonic hit?** tonic's generated clients expose two
+methods (`impl IntoRequest<R>` for unary, `impl IntoStreamingRequest<Message =
+R>` for client-streaming), which looks like the same conclusion, but it is not
+the same problem: tonic's methods are *generated per RPC*, so the kind is
+already fixed by the method name and there is nothing to disambiguate. tonic
+never needed one signature to cover both, so its two-method shape is not
+evidence that one is impossible. (Its `IntoStreamingRequest` is sealed anyway,
+so it could not have served as our disambiguator.)
 
 - `armonik::client::<service>::stub` and `armonik::server::<service>::stub` are
   removed. There are no generated stubs. This is the load-bearing break.
-- `GrpcCall` and `GrpcCallStream` are removed. `client.call(request)` and
-  `client.call_streaming(stream)` keep their behaviour; `call` now accepts
-  `impl IntoRequest<R>`, so per-call metadata and deadlines become possible.
-  `call_streaming` stays separate: the coherence argument for the split
-  (Part I section 6, request types foreign to the client crate) is moot after the
-  merge, but a client-streaming call takes a `Stream<Item = R>` rather than an
-  `R`, which no single signature expresses well. One inference wart: passing a
-  bare message infers `R`, but passing a pre-built `tonic::Request` needs a
-  turbofish (`call::<R>(request)`) because tonic's two blanket `IntoRequest`
-  impls leave `R` ambiguous.
+- `GrpcCall`, `GrpcCallStream` **and `call_streaming`** are removed. All three
+  call kinds go through `client.call(x)`, which takes whatever identifies the
+  RPC: the request message, a `tonic::Request` around it, a `Stream` of request
+  messages, or a `tonic::Request` around such a stream (section 3.5). So per-call
+  metadata and deadlines are expressible on every kind, client-streaming
+  included, which no shape of `call_streaming` offered.
+  There is no inference wart left: the documented one (a pre-built
+  `tonic::Request` needing `call::<R>(request)`, because tonic's two blanket
+  `IntoRequest` impls leave `R` ambiguous) is gone, since `IntoCall`'s impls
+  carry `R: Rpc` and only one of them can match. `call` gains an inferred marker
+  parameter, so an *explicit* turbofish now reads `call::<R, _>(..)`; nothing in
+  the crate or its tests needs one.
+- `Dispatch` loses its `dispatch` method to the new `DispatchMessage`
+  subtrait and keeps only `Output<R>`, and gains an impl for `ClientStream`.
+  Downstream code naming `Dispatch::dispatch` (there is none: it exists to be
+  called by `call`) would break.
 - `Sessions<T>` and friends become type aliases for `ServiceClient<Svc, T>`.
   `with_channel` and the convenience methods resolve unchanged; diagnostics
   mention the underlying type. `#[deprecated]` moves to the `Submitter` alias
@@ -1421,8 +1531,9 @@ if `feat-implements-rest-json` or `wk/feat/rust-proxy` becomes real.
 - `#[armonik(replace(...))]` is removed from the attribute grammar (which is
   `#[doc(hidden)]` and unsupported, so this is not a public break).
 - The client's `tracing` span names change; see section 7.
-- `Rpc`, `Service`, `Unary`, `ServerStream`, `ClientStream`, `Dispatch` and
-  `Channel` are new public API. `Rpc` should be supported and documented, unlike
+- `Rpc`, `Service`, `Unary`, `ServerStream`, `ClientStream`, `Dispatch`,
+  `DispatchMessage`, `IntoCall`, its four markers (`ByMessage`, `ByRequest`,
+  `ByStream`, `ByStreamRequest`) and `Channel` are new public API. `Rpc` should be supported and documented, unlike
   the attribute grammar.
 - New public knobs on the clients: `send_compressed`, `accept_compressed`,
   `max_decoding_message_size`, `max_encoding_message_size`.

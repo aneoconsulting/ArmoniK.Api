@@ -397,8 +397,9 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// - `manual` emits no convenience method: the opt-out for custom wiring or a
 ///   wrong mechanical default (`worker::Process`, whose request would explode
 ///   into nine parameters). Client-streaming RPCs are required to carry it,
-///   since a request stream has no single message to spread into parameters;
-///   their entry point is `call_streaming`.
+///   since a request stream has no single message to spread into parameters.
+///   Their entry point is `call`, like every other kind: it is the convenience
+///   method, not the call, that they opt out of.
 ///
 /// # What one invocation emits
 ///
