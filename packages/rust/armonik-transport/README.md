@@ -21,6 +21,22 @@ The Certificate Authority is named `CaCertPath`, where ArmoniK's C# client spell
 option is a path to a PEM file, not the certificate, and the name says so. Until the C# client is
 renamed to match, a deployment serving both names the file twice.
 
+## The client's identity for mutual TLS
+
+The identity is loaded while the configuration is read, so a mistyped path fails there, naming the
+option, rather than later as a refused handshake. It comes one of two ways.
+
+`CertPem` and `KeyPem` are the certificate chain and its key, each in its own PEM file; set both or
+neither. `CertP12` is the alternative: the two bundled together in one PKCS#12 file, the form
+Windows and most certificate authorities hand out, optionally protected by `CertP12Password`.
+Whichever way it is spelled, the whole chain the file carries is presented, leaf first, so a server
+that trusts only the root can still build its path. `CertP12` and `CertPem`/`KeyPem` are mutually
+exclusive - set one identity or the other, never both - and a `CertP12Password` naming no bundle is
+refused rather than ignored.
+
+ArmoniK's C# client reads the same `CertP12` option but has no `CertP12Password` counterpart, so a
+password-protected bundle is not portable to it.
+
 ## Reaching the endpoint through a proxy
 
 `HttpConfig::proxy` decides how the connection goes out. The default is `ProxySource::System`, the

@@ -205,6 +205,18 @@ pub(crate) fn text<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<
     deserializer.deserialize_any(AnyScalar)
 }
 
+/// [`text`], for an option whose value is a secret: a [`secrecy::SecretString`] is redacted by
+/// `Debug` and zeroized on drop, which a plain `String` field is not.
+///
+/// A numeric-looking secret may arrive as a real number the same way any other option can, and
+/// rejecting it would make some values unusable.
+#[cfg(feature = "serde")]
+pub(crate) fn secret_text<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<secrecy::SecretString, D::Error> {
+    text(deserializer).map(secrecy::SecretString::from)
+}
+
 /// The spellings a boolean option accepts, as an error message shows them.
 #[cfg(feature = "serde")]
 const BOOLEAN_SPELLINGS: &str = "e.g. `true`, `1`, `yes`, or `false`, `0`, `no`";
