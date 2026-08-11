@@ -71,12 +71,53 @@ macro_rules! embed_prefixed {
 #[cfg(feature = "serde")]
 pub(crate) use embed_prefixed;
 
-/// Rewrites a rustdoc intra-doc link into plain text: ``[`a::b::c`]`` becomes ```c```.
+/// One unit an embedding reads under a prefix: the name a doc comment links to it as, that prefix,
+/// and the fields of it that name one flat name each.
 ///
-/// Only the last segment survives: the module path names types that exist on this side of code
-/// generation and nowhere else.
+/// The last of the three is what makes a link resolvable at all: a rustdoc path says nothing about
+/// whether it landed on a field or on a method, and both are spelled the same way.
 #[cfg(feature = "schema")]
-fn plain_text(description: &str) -> String {
+pub(crate) type PrefixedUnit<'a> = (&'a str, &'a str, &'a [&'a str]);
+
+/// The last segment of a Rust path.
+#[cfg(feature = "schema")]
+fn last_segment(path: &str) -> &str {
+    path.rsplit_once("::").map_or(path, |(_, last)| last)
+}
+
+/// The flat name `path` spells, `None` for a link `units` cannot place.
+///
+/// A name is only ever built from a field one of `units` declares, its prefix followed by that
+/// field the way `serde` renames it. Anything else yields nothing: a name invented here is exactly
+/// the name no source spells that this rewriting exists to keep out.
+#[cfg(feature = "schema")]
+pub(crate) fn flat_name(path: &str, units: &[PrefixedUnit<'_>]) -> Option<String> {
+    let (owner, field) = path.rsplit_once("::")?;
+    let owner = last_segment(owner);
+    let prefix = units.iter().find_map(|(unit, prefix, fields)| {
+        (*unit == owner && fields.contains(&field)).then_some(*prefix)
+    })?;
+
+    let mut name = String::from(prefix);
+    for word in field.split('_') {
+        let mut letters = word.chars();
+        if let Some(first) = letters.next() {
+            name.extend(first.to_uppercase());
+            name.push_str(letters.as_str());
+        }
+    }
+    Some(name)
+}
+
+/// Rewrites a rustdoc intra-doc link into the name a document spells.
+///
+/// A link that lands on a field one of `units` declares becomes that field's flat name, prefix
+/// included: with `Unit` read under `Pre`, ``[`a::Unit::some_field`]`` becomes ```PreSomeField```.
+///
+/// Any other link keeps its last segment alone, ``[`a::b::c`]`` becoming ```c```: the module path
+/// names types that exist on this side of code generation and nowhere else.
+#[cfg(feature = "schema")]
+fn plain_text(description: &str, units: &[PrefixedUnit<'_>]) -> String {
     let mut out = String::with_capacity(description.len());
     let mut rest = description;
     while let Some(start) = rest.find("[`") {
@@ -91,7 +132,10 @@ fn plain_text(description: &str) -> String {
         };
         let path = &body[..end];
         out.push('`');
-        out.push_str(path.rsplit_once("::").map_or(path, |(_, last)| last));
+        match flat_name(path, units) {
+            Some(flat) => out.push_str(&flat),
+            None => out.push_str(last_segment(path)),
+        }
         out.push('`');
         rest = &body[end + 2..];
     }
@@ -109,34 +153,36 @@ fn plain_text(description: &str) -> String {
 ///
 /// A `description` is the doc comment verbatim, and reaches a generated options class the same
 /// way. A Rust path resolves to nothing there, and the brackets around it read as broken markup.
+/// `units` is what turns a link on a field into the name a document spells, and is the embedding's
+/// to supply: the same unit is a different set of names under a different prefix.
 #[cfg(feature = "schema")]
-pub(crate) fn strip_rust_details(schema: &mut schemars::Schema) {
-    fn clean(object: &mut serde_json::Map<String, serde_json::Value>) {
+pub(crate) fn strip_rust_details(units: &[PrefixedUnit<'_>], schema: &mut schemars::Schema) {
+    fn clean(object: &mut serde_json::Map<String, serde_json::Value>, units: &[PrefixedUnit<'_>]) {
         object.remove("default");
         if let Some(serde_json::Value::String(description)) = object.get_mut("description") {
-            *description = plain_text(description);
+            *description = plain_text(description, units);
         }
     }
-    fn strip(value: &mut serde_json::Value) {
+    fn strip(value: &mut serde_json::Value, units: &[PrefixedUnit<'_>]) {
         match value {
             serde_json::Value::Object(object) => {
-                clean(object);
+                clean(object, units);
                 for child in object.values_mut() {
-                    strip(child);
+                    strip(child, units);
                 }
             }
             serde_json::Value::Array(items) => {
                 for item in items {
-                    strip(item);
+                    strip(item, units);
                 }
             }
             _ => {}
         }
     }
     let object = schema.ensure_object();
-    clean(object);
+    clean(object, units);
     for child in object.values_mut() {
-        strip(child);
+        strip(child, units);
     }
 }
 
@@ -362,7 +408,47 @@ where
 
 #[cfg(all(test, feature = "schema"))]
 mod tests {
-    use super::schema_with_prefix;
+    use super::{plain_text, schema_with_prefix, PrefixedUnit};
+
+    /// Two units an embedding declares, one under a prefix and one under none. Invented, like the
+    /// type below: what is under test is the rewriting, not any particular vocabulary.
+    const UNITS: &[PrefixedUnit<'static>] = &[
+        ("Prefixed", "Pre", &["keep_alive_interval"]),
+        ("Bare", "", &["allow_it_p12"]),
+    ];
+
+    #[test]
+    fn a_link_into_a_unit_renders_the_name_with_the_prefix_it_is_read_under() {
+        // The bare field name is a name no source spells either: a unit's names carry its
+        // embedding's prefix, so the rendering has to carry it too.
+        assert_eq!(
+            plain_text("See [`a::b::Prefixed::keep_alive_interval`].", UNITS),
+            "See `PreKeepAliveInterval`."
+        );
+        assert_eq!(
+            plain_text("See [`crate::Bare::allow_it_p12`].", UNITS),
+            "See `AllowItP12`."
+        );
+    }
+
+    #[test]
+    fn a_link_the_units_cannot_place_keeps_the_last_segment_it_had() {
+        // Rendering a name for a target no unit declares would put into the contract exactly the
+        // name no source spells that this rewriting exists to keep out. `load` is the trap: a
+        // method of a unit that is declared is spelled exactly like a field of it.
+        for (written, expected) in [
+            ("[`Prefixed::load`]", "`load`"),
+            ("[`Self::load`]", "`load`"),
+            (
+                "[`Elsewhere::keep_alive_interval`]",
+                "`keep_alive_interval`",
+            ),
+            ("[`Prefixed::MAX_SIZE`]", "`MAX_SIZE`"),
+            ("[`crate::Prefixed`]", "`Prefixed`"),
+        ] {
+            assert_eq!(plain_text(written, UNITS), expected, "{written}");
+        }
+    }
 
     /// A unit whose shapes are selected untagged, so its schema is a union of branches and the
     /// names live one level down rather than at the top.

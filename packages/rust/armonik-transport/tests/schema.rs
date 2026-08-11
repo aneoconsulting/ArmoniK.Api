@@ -79,6 +79,7 @@ fn every_option_appears_under_its_flat_name() {
         "OverrideTargetName",
         "ConnectTimeout",
         "Timeout",
+        "PoolIdleTimeout",
         "RateLimit",
         "TcpKeepalive",
         "TcpKeepaliveInterval",
@@ -116,30 +117,63 @@ fn the_schema_promises_nothing_that_is_not_read() {
     );
 }
 
+/// Every `description` anywhere in the schema.
+fn descriptions(value: &serde_json::Value, found: &mut Vec<String>) {
+    match value {
+        serde_json::Value::Object(object) => {
+            if let Some(serde_json::Value::String(description)) = object.get("description") {
+                found.push(description.clone());
+            }
+            for child in object.values() {
+                descriptions(child, found);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                descriptions(item, found);
+            }
+        }
+        _ => {}
+    }
+}
+
+#[test]
+fn a_description_names_an_option_the_way_a_document_spells_it() {
+    // A description reaches a generated options class verbatim, so a Rust field name in it names
+    // an option no deployment can set: `allow_unsafe_connection` is spelled `AllowUnsafeConnection`
+    // everywhere a source writes it. The prefix matters as much as the casing, which is why the
+    // rendering goes through the embeddings rather than through the field name alone.
+    let schema = schema();
+    let mut found = Vec::new();
+    descriptions(&schema, &mut found);
+
+    assert!(!found.is_empty(), "no descriptions at all: {schema:#}");
+    for description in &found {
+        for quoted in description.split('`').skip(1).step_by(2) {
+            let rust_field = quoted.starts_with(|first: char| first.is_ascii_lowercase())
+                && quoted.contains('_')
+                && quoted
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+            assert!(
+                !rust_field,
+                "`{quoted}` is a Rust field name, not an option: {description}"
+            );
+        }
+    }
+    assert!(
+        found
+            .iter()
+            .any(|description| description.contains("`AllowUnsafeConnection`")),
+        "no description resolved a link to its flat name: {found:#?}"
+    );
+}
+
 #[test]
 fn no_description_carries_a_rust_doc_link() {
     // A description reaches a generated options class verbatim. An intra-doc link resolves to
     // nothing there and its brackets read as broken markup, so the schema keeps the prose and
     // drops the path.
-    fn descriptions(value: &serde_json::Value, found: &mut Vec<String>) {
-        match value {
-            serde_json::Value::Object(object) => {
-                if let Some(serde_json::Value::String(description)) = object.get("description") {
-                    found.push(description.clone());
-                }
-                for child in object.values() {
-                    descriptions(child, found);
-                }
-            }
-            serde_json::Value::Array(items) => {
-                for item in items {
-                    descriptions(item, found);
-                }
-            }
-            _ => {}
-        }
-    }
-
     let schema = schema();
     let mut found = Vec::new();
     descriptions(&schema, &mut found);
