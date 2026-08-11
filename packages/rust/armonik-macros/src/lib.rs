@@ -17,15 +17,19 @@
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 
+mod attr_site;
 mod attrs;
 mod callback;
-mod codegen;
 mod convenience;
 mod descriptor;
 mod docs;
+mod emit;
+mod matcher;
 mod names;
-mod resolve;
+mod plan;
+mod reflection;
 mod service;
+mod shape;
 
 use attrs::{AttrItem, Errors};
 use descriptor::DescriptorIndex;
@@ -511,135 +515,16 @@ fn expand_message(input: DeriveInput) -> syn::Result<TokenStream2> {
     let mut out = doc_anchors(&input, "message");
     let mut absorbs = collect_absorbs(&input);
     if has_oneof || (matches!(input.data, syn::Data::Enum(_)) && !generic) {
-        let plan = resolve::oneof_plan(&input, &index).map_err(Errors::into_syn_error)?;
+        let plan = shape::oneof::oneof_plan(&input, &index).map_err(Errors::into_syn_error)?;
         absorbs.extend(plan.absorbs.iter().cloned());
-        out.extend(codegen::oneof(&plan));
+        out.extend(shape::oneof::oneof(&plan));
     } else {
-        let plan = resolve::message_plan(&input, &index).map_err(Errors::into_syn_error)?;
-        out.extend(codegen::message(&plan));
-        out.extend(reflection(&input));
+        let plan = shape::plain::message_plan(&input, &index).map_err(Errors::into_syn_error)?;
+        out.extend(shape::plain::message(&plan));
+        out.extend(reflection::reflection(&input));
     }
     out.extend(absorbed(absorbs));
     Ok(out)
-}
-
-/// Field reflection for the `service!` convenience emission: a callback macro forwarding each
-/// field's name and sugar class in declaration order (which is the generated method's parameter
-/// order), plus flat per-field type aliases so the consuming proc macro can name field and element
-/// types from another module. The aliases resolve the field's type tokens here, where they mean the
-/// right thing. `__emit_convenience` is the consuming side.
-fn reflection(input: &DeriveInput) -> TokenStream2 {
-    let syn::Data::Struct(data) = &input.data else {
-        return TokenStream2::new();
-    };
-    let syn::Fields::Named(fields) = &data.fields else {
-        return TokenStream2::new();
-    };
-    if !input.generics.params.is_empty() {
-        return TokenStream2::new();
-    }
-
-    let snake = names::snake(&input.ident.to_string());
-    let fields_macro = quote::format_ident!("__armonik_fields_{snake}");
-
-    let mut units = Vec::new();
-    let mut aliases = Vec::new();
-    let mut alias = |suffix: &String, ty: &dyn quote::ToTokens| {
-        let name = quote::format_ident!("__armonik_ty_{snake}_{suffix}");
-        aliases.push(quote::quote! {
-            #[doc(hidden)]
-            #[allow(non_camel_case_types, dead_code)]
-            pub(crate) type #name = #ty;
-        });
-    };
-    for field in &fields.named {
-        let name = field.ident.as_ref().expect("named");
-        let ty = &field.ty;
-        let class = sugar(ty);
-        alias(&name.to_string(), &ty);
-        match &class {
-            Sugar::Iter(elem) => alias(&format!("{name}_elem"), elem),
-            Sugar::Filters(elem) => alias(&format!("{name}_elem"), elem),
-            Sugar::Pairs(key, value) => {
-                alias(&format!("{name}_key"), key);
-                alias(&format!("{name}_value"), value);
-            }
-            Sugar::Plain | Sugar::Into => {}
-        }
-        let class = match class {
-            Sugar::Plain => quote::quote!(plain),
-            Sugar::Into => quote::quote!(into),
-            Sugar::Iter(_) => quote::quote!(iter),
-            Sugar::Pairs(..) => quote::quote!(pairs),
-            Sugar::Filters(_) => quote::quote!(filters),
-        };
-        units.push(quote::quote!([#name #class]));
-    }
-
-    quote::quote! {
-        #[doc(hidden)]
-        macro_rules! #fields_macro {
-            ($($cont:tt)::* ! { $($ctx:tt)* }) => {
-                $($cont)::* ! { $($ctx)* fields { #(#units)* } }
-            };
-        }
-        #[doc(hidden)]
-        pub(crate) use #fields_macro;
-
-        #(#aliases)*
-    }
-}
-
-/// How the generated signature widens a request field's type, and how the body converts it back.
-/// Conservative: anything unrecognized passes through unchanged, and a whole method opts out with
-/// `manual` on its rpc line.
-#[allow(clippy::large_enum_variant)] // transient parse-time value, a handful per struct
-enum Sugar {
-    Plain,
-    Into,
-    Iter(syn::Type),
-    Pairs(syn::Type, syn::Type),
-    Filters(syn::Path),
-}
-
-fn sugar(ty: &syn::Type) -> Sugar {
-    let syn::Type::Path(path) = ty else {
-        return Sugar::Plain;
-    };
-    let Some(segment) = path.path.segments.last() else {
-        return Sugar::Plain;
-    };
-    let arg = |index: usize| match &segment.arguments {
-        syn::PathArguments::AngleBracketed(args) => {
-            args.args.iter().nth(index).and_then(|arg| match arg {
-                syn::GenericArgument::Type(ty) => Some(ty.clone()),
-                _ => None,
-            })
-        }
-        _ => None,
-    };
-    match segment.ident.to_string().as_str() {
-        "String" | "Bytes" => Sugar::Into,
-        "Vec" => match arg(0) {
-            // `Vec<u8>` is a payload, not a collection of convertibles.
-            Some(syn::Type::Path(elem)) if elem.path.is_ident("u8") => Sugar::Into,
-            Some(elem) => Sugar::Iter(elem),
-            None => Sugar::Plain,
-        },
-        "HashMap" => match (arg(0), arg(1)) {
-            (Some(key), Some(value)) => Sugar::Pairs(key, value),
-            _ => Sugar::Plain,
-        },
-        // The per-service `filter::Or`, whose sibling `Field` is the element type of the
-        // nested-iterator sugar.
-        "Or" => {
-            let mut field = path.path.clone();
-            field.segments.last_mut().expect("segment").ident =
-                syn::Ident::new("Field", segment.ident.span());
-            Sugar::Filters(field)
-        }
-        _ => Sugar::Plain,
-    }
 }
 
 /// The proto value each variant stands for, which the re-emitted item carries as its discriminant
@@ -653,7 +538,7 @@ pub(crate) struct EnumTags {
 
 fn expand_enumeration(input: DeriveInput) -> syn::Result<(TokenStream2, EnumTags)> {
     let index = load_index(&input)?;
-    let plan = resolve::enum_plan(&input, &index).map_err(Errors::into_syn_error)?;
+    let plan = shape::enumeration::enum_plan(&input, &index).map_err(Errors::into_syn_error)?;
     let tags = EnumTags {
         named: plan.named.clone(),
         unknown: plan.unknown_variant.clone(),
@@ -661,7 +546,7 @@ fn expand_enumeration(input: DeriveInput) -> syn::Result<(TokenStream2, EnumTags
     let mut out = doc_anchors(&input, "enumeration");
     let mut absorbs = collect_absorbs(&input);
     absorbs.extend(plan.absorbs.iter().cloned());
-    out.extend(codegen::enumeration(&plan));
+    out.extend(shape::enumeration::enumeration(&plan));
     out.extend(absorbed(absorbs));
     Ok((out, tags))
 }
@@ -707,7 +592,7 @@ fn collect_absorbs(input: &DeriveInput) -> Vec<String> {
 fn absorbed(mut names: Vec<String>) -> TokenStream2 {
     names.sort();
     names.dedup();
-    codegen::absorbed_registrations(&names)
+    emit::absorbed_registrations(&names)
 }
 
 /// `#[armonik_macros::alias("proto.Name")]` on a `type` alias: re-emit the alias and register
@@ -723,7 +608,7 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
     })?;
     let item_type: syn::ItemType = syn::parse2(item)?;
     let name = proto.value();
-    let registrations = codegen::registrations(&item_type.ident, std::slice::from_ref(&name));
+    let registrations = emit::registrations(&item_type.ident, std::slice::from_ref(&name));
     Ok(quote::quote! {
         #item_type
         #registrations
