@@ -44,6 +44,10 @@ pub enum ProxySource {
     #[default]
     System,
     /// Connect directly, ignoring any proxy configured in the environment.
+    ///
+    /// The credentials are left unread under this source, rather than refused next to it: a direct
+    /// connection has no proxy to authenticate to, and a deployment that turns proxying off
+    /// without first clearing the credentials it used to need is in a normal state.
     Disabled,
     /// Use this specific proxy, whatever the environment says: `NO_PROXY` does not apply to it.
     Explicit(Uri),
@@ -69,6 +73,9 @@ impl std::fmt::Debug for ProxySource {
 ///
 /// Purely textual, so it cannot fail and holds even for authorities that would not survive a
 /// round trip through the URI builder.
+///
+/// Not the same job as `elide_userinfo`, which takes text that never became a [`Uri`]: this one
+/// starts from a parsed one, so it can keep the username and the host, which are not secrets.
 struct RedactedUri<'a>(&'a Uri);
 
 impl std::fmt::Display for RedactedUri<'_> {
@@ -98,7 +105,16 @@ impl std::fmt::Display for RedactedUri<'_> {
 ///
 /// Proxying uses a `CONNECT` tunnel, so TLS, mutual TLS included, is negotiated end to end with the
 /// real server and the proxy never sees the plaintext.
+///
+/// Read from the flat `Address`/`Username`/`Password` options, under whichever prefix the embedding
+/// gives them: empty or `system` follows the environment, `none` forces a direct connection,
+/// anything else is the proxy URL.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Deserialize),
+    serde(try_from = "RawProxy")
+)]
 #[non_exhaustive]
 pub struct ProxyConfig {
     /// Where to find the proxy.
@@ -253,6 +269,227 @@ impl ProxyConfig {
 /// carry the cleartext handshake, or the placeholder for a URI with no sanitized form - so
 /// whoever reports it names the offending URI once, and that URI never holds a password.
 pub(crate) type RouteResult = Result<Option<(Uri, Option<HeaderValue>)>, Uri>;
+
+/// The flat string options [`ProxyConfig`] is read from.
+///
+/// Each field carries its own name only; the embedding prepends the prefix it reads them under.
+#[cfg(feature = "serde")]
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "PascalCase", default)]
+struct RawProxy {
+    /// Where to find the proxy.
+    ///
+    /// Empty or `system` follows the environment (see [`ProxySource::System`]), `none` forces a
+    /// direct connection, otherwise the proxy URL, whose scheme has to be `http`: the `CONNECT`
+    /// handshake is written in the clear. `none` and `system` are the spellings every ArmoniK
+    /// client understands; other casings are accepted here but not everywhere.
+    ///
+    /// A URL can carry credentials in its authority (`http://user:password@proxy`), so the whole
+    /// value is a secret: redacted by `Debug` and zeroized on drop, like the password.
+    #[serde(deserialize_with = "crate::config_utils::secret_text")]
+    address: SecretString,
+    /// Username for proxy authentication. Mutually exclusive with credentials written into the
+    /// proxy URL.
+    #[serde(deserialize_with = "crate::config_utils::text")]
+    username: String,
+    /// Password for proxy authentication. Mutually exclusive with credentials written into the
+    /// proxy URL. Redacted by `Debug` and zeroized on drop.
+    #[serde(deserialize_with = "crate::config_utils::secret_text")]
+    password: SecretString,
+}
+
+/// The two shapes proxy credentials arrive in, the same way a TLS identity has its own shapes.
+///
+/// A value that fits neither shape, a URL carrying credentials next to non-empty dedicated fields,
+/// is refused rather than merged: guessing which half of which source wins would turn a mixed
+/// configuration into a silent surprise.
+///
+/// This is also the shape a document writes, so it is what describes the unit to a schema: the
+/// alternatives are spelled out rather than flattened into one bag of optional fields.
+#[cfg(feature = "serde")]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema), schemars(untagged))]
+pub(crate) enum ProxyShape {
+    /// Credentials in the dedicated options, and an address carrying none.
+    ///
+    /// The address is a plain string here as everywhere, so this alternative cannot say that its
+    /// own `user:password@` is what the other one is for. Reading refuses an address carrying
+    /// credentials next to a non-empty `Username` or `Password`; a document validating against
+    /// this alternative is not therefore one the reader accepts.
+    AddressWithoutCredentials {
+        /// Where to find the proxy: empty or `system` to follow the environment, `none` for a
+        /// direct connection, otherwise the proxy URL, carrying no credentials, whose scheme has
+        /// to be `http`.
+        #[cfg_attr(
+            feature = "schema",
+            schemars(rename = "Address", with = "String", default)
+        )]
+        config: ProxyConfig,
+        /// Username for proxy authentication.
+        #[cfg_attr(feature = "schema", schemars(rename = "Username", default))]
+        username: String,
+        /// Password for proxy authentication.
+        #[cfg_attr(
+            feature = "schema",
+            schemars(rename = "Password", with = "String", default)
+        )]
+        password: SecretString,
+    },
+    /// Credentials written into the address itself, `user:password@` in its authority, with the
+    /// dedicated options left unset. Setting both ways is refused rather than merged.
+    AddressCarryingCredentials {
+        /// The proxy URL, credentials included.
+        #[cfg_attr(feature = "schema", schemars(rename = "Address", with = "String"))]
+        config: ProxyConfig,
+    },
+}
+
+#[cfg(feature = "serde")]
+impl ProxyShape {
+    /// Which shape `raw` fits, if any. [`parse_proxy_address`] moves any URL credentials into the
+    /// config's fields, so a non-empty field there means the URL carried some.
+    fn classify(raw: RawProxy) -> Result<Self, crate::config::ConfigError> {
+        use crate::config::IncompatibleOptionsSnafu;
+
+        let config = parse_proxy_address(raw.address.expose_secret())?;
+        let url_carried =
+            !config.username.is_empty() || !config.password.expose_secret().is_empty();
+        let dedicated = !raw.username.is_empty() || !raw.password.expose_secret().is_empty();
+        match (url_carried, dedicated) {
+            (true, true) => IncompatibleOptionsSnafu {
+                msg: String::from(
+                    "credentials are set both inside the `ProxyAddress` URL and through \
+                     `ProxyUsername`/`ProxyPassword`; set them one way",
+                ),
+            }
+            .fail(),
+            (true, false) => Ok(Self::AddressCarryingCredentials { config }),
+            (false, _) => Ok(Self::AddressWithoutCredentials {
+                config,
+                username: raw.username,
+                password: raw.password,
+            }),
+        }
+    }
+
+    /// The configuration either shape describes.
+    fn resolve(self) -> ProxyConfig {
+        match self {
+            Self::AddressCarryingCredentials { config } => config,
+            Self::AddressWithoutCredentials {
+                config,
+                username,
+                password,
+            } => config.with_credentials(username, password),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<RawProxy> for ProxyConfig {
+    type Error = crate::config::ConfigError;
+
+    fn try_from(raw: RawProxy) -> Result<Self, Self::Error> {
+        ProxyShape::classify(raw).map(ProxyShape::resolve)
+    }
+}
+
+/// Interpret the address option.
+///
+/// Empty and `system` follow the environment, `none` forces a direct connection, anything else is a
+/// proxy URL, defaulting to the `http` scheme. A URL that cannot be dialled as written, a missing
+/// host, a port that is not one, or a scheme the `CONNECT` handshake cannot use, fails here, while
+/// the configuration is being read and the message can name the option, rather than at connect
+/// time. Every message elides the userinfo: a URL is rejected as often for a mistyped credential as
+/// for anything else.
+#[cfg(feature = "serde")]
+fn parse_proxy_address(proxy: &str) -> Result<ProxyConfig, crate::config::ConfigError> {
+    use crate::config::IncompatibleOptionsSnafu;
+    use snafu::ensure;
+
+    if proxy.is_empty() || proxy.eq_ignore_ascii_case("system") {
+        return Ok(ProxyConfig::system());
+    }
+    if proxy.eq_ignore_ascii_case("none") {
+        return Ok(ProxyConfig::disabled());
+    }
+
+    let with_scheme = if proxy.contains("://") {
+        proxy.to_owned()
+    } else {
+        format!("http://{proxy}")
+    };
+    // Not reported through the endpoint's URI error: its message names the endpoint, which would
+    // send whoever reads it looking at the wrong option.
+    let uri = Uri::try_from(&with_scheme).ok().filter(|uri| {
+        uri.authority()
+            .is_some_and(|authority| !authority.host().is_empty())
+    });
+    let Some(uri) = uri else {
+        return IncompatibleOptionsSnafu {
+            msg: format!(
+                "`ProxyAddress={}` is not a valid proxy URL. Expected `none`, `system`, or a URL \
+                 such as `http://proxy.example.com:3128`",
+                elide_userinfo(proxy)
+            ),
+        }
+        .fail();
+    };
+
+    ensure!(
+        uri.scheme_str().is_none_or(|scheme| scheme == "http"),
+        IncompatibleOptionsSnafu {
+            msg: format!(
+                "{}, and `ProxyAddress={}` names another scheme",
+                HTTP_ONLY_RULE,
+                elide_userinfo(proxy)
+            ),
+        }
+    );
+
+    let config = ProxyConfig::explicit(uri);
+    let ProxySource::Explicit(stripped) = &config.source else {
+        return IncompatibleOptionsSnafu {
+            msg: String::from("`ProxyAddress`: an explicit proxy should stay explicit"),
+        }
+        .fail();
+    };
+
+    // `explicit` swaps in the placeholder when the credential-stripped authority cannot be rebuilt
+    // (`@` is legal inside a bracketed authority, so `http://[user:password@proxy]` parses yet
+    // `proxy]` is not a host on its own). Routing refuses the placeholder anyway, but this option's
+    // contract is to fail while the configuration is read and name itself, elided.
+    ensure!(
+        stripped != &elided_proxy(),
+        IncompatibleOptionsSnafu {
+            msg: format!(
+                "`ProxyAddress={}` is not a valid proxy URL once its credentials are taken out. \
+                 Expected `none`, `system`, or a URL such as `http://proxy.example.com:3128`",
+                elide_userinfo(proxy)
+            ),
+        }
+    );
+
+    // `http::Uri` keeps the port as text and parses it lazily, so `proxy.corp:99999` or
+    // `proxy.corp:31z8` would otherwise be accepted here and silently dialled on port 80. Checked
+    // on the credential-stripped form, where the only `:` left outside an IPv6 literal is a port's.
+    let authority = stripped.authority().expect("checked above to have a host");
+    let written_port = authority
+        .as_str()
+        .rsplit_once(':')
+        .map(|(_, tail)| tail)
+        .filter(|tail| !tail.contains(']'));
+    ensure!(
+        written_port.is_none() || stripped.port_u16().is_some(),
+        IncompatibleOptionsSnafu {
+            msg: format!(
+                "`ProxyAddress={}` does not name a valid port",
+                elide_userinfo(proxy)
+            ),
+        }
+    );
+
+    Ok(config)
+}
 
 /// Wraps a TCP connector so that it tunnels through an HTTP proxy when one is configured.
 ///
@@ -423,6 +660,49 @@ fn translate(proxy: Uri, error: impl std::error::Error + Send + Sync + 'static) 
     TunnelFailedSnafu { proxy }.into_error(BoxError::from(error))
 }
 
+/// The one statement of the scheme rule, shared between the connect-time check and the
+/// configuration-time one so the two messages cannot drift apart.
+pub(crate) const HTTP_ONLY_RULE: &str =
+    "The `CONNECT` handshake is written in the clear, so only an `http` proxy can be reached";
+
+/// Render a proxy URL with any credentials elided, for a message or a log line.
+///
+/// Textual rather than through [`Uri`], because the values that most need eliding are the ones that
+/// failed to parse in the first place. Every ambiguity elides rather than shows: over-eliding loses
+/// a detail from a message, under-eliding prints a password. That is also why the whole userinfo
+/// goes, username included: with no parse to lean on, there is no telling the halves apart.
+///
+/// Not the same job as [`RedactedUri`], which renders a value that did parse.
+#[cfg(feature = "serde")]
+pub(crate) fn elide_userinfo(value: &str) -> String {
+    let (scheme, rest) = match value.split_once("://") {
+        Some((scheme, rest)) => (Some(scheme), rest),
+        None => (None, value),
+    };
+    let elided = |body: String| match scheme {
+        Some(scheme) => format!("{scheme}://{body}"),
+        None => body,
+    };
+
+    // The last `@` in the whole of the rest, not just up to the first `/`. A password containing an
+    // unescaped `/` is malformed, which is exactly the input that reaches this function, and
+    // looking only at the authority would leave such a password rendered in full.
+    if let Some((_, remainder)) = rest.rsplit_once('@') {
+        return elided(format!("***@{remainder}"));
+    }
+
+    // No `@`, but a `:` whose tail is not a port: userinfo written without a host
+    // (`http://admin:hunter2`), and the tail is the password. An IPv6 literal also lands here and
+    // is over-elided; nothing leaks.
+    if let Some((head, tail)) = rest.split_once(':') {
+        if !tail.is_empty() && tail.parse::<u16>().is_err() {
+            return elided(format!("{head}:***"));
+        }
+    }
+
+    String::from(value)
+}
+
 /// Failure to reach the endpoint through the proxy.
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
@@ -446,7 +726,7 @@ pub enum ProxyError {
         location: snafu::Location,
     },
     #[snafu(display(
-        "The proxy requires authentication; configure proxy credentials [{location}]"
+        "The proxy requires authentication; set `ProxyUsername` and `ProxyPassword` [{location}]"
     ))]
     #[non_exhaustive]
     AuthenticationRequired {
@@ -461,10 +741,7 @@ pub enum ProxyError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
-    #[snafu(display(
-        "The `CONNECT` handshake is written in the clear, so only an `http` proxy can be reached, \
-         not {proxy} [{location}]"
-    ))]
+    #[snafu(display("{HTTP_ONLY_RULE}, not {proxy} [{location}]"))]
     #[non_exhaustive]
     UnsupportedProxy {
         proxy: Uri,
@@ -676,6 +953,55 @@ mod tests {
             credentials,
             Some((String::from("[user"), String::from("s3cr3t")))
         );
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn eliding_hides_the_credentials_and_keeps_the_rest() {
+        for (written, expected) in [
+            (
+                "http://user:secret@proxy.corp:3128",
+                "http://***@proxy.corp:3128",
+            ),
+            ("http://user@proxy.corp", "http://***@proxy.corp"),
+            // Rejected for having no host, and still worth eliding.
+            ("http://user:secret@", "http://***@"),
+            ("user:secret@proxy.corp", "***@proxy.corp"),
+            (
+                "http://user:secret@proxy.corp/path",
+                "http://***@proxy.corp/path",
+            ),
+            // A `/` inside the password is malformed, which is how such a value reaches this
+            // function at all, and is why the split is on the last `@` rather than on the
+            // authority.
+            (
+                "http://user:my/pass@proxy.corp:3128",
+                "http://***@proxy.corp:3128",
+            ),
+            // Several `@`: the last one wins, so nothing before it survives.
+            ("http://user:p@ss@proxy.corp", "http://***@proxy.corp"),
+            // Credentials with the `@host` part missing entirely: the tail is not a port, so it is
+            // a password.
+            ("http://admin:hunter2", "http://admin:***"),
+            ("admin:hunter2", "admin:***"),
+        ] {
+            let elided = elide_userinfo(written);
+            assert_eq!(elided, expected, "{written}");
+            assert!(
+                !elided.contains("secret")
+                    && !elided.contains("pass")
+                    && !elided.contains("hunter"),
+                "{written} still shows its password as {elided}"
+            );
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn eliding_leaves_a_url_without_credentials_untouched() {
+        for value in ["http://proxy.corp:3128", "proxy.corp:3128", "", "none"] {
+            assert_eq!(elide_userinfo(value), value, "{value}");
+        }
     }
 
     #[test]

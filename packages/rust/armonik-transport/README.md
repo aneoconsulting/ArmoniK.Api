@@ -70,6 +70,23 @@ connection; `ProxyConfig::explicit(uri)` names a proxy, which is then used whate
 `with_credentials` authenticates to it, half by half: a half left empty keeps what the proxy URL
 itself carried.
 
+As options, `ProxyAddress` takes the same four values as ArmoniK's C# client: empty and `system`
+follow the environment, `none` forces a direct connection, anything else is the proxy's URL,
+defaulting to the `http` scheme. `ProxyUsername` and `ProxyPassword` authenticate to it. A URL that
+cannot be dialled as written, no host, a port that is not one, or a scheme other than `http`, is
+refused while the configuration is being read.
+
+Credentials go in one place or the other, never both: a URL carrying `user:password@` next to a
+non-empty `ProxyUsername` or `ProxyPassword` is refused rather than merged, since guessing which
+half of which source wins would turn a mixed configuration into a silent surprise.
+
+Three divergences from the C# client are deliberate. The option is `ProxyAddress`, where C# spells
+it `Proxy`; the matching C# rename is filed separately, and until it lands a deployment setting
+both clients names the proxy twice. Spell `none` and `system` exactly so, or capitalised: this
+crate accepts any casing, C# treats `NONE` as a proxy URL. And an `https` proxy URL, which C#
+passes to the runtime, is refused here: the `CONNECT` handshake would go out in the clear to a
+proxy expecting TLS.
+
 The connection is an HTTP `CONNECT` tunnel: TLS, mutual TLS included, is negotiated end to end with
 the real server, and the proxy only forwards opaque bytes. Because the `CONNECT` handshake itself goes
 out in the clear, the proxy's own URL has to be `http`. The handshake is bounded by

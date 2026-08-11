@@ -93,6 +93,9 @@ fn every_option_appears_under_its_flat_name() {
         "InitialBackOff",
         "MaxBackOff",
         "BackOffMultiplier",
+        "ProxyAddress",
+        "ProxyUsername",
+        "ProxyPassword",
     ] {
         assert!(names.iter().any(|name| name == option), "missing {option}");
     }
@@ -101,23 +104,16 @@ fn every_option_appears_under_its_flat_name() {
 #[test]
 fn the_schema_promises_nothing_that_is_not_read() {
     // A consumer generates its options class from this, so an option the schema declares and
-    // deserialisation ignores is a field that silently does nothing. The proxy and the retryable
-    // status codes are set programmatically and no option reads them.
+    // deserialisation ignores is a field that silently does nothing. The retryable status codes
+    // are set programmatically and no option reads them.
     let schema = schema();
     let mut names = Vec::new();
     property_names(&schema, &mut names);
 
-    for absent in [
-        "ProxyAddress",
-        "ProxyUsername",
-        "ProxyPassword",
-        "RetryableStatusCodes",
-    ] {
-        assert!(
-            !names.iter().any(|name| name == absent),
-            "`{absent}` is not read"
-        );
-    }
+    assert!(
+        !names.iter().any(|name| name == "RetryableStatusCodes"),
+        "`RetryableStatusCodes` is not read"
+    );
 }
 
 #[test]
@@ -137,6 +133,9 @@ fn the_prefixed_groups_keep_their_flat_spellings() {
         "KeepAliveTimeout",
         "KeepAliveWhileIdle",
         "MaxHeaderListSize",
+        "Address",
+        "Username",
+        "Password",
     ] {
         assert!(
             !names.iter().any(|name| name == unprefixed),
@@ -188,6 +187,35 @@ fn the_identity_alternatives_are_an_any_of() {
     assert!(
         identity.is_some(),
         "no anyOf spells the PEM pair and the PKCS#12 bundle as alternatives: {schema:#}"
+    );
+}
+
+#[test]
+fn the_proxy_alternatives_are_an_any_of() {
+    // Credentials come one of two ways, written into the URL or through the dedicated fields;
+    // deserialisation refuses a mix, so the schema spells the two shapes rather than flattening
+    // them into one bag a consumer could fill both halves of.
+    let schema = schema();
+    let mut found = Vec::new();
+    any_ofs(&schema, &mut found);
+
+    let proxy = found.iter().find(|alternatives| {
+        let with_fields = alternatives.iter().any(|alternative| {
+            let mut names = Vec::new();
+            property_names(alternative, &mut names);
+            names.iter().any(|name| name == "ProxyUsername")
+        });
+        let embedded = alternatives.iter().any(|alternative| {
+            let mut names = Vec::new();
+            property_names(alternative, &mut names);
+            names.iter().any(|name| name == "ProxyAddress")
+                && !names.iter().any(|name| name == "ProxyUsername")
+        });
+        with_fields && embedded
+    });
+    assert!(
+        proxy.is_some(),
+        "no anyOf spells the two proxy credential shapes: {schema:#}"
     );
 }
 
