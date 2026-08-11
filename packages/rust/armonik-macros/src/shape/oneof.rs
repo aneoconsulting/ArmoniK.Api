@@ -11,13 +11,11 @@ use crate::attr_site::{scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
 use crate::emit::{
-    dispatch, field_asserts_for, field_fragments, message_impl, msg_impl, normalize_impl,
-    registrations, tripwire,
+    field_fragments, message_impl, msg_impl, normalize_impl, registrations, slot_asserts,
+    slot_dispatch, tripwire,
 };
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
-use crate::plan::{
-    Expectation, InlinePart, OneofPlan, OneofVariant, OneofVariantShape, SiblingPlan,
-};
+use crate::plan::{Expectation, FieldAccess, OneofPlan, OneofVariant, Slot, SlotCodec};
 
 /// Partition a struct variant's named fields into the message's non-oneof fields and everything
 /// left over.
@@ -156,7 +154,9 @@ struct VariantCtx<'a> {
 
 /// A resolver returns the variant's shape, or `Err(())` after pushing the error(s) that make this
 /// variant unresolvable (the caller skips it).
-type ResolvedShape = Result<OneofVariantShape, ()>;
+/// What a variant resolved to: how it carries the member, through which codec, and what the shape
+/// assert should check. The caller assembles them into the variant's [`Slot`].
+type ResolvedShape = Result<(Option<FieldAccess>, SlotCodec, Option<Expectation>), ()>;
 
 /// Resolve one variant against the oneof member it names.
 ///
@@ -222,12 +222,14 @@ fn resolve_variant(
                 Some(_) => None,
                 None => Expectation::of(ctx.field_meta),
             };
-            Ok(OneofVariantShape::Payload {
-                ty: Box::new(fields.unnamed[0].ty.clone()),
-                adapter,
-                checks: Box::new(checks),
-                binding: None,
-            })
+            Ok((
+                Some(FieldAccess::Indexed(syn::Index::from(0))),
+                SlotCodec::Field {
+                    ty: Box::new(fields.unnamed[0].ty.clone()),
+                    adapter,
+                },
+                checks,
+            ))
         }
         syn::Fields::Named(named) => {
             if let Some((with_span, _)) = &with {
@@ -258,12 +260,14 @@ fn resolve_variant(
                         Some(_) => None,
                         None => Expectation::of(ctx.field_meta),
                     };
-                    Ok(OneofVariantShape::Payload {
-                        ty: Box::new(payload.ty),
-                        adapter,
-                        checks: Box::new(checks),
-                        binding: Some(payload.ident),
-                    })
+                    Ok((
+                        Some(FieldAccess::Named(payload.ident)),
+                        SlotCodec::Field {
+                            ty: Box::new(payload.ty),
+                            adapter,
+                        },
+                        checks,
+                    ))
                 }
                 Err(leftovers) if leftovers.is_empty() => {
                     errors.at(
@@ -321,8 +325,20 @@ fn resolve_marker_variant(
         return Err(());
     }
     match &ctx.field_meta.kind {
-        FieldKind::Bool => Ok(OneofVariantShape::MarkerBool),
-        FieldKind::Message(_) => Ok(OneofVariantShape::MarkerMessage),
+        FieldKind::Bool => Ok((
+            None,
+            SlotCodec::Marker {
+                empty_message: false,
+            },
+            None,
+        )),
+        FieldKind::Message(_) => Ok((
+            None,
+            SlotCodec::Marker {
+                empty_message: true,
+            },
+            None,
+        )),
         other => {
             errors.at(
                 ctx.span,
@@ -383,11 +399,14 @@ fn resolve_inline_member(
         else {
             continue;
         };
-        parts.push(InlinePart {
+        parts.push(Slot {
             span: leftover.span,
-            ident: leftover.ident,
-            ty: leftover.ty,
+            access: Some(FieldAccess::Named(leftover.ident)),
             tag: part_meta.tag,
+            codec: SlotCodec::Field {
+                ty: Box::new(leftover.ty),
+                adapter: None,
+            },
             proto_path: format!("{inner_name}.{}", part_meta.name),
             checks: Expectation::of(part_meta),
         });
@@ -395,7 +414,7 @@ fn resolve_inline_member(
     matcher.check_complete(ctx.span, errors);
     parts.sort_by_key(|part| part.tag);
     absorbs.push(inner_name.clone());
-    Ok(OneofVariantShape::Inline { parts })
+    Ok((None, SlotCodec::Inline { parts }, None))
 }
 
 pub(crate) fn oneof_plan(
@@ -638,7 +657,7 @@ pub(crate) fn oneof_plan(
             present,
             inline,
         };
-        let shape = match resolve_variant(
+        let (access, codec, checks) = match resolve_variant(
             &ctx,
             &sibling_metas,
             &mut sibling_bindings,
@@ -646,16 +665,20 @@ pub(crate) fn oneof_plan(
             &mut absorbs,
             &mut errors,
         ) {
-            Ok(shape) => shape,
+            Ok(resolved) => resolved,
             Err(()) => continue,
         };
 
         variants.push(OneofVariant {
             ident: variant.ident.clone(),
-            span,
-            tag: field_meta.tag,
-            proto_path,
-            shape,
+            own: Slot {
+                access,
+                span,
+                tag: field_meta.tag,
+                codec,
+                checks,
+                proto_path,
+            },
         });
     }
 
@@ -679,18 +702,21 @@ pub(crate) fn oneof_plan(
         // Missing bindings are only possible when every variant errored; those errors were reported
         // above.
         let Some((ident, ty)) = binding else { continue };
-        siblings.push(SiblingPlan {
+        siblings.push(Slot {
             span: ident.span(),
-            ident: ident.clone(),
-            ty: ty.clone(),
+            access: Some(FieldAccess::Named(ident.clone())),
             tag: meta_field.tag,
+            codec: SlotCodec::Field {
+                ty: Box::new(ty.clone()),
+                adapter: None,
+            },
             proto_path: format!("{proto_name}.{}", meta_field.name),
             checks: Expectation::of(meta_field),
         });
     }
     siblings.sort_by_key(|sibling| sibling.tag);
 
-    variants.sort_by_key(|variant| variant.tag);
+    variants.sort_by_key(|variant| variant.own.tag);
     Ok(OneofPlan {
         ident: input.ident.clone(),
         proto_name,
@@ -718,7 +744,14 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // of the siblings, plus the sibling fields' fragments. Every variant carries every sibling, so
     // the fragments are emitted once *around* the member match rather than inside each of its arms,
     // and the arms only have to deal with the member.
-    let sib_idents: Vec<&syn::Ident> = plan.siblings.iter().map(|sibling| &sibling.ident).collect();
+    let sib_idents: Vec<&syn::Ident> = plan
+        .siblings
+        .iter()
+        .map(|sibling| match sibling.access.as_ref() {
+            Some(FieldAccess::Named(ident)) => ident,
+            _ => unreachable!("a sibling is a named field of every variant"),
+        })
+        .collect();
     // Bound under `__f<tag>`, never under the user's field name: these locals sit in the same scope
     // as the emitter's own `buf`, `len`, `value`, `tag`, `wire_type` and `ctx`, and a proto field
     // named like any of those would otherwise shadow one.
@@ -760,13 +793,13 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // Ascending tags across the whole message: the siblings below the oneof's tags are written
     // before the member, the ones above it after. (The shapes the derive accepts never interleave
     // the two.)
-    let min_member_tag = plan.variants.iter().map(|variant| variant.tag).min();
+    let min_member_tag = plan.variants.iter().map(|variant| variant.own.tag).min();
     let (low, high): (Vec<_>, Vec<_>) = plan
         .siblings
         .iter()
         .zip(&sib_locals)
         .map(|(sibling, local)| {
-            let d = dispatch(&sibling.ty, None);
+            let d = slot_dispatch(sibling);
             field_fragments(&d, sibling.tag, quote!(#local))
         })
         .partition(|(tag, _, _)| min_member_tag.is_some_and(|member| *tag < member));
@@ -792,38 +825,25 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     let mut normalize_fragments = Vec::new();
 
     for sibling in &plan.siblings {
-        asserts.extend(field_asserts_for(
-            &sibling.ty,
-            sibling.span,
-            &sibling.proto_path,
-            &sibling.checks,
-            ident,
-        ));
+        asserts.extend(slot_asserts(sibling, ident));
     }
 
     for variant in &plan.variants {
         let var = &variant.ident;
-        let tag = variant.tag;
-        match &variant.shape {
-            OneofVariantShape::Payload {
-                ty,
-                adapter,
-                checks,
-                binding,
-            } => {
-                let d = dispatch(ty, adapter.as_deref());
+        let own = &variant.own;
+        let tag = own.tag;
+        asserts.extend(slot_asserts(own, ident));
+        match &own.codec {
+            SlotCodec::Field { adapter, .. } => {
+                let d = slot_dispatch(own);
+                let binding = match own.access.as_ref() {
+                    Some(FieldAccess::Named(field)) => Some(field),
+                    _ => None,
+                };
                 if adapter.is_some() {
                     normalize_fragments.push(quote! {
                         #d::normalize_dynamic(message, #tag);
                     });
-                } else {
-                    asserts.extend(field_asserts_for(
-                        ty,
-                        variant.span,
-                        &variant.proto_path,
-                        checks,
-                        ident,
-                    ));
                 }
 
                 // The active member carries the oneof's presence, so it is emitted even with a
@@ -868,7 +888,9 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                     }
                 });
             }
-            OneofVariantShape::MarkerBool => {
+            SlotCodec::Marker {
+                empty_message: false,
+            } => {
                 // Only the member's presence survives (an explicit `false` reads as set).
                 normalize_fragments.push(quote! {
                     crate::differential::bool_marker(message, #tag);
@@ -892,7 +914,9 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                     }
                 });
             }
-            OneofVariantShape::MarkerMessage => {
+            SlotCodec::Marker {
+                empty_message: true,
+            } => {
                 encode_arms.push(quote! {
                     Self::#var => {
                         crate::codec::empty_body::encode(#tag, buf);
@@ -909,14 +933,28 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                     }
                 });
             }
-            OneofVariantShape::Inline { parts } => {
-                let part_idents: Vec<_> = parts.iter().map(|part| &part.ident).collect();
-                let part_tys: Vec<_> = parts.iter().map(|part| &part.ty).collect();
-                let part_tags: Vec<_> = parts.iter().map(|part| part.tag).collect();
+            // A variant carries one member, never a whole oneof: an enum standing for a oneof
+            // *is* the flattened form, so there is nothing left to flatten.
+            SlotCodec::Oneof { .. } => {
+                unreachable!("a oneof variant carries a member, not another oneof")
+            }
+            SlotCodec::Inline { parts } => {
+                let part_idents: Vec<&syn::Ident> = parts
+                    .iter()
+                    .map(|part| match part.access.as_ref() {
+                        Some(FieldAccess::Named(ident)) => ident,
+                        _ => unreachable!("an inlined part is a named field of the variant"),
+                    })
+                    .collect();
+                let part_tys: Vec<&syn::Type> = parts
+                    .iter()
+                    .map(|part| part.ty().expect("an inlined part carries a value"))
+                    .collect();
+                let part_tags: Vec<u32> = parts.iter().map(|part| part.tag).collect();
                 let part_seeds: Vec<_> = parts
                     .iter()
                     .map(|part| {
-                        let ty = &part.ty;
+                        let ty = part.ty().expect("an inlined part carries a value");
                         quote!(<#ty as ::core::default::Default>::default())
                     })
                     .collect();
@@ -925,10 +963,8 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                 // to.
                 let fragments: Vec<_> = parts
                     .iter()
-                    .map(|part| {
-                        let id = &part.ident;
-                        field_fragments(&dispatch(&part.ty, None), part.tag, quote!(#id))
-                    })
+                    .zip(&part_idents)
+                    .map(|(part, id)| field_fragments(&slot_dispatch(part), part.tag, quote!(#id)))
                     .collect();
                 let encodes = fragments.iter().map(|(_, encode, _)| encode);
                 let lens = fragments.iter().map(|(_, _, len)| len);
@@ -996,15 +1032,6 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                         ::core::result::Result::Ok(())
                     }
                 });
-                for part in parts {
-                    asserts.extend(field_asserts_for(
-                        &part.ty,
-                        part.span,
-                        &part.proto_path,
-                        &part.checks,
-                        ident,
-                    ));
-                }
             }
         }
     }
@@ -1012,7 +1039,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // A sibling occurrence merges in place, whatever the current variant.
     for (position, sibling) in plan.siblings.iter().enumerate() {
         let local = &sib_locals[position];
-        let sty = &sibling.ty;
+        let sty = sibling.ty().expect("a sibling carries a value");
         let stag = sibling.tag;
         let self_pats = pats(&[position]);
         merge_arms.push(quote! {

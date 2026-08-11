@@ -9,11 +9,11 @@ use crate::attr_site::{field_access, scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::DescriptorIndex;
 use crate::emit::{
-    dispatch, field_asserts_for, field_fragments, message_impl, msg_impl, normalize_impl,
-    registrations, tripwire,
+    field_fragments, message_impl, msg_impl, normalize_impl, registrations, slot_asserts,
+    slot_dispatch, tripwire,
 };
 use crate::matcher::{not_found, Found, Matcher};
-use crate::plan::{Expectation, FieldCodec, FieldPlan, MessagePlan};
+use crate::plan::{Expectation, MessagePlan, Slot, SlotCodec};
 use crate::shape::generic::generic_plan;
 use crate::shape::transparent::{transparent_message, transparent_plan};
 
@@ -156,12 +156,14 @@ pub(crate) fn message_plan(
                     continue;
                 }
                 let min_tag = tags.iter().copied().min().unwrap_or_default();
-                fields.push(FieldPlan {
-                    access,
-                    ty: field.ty.clone(),
+                fields.push(Slot {
+                    access: Some(access),
                     span,
                     tag: min_tag,
-                    codec: FieldCodec::OneofGroup { tags },
+                    codec: SlotCodec::Oneof {
+                        ty: Box::new(field.ty.clone()),
+                        tags,
+                    },
                     checks: None,
                     proto_path,
                 });
@@ -175,12 +177,12 @@ pub(crate) fn message_plan(
                 (field_meta.tag, checks)
             }
         };
-        fields.push(FieldPlan {
-            access,
-            ty: field.ty.clone(),
+        fields.push(Slot {
+            access: Some(access),
             span,
             tag,
-            codec: FieldCodec::Field {
+            codec: SlotCodec::Field {
+                ty: Box::new(field.ty.clone()),
                 adapter: with.map(Box::new),
             },
             checks,
@@ -238,13 +240,13 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let mut asserts = TokenStream::new();
 
     for field in &plan.fields {
-        let access = &field.access;
-        let ty = &field.ty;
+        let access = field.access.as_ref().expect("a struct field is reachable");
         let tag = field.tag;
+        let d = slot_dispatch(field);
+        asserts.extend(slot_asserts(field, ident));
 
         match &field.codec {
-            FieldCodec::Field { adapter } => {
-                let d = dispatch(ty, adapter.as_deref());
+            SlotCodec::Field { adapter, .. } => {
                 let (_, encode, len) = field_fragments(&d, tag, quote!(&self.#access));
                 encode_fragments.push(encode);
                 len_fragments.push(quote! { len += #len; });
@@ -255,31 +257,28 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
                     normalize_fragments.push(quote! {
                         #d::normalize_dynamic(message, #tag);
                     });
-                } else {
-                    asserts.extend(field_asserts_for(
-                        ty,
-                        field.span,
-                        &field.proto_path,
-                        &field.checks,
-                        ident,
-                    ));
                 }
             }
-            FieldCodec::OneofGroup { tags } => {
+            SlotCodec::Oneof { ty, tags } => {
                 encode_fragments.push(quote! {
-                    <#ty as ::prost::Message>::encode_raw(&self.#access, buf);
+                    #d::encode_raw(&self.#access, buf);
                 });
                 merge_arms.push(quote! {
-                    #(#tags)|* => <#ty as ::prost::Message>::merge_field(
+                    #(#tags)|* => #d::merge_field(
                         &mut self.#access, tag, wire_type, buf, ctx,
                     )
                 });
                 len_fragments.push(quote! {
-                    len += <#ty as ::prost::Message>::encoded_len(&self.#access);
+                    len += #d::encoded_len(&self.#access);
                 });
                 normalize_fragments.push(quote! {
                     <#ty as crate::differential::Normalize>::normalize(message);
                 });
+            }
+            // A struct's fields are all ordinary fields: the two shapes below only ever describe
+            // what a oneof *variant* carries.
+            SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => {
+                unreachable!("a struct field is a field or a whole oneof")
             }
         }
     }
