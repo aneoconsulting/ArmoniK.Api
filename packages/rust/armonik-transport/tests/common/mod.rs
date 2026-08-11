@@ -162,6 +162,38 @@ pub async fn call(
     Ok(response.into_inner())
 }
 
+/// Read up to the blank line that ends an HTTP head.
+///
+/// One byte at a time on purpose: the socket is used for the tunnel afterwards, so reading past the
+/// head would swallow tunnelled bytes. Test heads are a few hundred bytes, so the cost is nothing.
+#[allow(dead_code)] // not every test binary drives a proxy
+pub async fn read_head(stream: &mut tokio::net::TcpStream) -> std::io::Result<String> {
+    use tokio::io::AsyncReadExt;
+
+    let mut head = Vec::new();
+    loop {
+        let mut byte = [0u8; 1];
+        stream.read_exact(&mut byte).await?;
+        head.push(byte[0]);
+        if head.ends_with(b"\r\n\r\n") {
+            return Ok(String::from_utf8_lossy(&head).into_owned());
+        }
+        if head.len() > 8 * 1024 {
+            return Err(std::io::Error::other("head too large"));
+        }
+    }
+}
+
+/// The request-target of a `CONNECT` request's start line, e.g. `proxy.corp:3128`.
+#[allow(dead_code)] // not every test binary drives a proxy
+pub fn request_target(head: &str) -> String {
+    head.lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .unwrap_or_default()
+        .to_owned()
+}
+
 /// Build a [`ClientConfig`] from the string form, applying `set` to the arguments first.
 ///
 /// Going through `ClientConfigArgs` keeps the parsing inside what is under test. It is a helper at all

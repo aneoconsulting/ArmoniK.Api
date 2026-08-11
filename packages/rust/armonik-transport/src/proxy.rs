@@ -1,15 +1,32 @@
-//! Configuration for reaching the endpoint through an HTTP proxy.
+//! Reaching the endpoint through an HTTP proxy.
 //!
-//! Proxying uses a `CONNECT` tunnel rather than an absolute-form request, so TLS stays end to end
-//! with the real server. These are the types that describe the proxy and the credential handling
-//! they guarantee: whatever form credentials arrive in, they end up in dedicated fields, never in
-//! a URI that a log line or an error display would render.
+//! A `CONNECT` tunnel rather than an absolute-form request, so TLS stays end to end with the real
+//! server: [`ProxyConnector`] sits below the TLS connector and hands back the stream a direct
+//! connection would. The handshake itself is `hyper_util`'s own [`Tunnel`], not one written here.
+
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll};
+use std::time::Duration;
 
 use base64::Engine;
 use hyper::http::uri::Scheme;
 use hyper::http::HeaderValue;
 use hyper::Uri;
+use hyper_util::client::legacy::connect::proxy::Tunnel;
+use hyper_util::rt::TokioIo;
 use secrecy::{ExposeSecret, SecretString};
+use snafu::{IntoError, Snafu};
+use tokio::net::TcpStream;
+use tower_service::Service;
+
+/// What a connector reports when it fails, which every layer here has to be able to carry.
+type BoxError = Box<dyn std::error::Error + Send + Sync>;
+
+/// Upper bound on the tunnel handshake when no connect timeout is configured, so a proxy that
+/// accepts the connection and then goes quiet fails instead of hanging. `Tunnel` has no timeout of
+/// its own.
+const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Where to find the HTTP proxy used to reach the endpoint.
 #[derive(Clone, Default, PartialEq, Eq)]
@@ -135,7 +152,6 @@ impl ProxyConfig {
     /// Resolved from the fields as they are, not as a constructor left them: an `Explicit` URI is
     /// stripped of any userinfo even when it bypassed [`ProxyConfig::explicit`], so a password
     /// never reaches a log line or an error display through the URI.
-    #[allow(dead_code)]
     pub(crate) fn fixed_route(&self) -> RouteResult {
         match &self.source {
             ProxySource::Disabled => Ok(None),
@@ -181,8 +197,234 @@ impl ProxyConfig {
 /// connection. The error carries the proxy that cannot be routed through - a scheme that cannot
 /// carry the cleartext handshake, or the placeholder for a URI with no sanitized form - so
 /// whoever reports it names the offending URI once, and that URI never holds a password.
-#[allow(dead_code)]
 pub(crate) type RouteResult = Result<Option<(Uri, Option<HeaderValue>)>, Uri>;
+
+/// Wraps a TCP connector so that it tunnels through an HTTP proxy when one is configured.
+///
+/// A request that must not be proxied goes straight to the inner connector, leaving that path as it
+/// was. Generic over the connector because all this layer needs is something that turns a [`Uri`]
+/// into a TCP stream; which one is knowledge it has no use for.
+#[derive(Debug, Clone)]
+pub struct ProxyConnector<S> {
+    inner: S,
+    prepared: Prepared,
+    /// Upper bound on the tunnel handshake alone; the dial to the proxy is the inner connector's,
+    /// bounded by its own connect timeout.
+    handshake_timeout: Duration,
+}
+
+/// What [`ProxyConnector::new`] resolves once, so a connection pays no route work when the route
+/// cannot change.
+#[derive(Debug, Clone)]
+enum Prepared {
+    /// Connect directly.
+    Direct,
+    /// Tunnel through this proxy, presenting this ready `Proxy-Authorization` value.
+    Via {
+        proxy: Uri,
+        auth: Option<HeaderValue>,
+    },
+    /// Refuse every connection: this proxy's scheme cannot carry the cleartext handshake.
+    Unsupported(Uri),
+}
+
+impl<S> ProxyConnector<S> {
+    /// Wrap a TCP connector with the given proxy configuration.
+    ///
+    /// `connect_timeout` bounds the tunnel handshake, so the knob that governs how long connecting
+    /// may take governs the proxied path too; without one, a 30-second default keeps a proxy that
+    /// accepts the connection and then goes quiet from hanging the client.
+    pub(crate) fn new(inner: S, proxy: ProxyConfig, connect_timeout: Option<Duration>) -> Self {
+        let prepared = match proxy.fixed_route() {
+            Ok(None) => Prepared::Direct,
+            Ok(Some((uri, auth))) => Prepared::Via { proxy: uri, auth },
+            Err(unsupported) => Prepared::Unsupported(unsupported),
+        };
+        Self {
+            inner,
+            prepared,
+            handshake_timeout: connect_timeout.unwrap_or(DEFAULT_HANDSHAKE_TIMEOUT),
+        }
+    }
+}
+
+impl<S> Service<Uri> for ProxyConnector<S>
+where
+    S: Service<Uri, Response = TokioIo<TcpStream>> + Clone + Send + 'static,
+    S::Error: Into<BoxError> + Send + Sync + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = TokioIo<TcpStream>;
+    type Error = BoxError;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx).map_err(Into::into)
+    }
+
+    fn call(&mut self, target: Uri) -> Self::Future {
+        let (proxy_uri, auth) = match &self.prepared {
+            // Nothing to tunnel through: keep the original behaviour untouched.
+            Prepared::Direct => {
+                let future = self.inner.call(target);
+                return Box::pin(async move { future.await.map_err(Into::into) });
+            }
+            Prepared::Via { proxy, auth } => (proxy.clone(), auth.clone()),
+            Prepared::Unsupported(proxy) => {
+                let error = UnsupportedProxySnafu {
+                    proxy: proxy.clone(),
+                }
+                .build();
+                return Box::pin(std::future::ready(Err(error.into())));
+            }
+        };
+
+        // Dial the proxy with the inner connector, so a failure to reach it is classified by
+        // construction rather than by matching upstream error text; `Tunnel` then handshakes over
+        // the stream it is handed and only the handshake is upstream's.
+        let connect = self.inner.call(proxy_uri.clone());
+        let timeout = self.handshake_timeout;
+        Box::pin(async move {
+            let stream = connect.await.map_err(|error| {
+                ConnectSnafu {
+                    proxy: proxy_uri.clone(),
+                }
+                .into_error(error.into())
+            })?;
+
+            let mut tunnel = Tunnel::new(proxy_uri.clone(), Connected(Some(stream)));
+            if let Some(auth) = auth {
+                tunnel = tunnel.with_auth(auth);
+            }
+
+            let handshake = tunnel.call(target.clone());
+            let stream = tokio::time::timeout(timeout, handshake)
+                .await
+                .map_err(|_| {
+                    HandshakeTimeoutSnafu {
+                        proxy: proxy_uri.clone(),
+                        timeout,
+                    }
+                    .build()
+                })?
+                .map_err(|error| translate(proxy_uri.clone(), error))?;
+
+            tracing::debug!(proxy = %proxy_uri, %target, "Established proxy tunnel");
+
+            Ok(stream)
+        })
+    }
+}
+
+/// A connector that hands out one stream, already connected.
+///
+/// What [`Tunnel`] dials through: the proxy was dialled by the real connector before the tunnel
+/// was built, so the errors of reaching it and of handshaking over it stay distinguishable without
+/// looking at either one's text.
+struct Connected(Option<TokioIo<TcpStream>>);
+
+impl Service<Uri> for Connected {
+    type Response = TokioIo<TcpStream>;
+    type Error = BoxError;
+    type Future = std::future::Ready<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _proxy: Uri) -> Self::Future {
+        std::future::ready(
+            self.0
+                .take()
+                .ok_or_else(|| BoxError::from("the tunnel opens once per connection")),
+        )
+    }
+}
+
+/// Turn what `Tunnel` reports into an error naming the proxy.
+///
+/// The proxy was dialled before the tunnel was built, so everything arriving here is the handshake
+/// itself. One case still gets a better message than "did not open the tunnel", detected by text:
+/// `hyper_util`'s `TunnelError` lives in a private module of that crate with no public path, only
+/// trait bounds reach it, so its 407 variant cannot be matched. Brittle in principle; pinned by an
+/// integration test, so a wording change upstream breaks loudly instead of silently losing the
+/// hint.
+fn translate(proxy: Uri, error: impl std::error::Error + Send + Sync + 'static) -> ProxyError {
+    if error.to_string().contains("proxy authorization required") {
+        return AuthenticationRequiredSnafu {}.build();
+    }
+    TunnelFailedSnafu { proxy }.into_error(BoxError::from(error))
+}
+
+/// Failure to reach the endpoint through the proxy.
+#[derive(Debug, Snafu)]
+#[non_exhaustive]
+pub enum ProxyError {
+    #[snafu(display("Could not connect to the proxy {proxy} [{location}]"))]
+    #[non_exhaustive]
+    Connect {
+        proxy: Uri,
+        source: BoxError,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "The proxy {proxy} did not complete the tunnel within {timeout:?} [{location}]"
+    ))]
+    #[non_exhaustive]
+    HandshakeTimeout {
+        proxy: Uri,
+        timeout: Duration,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "The proxy requires authentication; configure proxy credentials [{location}]"
+    ))]
+    #[non_exhaustive]
+    AuthenticationRequired {
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display("The proxy {proxy} did not open the tunnel [{location}]"))]
+    #[non_exhaustive]
+    TunnelFailed {
+        proxy: Uri,
+        source: BoxError,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+    #[snafu(display(
+        "The `CONNECT` handshake is written in the clear, so only an `http` proxy can be reached, \
+         not {proxy} [{location}]"
+    ))]
+    #[non_exhaustive]
+    UnsupportedProxy {
+        proxy: Uri,
+        #[snafu(implicit)]
+        location: snafu::Location,
+    },
+}
+
+impl ProxyError {
+    /// The `ProxyError` buried in `error`'s source chain, if any.
+    ///
+    /// [`crate::connect`] returns the transport's own error type, which carries this one as an
+    /// anonymous boxed cause. This walk is how a caller reacts to a proxy failure in particular,
+    /// e.g. prompting for credentials on [`ProxyError::AuthenticationRequired`], without matching
+    /// on rendered text.
+    pub fn find_in<'a>(error: &'a (dyn std::error::Error + 'static)) -> Option<&'a ProxyError> {
+        let mut current = Some(error);
+        while let Some(error) = current {
+            if let Some(proxy) = error.downcast_ref::<ProxyError>() {
+                return Some(proxy);
+            }
+            current = error.source();
+        }
+        None
+    }
+}
 
 /// A whole `Proxy-Authorization` value for the `Basic` scheme, marked sensitive so it is never
 /// logged.
@@ -503,5 +745,51 @@ mod tests {
             .expect("routing should succeed")
             .expect("an explicit proxy routes through it");
         assert_eq!(auth, None);
+    }
+
+    // --- the connector dials the proxy, not the target ---
+
+    /// A connector that records what it was asked to reach, and refuses.
+    #[derive(Clone)]
+    struct Recorder(std::sync::Arc<std::sync::Mutex<Vec<Uri>>>);
+
+    impl Service<Uri> for Recorder {
+        type Response = TokioIo<TcpStream>;
+        type Error = BoxError;
+        type Future =
+            Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+        fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+
+        fn call(&mut self, target: Uri) -> Self::Future {
+            self.0.lock().expect("lock").push(target);
+            Box::pin(std::future::ready(Err(BoxError::from("recorder"))))
+        }
+    }
+
+    #[tokio::test]
+    async fn an_explicit_proxy_is_dialled_whatever_the_target_looks_like() {
+        // The caller named this proxy, so it is dialled even for a target scheme no environment
+        // convention would proxy; connecting straight to the target instead would silently ignore
+        // the configuration.
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let proxy = Uri::try_from("http://proxy.corp:3128").expect("a valid proxy URI");
+        let mut connector = ProxyConnector::new(
+            Recorder(std::sync::Arc::clone(&seen)),
+            ProxyConfig::explicit(proxy.clone()),
+            None,
+        );
+
+        let target = Uri::try_from("grpc://armonik.example.com:5001").expect("a valid target");
+        let _ = connector.call(target.clone()).await;
+
+        let seen = seen.lock().expect("lock");
+        assert_eq!(
+            seen.as_slice(),
+            &[proxy],
+            "the proxy should have been dialled, not {target}"
+        );
     }
 }

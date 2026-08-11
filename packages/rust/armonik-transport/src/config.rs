@@ -4,6 +4,8 @@ use hyper::{http::HeaderValue, Uri};
 use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use snafu::{ResultExt, Snafu};
 
+use crate::proxy::ProxyConfig;
+
 /// Options for creating a gRPC Client
 #[derive(Debug, Default)]
 #[non_exhaustive]
@@ -42,6 +44,8 @@ pub struct ClientConfig {
     pub http2_max_header_list_size: Option<u32>,
     /// User-Agent header value sent with each request
     pub user_agent: Option<HeaderValue>,
+    /// HTTP proxy used to reach the endpoint, defaults to a direct connection
+    pub proxy: ProxyConfig,
 }
 
 impl Clone for ClientConfig {
@@ -67,6 +71,7 @@ impl Clone for ClientConfig {
             http2_keep_alive_while_idle: self.http2_keep_alive_while_idle,
             http2_max_header_list_size: self.http2_max_header_list_size,
             user_agent: self.user_agent.clone(),
+            proxy: self.proxy.clone(),
         }
     }
 }
@@ -434,6 +439,7 @@ impl ClientConfig {
             http2_keep_alive_while_idle,
             http2_max_header_list_size,
             user_agent,
+            proxy: ProxyConfig::default(),
         })
     }
 }
