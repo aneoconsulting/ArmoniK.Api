@@ -7,7 +7,7 @@ use snafu::{ResultExt, Snafu};
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
     ConfigError, ConnectionError, Http2Config, HttpConfig, Identity, ProxyConfig, ProxyError,
-    ProxySource, SecretString, TcpConfig, TlsConfig,
+    ProxySource, RetryConfig, SecretString, TcpConfig, TlsConfig,
 };
 
 #[cfg(feature = "_gen-client")]

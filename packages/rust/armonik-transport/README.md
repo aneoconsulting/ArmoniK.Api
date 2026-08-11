@@ -36,6 +36,17 @@ refused rather than ignored.
 
 ArmoniK's C# client reads the same `CertP12` option but has no `CertP12Password` counterpart, so a
 password-protected bundle is not portable to it.
+## Replaying a failed request
+
+`HttpConfig::retry` holds the policy: `MaxAttempts`, `InitialBackOff`, `MaxBackOff` and
+`BackOffMultiplier`, defaulting to what ArmoniK's other clients hand grpc-dotnet, so a deployment
+that sets nothing behaves the same whichever client talks to it. It is applied by whoever makes the
+calls: a channel carries no notion of a call, so `connect` does not read it.
+
+`BackOffMultiplier` is spelled `BackoffMultiplier`, with a lowercase o, by the C# client. Until that
+client is renamed to match, a deployment setting `GrpcClient__BackoffMultiplier` is read by C# and
+not by this crate, which reads `GrpcClient__BackOffMultiplier`. `InitialBackOff` and `MaxBackOff`
+are spelled identically on both sides.
 
 ## Reaching the endpoint through a proxy
 

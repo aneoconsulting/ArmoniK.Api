@@ -89,6 +89,10 @@ fn every_option_appears_under_its_flat_name() {
         "Http2KeepAliveWhileIdle",
         "Http2MaxHeaderListSize",
         "UserAgent",
+        "MaxAttempts",
+        "InitialBackOff",
+        "MaxBackOff",
+        "BackOffMultiplier",
     ] {
         assert!(names.iter().any(|name| name == option), "missing {option}");
     }
@@ -97,13 +101,18 @@ fn every_option_appears_under_its_flat_name() {
 #[test]
 fn the_schema_promises_nothing_that_is_not_read() {
     // A consumer generates its options class from this, so an option the schema declares and
-    // deserialisation ignores is a field that silently does nothing. The proxy is set
-    // programmatically and no option reads it.
+    // deserialisation ignores is a field that silently does nothing. The proxy and the retryable
+    // status codes are set programmatically and no option reads them.
     let schema = schema();
     let mut names = Vec::new();
     property_names(&schema, &mut names);
 
-    for absent in ["ProxyAddress", "ProxyUsername", "ProxyPassword"] {
+    for absent in [
+        "ProxyAddress",
+        "ProxyUsername",
+        "ProxyPassword",
+        "RetryableStatusCodes",
+    ] {
         assert!(
             !names.iter().any(|name| name == absent),
             "`{absent}` is not read"

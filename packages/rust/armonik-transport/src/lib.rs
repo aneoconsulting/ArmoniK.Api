@@ -9,6 +9,7 @@ mod config_utils;
 mod connect;
 mod http2_config;
 mod proxy;
+mod retry_config;
 mod tcp_config;
 mod tls_config;
 mod utils;
@@ -17,6 +18,7 @@ pub use config::{ConfigError, HttpConfig};
 pub use connect::{connect, https_connector, ConnectionError};
 pub use http2_config::Http2Config;
 pub use proxy::{ProxyConfig, ProxyError, ProxySource};
+pub use retry_config::RetryConfig;
 pub use tcp_config::TcpConfig;
 pub use tls_config::{Identity, TlsConfig};
 // The password's own type, so a caller can build a `ProxyConfig` without declaring a dependency on
