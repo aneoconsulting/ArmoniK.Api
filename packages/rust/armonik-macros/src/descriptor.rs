@@ -358,7 +358,16 @@ fn clean_comment(comment: &str) -> Vec<String> {
         .lines()
         .map(|line| {
             let line = line.strip_prefix(' ').unwrap_or(line).trim_end();
-            if line == "*" { "" } else { line }.to_owned()
+            // The protos are commented `/** ... */`, and protoc hands the continuation lines over
+            // with their leading `*` intact. A bare one is a blank line; one with content is the
+            // margin, and leaving it in makes rustdoc read the line as a markdown bullet, which
+            // rendered 381 of 3,366 docblocks as one-item lists.
+            let line = if line == "*" {
+                ""
+            } else {
+                line.strip_prefix("* ").unwrap_or(line)
+            };
+            line.to_owned()
         })
         .collect();
     while lines.first().is_some_and(|line| line.is_empty()) {

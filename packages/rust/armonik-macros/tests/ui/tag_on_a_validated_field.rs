@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)] // the expansions cfg on armonik's features; see tests/ui.rs
+
 include!("../support/prelude.rs");
 
 // A descriptor-validated field takes its tag from the descriptor; `tag` belongs to `generic` mode.

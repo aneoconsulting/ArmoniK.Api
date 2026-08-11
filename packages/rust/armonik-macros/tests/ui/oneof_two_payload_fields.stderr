@@ -1,17 +1,17 @@
 error: only one field of the variant may carry the member `text`; add #[armonik(inline)] to the variant if these are the member message's own fields, spread into it
-  --> tests/ui/oneof_two_payload_fields.rs:11:9
+  --> tests/ui/oneof_two_payload_fields.rs:13:9
    |
-11 |         extra: String,
+13 |         extra: String,
    |         ^^^^^
 
 error: oneof member `fixture.Choice.simple` (tag 3) is not covered by any variant
- --> tests/ui/oneof_two_payload_fields.rs:7:10
+ --> tests/ui/oneof_two_payload_fields.rs:9:10
   |
-7 | pub enum Choice {
+9 | pub enum Choice {
   |          ^^^^^^
 
 error: oneof member `fixture.Choice.flag` (tag 4) is not covered by any variant
- --> tests/ui/oneof_two_payload_fields.rs:7:10
+ --> tests/ui/oneof_two_payload_fields.rs:9:10
   |
-7 | pub enum Choice {
+9 | pub enum Choice {
   |          ^^^^^^

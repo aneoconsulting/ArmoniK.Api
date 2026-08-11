@@ -1,5 +1,5 @@
 error: #[armonik(transparent)] structs must have exactly one field, delegated to
- --> tests/ui/transparent_multiple_fields.rs:7:12
+ --> tests/ui/transparent_multiple_fields.rs:9:12
   |
-7 | pub struct Simple {
+9 | pub struct Simple {
   |            ^^^^^^

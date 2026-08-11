@@ -1,5 +1,5 @@
 error: proto field `fixture.Simple.count` (tag 2) is not covered by any Rust field
- --> tests/ui/uncovered_field.rs:7:12
+ --> tests/ui/uncovered_field.rs:9:12
   |
-7 | pub struct Simple {
+9 | pub struct Simple {
   |            ^^^^^^

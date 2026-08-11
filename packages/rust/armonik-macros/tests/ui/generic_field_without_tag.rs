@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)] // the expansions cfg on armonik's features; see tests/ui.rs
+
 include!("../support/prelude.rs");
 
 // `generic` names no proto message, so every field must carry its own tag.

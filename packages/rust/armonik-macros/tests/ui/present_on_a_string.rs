@@ -1,6 +1,4 @@
-// The stub a failed expansion emits is gated on `_differential`, which `armonik` declares
-// and a one-file compile-fail crate cannot.
-#![allow(unexpected_cfgs)]
+#![allow(unexpected_cfgs)] // the expansions cfg on armonik's features; see tests/ui.rs
 
 include!("../support/prelude.rs");
 
