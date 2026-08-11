@@ -356,3 +356,126 @@ pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
         }
     }
 }
+
+/// What one slot contributes to the three walks over a message: the encode statement, the length
+/// expression, and the `Normalize` projection its representation implies.
+pub(crate) struct SlotWrite {
+    pub(crate) encode: TokenStream,
+    pub(crate) len: TokenStream,
+    pub(crate) normalize: Option<TokenStream>,
+}
+
+/// The write side of one slot, whatever it sits in.
+///
+/// `value` names the value, already by reference: `&self.field` for a struct's field, the binding a
+/// pattern introduced for a oneof's sibling or member. That one parameter is the whole difference
+/// between a struct's field and a variant's member on this side, which is why both emitters can
+/// share this. An `Inline` slot ignores it: its parts name themselves, through the bindings the
+/// caller's pattern introduces.
+///
+/// The read side does not factor the same way, and deliberately is not forced to: a shared slot
+/// merges in place, while a variant's own slot has to take the shared ones out, merge, and rebuild
+/// the variant around them. Those are two templates about the *enum*, not about the slot.
+pub(crate) fn slot_write(slot: &Slot, value: &TokenStream) -> SlotWrite {
+    let tag = slot.tag;
+    match &slot.codec {
+        SlotCodec::Field { adapter, .. } => {
+            let d = slot_dispatch(slot);
+            let (_, encode, len) = field_fragments(&d, tag, value.clone());
+            SlotWrite {
+                encode,
+                len,
+                // A `with` adapter defines its own equivalence classes; it declares them itself.
+                normalize: adapter
+                    .is_some()
+                    .then(|| quote! { #d::normalize_dynamic(message, #tag); }),
+            }
+        }
+        SlotCodec::Oneof { ty, .. } => {
+            let d = slot_dispatch(slot);
+            SlotWrite {
+                encode: quote! { #d::encode_raw(#value, buf); },
+                len: quote! { #d::encoded_len(#value) },
+                normalize: Some(quote! {
+                    <#ty as crate::differential::Normalize>::normalize(message);
+                }),
+            }
+        }
+        // The active member carries the oneof's presence, so a marker writes something whatever it
+        // holds: `true` for a bool member, an empty body for a message one.
+        SlotCodec::Marker {
+            empty_message: false,
+        } => SlotWrite {
+            encode: quote! {
+                <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
+            },
+            len: quote! { <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true) },
+            // Only presence survives: an explicit `false` still selects the variant.
+            normalize: Some(quote! { crate::differential::bool_marker(message, #tag); }),
+        },
+        SlotCodec::Marker {
+            empty_message: true,
+        } => SlotWrite {
+            encode: quote! { crate::codec::empty_body::encode(#tag, buf); },
+            len: quote! { crate::codec::empty_body::encoded_len(#tag) },
+            normalize: None,
+        },
+        // The member message is absorbed, so its framing is hand-rolled here; its parts are
+        // ordinary fields, named by the bindings the caller's pattern introduced.
+        SlotCodec::Inline { parts } => {
+            let (encodes, lens): (Vec<_>, Vec<_>) = parts
+                .iter()
+                .map(|part| {
+                    let bound = part_binding(part);
+                    let written = slot_write(part, &bound);
+                    (written.encode, written.len)
+                })
+                .unzip();
+            let body_len = quote! { let body_len = 0 #(+ #lens)*; };
+            SlotWrite {
+                encode: quote! {
+                    #body_len
+                    ::prost::encoding::encode_key(
+                        #tag,
+                        ::prost::encoding::WireType::LengthDelimited,
+                        buf,
+                    );
+                    ::prost::encoding::encode_varint(body_len as u64, buf);
+                    #(#encodes)*
+                },
+                len: quote! {
+                    {
+                        #body_len
+                        ::prost::encoding::key_len(#tag)
+                            + ::prost::encoding::encoded_len_varint(body_len as u64)
+                            + body_len
+                    }
+                },
+                normalize: None,
+            }
+        }
+    }
+}
+
+/// The binding a pattern introduces for a slot reached by name: an inlined part, or a sibling.
+pub(crate) fn part_binding(slot: &Slot) -> TokenStream {
+    match slot.access.as_ref() {
+        Some(access) => quote!(#access),
+        None => unreachable!("a slot bound by a pattern is reached by name"),
+    }
+}
+
+/// Merge one slot into the place `value` names, for the slots a message reaches directly: a
+/// struct's field, or a whole-message enum's shared field.
+pub(crate) fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStream {
+    let d = slot_dispatch(slot);
+    match &slot.codec {
+        SlotCodec::Field { .. } => quote! { #d::merge_field(wire_type, #value, buf, ctx) },
+        SlotCodec::Oneof { .. } => {
+            quote! { #d::merge_field(#value, tag, wire_type, buf, ctx) }
+        }
+        SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => {
+            unreachable!("markers and inlined members are only ever a variant's own slot")
+        }
+    }
+}
