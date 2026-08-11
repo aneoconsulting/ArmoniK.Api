@@ -7,6 +7,20 @@ Depend on it when you need the connection layer without generated protobuf types
 `protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
 wants the services as well needs only that one.
 
+## Describing the options to another language
+
+The `schema` feature derives a JSON schema of the flat PascalCase option vocabulary (`Endpoint`,
+`TcpKeepalive`, `Http2KeepAliveInterval`, ...) from the types that define it, for a consumer that
+generates an options class of its own. Nothing is committed; print it with:
+
+```sh
+cargo run -p armonik-transport --features schema --example generate_schema
+```
+
+The Certificate Authority is named `CaCertPath`, where ArmoniK's C# client spells it `CaCert`. The
+option is a path to a PEM file, not the certificate, and the name says so. Until the C# client is
+renamed to match, a deployment serving both names the file twice.
+
 ## Reaching the endpoint through a proxy
 
 `HttpConfig::proxy` decides how the connection goes out. The default is `ProxySource::System`, the

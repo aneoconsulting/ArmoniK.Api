@@ -9,35 +9,45 @@ use std::time::Duration;
 /// HTTP/2-level transport options.
 ///
 /// Each field names one option; the full name a source spells is the embedding's prefix followed
-/// by that name.
+/// by that name, so no field doc spells it: the same field is a different option under a different
+/// prefix. A schema generated for this type on its own describes the unprefixed names it declares.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "PascalCase", default))]
+#[cfg_attr(
+    feature = "schema",
+    derive(schemars::JsonSchema),
+    schemars(transform = crate::config_utils::strip_defaults)
+)]
 #[non_exhaustive]
 pub struct Http2Config {
-    /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive. `KeepAliveInterval`.
+    /// HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive.
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::config_utils::optional_duration")
     )]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub keep_alive_interval: Option<Duration>,
-    /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout. `KeepAliveTimeout`.
+    /// HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout.
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::config_utils::optional_duration")
     )]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub keep_alive_timeout: Option<Duration>,
-    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false. `KeepAliveWhileIdle`.
+    /// Send HTTP/2 keepalive PINGs even when idle, defaults to false.
     /// See [`crate::TlsConfig::allow_unsafe_connection`] for the accepted spellings.
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::config_utils::bool_option")
     )]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub keep_alive_while_idle: bool,
-    /// HTTP/2 max header list size in bytes, defaults to no limit. `MaxHeaderListSize`.
+    /// HTTP/2 max header list size in bytes, defaults to no limit.
     #[cfg_attr(
         feature = "serde",
         serde(deserialize_with = "crate::config_utils::optional_u32")
     )]
+    #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub max_header_list_size: Option<u32>,
 }

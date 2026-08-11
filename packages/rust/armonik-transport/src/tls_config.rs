@@ -2,7 +2,7 @@
 //! verification behaves rather than what is verified.
 //!
 //! Unlike the TCP and HTTP/2 units, these fields share no common prefix in the environment
-//! (`CertPem`, `CaCert`, `AllowUnsafeConnection`, `OverrideTargetName`, ...), so the embedding
+//! (`CertPem`, `CaCertPath`, `AllowUnsafeConnection`, `OverrideTargetName`, ...), so the embedding
 //! composes them with a plain [`serde(flatten)`](serde::Deserialize) and no prefix at all.
 //!
 //! Every option naming a file loads it while the configuration is read: [`TlsConfig`] holds the
@@ -98,7 +98,7 @@ pub struct TlsConfig {
     /// `CertPem`/`KeyPem`, whose files are loaded as the configuration is read.
     pub identity: Option<Identity>,
     /// The Certificate Authority the server is verified against, `None` for the system CAs. Read
-    /// from `CaCert`, whose PEM file is loaded as the configuration is read.
+    /// from `CaCertPath`, whose PEM file is loaded as the configuration is read.
     pub ca_cert: Option<CertificateDer<'static>>,
     /// Override the endpoint name during SSL verification. `OverrideTargetName`.
     pub override_target_name: Option<String>,
@@ -111,14 +111,23 @@ pub struct TlsConfig {
 /// declares a variable with an empty default must not differ from one that leaves it out.
 #[cfg(feature = "serde")]
 #[derive(Debug, serde::Deserialize)]
+#[cfg_attr(
+    feature = "schema",
+    derive(schemars::JsonSchema),
+    schemars(transform = crate::config_utils::strip_defaults)
+)]
 #[serde(rename_all = "PascalCase")]
-struct RawTls {
+pub(crate) struct RawTls {
     #[serde(flatten)]
     identity: RawIdentity,
+    /// Path to the Certificate Authority file, in PEM format; empty for the system CAs.
     #[serde(default, deserialize_with = "crate::config_utils::text")]
-    ca_cert: String,
+    ca_cert_path: String,
+    /// Accept any server certificate instead of verifying it: `1`, `true`, `yes`, `enable`,
+    /// `allow` or `authorize`, and their negatives; empty for false.
     #[serde(default, deserialize_with = "crate::config_utils::text")]
     allow_unsafe_connection: String,
+    /// Override the endpoint name during SSL verification; empty for no override.
     #[serde(default, deserialize_with = "crate::config_utils::text")]
     override_target_name: String,
 }
@@ -129,24 +138,38 @@ struct RawTls {
 ///
 /// Selection is on key presence alone, so a present-but-empty option still selects a shape;
 /// [`RawIdentity::load`] is what reads empty as unset, whichever shape matched.
+///
+/// The shapes say which options exist and which arrive together, not which combinations are legal:
+/// half a PEM pair matches `Bare`, so the schema accepts it and [`RawIdentity::load`] refuses it.
+/// A relationship between options is enforced once, where the message can name both, rather than
+/// encoded a second time in the schema. `dependentRequired` could express this one, but a rule
+/// written twice drifts, and the reader is the copy that decides. This paragraph does not reach
+/// the schema - schemars keeps only variant docs for a flattened enum - so the part a consumer
+/// needs is on `Bare` itself.
 #[cfg(feature = "serde")]
 #[derive(Debug, serde::Deserialize)]
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 enum RawIdentity {
     /// A certificate chain and its key, each in its own PEM file.
     #[serde(rename_all = "PascalCase")]
     PemFiles {
+        /// Path to the certificate chain file, in PEM format; set together with `KeyPem`.
         #[serde(deserialize_with = "crate::config_utils::text")]
         cert_pem: String,
+        /// Path to the key file, in PEM format; set together with `CertPem`.
         #[serde(deserialize_with = "crate::config_utils::text")]
         key_pem: String,
     },
-    /// At most one identity option present: no identity, or half of one, which [`Self::load`]
-    /// rejects by name.
+    /// Neither identity option set, or only one of them. Setting only one is refused when the
+    /// configuration is read, naming both options: this alternative admits it so the vocabulary
+    /// stays one list, and the reader is what decides a pair is a pair.
     #[serde(rename_all = "PascalCase")]
     Bare {
+        /// Path to the certificate chain file, in PEM format; set together with `KeyPem`.
         #[serde(default, deserialize_with = "crate::config_utils::text")]
         cert_pem: String,
+        /// Path to the key file, in PEM format; set together with `CertPem`.
         #[serde(default, deserialize_with = "crate::config_utils::text")]
         key_pem: String,
     },
@@ -188,7 +211,7 @@ impl TryFrom<RawTls> for TlsConfig {
     fn try_from(raw: RawTls) -> Result<Self, Self::Error> {
         let RawTls {
             identity,
-            ca_cert,
+            ca_cert_path,
             allow_unsafe_connection,
             override_target_name,
         } = raw;
@@ -200,11 +223,11 @@ impl TryFrom<RawTls> for TlsConfig {
             )
             .map_err(|msg| IncompatibleOptionsSnafu { msg }.build())?,
             identity: identity.load()?,
-            ca_cert: if ca_cert.is_empty() {
+            ca_cert: if ca_cert_path.is_empty() {
                 None
             } else {
-                let pem = std::fs::read_to_string(&ca_cert).context(IoSnafu {
-                    path: ca_cert.clone(),
+                let pem = std::fs::read_to_string(&ca_cert_path).context(IoSnafu {
+                    path: ca_cert_path.clone(),
                 })?;
                 Some(CertificateDer::from_pem_slice(pem.as_bytes()).context(TlsSnafu {})?)
             },
@@ -415,7 +438,7 @@ MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
         // The CA is loaded with the rest of the configuration, so a typo in the option names the
         // file instead of surfacing as a failed handshake.
         let error = serde_json::from_value::<TlsConfig>(serde_json::json!({
-            "CaCert": "no/such/ca.pem",
+            "CaCertPath": "no/such/ca.pem",
         }))
         .expect_err("a missing file must be reported");
 
@@ -429,7 +452,7 @@ MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
         let ca = dir.write("ca.pem", LEAF_CERT);
 
         let config = serde_json::from_value::<TlsConfig>(serde_json::json!({
-            "CaCert": ca.display().to_string(),
+            "CaCertPath": ca.display().to_string(),
         }))
         .expect("a readable CA file");
 

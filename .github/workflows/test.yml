@@ -212,7 +212,9 @@ jobs:
           export Grpc__CaCert=certs/server1-ca.pem
           export GrpcClient__Endpoint=https://localhost:5001
           export GrpcClient__AllowUnsafeConnection=false
+          # The same authority under both spellings: C# reads CaCert, Rust reads CaCertPath.
           export GrpcClient__CaCert=$CertFolder/server1-ca.pem
+          export GrpcClient__CaCertPath=$CertFolder/server1-ca.pem
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
 
       - name: TLS store
@@ -266,7 +268,9 @@ jobs:
           export Grpc__ClientKey=certs/client.key
           export GrpcClient__Endpoint=https://localhost:5003
           export GrpcClient__AllowUnsafeConnection=false
+          # The same authority under both spellings: C# reads CaCert, Rust reads CaCertPath.
           export GrpcClient__CaCert=$CertFolder/server1-ca.pem
+          export GrpcClient__CaCertPath=$CertFolder/server1-ca.pem
           export GrpcClient__CertPem=$CertFolder/client.pem
           export GrpcClient__KeyPem=$CertFolder/client.key
           ../../scripts/mock_test.sh ${{ matrix.language.dir }} '${{ matrix.language.cmd }}'
