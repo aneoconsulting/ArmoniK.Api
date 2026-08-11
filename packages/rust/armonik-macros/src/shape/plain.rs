@@ -9,8 +9,8 @@ use crate::attr_site::{field_access, scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::DescriptorIndex;
 use crate::emit::{
-    field_fragments, message_impl, msg_impl, normalize_impl, registrations, slot_asserts,
-    slot_dispatch, tripwire,
+    message_impl, msg_impl, normalize_impl, registrations, slot_asserts, slot_merge_in_place,
+    slot_write, tripwire,
 };
 use crate::matcher::{not_found, Found, Matcher};
 use crate::plan::{Expectation, MessagePlan, Slot, SlotCodec};
@@ -239,48 +239,26 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let mut normalize_fragments = Vec::new();
     let mut asserts = TokenStream::new();
 
+    // Every field of a struct is shared: there is one alternative and it owns nothing, so each
+    // slot is written from `self` and merges in place. That is the whole of the struct case.
     for field in &plan.fields {
         let access = field.access.as_ref().expect("a struct field is reachable");
         let tag = field.tag;
-        let d = slot_dispatch(field);
         asserts.extend(slot_asserts(field, ident));
 
-        match &field.codec {
-            SlotCodec::Field { adapter, .. } => {
-                let (_, encode, len) = field_fragments(&d, tag, quote!(&self.#access));
-                encode_fragments.push(encode);
-                len_fragments.push(quote! { len += #len; });
-                merge_arms.push(quote! {
-                    #tag => #d::merge_field(wire_type, &mut self.#access, buf, ctx)
-                });
-                if adapter.is_some() {
-                    normalize_fragments.push(quote! {
-                        #d::normalize_dynamic(message, #tag);
-                    });
-                }
-            }
-            SlotCodec::Oneof { ty, tags } => {
-                encode_fragments.push(quote! {
-                    #d::encode_raw(&self.#access, buf);
-                });
-                merge_arms.push(quote! {
-                    #(#tags)|* => #d::merge_field(
-                        &mut self.#access, tag, wire_type, buf, ctx,
-                    )
-                });
-                len_fragments.push(quote! {
-                    len += #d::encoded_len(&self.#access);
-                });
-                normalize_fragments.push(quote! {
-                    <#ty as crate::differential::Normalize>::normalize(message);
-                });
-            }
-            // A struct's fields are all ordinary fields: the two shapes below only ever describe
-            // what a oneof *variant* carries.
-            SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => {
-                unreachable!("a struct field is a field or a whole oneof")
-            }
-        }
+        let written = slot_write(field, &quote!(&self.#access));
+        encode_fragments.push(written.encode);
+        let len = written.len;
+        len_fragments.push(quote! { len += #len; });
+        normalize_fragments.extend(written.normalize);
+
+        let merge = slot_merge_in_place(field, &quote!(&mut self.#access));
+        // A whole oneof answers to every one of its members' tags.
+        let keys = match &field.codec {
+            SlotCodec::Oneof { tags, .. } => quote!(#(#tags)|*),
+            _ => quote!(#tag),
+        };
+        merge_arms.push(quote! { #keys => #merge });
     }
 
     let registrations = registrations(ident, proto_names);

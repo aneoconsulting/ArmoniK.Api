@@ -11,8 +11,8 @@ use crate::attr_site::{scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
 use crate::emit::{
-    field_fragments, message_impl, msg_impl, normalize_impl, registrations, slot_asserts,
-    slot_dispatch, tripwire,
+    message_impl, msg_impl, normalize_impl, registrations, slot_asserts, slot_merge_in_place,
+    slot_write, tripwire,
 };
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Expectation, FieldAccess, OneofPlan, OneofVariant, Slot, SlotCodec};
@@ -799,8 +799,8 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         .iter()
         .zip(&sib_locals)
         .map(|(sibling, local)| {
-            let d = slot_dispatch(sibling);
-            field_fragments(&d, sibling.tag, quote!(#local))
+            let written = slot_write(sibling, &quote!(#local));
+            (sibling.tag, written.encode, written.len)
         })
         .partition(|(tag, _, _)| min_member_tag.is_some_and(|member| *tag < member));
     let sib_encode = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
@@ -834,21 +834,18 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         let tag = own.tag;
         asserts.extend(slot_asserts(own, ident));
         match &own.codec {
-            SlotCodec::Field { adapter, .. } => {
-                let d = slot_dispatch(own);
+            SlotCodec::Field { .. } => {
+                let merge = slot_merge_in_place(own, &quote!(&mut payload));
                 let binding = match own.access.as_ref() {
                     Some(FieldAccess::Named(field)) => Some(field),
                     _ => None,
                 };
-                if adapter.is_some() {
-                    normalize_fragments.push(quote! {
-                        #d::normalize_dynamic(message, #tag);
-                    });
-                }
 
                 // The active member carries the oneof's presence, so it is emitted even with a
                 // default payload, like every other field.
-                let (_, encode, len) = field_fragments(&d, tag, quote!(payload));
+                let written = slot_write(own, &quote!(payload));
+                let (encode, len) = (written.encode, written.len);
+                normalize_fragments.extend(written.normalize);
 
                 // Matching binds the member as `payload` and ignores the siblings; constructing one
                 // needs them, so merging a member takes them along.
@@ -882,7 +879,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                         } else {
                             ::core::default::Default::default()
                         };
-                        #d::merge_field(wire_type, &mut payload, buf, ctx)?;
+                        #merge?;
                         *value = #construct;
                         ::core::result::Result::Ok(())
                     }
@@ -958,39 +955,19 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                         quote!(<#ty as ::core::default::Default>::default())
                     })
                     .collect();
-                // The variant's parts are ordinary fields of the inline message; only its framing
-                // is hand-rolled, since the message is absorbed and has no Rust type to delegate
-                // to.
-                let fragments: Vec<_> = parts
-                    .iter()
-                    .zip(&part_idents)
-                    .map(|(part, id)| field_fragments(&slot_dispatch(part), part.tag, quote!(#id)))
-                    .collect();
-                let encodes = fragments.iter().map(|(_, encode, _)| encode);
-                let lens = fragments.iter().map(|(_, _, len)| len);
-                let body_len = quote! {
-                    let body_len = 0 #(+ #lens)*;
-                };
+                // The parts are ordinary fields, written by the shared walk against the bindings
+                // this arm's pattern introduces; only the framing around them is hand-rolled, since
+                // the member message is absorbed and has no Rust type to delegate to.
+                // No value expression of its own: an inlined member names its parts through the
+                // bindings this arm's pattern introduces.
+                let written = slot_write(own, &TokenStream::new());
+                let (encode, len) = (written.encode, written.len);
 
                 encode_arms.push(quote! {
-                    Self::#var { #(#part_idents),* } => {
-                        #body_len
-                        ::prost::encoding::encode_key(
-                            #tag,
-                            ::prost::encoding::WireType::LengthDelimited,
-                            buf,
-                        );
-                        ::prost::encoding::encode_varint(body_len as u64, buf);
-                        #(#encodes)*
-                    }
+                    Self::#var { #(#part_idents),* } => { #encode }
                 });
                 len_arms.push(quote! {
-                    Self::#var { #(#part_idents),* } => {
-                        #body_len
-                        ::prost::encoding::key_len(#tag)
-                            + ::prost::encoding::encoded_len_varint(body_len as u64)
-                            + body_len
-                    }
+                    Self::#var { #(#part_idents),* } => #len,
                 });
                 merge_arms.push(quote! {
                     #tag => {
