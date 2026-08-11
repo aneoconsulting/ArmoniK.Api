@@ -1,0 +1,5 @@
+error: inline and present cannot be combined: present records that a member was set and carries nothing, inline spreads the member's own fields
+ --> tests/ui/inline_with_present.rs:9:24
+  |
+9 |     #[armonik(present, inline)]
+  |                        ^^^^^^

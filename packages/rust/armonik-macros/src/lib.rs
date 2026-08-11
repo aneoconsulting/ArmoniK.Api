@@ -197,6 +197,31 @@ use syn::DeriveInput;
 /// A `bool` member encodes `true` (an explicit `false` still selects the
 /// variant), an empty-message member encodes an empty message.
 ///
+/// ## inline
+///
+/// `inline`, on a struct variant: its leftover fields (the ones that are not the
+/// message's own non-oneof fields) are the *member message's* fields, spread
+/// into the variant, rather than one field carrying the member whole. The member
+/// message then has no Rust type of its own and is registered as absorbed.
+///
+/// ```ignore
+/// #[armonik(message = "armonik.api.grpc.v1.Output")]
+/// pub enum Output {
+///     #[armonik(present)]
+///     Ok,
+///     #[armonik(inline)]                 // `details` is `Output.Error.details`,
+///     Error { details: String },         // not an `Output.Error` carried whole
+/// }
+/// ```
+///
+/// Spelled rather than inferred: `Variant { token, request: T }` is genuinely
+/// ambiguous between the two readings, and which one the derive picked used to
+/// depend on whether the enum had non-oneof fields at all. Without `inline`, one
+/// leftover field carries the member and several are an error naming this key;
+/// with it, a leftover matching no field of the member message is an error
+/// listing the ones that exist. `inline` combines with neither
+/// [`present`](#present) nor [`with`](#with).
+///
 /// ## transparent
 ///
 /// `transparent`, on a single-field struct: the type delegates its whole

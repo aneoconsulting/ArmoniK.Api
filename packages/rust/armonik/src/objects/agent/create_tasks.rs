@@ -45,6 +45,7 @@ impl Default for Request {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus")]
 pub enum Status {
+    #[armonik(inline)]
     TaskInfo {
         task_id: String,
         expected_output_keys: Vec<String>,

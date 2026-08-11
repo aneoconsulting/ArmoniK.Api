@@ -4,7 +4,7 @@ use super::Raw;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.results.UploadResultDataRequest")]
 pub enum Request {
-    #[armonik(rename = "id")]
+    #[armonik(rename = "id", inline)]
     Identifier {
         session_id: String,
         result_id: String,
