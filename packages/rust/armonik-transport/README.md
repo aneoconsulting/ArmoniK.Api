@@ -5,11 +5,33 @@ configuration parsing, and TLS/mTLS connection setup.
 
 `https_connector` is where the crate stops: it hands back the connector a request goes out through,
 TCP then the proxy tunnel then TLS, and wrapping that in an HTTP/2 engine belongs to whoever
-consumes it. [`armonik`](../armonik) wraps it in a `tonic` channel.
+consumes it. [`armonik`](../armonik) wraps it in a `tonic` channel. It is synchronous and opens no
+connection, so it needs no runtime and can be called from inside one.
 
 Depend on it when you need the connection layer without generated protobuf types or a
 `protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
 wants the services as well needs only that one.
+
+## Driving the connection yourself
+
+`Connector` is the stack `https_connector` returns, TCP then the proxy tunnel then TLS, so a
+consumer that wraps it in an engine of its own can name what it holds: `Client<Connector, B>` rather
+than a trait object erasing the connector. `ProxyConnector`, one of its layers, is exported for the
+same reason; it is assembled from an `HttpConfig`, never by hand.
+
+`armonik_transport::reexports` carries the crates the connector is built from and spoken to: `http`,
+`hyper`, `hyper_util`, `hyper_rustls`, `rustls`, `h2`, `http_body_util` and `tokio`. Take them from
+there rather than declaring your own requirement for the same crates, and no version of a shared
+type can drift from the one the connection was built with. `h2` and `http_body_util` are re-exported
+for that alone; nothing in this crate uses them.
+
+Only the versions are guaranteed, not the features. Which parts of a re-exported crate exist is
+decided by what every crate in the build asks for together, and this one asks only for the features
+it needs itself. So a consumer that needs a runtime still declares `tokio` for that: the `tokio`
+re-exported here is the one whose stream types the connector hands back, not a runtime.
+`http_body_util` is likewise re-exported without `channel`, so a consumer that feeds a request body
+through `http_body_util::channel::Channel` turns that feature on itself, where the `tokio` edge it
+adds reads as that consumer's need rather than as this crate's.
 
 ## Reading the options from the environment
 

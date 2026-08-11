@@ -30,6 +30,7 @@ cbindgen = { version = "0.29", default-features = false }
 csbindgen = "1.9"
 eyre = "0.6"
 futures = "0.3"
+h2 = "0.4"
 http = "1"
 http-body-util = "0.1"
 humantime = "2.3.0"

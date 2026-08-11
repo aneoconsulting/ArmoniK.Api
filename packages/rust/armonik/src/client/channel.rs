@@ -22,9 +22,8 @@ pub async fn connect(config: HttpConfig) -> Result<Channel, ChannelError> {
     let timeout = config.timeout;
     let rate_limit = config.rate_limit;
 
-    let https = armonik_transport::https_connector(config, origin.clone())
-        .await
-        .context(ConnectorSnafu)?;
+    let https =
+        armonik_transport::https_connector(config, origin.clone()).context(ConnectorSnafu)?;
 
     // The endpoint is what gets dialled, the origin what requests are addressed to. No condition on
     // the two being the same: with no override they are, which is what a channel does by default.

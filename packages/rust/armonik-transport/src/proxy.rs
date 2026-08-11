@@ -496,6 +496,10 @@ fn parse_proxy_address(proxy: &str) -> Result<ProxyConfig, crate::config::Config
 /// A request that must not be proxied goes straight to the inner connector, leaving that path as it
 /// was. Generic over the connector because all this layer needs is something that turns a [`Uri`]
 /// into a TCP stream; which one is knowledge it has no use for.
+///
+/// Public because it is a layer of [`crate::Connector`], which a consumer has to be able to write
+/// down. It is assembled by [`crate::https_connector`] from an [`crate::HttpConfig`], never by hand,
+/// so it has no public constructor.
 #[derive(Debug, Clone)]
 pub struct ProxyConnector<S> {
     inner: S,

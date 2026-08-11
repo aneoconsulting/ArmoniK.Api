@@ -35,16 +35,27 @@ http.workspace = true
 snafu.workspace = true
 tracing.workspace = true
 hyper = { workspace = true, features = ["client", "http1", "http2"] }
+# Neither is used by this crate. Both are re-exported, so a dependent that drives an HTTP/2 client
+# over this connector reads an `h2::Reason` off a hyper error with the same `h2` hyper raised it
+# from, and hands hyper a body hyper accepts. `h2` is already in this crate's tree through `hyper`;
+# `http-body-util` is the one crate this adds, and the workspace had already resolved it.
+# Default features: `channel` costs a `tokio` edge and belongs to whoever feeds a request body, on
+# that crate's own dependency, where the cost is attached to the need.
+h2.workspace = true
+http-body-util.workspace = true
 # `client-legacy` for `HttpConnector` and for the `Tunnel` connector that performs the `CONNECT`
 # handshake; `tokio` for `TokioIo` and the runtime side of both. Each is named here even though
 # `hyper-rustls` happens to turn it on: depending on that would break the day it stops.
 # `client-proxy` for the proxy matcher: the `*_PROXY` convention, `NO_PROXY` on curl's rules, and
 # taking credentials out of a proxy URL, none of which is worth writing again here.
+# `http1` and `http2` gate the legacy `Client` itself, which exists only if one of them is on, and
+# HTTP/2 is what a dependent driving this connector over `reexports::hyper_util` speaks.
 hyper-util = { workspace = true, features = [
   "client",
   "client-legacy",
   "client-proxy",
   "http1",
+  "http2",
   "tokio",
 ] }
 hyper-rustls = { workspace = true, features = [

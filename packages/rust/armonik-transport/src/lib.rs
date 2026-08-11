@@ -18,11 +18,12 @@ mod tls_config;
 mod utils;
 
 pub use config::{ConfigError, HttpConfig};
-pub use connector::{https_connector, ConnectionError};
+pub use connector::{https_connector, ConnectionError, Connector};
 #[cfg(feature = "env")]
 pub use env::EnvError;
 pub use http2_config::Http2Config;
-pub use proxy::{ProxyConfig, ProxyError, ProxySource};
+// `ProxyConnector` is a layer of the stack `Connector` names, so it has to be nameable too.
+pub use proxy::{ProxyConfig, ProxyConnector, ProxyError, ProxySource};
 pub use retry_config::RetryConfig;
 pub use tcp_config::TcpConfig;
 pub use tls_config::{Identity, TlsConfig};
@@ -38,8 +39,13 @@ pub use connector::{IoSnafu, TlsSnafu};
 ///
 /// A dependent should take these rather than declare its own requirement for the same crates, so it
 /// cannot end up with a `rustls` other than the one the connection was built with.
+///
+/// Enough of them to build the HTTP/2 engine this crate leaves to its consumer: `h2` and
+/// `http_body_util` are here for that alone, and are used nowhere in this crate.
 pub mod reexports {
+    pub use h2;
     pub use http;
+    pub use http_body_util;
     pub use hyper;
     pub use hyper_rustls;
     pub use hyper_util;
@@ -49,4 +55,8 @@ pub mod reexports {
     pub use secrecy;
     #[cfg(feature = "serde")]
     pub use serde;
+    // Only the versions match. Which of tokio's modules exist is decided by the features every crate
+    // in the build asks for together, so a dependent that needs a runtime still declares tokio for
+    // that; taking it from here is what keeps the stream types the connector hands back the same.
+    pub use tokio;
 }

@@ -95,7 +95,9 @@ name = "armonik-transport"
 version = "3.29.2-beta-0"
 dependencies = [
  "base64",
+ "h2",
  "http",
+ "http-body-util",
  "humantime",
  "hyper",
  "hyper-rustls",
