@@ -37,13 +37,34 @@ error-locations = []
 # The whole connection layer - options, TLS, mTLS, proxy - comes from here, and its errors are what
 # the ABI's configuration and connection statuses report. Depending on this rather than on `armonik`
 # keeps protobuf codegen, and the `protoc` it would need, out of this crate's build entirely.
-armonik-transport.workspace = true
+# `serde` because the configuration crosses the ABI as a JSON document, and that feature is what
+# reads one. Everything else this crate builds on - `http`, `hyper_util`, `http_body_util` - comes
+# through that crate's `reexports`, so there is one version of each in the build rather than two.
+armonik-transport = { workspace = true, features = ["serde"] }
+# Reads the configuration document. The transport declares the vocabulary and the `serde` half that
+# parses it; naming the format is this crate's business, because the format is part of its ABI.
+serde_json.workspace = true
 # One process-wide runtime for the work the ABI hands off. `rt-multi-thread` is the runtime itself;
-# nothing here drives I/O directly.
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+# nothing here drives I/O directly. `time` and `sync` are what the rate limiter waits on: a sleep,
+# and a mutex a waiter may hold across one.
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
 # `Bytes` is what an owned buffer handed across the ABI is built on: it may be a refcounted view
 # into a larger allocation, so a buffer this crate already holds crosses without being copied.
 bytes.workspace = true
+
+[dev-dependencies]
+# `schema` so that the committed `include/http_config.schema.json` can be regenerated and compared.
+# The artefact is generated from the transport's own types, so this crate's build script has no way
+# to write it; a test is what makes a change to the vocabulary show up as a diff.
+armonik-transport = { workspace = true, features = ["schema"] }
+# A certificate and a key that do not belong together, generated fresh: the one configuration that
+# makes assembling the TLS stack fail, and so the one that proves a TLS failure reaches the caller
+# with its cause rather than as a summary. A committed fixture would also have to keep unexpired.
+rcgen.workspace = true
+# `test-util` for a paused clock: it lets a rate limit be asserted on what it waited *for* rather
+# than on how long a test took, and `tokio` only advances a paused clock once every task is parked,
+# which is precisely the case a limiter that blocked its thread would hang in.
+tokio = { workspace = true, features = ["test-util"] }
 
 [build-dependencies]
 cbindgen.workspace = true

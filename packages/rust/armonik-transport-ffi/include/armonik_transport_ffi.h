@@ -157,6 +157,19 @@ typedef int32_t ak_status;
 #endif // __cplusplus
 
 /**
+ * A connection pool, and the options a request on it draws from.
+ *
+ * Handed to the caller as an opaque pointer. The registry owns it, and a request takes a counted
+ * reference for as long as it runs, so a pool outlives an `ak_client_release` that lands while
+ * work is still on it.
+ *
+ * The last three fields are read by whoever sends a request, and nothing here does: they are
+ * parsed and held, which changes no behaviour on its own. `tests/schema.rs` says as much, and lists
+ * them among the options this library does not apply.
+ */
+typedef struct ak_client ak_client;
+
+/**
  * An owned buffer handed to the caller.
  *
  * `ptr`/`len` are a read-only *view*; the allocation itself belongs to `owner`, an opaque handle
@@ -228,6 +241,42 @@ extern "C" {
  * Compare against `AK_ABI_VERSION`, the value this library was compiled with.
  */
 int32_t ak_abi_version(void);
+
+/**
+ * Create a client from a UTF-8 JSON configuration document.
+ *
+ * `config_json` names the flat options of the transport's vocabulary - `Endpoint`, `CaCertPath`,
+ * `AllowUnsafeConnection`, `Tcp*`, `Http2*`, `Proxy*`, and the rest - as a single JSON object of
+ * strings. `include/http_config.schema.json` is that vocabulary in full; an option the document
+ * does not name reads as its own default, so a caller writes only what it changes.
+ *
+ * Synchronous, and it opens no connection: this reads the options, loads whatever certificates they
+ * name, and assembles the connector. A failure here is therefore a configuration failure, reported
+ * straight away with its whole cause chain flattened into `out_err`.
+ *
+ * Safety:
+ *
+ * `config_json` must point to `len` readable bytes. `out` must be a writable `ak_client*`, and
+ * receives a handle to be given up by exactly one `ak_client_release`. `out_err`, when non-null,
+ * must be a writable `ak_bytes` and receives a message to give up with
+ * `ak_bytes_release`.
+ */
+int32_t ak_client_create(const uint8_t *config_json,
+                         size_t len,
+                         struct ak_client **out,
+                         struct ak_bytes *out_err);
+
+/**
+ * Give up the caller's reference to a client.
+ *
+ * Requests already under way keep the pool alive and run to completion: this gives back one
+ * reference, not necessarily the last one. Null is accepted and does nothing.
+ *
+ * Safety:
+ *
+ * `client` must be a handle from `ak_client_create` that has not been released, or null.
+ */
+void ak_client_release(struct ak_client *client);
 
 /**
  * Give up an `ak_bytes` previously returned by this library.
