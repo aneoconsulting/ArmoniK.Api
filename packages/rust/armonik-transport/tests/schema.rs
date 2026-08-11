@@ -117,6 +117,47 @@ fn the_schema_promises_nothing_that_is_not_read() {
 }
 
 #[test]
+fn no_description_carries_a_rust_doc_link() {
+    // A description reaches a generated options class verbatim. An intra-doc link resolves to
+    // nothing there and its brackets read as broken markup, so the schema keeps the prose and
+    // drops the path.
+    fn descriptions(value: &serde_json::Value, found: &mut Vec<String>) {
+        match value {
+            serde_json::Value::Object(object) => {
+                if let Some(serde_json::Value::String(description)) = object.get("description") {
+                    found.push(description.clone());
+                }
+                for child in object.values() {
+                    descriptions(child, found);
+                }
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    descriptions(item, found);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let schema = schema();
+    let mut found = Vec::new();
+    descriptions(&schema, &mut found);
+
+    assert!(!found.is_empty(), "no descriptions at all: {schema:#}");
+    for description in &found {
+        assert!(
+            !description.contains("[`"),
+            "a rustdoc link survives: {description}"
+        );
+        assert!(
+            !description.contains("crate::"),
+            "a crate path survives: {description}"
+        );
+    }
+}
+
+#[test]
 fn the_prefixed_groups_keep_their_flat_spellings() {
     // `serde_with::with_prefix!` has no `schemars` integration, so without the prefix helper the
     // schema would list each group under its unprefixed field names.
