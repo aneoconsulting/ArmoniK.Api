@@ -1,5 +1,5 @@
 error: inline needs a struct variant: there is nothing to spread the member's fields into
- --> tests/ui/inline_on_a_tuple_variant.rs:9:15
-  |
-9 |     #[armonik(inline)]
-  |               ^^^^^^
+  --> tests/ui/inline_on_a_tuple_variant.rs:11:15
+   |
+11 |     #[armonik(inline)]
+   |               ^^^^^^

@@ -1,5 +1,5 @@
 error: proto message `fixture.TwoOneofs` has 2 oneofs; an enum can stand for the whole message only when there is exactly one. Declare one enum per oneof with #[armonik(oneof = "...")] and compose them in a struct
- --> tests/ui/enum_for_message_with_two_oneofs.rs:6:10
+ --> tests/ui/enum_for_message_with_two_oneofs.rs:8:10
   |
-6 | pub enum TwoOneofs {
+8 | pub enum TwoOneofs {
   |          ^^^^^^^^^

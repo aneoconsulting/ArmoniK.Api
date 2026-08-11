@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)] // the expansions cfg on armonik's features; see tests/ui.rs
+
 include!("../support/prelude.rs");
 
 // `Push` is neither declared nor listed as unexposed.

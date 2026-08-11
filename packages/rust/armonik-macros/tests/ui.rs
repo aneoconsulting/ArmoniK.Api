@@ -30,6 +30,13 @@
 //! mean copying the codec into the prelude and testing the copy. They are a different mechanism
 //! from the expansion-time diagnostics this suite exists to pin.
 //!
+//! # Why every case allows `unexpected_cfgs`
+//!
+//! The expansions `cfg` on `armonik`'s own features (`serde` on the re-emitted item,
+//! `_differential`-era gates on the stubs). A one-file compile-fail crate declares neither, so
+//! rustc reports each as an unexpected value: ten lines of noise per case, about what a diagnostic
+//! costs, in the files whose readability is the point.
+//!
 //! # Toolchain sensitivity
 //!
 //! `.stderr` snapshots generally are toolchain-sensitive, but every line in these ones is a message

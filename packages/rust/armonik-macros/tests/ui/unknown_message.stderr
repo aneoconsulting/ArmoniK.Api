@@ -1,5 +1,5 @@
 error: proto message `fixture.Nope` not found in the compiled descriptor set
- --> tests/ui/unknown_message.rs:5:11
+ --> tests/ui/unknown_message.rs:7:11
   |
-5 | #[armonik(message = "fixture.Nope")]
+7 | #[armonik(message = "fixture.Nope")]
   |           ^^^^^^^

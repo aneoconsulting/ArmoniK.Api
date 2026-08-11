@@ -40,17 +40,22 @@ pub(crate) fn expand(mut input: DeriveInput, mode: Mode) -> syn::Result<TokenStr
     if let Some(tags) = tags {
         tag_variants(&mut input, &tags);
     }
-    // Every one of these types is serializable under the `serde` feature, and the line saying so
-    // was byte-identical at every site. The `#[derive(...)]` line above it is *not* emitted: it
-    // varies across ten shapes, and hiding it would take the derive set off the type.
-    input
-        .attrs
-        .push(syn::parse_quote!(#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]));
+    input.attrs.push(serde_derive());
 
     Ok(quote! {
         #input
         #expansion
     })
+}
+
+/// The `serde` line every one of these types carries, which was byte-identical at 198 sites.
+///
+/// The `#[derive(...)]` above it is deliberately *not* emitted: it varies across ten shapes, and
+/// hiding it would take the derive set off the type.
+fn serde_derive() -> syn::Attribute {
+    syn::parse_quote!(
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    )
 }
 
 /// Emit the annotated type anyway, next to the error.
@@ -70,6 +75,10 @@ fn salvage(mut input: DeriveInput, mode: &Mode, error: syn::Error) -> TokenStrea
     // Best-effort docs: the descriptor lookup may well be what failed.
     let _ = inject(&mut input, mode);
     strip(&mut input);
+    // The same line the happy path adds. Without it, one mistake reads as one error under the
+    // default features and as five, with `and 365 others`, under `--all-features`, which is what
+    // the crate's own tests and CI run: every `serde` bound on the re-emitted type goes unmet.
+    input.attrs.push(serde_derive());
     let error = error.into_compile_error();
     quote! {
         #input

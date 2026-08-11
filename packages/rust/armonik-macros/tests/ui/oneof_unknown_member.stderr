@@ -1,17 +1,17 @@
 error: no member named `picture` in oneof `fixture.Choice.choice` (available: flag, simple, text); use #[armonik(rename = "...")] if the names differ
-  --> tests/ui/oneof_unknown_member.rs:13:5
+  --> tests/ui/oneof_unknown_member.rs:11:5
    |
-13 |     Picture(String),
+11 |     Picture(String),
    |     ^^^^^^^
 
 error: oneof member `fixture.Choice.simple` (tag 3) is not covered by any variant
-  --> tests/ui/oneof_unknown_member.rs:11:10
-   |
-11 | pub enum Choice {
-   |          ^^^^^^
+ --> tests/ui/oneof_unknown_member.rs:9:10
+  |
+9 | pub enum Choice {
+  |          ^^^^^^
 
 error: oneof member `fixture.Choice.flag` (tag 4) is not covered by any variant
-  --> tests/ui/oneof_unknown_member.rs:11:10
-   |
-11 | pub enum Choice {
-   |          ^^^^^^
+ --> tests/ui/oneof_unknown_member.rs:9:10
+  |
+9 | pub enum Choice {
+  |          ^^^^^^

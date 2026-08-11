@@ -1,5 +1,5 @@
 error: method `Get` is declared twice
- --> tests/ui/service_duplicate_rpc.rs:7:9
+ --> tests/ui/service_duplicate_rpc.rs:9:9
   |
-7 |     rpc Get(again::Request) -> again::Response;
+9 |     rpc Get(again::Request) -> again::Response;
   |         ^^^

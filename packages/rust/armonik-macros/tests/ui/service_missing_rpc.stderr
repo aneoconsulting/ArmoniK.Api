@@ -1,5 +1,5 @@
 error: service `fixture.Fixture` has undeclared methods: Push; add `rpc` lines or list them in `unexposed(...)`
- --> tests/ui/service_missing_rpc.rs:5:5
+ --> tests/ui/service_missing_rpc.rs:7:5
   |
-5 |     Fixture in crate::fixture @ "fixture.Fixture";
+7 |     Fixture in crate::fixture @ "fixture.Fixture";
   |     ^^^^^^^
