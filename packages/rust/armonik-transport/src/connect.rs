@@ -7,10 +7,10 @@ use std::sync::Arc;
 use hyper::Uri;
 use hyper_rustls::{ConfigBuilderExt, FixedServerNameResolver, HttpsConnector};
 use hyper_util::client::legacy::connect::HttpConnector;
-use rustls::pki_types::ServerName;
+use rustls::pki_types::{IpAddr, ServerName};
 use snafu::{ResultExt, Snafu};
 
-use crate::config::ConfigError;
+use crate::config::{ConfigError, IncompatibleOptionsSnafu};
 use crate::ClientConfig;
 
 /// Connect to the endpoint described by `config`, eagerly: this resolves once the connection is
@@ -126,9 +126,7 @@ pub async fn https_connector(
         .https_or_http();
 
     if let Some(hostname) = &config.override_target {
-        let server_name = ServerName::try_from(hostname.host().unwrap_or_default())
-            .expect("A valid URI host should be a valid ServerName")
-            .to_owned();
+        let server_name = override_server_name(hostname)?;
         https = https.with_server_name_resolver(FixedServerNameResolver::new(server_name));
     };
 
@@ -143,6 +141,37 @@ pub async fn https_connector(
     }
 
     Ok(https.enable_http1().enable_http2().wrap_connector(http))
+}
+
+/// The name the server certificate is verified against, from the host of an override target.
+///
+/// `http` reports the host of an IPv6 authority with its brackets, as `[::1]`, while a [`ServerName`]
+/// is the address alone. Brackets delimit an IP literal and nothing else, so what stands between them
+/// has to parse as an address rather than fall back to being read as a name.
+///
+/// A host that is neither is a mistyped `GrpcClient__OverrideTargetName`, reported as the
+/// configuration error it is: this runs inside a library, where a panic leaves the caller nothing to
+/// read.
+fn override_server_name(target: &Uri) -> Result<ServerName<'static>, ConnectionError> {
+    let host = target.host().unwrap_or_default();
+
+    let server_name = match host.strip_prefix('[').and_then(|ip| ip.strip_suffix(']')) {
+        Some(literal) => IpAddr::try_from(literal).ok().map(ServerName::from),
+        None => ServerName::try_from(host).ok().map(|name| name.to_owned()),
+    };
+
+    match server_name {
+        Some(server_name) => Ok(server_name),
+        None => IncompatibleOptionsSnafu {
+            msg: format!(
+                "`GrpcClient__OverrideTargetName` names the host `{host}`, which no certificate can \
+                 be verified against. It has to be a DNS name or an IP address, as in \
+                 `server.example.com`, `10.0.0.1` or `[::1]`"
+            ),
+        }
+        .fail()
+        .context(ConfigSnafu {}),
+    }
 }
 
 /// Everything that can go wrong between a [`ClientConfig`] and a usable channel.
@@ -186,4 +215,115 @@ pub enum ConnectionError {
         #[snafu(implicit)]
         location: snafu::Location,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ClientConfigArgs;
+
+    /// A configuration whose only interesting part is the override target. Unsafe connections so that
+    /// building the connector reads no certificate store.
+    fn config(override_target_name: &str) -> ClientConfig {
+        ClientConfig::from_config_args(ClientConfigArgs {
+            endpoint: String::from("https://10.0.0.1:5003"),
+            override_target_name: String::from(override_target_name),
+            allow_unsafe_connection: true,
+            ..Default::default()
+        })
+        .expect("the override target should be a valid authority")
+    }
+
+    /// The name derived from an override target, for a value that yields one.
+    fn server_name(override_target_name: &str) -> ServerName<'static> {
+        let target = config(override_target_name)
+            .override_target
+            .expect("an override target");
+        override_server_name(&target).expect("the host should name something verifiable")
+    }
+
+    /// Every message in the chain, joined: the option name is in the cause, not the outermost message.
+    fn chain(error: &ConnectionError) -> String {
+        let mut rendered = error.to_string();
+        let mut source = std::error::Error::source(error);
+        while let Some(cause) = source {
+            rendered.push_str(" | ");
+            rendered.push_str(&cause.to_string());
+            source = cause.source();
+        }
+        rendered
+    }
+
+    #[test]
+    fn an_override_written_as_a_bracketed_ipv6_literal_names_the_address() {
+        // `[::1]` is how an IPv6 host is written in an authority, and `http` hands the brackets back
+        // with it. The name a certificate is checked against is the address inside them.
+        assert_eq!(
+            server_name("[::1]"),
+            ServerName::from(IpAddr::try_from("::1").expect("an address")),
+        );
+        assert_eq!(
+            server_name("[2001:db8::1]:5003"),
+            ServerName::from(IpAddr::try_from("2001:db8::1").expect("an address")),
+        );
+    }
+
+    #[test]
+    fn an_override_written_as_a_dns_name_or_an_ipv4_address_is_taken_as_it_stands() {
+        assert_eq!(
+            server_name("server.example.com"),
+            ServerName::try_from("server.example.com").expect("a name"),
+        );
+        assert_eq!(
+            server_name("10.0.0.1:5003"),
+            ServerName::from(IpAddr::try_from("10.0.0.1").expect("an address")),
+        );
+    }
+
+    #[test]
+    fn brackets_around_something_that_is_not_an_address_are_not_read_as_a_name() {
+        // `http` balances the brackets without looking inside them, so `[example.com]` reaches here.
+        // Dropping the brackets and taking what is left would verify against a host nobody wrote.
+        let target = config("[example.com]")
+            .override_target
+            .expect("an override target");
+
+        let error =
+            override_server_name(&target).expect_err("brackets are an IP literal or nothing");
+        assert!(matches!(error, ConnectionError::Config { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn a_host_that_names_nothing_verifiable_is_reported_against_its_option() {
+        // Whoever set it has a dozen `GrpcClient__*` variables to choose from, so the message has to
+        // name the one at fault and quote what it read.
+        let target = config("-nope-")
+            .override_target
+            .expect("an override target");
+
+        let error = override_server_name(&target).expect_err("a leading hyphen is not a DNS label");
+        let rendered = chain(&error);
+        assert!(
+            rendered.contains("GrpcClient__OverrideTargetName"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("-nope-"), "{rendered}");
+    }
+
+    #[tokio::test]
+    async fn a_bracketed_ipv6_override_builds_a_connector() {
+        // The whole path, since the name is only pinned onto the connector at the end of it.
+        https_connector(config("[::1]"))
+            .await
+            .expect("a bracketed IPv6 override is a valid one");
+    }
+
+    #[tokio::test]
+    async fn an_override_that_names_nothing_verifiable_fails_rather_than_panics() {
+        let error = https_connector(config("-nope-"))
+            .await
+            .expect_err("the connector cannot be built without a name to verify against");
+
+        assert!(matches!(error, ConnectionError::Config { .. }), "{error:?}");
+    }
 }
