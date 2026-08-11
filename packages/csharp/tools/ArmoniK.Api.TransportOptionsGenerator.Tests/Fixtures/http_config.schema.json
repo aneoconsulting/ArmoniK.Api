@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HttpConfig",
+  "description": "Options for creating a gRPC client.\n\nDeserializable but deliberately not serializable: the proxy password is a secret, and a type\nthat cannot be written out cannot leak it through a configuration dump. `Debug` redacts it for\nthe same reason.\n\nEvery option is spelled the way its own documentation names it (`Endpoint`, `TcpKeepalive`,\n...), an empty string reads as the option's default, and a `serde` source may hand a bare\nnumber or boolean over in its own type rather than as text.",
+  "type": "object",
+  "properties": {
+    "AllowUnsafeConnection": {
+      "description": "Accept any server certificate instead of verifying it: `1`, `true`, `yes`, `enable`,\n`allow` or `authorize`, and their negatives; empty for false.",
+      "type": "string"
+    },
+    "BackOffMultiplier": {
+      "description": "What each wait is multiplied by; empty for the default.",
+      "type": "string"
+    },
+    "CaCertPath": {
+      "description": "Path to the Certificate Authority file, in PEM format; empty for the system CAs.",
+      "type": "string"
+    },
+    "ConnectTimeout": {
+      "description": "Timeout for establishing a connection to the server, defaults to 60s. `ConnectTimeout`.",
+      "type": "string"
+    },
+    "Endpoint": {
+      "description": "Endpoint for sending requests. `Endpoint`.",
+      "type": "string"
+    },
+    "Http2KeepAliveInterval": {
+      "description": "HTTP/2 PING frame interval (e.g. `20s`), defaults to no keepalive.",
+      "type": "string"
+    },
+    "Http2KeepAliveTimeout": {
+      "description": "HTTP/2 PING timeout (e.g. `10s`), defaults to no timeout.",
+      "type": "string"
+    },
+    "Http2KeepAliveWhileIdle": {
+      "description": "Send HTTP/2 keepalive PINGs even when idle, defaults to false.\nSee `AllowUnsafeConnection` for the accepted spellings.",
+      "type": "string"
+    },
+    "Http2MaxHeaderListSize": {
+      "description": "HTTP/2 max header list size in bytes, defaults to no limit.",
+      "type": "string"
+    },
+    "InitialBackOff": {
+      "description": "Wait before the second attempt (e.g. `1s`); empty for the default.",
+      "type": "string"
+    },
+    "MaxAttempts": {
+      "description": "Attempts in all for one request, first try included; `1` never replays, `0` is refused, and\nempty is the default.",
+      "type": "string"
+    },
+    "MaxBackOff": {
+      "description": "Ceiling the wait grows to (e.g. `5s`); empty for the default.",
+      "type": "string"
+    },
+    "OverrideTargetName": {
+      "description": "Override the endpoint name during SSL verification; empty for no override.",
+      "type": "string"
+    },
+    "PoolIdleTimeout": {
+      "description": "How long an idle connection is kept in a pool before it is closed. `PoolIdleTimeout`.\n\nApplied by whoever drives the pool: a channel is one connection and has none, so nothing\nthat builds one reads it.",
+      "type": "string"
+    },
+    "RateLimit": {
+      "description": "Rate limit for requests, written `count/duration` (e.g. `100/1s`), defaults to no rate\nlimit. `RateLimit`.\n\nApplied by whoever builds the channel: this crate declares the option, each HTTP/2 engine\napplies it on its side.",
+      "type": "string"
+    },
+    "TcpKeepalive": {
+      "description": "TCP keepalive duration (e.g. `30s`), defaults to no keepalive.",
+      "type": "string"
+    },
+    "TcpKeepaliveInterval": {
+      "description": "Interval between TCP keepalive probes (e.g. `5s`), defaults to OS default.",
+      "type": "string"
+    },
+    "TcpKeepaliveRetries": {
+      "description": "Number of TCP keepalive retries, defaults to OS default.",
+      "type": "string"
+    },
+    "TcpNagleAlgorithm": {
+      "description": "Enable Nagle's algorithm (disable TCP_NODELAY), defaults to false. See\n`AllowUnsafeConnection` for the accepted spellings.",
+      "type": "string"
+    },
+    "Timeout": {
+      "description": "Timeout for each request, defaults to no timeout. `Timeout`.\n\nApplied by whoever builds the channel: this crate declares the option, each HTTP/2 engine\napplies it on its side.",
+      "type": "string"
+    },
+    "UserAgent": {
+      "description": "User-Agent header value sent with each request. `UserAgent`.\n\nApplied by whoever builds the channel: this crate declares the option, each HTTP/2 engine\napplies it on its side.",
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "description": "A certificate chain and its key bundled together in one PKCS#12 file.",
+          "type": "object",
+          "properties": {
+            "CertP12": {
+              "description": "Path to the PKCS#12 bundle; mutually exclusive with `CertPem`/`KeyPem`.",
+              "type": "string"
+            },
+            "CertP12Password": {
+              "description": "Password protecting `CertP12`, empty for none; rejected without `CertP12`.",
+              "type": "string"
+            },
+            "CertPem": {
+              "description": "Path to the certificate chain file, in PEM format; set together with `KeyPem`.",
+              "type": "string"
+            },
+            "KeyPem": {
+              "description": "Path to the key file, in PEM format; set together with `CertPem`.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "CertP12"
+          ]
+        },
+        {
+          "description": "A certificate chain and its key, each in its own PEM file.",
+          "type": "object",
+          "properties": {
+            "CertP12": {
+              "description": "Path to the PKCS#12 bundle; mutually exclusive with `CertPem`/`KeyPem`.",
+              "type": "string"
+            },
+            "CertP12Password": {
+              "description": "Password protecting `CertP12`, empty for none; rejected without `CertP12`.",
+              "type": "string"
+            },
+            "CertPem": {
+              "description": "Path to the certificate chain file, in PEM format; set together with `KeyPem`.",
+              "type": "string"
+            },
+            "KeyPem": {
+              "description": "Path to the key file, in PEM format; set together with `CertPem`.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "CertPem",
+            "KeyPem"
+          ]
+        },
+        {
+          "description": "Neither identity option set, or an incomplete one: half a PEM pair, or a password naming no\nbundle. Each is refused when the configuration is read, naming the options involved; this\nalternative admits them so the vocabulary stays one list, and the reader is what decides\nwhich combinations make an identity.",
+          "type": "object",
+          "properties": {
+            "CertP12": {
+              "description": "Path to the PKCS#12 bundle; mutually exclusive with `CertPem`/`KeyPem`.",
+              "type": "string"
+            },
+            "CertP12Password": {
+              "description": "Password protecting `CertP12`, empty for none; rejected without `CertP12`.",
+              "type": "string"
+            },
+            "CertPem": {
+              "description": "Path to the certificate chain file, in PEM format; set together with `KeyPem`.",
+              "type": "string"
+            },
+            "KeyPem": {
+              "description": "Path to the key file, in PEM format; set together with `CertPem`.",
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "anyOf": [
+        {
+          "description": "Credentials in the dedicated options, and an address carrying none.\n\nThe address is a plain string here as everywhere, so this alternative cannot say that its\nown `user:password@` is what the other one is for. Reading refuses an address carrying\ncredentials next to a non-empty `Username` or `Password`; a document validating against\nthis alternative is not therefore one the reader accepts.",
+          "type": "object",
+          "properties": {
+            "ProxyAddress": {
+              "description": "Where to find the proxy: empty or `system` to follow the environment, `none` for a\ndirect connection, otherwise the proxy URL, carrying no credentials, whose scheme has\nto be `http`.",
+              "type": "string"
+            },
+            "ProxyPassword": {
+              "description": "Password for proxy authentication.",
+              "type": "string"
+            },
+            "ProxyUsername": {
+              "description": "Username for proxy authentication.",
+              "type": "string"
+            }
+          }
+        },
+        {
+          "description": "Credentials written into the address itself, `user:password@` in its authority, with the\ndedicated options left unset. Setting both ways is refused rather than merged.",
+          "type": "object",
+          "properties": {
+            "ProxyAddress": {
+              "description": "The proxy URL, credentials included.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "ProxyAddress"
+          ]
+        }
+      ]
+    }
+  ]
+}
