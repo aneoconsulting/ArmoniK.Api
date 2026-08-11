@@ -19,6 +19,9 @@ serde = [
   "dep:serde_with",
   "dep:serde_path_to_error",
 ]
+# Reading the options from environment variables, under a prefix the caller chooses. `serde`
+# because that is what does the reading; the feature adds no dependency of its own.
+env = ["serde"]
 # A JSON schema of the option vocabulary, for generating an options class in another language.
 # `serde_json` because the prefix helper rewrites the generated schema's property names, and a
 # schemars 1.x schema is edited as the JSON value it wraps.

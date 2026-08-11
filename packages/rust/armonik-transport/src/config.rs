@@ -5,8 +5,11 @@
 //! (`Endpoint`, `TcpKeepalive`, `Http2KeepAliveInterval`, ...), the same vocabulary every ArmoniK
 //! client reads; the thematic groups ([`TlsConfig`], [`TcpConfig`], [`Http2Config`],
 //! [`RetryConfig`]) flatten back into those names, so grouping the fields changes no option a
-//! deployment already sets. The `schema` feature describes that same vocabulary as a JSON schema,
-//! derived from the types that define it rather than written out a second time.
+//! deployment already sets.
+//!
+//! The `schema` feature describes that same vocabulary as a JSON schema, derived from the types
+//! that define it rather than written out a second time, and the `env` feature reads it from
+//! environment variables under a prefix the caller chooses.
 
 use std::time::Duration;
 

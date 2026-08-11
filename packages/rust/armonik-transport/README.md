@@ -7,6 +7,18 @@ Depend on it when you need the connection layer without generated protobuf types
 `protoc`/`tonic-prost-build` build step. [`armonik`](../armonik) re-exports all of it, so a client that
 wants the services as well needs only that one.
 
+## Reading the options from the environment
+
+The `env` feature adds `HttpConfig::from_env(prefix)`: one variable per option, named `prefix` plus
+the option's own PascalCase spelling, with the prefix entirely the caller's to choose. An absent
+variable and one declared empty both read as the option's default. A value an option refuses is
+reported as the variable to go and fix, `prefix` included; an option belonging to one of the
+grouped units (`Tcp*`, `Http2*`, and the TLS options) is named by the unit instead, without the
+prefix. `armonik` sets the prefix ArmoniK deployments use, `GrpcClient__`.
+
+`HttpConfig::from_env_vars(prefix, variables)` reads the same options out of any set of variables,
+for a caller holding an environment other than its own process's.
+
 ## Describing the options to another language
 
 The `schema` feature derives a JSON schema of the flat PascalCase option vocabulary (`Endpoint`,
