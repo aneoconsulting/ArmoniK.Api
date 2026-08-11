@@ -5,7 +5,6 @@ pub enum Output {
     #[default]
     #[armonik(present)]
     Ok,
-    Error {
-        details: String,
-    },
+    #[armonik(inline)]
+    Error { details: String },
 }

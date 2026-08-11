@@ -1,4 +1,4 @@
-error: only one field of the variant may be the member payload; the others must match the non-oneof fields of `fixture.Choice` (use #[armonik(rename = "...")] if the names differ)
+error: only one field of the variant may carry the member `text`; add #[armonik(inline)] to the variant if these are the member message's own fields, spread into it
   --> tests/ui/oneof_two_payload_fields.rs:11:9
    |
 11 |         extra: String,

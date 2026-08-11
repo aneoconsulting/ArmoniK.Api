@@ -31,6 +31,9 @@ pub(crate) enum AttrItem {
     With(LitStr),
     /// `present`: marker oneof variant selected by field presence.
     Present,
+    /// `inline`: the struct variant's leftover fields are the member message's own fields, spread
+    /// into the variant rather than carried whole by one of them.
+    Inline,
     /// `absorbs = "full.proto.Name"`, on a field or variant carrying a `with` adapter: the proto
     /// message the adapter flattens away, which therefore has no Rust type of its own. Harvested so
     /// the build script prunes it and the differential harness counts it as covered.
@@ -74,13 +77,14 @@ impl Parse for AttrList {
                 "generic" => AttrItem::Generic,
                 "transparent" => AttrItem::Transparent,
                 "present" => AttrItem::Present,
+                "inline" => AttrItem::Inline,
                 other => {
                     return Err(syn::Error::new(
                         span,
                         format!(
                             "unknown armonik attribute key `{other}` (expected one of: \
                              message, enum, oneof, rename, tag, with, absorbs, generic, \
-                             transparent, present)"
+                             transparent, present, inline)"
                         ),
                     ));
                 }

@@ -688,25 +688,41 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     // the fragments are emitted once *around* the member match rather than inside each of its arms,
     // and the arms only have to deal with the member.
     let sib_idents: Vec<&syn::Ident> = plan.siblings.iter().map(|sibling| &sibling.ident).collect();
+    // Bound under `__f<tag>`, never under the user's field name: these locals sit in the same scope
+    // as the emitter's own `buf`, `len`, `value`, `tag`, `wire_type` and `ctx`, and a proto field
+    // named like any of those would otherwise shadow one.
+    let sib_locals: Vec<syn::Ident> = plan
+        .siblings
+        .iter()
+        .map(|sibling| quote::format_ident!("__f{}", sibling.tag))
+        .collect();
     let variant_idents: Vec<&syn::Ident> = plan
         .variants
         .iter()
         .map(|variant| &variant.ident)
         .chain(plan.default_variant.iter())
         .collect();
-    let pats = |bound: &[&syn::Ident]| -> Vec<TokenStream> {
+    // `bound` selects which siblings the pattern binds, by index.
+    let pats = |bound: &[usize]| -> Vec<TokenStream> {
+        let fields = bound.iter().map(|&i| sib_idents[i]);
+        let locals = bound.iter().map(|&i| &sib_locals[i]);
+        let binds: Vec<TokenStream> = fields
+            .zip(locals)
+            .map(|(field, local)| quote!(#field: #local))
+            .collect();
         variant_idents
             .iter()
-            .map(|variant| quote!(Self::#variant { #(#bound,)* .. }))
+            .map(|variant| quote!(Self::#variant { #(#binds,)* .. }))
             .collect()
     };
+    let all_siblings: Vec<usize> = (0..plan.siblings.len()).collect();
     // Binds every sibling by reference, whatever the variant.
-    let bind_siblings = (!sib_idents.is_empty()).then(|| {
-        let all = pats(&sib_idents);
+    let bind_siblings = (!sib_locals.is_empty()).then(|| {
+        let all = pats(&all_siblings);
         quote! {
             #[allow(unused_parens)]
-            let (#(#sib_idents),*) = match value {
-                #(#all)|* => (#(#sib_idents),*),
+            let (#(#sib_locals),*) = match value {
+                #(#all)|* => (#(#sib_locals),*),
             };
         }
     });
@@ -717,10 +733,10 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     let (low, high): (Vec<_>, Vec<_>) = plan
         .siblings
         .iter()
-        .map(|sibling| {
-            let sid = &sibling.ident;
+        .zip(&sib_locals)
+        .map(|(sibling, local)| {
             let d = dispatch(&sibling.ty, None);
-            field_fragments(&d, sibling.tag, quote!(#sid))
+            field_fragments(&d, sibling.tag, quote!(#local))
         })
         .partition(|(tag, _, _)| min_member_tag.is_some_and(|member| *tag < member));
     let sib_encode = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
@@ -792,13 +808,13 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
                 let (construct, take) = match binding {
                     None => (quote!(Self::#var(payload)), None),
                     Some(field) => (
-                        quote!(Self::#var { #field: payload, #(#sib_idents),* }),
+                        quote!(Self::#var { #field: payload, #(#sib_idents: #sib_locals),* }),
                         Some({
-                            let take_pats = pats(&sib_idents);
+                            let take_pats = pats(&all_siblings);
                             quote! {
                                 #[allow(unused_parens)]
-                                let (#(#sib_idents),*) = match value {
-                                    #(#take_pats)|* => (#(::std::mem::take(#sib_idents)),*),
+                                let (#(#sib_locals),*) = match value {
+                                    #(#take_pats)|* => (#(::std::mem::take(#sib_locals)),*),
                                 };
                             }
                         }),
@@ -963,16 +979,16 @@ pub(crate) fn oneof(plan: &crate::resolve::OneofPlan) -> TokenStream {
     }
 
     // A sibling occurrence merges in place, whatever the current variant.
-    for sibling in &plan.siblings {
-        let sid = &sibling.ident;
+    for (position, sibling) in plan.siblings.iter().enumerate() {
+        let local = &sib_locals[position];
         let sty = &sibling.ty;
         let stag = sibling.tag;
-        let self_pats = pats(&[sid]);
+        let self_pats = pats(&[position]);
         merge_arms.push(quote! {
             #stag => {
                 match value {
                     #(#self_pats)|* => {
-                        <#sty as crate::codec::ProtoField>::merge_field(wire_type, #sid, buf, ctx)
+                        <#sty as crate::codec::ProtoField>::merge_field(wire_type, #local, buf, ctx)
                     }
                 }
             }

@@ -590,6 +590,7 @@ struct FieldAttrs {
     tag: Option<(Span, u32)>,
     with: Option<(Span, syn::Type)>,
     present: bool,
+    inline: Option<Span>,
 }
 
 /// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a spanned `reject` error,
@@ -602,6 +603,7 @@ struct Allowed {
     tag: bool,
     with: bool,
     present: bool,
+    inline: bool,
     absorbs: bool,
 }
 
@@ -644,6 +646,10 @@ fn scan_field_attrs(
             }
             AttrItem::Present if allowed.present => {
                 collected.present = true;
+                true
+            }
+            AttrItem::Inline if allowed.inline => {
+                collected.inline = Some(entry.span);
                 true
             }
             // Harvested by `collect_absorbs` in lib.rs; only tolerated here.
@@ -1033,34 +1039,30 @@ pub(crate) struct InlinePart {
     pub(crate) checks: Option<Expectation>,
 }
 
-/// Outcome of matching a struct variant's named fields against the whole-message enum's sibling
-/// fields (see [`sibling_variant_fields`]).
-enum SiblingSplit {
-    /// Every field is a sibling: the attribute-less "no member set" variant.
-    NoMemberSet,
-    /// One field is the member payload: its ident, type, and optional `#[armonik(with = ...)]`
-    /// adapter. Boxed: `syn::Type` dwarfs the other variants.
-    Payload(Box<(syn::Ident, syn::Type, Option<syn::Type>)>),
-    /// The variant is malformed; errors were already pushed.
-    Failed,
-}
-
-/// Partition the named fields of a variant into the message's sibling fields (updating/checking the
-/// cross-variant bindings) and at most one remaining field, the member payload.
-fn sibling_variant_fields(
+/// Partition a struct variant's named fields into the message's non-oneof fields and everything
+/// left over.
+///
+/// The non-oneof set is possibly empty, which is what makes this one function rather than two: an
+/// enum standing for a whole message with sibling fields and one narrowing a single oneof differ
+/// only in how many fields land on the left. Cross-variant bindings are checked here, since a
+/// sibling must be spelled the same way in every variant.
+///
+/// `None` when the variant is malformed; the errors are already pushed.
+fn split_variant_fields(
     named: &syn::FieldsNamed,
     sibling_metas: &[&FieldMeta],
     sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
     errors: &mut Errors,
     variant_span: Span,
     proto_name: &str,
-) -> SiblingSplit {
+) -> Option<Vec<Leftover>> {
     let mut failed = false;
     let mut seen = vec![false; sibling_metas.len()];
-    let mut payload: Option<(syn::Ident, syn::Type, Option<syn::Type>)> = None;
+    let mut leftovers: Vec<Leftover> = Vec::new();
+
     for field in &named.named {
         let ident = field.ident.clone().expect("named fields have idents");
-        let Some((FieldAttrs { rename, with, .. }, entries_ok)) = scan_attrs(
+        let Some((FieldAttrs { rename, with, .. }, _)) = scan_attrs(
             &field.attrs,
             Allowed {
                 rename: true,
@@ -1068,15 +1070,12 @@ fn sibling_variant_fields(
                 absorbs: true,
                 ..Allowed::default()
             },
-            "this armonik attribute is not valid on a variant field",
+            "this armonik attribute is not valid on a struct variant field",
             errors,
         ) else {
             failed = true;
             continue;
         };
-        if !entries_ok {
-            failed = true;
-        }
 
         let name = rename.unwrap_or_else(|| unraw(&ident));
         if let Some(position) = sibling_metas.iter().position(|meta| meta.name == name) {
@@ -1117,20 +1116,17 @@ fn sibling_variant_fields(
                     }
                 }
             }
-        } else if payload.is_some() {
-            errors.at(
-                ident.span(),
-                format!(
-                    "only one field of the variant may be the member payload; the others \
-                     must match the non-oneof fields of `{proto_name}` (use \
-                     #[armonik(rename = \"...\")] if the names differ)"
-                ),
-            );
-            failed = true;
         } else {
-            payload = Some((ident, field.ty.clone(), with.map(|(_, ty)| ty)));
+            leftovers.push(Leftover {
+                span: ident.span(),
+                ident,
+                name,
+                ty: field.ty.clone(),
+                with: with.map(|(_, ty)| ty),
+            });
         }
     }
+
     for (position, field_seen) in seen.iter().enumerate() {
         if !field_seen {
             errors.at(
@@ -1145,16 +1141,20 @@ fn sibling_variant_fields(
             failed = true;
         }
     }
-    if failed {
-        SiblingSplit::Failed
-    } else {
-        match payload {
-            Some(payload) => SiblingSplit::Payload(Box::new(payload)),
-            None => SiblingSplit::NoMemberSet,
-        }
-    }
+
+    (!failed).then_some(leftovers)
 }
 
+/// A field of a struct variant that is not one of the message's non-oneof fields, so it belongs to
+/// the oneof member: the member carried whole, or one of its own fields under `inline`.
+struct Leftover {
+    ident: syn::Ident,
+    /// The proto name it matches by: the Rust name, or `rename`.
+    name: String,
+    ty: syn::Type,
+    span: Span,
+    with: Option<syn::Type>,
+}
 /// Read-only context shared by the per-shape variant resolvers below: the variant being resolved
 /// and everything already known about the oneof member it maps to. The mutable state each resolver
 /// touches (`errors`, and the `absorbs`/`sibling_bindings` a particular shape feeds) is passed
@@ -1169,80 +1169,155 @@ struct VariantCtx<'a> {
     member_name: &'a str,
     /// `#[armonik(present)]` was set on the variant.
     present: bool,
+    /// The span of `#[armonik(inline)]`, if set on the variant.
+    inline: Option<Span>,
 }
 
 /// A resolver returns the variant's shape, or `Err(())` after pushing the error(s) that make this
 /// variant unresolvable (the caller skips it).
 type ResolvedShape = Result<OneofVariantShape, ()>;
 
-/// Whole-message enum with sibling fields: a struct variant carrying one member payload plus every
-/// non-oneof field.
-fn resolve_sibling_variant(
+/// Resolve one variant against the oneof member it names.
+///
+/// One function for every shape, with the message's non-oneof fields as a possibly-empty set: "no
+/// sibling fields" is the same case as "sibling fields, and there are zero of them". What the shape
+/// is read off is the variant's own syntax and its `#[armonik(...)]` keys, never how many siblings
+/// the enum happens to have.
+fn resolve_variant(
     ctx: &VariantCtx,
     sibling_metas: &[&FieldMeta],
     sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
-    with: &Option<(Span, syn::Type)>,
+    with: Option<(Span, syn::Type)>,
+    absorbs: &mut Vec<String>,
     errors: &mut Errors,
 ) -> ResolvedShape {
-    if ctx.present {
-        errors.at(
-            ctx.span,
-            "#[armonik(present)] markers are not supported in whole-message \
-             enums with sibling fields",
-        );
-        return Err(());
-    }
-    if let Some((with_span, _)) = with {
-        errors.at(
-            *with_span,
-            "in whole-message enums with sibling fields, put with = ... on the \
-             member payload field",
-        );
-        return Err(());
-    }
-    let syn::Fields::Named(named) = &ctx.variant.fields else {
-        errors.at(
-            ctx.span,
-            "variants of a whole-message enum with sibling fields must be \
-             struct variants carrying the sibling fields",
-        );
-        return Err(());
-    };
-    let (payload, ty, adapter) = match sibling_variant_fields(
-        named,
-        sibling_metas,
-        sibling_bindings,
-        errors,
-        ctx.span,
-        ctx.proto_name,
-    ) {
-        SiblingSplit::Payload(payload) => *payload,
-        SiblingSplit::NoMemberSet => {
+    if let Some(inline_span) = ctx.inline {
+        if ctx.present {
             errors.at(
-                ctx.span,
-                format!(
-                    "the variant needs a payload field for the member \
-                     `{}`",
-                    ctx.member_name
-                ),
+                inline_span,
+                "inline and present cannot be combined: present records that a member was \
+                 set and carries nothing, inline spreads the member's own fields",
             );
             return Err(());
         }
-        SiblingSplit::Failed => return Err(()),
-    };
-    let checks = if adapter.is_some() {
-        None
-    } else {
-        Expectation::of(ctx.field_meta)
-    };
-    Ok(OneofVariantShape::Payload {
-        ty: Box::new(ty),
-        adapter: adapter.map(Box::new),
-        checks: Box::new(checks),
-        binding: Some(payload),
-    })
-}
+        if with.is_some() {
+            errors.at(
+                inline_span,
+                "inline and with = ... cannot be combined: with names a codec for a member \
+                 carried whole, inline spreads the member's own fields",
+            );
+            return Err(());
+        }
+    }
+    if ctx.present {
+        return resolve_marker_variant(ctx, &with, errors);
+    }
 
+    match &ctx.variant.fields {
+        // `Variant(T)`: the member carried whole, optionally through an adapter. It carries no
+        // sibling fields, so the enum must have none.
+        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+            if let Some(inline_span) = ctx.inline {
+                errors.at(
+                    inline_span,
+                    "inline needs a struct variant: there is nothing to spread the \
+                     member's fields into",
+                );
+                return Err(());
+            }
+            if !sibling_metas.is_empty() {
+                errors.at(
+                    ctx.span,
+                    format!(
+                        "`{}` has non-oneof fields, so every variant must be a struct \
+                         variant carrying them",
+                        ctx.proto_name
+                    ),
+                );
+                return Err(());
+            }
+            let adapter = with.map(|(_, adapter)| Box::new(adapter));
+            let checks = match &adapter {
+                Some(_) => None,
+                None => Expectation::of(ctx.field_meta),
+            };
+            Ok(OneofVariantShape::Payload {
+                ty: Box::new(fields.unnamed[0].ty.clone()),
+                adapter,
+                checks: Box::new(checks),
+                binding: None,
+            })
+        }
+        syn::Fields::Named(named) => {
+            if let Some((with_span, _)) = &with {
+                errors.at(
+                    *with_span,
+                    "in a struct variant, put with = ... on the field carrying the member",
+                );
+                return Err(());
+            }
+            let Some(leftovers) = split_variant_fields(
+                named,
+                sibling_metas,
+                sibling_bindings,
+                errors,
+                ctx.span,
+                ctx.proto_name,
+            ) else {
+                return Err(());
+            };
+
+            if ctx.inline.is_some() {
+                return resolve_inline_member(ctx, leftovers, absorbs, errors);
+            }
+            match <[Leftover; 1]>::try_from(leftovers) {
+                Ok([payload]) => {
+                    let adapter = payload.with.map(Box::new);
+                    let checks = match &adapter {
+                        Some(_) => None,
+                        None => Expectation::of(ctx.field_meta),
+                    };
+                    Ok(OneofVariantShape::Payload {
+                        ty: Box::new(payload.ty),
+                        adapter,
+                        checks: Box::new(checks),
+                        binding: Some(payload.ident),
+                    })
+                }
+                Err(leftovers) if leftovers.is_empty() => {
+                    errors.at(
+                        ctx.span,
+                        format!(
+                            "the variant needs a field carrying the member `{}`",
+                            ctx.member_name
+                        ),
+                    );
+                    Err(())
+                }
+                Err(leftovers) => {
+                    errors.at(
+                        leftovers[1].span,
+                        format!(
+                            "only one field of the variant may carry the member `{}`; \
+                             add #[armonik(inline)] to the variant if these are the \
+                             member message's own fields, spread into it",
+                            ctx.member_name
+                        ),
+                    );
+                    Err(())
+                }
+            }
+        }
+        _ => {
+            errors.at(
+                ctx.span,
+                "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
+                 #[armonik(present)] marker, or the attribute-less default",
+            );
+            Err(())
+        }
+    }
+}
 /// `#[armonik(present)]` unit variant selected by a `bool` or empty-message member.
 fn resolve_marker_variant(
     ctx: &VariantCtx,
@@ -1280,114 +1355,66 @@ fn resolve_marker_variant(
     }
 }
 
-/// The payload shapes: `Variant(T)` (a single-payload member, optionally through a `with = "..."`
-/// adapter) or `Variant { .. }` (a struct variant inlining the fields of a message member, whose
-/// message is therefore absorbed).
-fn resolve_plain_variant(
+/// `#[armonik(inline)]`: the variant's leftover fields are the member message's own fields, spread
+/// into the variant, so the member message has no Rust type and is absorbed.
+fn resolve_inline_member(
     ctx: &VariantCtx,
-    with: Option<(Span, syn::Type)>,
+    leftovers: Vec<Leftover>,
     absorbs: &mut Vec<String>,
     errors: &mut Errors,
 ) -> ResolvedShape {
-    match &ctx.variant.fields {
-        syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            let adapter = with.map(|(_, adapter)| Box::new(adapter));
-            let checks = match &adapter {
-                Some(_) => None,
-                None => Expectation::of(ctx.field_meta),
-            };
-            Ok(OneofVariantShape::Payload {
-                ty: Box::new(fields.unnamed[0].ty.clone()),
-                adapter,
-                checks: Box::new(checks),
-                binding: None,
-            })
-        }
-        _ if with.is_some() => {
-            let (with_span, _) = with.expect("checked above");
-            errors.at(with_span, "with = ... needs a single-payload tuple variant");
-            Err(())
-        }
-        syn::Fields::Named(named) => {
-            let FieldKind::Message(inner_name) = &ctx.field_meta.kind else {
-                errors.at(
-                    ctx.span,
-                    format!(
-                        "struct variants inline a message member, but `{}` \
-                         is not a message",
-                        ctx.proto_path
-                    ),
-                );
-                return Err(());
-            };
-            let Some(inner) = ctx.index.messages.get(inner_name) else {
-                errors.at(ctx.span, format!("proto message `{inner_name}` not found"));
-                return Err(());
-            };
-            if !inner.oneofs.is_empty() {
-                errors.at(
-                    ctx.span,
-                    format!(
-                        "`{inner_name}` contains a oneof; it cannot be inlined into \
-                         a struct variant"
-                    ),
-                );
-                return Err(());
-            }
-            let mut matcher = Matcher::new(inner_name, inner);
-            let mut parts = Vec::new();
-            for part in &named.named {
-                let part_ident = part.ident.clone().expect("named fields have idents");
-                let Some((
-                    FieldAttrs {
-                        rename: part_rename,
-                        ..
-                    },
-                    _,
-                )) = scan_attrs(
-                    &part.attrs,
-                    Allowed {
-                        rename: true,
-                        ..Allowed::default()
-                    },
-                    "this armonik attribute is not valid on a struct variant field",
-                    errors,
-                )
-                else {
-                    continue;
-                };
-                let part_name = part_rename.unwrap_or_else(|| unraw(&part_ident));
-                // The message has no oneofs, so a hit is always a field.
-                let Some(Found::Field(part_meta)) =
-                    matcher.find(&part_name, part_ident.span(), errors)
-                else {
-                    continue;
-                };
-                parts.push(InlinePart {
-                    span: part_ident.span(),
-                    ident: part_ident,
-                    ty: part.ty.clone(),
-                    tag: part_meta.tag,
-                    proto_path: format!("{inner_name}.{}", part_meta.name),
-                    checks: Expectation::of(part_meta),
-                });
-            }
-            matcher.check_complete(ctx.span, errors);
-            parts.sort_by_key(|part| part.tag);
-            absorbs.push(inner_name.clone());
-            Ok(OneofVariantShape::Inline { parts })
-        }
-        _ => {
-            errors.at(
-                ctx.span,
-                "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
-                 #[armonik(present)] marker, or the attribute-less default",
-            );
-            Err(())
-        }
+    let FieldKind::Message(inner_name) = &ctx.field_meta.kind else {
+        errors.at(
+            ctx.span,
+            format!(
+                "inline spreads a message member's fields, but `{}` is not a message",
+                ctx.proto_path
+            ),
+        );
+        return Err(());
+    };
+    let Some(inner) = ctx.index.messages.get(inner_name) else {
+        errors.at(ctx.span, format!("proto message `{inner_name}` not found"));
+        return Err(());
+    };
+    if !inner.oneofs.is_empty() {
+        errors.at(
+            ctx.span,
+            format!("`{inner_name}` contains a oneof; it cannot be inlined into a struct variant"),
+        );
+        return Err(());
     }
-}
 
+    let mut matcher = Matcher::new(inner_name, inner);
+    let mut parts = Vec::new();
+    for leftover in leftovers {
+        if let Some(adapter) = &leftover.with {
+            let _ = adapter;
+            errors.at(
+                leftover.span,
+                "with = ... is not supported on an inlined field",
+            );
+            continue;
+        }
+        // The message has no oneofs, so a hit is always a field.
+        let Some(Found::Field(part_meta)) = matcher.find(&leftover.name, leftover.span, errors)
+        else {
+            continue;
+        };
+        parts.push(InlinePart {
+            span: leftover.span,
+            ident: leftover.ident,
+            ty: leftover.ty,
+            tag: part_meta.tag,
+            proto_path: format!("{inner_name}.{}", part_meta.name),
+            checks: Expectation::of(part_meta),
+        });
+    }
+    matcher.check_complete(ctx.span, errors);
+    parts.sort_by_key(|part| part.tag);
+    absorbs.push(inner_name.clone());
+    Ok(OneofVariantShape::Inline { parts })
+}
 pub(crate) fn oneof_plan(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
@@ -1520,6 +1547,7 @@ pub(crate) fn oneof_plan(
                 rename,
                 with,
                 present,
+                inline,
                 ..
             },
             _,
@@ -1529,6 +1557,7 @@ pub(crate) fn oneof_plan(
                 rename: true,
                 with: true,
                 present: true,
+                inline: true,
                 absorbs: true,
                 ..Allowed::default()
             },
@@ -1567,9 +1596,11 @@ pub(crate) fn oneof_plan(
             .find_map(|(position, &field)| {
                 (meta.fields[field].name == member_name).then_some((position, &meta.fields[field]))
             });
+        // A struct variant whose fields are *all* siblings names no member: it is the "no member
+        // set" case, the struct-variant twin of the attribute-less unit variant above.
         if member.is_none() && !sibling_metas.is_empty() && !present && rename.is_none() {
             if let syn::Fields::Named(named) = &variant.fields {
-                match sibling_variant_fields(
+                match split_variant_fields(
                     named,
                     &sibling_metas,
                     &mut sibling_bindings,
@@ -1577,8 +1608,7 @@ pub(crate) fn oneof_plan(
                     span,
                     &proto_name,
                 ) {
-                    // All fields are siblings: the "no member set" variant.
-                    SiblingSplit::NoMemberSet => {
+                    Some(leftovers) if leftovers.is_empty() => {
                         if default_variant.replace(variant.ident.clone()).is_some() {
                             errors.at(
                                 span,
@@ -1588,10 +1618,10 @@ pub(crate) fn oneof_plan(
                         }
                         continue;
                     }
-                    // A payload is present but the name matches no member: fall through to the
-                    // member error below.
-                    SiblingSplit::Payload(..) => {}
-                    SiblingSplit::Failed => continue,
+                    // Something is left over, so the variant does mean to name a member: fall
+                    // through to the unknown-member error below.
+                    Some(_) => {}
+                    None => continue,
                 }
             }
         }
@@ -1623,21 +1653,16 @@ pub(crate) fn oneof_plan(
             proto_path: &proto_path,
             member_name: &member_name,
             present,
+            inline,
         };
-        let resolved = if !sibling_metas.is_empty() {
-            resolve_sibling_variant(
-                &ctx,
-                &sibling_metas,
-                &mut sibling_bindings,
-                &with,
-                &mut errors,
-            )
-        } else if present {
-            resolve_marker_variant(&ctx, &with, &mut errors)
-        } else {
-            resolve_plain_variant(&ctx, with, &mut absorbs, &mut errors)
-        };
-        let shape = match resolved {
+        let shape = match resolve_variant(
+            &ctx,
+            &sibling_metas,
+            &mut sibling_bindings,
+            with,
+            &mut absorbs,
+            &mut errors,
+        ) {
             Ok(shape) => shape,
             Err(()) => continue,
         };

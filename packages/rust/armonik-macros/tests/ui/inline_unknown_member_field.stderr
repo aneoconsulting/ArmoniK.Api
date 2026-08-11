@@ -1,0 +1,11 @@
+error: no field or oneof named `nope` in proto message `fixture.Simple` (available: count, name); use #[armonik(rename = "...")] if the names differ
+  --> tests/ui/inline_unknown_member_field.rs:12:9
+   |
+12 |         nope: i32,
+   |         ^^^^
+
+error: proto field `fixture.Simple.count` (tag 2) is not covered by any Rust field
+  --> tests/ui/inline_unknown_member_field.rs:10:5
+   |
+10 |     Simple {
+   |     ^^^^^^
