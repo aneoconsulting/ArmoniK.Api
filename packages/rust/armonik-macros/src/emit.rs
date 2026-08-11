@@ -9,7 +9,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
 use crate::descriptor::{Cardinality, FieldKind};
-use crate::plan::{Expectation, FieldAccess};
+use crate::plan::{Expectation, FieldAccess, Slot, SlotCodec};
 
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -322,6 +322,37 @@ pub(crate) fn msg_impl(
     quote! {
         impl #impl_generics crate::codec::Msg for #ident #ty_generics #where_clause {
             const NAMES: &'static [&'static str] = &[#(#proto_names),*];
+        }
+    }
+}
+
+/// The shape assert for one slot, and for the parts of an inlined member.
+///
+/// Every slot that names a Rust type gets one; a `present` marker names none, and an inlined member
+/// delegates to its parts.
+pub(crate) fn slot_asserts(slot: &Slot, type_ident: &syn::Ident) -> TokenStream {
+    match (&slot.codec, slot.ty()) {
+        (SlotCodec::Inline { parts }, _) => parts
+            .iter()
+            .map(|part| slot_asserts(part, type_ident))
+            .collect(),
+        // A `with` adapter is checked by nothing: it exists because the Rust representation is
+        // deliberately not the proto's.
+        (SlotCodec::Field { adapter, .. }, Some(ty)) if adapter.is_none() => {
+            field_asserts_for(ty, slot.span, &slot.proto_path, &slot.checks, type_ident)
+        }
+        _ => TokenStream::new(),
+    }
+}
+
+/// How a slot's value is encoded: through the field type's `ProtoField`, or through the
+/// `ProtoAdapter` a `with` names.
+pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
+    match &slot.codec {
+        SlotCodec::Field { ty, adapter } => dispatch(ty, adapter.as_deref()),
+        SlotCodec::Oneof { ty, .. } => quote!(<#ty as ::prost::Message>),
+        SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => {
+            unreachable!("markers and inlined members frame themselves")
         }
     }
 }

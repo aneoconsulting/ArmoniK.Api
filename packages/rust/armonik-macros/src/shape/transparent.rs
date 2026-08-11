@@ -9,7 +9,7 @@ use crate::attrs::Errors;
 use crate::descriptor::DescriptorIndex;
 use crate::emit::{message_impl, msg_impl, normalize_impl, registrations, tripwire};
 use crate::matcher::not_found;
-use crate::plan::{FieldCodec, FieldPlan, MessagePlan};
+use crate::plan::{MessagePlan, Slot, SlotCodec};
 use syn::spanned::Spanned;
 
 /// Plan for a `#[armonik(transparent)]` struct: a single-field newtype that delegates its whole
@@ -56,12 +56,14 @@ pub(crate) fn transparent_plan(
     }
     let field = data.fields.iter().next().expect("one field");
     let (_, access) = field_access(field, 0);
-    let delegate = FieldPlan {
-        access,
-        ty: field.ty.clone(),
+    let delegate = Slot {
+        access: Some(access),
         span: field.ty.span(),
         tag: 0,
-        codec: FieldCodec::Field { adapter: None },
+        codec: SlotCodec::Field {
+            ty: Box::new(field.ty.clone()),
+            adapter: None,
+        },
         checks: None,
         proto_path: String::new(),
     };
@@ -92,7 +94,7 @@ pub(crate) fn transparent_message(
     let proto_names = &plan.proto_names;
     let field = &plan.fields[0];
     let access = &field.access;
-    let ty = &field.ty;
+    let ty = field.ty().expect("the delegate carries a value");
 
     let registrations = registrations(ident, proto_names);
     let normalize = normalize_impl(

@@ -4,7 +4,7 @@
 use crate::attr_site::{field_access, scan_attrs, Allowed, FieldAttrs};
 use crate::attrs::Errors;
 use crate::descriptor::DescriptorIndex;
-use crate::plan::{FieldCodec, FieldPlan, MessagePlan};
+use crate::plan::{MessagePlan, Slot, SlotCodec};
 
 /// Plan for a generic type: no descriptor validation, explicit tags; the concrete instantiations
 /// are covered by the differential harness.
@@ -52,12 +52,12 @@ pub(crate) fn generic_plan(
                 .map(|ident| ident.to_string())
                 .unwrap_or_else(|| field_index.to_string())
         );
-        fields.push(FieldPlan {
-            access,
-            ty: field.ty.clone(),
+        fields.push(Slot {
+            access: Some(access),
             span,
             tag,
-            codec: FieldCodec::Field {
+            codec: SlotCodec::Field {
+                ty: Box::new(field.ty.clone()),
                 adapter: with.map(Box::new),
             },
             checks: None,

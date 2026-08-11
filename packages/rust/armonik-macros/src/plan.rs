@@ -14,7 +14,7 @@ pub(crate) struct MessagePlan {
     pub(crate) proto_names: Vec<String>,
     /// Fields sorted by tag (canonical encode order). In `transparent` mode this holds exactly the
     /// single delegate field.
-    pub(crate) fields: Vec<FieldPlan>,
+    pub(crate) fields: Vec<Slot>,
     pub(crate) generics: syn::Generics,
     pub(crate) fingerprint: u64,
     /// `#[armonik(transparent)]` on a struct: the type delegates its whole `prost::Message` impl to
@@ -27,13 +27,23 @@ pub(crate) enum FieldAccess {
     Indexed(syn::Index),
 }
 
-pub(crate) enum FieldCodec {
-    /// An ordinary field; `adapter` is the `#[armonik(with = "...")]` type when present (which
-    /// skips the shape checks by design).
-    Field { adapter: Option<Box<syn::Type>> },
-    /// The field covers a whole oneof of the message and is encoded through `prost::Message`; `tags`
-    /// are the member field tags routed to it.
-    OneofGroup { tags: Vec<u32> },
+/// How one [`Slot`] gets on the wire.
+pub(crate) enum SlotCodec {
+    /// An ordinary field, through the type's `ProtoField` impl; `adapter` is the
+    /// `#[armonik(with = "...")]` type when present (which skips the shape checks by design).
+    Field {
+        ty: Box<syn::Type>,
+        adapter: Option<Box<syn::Type>>,
+    },
+    /// A whole oneof of the message, routed to the flattened enum's own `prost::Message` impl;
+    /// `tags` are the member field tags that reach it.
+    Oneof { ty: Box<syn::Type>, tags: Vec<u32> },
+    /// `#[armonik(present)]`: the member carries nothing but its own presence. A `bool` member
+    /// encodes `true`, an empty-message member an empty message.
+    Marker { empty_message: bool },
+    /// `#[armonik(inline)]`: the member message's own fields, spread into the variant and framed
+    /// here, since the message is absorbed and has no Rust type to delegate to.
+    Inline { parts: Vec<Slot> },
 }
 
 /// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
@@ -59,16 +69,39 @@ impl Expectation {
     }
 }
 
-pub(crate) struct FieldPlan {
-    pub(crate) access: FieldAccess,
-    pub(crate) ty: syn::Type,
+/// One protobuf field, wherever it sits.
+///
+/// A struct's field, a whole-message enum's non-oneof field (replicated across every variant), the
+/// member a variant carries, and one field of a member message spread into a variant under `inline`
+/// are the same thing seen from four places, and used to be four structs: `FieldPlan`,
+/// `SiblingPlan`, `InlinePart` and the `Payload` arm of an `OneofVariantShape`, of which the middle
+/// two were field-for-field identical. A per-field concern — a new attribute key that changes the
+/// encoding, a new check — was four edits and four chances to miss one, in a crate whose premise is
+/// that field-level duplication is what rots.
+pub(crate) struct Slot {
+    /// How the value is reached: `self.name` on a struct, the field name bound by the pattern in a
+    /// struct variant, the single element of a tuple variant. `None` for a `present` marker, which
+    /// carries no value at all.
+    pub(crate) access: Option<FieldAccess>,
     pub(crate) span: Span,
-    /// Tag of the field (or the lowest member tag for oneof groups), used for ordering.
+    /// Tag of the field, or the lowest member tag of a whole oneof, which is what orders it among
+    /// its siblings.
     pub(crate) tag: u32,
-    pub(crate) codec: FieldCodec,
+    pub(crate) codec: SlotCodec,
     pub(crate) checks: Option<Expectation>,
     /// `TypeName.field_name` of the proto field, for diagnostics.
     pub(crate) proto_path: String,
+}
+
+impl Slot {
+    /// The Rust type carrying the value, for the shape assert. `None` where there is no value: a
+    /// `present` marker, or an inlined member (whose parts carry their own).
+    pub(crate) fn ty(&self) -> Option<&syn::Type> {
+        match &self.codec {
+            SlotCodec::Field { ty, .. } | SlotCodec::Oneof { ty, .. } => Some(ty),
+            SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => None,
+        }
+    }
 }
 
 /// Plan for a protobuf enum (or a transparent single-enum-field wrapper).
@@ -113,7 +146,7 @@ pub(crate) struct OneofPlan {
     pub(crate) whole_message: bool,
     /// Non-oneof fields of the message, replicated in every variant (whole-message enums only;
     /// empty when the oneof is the only field).
-    pub(crate) siblings: Vec<SiblingPlan>,
+    pub(crate) siblings: Vec<Slot>,
     pub(crate) variants: Vec<OneofVariant>,
     /// The attribute-less variant standing for "no member set", if any: a unit variant, or a struct
     /// variant carrying exactly the sibling fields when there are siblings.
@@ -124,49 +157,10 @@ pub(crate) struct OneofPlan {
     pub(crate) absorbs: Vec<String>,
 }
 
-/// A non-oneof field of a whole-message enum, present in every variant under the same name and
-/// type.
-pub(crate) struct SiblingPlan {
-    pub(crate) ident: syn::Ident,
-    pub(crate) ty: syn::Type,
-    pub(crate) span: Span,
-    pub(crate) tag: u32,
-    pub(crate) proto_path: String,
-    pub(crate) checks: Option<Expectation>,
-}
-
 pub(crate) struct OneofVariant {
     pub(crate) ident: syn::Ident,
-    pub(crate) span: Span,
-    pub(crate) tag: u32,
-    pub(crate) proto_path: String,
-    pub(crate) shape: OneofVariantShape,
-}
-
-pub(crate) enum OneofVariantShape {
-    /// The member value, carried by `Variant(T)`, or by the `binding` field of `Variant { payload,
-    /// ...siblings }` in a whole-message enum with sibling fields. Encoded through the type's
-    /// `ProtoField` impl or a `ProtoAdapter` (`#[armonik(with = "...")]`, which skips the shape
-    /// checks by design).
-    Payload {
-        ty: Box<syn::Type>,
-        adapter: Option<Box<syn::Type>>,
-        checks: Box<Option<Expectation>>,
-        binding: Option<syn::Ident>,
-    },
-    /// `#[armonik(present)]` unit variant selected by a `bool` member.
-    MarkerBool,
-    /// `#[armonik(present)]` unit variant selected by an empty-message member.
-    MarkerMessage,
-    /// `Variant { field, ... }` inlining the fields of the member's message.
-    Inline { parts: Vec<InlinePart> },
-}
-
-pub(crate) struct InlinePart {
-    pub(crate) ident: syn::Ident,
-    pub(crate) ty: syn::Type,
-    pub(crate) span: Span,
-    pub(crate) tag: u32,
-    pub(crate) proto_path: String,
-    pub(crate) checks: Option<Expectation>,
+    /// What the variant carries. Its `span` is the variant's, which is where a shape assert about
+    /// the member points. Its `access` says how: a named field of a struct variant, the
+    /// single element of a tuple variant, or nothing for a `present` marker.
+    pub(crate) own: Slot,
 }
