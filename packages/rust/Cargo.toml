@@ -39,6 +39,8 @@ secrecy = "0.10"
 # the `serde` feature would not compile.
 serde = { version = "1.0", features = ["derive", "std"], default-features = false }
 serde_json = "1"
+serde_path_to_error = "0.1"
+serde_with = { version = "3", default-features = false }
 serial_test = "3.5"
 snafu = "0.9"
 tokio = { version = "1.52", default-features = false }

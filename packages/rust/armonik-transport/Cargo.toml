@@ -11,7 +11,14 @@ version.workspace = true
 include = ["**/*.rs", "Cargo.toml", "README.md"]
 
 [features]
-serde = ["dep:serde"]
+# `secrecy/serde` so the proxy password deserialises with the rest of the options. There is no
+# Serialize half to turn on: the type refuses to be written out.
+serde = [
+  "dep:serde",
+  "secrecy/serde",
+  "dep:serde_with",
+  "dep:serde_path_to_error",
+]
 
 [dependencies]
 # `channel` for `tonic::transport::Endpoint`, which is what `connect` builds; `codegen` for the
@@ -41,6 +48,15 @@ hyper-rustls = { workspace = true, features = [
 ] }
 rustls = { workspace = true, features = ["ring", "logging", "std", "tls12"] }
 serde = { workspace = true, optional = true }
+# `with_prefix!`, for a group of options whose flat names already share a literal prefix (`Tcp*`,
+# `Http2*`): it composes with `#[serde(flatten)]` to read the same names as before the grouping,
+# while keeping each option's definition in its own thematic file, under whichever prefix the
+# embedding gives it. `std` because `with_prefix!` is gated behind it.
+serde_with = { workspace = true, optional = true, features = ["std"] }
+# Records which key a `serde` source was reading when a value was refused. Wrapped around the
+# deserializer a flattened unit reads through, it recovers the option name that `#[serde(flatten)]`
+# otherwise buffers away, so no reader has to be told its own name.
+serde_path_to_error = { workspace = true, optional = true }
 humantime.workspace = true
 # `Proxy-Authorization: Basic` needs it. Already in the tree through `tonic`, so declaring it adds
 # nothing to the build.
@@ -57,10 +73,11 @@ tokio = { workspace = true, features = ["net", "time"] }
 tower-service.workspace = true
 
 [dev-dependencies]
-# The boolean options are read straight from the environment, so testing which spellings they accept
-# means setting variables: process-global state, hence one test at a time.
+# The proxy tests that follow the environment set process-global variables, hence one test at a
+# time.
 serial_test.workspace = true
-# Only to round-trip `ClientConfigArgs` in the test that pins the `serde` feature.
+# The unit tests build configurations the way a caller does under the `serde` feature: from a JSON
+# document naming the flat options.
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 # The integration tests serve a gRPC service to call, which the regular build never does; these features
