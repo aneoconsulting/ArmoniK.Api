@@ -18,21 +18,20 @@ use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use snafu::ResultExt;
 
-use crate::config::{ConfigError, HttpSnafu, IoSnafu, TlsSnafu, UriSnafu};
-// Only the shape rules reject a combination of options, and they are what `serde` reads.
-#[cfg(feature = "serde")]
-use crate::config::IncompatibleOptionsSnafu;
+use crate::config::{
+    ConfigError, HttpSnafu, IncompatibleOptionsSnafu, IoSnafu, TlsSnafu, UriSnafu,
+};
 
-/// The client's TLS identity for mTLS: the certificate it presents, and that certificate's key.
+/// The client's TLS identity for mTLS: the certificate chain it presents, and the chain's key.
 ///
 /// Loaded material rather than paths, so it can be built from content directly; reading the pair
 /// from PEM files is [`Identity::from_pem_files`], which is also how the `CertPem`/`KeyPem`
 /// options are read.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Identity {
-    /// The certificate presented to the server.
-    pub cert: CertificateDer<'static>,
-    /// The certificate's private key.
+    /// The certificate chain presented to the server, leaf first.
+    pub certs: Vec<CertificateDer<'static>>,
+    /// The private key of the leaf certificate.
     pub key: PrivateKeyDer<'static>,
 }
 
@@ -41,14 +40,15 @@ impl Clone for Identity {
     /// `Clone`, so a key is only ever duplicated on purpose.
     fn clone(&self) -> Self {
         Self {
-            cert: self.cert.clone(),
+            certs: self.certs.clone(),
             key: self.key.clone_key(),
         }
     }
 }
 
 impl Identity {
-    /// Load an identity from the PEM file holding the certificate and the one holding its key.
+    /// Load an identity from PEM files: the whole chain found in `cert_pem`, in the order the
+    /// file writes it (leaf first), and the key in `key_pem`.
     pub fn from_pem_files(
         cert_pem: impl AsRef<Path>,
         key_pem: impl AsRef<Path>,
@@ -57,7 +57,17 @@ impl Identity {
         let pem = std::fs::read(cert_path).context(IoSnafu {
             path: cert_path.display().to_string(),
         })?;
-        let cert = CertificateDer::from_pem_slice(&pem).context(TlsSnafu {})?;
+        let certs = CertificateDer::pem_slice_iter(&pem)
+            .collect::<Result<Vec<_>, _>>()
+            .context(TlsSnafu {})?;
+        // The iterator yields nothing for a file with no certificate at all, where the single-item
+        // reader would have said `no items found`; the check keeps that mistake loud.
+        snafu::ensure!(
+            !certs.is_empty(),
+            IncompatibleOptionsSnafu {
+                msg: format!("`{}` contains no certificate", cert_path.display()),
+            }
+        );
 
         let key_path = key_pem.as_ref();
         let key = std::fs::read(key_path).context(IoSnafu {
@@ -65,7 +75,7 @@ impl Identity {
         })?;
         let key = PrivateKeyDer::from_pem_slice(&key).context(TlsSnafu {})?;
 
-        Ok(Self { cert, key })
+        Ok(Self { certs, key })
     }
 }
 
@@ -123,7 +133,7 @@ struct RawTls {
 #[derive(Debug, serde::Deserialize)]
 #[serde(untagged)]
 enum RawIdentity {
-    /// A certificate and its key, each in its own PEM file.
+    /// A certificate chain and its key, each in its own PEM file.
     #[serde(rename_all = "PascalCase")]
     PemFiles {
         #[serde(deserialize_with = "crate::config_utils::text")]
@@ -285,6 +295,19 @@ r1lL1Bm4R9X1EGGbfcpdqJZh2r43Te2SgvAEKRagQrJQezmZ+ZKOx519ulCpXa8G
 -----END CERTIFICATE-----
 ";
 
+    /// A second certificate, standing in for the leaf's chain.
+    const CHAIN_CERT: &str = "-----BEGIN CERTIFICATE-----
+MIIBXTCCAQ+gAwIBAgIUHwDgogJUfux1AArhbpjKtIcEml8wBQYDK2VwMCQxIjAg
+BgNVBAMMGWFybW9uaWstdGVzdC1pbnRlcm1lZGlhdGUwHhcNMjYwODA3MDAxMjE0
+WhcNMzYwODA0MDAxMjE0WjAkMSIwIAYDVQQDDBlhcm1vbmlrLXRlc3QtaW50ZXJt
+ZWRpYXRlMCowBQYDK2VwAyEAXWWWsSuVzwTdkDK/FTiTLtW1x34pvcKyU9PE5o+i
+b96jUzBRMB0GA1UdDgQWBBSGsdzF3Wx49uPI1LVCoaH0B3Pb5jAfBgNVHSMEGDAW
+gBSGsdzF3Wx49uPI1LVCoaH0B3Pb5jAPBgNVHRMBAf8EBTADAQH/MAUGAytlcANB
+AD1iaefMRLn1MblPJgkZ3UoVp6RszYRmGSwrtl7beH+au7s8oCQA9NaM/Acz2sxZ
+Y9NMEug15pmfQhxOmtFVgw0=
+-----END CERTIFICATE-----
+";
+
     /// The key of [`LEAF_CERT`], PKCS#8.
     const LEAF_KEY: &str = "-----BEGIN PRIVATE KEY-----
 MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
@@ -316,6 +339,21 @@ MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
     }
 
     #[test]
+    fn an_identity_is_loaded_with_its_whole_chain_in_file_order() {
+        // `rustls` sends the chain as given and expects the leaf first, so the file's own order
+        // has to survive loading.
+        let dir = PemDir::new("chain");
+        let cert = dir.write("cert.pem", &format!("{LEAF_CERT}{CHAIN_CERT}"));
+        let key = dir.write("key.pem", LEAF_KEY);
+
+        let identity = Identity::from_pem_files(&cert, &key).expect("valid PEM files");
+
+        assert_eq!(identity.certs.len(), 2, "both certificates load");
+        let leaf = CertificateDer::from_pem_slice(LEAF_CERT.as_bytes()).expect("valid PEM");
+        assert_eq!(identity.certs[0], leaf, "the leaf comes first");
+    }
+
+    #[test]
     fn a_certificate_path_that_does_not_exist_is_reported_with_the_path() {
         // A typo in the option has to name the file rather than surface later as a TLS failure.
         let error = Identity::from_pem_files("no/such/cert.pem", "no/such/key.pem")
@@ -342,10 +380,9 @@ MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
     }
 
     #[test]
-    fn a_certificate_file_with_no_certificate_is_rejected_while_reading() {
-        // Caught here rather than at handshake time, where the failure would be far from the
-        // option that named the file. The message is the PEM reader's own and does not name that
-        // file, since the error carries no path.
+    fn a_certificate_file_with_no_certificate_is_rejected_with_the_path() {
+        // Iterating an empty file yields an empty chain rather than an error, and `rustls` would
+        // only refuse it at handshake time.
         let dir = PemDir::new("empty");
         let cert = dir.write("cert.pem", "not a certificate\n");
         let key = dir.write("key.pem", LEAF_KEY);
@@ -353,7 +390,12 @@ MC4CAQAwBQYDK2VwBCIEIAKZ5vS5lxuHsHFDHPJmgDlI5D43nIUJ6Woni24zaHSM
         let error = Identity::from_pem_files(&cert, &key)
             .expect_err("a file with no certificate must be rejected");
 
-        assert!(matches!(error, ConfigError::Tls { .. }), "{error:?}");
+        assert!(
+            chain(&error).contains("contains no certificate"),
+            "{}",
+            chain(&error)
+        );
+        assert!(chain(&error).contains("cert.pem"), "{}", chain(&error));
     }
 
     #[test]
