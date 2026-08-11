@@ -1,0 +1,93 @@
+language = "C"
+header = """
+/*
+ * ArmoniK transport C ABI - GENERATED, DO NOT EDIT.
+ *
+ * Regenerated on every build of the library and committed, so that a change to this contract shows
+ * up in review rather than only in a compiled binary. Edit the sources it is generated from, not
+ * this file.
+ *
+ * This is an HTTP transport, not a gRPC stack. It opens a request, streams bytes both ways, and
+ * reports headers, data and trailers. Message framing, `grpc-status`, deadlines and retry belong to
+ * whatever speaks gRPC above it.
+ *
+ * Conventions that the signatures alone do not convey:
+ *
+ *  - Result codes. AK_OK is 0 and means success; every failure is negative. There is no positive
+ *    space: no gRPC status is reported at this level. The value -7 is reserved and never returned.
+ *
+ *  - An `ak_bytes` is owned by whoever receives it. It comes back only through a synchronous
+ *    out-parameter, and is given up by exactly one `ak_bytes_release`, passing the value back
+ *    unchanged. Its `ptr`/`len` are a read-only view and its `owner` is opaque, so never
+ *    dereference it. The zeroed value means "no data" and is always safe to release.
+ *
+ *  - An `ak_bytes_in` is the opposite: a view into memory this library does not own, borrowed for
+ *    the duration of the call it is passed to. A null pointer or a zero length means "absent".
+ *
+ *  - Key/value blobs (request headers, response headers, trailers) are encoded as:
+ *        uint32 count, then `count` times { uint32 key_len, key bytes, uint32 value_len, value bytes }
+ *    Integers are in NATIVE byte order: this is an in-process ABI, not a wire format. Keys may
+ *    repeat and are kept in the order they were given. Values are opaque bytes; a `-bin` header's
+ *    base64 is the caller's convention and passes through untouched.
+ *
+ *  - Handles are reference-counted, and thread-safe. A `_release` gives up one reference rather
+ *    than destroying anything; the object lives until the last reference goes, so a handle may be
+ *    used from any thread and from several at once, `_release` included - a call already under way
+ *    when another thread releases the handle finishes normally. What is not allowed is using a
+ *    handle after your own `_release`.
+ *
+ *  - The reactor. One event callback per request, and three rules:
+ *      1. Nothing arrives unarmed. One armed read produces exactly one event, and one armed write
+ *         produces exactly one event. At most one read and at most one write are armed at a time on
+ *         a request.
+ *      2. COMPLETED exactly once, and last. If starting a request returns AK_OK, a COMPLETED event
+ *         always follows, whatever happens - cancellation, a connection failure, an internal
+ *         failure - and anything still armed is resolved by it. No callback is ever made for that
+ *         request afterwards, so COMPLETED is where, and only there, the caller gives up whatever
+ *         it rooted for `ctx`. If starting the request returns a failure instead, no event ever
+ *         arrives.
+ *      3. Never a callback during an inbound call. Every function posts a command and returns;
+ *         every event is emitted from one of this library's own tasks. There is no reentrancy, and
+ *         delivery is serialised per request, so a caller demultiplexing events needs no lock of
+ *         its own.
+ *
+ *  - Event payloads are BORROWED for the duration of the invocation. Copy what is needed before
+ *    returning; never release one. Nothing on the event path is owned by whoever receives it.
+ *
+ *  - The event callback runs on a foreign thread. It must not block, must not throw or otherwise
+ *    unwind into this library, and must not re-enter this library for the same request. Deliveries
+ *    for one request are serialised, so it is never entered twice at once for the same request; it
+ *    may be entered concurrently for different ones. COMPLETED is terminal.
+ *
+ *  - Two simultaneous events have no promised order. This contract never promises an ordering
+ *    between two independent events, so a caller that relies on one has read into it something that
+ *    is not there. A test of this library asserts the set of acceptable outcomes, not a single one.
+ *
+ *  - The ABI is additive only, and `ak_abi_version` reports which revision a loaded library speaks.
+ *    A version mismatch is diagnosable that way rather than through a missing entry point. Within
+ *    one revision, what may be added: entry points, result codes, event kinds, keys in a blob.
+ *    What may never change: the name, the signature or the calling convention of an existing entry
+ *    point; the layout of an existing struct; the numeric value or the meaning of an existing
+ *    constant; the ownership and lifetime rules above. A caller therefore treats an unknown result
+ *    code as a failure and an unknown event kind as one to ignore, which is what lets it keep
+ *    working against a library newer than itself.
+ */
+"""
+include_guard = "ARMONIK_TRANSPORT_FFI_H"
+cpp_compat = true
+documentation = true
+documentation_style = "doxy"
+usize_is_size_t = true
+
+[parse]
+parse_deps = false
+
+# A type reaches the header when a signature mentions it. These two are part of the contract without
+# being an argument to anything yet: `ak_status` names the values an `int32_t` result may take, and
+# `ak_bytes_in` is the shape every borrowed buffer travels in.
+[export]
+include = ["ak_status", "ak_bytes_in"]
+
+[enum]
+# The variants already carry the `AK_` prefix, so prefixing again would produce `AK_STATUS_AK_OK`.
+prefix_with_name = false

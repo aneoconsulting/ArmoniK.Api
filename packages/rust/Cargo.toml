@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["armonik", "armonik-transport"]
+members = ["armonik", "armonik-transport", "armonik-transport-ffi"]
 
 # Shared so that a version bump, or a change of MSRV or licence, is made once rather than drifting per
 # crate. Members opt in per field with `xxx.workspace = true`.
@@ -12,7 +12,7 @@ repository = "https://github.com/aneoconsulting/ArmoniK.Api"
 rust-version = "1.88.0"
 version = "3.29.2-beta-0"
 
-# Every version lives here, so the two crates cannot resolve to two different `tonic`s, or two
+# Every version lives here, so the members cannot resolve to two different `tonic`s, or two
 # different `rustls`es, in one build. That matters because they hand each other types from both.
 # Members list the dependency and their own features; the version comes from here.
 [workspace.dependencies]
@@ -23,6 +23,11 @@ armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
 async-stream = "0.3"
 base64 = "0.22"
 bytes = "1"
+# Generates the committed C header. `default-features = false` drops its command-line front end,
+# which nothing here calls.
+cbindgen = { version = "0.29", default-features = false }
+# Generates the committed C# bindings from the same sources the header comes from.
+csbindgen = "1.9"
 eyre = "0.6"
 futures = "0.3"
 http = "1"
