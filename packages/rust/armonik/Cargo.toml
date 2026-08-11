@@ -47,6 +47,8 @@ eyre.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 http-body-util.workspace = true
 serde_json.workspace = true
+# The proxy tests that follow the environment set process-global variables, hence one test at a
+# time.
 serial_test.workspace = true
 async-stream.workspace = true
 tokio = { workspace = true, features = [
@@ -56,8 +58,16 @@ tokio = { workspace = true, features = [
   "time",
   # `test-util` for the paused clock the cancellation tests run on.
   "test-util",
+  # `net` and `io-util` for the loopback servers and the hand-written proxy the connection tests
+  # drive.
+  "net",
+  "io-util",
 ] }
 tokio-util.workspace = true
+# The connection tests' codec moves raw `Bytes`, since the service they serve has no protos.
+bytes.workspace = true
+# The test service is a `tower` service, which is what `tonic` serves.
+tower-service.workspace = true
 
 [build-dependencies]
 tonic-prost-build.workspace = true
@@ -82,9 +92,20 @@ required-features = ["client", "server"]
 name = "partitions"
 required-features = ["client", "server"]
 
+# `server` as well as `client`: these drive a real channel against a gRPC service they serve
+# themselves.
+[[test]]
+name = "proxy"
+required-features = ["client", "server"]
+
 [[test]]
 name = "results"
 required-features = ["client", "server"]
+
+# `client` alone: this reads the transport's retry policy, it makes no call.
+[[test]]
+name = "retry"
+required-features = ["client"]
 
 [[test]]
 name = "sessions"
@@ -96,6 +117,10 @@ required-features = ["client", "server"]
 
 [[test]]
 name = "tasks"
+required-features = ["client", "server"]
+
+[[test]]
+name = "timeout"
 required-features = ["client", "server"]
 
 [[test]]

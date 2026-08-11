@@ -13,7 +13,7 @@
 
 use std::path::Path;
 
-use hyper::Uri;
+use http::Uri;
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use secrecy::ExposeSecret;
@@ -370,11 +370,11 @@ impl TlsConfig {
         let authority;
         let path_and_query;
 
-        if let Ok(auth) = name.parse::<hyper::http::uri::Authority>() {
+        if let Ok(auth) = name.parse::<http::uri::Authority>() {
             authority = Some(auth);
             path_and_query = endpoint.path_and_query().cloned();
         } else {
-            hyper::http::uri::Parts {
+            http::uri::Parts {
                 authority,
                 path_and_query,
                 ..
@@ -383,7 +383,7 @@ impl TlsConfig {
                 .into_parts();
         }
 
-        let mut uri = hyper::http::uri::Builder::new();
+        let mut uri = http::uri::Builder::new();
 
         if let Some(scheme) = endpoint.scheme() {
             uri = uri.scheme(scheme.clone());

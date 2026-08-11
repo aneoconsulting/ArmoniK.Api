@@ -1,12 +1,13 @@
 //! Transport layer for the ArmoniK Rust client.
 //!
-//! Configuration parsing, TLS and mTLS: what it takes to turn an endpoint into a connected channel.
+//! Configuration parsing, TLS and mTLS: what it takes to turn an endpoint into a connector requests
+//! go out through. Wrapping that connector in an HTTP/2 engine belongs to whoever consumes it.
 //! Depending on this alone leaves protobuf codegen, and the `protoc` a build script would need, out of
 //! the build.
 
 mod config;
 mod config_utils;
-mod connect;
+mod connector;
 #[cfg(feature = "env")]
 mod env;
 mod http2_config;
@@ -17,7 +18,7 @@ mod tls_config;
 mod utils;
 
 pub use config::{ConfigError, HttpConfig};
-pub use connect::{connect, https_connector, ConnectionError};
+pub use connector::{https_connector, ConnectionError};
 #[cfg(feature = "env")]
 pub use env::EnvError;
 pub use http2_config::Http2Config;
@@ -31,13 +32,14 @@ pub use secrecy::SecretString;
 // Snafu's context selectors, so a caller in another crate can build the error with the location
 // captured at its own call site. Hidden: this is how the error is built, not API to design against.
 #[doc(hidden)]
-pub use connect::{ConfigSnafu, IoSnafu, TlsSnafu, TransportSnafu};
+pub use connector::{IoSnafu, TlsSnafu};
 
 /// Re-exports of this crate's own dependencies, at the versions it was built with.
 ///
 /// A dependent should take these rather than declare its own requirement for the same crates, so it
 /// cannot end up with a `rustls` other than the one the connection was built with.
 pub mod reexports {
+    pub use http;
     pub use hyper;
     pub use hyper_rustls;
     pub use hyper_util;
@@ -47,5 +49,4 @@ pub mod reexports {
     pub use secrecy;
     #[cfg(feature = "serde")]
     pub use serde;
-    pub use tonic;
 }

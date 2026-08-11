@@ -11,11 +11,18 @@ pub use armonik_transport::{
 };
 
 #[cfg(feature = "_gen-client")]
+mod channel;
+#[cfg(feature = "_gen-client")]
 mod env;
+#[cfg(feature = "_gen-client")]
+pub use channel::{connect, ChannelError};
 #[cfg(feature = "_gen-client")]
 pub use env::{NewClientError, ARMONIK_PREFIX};
 // Snafu's context selectors, so a caller in another crate can build the error with the location
 // captured at its own call site. Hidden: this is how the error is built, not API to design against.
+#[cfg(feature = "_gen-client")]
+#[doc(hidden)]
+pub use channel::{ConfigSnafu, ConnectorSnafu, TransportSnafu};
 #[cfg(feature = "_gen-client")]
 #[doc(hidden)]
 pub use env::{ConnectSnafu, EnvSnafu};
@@ -86,14 +93,10 @@ impl Client<tonic::transport::Channel> {
     }
 
     /// Create a new client with the specified client configuration
-    pub async fn with_config(config: HttpConfig) -> Result<Self, ConnectionError> {
+    pub async fn with_config(config: HttpConfig) -> Result<Self, ChannelError> {
         let endpoint = config.endpoint.to_string();
         tracing_futures::Instrument::instrument(
-            async move {
-                Ok(Self::with_channel(
-                    armonik_transport::connect(config).await?,
-                ))
-            },
+            async move { Ok(Self::with_channel(connect(config).await?)) },
             tracing::debug_span!("Client", endpoint),
         )
         .await
@@ -122,7 +125,8 @@ impl Client<tonic::transport::Channel> {
             .body(http_body_util::Empty::<&[u8]>::new())
             .expect("Request");
 
-        let https = armonik_transport::https_connector(config)
+        let origin = hyper::Uri::try_from(&config).expect("An addressable endpoint");
+        let https = armonik_transport::https_connector(config, origin)
             .await
             .expect("Build connection information");
 

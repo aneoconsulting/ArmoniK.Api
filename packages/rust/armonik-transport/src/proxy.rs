@@ -10,9 +10,9 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use base64::Engine;
-use hyper::http::uri::Scheme;
-use hyper::http::HeaderValue;
-use hyper::Uri;
+use http::uri::Scheme;
+use http::HeaderValue;
+use http::Uri;
 use hyper_util::client::legacy::connect::proxy::Tunnel;
 use hyper_util::client::proxy::matcher::Matcher;
 use hyper_util::rt::TokioIo;
@@ -39,7 +39,7 @@ pub enum ProxySource {
     /// The default, as it is for ArmoniK's C# client: a client that asks for nothing follows the
     /// environment, and connects directly when the environment names no proxy.
     ///
-    /// Read once, when `connect` builds the channel, so one that reconnects keeps the values it
+    /// Read once, when the connector is built, so a client that reconnects keeps the values it
     /// started with.
     #[default]
     System,
@@ -753,7 +753,7 @@ pub enum ProxyError {
 impl ProxyError {
     /// The `ProxyError` buried in `error`'s source chain, if any.
     ///
-    /// [`crate::connect`] returns the transport's own error type, which carries this one as an
+    /// A failed connection reports whatever error type its own layer names, carrying this one as an
     /// anonymous boxed cause. This walk is how a caller reacts to a proxy failure in particular,
     /// e.g. prompting for credentials on [`ProxyError::AuthenticationRequired`], without matching
     /// on rendered text.

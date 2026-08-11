@@ -13,7 +13,7 @@
 
 use std::time::Duration;
 
-use hyper::{http::HeaderValue, Uri};
+use http::{HeaderValue, Uri};
 use snafu::Snafu;
 
 use crate::http2_config::Http2Config;
@@ -162,18 +162,24 @@ pub struct HttpConfig {
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub connect_timeout: Option<Duration>,
     /// Timeout for each request, defaults to no timeout. `Timeout`.
+    ///
+    /// Applied by whoever builds the channel: this crate declares the option, each HTTP/2 engine
+    /// applies it on its side.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "optional_duration"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub timeout: Option<Duration>,
     /// How long an idle connection is kept in a pool before it is closed. `PoolIdleTimeout`.
     ///
     /// Applied by whoever drives the pool: a channel is one connection and has none, so nothing
-    /// in `connect` reads it.
+    /// that builds one reads it.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "optional_duration"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub pool_idle_timeout: Option<Duration>,
     /// Rate limit for requests, written `count/duration` (e.g. `100/1s`), defaults to no rate
     /// limit. `RateLimit`.
+    ///
+    /// Applied by whoever builds the channel: this crate declares the option, each HTTP/2 engine
+    /// applies it on its side.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "rate_limit"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub rate_limit: Option<(u64, Duration)>,
@@ -186,6 +192,9 @@ pub struct HttpConfig {
     pub tcp: TcpConfig,
     /// HTTP/2-level transport options, read under the `Http2` prefix (`Http2KeepAliveInterval`,
     /// ...).
+    ///
+    /// Applied by whoever builds the channel: this crate declares the options, each HTTP/2 engine
+    /// applies them on its side.
     #[cfg_attr(
         feature = "serde",
         serde(flatten, deserialize_with = "http2::deserialize")
@@ -195,8 +204,8 @@ pub struct HttpConfig {
     /// How a failed request is replayed, read under no prefix (`MaxAttempts`, `InitialBackOff`,
     /// ...).
     ///
-    /// Applied by whoever makes the calls: a channel carries no notion of a call, so nothing in
-    /// `connect` reads it.
+    /// Applied by whoever makes the calls: a channel carries no notion of a call, so nothing that
+    /// builds one reads it.
     #[cfg_attr(
         feature = "serde",
         serde(flatten, deserialize_with = "retry::deserialize")
@@ -204,6 +213,9 @@ pub struct HttpConfig {
     #[cfg_attr(feature = "schema", schemars(schema_with = "retry::schema"))]
     pub retry: RetryConfig,
     /// User-Agent header value sent with each request. `UserAgent`.
+    ///
+    /// Applied by whoever builds the channel: this crate declares the option, each HTTP/2 engine
+    /// applies it on its side.
     #[cfg_attr(feature = "serde", serde(deserialize_with = "user_agent"))]
     #[cfg_attr(feature = "schema", schemars(with = "String"))]
     pub user_agent: Option<HeaderValue>,
@@ -235,18 +247,82 @@ impl Default for HttpConfig {
     }
 }
 
-impl TryFrom<&HttpConfig> for tonic::transport::Endpoint {
+/// The URI a request is addressed to: [`HttpConfig::endpoint`], or the name `OverrideTargetName`
+/// moves it to, resolved against the endpoint.
+///
+/// Not the address dialled, which stays the endpoint: an override changes the name the server
+/// certificate is verified against and the authority a request carries, never where the connection
+/// goes out.
+///
+/// The empty endpoint is refused here rather than while the options are read: an unset endpoint
+/// reads as the default [`Uri`] so a configuration file need only name what it changes, and the
+/// option that is missing gets named by the connection attempt that needed it.
+impl TryFrom<&HttpConfig> for Uri {
     type Error = ConfigError;
 
-    fn try_from(value: &HttpConfig) -> Result<Self, Self::Error> {
-        Ok(Self::from(value.endpoint.clone()))
+    fn try_from(config: &HttpConfig) -> Result<Self, Self::Error> {
+        snafu::ensure!(
+            config.endpoint != Uri::default(),
+            IncompatibleOptionsSnafu {
+                msg: String::from("`Endpoint` is not set, so there is nothing to connect to"),
+            }
+        );
+        Ok(config
+            .tls
+            .override_target(&config.endpoint)?
+            .unwrap_or_else(|| config.endpoint.clone()))
+    }
+}
+
+#[cfg(test)]
+mod origin {
+    use super::*;
+
+    /// A configuration reaching `endpoint`, with `override_target_name` as given.
+    fn config(endpoint: &str, override_target_name: Option<&str>) -> HttpConfig {
+        HttpConfig {
+            endpoint: endpoint.parse().expect("a valid endpoint"),
+            tls: TlsConfig {
+                override_target_name: override_target_name.map(String::from),
+                ..TlsConfig::default()
+            },
+            ..HttpConfig::default()
+        }
+    }
+
+    #[test]
+    fn an_unset_endpoint_is_refused_and_names_the_option() {
+        let error =
+            Uri::try_from(&HttpConfig::default()).expect_err("an empty endpoint addresses nothing");
+
+        assert!(
+            error.to_string().contains("`Endpoint` is not set"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn no_override_addresses_the_endpoint_itself() {
+        let origin = Uri::try_from(&config("http://localhost:5001", None)).expect("an origin");
+
+        assert_eq!(origin.to_string(), "http://localhost:5001/");
+    }
+
+    #[test]
+    fn an_override_moves_the_origin_off_the_endpoint() {
+        // How the resolution itself goes is `TlsConfig::override_target`'s own concern and tested
+        // there; what this pins is that the conversion applies it rather than ignoring it.
+        let origin = Uri::try_from(&config("http://localhost:5001", Some("server.example.com")))
+            .expect("an origin");
+
+        assert_eq!(origin.host(), Some("server.example.com"));
     }
 }
 
 /// Reads the endpoint, empty for the default [`Uri`].
 ///
-/// An absent or empty endpoint is `connect`'s problem to reject with a named error, not this
-/// field's to refuse up front: a configuration file need only name what it changes.
+/// An absent or empty endpoint is the connection attempt's problem to reject with a named error,
+/// not this field's to refuse up front: a configuration file need only name what it changes.
 #[cfg(feature = "serde")]
 fn endpoint<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Uri, D::Error> {
     let value = text(deserializer)?;
@@ -317,7 +393,7 @@ fn rate_limit<'de, D: serde::Deserializer<'de>>(
         })?
         .into();
     // `tower`'s rate limiter asserts both are non-zero, so leaving these to it turns a mistyped
-    // option into a panic inside `connect` rather than an error the caller can read.
+    // option into a panic inside the channel builder rather than an error the caller can read.
     if limit == 0 || duration.is_zero() {
         return Err(Error::custom(format!(
             "`RateLimit={value}` has a zero count or duration. Both have to be above zero, as in \
@@ -342,8 +418,8 @@ pub enum ConfigError {
     #[snafu(display("Endpoint URI is not valid: `{uri}` [{location}]"))]
     #[non_exhaustive]
     Uri {
-        #[snafu(source(from(hyper::http::uri::InvalidUri, Box::new)))]
-        source: Box<hyper::http::uri::InvalidUri>,
+        #[snafu(source(from(http::uri::InvalidUri, Box::new)))]
+        source: Box<http::uri::InvalidUri>,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -351,8 +427,8 @@ pub enum ConfigError {
     #[snafu(display("Override URI is not valid: `{uri}` [{location}]"))]
     #[non_exhaustive]
     Http {
-        #[snafu(source(from(hyper::http::Error, Box::new)))]
-        source: Box<hyper::http::Error>,
+        #[snafu(source(from(http::Error, Box::new)))]
+        source: Box<http::Error>,
         uri: String,
         #[snafu(implicit)]
         location: snafu::Location,
@@ -474,8 +550,8 @@ mod tests {
 
     #[test]
     fn an_absent_endpoint_reads_as_the_default_uri_rather_than_failing() {
-        // A configuration file need only name what it changes; rejecting the empty endpoint is
-        // `connect`'s job, where the error can name the option.
+        // A configuration file need only name what it changes; rejecting the empty endpoint is the
+        // connection attempt's job, where the error can name the option.
         for value in [json!({}), json!({"Endpoint": ""})] {
             let config = config(value);
             assert_eq!(config.endpoint, Uri::default());
@@ -736,7 +812,7 @@ mod tests {
     #[test]
     fn a_zero_rate_limit_is_rejected_rather_than_left_to_panic() {
         // `tower`'s `Rate::new` asserts both halves are above zero, so a zero has to be refused
-        // here rather than reaching it: a panic inside `connect` tells the caller nothing.
+        // here rather than reaching it: a panic while a channel is built tells the caller nothing.
         for value in ["0/1s", "1/0s", "0/0s"] {
             let rendered = error(json!({
                 "Endpoint": "http://localhost:5001",

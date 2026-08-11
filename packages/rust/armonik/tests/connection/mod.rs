@@ -1,23 +1,22 @@
 //! A gRPC service that answers slowly, and a raw client to call it with.
 //!
-//! Hand-rolled rather than generated: this crate has no protos and deliberately no `protoc` in its
-//! build, so the codec moves opaque bytes and the service is one method that sleeps before replying.
+//! Hand-rolled rather than one of ArmoniK's own services: what these tests need is a method whose
+//! duration they choose, so the codec moves opaque bytes and the one method sleeps before replying.
 
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use armonik_transport::reexports::hyper;
-use armonik_transport::reexports::tonic::body::Body;
-use armonik_transport::reexports::tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
-use armonik_transport::reexports::tonic::server::NamedService;
-use armonik_transport::reexports::tonic::{Request, Response, Status};
 use bytes::{Buf, BufMut, Bytes};
+use tonic::body::Body;
+use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
+use tonic::server::NamedService;
+use tonic::{Request, Response, Status};
 use tower_service::Service;
 
 /// The one method the test service answers to.
-pub const METHOD_PATH: &str = "/armonik_transport.test.Slow/Call";
+pub const METHOD_PATH: &str = "/armonik.test.Slow/Call";
 
 /// What the service answers once it has finished sleeping, so a test can tell a real reply from an
 /// empty one.
@@ -76,7 +75,7 @@ impl SlowService {
 }
 
 impl NamedService for SlowService {
-    const NAME: &'static str = "armonik_transport.test.Slow";
+    const NAME: &'static str = "armonik.test.Slow";
 }
 
 /// The gRPC handler. `tonic::server::UnaryService` is a blanket implementation over a `tower` service
@@ -111,11 +110,9 @@ impl Service<hyper::Request<Body>> for SlowService {
     fn call(&mut self, request: hyper::Request<Body>) -> Self::Future {
         let mut handler = self.clone();
         Box::pin(async move {
-            Ok(
-                armonik_transport::reexports::tonic::server::Grpc::new(BytesCodec)
-                    .unary(&mut handler, request)
-                    .await,
-            )
+            Ok(tonic::server::Grpc::new(BytesCodec)
+                .unary(&mut handler, request)
+                .await)
         })
     }
 }
@@ -128,9 +125,8 @@ pub async fn serve(service: SlowService) -> String {
     let address = listener.local_addr().expect("the test server's address");
 
     tokio::spawn(async move {
-        let incoming =
-            armonik_transport::reexports::tonic::transport::server::TcpIncoming::from(listener);
-        armonik_transport::reexports::tonic::transport::Server::builder()
+        let incoming = tonic::transport::server::TcpIncoming::from(listener);
+        tonic::transport::Server::builder()
             .add_service(service)
             .serve_with_incoming(incoming)
             .await
@@ -141,15 +137,11 @@ pub async fn serve(service: SlowService) -> String {
 }
 
 /// Make one unary call over `channel`, returning whatever gRPC says about it.
-pub async fn call(
-    channel: armonik_transport::reexports::tonic::transport::Channel,
-) -> Result<Bytes, Status> {
-    let path = armonik_transport::reexports::tonic::codegen::http::uri::PathAndQuery::try_from(
-        METHOD_PATH,
-    )
-    .expect("a valid method path");
+pub async fn call(channel: tonic::transport::Channel) -> Result<Bytes, Status> {
+    let path = tonic::codegen::http::uri::PathAndQuery::try_from(METHOD_PATH)
+        .expect("a valid method path");
 
-    let mut grpc = armonik_transport::reexports::tonic::client::Grpc::new(channel);
+    let mut grpc = tonic::client::Grpc::new(channel);
     // Generated clients always do this first, and `Grpc::unary` does not do it implicitly: skipping it
     // trips `tower::Buffer`'s "send_item called without first calling poll_reserve" assertion.
     grpc.ready()
@@ -201,14 +193,14 @@ pub fn request_target(head: &str) -> String {
 #[allow(clippy::field_reassign_with_default)]
 pub fn config(
     endpoint: &str,
-    set: impl FnOnce(&mut armonik_transport::HttpConfig),
-) -> armonik_transport::HttpConfig {
-    let mut config = armonik_transport::HttpConfig::default();
+    set: impl FnOnce(&mut armonik::transport::HttpConfig),
+) -> armonik::transport::HttpConfig {
+    let mut config = armonik::transport::HttpConfig::default();
     config.endpoint = endpoint.parse().expect("a valid endpoint");
     config.tls.allow_unsafe_connection = true;
     // The default follows the machine's environment; a test has to opt back in deliberately, or a
     // developer's own HTTP_PROXY would route these loopback calls somewhere real.
-    config.proxy = armonik_transport::ProxyConfig::disabled();
+    config.proxy = armonik::transport::ProxyConfig::disabled();
     set(&mut config);
     config
 }

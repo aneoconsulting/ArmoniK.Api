@@ -3,18 +3,18 @@
 //! Through a real connection to a real server, measuring what the caller gets: asserting on the parsing
 //! alone would say nothing about whether either option reaches the channel.
 
-mod common;
+mod connection;
 
 use std::time::{Duration, Instant};
 
-use common::{call, config, serve, SlowService};
+use connection::{call, config, serve, SlowService};
 
 #[tokio::test]
 async fn a_request_timeout_ends_a_call_the_server_is_too_slow_to_answer() {
     // A server that takes ten seconds against a caller that allows 300ms.
     let endpoint = serve(SlowService::new(Duration::from_secs(10))).await;
 
-    let channel = armonik_transport::connect(config(&endpoint, |config| {
+    let channel = armonik::client::connect(config(&endpoint, |config| {
         config.timeout = Some(Duration::from_millis(300));
     }))
     .await
@@ -44,12 +44,12 @@ async fn no_timeout_lets_a_slow_call_finish() {
     // path: an empty `Timeout` must not impose one.
     let endpoint = serve(SlowService::new(Duration::from_millis(300))).await;
 
-    let channel = armonik_transport::connect(config(&endpoint, |_| {}))
+    let channel = armonik::client::connect(config(&endpoint, |_| {}))
         .await
         .expect("connecting should succeed");
 
     let answer = call(channel).await.expect("the call should complete");
-    assert_eq!(answer.as_ref(), common::REPLY);
+    assert_eq!(answer.as_ref(), connection::REPLY);
 }
 
 #[tokio::test]
@@ -58,7 +58,7 @@ async fn a_rate_limit_is_accepted_and_still_lets_calls_through() {
     // that passing the option on does not break the call, which is how wiring one through goes wrong.
     let endpoint = serve(SlowService::new(Duration::ZERO)).await;
 
-    let channel = armonik_transport::connect(config(&endpoint, |config| {
+    let channel = armonik::client::connect(config(&endpoint, |config| {
         config.rate_limit = Some((100, Duration::from_secs(1)));
     }))
     .await
@@ -69,7 +69,7 @@ async fn a_rate_limit_is_accepted_and_still_lets_calls_through() {
             .await
             .expect("the call should complete")
             .as_ref(),
-        common::REPLY
+        connection::REPLY
     );
 }
 
@@ -99,7 +99,7 @@ fn a_timeout_is_parsed_in_the_units_it_was_written_in() {
         ("500ms", Duration::from_millis(500)),
         ("2m", Duration::from_secs(120)),
     ] {
-        let config: armonik_transport::HttpConfig = serde_json::from_value(serde_json::json!({
+        let config: armonik::transport::HttpConfig = serde_json::from_value(serde_json::json!({
             "Endpoint": "http://localhost:5001",
             "Timeout": written,
         }))

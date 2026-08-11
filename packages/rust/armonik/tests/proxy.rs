@@ -8,17 +8,17 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use armonik_transport::{HttpConfig, ProxyConfig};
+use armonik::transport::{HttpConfig, ProxyConfig};
 use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
-mod common;
+mod connection;
 
-use common::SlowService;
+use connection::SlowService;
 
 /// Serve the gRPC service the tests call, on an ephemeral loopback port.
 async fn spawn_server() -> String {
-    common::serve(SlowService::new(Duration::ZERO)).await
+    connection::serve(SlowService::new(Duration::ZERO)).await
 }
 
 /// What a test proxy should demand of its clients.
@@ -61,8 +61,8 @@ async fn serve_tunnel(
     auth: ProxyAuth,
     tunnels: Tunnels,
 ) -> std::io::Result<()> {
-    let head = common::read_head(&mut client).await?;
-    let target = common::request_target(&head);
+    let head = connection::read_head(&mut client).await?;
+    let target = connection::request_target(&head);
 
     if let ProxyAuth::Required(expected) = auth {
         let presented = head.lines().find_map(|line| {
@@ -96,7 +96,7 @@ fn through_proxy(
     proxy: SocketAddr,
     credentials: Option<(&str, &str)>,
 ) -> HttpConfig {
-    let mut config = common::config(endpoint, |_| {});
+    let mut config = connection::config(endpoint, |_| {});
     let mut proxy = ProxyConfig::explicit(
         hyper::Uri::try_from(format!("http://{proxy}")).expect("a valid proxy URI"),
     );
@@ -109,20 +109,20 @@ fn through_proxy(
 
 /// A client that connects directly, whatever proxy the tests happen to be running.
 fn direct(endpoint: &str) -> HttpConfig {
-    common::config(endpoint, |_| {})
+    connection::config(endpoint, |_| {})
 }
 
 /// The same client, following the environment.
 fn following_the_environment(endpoint: &str) -> HttpConfig {
-    let mut config = common::config(endpoint, |_| {});
+    let mut config = connection::config(endpoint, |_| {});
     config.proxy = ProxyConfig::system();
     config
 }
 
 /// Connect and make one call, returning what the server answered.
 async fn call_through(config: HttpConfig) -> Result<bytes::Bytes, Box<dyn std::error::Error>> {
-    let channel = armonik_transport::connect(config).await?;
-    Ok(common::call(channel).await?)
+    let channel = armonik::client::connect(config).await?;
+    Ok(connection::call(channel).await?)
 }
 
 /// Render an error and everything it was caused by.
@@ -148,7 +148,7 @@ async fn request_reaches_the_server_through_the_tunnel() {
         .await
         .expect("the call should succeed through the proxy");
 
-    assert_eq!(answer, common::REPLY);
+    assert_eq!(answer, connection::REPLY);
     assert_eq!(
         tunnels.load(Ordering::SeqCst),
         1,
@@ -166,7 +166,7 @@ async fn credentials_are_presented_when_the_proxy_demands_them() {
         .await
         .expect("the call should succeed once credentials are supplied");
 
-    assert_eq!(answer, common::REPLY);
+    assert_eq!(answer, connection::REPLY);
     assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
 
@@ -186,7 +186,7 @@ async fn credentials_written_into_the_proxy_url_authenticate_the_tunnel() {
         .await
         .expect("the credentials in the URL should have been used");
 
-    assert_eq!(answer, common::REPLY);
+    assert_eq!(answer, connection::REPLY);
     assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
 
@@ -212,11 +212,11 @@ async fn a_missing_credential_is_reported_as_such() {
     );
     // And the failure has to be matchable by type, not only by text: `find_in` is how a caller
     // reacts to this case in particular, e.g. by prompting for credentials.
-    let typed = armonik_transport::ProxyError::find_in(error.as_ref());
+    let typed = armonik::transport::ProxyError::find_in(error.as_ref());
     assert!(
         matches!(
             typed,
-            Some(armonik_transport::ProxyError::AuthenticationRequired { .. })
+            Some(armonik::transport::ProxyError::AuthenticationRequired { .. })
         ),
         "expected AuthenticationRequired in the chain, got {typed:?}"
     );
@@ -273,7 +273,7 @@ async fn no_proxy_is_used_when_proxying_is_disabled() {
         .await
         .expect("a direct call should succeed");
 
-    assert_eq!(answer, common::REPLY);
+    assert_eq!(answer, connection::REPLY);
     assert_eq!(
         tunnels.load(Ordering::SeqCst),
         0,
@@ -358,7 +358,7 @@ async fn system_mode_takes_the_proxy_from_the_environment() {
 
     assert_eq!(
         outcome.expect("the call should go through the proxy the environment names"),
-        common::REPLY
+        connection::REPLY
     );
     assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
@@ -374,7 +374,7 @@ async fn no_proxy_bypasses_the_proxy_in_system_mode() {
     environment.set("NO_PROXY", "127.0.0.1");
     let outcome = call_through(following_the_environment(&server)).await;
 
-    assert_eq!(outcome.expect("a direct call succeeds"), common::REPLY);
+    assert_eq!(outcome.expect("a direct call succeeds"), connection::REPLY);
     assert_eq!(
         tunnels.load(Ordering::SeqCst),
         0,
@@ -397,7 +397,7 @@ async fn no_proxy_does_not_apply_to_an_explicitly_configured_proxy() {
 
     assert_eq!(
         outcome.expect("an explicit proxy is used whatever NO_PROXY says"),
-        common::REPLY
+        connection::REPLY
     );
     assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
@@ -420,7 +420,7 @@ async fn a_dedicated_credential_in_system_mode_keeps_the_other_half_the_url_carr
 
     assert_eq!(
         outcome.expect("the merged credentials should satisfy the proxy"),
-        common::REPLY
+        connection::REPLY
     );
     assert_eq!(
         tunnels.load(Ordering::SeqCst),
@@ -471,7 +471,7 @@ async fn the_proxy_options_reach_the_tunnel() {
         .await
         .expect("the call should succeed through the proxy the options name");
 
-    assert_eq!(answer, common::REPLY);
+    assert_eq!(answer, connection::REPLY);
     assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
 
@@ -495,7 +495,7 @@ async fn the_system_address_takes_the_proxy_from_the_environment() {
 
     assert_eq!(
         outcome.expect("the call should go through the proxy the environment names"),
-        common::REPLY
+        connection::REPLY
     );
     assert_eq!(tunnels.load(Ordering::SeqCst), 1);
 }
