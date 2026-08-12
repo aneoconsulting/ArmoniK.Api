@@ -277,8 +277,8 @@ Everything not listed here is inferred from the descriptor.
 | `oneof = "type"` | type (enum) | the enum stands for one oneof of a larger message, embedded in a struct (without it, an enum stands for the whole single-oneof message); variants matched against oneof members |
 | `present` | variant | oneof variant carried by presence alone (e.g. `DataChunk::Complete` <-> `dataComplete: true`) |
 | `transparent` | type | single-field message flattened into its field's type (message `TaskOptionField { field: enum }` <-> Rust enum) |
-| `with = "path::to::module"` | field | custom codec, see section 3.5 |
-| `tag = N` | field | optional; validated against the descriptor rather than trusted |
+| `with = "path::to::Adapter"` | field | custom codec; names a *type* implementing `ProtoAdapter<T>`, not a module (section 3.5) |
+| `tag = N` | field | `generic` mode only, where it is authoritative; a descriptor-validated field takes its tag from the descriptor and spelling one was rejected as restating it |
 
 ### 3.4 Enums: the merged `Unknown` variant
 
@@ -456,6 +456,15 @@ loss through `normalize_dynamic`).
   receive buffer instead of copying (`DataChunk::Data`, result
   upload/download chunks, task payloads); encoding clones cheaply.
   (`bytes` needs its `serde` feature when armonik's `serde` feature is on.)
+
+  **What that costs, and it is not a regression**: an 80 KiB chunk decodes in
+  about 30 ns, which is a refcount rather than a copy, so the decoded value
+  *shares the tonic receive buffer*. One retained small chunk therefore pins
+  whichever allocation it was sliced from, which can be far larger than the
+  chunk. A caller that keeps a few bytes out of a large response for a long
+  time should copy them out (`Bytes::copy_from_slice`, or `to_vec`). This is
+  also why the 5 MiB download benched inconclusive: the work moved off decode
+  and onto whoever drops the buffer.
 - `encoded_len` recomputation for nested messages matches prost's own
   behavior (recomputed per level); filter trees are shallow, no caching
   needed. Dropping the presence gate also dropped its extra `encoded_len()`

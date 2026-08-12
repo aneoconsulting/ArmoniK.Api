@@ -153,6 +153,37 @@ fn the_leaf_impls_no_api_field_reaches() {
     roundtrip_field(Some(7u64));
 }
 
+/// Fields go out in ascending tag order, including across a whole-message oneof's members and the
+/// non-oneof fields that surround them.
+///
+/// The emitter documents that discipline ("siblings below the oneof's tags are written before the
+/// member") and nothing tested it: the differential harness compares `DynamicMessage`s after
+/// `Normalize`, so it is blind to order, and pruning `codec/tests.rs` took the byte-exact
+/// assertions with it. `agent::create_tasks::Request` is the shape that exercises it: a oneof at
+/// tags 1 to 3 plus a `communication_token` sibling at tag 4.
+#[test]
+fn fields_are_emitted_in_ascending_tag_order() {
+    let request = crate::agent::create_tasks::Request::InitRequest {
+        communication_token: String::from("tok"),
+        request: crate::agent::create_tasks::InitRequest { task_options: None },
+    };
+    let bytes = request.encode_to_vec();
+
+    let mut rest = bytes.as_slice();
+    let mut tags = Vec::new();
+    while !rest.is_empty() {
+        let (tag, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");
+        tags.push(tag);
+        prost::encoding::skip_field(wire_type, tag, &mut rest, DecodeContext::default())
+            .expect("the field is skippable");
+    }
+    // The member at tag 1, then the sibling at tag 4: the member's own tag places it, not the fact
+    // that it is the member.
+    assert_eq!(tags, [1, 4]);
+    assert!(tags.windows(2).all(|pair| pair[0] < pair[1]));
+    assert_eq!(roundtrip(&request), request);
+}
+
 /// A map entry holding the zero key and the zero value is written out, like every other field, and
 /// reads back as itself.
 ///
