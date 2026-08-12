@@ -439,10 +439,7 @@ pub(crate) fn oneof_plan(
 ) -> Result<OneofPlan, Errors> {
     let mut errors = Errors::new();
 
-    let entries = match attrs::parse(&input.attrs) {
-        Ok(entries) => entries,
-        Err(err) => return Err(Errors::from(err)),
-    };
+    let entries = attrs::parse(&input.attrs)?;
 
     let mut proto_name: Option<(Span, String)> = None;
     let mut oneof_name: Option<(Span, String)> = None;
@@ -1059,7 +1056,6 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         .map(|var| quote! { Self::#var { .. } => 0, });
 
     let generics = syn::Generics::default();
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     // A whole-message enum is additionally the message itself: it registers and gets the `Msg`
     // marker, which is what makes it usable as an RPC message and as a field of another message.
@@ -1068,13 +1064,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // in a second one whose default arm was `skip_field`, which the inner match already ends with.
     let whole_message = plan.whole_message.then(|| {
         let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
-        let msg = msg_impl(
-            &impl_generics,
-            ident,
-            &ty_generics,
-            where_clause,
-            std::slice::from_ref(proto_name),
-        );
+        let msg = msg_impl(&generics, ident, std::slice::from_ref(proto_name));
         quote! {
             #registrations
 
@@ -1084,22 +1074,14 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
 
     // Emitted for embedded oneofs too: the containing message's `Normalize` delegates to it (the
     // members live on the parent's dynamic message).
-    let normalize = normalize_impl(
-        &impl_generics,
-        ident,
-        &ty_generics,
-        where_clause,
-        &normalize_fragments,
-    );
+    let normalize = normalize_impl(&generics, ident, &normalize_fragments);
 
     // `let value = self;` is the whole cost of the change: the emitted bodies are written against a
     // `value` binding, and `prost::Message` takes a receiver where the deleted `ProtoOneof` took an
     // argument.
     let message = message_impl(
-        &impl_generics,
+        &generics,
         ident,
-        &ty_generics,
-        where_clause,
         quote! {
             let value = self;
             #bind_siblings
@@ -1128,6 +1110,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
             #(#high_len)*
             len
         },
+        None,
     );
 
     let tripwire = tripwire(&fingerprint);

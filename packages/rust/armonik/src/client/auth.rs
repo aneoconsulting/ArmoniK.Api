@@ -1,4 +1,1 @@
-use crate::rpc::services;
-
-/// Service for authentication management.
-pub type Auth<T = tonic::transport::Channel> = super::ServiceClient<services::Auth, T>;
+pub use crate::rpc::auth::Client as Auth;

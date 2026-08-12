@@ -85,9 +85,7 @@ pub(crate) fn transparent_plan(
 /// for a whole RPC message. The `Normalize` projection delegates likewise.
 pub(crate) fn transparent_message(
     plan: &MessagePlan,
-    impl_generics: &syn::ImplGenerics,
-    ty_generics: &syn::TypeGenerics,
-    where_clause: Option<&syn::WhereClause>,
+    generics: &syn::Generics,
     fingerprint: proc_macro2::Literal,
 ) -> TokenStream {
     let ident = &plan.ident;
@@ -98,22 +96,19 @@ pub(crate) fn transparent_message(
 
     let registrations = registrations(ident, proto_names);
     let normalize = normalize_impl(
-        impl_generics,
+        generics,
         ident,
-        ty_generics,
-        where_clause,
         &[quote! { <#ty as crate::differential::Normalize>::normalize(message); }],
     );
     let message = message_impl(
-        impl_generics,
+        generics,
         ident,
-        ty_generics,
-        where_clause,
         quote! { <#ty as ::prost::Message>::encode_raw(&self.#access, buf); },
         quote! { <#ty as ::prost::Message>::merge_field(&mut self.#access, tag, wire_type, buf, ctx) },
         quote! { <#ty as ::prost::Message>::encoded_len(&self.#access) },
+        None,
     );
-    let proto_field = msg_impl(impl_generics, ident, ty_generics, where_clause, proto_names);
+    let proto_field = msg_impl(generics, ident, proto_names);
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = { #tripwire };

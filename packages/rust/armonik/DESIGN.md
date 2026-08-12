@@ -875,14 +875,16 @@ invocation:
 - `_gen-server`: the `ResultsService` trait with the harvested doc comments
   attached, `ResultsServiceExt`, and the `Routes` table the generic router
   consumes (section 3.6)
-- `_gen-client`: one convenience method per non-`manual` rpc line (section 3.7).
-  The `pub type Results<T> = ServiceClient<services::Results, T>` alias this row
-  once promised is **not** emitted: the twelve aliases are hand-written in
-  `client/*.rs`, and each carries a hand-transcribed service doc comment, two of
-  which have already drifted from the protos (`client/partitions.rs`,
-  `client/versions.rs`). That is the duplication class Part II section 1 names as
-  motivation, reintroduced by hand; having `service!` emit the alias with
-  harvested docs would retire it
+- `_gen-client`: one convenience method per non-`manual` rpc line (section 3.7),
+  and `pub type Client<T> = ServiceClient<Results, T>` carrying the same
+  harvested docs as the marker. `client/<svc>.rs` is a one-line re-export of it
+  (`pub use crate::rpc::results::Client as Results;`). The twelve aliases used to
+  be hand-written there, each with a hand-transcribed service doc comment, two of
+  which had already drifted from the protos (`client/partitions.rs`,
+  `client/versions.rs`) — the duplication class Part II section 1 names as
+  motivation, reintroduced by hand. `client/agent.rs` and `client/worker.rs` keep
+  a doc comment of their own, because those two protos document their service
+  with nothing at all
 
 The `Rpc` impls must be **unconditional**. A server-only build (`server` enables
 `_gen-server` without `_gen-client`) has no client module, and the router
@@ -1696,7 +1698,7 @@ considered and rejected, so that none of it is re-proposed from scratch.
 | Macro diagnostics | A resolution error used to delete the annotated type, so one mistake became a page of unresolved imports with actively wrong suggestions. The item is now re-emitted next to the `compile_error!`, with stub impls for whichever trait its users reach it through (12 diagnostics down to 1 on the measured case). The rpc-line const asserts are spanned onto their own type paths, and `stream` is checked against the descriptor before `manual` is asked for |
 | Compile-fail suite | 31 `trybuild` cases in `armonik-macros/tests/ui`, one per error class, against a fixture schema the test compiles itself. The expansion-time diagnostics were the branch's best feature and had no coverage at all. The const-assert classes stay out: their messages belong to `armonik::codec` and fire at const-eval against the real impls |
 | Doc harvesting | Two independent bugs. Value matching stripped the *Rust* type's name where proto values are prefixed with the *proto* enum's, so `health_checks::Status` silently harvested nothing; and a same-line `/** */` comment, which protox records against the *next* element, documented every enum value as its predecessor. Both fixed; `names.rs` is now the one home of the naming rules |
-| Emission | The `serde` `cfg_attr` (198 byte-identical sites) and the per-rpc const asserts (16 emitted lines each, 944 across the twelve invocations) come from the macros. `PartialEq`/`Debug` bounds on generic parameters, left over from the deleted `is_default` family, are gone |
+| Emission | The `serde` `cfg_attr` (198 byte-identical sites), the `serde(with = ...)` adapter of a well-known-type field (a function of the field's type, and 36 sites of four lines each), the twelve client aliases (section 3.3) and the per-rpc const asserts (16 emitted lines each, 944 across the twelve invocations) come from the macros. `PartialEq`/`Debug` bounds on generic parameters, left over from the deleted `is_default` family, are gone |
 | Features | `futures`, `snafu`, `tonic-prost`, `tracing` and `tracing-futures` are optional and hang off the two internal gen features, which is what four configurations needed to pass CI's own lint. A matrix job runs that lint over each of the seven a user can select |
 | Registry | A `#[cfg(test)]` module rather than a `_differential` feature enabled through a dev-dependency of the crate on itself, so what the suites link is the artifact the crate ships. `DESCRIPTOR`, `Role::Message`'s unmatched form and the `Diff`/`Entry` mirror are gone (section 3.8) |
 | Codec | `ProtoOneof` is deleted: its three methods were signature-equivalent to `prost::Message`'s, and the fifteen whole-message enums implemented both, one forwarding to the other. The four hand-rolled length-framing sites go through `prost::encoding::merge_loop`, which loops on the same buffer, so the transparent chain needs no `dyn Buf` recursion and all four gain prost's recursion limit and exact-length check. `PairMap` loses const generics it never varied |

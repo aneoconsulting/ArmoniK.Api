@@ -9,8 +9,8 @@ use crate::attr_site::{field_access, scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::DescriptorIndex;
 use crate::emit::{
-    message_impl, msg_impl, normalize_impl, registrations, slot_asserts, slot_merge_in_place,
-    slot_write, tripwire,
+    bound_generics, message_impl, msg_impl, normalize_impl, registrations, slot_asserts,
+    slot_merge_in_place, slot_write, tripwire,
 };
 use crate::matcher::{not_found, Found, Matcher};
 use crate::plan::{Expectation, MessagePlan, Slot, SlotCodec};
@@ -23,10 +23,7 @@ pub(crate) fn message_plan(
 ) -> Result<MessagePlan, Errors> {
     let mut errors = Errors::new();
 
-    let entries = match attrs::parse(&input.attrs) {
-        Ok(entries) => entries,
-        Err(err) => return Err(Errors::from(err)),
-    };
+    let entries = attrs::parse(&input.attrs)?;
 
     let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut generic = false;
@@ -211,26 +208,10 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let proto_names = &plan.proto_names;
     let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
-    let mut generics = plan.generics.clone();
-    for param in generics.type_params_mut() {
-        param
-            .bounds
-            .push(syn::parse_quote!(crate::codec::ProtoField));
-        // `Send`/`Sync` because `prost::Message` requires them. Nothing else: `PartialEq` and
-        // `Debug` were here for the deleted `is_default` family and no emitted code needs them.
-        param.bounds.push(syn::parse_quote!(::core::marker::Send));
-        param.bounds.push(syn::parse_quote!(::core::marker::Sync));
-    }
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let generics = bound_generics(&plan.generics);
 
     if plan.transparent {
-        return transparent_message(
-            plan,
-            &impl_generics,
-            &ty_generics,
-            where_clause,
-            fingerprint,
-        );
+        return transparent_message(plan, &generics, fingerprint);
     }
 
     let mut encode_fragments = Vec::new();
@@ -262,18 +243,10 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     }
 
     let registrations = registrations(ident, proto_names);
-    let normalize = normalize_impl(
-        &impl_generics,
-        ident,
-        &ty_generics,
-        where_clause,
-        &normalize_fragments,
-    );
+    let normalize = normalize_impl(&generics, ident, &normalize_fragments);
     let message = message_impl(
-        &impl_generics,
+        &generics,
         ident,
-        &ty_generics,
-        where_clause,
         quote! { #(#encode_fragments)* },
         quote! {
             match tag {
@@ -287,14 +260,9 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             #(#len_fragments)*
             len
         },
+        None,
     );
-    let proto_field = msg_impl(
-        &impl_generics,
-        ident,
-        &ty_generics,
-        where_clause,
-        proto_names,
-    );
+    let proto_field = msg_impl(&generics, ident, proto_names);
     let tripwire = tripwire(&fingerprint);
     quote! {
         const _: () = {

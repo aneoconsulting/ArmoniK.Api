@@ -3,8 +3,7 @@ use futures::StreamExt;
 use crate::results::{upload, Raw};
 use crate::rpc::services;
 
-/// The ResultsService provides methods for interacting with results.
-pub type Results<T = tonic::transport::Channel> = super::ServiceClient<services::Results, T>;
+pub use crate::rpc::results::Client as Results;
 
 impl<T: super::Channel> super::ServiceClient<services::Results, T> {
     /// Upload data for result with stream.
