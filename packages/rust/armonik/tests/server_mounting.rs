@@ -141,3 +141,16 @@ async fn a_long_unrouted_path_is_truncated() {
     );
     assert!(status.message().starts_with("/xxx"));
 }
+
+/// `poll_ready` resolves without naming the request body type.
+///
+/// The `Service` impl is generic over the body, so the trait method alone is ambiguous at any site
+/// that does not also `call`, and rustc's suggested fix names a type parameter that is not in
+/// scope. The inherent method shadows it and answers the same thing.
+#[tokio::test]
+async fn poll_ready_needs_no_turbofish() {
+    let mut router = Versions.versions_server();
+    std::future::poll_fn(|cx| router.poll_ready(cx))
+        .await
+        .expect("a router is always ready");
+}

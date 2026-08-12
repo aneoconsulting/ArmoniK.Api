@@ -82,6 +82,11 @@ impl<Svc, S> Router<Svc, S> {
     }
 
     /// Enable decompressing requests with the given encoding.
+    ///
+    /// Every `CompressionEncoding` variant sits behind one of tonic's compression features, and
+    /// this crate enables none of them, so there is nothing to pass until a dependent turns one on
+    /// (`tonic = { version = "0.14", features = ["gzip"] }`). Cargo features are additive, so doing
+    /// that from outside works; it is just not discoverable from here.
     #[must_use]
     pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
         self.config.accept_compression_encodings.enable(encoding);
@@ -108,6 +113,24 @@ impl<Svc, S> Router<Svc, S> {
         self.config.max_encoding_message_size = Some(limit);
         self
     }
+
+    /// Whether the router can accept a request. It always can: it holds a shared service
+    /// implementation and dispatches into `tonic::server::Grpc`, with no queue to fill.
+    ///
+    /// Inherent, and therefore what `router.poll_ready(cx)` resolves to, because the trait method
+    /// it shadows is generic over the request body: calling that one with no `call` nearby to pin
+    /// the body type is ambiguous, and rustc's suggested fix names a type parameter that is not in
+    /// scope at the call site. The two answer identically, for every body type.
+    ///
+    /// `tower::ServiceExt::ready` goes through the trait and has the same ambiguity with no
+    /// inherent counterpart; name the body type there, as
+    /// `ServiceExt::<http::Request<tonic::body::Body>>::ready(&mut router)`.
+    pub fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), std::convert::Infallible>> {
+        std::task::Poll::Ready(Ok(()))
+    }
 }
 
 impl<Svc, S> Clone for Router<Svc, S> {
@@ -130,9 +153,9 @@ where
 
     fn poll_ready(
         &mut self,
-        _cx: &mut std::task::Context<'_>,
+        cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        std::task::Poll::Ready(Ok(()))
+        Router::poll_ready(self, cx)
     }
 
     fn call(&mut self, req: http::Request<B>) -> Self::Future {
