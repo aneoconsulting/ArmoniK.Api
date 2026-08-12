@@ -153,6 +153,55 @@ fn the_leaf_impls_no_api_field_reaches() {
     roundtrip_field(Some(7u64));
 }
 
+/// A map entry holding the zero key and the zero value is written out, like every other field, and
+/// reads back as itself.
+///
+/// This is the case the map codec used to be the single exception for: prost's `hash_map` skips a
+/// subfield equal to its default, so `{"": ""}` went on the wire as an empty entry. Both forms
+/// decode to the same map, which is why the differential harness cannot see the difference.
+#[test]
+fn a_map_entry_of_defaults_is_written_out() {
+    use std::collections::HashMap;
+
+    let mut values = HashMap::new();
+    values.insert(String::new(), String::new());
+    let mut buf = Vec::new();
+    <HashMap<String, String> as ProtoField>::encode_field(1, &values, &mut buf);
+    assert_eq!(
+        <HashMap<String, String> as ProtoField>::encoded_len_field(1, &values),
+        buf.len(),
+    );
+    // key + length, then the two zero-length subfields: not the empty entry prost would write.
+    assert_eq!(buf, [0x0a, 0x04, 0x0a, 0x00, 0x12, 0x00]);
+
+    let mut rest = buf.as_slice();
+    let (tag, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");
+    assert_eq!(tag, 1);
+    let mut decoded = HashMap::new();
+    <HashMap<String, String> as ProtoField>::merge_field(
+        wire_type,
+        &mut decoded,
+        &mut rest,
+        DecodeContext::default(),
+    )
+    .expect("the entry merges");
+    assert_eq!(decoded, values);
+
+    // And the form prost used to write still decodes to the same thing.
+    let empty_entry: &[u8] = &[0x0a, 0x00];
+    let mut rest = empty_entry;
+    let (_, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");
+    let mut decoded = HashMap::new();
+    <HashMap<String, String> as ProtoField>::merge_field(
+        wire_type,
+        &mut decoded,
+        &mut rest,
+        DecodeContext::default(),
+    )
+    .expect("an entry omitting both subfields merges");
+    assert_eq!(decoded, values);
+}
+
 /// The `PairMap` delegation must keep rejecting a mis-typed field key: the wire-type check lives in
 /// prost's map codec, and forwarding to it is the whole implementation.
 #[test]

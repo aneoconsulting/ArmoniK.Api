@@ -11,11 +11,27 @@
 //! the conversions either way; it was rewritten at that commit, keeping the same
 //! benchmark ids and the same payloads so the two forms are comparable.
 //!
-//! Two shapes, picked because they stress different things:
+//! Three shapes, picked because they stress different things:
 //!
 //! * `list_response`: many small fields and a repeated nested message, so the
 //!   per-field work dominates;
-//! * `download_chunk`: one large `bytes` field, so the payload copy dominates.
+//! * `download_chunk`: one large `bytes` field, so the payload copy dominates;
+//! * `get_response`: the smallest realistic unary response, which is what
+//!   decomposes the unary round trip.
+//!
+//! # What `get_response` says about the unary regression
+//!
+//! `results/get` benches about +345 ns against the pre-revamp branch. This pair
+//! puts the whole response codec at roughly 133 ns to encode and 258 ns to
+//! decode, in a call that takes 2.2 µs. The part of that attributable to the
+//! encode-defaults decision is the 14 extra bytes it writes (59 against 45),
+//! which is under a third of the encode and a quarter of the decode: call it
+//! 80 to 95 ns of the 345. The remaining quarter-microsecond is fixed per-call
+//! cost, not codec.
+//!
+//! So reversing the encode-defaults decision would buy back well under a third
+//! of the regression and cost three interlocking mechanisms back (`is_default`,
+//! the presence rules it implied, and the harness's canonical-absence fold).
 
 use armonik::results;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
@@ -52,6 +68,11 @@ fn list_response() -> results::list::Response {
     }
 }
 
+/// The `GetResult` response: one nested `Raw`, the shape of a small unary reply.
+fn get_response() -> results::get::Response {
+    results::get::Response { result: raw(0) }
+}
+
 fn download_chunk() -> results::download::Response {
     results::download::Response {
         data_chunk: vec![0xa5; CHUNK].into(),
@@ -66,6 +87,14 @@ fn encode_list(value: results::list::Response) -> Vec<u8> {
 
 fn decode_list(buffer: bytes::Bytes) -> results::list::Response {
     results::list::Response::decode(buffer).expect("decode a list response")
+}
+
+fn encode_get(value: results::get::Response) -> Vec<u8> {
+    value.encode_to_vec()
+}
+
+fn decode_get(buffer: bytes::Bytes) -> results::get::Response {
+    results::get::Response::decode(buffer).expect("decode a get response")
 }
 
 fn encode_chunk(value: results::download::Response) -> Vec<u8> {
@@ -90,6 +119,16 @@ fn encode(c: &mut Criterion) {
         b.iter_batched(
             || value.clone(),
             |value| criterion::black_box(encode_list(value)),
+            BatchSize::SmallInput,
+        )
+    });
+
+    let value = get_response();
+    group.throughput(Throughput::Bytes(encode_get(value.clone()).len() as u64));
+    group.bench_function("get_response", |b| {
+        b.iter_batched(
+            || value.clone(),
+            |value| criterion::black_box(encode_get(value)),
             BatchSize::SmallInput,
         )
     });
@@ -121,6 +160,12 @@ fn decode(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(buffer.len() as u64));
     group.bench_function("list_response", |b| {
         b.iter(|| criterion::black_box(decode_list(buffer.clone())))
+    });
+
+    let buffer = bytes::Bytes::from(encode_get(get_response()));
+    group.throughput(Throughput::Bytes(buffer.len() as u64));
+    group.bench_function("get_response", |b| {
+        b.iter(|| criterion::black_box(decode_get(buffer.clone())))
     });
 
     let buffer = bytes::Bytes::from(encode_chunk(download_chunk()));

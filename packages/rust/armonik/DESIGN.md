@@ -433,10 +433,13 @@ loss through `normalize_dynamic`).
   the derive.
 - Empty containers still encode to nothing: a `Vec` writes one field per
   element and a `HashMap` one per entry, so zero elements is zero bytes with
-  no default check involved. Map *entries* keep prost's map codec, which omits
-  `== default` key/value subfields (the canonical entry encoding; decoders fill
-  them back in), and that is where `HashMap`'s `PartialEq` bound on the value
-  type comes from.
+  no default check involved. Map *entries* were the one exception, because
+  they went through prost's map codec, which omits `== default` key and value
+  subfields; the entry codec is written out here now, so the rule holds without
+  qualification and the `V: PartialEq` bound that expressed the exception is
+  gone (`codec/containers.rs`). Both forms decode identically, which is why the
+  differential harness cannot see the change and `codec/tests.rs` pins the
+  bytes instead.
 - Flattened oneofs: decode with no variant set -> the default/`Invalid`
   variant; the active member is written even when its payload is the default,
   and an `Invalid`/no-member variant writes nothing (there is no member to
