@@ -426,8 +426,8 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream) -> SlotWrite {
             let (encodes, lens): (Vec<_>, Vec<_>) = parts
                 .iter()
                 .map(|part| {
-                    let bound = part_binding(part);
-                    let written = slot_write(part, &bound);
+                    let local = slot_local(part);
+                    let written = slot_write(part, &quote!(#local));
                     (written.encode, written.len)
                 })
                 .unzip();
@@ -457,12 +457,15 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream) -> SlotWrite {
     }
 }
 
-/// The binding a pattern introduces for a slot reached by name: an inlined part, or a sibling.
-pub(crate) fn part_binding(slot: &Slot) -> TokenStream {
-    match slot.access.as_ref() {
-        Some(access) => quote!(#access),
-        None => unreachable!("a slot bound by a pattern is reached by name"),
-    }
+/// The local a pattern binds a slot to, whenever the emitter reaches it through a pattern rather
+/// than through `self`: a whole-message enum's shared field, or one part of an inlined member.
+///
+/// Named `__f<tag>` and never after the user's field, because these sit in the same scope as the
+/// emitter's own `buf`, `len`, `value`, `tag`, `wire_type`, `ctx`, `payload`, `parts` and
+/// `body_len`. A proto field named like any of those would otherwise shadow one, which is not a
+/// wrong encoding but an unimplementable message: the errors point into expanded code.
+pub(crate) fn slot_local(slot: &Slot) -> syn::Ident {
+    quote::format_ident!("__f{}", slot.tag)
 }
 
 /// Merge one slot into the place `value` names, for the slots a message reaches directly: a

@@ -9,3 +9,9 @@ error: proto field `fixture.Simple.count` (tag 2) is not covered by any Rust fie
    |
 12 |     Simple {
    |     ^^^^^^
+
+error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
+ --> tests/ui/inline_unknown_member_field.rs:9:10
+  |
+9 | pub enum Choice {
+  |          ^^^^^^

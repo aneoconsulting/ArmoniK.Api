@@ -11,8 +11,8 @@ use crate::attr_site::{scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
 use crate::emit::{
-    message_impl, msg_impl, normalize_impl, registrations, slot_asserts, slot_merge_in_place,
-    slot_write, tripwire,
+    message_impl, msg_impl, normalize_impl, registrations, slot_asserts, slot_local,
+    slot_merge_in_place, slot_write, tripwire,
 };
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Expectation, FieldAccess, OneofPlan, OneofVariant, Slot, SlotCodec};
@@ -191,6 +191,22 @@ fn resolve_variant(
         }
     }
     if ctx.present {
+        // `present` needs a unit variant, and a message with non-oneof fields needs every variant
+        // to carry them. Both constraints are real and they cannot both be met, so say that here
+        // rather than let `resolve_marker_variant` demand a unit variant and the completeness check
+        // then demand the fields back, three variants away.
+        if !sibling_metas.is_empty() {
+            errors.at(
+                ctx.span,
+                format!(
+                    "#[armonik(present)] needs a unit variant, but `{}` has non-oneof \
+                     fields that every variant must carry; give the variant an empty \
+                     member type instead",
+                    ctx.proto_name
+                ),
+            );
+            return Err(());
+        }
         return resolve_marker_variant(ctx, &with, errors);
     }
 
@@ -755,11 +771,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // Bound under `__f<tag>`, never under the user's field name: these locals sit in the same scope
     // as the emitter's own `buf`, `len`, `value`, `tag`, `wire_type` and `ctx`, and a proto field
     // named like any of those would otherwise shadow one.
-    let sib_locals: Vec<syn::Ident> = plan
-        .siblings
-        .iter()
-        .map(|sibling| quote::format_ident!("__f{}", sibling.tag))
-        .collect();
+    let sib_locals: Vec<syn::Ident> = plan.siblings.iter().map(slot_local).collect();
     let variant_idents: Vec<&syn::Ident> = plan
         .variants
         .iter()
@@ -943,6 +955,9 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                         _ => unreachable!("an inlined part is a named field of the variant"),
                     })
                     .collect();
+                // Bound under `__f<tag>` like the shared fields, and for the same reason: these
+                // locals share a scope with `buf`, `value`, `parts` and `body_len`.
+                let part_locals: Vec<syn::Ident> = parts.iter().map(slot_local).collect();
                 let part_tys: Vec<&syn::Type> = parts
                     .iter()
                     .map(|part| part.ty().expect("an inlined part carries a value"))
@@ -964,10 +979,10 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                 let (encode, len) = (written.encode, written.len);
 
                 encode_arms.push(quote! {
-                    Self::#var { #(#part_idents),* } => { #encode }
+                    Self::#var { #(#part_idents: #part_locals),* } => { #encode }
                 });
                 len_arms.push(quote! {
-                    Self::#var { #(#part_idents),* } => #len,
+                    Self::#var { #(#part_idents: #part_locals),* } => #len,
                 });
                 merge_arms.push(quote! {
                     #tag => {
@@ -976,27 +991,28 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                             wire_type,
                         )?;
                         #[allow(unused_parens)]
-                        let (#(mut #part_idents),*) = if let Self::#var { #(#part_idents),* } = value {
-                            (#(::std::mem::take(#part_idents)),*)
-                        } else {
-                            (#(#part_seeds),*)
-                        };
+                        let (#(mut #part_locals),*) =
+                            if let Self::#var { #(#part_idents: #part_locals),* } = value {
+                                (#(::std::mem::take(#part_locals)),*)
+                            } else {
+                                (#(#part_seeds),*)
+                            };
                         // Through prost's own framing, which brings the recursion and length
                         // limits `ctx` carries and rejects a body that runs past its declared end.
                         #[allow(unused_parens)]
-                        let mut parts = (#(#part_idents),*);
+                        let mut __parts = (#(#part_locals),*);
                         ::prost::encoding::merge_loop(
-                            &mut parts,
+                            &mut __parts,
                             buf,
                             ctx,
-                            |parts, buf, ctx| {
+                            |__parts, buf, ctx| {
                                 let (tag, wire_type) = ::prost::encoding::decode_key(buf)?;
                                 #[allow(unused_parens)]
-                                let (#(#part_idents),*) = parts;
+                                let (#(#part_locals),*) = __parts;
                                 match tag {
                                     #(
                                         #part_tags => <#part_tys as crate::codec::ProtoField>::merge_field(
-                                            wire_type, #part_idents, buf, ctx,
+                                            wire_type, #part_locals, buf, ctx,
                                         ),
                                     )*
                                     _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
@@ -1004,8 +1020,8 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
                             },
                         )?;
                         #[allow(unused_parens)]
-                        let (#(#part_idents),*) = parts;
-                        *value = Self::#var { #(#part_idents),* };
+                        let (#(#part_locals),*) = __parts;
+                        *value = Self::#var { #(#part_idents: #part_locals),* };
                         ::core::result::Result::Ok(())
                     }
                 });
@@ -1126,5 +1142,77 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         #message
 
         #whole_message
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! The emitter's bindings, checked on the expansion rather than by compiling it.
+    //!
+    //! A case that *resolves* exercises the whole emission surface, so the compile-fail suite
+    //! cannot host it: its crate-root stand-in has no codec to satisfy the shape asserts. What
+    //! matters here is not that the output compiles but what it is named, and that reads straight
+    //! off the tokens.
+
+    use super::*;
+
+    /// Compile the compile-fail suite's fixture schema and point the descriptor loader at it.
+    fn fixture_index() -> std::sync::Arc<DescriptorIndex> {
+        use prost::Message as _;
+
+        let dir = std::env::temp_dir().join("armonik-macros-oneof-fixture");
+        std::fs::create_dir_all(&dir).expect("create the fixture directory");
+        let descriptor = protox::compile(["tests/fixture.proto"], ["tests"])
+            .expect("compile tests/fixture.proto")
+            .encode_to_vec();
+        std::fs::write(dir.join("descriptor.bin"), &descriptor).expect("write the descriptor set");
+        std::env::set_var("OUT_DIR", &dir);
+        crate::descriptor::index().expect("the fixture index loads")
+    }
+
+    /// A variant's fields are bound under `__f<tag>`, never under the name the user gave them.
+    ///
+    /// They share a scope with the emitter's own `buf`, `len`, `value` and `body_len`, so a proto
+    /// field named like one of those would shadow it: not a wrong encoding but an unimplementable
+    /// message, whose errors point into expanded code. `fixture.Hostile` is named to collide.
+    #[test]
+    fn variant_fields_are_bound_out_of_the_way() {
+        let index = fixture_index();
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[armonik(message = "fixture.Choice", oneof = "choice")]
+            pub enum Choice {
+                Text(String),
+                Simple(String),
+                #[armonik(present)]
+                Flag,
+                #[armonik(inline)]
+                Hostile {
+                    buf: String,
+                    len: i32,
+                    value: String,
+                    body_len: String,
+                },
+            }
+        };
+        let plan = match oneof_plan(&input, &index) {
+            Ok(plan) => plan,
+            Err(errors) => panic!("the fixture resolves: {}", errors.into_syn_error()),
+        };
+        let emitted = oneof(&plan).to_string();
+
+        // Each field appears only as a *pattern key* renaming it out of the way (`buf : __f1`).
+        // Binding it under its own name is what would shadow the emitter's `buf`, `len`, `value`
+        // or `body_len`, all of which are live in the same scope.
+        for (field, tag) in [("buf", 1), ("len", 2), ("value", 3), ("body_len", 4)] {
+            let renamed = format!("{field} : __f{tag}");
+            assert!(
+                emitted.contains(&renamed),
+                "expected `{renamed}` in the expansion",
+            );
+            assert!(
+                !emitted.contains(&format!("{{ {field} ,")),
+                "`{field}` is bound under its own name somewhere",
+            );
+        }
     }
 }

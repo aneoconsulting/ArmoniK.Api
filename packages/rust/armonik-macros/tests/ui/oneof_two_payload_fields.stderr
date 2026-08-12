@@ -15,3 +15,9 @@ error: oneof member `fixture.Choice.flag` (tag 4) is not covered by any variant
   |
 9 | pub enum Choice {
   |          ^^^^^^
+
+error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
+ --> tests/ui/oneof_two_payload_fields.rs:9:10
+  |
+9 | pub enum Choice {
+  |          ^^^^^^
