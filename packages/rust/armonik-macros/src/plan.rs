@@ -121,7 +121,7 @@ pub(crate) struct EnumPlan {
     pub(crate) mode: EnumMode,
     pub(crate) fingerprint: u64,
     /// Intermediate wrapper messages the transparent chain flattens away, so they have no Rust type
-    /// of their own (see [`crate::codegen`]).
+    /// of their own.
     pub(crate) absorbs: Vec<String>,
 }
 

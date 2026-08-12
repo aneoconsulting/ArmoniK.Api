@@ -528,7 +528,7 @@ fn expand_message(input: DeriveInput) -> syn::Result<TokenStream2> {
 }
 
 /// The proto value each variant stands for, which the re-emitted item carries as its discriminant
-/// (see [`docs::tag_variants`]).
+/// (see `docs::tag_variants`).
 pub(crate) struct EnumTags {
     /// Named variants with their proto values.
     pub(crate) named: Vec<(syn::Ident, i32)>,
