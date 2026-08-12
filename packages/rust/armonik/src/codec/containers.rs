@@ -70,10 +70,20 @@ impl<T: ProtoField> ProtoField for Vec<T> {
 /// back in from the defaults, so nothing is lost; a `#[armonik(with)]` adapter
 /// over pair messages inherits the same framing (see
 /// [`PairMap`](super::adapters::PairMap)).
+/// A proto `map<K, V>`, which is a repeated `{ K key = 1; V value = 2; }` entry message on the
+/// wire.
+///
+/// Hand-written rather than delegated to `prost::encoding::hash_map`, for one reason: prost's
+/// version skips a key or value equal to its default, and this crate's encode side skips nothing
+/// (see the module docs). Delegating made map entries the single exception to that rule, which cost
+/// a `V: PartialEq` bound to express and a line in DESIGN to record. Both are gone with it.
+///
+/// A receiver reads the two forms identically: proto3 seeds an absent implicit-presence field from
+/// its default, which is exactly what the skipped subfield held.
 impl<K, V> ProtoField for HashMap<K, V>
 where
-    K: ProtoField + Eq + Hash + Ord,
-    V: ProtoField + PartialEq,
+    K: ProtoField + Eq + Hash,
+    V: ProtoField,
 {
     const SHAPE: Shape = Shape {
         kind: FieldKind::Message,
@@ -83,15 +93,13 @@ where
     };
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
-        encoding::hash_map::encode(
-            |tag, key, buf| K::encode_field(tag, key, buf),
-            |tag, key| K::encoded_len_field(tag, key),
-            |tag, value, buf| V::encode_field(tag, value, buf),
-            |tag, value| V::encoded_len_field(tag, value),
-            tag,
-            value,
-            buf,
-        );
+        for (key, value) in value {
+            let entry_len = entry_len::<K, V>(key, value);
+            encoding::encode_key(tag, WireType::LengthDelimited, buf);
+            encoding::encode_varint(entry_len as u64, buf);
+            K::encode_field(KEY_TAG, key, buf);
+            V::encode_field(VALUE_TAG, value, buf);
+        }
     }
 
     fn merge_field(
@@ -101,21 +109,36 @@ where
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
         encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        encoding::hash_map::merge(
-            |wire_type, key: &mut K, buf: &mut _, ctx| K::merge_field(wire_type, key, buf, ctx),
-            |wire_type, value: &mut V, buf: &mut _, ctx| V::merge_field(wire_type, value, buf, ctx),
-            value,
-            buf,
-            ctx,
-        )
+        // An entry omitting either subfield is legal and means its default, which is what the pair
+        // is seeded with.
+        let mut entry = (K::default(), V::default());
+        encoding::merge_loop(&mut entry, buf, ctx, |entry, buf, ctx| {
+            let (tag, wire_type) = encoding::decode_key(buf)?;
+            match tag {
+                KEY_TAG => K::merge_field(wire_type, &mut entry.0, buf, ctx),
+                VALUE_TAG => V::merge_field(wire_type, &mut entry.1, buf, ctx),
+                _ => encoding::skip_field(wire_type, tag, buf, ctx),
+            }
+        })?;
+        value.insert(entry.0, entry.1);
+        Ok(())
     }
 
     fn encoded_len_field(tag: u32, value: &Self) -> usize {
-        encoding::hash_map::encoded_len(
-            |tag, key| K::encoded_len_field(tag, key),
-            |tag, value| V::encoded_len_field(tag, value),
-            tag,
-            value,
-        )
+        value
+            .iter()
+            .map(|(key, value)| {
+                let entry_len = entry_len::<K, V>(key, value);
+                encoding::key_len(tag) + encoding::encoded_len_varint(entry_len as u64) + entry_len
+            })
+            .sum()
     }
+}
+
+/// The tags a proto map entry's key and value always carry.
+const KEY_TAG: u32 = 1;
+const VALUE_TAG: u32 = 2;
+
+fn entry_len<K: ProtoField, V: ProtoField>(key: &K, value: &V) -> usize {
+    K::encoded_len_field(KEY_TAG, key) + V::encoded_len_field(VALUE_TAG, value)
 }

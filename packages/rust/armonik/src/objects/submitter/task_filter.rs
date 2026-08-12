@@ -8,14 +8,14 @@ pub enum TaskFilterIds {
     /// Select the tasks from their session IDs.
     #[armonik(
         rename = "session",
-        with = "crate::codec::adapters::Wrapper<1>",
+        with = "crate::codec::adapters::Wrapper",
         absorbs = "armonik.api.grpc.v1.submitter.TaskFilter.IdsRequest"
     )]
     Sessions(Vec<String>),
     /// Select the tasks from their task IDs.
     #[armonik(
         rename = "task",
-        with = "crate::codec::adapters::Wrapper<1>",
+        with = "crate::codec::adapters::Wrapper",
         absorbs = "armonik.api.grpc.v1.submitter.TaskFilter.IdsRequest"
     )]
     Tasks(Vec<String>),
@@ -38,14 +38,14 @@ pub enum TaskFilterStatuses {
     /// Select the tasks whose status is one of these.
     #[armonik(
         rename = "included",
-        with = "crate::codec::adapters::Wrapper<1>",
+        with = "crate::codec::adapters::Wrapper",
         absorbs = "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest"
     )]
     Include(Vec<TaskStatus>),
     /// Select the tasks whose status is none of these.
     #[armonik(
         rename = "excluded",
-        with = "crate::codec::adapters::Wrapper<1>",
+        with = "crate::codec::adapters::Wrapper",
         absorbs = "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest"
     )]
     Exclude(Vec<TaskStatus>),
