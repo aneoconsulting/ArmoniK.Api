@@ -37,6 +37,25 @@ message Choice {
     string text = 2;
     Simple simple = 3;
     Empty flag = 4;
+    Hostile hostile = 5;
+  }
+}
+
+// A member message whose fields are named exactly like the emitter's own locals, which is what the
+// `__f<tag>` bindings exist to survive.
+message Hostile {
+  string buf = 1;
+  int32 len = 2;
+  string value = 3;
+  string body_len = 4;
+}
+
+// A whole message: one oneof plus a non-oneof field every variant must carry.
+message Shared {
+  string token = 1;
+  oneof pick {
+    string text = 2;
+    Empty flag = 3;
   }
 }
 

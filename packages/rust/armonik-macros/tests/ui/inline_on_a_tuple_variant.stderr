@@ -3,3 +3,9 @@ error: inline needs a struct variant: there is nothing to spread the member's fi
    |
 11 |     #[armonik(inline)]
    |               ^^^^^^
+
+error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
+ --> tests/ui/inline_on_a_tuple_variant.rs:9:10
+  |
+9 | pub enum Choice {
+  |          ^^^^^^
