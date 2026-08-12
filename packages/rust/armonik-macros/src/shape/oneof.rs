@@ -789,6 +789,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
             .collect()
     };
     let all_siblings: Vec<usize> = (0..plan.siblings.len()).collect();
+    let all_pats = pats(&all_siblings);
     // Binds every sibling by reference, whatever the variant.
     let bind_siblings = (!sib_locals.is_empty()).then(|| {
         let all = pats(&all_siblings);
@@ -838,192 +839,29 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     }
 
     for variant in &plan.variants {
-        let var = &variant.ident;
         let own = &variant.own;
-        let tag = own.tag;
         asserts.extend(slot_asserts(own, ident));
-        match &own.codec {
-            SlotCodec::Field { .. } => {
-                let merge = slot_merge_in_place(own, &quote!(&mut payload));
-                let binding = match own.access.as_ref() {
-                    Some(FieldAccess::Named(field)) => Some(field),
-                    _ => None,
-                };
-
-                // The active member carries the oneof's presence, so it is emitted even with a
-                // default payload, like every other field.
-                let written = slot_write(own, &quote!(payload));
-                let (encode, len) = (written.encode, written.len);
-                normalize_fragments.extend(written.normalize);
-
-                // Matching binds the member as `payload` and ignores the siblings; constructing one
-                // needs them, so merging a member takes them along.
-                let pattern = match binding {
-                    None => quote!(Self::#var(payload)),
-                    Some(field) => quote!(Self::#var { #field: payload, .. }),
-                };
-                let (construct, take) = match binding {
-                    None => (quote!(Self::#var(payload)), None),
-                    Some(field) => (
-                        quote!(Self::#var { #field: payload, #(#sib_idents: #sib_locals),* }),
-                        Some({
-                            let take_pats = pats(&all_siblings);
-                            quote! {
-                                #[allow(unused_parens)]
-                                let (#(#sib_locals),*) = match value {
-                                    #(#take_pats)|* => (#(::std::mem::take(#sib_locals)),*),
-                                };
-                            }
-                        }),
-                    ),
-                };
-
-                encode_arms.push(quote! { #pattern => { #encode } });
-                len_arms.push(quote! { #pattern => #len, });
-                merge_arms.push(quote! {
-                    #tag => {
-                        #take
-                        let mut payload = if let #pattern = value {
-                            ::std::mem::take(payload)
-                        } else {
-                            ::core::default::Default::default()
-                        };
-                        #merge?;
-                        *value = #construct;
-                        ::core::result::Result::Ok(())
-                    }
-                });
-            }
-            SlotCodec::Marker {
-                empty_message: false,
-            } => {
-                // Only the member's presence survives (an explicit `false` reads as set).
-                normalize_fragments.push(quote! {
-                    crate::differential::bool_marker(message, #tag);
-                });
-                encode_arms.push(quote! {
-                    Self::#var => {
-                        <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
-                    }
-                });
-                len_arms.push(quote! {
-                    Self::#var => <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true),
-                });
-                merge_arms.push(quote! {
-                    #tag => {
-                        let mut marker = false;
-                        <bool as crate::codec::ProtoField>::merge_field(
-                            wire_type, &mut marker, buf, ctx,
-                        )?;
-                        *value = Self::#var;
-                        ::core::result::Result::Ok(())
-                    }
-                });
-            }
-            SlotCodec::Marker {
-                empty_message: true,
-            } => {
-                encode_arms.push(quote! {
-                    Self::#var => {
-                        crate::codec::empty_body::encode(#tag, buf);
-                    }
-                });
-                len_arms.push(quote! {
-                    Self::#var => crate::codec::empty_body::encoded_len(#tag),
-                });
-                merge_arms.push(quote! {
-                    #tag => {
-                        ::prost::encoding::skip_field(wire_type, tag, buf, ctx)?;
-                        *value = Self::#var;
-                        ::core::result::Result::Ok(())
-                    }
-                });
-            }
-            // A variant carries one member, never a whole oneof: an enum standing for a oneof
-            // *is* the flattened form, so there is nothing left to flatten.
+        let ctx = EmitCtx {
+            var: &variant.ident,
+            own,
+            sib_idents: &sib_idents,
+            sib_locals: &sib_locals,
+            take_pats: &all_pats,
+        };
+        let arms = match &own.codec {
+            SlotCodec::Field { .. } => emit_payload_variant(&ctx),
+            SlotCodec::Marker { empty_message } => emit_marker_variant(&ctx, *empty_message),
+            SlotCodec::Inline { parts } => emit_inline_variant(&ctx, parts),
+            // A variant carries one member, never a whole oneof: an enum standing for a oneof *is*
+            // the flattened form, so there is nothing left to flatten.
             SlotCodec::Oneof { .. } => {
                 unreachable!("a oneof variant carries a member, not another oneof")
             }
-            SlotCodec::Inline { parts } => {
-                let part_idents: Vec<&syn::Ident> = parts
-                    .iter()
-                    .map(|part| match part.access.as_ref() {
-                        Some(FieldAccess::Named(ident)) => ident,
-                        _ => unreachable!("an inlined part is a named field of the variant"),
-                    })
-                    .collect();
-                // Bound under `__f<tag>` like the shared fields, and for the same reason: these
-                // locals share a scope with `buf`, `value`, `parts` and `body_len`.
-                let part_locals: Vec<syn::Ident> = parts.iter().map(slot_local).collect();
-                let part_tys: Vec<&syn::Type> = parts
-                    .iter()
-                    .map(|part| part.ty().expect("an inlined part carries a value"))
-                    .collect();
-                let part_tags: Vec<u32> = parts.iter().map(|part| part.tag).collect();
-                let part_seeds: Vec<_> = parts
-                    .iter()
-                    .map(|part| {
-                        let ty = part.ty().expect("an inlined part carries a value");
-                        quote!(<#ty as ::core::default::Default>::default())
-                    })
-                    .collect();
-                // The parts are ordinary fields, written by the shared walk against the bindings
-                // this arm's pattern introduces; only the framing around them is hand-rolled, since
-                // the member message is absorbed and has no Rust type to delegate to.
-                // No value expression of its own: an inlined member names its parts through the
-                // bindings this arm's pattern introduces.
-                let written = slot_write(own, &TokenStream::new());
-                let (encode, len) = (written.encode, written.len);
-
-                encode_arms.push(quote! {
-                    Self::#var { #(#part_idents: #part_locals),* } => { #encode }
-                });
-                len_arms.push(quote! {
-                    Self::#var { #(#part_idents: #part_locals),* } => #len,
-                });
-                merge_arms.push(quote! {
-                    #tag => {
-                        ::prost::encoding::check_wire_type(
-                            ::prost::encoding::WireType::LengthDelimited,
-                            wire_type,
-                        )?;
-                        #[allow(unused_parens)]
-                        let (#(mut #part_locals),*) =
-                            if let Self::#var { #(#part_idents: #part_locals),* } = value {
-                                (#(::std::mem::take(#part_locals)),*)
-                            } else {
-                                (#(#part_seeds),*)
-                            };
-                        // Through prost's own framing, which brings the recursion and length
-                        // limits `ctx` carries and rejects a body that runs past its declared end.
-                        #[allow(unused_parens)]
-                        let mut __parts = (#(#part_locals),*);
-                        ::prost::encoding::merge_loop(
-                            &mut __parts,
-                            buf,
-                            ctx,
-                            |__parts, buf, ctx| {
-                                let (tag, wire_type) = ::prost::encoding::decode_key(buf)?;
-                                #[allow(unused_parens)]
-                                let (#(#part_locals),*) = __parts;
-                                match tag {
-                                    #(
-                                        #part_tags => <#part_tys as crate::codec::ProtoField>::merge_field(
-                                            wire_type, #part_locals, buf, ctx,
-                                        ),
-                                    )*
-                                    _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
-                                }
-                            },
-                        )?;
-                        #[allow(unused_parens)]
-                        let (#(#part_locals),*) = __parts;
-                        *value = Self::#var { #(#part_idents: #part_locals),* };
-                        ::core::result::Result::Ok(())
-                    }
-                });
-            }
-        }
+        };
+        encode_arms.push(arms.encode);
+        len_arms.push(arms.len);
+        merge_arms.push(arms.merge);
+        normalize_fragments.extend(arms.normalize);
     }
 
     // A sibling occurrence merges in place, whatever the current variant.
@@ -1125,6 +963,246 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         #message
 
         #whole_message
+    }
+}
+
+/// The arms one variant contributes: one to each of the encode, length and merge walks, plus the
+/// `Normalize` projection its representation implies.
+struct VariantArms {
+    encode: TokenStream,
+    len: TokenStream,
+    merge: TokenStream,
+    normalize: Option<TokenStream>,
+}
+
+/// What a variant emitter needs about the enum around it: the variant, the slot it owns, and the
+/// shared fields every arm has to carry along.
+///
+/// Resolution already names its three cases (`resolve_variant`, `resolve_marker_variant`,
+/// `resolve_inline_member`); these are the same three on the emission side, so a shape can be read
+/// end to end without unpicking one long match.
+struct EmitCtx<'a> {
+    var: &'a syn::Ident,
+    own: &'a Slot,
+    sib_idents: &'a [&'a syn::Ident],
+    sib_locals: &'a [syn::Ident],
+    /// All-variant patterns binding every shared field, for the take-and-rebuild merge.
+    take_pats: &'a [TokenStream],
+}
+
+/// A variant carrying the member whole: `Variant(T)`, or one named field of a struct variant.
+fn emit_payload_variant(ctx: &EmitCtx<'_>) -> VariantArms {
+    let EmitCtx {
+        var,
+        own,
+        sib_idents,
+        sib_locals,
+        take_pats,
+    } = ctx;
+    let tag = own.tag;
+
+    let merge = slot_merge_in_place(own, &quote!(&mut payload));
+    let binding = match own.access.as_ref() {
+        Some(FieldAccess::Named(field)) => Some(field),
+        _ => None,
+    };
+
+    // The active member carries the oneof's presence, so it is emitted even with a
+    // default payload, like every other field.
+    let written = slot_write(own, &quote!(payload));
+    let (encode, len) = (written.encode, written.len);
+    let normalize = written.normalize;
+
+    // Matching binds the member as `payload` and ignores the siblings; constructing one
+    // needs them, so merging a member takes them along.
+    let pattern = match binding {
+        None => quote!(Self::#var(payload)),
+        Some(field) => quote!(Self::#var { #field: payload, .. }),
+    };
+    let (construct, take) = match binding {
+        None => (quote!(Self::#var(payload)), None),
+        Some(field) => (
+            quote!(Self::#var { #field: payload, #(#sib_idents: #sib_locals),* }),
+            Some(quote! {
+                #[allow(unused_parens)]
+                let (#(#sib_locals),*) = match value {
+                    #(#take_pats)|* => (#(::std::mem::take(#sib_locals)),*),
+                };
+            }),
+        ),
+    };
+
+    let encode = quote! { #pattern => { #encode } };
+    let len = quote! { #pattern => #len, };
+    let merge_arm = quote! {
+        #tag => {
+            #take
+            let mut payload = if let #pattern = value {
+                ::std::mem::take(payload)
+            } else {
+                ::core::default::Default::default()
+            };
+            #merge?;
+            *value = #construct;
+            ::core::result::Result::Ok(())
+        }
+    };
+
+    VariantArms {
+        encode,
+        len,
+        merge: merge_arm,
+        normalize,
+    }
+}
+
+/// A `#[armonik(present)]` variant: the member is carried by its presence alone.
+fn emit_marker_variant(ctx: &EmitCtx<'_>, empty_message: bool) -> VariantArms {
+    let var = ctx.var;
+    let tag = ctx.own.tag;
+    if empty_message {
+        let encode = quote! {
+            Self::#var => {
+                crate::codec::empty_body::encode(#tag, buf);
+            }
+        };
+        let len = quote! {
+            Self::#var => crate::codec::empty_body::encoded_len(#tag),
+        };
+        let merge_arm = quote! {
+            #tag => {
+                ::prost::encoding::skip_field(wire_type, tag, buf, ctx)?;
+                *value = Self::#var;
+                ::core::result::Result::Ok(())
+            }
+        };
+        VariantArms {
+            encode,
+            len,
+            merge: merge_arm,
+            normalize: None,
+        }
+    } else {
+        // Only the member's presence survives (an explicit `false` reads as set).
+        let normalize = Some(quote! {
+            crate::differential::bool_marker(message, #tag);
+        });
+        let encode = quote! {
+            Self::#var => {
+                <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
+            }
+        };
+        let len = quote! {
+            Self::#var => <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true),
+        };
+        let merge_arm = quote! {
+            #tag => {
+                let mut marker = false;
+                <bool as crate::codec::ProtoField>::merge_field(
+                    wire_type, &mut marker, buf, ctx,
+                )?;
+                *value = Self::#var;
+                ::core::result::Result::Ok(())
+            }
+        };
+        VariantArms {
+            encode,
+            len,
+            merge: merge_arm,
+            normalize,
+        }
+    }
+}
+
+/// A `#[armonik(inline)]` variant: the member message's own fields, spread into it and framed here.
+fn emit_inline_variant(ctx: &EmitCtx<'_>, parts: &[Slot]) -> VariantArms {
+    let var = ctx.var;
+    let own = ctx.own;
+    let tag = own.tag;
+
+    let part_idents: Vec<&syn::Ident> = parts
+        .iter()
+        .map(|part| match part.access.as_ref() {
+            Some(FieldAccess::Named(ident)) => ident,
+            _ => unreachable!("an inlined part is a named field of the variant"),
+        })
+        .collect();
+    // Bound under `__f<tag>` like the shared fields, and for the same reason: these
+    // locals share a scope with `buf`, `value`, `parts` and `body_len`.
+    let part_locals: Vec<syn::Ident> = parts.iter().map(slot_local).collect();
+    let part_tys: Vec<&syn::Type> = parts
+        .iter()
+        .map(|part| part.ty().expect("an inlined part carries a value"))
+        .collect();
+    let part_tags: Vec<u32> = parts.iter().map(|part| part.tag).collect();
+    let part_seeds: Vec<_> = parts
+        .iter()
+        .map(|part| {
+            let ty = part.ty().expect("an inlined part carries a value");
+            quote!(<#ty as ::core::default::Default>::default())
+        })
+        .collect();
+    // The parts are ordinary fields, written by the shared walk against the bindings
+    // this arm's pattern introduces; only the framing around them is hand-rolled, since
+    // the member message is absorbed and has no Rust type to delegate to.
+    // No value expression of its own: an inlined member names its parts through the
+    // bindings this arm's pattern introduces.
+    let written = slot_write(own, &TokenStream::new());
+    let (encode, len) = (written.encode, written.len);
+
+    let encode = quote! {
+        Self::#var { #(#part_idents: #part_locals),* } => { #encode }
+    };
+    let len = quote! {
+        Self::#var { #(#part_idents: #part_locals),* } => #len,
+    };
+    let merge_arm = quote! {
+        #tag => {
+            ::prost::encoding::check_wire_type(
+                ::prost::encoding::WireType::LengthDelimited,
+                wire_type,
+            )?;
+            #[allow(unused_parens)]
+            let (#(mut #part_locals),*) =
+                if let Self::#var { #(#part_idents: #part_locals),* } = value {
+                    (#(::std::mem::take(#part_locals)),*)
+                } else {
+                    (#(#part_seeds),*)
+                };
+            // Through prost's own framing, which brings the recursion and length
+            // limits `ctx` carries and rejects a body that runs past its declared end.
+            #[allow(unused_parens)]
+            let mut __parts = (#(#part_locals),*);
+            ::prost::encoding::merge_loop(
+                &mut __parts,
+                buf,
+                ctx,
+                |__parts, buf, ctx| {
+                    let (tag, wire_type) = ::prost::encoding::decode_key(buf)?;
+                    #[allow(unused_parens)]
+                    let (#(#part_locals),*) = __parts;
+                    match tag {
+                        #(
+                            #part_tags => <#part_tys as crate::codec::ProtoField>::merge_field(
+                                wire_type, #part_locals, buf, ctx,
+                            ),
+                        )*
+                        _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+                    }
+                },
+            )?;
+            #[allow(unused_parens)]
+            let (#(#part_locals),*) = __parts;
+            *value = Self::#var { #(#part_idents: #part_locals),* };
+            ::core::result::Result::Ok(())
+        }
+    };
+
+    VariantArms {
+        encode,
+        len,
+        merge: merge_arm,
+        normalize: None,
     }
 }
 
