@@ -11,8 +11,7 @@ use crate::attr_site::{scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
 use crate::emit::{
-    message_impl, msg_impl, normalize_impl, registrations, slot_asserts, slot_local,
-    slot_merge_in_place, slot_write, tripwire,
+    message_shaped, slot_asserts, slot_local, slot_merge_in_place, slot_write, MessageBodies,
 };
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Expectation, FieldAccess, OneofPlan, OneofVariant, Slot, SlotCodec};
@@ -30,6 +29,7 @@ pub(crate) fn split_variant_fields(
     named: &syn::FieldsNamed,
     sibling_metas: &[&FieldMeta],
     sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
+    absorbs: &mut Vec<String>,
     errors: &mut Errors,
     variant_span: Span,
     proto_name: &str,
@@ -40,7 +40,15 @@ pub(crate) fn split_variant_fields(
 
     for field in &named.named {
         let ident = field.ident.clone().expect("named fields have idents");
-        let Some((FieldAttrs { rename, with, .. }, _)) = scan_attrs(
+        let Some((
+            FieldAttrs {
+                rename,
+                with,
+                absorbs: declared,
+                ..
+            },
+            _,
+        )) = scan_attrs(
             &field.attrs,
             Allowed {
                 rename: true,
@@ -50,10 +58,12 @@ pub(crate) fn split_variant_fields(
             },
             "this armonik attribute is not valid on a struct variant field",
             errors,
-        ) else {
+        )
+        else {
             failed = true;
             continue;
         };
+        absorbs.extend(declared);
 
         let name = rename.unwrap_or_else(|| unraw(&ident));
         if let Some(position) = sibling_metas.iter().position(|meta| meta.name == name) {
@@ -259,6 +269,7 @@ fn resolve_variant(
                 named,
                 sibling_metas,
                 sibling_bindings,
+                absorbs,
                 errors,
                 ctx.span,
                 ctx.proto_name,
@@ -425,6 +436,9 @@ fn resolve_inline_member(
             },
             proto_path: format!("{inner_name}.{}", part_meta.name),
             checks: Expectation::of(part_meta),
+            // The member message's own field. The rewriter used to look these up in the
+            // *containing* message and silently find nothing.
+            docs: part_meta.docs.clone(),
         });
     }
     matcher.check_complete(ctx.span, errors);
@@ -553,7 +567,8 @@ pub(crate) fn oneof_plan(
     let mut variants = Vec::new();
     let mut default_variant: Option<syn::Ident> = None;
     let mut covered = vec![false; oneof.fields.len()];
-    // Messages inlined into struct variants: no Rust type stands for them.
+    // Messages no Rust type stands for: the ones inlined into struct variants, and the ones a
+    // `with` adapter flattens away, declared through `#[armonik(absorbs = "...")]`.
     let mut absorbs: Vec<String> = Vec::new();
     for variant in &data.variants {
         let span = variant.ident.span();
@@ -563,6 +578,7 @@ pub(crate) fn oneof_plan(
                 with,
                 present,
                 inline,
+                absorbs: declared,
                 ..
             },
             _,
@@ -582,6 +598,7 @@ pub(crate) fn oneof_plan(
         else {
             continue;
         };
+        absorbs.extend(declared);
 
         // The attribute-less unit variant is "no member set"; with sibling fields, that case is a
         // struct variant carrying exactly them and is detected below, after member-name matching
@@ -619,6 +636,7 @@ pub(crate) fn oneof_plan(
                     named,
                     &sibling_metas,
                     &mut sibling_bindings,
+                    &mut absorbs,
                     &mut errors,
                     span,
                     &proto_name,
@@ -691,6 +709,7 @@ pub(crate) fn oneof_plan(
                 codec,
                 checks,
                 proto_path,
+                docs: field_meta.docs.clone(),
             },
         });
     }
@@ -725,6 +744,7 @@ pub(crate) fn oneof_plan(
             },
             proto_path: format!("{proto_name}.{}", meta_field.name),
             checks: Expectation::of(meta_field),
+            docs: meta_field.docs.clone(),
         });
     }
     siblings.sort_by_key(|sibling| sibling.tag);
@@ -732,6 +752,7 @@ pub(crate) fn oneof_plan(
     variants.sort_by_key(|variant| variant.own.tag);
     Ok(OneofPlan {
         ident: input.ident.clone(),
+        docs: meta.docs.clone(),
         proto_name,
         whole_message,
         siblings,
@@ -751,7 +772,6 @@ pub(crate) fn oneof_plan(
 pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     let ident = &plan.ident;
     let proto_name = &plan.proto_name;
-    let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
     // Sibling machinery (empty and inert without siblings): all-variant patterns binding a subset
     // of the siblings, plus the sibling fields' fragments. Every variant carries every sibling, so
@@ -893,77 +913,57 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         .as_ref()
         .map(|var| quote! { Self::#var { .. } => 0, });
 
-    let generics = syn::Generics::default();
-
     // A whole-message enum is additionally the message itself: it registers and gets the `Msg`
-    // marker, which is what makes it usable as an RPC message and as a field of another message.
-    // The `prost::Message` impl below is shared with the embedded case; nothing is layered on top
-    // of it, because there is nothing left to add. The old forwarding layer wrapped the same match
-    // in a second one whose default arm was `skip_field`, which the inner match already ends with.
-    let whole_message = plan.whole_message.then(|| {
-        let registrations = registrations(ident, std::slice::from_ref(&plan.proto_name));
-        let msg = msg_impl(&generics, ident, std::slice::from_ref(proto_name));
-        quote! {
-            #registrations
-
-            #msg
-        }
-    });
-
-    // Emitted for embedded oneofs too: the containing message's `Normalize` delegates to it (the
-    // members live on the parent's dynamic message).
-    let normalize = normalize_impl(&generics, ident, &normalize_fragments);
-
-    // `let value = self;` is the whole cost of the change: the emitted bodies are written against a
+    // marker, which is what makes it usable as an RPC message and as a field of another message. An
+    // embedded oneof is a fragment of a message rather than one, so it gets neither. Its
+    // `prost::Message` impl is the same either way; nothing is layered on top, because there is
+    // nothing left to add. The old forwarding layer wrapped the same match in a second one whose
+    // default arm was `skip_field`, which the inner match already ends with. `Normalize` is emitted
+    // both ways: the containing message's delegates to it, since the members live on the parent's
+    // dynamic message.
+    //
+    // `let value = self;` is the whole cost of sharing the bodies: they are written against a
     // `value` binding, and `prost::Message` takes a receiver where the deleted `ProtoOneof` took an
     // argument.
-    let message = message_impl(
-        &generics,
+    message_shaped(
         ident,
-        quote! {
-            let value = self;
-            #bind_siblings
-            #(#low_encode)*
-            match value {
-                #(#encode_arms)*
-                #default_encode_arm
-            }
-            #(#high_encode)*
+        &syn::Generics::default(),
+        plan.fingerprint,
+        std::slice::from_ref(proto_name),
+        plan.whole_message,
+        asserts,
+        MessageBodies {
+            encode_raw: quote! {
+                let value = self;
+                #bind_siblings
+                #(#low_encode)*
+                match value {
+                    #(#encode_arms)*
+                    #default_encode_arm
+                }
+                #(#high_encode)*
+            },
+            merge_field: quote! {
+                let value = self;
+                match tag {
+                    #(#merge_arms)*
+                    _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+                }
+            },
+            encoded_len: quote! {
+                let value = self;
+                #bind_siblings
+                let mut len = match value {
+                    #(#len_arms)*
+                    #default_len_arm
+                };
+                #(#low_len)*
+                #(#high_len)*
+                len
+            },
+            normalize: normalize_fragments,
         },
-        quote! {
-            let value = self;
-            match tag {
-                #(#merge_arms)*
-                _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
-            }
-        },
-        quote! {
-            let value = self;
-            #bind_siblings
-            let mut len = match value {
-                #(#len_arms)*
-                #default_len_arm
-            };
-            #(#low_len)*
-            #(#high_len)*
-            len
-        },
-        None,
-    );
-
-    let tripwire = tripwire(&fingerprint);
-    quote! {
-        const _: () = {
-            #tripwire
-            #asserts
-        };
-
-        #normalize
-
-        #message
-
-        #whole_message
-    }
+    )
 }
 
 /// The arms one variant contributes: one to each of the encode, length and merge walks, plus the

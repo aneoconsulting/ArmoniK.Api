@@ -112,9 +112,31 @@ pub(crate) fn parse(attrs: &[Attribute]) -> syn::Result<Vec<AttrEntry>> {
     Ok(entries)
 }
 
+/// Visit the attributes of the type itself and of every field, variant and variant field: the
+/// common traversal for whole-input attribute scans.
+pub(crate) fn for_each_site(input: &syn::DeriveInput, mut visit: impl FnMut(&[Attribute])) {
+    visit(&input.attrs);
+    match &input.data {
+        syn::Data::Struct(data) => {
+            for field in &data.fields {
+                visit(&field.attrs);
+            }
+        }
+        syn::Data::Enum(data) => {
+            for variant in &data.variants {
+                visit(&variant.attrs);
+                for field in &variant.fields {
+                    visit(&field.attrs);
+                }
+            }
+        }
+        syn::Data::Union(_) => {}
+    }
+}
+
 /// Span of every key token of every `#[armonik(...)]` attribute in `attrs`, for the
-/// hover-documentation anchors (see `doc_anchors` in lib.rs). Malformed attributes are skipped; the
-/// real parse reports them.
+/// hover-documentation anchors (see `item::anchors`). Malformed attributes are skipped; the real
+/// parse reports them.
 pub(crate) fn key_spans(attrs: &[Attribute]) -> Vec<Span> {
     attrs
         .iter()

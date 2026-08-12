@@ -7,9 +7,9 @@ use quote::quote;
 use crate::attr_site::{scan_attrs, unraw, Allowed, FieldAttrs};
 use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::{DescriptorIndex, FieldKind};
-use crate::emit::{message_impl, msg_impl, normalize_impl, registrations, tripwire};
+use crate::emit::{message_shaped, tripwire, MessageBodies};
 use crate::matcher::{not_found, unknown_name};
-use crate::plan::{EnumMode, EnumPlan};
+use crate::plan::{EnumMode, EnumPlan, EnumValue};
 
 pub(crate) fn enum_plan(
     input: &syn::DeriveInput,
@@ -203,18 +203,23 @@ pub(crate) fn enum_plan(
     };
 
     // Match every named variant against every proto enum; they must agree.
-    let mut resolved: Vec<(syn::Ident, i32)> = Vec::new();
+    let mut resolved: Vec<EnumValue> = Vec::new();
     let mut zero_variant = None;
     for (ident, proto_name) in &named {
         let mut number: Option<i32> = None;
+        let mut docs: Vec<String> = Vec::new();
         for (enum_name, meta) in &proto_enums {
             let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
-            let matched = meta.values.iter().find(|(value_name, _)| {
+            let matched = meta.values.iter().position(|(value_name, _)| {
                 value_name == proto_name
                     || crate::names::variant_name(simple, value_name) == *proto_name
             });
-            match matched {
-                Some((_, value)) => {
+            match matched.map(|at| (at, &meta.values[at].1)) {
+                Some((at, value)) => {
+                    // Unified enums agree on their values, so the first one documents them.
+                    if docs.is_empty() {
+                        docs = meta.value_docs[at].clone();
+                    }
                     if *number.get_or_insert(*value) != *value {
                         errors.at(
                             ident.span(),
@@ -243,7 +248,11 @@ pub(crate) fn enum_plan(
             if number == 0 {
                 zero_variant = Some(ident.clone());
             }
-            resolved.push((ident.clone(), number));
+            resolved.push(EnumValue {
+                ident: ident.clone(),
+                number,
+                docs,
+            });
         }
     }
 
@@ -270,10 +279,20 @@ pub(crate) fn enum_plan(
 
     errors.into_result()?;
 
+    let docs = match &mode {
+        EnumMode::Plain { .. } => proto_enums[0].1.docs.clone(),
+        EnumMode::Transparent { names, .. } => names
+            .first()
+            .and_then(|name| index.messages.get(name))
+            .map(|meta| meta.docs.clone())
+            .unwrap_or_default(),
+    };
+
     Ok(EnumPlan {
         ident: input.ident.clone(),
         unknown_variant,
         payload,
+        docs,
         named: resolved,
         zero_variant,
         has_std_default,
@@ -283,11 +302,99 @@ pub(crate) fn enum_plan(
     })
 }
 
-pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
+/// The wire half. A plain proto enum is an `int32` varint, so it implements `ProtoField` directly;
+/// a transparent wrapper chain is message-shaped and goes through the same bundle as every struct.
+/// These are the crate's two families, and this is the only type that can be either.
+///
+/// The `enumeration` entry point matches on [`EnumMode`] to pick between them, which is where that
+/// decision belongs: `message` can never produce an `EnumPlan`, so nothing else has the choice.
+pub(crate) fn transparent_wire(plan: &EnumPlan, names: &[String], path: &[u32]) -> TokenStream {
+    message_shaped(
+        &plan.ident,
+        &syn::Generics::default(),
+        plan.fingerprint,
+        names,
+        true,
+        // The variants were checked against the proto enum by resolution; there is no field here
+        // whose Rust type a const-assert could check.
+        TokenStream::new(),
+        MessageBodies {
+            encode_raw: quote! {
+                crate::codec::wrapper_enum::encode_raw(&[#(#path),*], self, buf);
+            },
+            merge_field: quote! {
+                crate::codec::wrapper_enum::merge_root_field(
+                    &[#(#path),*], tag, wire_type, self, buf, ctx,
+                )
+            },
+            encoded_len: quote! {
+                crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self)
+            },
+            // Zero, absent and present-but-empty carry no information at any depth of the chain.
+            normalize: vec![quote! { crate::differential::wrapper_chain(message); }],
+        },
+    )
+}
+
+/// A proto enum on the wire: an `int32` varint, reached through `ProtoField` rather than through the
+/// `Msg` blanket, because a proto enum is not a message.
+pub(crate) fn plain_wire(plan: &EnumPlan, names: &[String]) -> TokenStream {
+    let ident = &plan.ident;
+    let tripwire = tripwire(plan.fingerprint);
+    quote! {
+        const _: () = { #tripwire };
+
+        impl crate::codec::ProtoField for #ident {
+            const SHAPE: crate::codec::Shape =
+                crate::codec::Shape::enumeration(&[#(#names),*]);
+
+            fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+                crate::codec::enumeration::encode(tag, value, buf);
+            }
+
+            fn merge_field(
+                wire_type: ::prost::encoding::WireType,
+                value: &mut Self,
+                buf: &mut impl ::prost::bytes::Buf,
+                ctx: ::prost::encoding::DecodeContext,
+            ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                crate::codec::enumeration::merge(wire_type, value, buf, ctx)
+            }
+
+            fn encoded_len_field(tag: u32, value: &Self) -> usize {
+                crate::codec::enumeration::encoded_len(tag, value)
+            }
+
+            fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
+                crate::codec::enumeration::encode_repeated(tag, values, buf);
+            }
+
+            fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
+                crate::codec::enumeration::encoded_len_repeated(tag, values)
+            }
+
+            fn merge_repeated(
+                wire_type: ::prost::encoding::WireType,
+                values: &mut ::std::vec::Vec<Self>,
+                buf: &mut impl ::prost::bytes::Buf,
+                ctx: ::prost::encoding::DecodeContext,
+            ) -> ::core::result::Result<(), ::prost::DecodeError> {
+                crate::codec::enumeration::merge_repeated(wire_type, values, buf, ctx)
+            }
+        }
+    }
+}
+
+/// The value-level half, which has nothing to do with the wire: the catch-all payload struct, the
+/// two `i32` conversions, the `UNSPECIFIED` const and `Default`.
+///
+/// Emitted for both modes, and only ever by `#[armonik_macros::enumeration]`, which is why the entry
+/// point calls it directly: no other macro has an `EnumPlan` to pass, so making it a slot in
+/// something shared would give six other shapes a branch they can never take.
+pub(crate) fn items(plan: &EnumPlan) -> TokenStream {
     let ident = &plan.ident;
     let unknown = &plan.unknown_variant;
     let payload = &plan.payload;
-    let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
 
     let payload_doc = format!(
         "Raw value of an `{ident}` not known to this crate version (or the \
@@ -295,14 +402,14 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
          value can never hide inside the catch-all variant.",
     );
 
-    let from_named_arms = plan
-        .named
-        .iter()
-        .map(|(variant, number)| quote!(#number => Self::#variant));
-    let into_named_arms = plan
-        .named
-        .iter()
-        .map(|(variant, number)| quote!(#ident::#variant => #number));
+    let from_named_arms = plan.named.iter().map(|value| {
+        let (variant, number) = (&value.ident, value.number);
+        quote!(#number => Self::#variant)
+    });
+    let into_named_arms = plan.named.iter().map(|value| {
+        let (variant, number) = (&value.ident, value.number);
+        quote!(#ident::#variant => #number)
+    });
 
     let default_impl = (!plan.has_std_default).then(|| {
         let default_expr = match &plan.zero_variant {
@@ -326,90 +433,7 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
         }
     });
 
-    let proto_field = match &plan.mode {
-        EnumMode::Plain { names } => quote! {
-            impl crate::codec::ProtoField for #ident {
-                const SHAPE: crate::codec::Shape =
-                    crate::codec::Shape::enumeration(&[#(#names),*]);
-
-                fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
-                    crate::codec::enumeration::encode(tag, value, buf);
-                }
-
-                fn merge_field(
-                    wire_type: ::prost::encoding::WireType,
-                    value: &mut Self,
-                    buf: &mut impl ::prost::bytes::Buf,
-                    ctx: ::prost::encoding::DecodeContext,
-                ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    crate::codec::enumeration::merge(wire_type, value, buf, ctx)
-                }
-
-                fn encoded_len_field(tag: u32, value: &Self) -> usize {
-                    crate::codec::enumeration::encoded_len(tag, value)
-                }
-
-                fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
-                    crate::codec::enumeration::encode_repeated(tag, values, buf);
-                }
-
-                fn encoded_len_repeated(tag: u32, values: &[Self]) -> usize {
-                    crate::codec::enumeration::encoded_len_repeated(tag, values)
-                }
-
-                fn merge_repeated(
-                    wire_type: ::prost::encoding::WireType,
-                    values: &mut ::std::vec::Vec<Self>,
-                    buf: &mut impl ::prost::bytes::Buf,
-                    ctx: ::prost::encoding::DecodeContext,
-                ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    crate::codec::enumeration::merge_repeated(wire_type, values, buf, ctx)
-                }
-            }
-        },
-        EnumMode::Transparent { names, path } => {
-            let registrations = registrations(ident, names);
-            let generics = syn::Generics::default();
-            // Zero, absent and present-but-empty carry no information at any depth of the wrapper
-            // chain.
-            let normalize = normalize_impl(
-                &generics,
-                ident,
-                &[quote! { crate::differential::wrapper_chain(message); }],
-            );
-            // Transparent enums also ARE their outermost wrapper message, so they can stand for
-            // whole RPC messages.
-            let message = message_impl(
-                &generics,
-                ident,
-                quote! { crate::codec::wrapper_enum::encode_raw(&[#(#path),*], self, buf); },
-                quote! {
-                    crate::codec::wrapper_enum::merge_root_field(
-                        &[#(#path),*], tag, wire_type, self, buf, ctx,
-                    )
-                },
-                quote! { crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self) },
-                None,
-            );
-            // As a field, the enum is its wrapper message: the blanket `ProtoField` impl frames the
-            // `prost::Message` impl above.
-            let msg = msg_impl(&generics, ident, names);
-            quote! {
-                #registrations
-
-                #normalize
-
-                #message
-
-                #msg
-            }
-        }
-    };
-
-    let tripwire = tripwire(&fingerprint);
     quote! {
-        const _: () = { #tripwire };
-
         #[doc = #payload_doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -444,7 +468,5 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
         #unspecified_const
 
         #default_impl
-
-        #proto_field
     }
 }

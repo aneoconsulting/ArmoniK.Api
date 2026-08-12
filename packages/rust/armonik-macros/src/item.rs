@@ -1,51 +1,85 @@
-//! Doc harvesting for the message types: the `#[armonik_macros::message]` /
-//! `#[armonik_macros::enumeration]` attribute macros re-emit the annotated item with `#[doc]`
-//! attributes extracted from the protos' comments (type, fields, oneof variants, enum values), then
-//! append the same expansion the old derives produced.
+//! The re-emitted item: the `#[armonik_macros::message]` / `#[armonik_macros::enumeration]`
+//! attribute macros hand the annotated type back with `#[doc]` attributes extracted from the
+//! protos' comments (type, fields, oneof variants, enum values), the `#[armonik(...)]` attributes
+//! stripped, and the hover anchors that make those attributes documented.
 //!
 //! Only an attribute macro may rewrite the item, which is the whole reason these are attributes:
 //! the proto prose becomes uncopyable, as it already is for the services. Injected docs come first,
-//! hand-written ones after, for Rust-specific notes. The `#[armonik(...)]` attributes are consumed
-//! here and stripped from the re-emitted item.
+//! hand-written ones after, for Rust-specific notes.
+//!
+//! Also the salvage path, which is what the item looks like when resolution failed.
 
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::DeriveInput;
 
-use crate::attrs::{self, AttrItem};
-use crate::descriptor::EnumMeta;
+use crate::attrs::{self, AttrItem, Errors};
+use crate::plan::{EnumPlan, Slot, SlotCodec};
+use crate::shape::Plan;
 
-pub(crate) enum Mode {
+/// Which macro is expanding. Not a shuttle between layers: the salvage path has no plan to read the
+/// shape off, and the doc harvest matches enum values differently from message fields.
+#[derive(Clone, Copy)]
+pub(crate) enum Kind {
     Message,
     Enumeration,
 }
 
-pub(crate) fn expand(mut input: DeriveInput, mode: Mode) -> syn::Result<TokenStream> {
-    // The expansion first, over the pristine input (it reads the `#[armonik(...)]` attributes).
-    let expanded = match mode {
-        Mode::Message => crate::expand_message(input.clone()).map(|expansion| (expansion, None)),
-        Mode::Enumeration => crate::expand_enumeration(input.clone())
-            .map(|(expansion, tags)| (expansion, Some(tags))),
-    };
-
-    let (expansion, tags) = match expanded {
-        Ok(expanded) => expanded,
-        Err(error) => return Ok(salvage(input, &mode, error)),
-    };
-
-    // Doc injection reads the descriptor, which the expansion has already validated; a failure here
-    // is a bug rather than a user error, so it still propagates.
-    inject(&mut input, &mode)?;
-    strip(&mut input);
-    if let Some(tags) = tags {
-        tag_variants(&mut input, &tags);
+impl Kind {
+    /// The macro's own name, for the hover anchors.
+    fn derive(self) -> &'static str {
+        match self {
+            Kind::Message => "message",
+            Kind::Enumeration => "enumeration",
+        }
     }
-    input.attrs.push(serde_derive());
+}
 
-    Ok(quote! {
-        #input
-        #expansion
-    })
+/// Re-emit the item of a `#[armonik_macros::message]` type: the plan's docs injected,
+/// `#[armonik(...)]` stripped, the serde line added.
+///
+/// Infallible, unlike the version that read the descriptor for itself: everything it needs is
+/// already in the plan.
+pub(crate) fn rewrite(input: &mut DeriveInput, plan: &Plan) {
+    inject(input, plan);
+    strip(input);
+    input.attrs.push(serde_derive());
+}
+
+/// The same, plus the proto value each variant stands for as its discriminant.
+pub(crate) fn rewrite_enum(input: &mut DeriveInput, plan: &EnumPlan) {
+    inject_enum(input, plan);
+    strip(input);
+    tag_variants(input, plan);
+    input.attrs.push(serde_derive());
+}
+
+/// Hover-documentation anchors: every `#[armonik(...)]` key token of the input, re-emitted as an
+/// anonymous import of the deriving macro respanned onto the key. IDE hover on the otherwise-inert
+/// keys then resolves to this crate's macro, the single home of the grammar documentation. The
+/// anonymous `const` compiles to nothing.
+///
+/// Reads the pristine item, so it has to run before [`rewrite`] strips the attributes it points at.
+pub(crate) fn anchors(input: &DeriveInput, kind: Kind) -> TokenStream {
+    let mut spans = Vec::new();
+    attrs::for_each_site(input, |attrs| spans.extend(attrs::key_spans(attrs)));
+    if spans.is_empty() {
+        return TokenStream::new();
+    }
+    let uses = spans.iter().map(|span| {
+        let derive = syn::Ident::new(kind.derive(), *span);
+        quote! {
+            {
+                #[allow(unused_imports)]
+                use ::armonik_macros::#derive as _;
+            }
+        }
+    });
+    quote! {
+        const _: () = {
+            #(#uses)*
+        };
+    }
 }
 
 /// The `serde` line every one of these types carries, which was byte-identical at 198 sites.
@@ -69,17 +103,20 @@ fn serde_derive() -> syn::Attribute {
 ///
 /// The stubs are unreachable by construction: the `compile_error!` next to them guarantees the
 /// crate never builds.
-fn salvage(mut input: DeriveInput, mode: &Mode, error: syn::Error) -> TokenStream {
+///
+/// No hover anchors here, deliberately: they would point at the `#[armonik(...)]` keys of an item
+/// that did not resolve, in a build that is failing anyway.
+pub(crate) fn salvage(mut input: DeriveInput, kind: Kind, error: Errors) -> TokenStream {
     // Before `strip`, which is what the stubs read their shape and proto names from.
-    let stubs = stubs(&input, mode);
-    // Best-effort docs: the descriptor lookup may well be what failed.
-    let _ = inject(&mut input, mode);
+    let stubs = stubs(&input, kind);
+    // Type-level docs only, and best-effort: the descriptor lookup may well be what failed.
+    inject_type_docs(&mut input, kind);
     strip(&mut input);
     // The same line the happy path adds. Without it, one mistake reads as one error under the
     // default features and as five, with `and 365 others`, under `--all-features`, which is what
     // the crate's own tests and CI run: every `serde` bound on the re-emitted type goes unmet.
     input.attrs.push(serde_derive());
-    let error = error.into_compile_error();
+    let error = error.into_syn_error().into_compile_error();
     quote! {
         #input
         #stubs
@@ -94,7 +131,7 @@ fn salvage(mut input: DeriveInput, mode: &Mode, error: syn::Error) -> TokenStrea
 /// `prost::Message` alone, a plain enumeration through `codec::ProtoField` directly. The `SHAPE` of a
 /// stub names no proto message, which the const-asserts read as "unchecked", so the field sites
 /// that merely mention the type stay quiet.
-fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
+fn stubs(input: &DeriveInput, kind: Kind) -> TokenStream {
     let ident = &input.ident;
     let entries = attrs::parse(&input.attrs).unwrap_or_default();
     let has = |want: fn(&AttrItem) -> bool| entries.iter().any(|entry| want(&entry.item));
@@ -116,7 +153,7 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
     // A plain enumeration is the one shape that is not message-shaped: it implements `ProtoField`
     // itself, and an enum-typed field's const-assert wants the enum kind, not the message one.
     let plain_enumeration =
-        matches!(mode, Mode::Enumeration) && !has(|item| matches!(item, AttrItem::Transparent));
+        matches!(kind, Kind::Enumeration) && !has(|item| matches!(item, AttrItem::Transparent));
 
     let mut out = if plain_enumeration {
         quote! {
@@ -170,7 +207,7 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
             // and where it does not the `Msg` stub is skipped rather than bounded: `where Self:
             // Default` on a concrete type is rejected outright (`trivial_bounds`), which would add
             // the second error this whole path exists to avoid.
-            let msg = (matches!(mode, Mode::Enumeration) || derives_default(input))
+            let msg = (matches!(kind, Kind::Enumeration) || derives_default(input))
                 .then(|| crate::emit::msg_impl(&generics, ident, &proto_names));
             quote! {
                 #message
@@ -179,7 +216,7 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
         }
     };
 
-    if matches!(mode, Mode::Enumeration) {
+    if matches!(kind, Kind::Enumeration) {
         out.extend(enumeration_stubs(input, ident));
     }
     out
@@ -275,18 +312,21 @@ fn enumeration_stubs(input: &DeriveInput, ident: &syn::Ident) -> TokenStream {
 /// stands for the zero value and for every value unknown to this crate version, which share no
 /// single number: it takes `i32::MIN`, so they sort before every named value and among themselves
 /// by the raw value their payload holds.
-fn tag_variants(input: &mut DeriveInput, tags: &crate::EnumTags) {
+fn tag_variants(input: &mut DeriveInput, plan: &EnumPlan) {
     // Explicit discriminants on an enum that has a dataful variant need a primitive representation.
     input.attrs.push(syn::parse_quote!(#[repr(i32)]));
     let syn::Data::Enum(data) = &mut input.data else {
         return;
     };
     for variant in &mut data.variants {
-        let value: syn::Expr = if variant.ident == tags.unknown {
+        let value: syn::Expr = if variant.ident == plan.unknown_variant {
             syn::parse_quote!(i32::MIN)
         } else {
-            match tags.named.iter().find(|(name, _)| *name == variant.ident) {
-                Some((_, value)) => syn::parse_quote!(#value),
+            match plan.named.iter().find(|value| value.ident == variant.ident) {
+                Some(value) => {
+                    let number = value.number;
+                    syn::parse_quote!(#number)
+                }
                 None => continue,
             }
         };
@@ -294,113 +334,105 @@ fn tag_variants(input: &mut DeriveInput, tags: &crate::EnumTags) {
     }
 }
 
-/// Inject the harvested `#[doc]`s: on the type, its named fields, its oneof variants (matched to
-/// members like the resolver does, by snake_cased name or `rename`), its struct-variant fields, and
-/// its enum values.
-fn inject(input: &mut DeriveInput, mode: &Mode) -> syn::Result<()> {
-    // The proto the type stands for: the first `message =` / `enum =` name (unified types agree on
-    // their shape, the first one documents it). `generic` types name no proto and get nothing.
-    let entries = attrs::parse(&input.attrs)?;
-    let proto = entries.iter().find_map(|entry| match &entry.item {
-        AttrItem::Message(lit) | AttrItem::Enum(lit) => Some(lit.value()),
-        _ => None,
-    });
-    let Some(proto) = proto else {
-        return Ok(());
-    };
-    let index = crate::load_index(input)?;
-
-    if let (Mode::Enumeration, Some(meta)) = (&mode, index.enums.get(&proto)) {
-        return inject_enumeration(input, &proto, meta);
-    }
-    let Some(meta) = index.messages.get(&proto) else {
-        // Transparent enums name wrapper *messages*; type docs only.
-        if let Some(meta) = index.enums.get(&proto) {
-            prepend(&mut input.attrs, &meta.docs);
+/// Apply the docs the plan harvested: on the type, its fields, its oneof variants and their
+/// sibling or inlined fields.
+///
+/// A pure applier. It matches nothing: every `#[doc]` below was decided by resolution, which is
+/// what makes the inlined-variant and transparent-enum cases work at all. Slots are found through
+/// [`Slot::reaches`], the access path resolution already recorded.
+fn inject(input: &mut DeriveInput, plan: &Plan) {
+    match plan {
+        Plan::Struct(plan) => {
+            prepend(&mut input.attrs, &plan.docs);
+            let syn::Data::Struct(data) = &mut input.data else {
+                return;
+            };
+            apply(
+                data.fields.iter_mut(),
+                &plan.fields.iter().collect::<Vec<_>>(),
+            );
         }
-        return Ok(());
-    };
-
-    prepend(&mut input.attrs, &meta.docs);
-
-    let field_docs = |attrs: &[syn::Attribute], ident: Option<&syn::Ident>| -> Vec<String> {
-        let name = renamed(attrs).or_else(|| ident.map(ToString::to_string));
-        name.and_then(|name| {
-            meta.fields
-                .iter()
-                .find(|field| field.name == name)
-                .map(|field| field.docs.clone())
-        })
-        .unwrap_or_default()
-    };
-
-    match &mut input.data {
-        syn::Data::Struct(data) => {
-            for field in &mut data.fields {
-                let docs = field_docs(&field.attrs, field.ident.as_ref());
-                prepend(&mut field.attrs, &docs);
-            }
-        }
-        syn::Data::Enum(data) => {
-            // Whole-message and embedded-oneof enums: variants are oneof members; struct-variant
-            // fields are sibling or inlined fields.
+        Plan::Oneof(plan) => {
+            prepend(&mut input.attrs, &plan.docs);
+            let syn::Data::Enum(data) = &mut input.data else {
+                return;
+            };
             for variant in &mut data.variants {
-                let name = renamed(&variant.attrs)
-                    .unwrap_or_else(|| crate::names::snake(&variant.ident.to_string()));
-                let docs = meta
-                    .fields
+                let member = plan
+                    .variants
                     .iter()
-                    .find(|field| field.name == name)
-                    .map(|field| field.docs.clone())
-                    .unwrap_or_default();
-                prepend(&mut variant.attrs, &docs);
-                if let syn::Fields::Named(fields) = &mut variant.fields {
-                    for field in &mut fields.named {
-                        let docs = field_docs(&field.attrs, field.ident.as_ref());
-                        prepend(&mut field.attrs, &docs);
+                    .find(|candidate| candidate.ident == variant.ident);
+                if let Some(member) = member {
+                    prepend(&mut variant.attrs, &member.own.docs);
+                }
+                // Every variant carries the siblings; the "no member set" one carries only those.
+                // A member is reached either through its own field, or, under `inline`, through one
+                // field per part.
+                let mut slots: Vec<&Slot> = plan.siblings.iter().collect();
+                if let Some(member) = member {
+                    match &member.own.codec {
+                        SlotCodec::Inline { parts } => slots.extend(parts),
+                        _ => slots.push(&member.own),
                     }
                 }
+                apply(variant.fields.iter_mut(), &slots);
             }
         }
-        syn::Data::Union(_) => {}
     }
-    Ok(())
 }
 
-fn inject_enumeration(input: &mut DeriveInput, proto: &str, meta: &EnumMeta) -> syn::Result<()> {
-    prepend(&mut input.attrs, &meta.docs);
-
+/// The same for an enumeration: the type, then one variant per proto value.
+fn inject_enum(input: &mut DeriveInput, plan: &EnumPlan) {
+    prepend(&mut input.attrs, &plan.docs);
     let syn::Data::Enum(data) = &mut input.data else {
-        return Ok(());
+        return;
     };
-    // Matched exactly as the resolver matches: through `names::variant_name`, off the *proto* enum's
-    // simple name. Harvesting used to strip a SCREAMING_SNAKE spelling of the Rust type's name
-    // instead, which silently harvested nothing whenever the two names differed.
-    let simple = proto.rsplit('.').next().unwrap_or(proto);
     for variant in &mut data.variants {
-        let docs = meta
-            .values
-            .iter()
-            .zip(&meta.value_docs)
-            .find(|((name, _), _)| match renamed(&variant.attrs) {
-                Some(rename) => name == &rename,
-                None => variant.ident == crate::names::variant_name(simple, name),
-            })
-            .map(|(_, docs)| docs.clone())
-            .unwrap_or_default();
-        prepend(&mut variant.attrs, &docs);
+        if let Some(value) = plan.named.iter().find(|value| value.ident == variant.ident) {
+            prepend(&mut variant.attrs, &value.docs);
+        }
     }
-    Ok(())
 }
 
-/// The `#[armonik(rename = "...")]` value among `attrs`, if any.
-fn renamed(attrs: &[syn::Attribute]) -> Option<String> {
-    attrs::parse(attrs).ok().and_then(|entries| {
-        entries.iter().find_map(|entry| match &entry.item {
-            AttrItem::Rename(lit) => Some(lit.value()),
-            _ => None,
-        })
-    })
+fn apply<'a>(fields: impl Iterator<Item = &'a mut syn::Field>, slots: &[&Slot]) {
+    for (index, field) in fields.enumerate() {
+        if let Some(slot) = slots.iter().find(|slot| slot.reaches(field, index)) {
+            let docs = slot.docs.clone();
+            prepend(&mut field.attrs, &docs);
+        }
+    }
+}
+
+/// Type-level docs for the salvage path, where there is no plan to read them off.
+///
+/// Fields and variants get none: matching them to proto names is exactly the second resolver this
+/// module no longer has, and re-growing one for a build that is already failing would be the
+/// duplication back again.
+fn inject_type_docs(input: &mut DeriveInput, kind: Kind) {
+    let Ok(entries) = attrs::parse(&input.attrs) else {
+        return;
+    };
+    let Some(proto) = entries.iter().find_map(|entry| match &entry.item {
+        AttrItem::Message(lit) | AttrItem::Enum(lit) => Some(lit.value()),
+        _ => None,
+    }) else {
+        return;
+    };
+    let Ok(index) = crate::descriptor::index() else {
+        return;
+    };
+    // A transparent enumeration names wrapper *messages*, so both tables are worth a look.
+    let docs = match kind {
+        Kind::Enumeration => index
+            .enums
+            .get(&proto)
+            .map(|meta| meta.docs.clone())
+            .or_else(|| index.messages.get(&proto).map(|meta| meta.docs.clone())),
+        Kind::Message => index.messages.get(&proto).map(|meta| meta.docs.clone()),
+    };
+    if let Some(docs) = docs {
+        prepend(&mut input.attrs, &docs);
+    }
 }
 
 /// Put the harvested docs *before* the existing attributes, so hand-written doc comments read as

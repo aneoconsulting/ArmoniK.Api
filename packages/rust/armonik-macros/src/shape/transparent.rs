@@ -7,7 +7,7 @@ use quote::quote;
 use crate::attr_site::field_access;
 use crate::attrs::Errors;
 use crate::descriptor::DescriptorIndex;
-use crate::emit::{message_impl, msg_impl, normalize_impl, registrations, tripwire};
+use crate::emit::{message_shaped, MessageBodies};
 use crate::matcher::not_found;
 use crate::plan::{MessagePlan, Slot, SlotCodec};
 use syn::spanned::Spanned;
@@ -66,59 +66,56 @@ pub(crate) fn transparent_plan(
         },
         checks: None,
         proto_path: String::new(),
+        // The delegate is not matched against the descriptor; the inner type documents itself.
+        docs: Vec::new(),
     };
 
     errors.into_result()?;
 
+    let docs = proto_names
+        .first()
+        .and_then(|(_, name)| index.messages.get(name))
+        .map(|meta| meta.docs.clone())
+        .unwrap_or_default();
+
     Ok(MessagePlan {
         ident: input.ident.clone(),
         proto_names: proto_names.into_iter().map(|(_, name)| name).collect(),
+        docs,
         fields: vec![delegate],
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
         transparent: true,
+        absorbs: Vec::new(),
     })
 }
 
 /// Codegen for a `#[armonik(transparent)]` struct: a single-field newtype whose `prost::Message`
 /// impl delegates entirely to the field, so it is wire-identical to the inner message and can stand
 /// for a whole RPC message. The `Normalize` projection delegates likewise.
-pub(crate) fn transparent_message(
-    plan: &MessagePlan,
-    generics: &syn::Generics,
-    fingerprint: proc_macro2::Literal,
-) -> TokenStream {
-    let ident = &plan.ident;
-    let proto_names = &plan.proto_names;
+pub(crate) fn transparent_message(plan: &MessagePlan, generics: &syn::Generics) -> TokenStream {
     let field = &plan.fields[0];
     let access = &field.access;
     let ty = field.ty().expect("the delegate carries a value");
 
-    let registrations = registrations(ident, proto_names);
-    let normalize = normalize_impl(
+    message_shaped(
+        &plan.ident,
         generics,
-        ident,
-        &[quote! { <#ty as crate::differential::Normalize>::normalize(message); }],
-    );
-    let message = message_impl(
-        generics,
-        ident,
-        quote! { <#ty as ::prost::Message>::encode_raw(&self.#access, buf); },
-        quote! { <#ty as ::prost::Message>::merge_field(&mut self.#access, tag, wire_type, buf, ctx) },
-        quote! { <#ty as ::prost::Message>::encoded_len(&self.#access) },
-        None,
-    );
-    let proto_field = msg_impl(generics, ident, proto_names);
-    let tripwire = tripwire(&fingerprint);
-    quote! {
-        const _: () = { #tripwire };
-
-        #registrations
-
-        #normalize
-
-        #message
-
-        #proto_field
-    }
+        plan.fingerprint,
+        &plan.proto_names,
+        true,
+        // Nothing to assert: the field is not matched against the descriptor, because the inner
+        // type already validates itself.
+        TokenStream::new(),
+        MessageBodies {
+            encode_raw: quote! { <#ty as ::prost::Message>::encode_raw(&self.#access, buf); },
+            merge_field: quote! {
+                <#ty as ::prost::Message>::merge_field(&mut self.#access, tag, wire_type, buf, ctx)
+            },
+            encoded_len: quote! { <#ty as ::prost::Message>::encoded_len(&self.#access) },
+            normalize: vec![
+                quote! { <#ty as crate::differential::Normalize>::normalize(message); },
+            ],
+        },
+    )
 }

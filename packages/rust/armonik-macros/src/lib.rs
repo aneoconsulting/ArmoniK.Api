@@ -15,6 +15,7 @@
 //! attributes](macro@enumeration#attributes) sections.
 
 use proc_macro::TokenStream;
+use quote::ToTokens;
 use syn::parse_macro_input;
 
 mod attr_site;
@@ -22,8 +23,8 @@ mod attrs;
 mod callback;
 mod convenience;
 mod descriptor;
-mod docs;
 mod emit;
+mod item;
 mod matcher;
 mod names;
 mod plan;
@@ -31,8 +32,8 @@ mod reflection;
 mod service;
 mod shape;
 
-use attrs::{AttrItem, Errors};
-use descriptor::DescriptorIndex;
+use item::Kind;
+use plan::EnumMode;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::DeriveInput;
 
@@ -239,18 +240,32 @@ use syn::DeriveInput;
 ///
 #[proc_macro_attribute]
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::DeriveInput);
+    let mut input = parse_macro_input!(input as syn::DeriveInput);
     if !attr.is_empty() {
-        return syn::Error::new(
-            input.ident.span(),
-            "#[armonik_macros::message] takes no arguments",
-        )
-        .into_compile_error()
-        .into();
+        return no_args(&input, "message");
     }
-    docs::expand(input, docs::Mode::Message)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+    let plan = match shape::resolve_message(&input) {
+        Ok(plan) => plan,
+        Err(error) => return item::salvage(input, Kind::Message, error).into(),
+    };
+    // Both read the item before `rewrite` mutates it, and before the list below moves it;
+    // `anchors` additionally has to see the `#[armonik(...)]` keys it points at, which `rewrite`
+    // strips.
+    let anchors = item::anchors(&input, Kind::Message);
+    let reflection = reflection::reflection(&input);
+    let absorbed = absorbed(plan.absorbs());
+    item::rewrite(&mut input, &plan);
+
+    [
+        input.into_token_stream(),
+        anchors,
+        plan.emit(),
+        absorbed,
+        reflection,
+    ]
+    .into_iter()
+    .collect::<TokenStream2>()
+    .into()
 }
 
 /// Implement the wire representation of a protobuf enum for an ArmoniK API
@@ -345,18 +360,51 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// the prost-style short form does not match.
 #[proc_macro_attribute]
 pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::DeriveInput);
+    let mut input = parse_macro_input!(input as syn::DeriveInput);
     if !attr.is_empty() {
-        return syn::Error::new(
-            input.ident.span(),
-            "#[armonik_macros::enumeration] takes no arguments",
-        )
-        .into_compile_error()
-        .into();
+        return no_args(&input, "enumeration");
     }
-    docs::expand(input, docs::Mode::Enumeration)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+    let plan = match shape::resolve_enumeration(&input) {
+        Ok(plan) => plan,
+        Err(error) => return item::salvage(input, Kind::Enumeration, error).into(),
+    };
+    let anchors = item::anchors(&input, Kind::Enumeration);
+    let absorbed = absorbed(&plan.absorbs);
+    // The one type in the crate that can be either family: a proto enum is a `ProtoField` in its own
+    // right, a transparent wrapper chain is message-shaped. The choice is read off `EnumMode`, here,
+    // because this is the only macro that has it.
+    let wire = match &plan.mode {
+        EnumMode::Plain { names } => shape::enumeration::plain_wire(&plan, names),
+        EnumMode::Transparent { names, path } => {
+            shape::enumeration::transparent_wire(&plan, names, path)
+        }
+    };
+    item::rewrite_enum(&mut input, &plan);
+
+    [
+        input.into_token_stream(),
+        anchors,
+        wire,
+        // The value-level items: the payload struct, the two `i32` conversions, `UNSPECIFIED` and
+        // `Default`. Called here rather than from anything shared, because only an enumeration has
+        // them.
+        shape::enumeration::items(&plan),
+        absorbed,
+    ]
+    .into_iter()
+    .collect::<TokenStream2>()
+    .into()
+}
+
+/// The two attribute macros take no arguments of their own; everything is spelled in
+/// `#[armonik(...)]` on the item.
+fn no_args(input: &DeriveInput, macro_name: &str) -> TokenStream {
+    syn::Error::new(
+        input.ident.span(),
+        format!("#[armonik_macros::{macro_name}] takes no arguments"),
+    )
+    .into_compile_error()
+    .into()
 }
 
 /// Register a proto message name for a type alias, so generic instantiations
@@ -499,97 +547,18 @@ pub fn __emit_convenience(input: TokenStream) -> TokenStream {
         .into()
 }
 
-// ---- Expansion orchestration, shared by the three entry points ----
+// ---- Shared by the entry points ----
 
-fn expand_message(input: DeriveInput) -> syn::Result<TokenStream2> {
-    let index = load_index(&input)?;
-    let entries = attrs::parse(&input.attrs)?;
-    let has_oneof = entries
-        .iter()
-        .any(|entry| matches!(entry.item, AttrItem::Oneof(_)));
-    let generic = entries
-        .iter()
-        .any(|entry| matches!(entry.item, AttrItem::Generic));
-    // Enums are oneof-shaped: `message = ...` alone stands for a whole message with a single
-    // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct.
-    let mut out = doc_anchors(&input, "message");
-    let mut absorbs = collect_absorbs(&input);
-    if has_oneof || (matches!(input.data, syn::Data::Enum(_)) && !generic) {
-        let plan = shape::oneof::oneof_plan(&input, &index).map_err(Errors::into_syn_error)?;
-        absorbs.extend(plan.absorbs.iter().cloned());
-        out.extend(shape::oneof::oneof(&plan));
-    } else {
-        let plan = shape::plain::message_plan(&input, &index).map_err(Errors::into_syn_error)?;
-        out.extend(shape::plain::message(&plan));
-        out.extend(reflection::reflection(&input));
-    }
-    out.extend(absorbed(absorbs));
-    Ok(out)
-}
-
-/// The proto value each variant stands for, which the re-emitted item carries as its discriminant
-/// (see `docs::tag_variants`).
-pub(crate) struct EnumTags {
-    /// Named variants with their proto values.
-    pub(crate) named: Vec<(syn::Ident, i32)>,
-    /// The catch-all variant, which stands for no single value.
-    pub(crate) unknown: syn::Ident,
-}
-
-fn expand_enumeration(input: DeriveInput) -> syn::Result<(TokenStream2, EnumTags)> {
-    let index = load_index(&input)?;
-    let plan = shape::enumeration::enum_plan(&input, &index).map_err(Errors::into_syn_error)?;
-    let tags = EnumTags {
-        named: plan.named.clone(),
-        unknown: plan.unknown_variant.clone(),
-    };
-    let mut out = doc_anchors(&input, "enumeration");
-    let mut absorbs = collect_absorbs(&input);
-    absorbs.extend(plan.absorbs.iter().cloned());
-    out.extend(shape::enumeration::enumeration(&plan));
-    out.extend(absorbed(absorbs));
-    Ok((out, tags))
-}
-
-/// Visit the attributes of the type itself and of every field, variant and variant field: the
-/// common traversal for whole-input attribute scans.
-fn for_each_attr_site(input: &DeriveInput, mut visit: impl FnMut(&[syn::Attribute])) {
-    visit(&input.attrs);
-    match &input.data {
-        syn::Data::Struct(data) => {
-            for field in &data.fields {
-                visit(&field.attrs);
-            }
-        }
-        syn::Data::Enum(data) => {
-            for variant in &data.variants {
-                visit(&variant.attrs);
-                for field in &variant.fields {
-                    visit(&field.attrs);
-                }
-            }
-        }
-        syn::Data::Union(_) => {}
-    }
-}
-
-/// The explicit `#[armonik(absorbs = "...")]` names on any field or variant of the input.
-/// Transparent and inline ones are collected into the plan instead.
-fn collect_absorbs(input: &DeriveInput) -> Vec<String> {
-    let mut out = Vec::new();
-    for_each_attr_site(input, |attrs| {
-        if let Ok(entries) = attrs::parse(attrs) {
-            for entry in entries {
-                if let AttrItem::Absorbs(lit) = entry.item {
-                    out.push(lit.value());
-                }
-            }
-        }
-    });
-    out
-}
-
-fn absorbed(mut names: Vec<String>) -> TokenStream2 {
+/// Register the proto messages this type swallows, so they have no Rust type of their own and the
+/// differential harness counts them as covered through it.
+///
+/// All of them come off the plan now: the explicit `#[armonik(absorbs = "...")]` names, which the
+/// per-site attribute scan collects, next to the ones a flattening construct implies (a transparent
+/// chain's middle wrappers, an inline variant's member message). The explicit ones used to need a
+/// second walk over every attribute site, because the scan that already read them threw the value
+/// away and only checked that the key was allowed.
+fn absorbed(names: &[String]) -> TokenStream2 {
+    let mut names = names.to_vec();
     names.sort();
     names.dedup();
     emit::absorbed_registrations(&names)
@@ -613,34 +582,4 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
         #item_type
         #registrations
     })
-}
-
-/// Hover-documentation anchors: re-emit every `#[armonik(...)]` key token of the input as an
-/// anonymous import of the deriving macro, respanned onto the key. IDE hover on the otherwise-inert
-/// keys then resolves to this crate's macro, the single home of the grammar documentation. The
-/// anonymous `const` compiles to nothing.
-fn doc_anchors(input: &DeriveInput, derive: &str) -> TokenStream2 {
-    let mut spans = Vec::new();
-    for_each_attr_site(input, |attrs| spans.extend(attrs::key_spans(attrs)));
-    if spans.is_empty() {
-        return TokenStream2::new();
-    }
-    let uses = spans.iter().map(|span| {
-        let derive = syn::Ident::new(derive, *span);
-        quote::quote! {
-            {
-                #[allow(unused_imports)]
-                use ::armonik_macros::#derive as _;
-            }
-        }
-    });
-    quote::quote! {
-        const _: () = {
-            #(#uses)*
-        };
-    }
-}
-
-fn load_index(input: &DeriveInput) -> syn::Result<std::sync::Arc<DescriptorIndex>> {
-    descriptor::index().map_err(|message| syn::Error::new(input.ident.span(), message))
 }
