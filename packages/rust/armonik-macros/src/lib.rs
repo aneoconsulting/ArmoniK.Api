@@ -529,9 +529,7 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn service(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as service::ServiceDef);
-    descriptor::index()
-        .map_err(|message| syn::Error::new(proc_macro2::Span::call_site(), message))
-        .and_then(|index| service::expand(def, &index))
+    service::expand(def)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

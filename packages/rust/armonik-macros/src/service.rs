@@ -30,13 +30,13 @@
 use std::collections::HashSet;
 
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Ident, LitStr, Path, Token};
 
-use crate::descriptor::{DescriptorIndex, MethodMeta, ServiceMeta};
+use crate::descriptor::{MethodMeta, ServiceMeta};
 
 mod kw {
     syn::custom_keyword!(rpc);
@@ -169,6 +169,54 @@ enum CallKind {
     ServerStream,
 }
 
+/// Everything that varies with the call shape, in one place.
+///
+/// These four facts used to sit in four matches in three functions: the `Rpc::Kind` marker in
+/// [`expand_rpc`], the sugar tag in [`expand_convenience`], and the signature shape and the
+/// `serve_*` helper in [`expand_server`]. Nothing tied them together, so a fourth call shape would
+/// be four edits and four chances to miss one. Here an arm is one shape, stated once.
+struct KindFacts {
+    /// The `crate::rpc::*` marker the `Rpc` impl names.
+    marker: TokenStream,
+    /// The `server::router::serve_*` the route dispatches into.
+    serve: Ident,
+    /// The tag `__emit_convenience` reads. `None` for a client-streaming rpc, which emits no
+    /// convenience method at all: it is required to carry `manual` (see [`validate`]).
+    sugar: Option<TokenStream>,
+    /// Where a `stream` keyword sits, which is what the trait signature reads: a streaming side
+    /// takes or returns `impl Stream` instead of the message.
+    client_streams: bool,
+    server_streams: bool,
+}
+
+impl CallKind {
+    fn facts(self) -> KindFacts {
+        match self {
+            CallKind::Unary => KindFacts {
+                marker: quote!(crate::rpc::Unary),
+                serve: format_ident!("serve_unary"),
+                sugar: Some(quote!(unary)),
+                client_streams: false,
+                server_streams: false,
+            },
+            CallKind::ServerStream => KindFacts {
+                marker: quote!(crate::rpc::ServerStream),
+                serve: format_ident!("serve_server_stream"),
+                sugar: Some(quote!(server_stream)),
+                client_streams: false,
+                server_streams: true,
+            },
+            CallKind::ClientStream => KindFacts {
+                marker: quote!(crate::rpc::ClientStream),
+                serve: format_ident!("serve_client_stream"),
+                sugar: None,
+                client_streams: true,
+                server_streams: false,
+            },
+        }
+    }
+}
+
 /// One `rpc` line, resolved against the descriptor.
 struct Resolved<'a> {
     rpc: &'a RpcDef,
@@ -177,7 +225,14 @@ struct Resolved<'a> {
     kind: CallKind,
 }
 
-pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<TokenStream> {
+/// Resolve one `service!` invocation against the descriptor and emit it.
+///
+/// The index is loaded here rather than by the entry point, so a descriptor that fails to load reads
+/// as the reason this service could not be resolved, and `service` stays a single call. The two
+/// attribute macros own their index the same way, through `shape::resolve_*`.
+pub(crate) fn expand(def: ServiceDef) -> syn::Result<TokenStream> {
+    let index = crate::descriptor::index()
+        .map_err(|message| syn::Error::new(proc_macro2::Span::call_site(), message))?;
     let full_name = def.name.value();
     let service = index.services.get(&full_name).ok_or_else(|| {
         let mut known = index.services.keys().cloned().collect::<Vec<_>>();
@@ -191,7 +246,10 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         )
     })?;
 
-    let resolved = validate(&def, service)?;
+    let Validated {
+        rpcs: resolved,
+        unexposed_messages,
+    } = validate(&def, service)?;
 
     let marker = &def.marker;
     let service_docs = &service.docs;
@@ -209,19 +267,7 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
 
     // The unexposed RPCs' messages have no Rust type; register them for the differential harness's
     // coverage ratchet, so the message allowlist is derived from the same declaration as the RPC
-    // one.
-    let unexposed_messages = def
-        .unexposed
-        .iter()
-        .flat_map(|ident| {
-            let meta = service
-                .methods
-                .iter()
-                .find(|meta| ident == &meta.name)
-                .expect("validated");
-            [meta.input.clone(), meta.output.clone()]
-        })
-        .collect::<Vec<_>>();
+    // one. Resolved by `validate`, which is the pass that already had to find them.
     let unexposed = (!unexposed_messages.is_empty()).then(|| {
         quote! {
             crate::register!(unexposed: #(#unexposed_messages),*);
@@ -296,11 +342,11 @@ fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<Tok
         crate::names::snake(&request.segments.last().expect("checked").ident.to_string());
     let callback = quote::format_ident!("__armonik_fields_{req_stem}");
 
-    let kind = match entry.kind {
-        CallKind::Unary => quote!(unary),
-        CallKind::ServerStream => quote!(server_stream),
-        CallKind::ClientStream => unreachable!("filtered above"),
-    };
+    let kind = entry
+        .kind
+        .facts()
+        .sugar
+        .expect("a client-streaming rpc carries `manual`, filtered above");
     let project = match &entry.rpc.project {
         Project::Whole => quote!(whole),
         Project::Discard => quote!(discard),
@@ -328,11 +374,7 @@ fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenS
     let method = entry.rpc.method.to_string();
     let ergonomic = &entry.ergonomic;
 
-    let kind = match entry.kind {
-        CallKind::Unary => quote!(crate::rpc::Unary),
-        CallKind::ServerStream => quote!(crate::rpc::ServerStream),
-        CallKind::ClientStream => quote!(crate::rpc::ClientStream),
-    };
+    let kind = entry.kind.facts().marker;
 
     let request = &entry.rpc.request;
     let response = &entry.rpc.response;
@@ -398,16 +440,19 @@ fn expand_server(
                 > + ::std::marker::Send
             }
         };
-        let (parameter, output) = match entry.kind {
-            CallKind::Unary => (quote!(#module::#request), quote!(#module::#response)),
-            CallKind::ServerStream => (
-                quote!(#module::#request),
-                stream_of(quote!(#module::#response)),
-            ),
-            CallKind::ClientStream => {
-                let stream = stream_of(quote!(#module::#request));
-                (quote!(#stream + 'static), quote!(#module::#response))
-            }
+        // `stream` sits where the proto puts it, so each side of the signature reads its own flag
+        // rather than the three shapes being enumerated together.
+        let facts = entry.kind.facts();
+        let parameter = if facts.client_streams {
+            let stream = stream_of(quote!(#module::#request));
+            quote!(#stream + 'static)
+        } else {
+            quote!(#module::#request)
+        };
+        let output = if facts.server_streams {
+            stream_of(quote!(#module::#response))
+        } else {
+            quote!(#module::#response)
         };
         quote! {
             #(#[doc = #docs])*
@@ -424,11 +469,7 @@ fn expand_server(
     let routes = resolved.iter().map(|entry| {
         let ergonomic = &entry.ergonomic;
         let request = &entry.rpc.request;
-        let serve = match entry.kind {
-            CallKind::Unary => quote!(serve_unary),
-            CallKind::ServerStream => quote!(serve_server_stream),
-            CallKind::ClientStream => quote!(serve_client_stream),
-        };
+        let serve = entry.kind.facts().serve;
         let span = format!("{trait_ident}::{ergonomic}");
         quote! {
             (
@@ -507,9 +548,20 @@ fn request_module_segment(request: &Path) -> syn::Result<Ident> {
     Ok(request.segments[request.segments.len() - 2].ident.clone())
 }
 
-fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Vec<Resolved<'a>>> {
-    let known = |ident: &Ident| service.methods.iter().any(|meta| ident == &meta.name);
+/// What [`validate`] resolved: one entry per `rpc` line, plus what the `unexposed(...)` names
+/// resolved to.
+///
+/// The messages are carried out rather than looked up again. `expand` used to re-find each
+/// unexposed method in the descriptor and assert the invariant with `.expect("validated")`, which is
+/// the same lookup twice with a panic holding the two halves together.
+struct Validated<'a> {
+    rpcs: Vec<Resolved<'a>>,
+    /// Input and output messages of the unexposed RPCs. No Rust type stands for them, so the
+    /// coverage ratchet is told about them from this same declaration.
+    unexposed_messages: Vec<String>,
+}
 
+fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Validated<'a>> {
     let mut resolved = Vec::new();
     let mut declared = HashSet::new();
     let mut ergonomics = HashSet::new();
@@ -618,19 +670,22 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
         });
     }
 
+    let mut unexposed_messages = Vec::new();
     for unexposed in &def.unexposed {
-        if !known(unexposed) {
+        let Some(meta) = service.methods.iter().find(|meta| unexposed == &meta.name) else {
             return Err(syn::Error::new(
                 unexposed.span(),
                 format!("service `{}` has no method `{unexposed}`", def.name.value()),
             ));
-        }
+        };
         if declared.contains(&unexposed.to_string()) {
             return Err(syn::Error::new(
                 unexposed.span(),
                 format!("`{unexposed}` is declared as an rpc and cannot also be unexposed"),
             ));
         }
+        unexposed_messages.push(meta.input.clone());
+        unexposed_messages.push(meta.output.clone());
     }
 
     let missing = service
@@ -653,5 +708,8 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Ve
         ));
     }
 
-    Ok(resolved)
+    Ok(Validated {
+        rpcs: resolved,
+        unexposed_messages,
+    })
 }
