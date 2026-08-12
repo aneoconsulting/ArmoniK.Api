@@ -17,10 +17,7 @@ pub(crate) fn enum_plan(
 ) -> Result<EnumPlan, Errors> {
     let mut errors = Errors::new();
 
-    let entries = match attrs::parse(&input.attrs) {
-        Ok(entries) => entries,
-        Err(err) => return Err(Errors::from(err)),
-    };
+    let entries = attrs::parse(&input.attrs)?;
 
     let mut enum_names: Vec<(Span, String)> = Vec::new();
     let mut message_names: Vec<(Span, String)> = Vec::new();
@@ -373,23 +370,18 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
         EnumMode::Transparent { names, path } => {
             let registrations = registrations(ident, names);
             let generics = syn::Generics::default();
-            let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
             // Zero, absent and present-but-empty carry no information at any depth of the wrapper
             // chain.
             let normalize = normalize_impl(
-                &impl_generics,
+                &generics,
                 ident,
-                &ty_generics,
-                where_clause,
                 &[quote! { crate::differential::wrapper_chain(message); }],
             );
             // Transparent enums also ARE their outermost wrapper message, so they can stand for
             // whole RPC messages.
             let message = message_impl(
-                &impl_generics,
+                &generics,
                 ident,
-                &ty_generics,
-                where_clause,
                 quote! { crate::codec::wrapper_enum::encode_raw(&[#(#path),*], self, buf); },
                 quote! {
                     crate::codec::wrapper_enum::merge_root_field(
@@ -397,10 +389,11 @@ pub(crate) fn enumeration(plan: &EnumPlan) -> TokenStream {
                     )
                 },
                 quote! { crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self) },
+                None,
             );
             // As a field, the enum is its wrapper message: the blanket `ProtoField` impl frames the
             // `prost::Message` impl above.
-            let msg = msg_impl(&impl_generics, ident, &ty_generics, where_clause, names);
+            let msg = msg_impl(&generics, ident, names);
             quote! {
                 #registrations
 

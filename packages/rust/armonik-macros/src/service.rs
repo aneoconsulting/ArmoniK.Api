@@ -97,13 +97,10 @@ impl Parse for ServiceDef {
             unexposed.extend(Punctuated::<Ident, Token![,]>::parse_terminated(&content)?);
             input.parse::<Token![;]>()?;
         }
-        let deprecated = if input.peek(kw::deprecated) {
-            input.parse::<kw::deprecated>()?;
+        let deprecated = input.parse::<Option<kw::deprecated>>()?.is_some();
+        if deprecated {
             input.parse::<Token![;]>()?;
-            true
-        } else {
-            false
-        };
+        }
 
         let mut rpcs = Vec::new();
         while !input.is_empty() {
@@ -111,19 +108,17 @@ impl Parse for ServiceDef {
             let method: Ident = input.parse()?;
             let args;
             syn::parenthesized!(args in input);
-            let client_stream = parse_stream(&args)?;
+            let client_stream = args.parse()?;
             let request: Path = args.parse()?;
             if !args.is_empty() {
                 return Err(args.error("expected a single request type"));
             }
             input.parse::<Token![->]>()?;
-            let server_stream = parse_stream(input)?;
+            let server_stream = input.parse()?;
             let response: Path = input.parse()?;
-            let ergonomic = if input.peek(Token![as]) {
-                input.parse::<Token![as]>()?;
-                Some(input.parse::<Ident>()?)
-            } else {
-                None
+            let ergonomic = match input.parse::<Option<Token![as]>>()? {
+                Some(_) => Some(input.parse::<Ident>()?),
+                None => None,
             };
             let project = if input.peek(Token![=>]) {
                 input.parse::<Token![=>]>()?;
@@ -140,12 +135,7 @@ impl Parse for ServiceDef {
             } else {
                 Project::Whole
             };
-            let manual = if input.peek(kw::manual) {
-                input.parse::<kw::manual>()?;
-                true
-            } else {
-                false
-            };
+            let manual = input.parse::<Option<kw::manual>>()?.is_some();
             input.parse::<Token![;]>()?;
             rpcs.push(RpcDef {
                 method,
@@ -167,14 +157,6 @@ impl Parse for ServiceDef {
             deprecated,
             rpcs,
         })
-    }
-}
-
-fn parse_stream(input: ParseStream) -> syn::Result<Option<kw::stream>> {
-    if input.peek(kw::stream) {
-        Ok(Some(input.parse()?))
-    } else {
-        Ok(None)
     }
 }
 
@@ -246,6 +228,18 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         }
     });
 
+    // The client alias, from the same declaration as the marker and with the same harvested docs.
+    // `client/<svc>.rs` used to spell both by hand, and two of the twelve transcriptions had already
+    // drifted from the proto prose they were copied from.
+    let deprecation = def.deprecated.then(|| quote!(#[deprecated]));
+    let alias = quote! {
+        #[cfg(feature = "_gen-client")]
+        #(#[doc = #service_docs])*
+        #deprecation
+        pub type Client<T = ::tonic::transport::Channel> =
+            crate::client::ServiceClient<#marker, T>;
+    };
+
     Ok(quote! {
         #(#[doc = #service_docs])*
         pub struct #marker;
@@ -253,6 +247,8 @@ pub(crate) fn expand(def: ServiceDef, index: &DescriptorIndex) -> syn::Result<To
         impl crate::rpc::Service for #marker {
             const NAME: &'static str = #full_name;
         }
+
+        #alias
 
         const _: () = assert!(
             crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
@@ -386,49 +382,42 @@ fn expand_server(
     let ext_ident = quote::format_ident!("{}ServiceExt", marker);
     let server_fn = quote::format_ident!("{}_server", crate::names::snake(&marker.to_string()));
 
+    // One signature, with the two positions a `stream` keyword can sit in as the only variables:
+    // the parameter type and the `Future`'s output. Spelling all three out in full `::std::`-
+    // qualified form meant the shared two thirds -- the receiver, the context parameter, the
+    // `Future + Send` return -- were written three times and had to be kept identical by hand.
     let methods = resolved.iter().map(|entry| {
         let ergonomic = &entry.ergonomic;
         let docs = &entry.meta.docs;
         let request = &entry.rpc.request;
         let response = &entry.rpc.response;
-        match entry.kind {
-            CallKind::Unary => quote! {
-                #(#[doc = #docs])*
-                fn #ergonomic(
-                    self: ::std::sync::Arc<Self>,
-                    request: #module::#request,
-                    context: crate::server::RequestContext,
-                ) -> impl ::std::future::Future<
-                    Output = ::std::result::Result<#module::#response, ::tonic::Status>,
-                > + ::std::marker::Send;
-            },
-            CallKind::ServerStream => quote! {
-                #(#[doc = #docs])*
-                fn #ergonomic(
-                    self: ::std::sync::Arc<Self>,
-                    request: #module::#request,
-                    context: crate::server::RequestContext,
-                ) -> impl ::std::future::Future<
-                    Output = ::std::result::Result<
-                        impl ::futures::Stream<
-                            Item = ::std::result::Result<#module::#response, ::tonic::Status>,
-                        > + ::std::marker::Send,
-                        ::tonic::Status,
-                    >,
-                > + ::std::marker::Send;
-            },
-            CallKind::ClientStream => quote! {
-                #(#[doc = #docs])*
-                fn #ergonomic(
-                    self: ::std::sync::Arc<Self>,
-                    request: impl ::futures::Stream<
-                        Item = ::std::result::Result<#module::#request, ::tonic::Status>,
-                    > + ::std::marker::Send + 'static,
-                    context: crate::server::RequestContext,
-                ) -> impl ::std::future::Future<
-                    Output = ::std::result::Result<#module::#response, ::tonic::Status>,
-                > + ::std::marker::Send;
-            },
+        let stream_of = |item: TokenStream| {
+            quote! {
+                impl ::futures::Stream<
+                    Item = ::std::result::Result<#item, ::tonic::Status>,
+                > + ::std::marker::Send
+            }
+        };
+        let (parameter, output) = match entry.kind {
+            CallKind::Unary => (quote!(#module::#request), quote!(#module::#response)),
+            CallKind::ServerStream => (
+                quote!(#module::#request),
+                stream_of(quote!(#module::#response)),
+            ),
+            CallKind::ClientStream => {
+                let stream = stream_of(quote!(#module::#request));
+                (quote!(#stream + 'static), quote!(#module::#response))
+            }
+        };
+        quote! {
+            #(#[doc = #docs])*
+            fn #ergonomic(
+                self: ::std::sync::Arc<Self>,
+                request: #parameter,
+                context: crate::server::RequestContext,
+            ) -> impl ::std::future::Future<
+                Output = ::std::result::Result<#output, ::tonic::Status>,
+            > + ::std::marker::Send;
         }
     });
 

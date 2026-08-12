@@ -5,8 +5,9 @@ use crate::agent::create_tasks;
 use crate::rpc::services;
 
 /// The Agent gRPC service, exposed to workers for spawning subtasks and
-/// exchanging data.
-pub type Agent<T = tonic::transport::Channel> = super::ServiceClient<services::Agent, T>;
+/// exchanging data. (The proto documents the service with nothing at all, so this
+/// sentence is the crate's own, and stays here rather than being harvested.)
+pub use crate::rpc::agent::Client as Agent;
 
 impl<T: super::Channel> super::ServiceClient<services::Agent, T> {
     pub async fn create_tasks(

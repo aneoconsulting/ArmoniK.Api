@@ -239,12 +239,11 @@ pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
 /// stitched from the same constructs that shape the codec (adapters, presence markers, wrapper
 /// chains, oneof delegation).
 pub(crate) fn normalize_impl(
-    impl_generics: &syn::ImplGenerics,
+    generics: &syn::Generics,
     ident: &syn::Ident,
-    ty_generics: &syn::TypeGenerics,
-    where_clause: Option<&syn::WhereClause>,
     fragments: &[TokenStream],
 ) -> TokenStream {
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         #[cfg(test)]
         impl #impl_generics crate::differential::Normalize for #ident #ty_generics #where_clause {
@@ -271,18 +270,39 @@ pub(crate) fn tripwire(fingerprint: &proc_macro2::Literal) -> TokenStream {
     }
 }
 
+/// The bounds every emitted impl puts on a generic type's parameters.
+///
+/// `ProtoField` because a field is encoded through it, `Send`/`Sync` because `prost::Message`
+/// requires them. Nothing else: `PartialEq` and `Debug` were here for the deleted `is_default`
+/// family and no emitted code needs them. The stub emission (`docs::stubs`) reads the same list, so
+/// that a stub impl applies exactly where the real one would.
+pub(crate) fn bound_generics(generics: &syn::Generics) -> syn::Generics {
+    let mut generics = generics.clone();
+    for param in generics.type_params_mut() {
+        param
+            .bounds
+            .push(syn::parse_quote!(crate::codec::ProtoField));
+        param.bounds.push(syn::parse_quote!(::core::marker::Send));
+        param.bounds.push(syn::parse_quote!(::core::marker::Sync));
+    }
+    generics
+}
+
 /// The `prost::Message` impl skeleton shared by every emission site (plain struct, transparent
-/// struct, transparent enum, whole-message oneof). `clear` is always a whole-value reset: every
-/// derived type is `Default`, and the zero-default invariant makes that the proto zero.
+/// struct, transparent enum, whole-message oneof, and the `docs::stubs` error path). `clear` is
+/// `None` for the whole-value reset every real site wants -- every derived type is `Default`, and
+/// the zero-default invariant makes that the proto zero -- and `Some` only for a stub, whose type
+/// may have no `Default` at all.
 pub(crate) fn message_impl(
-    impl_generics: &syn::ImplGenerics,
+    generics: &syn::Generics,
     ident: &syn::Ident,
-    ty_generics: &syn::TypeGenerics,
-    where_clause: Option<&syn::WhereClause>,
     encode_raw: TokenStream,
     merge_field: TokenStream,
     encoded_len: TokenStream,
+    clear: Option<TokenStream>,
 ) -> TokenStream {
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let clear = clear.unwrap_or_else(|| quote!(*self = ::core::default::Default::default();));
     quote! {
         impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
             fn encode_raw(&self, buf: &mut impl ::prost::bytes::BufMut) {
@@ -304,7 +324,7 @@ pub(crate) fn message_impl(
             }
 
             fn clear(&mut self) {
-                *self = ::core::default::Default::default();
+                #clear
             }
         }
     }
@@ -313,12 +333,11 @@ pub(crate) fn message_impl(
 /// The one-line `Msg` implementation for a message-shaped type: the blanket `ProtoField` impl in
 /// `codec` picks it up, so the type composes as a field of other derived messages.
 pub(crate) fn msg_impl(
-    impl_generics: &syn::ImplGenerics,
+    generics: &syn::Generics,
     ident: &syn::Ident,
-    ty_generics: &syn::TypeGenerics,
-    where_clause: Option<&syn::WhereClause>,
     proto_names: &[String],
 ) -> TokenStream {
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         impl #impl_generics crate::codec::Msg for #ident #ty_generics #where_clause {
             const NAMES: &'static [&'static str] = &[#(#proto_names),*];

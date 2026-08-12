@@ -109,15 +109,9 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
         })
         .collect();
 
-    let mut generics = input.generics.clone();
-    for param in generics.type_params_mut() {
-        param
-            .bounds
-            .push(syn::parse_quote!(crate::codec::ProtoField));
-        param.bounds.push(syn::parse_quote!(::core::marker::Send));
-        param.bounds.push(syn::parse_quote!(::core::marker::Sync));
-    }
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    // The same bounds the real emission puts on, from the same place, so a stub impl applies
+    // exactly where the real one would.
+    let generics = crate::emit::bound_generics(&input.generics);
 
     // A plain enumeration is the one shape that is not message-shaped: it implements `ProtoField`
     // itself, and an enum-typed field's const-assert wants the enum kind, not the message one.
@@ -147,84 +141,41 @@ fn stubs(input: &DeriveInput, mode: &Mode) -> TokenStream {
                 }
             }
         }
-    } else if has(|item| matches!(item, AttrItem::Oneof(_))) {
-        // An embedded oneof is carried by a field of the struct that owns it, which encodes it
-        // through `prost::Message` and projects it through `Normalize`. Unlike a whole message it
-        // gets no `Msg`: it stands for a fragment of one, not for a message.
-        quote! {
-            impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
-                fn encode_raw(&self, _buf: &mut impl ::prost::bytes::BufMut) {
-                    ::core::unimplemented!()
-                }
-
-                fn merge_field(
-                    &mut self,
-                    _tag: u32,
-                    _wire_type: ::prost::encoding::WireType,
-                    _buf: &mut impl ::prost::bytes::Buf,
-                    _ctx: ::prost::encoding::DecodeContext,
-                ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    ::core::unimplemented!()
-                }
-
-                fn encoded_len(&self) -> usize {
-                    ::core::unimplemented!()
-                }
-
-                fn clear(&mut self) {
-                    ::core::unimplemented!()
-                }
-            }
-
-            #[cfg(test)]
-            impl #impl_generics crate::differential::Normalize for #ident #ty_generics
-                #where_clause
-            {
-                fn normalize(_message: &mut ::prost_reflect::DynamicMessage) {
-                    ::core::unimplemented!()
-                }
-            }
-        }
     } else {
-        // `Msg: prost::Message + Default`, and a type whose expansion failed has no emitted
-        // `Default` of its own. An enumeration gets one below; anything else has to derive it, and
-        // where it does not the `Msg` stub is skipped rather than bounded: `where Self: Default` on
-        // a concrete type is rejected outright (`trivial_bounds`), which would add the second error
-        // this whole path exists to avoid.
-        let msg = (matches!(mode, Mode::Enumeration) || derives_default(input)).then(|| {
+        // Both remaining shapes are message-shaped, so both get the same `prost::Message`, from the
+        // same place the real one comes from. Only `clear` differs from a real emission: the
+        // whole-value reset needs a `Default` this type may not have.
+        let unimplemented = quote!(::core::unimplemented!());
+        let message = crate::emit::message_impl(
+            &generics,
+            ident,
+            quote! { let _ = buf; #unimplemented },
+            quote! { let _ = (tag, wire_type, buf, ctx); #unimplemented },
+            unimplemented.clone(),
+            Some(unimplemented.clone()),
+        );
+        if has(|item| matches!(item, AttrItem::Oneof(_))) {
+            // An embedded oneof is carried by a field of the struct that owns it, which encodes it
+            // through `prost::Message` and projects it through `Normalize`. Unlike a whole message
+            // it gets no `Msg`: it stands for a fragment of one, not for a message.
+            let normalize =
+                crate::emit::normalize_impl(&generics, ident, std::slice::from_ref(&unimplemented));
             quote! {
-                impl #impl_generics crate::codec::Msg for #ident #ty_generics #where_clause {
-                    const NAMES: &'static [&'static str] = &[#(#proto_names),*];
-                }
+                #message
+                #normalize
             }
-        });
-
-        quote! {
-            impl #impl_generics ::prost::Message for #ident #ty_generics #where_clause {
-                fn encode_raw(&self, _buf: &mut impl ::prost::bytes::BufMut) {
-                    ::core::unimplemented!()
-                }
-
-                fn merge_field(
-                    &mut self,
-                    _tag: u32,
-                    _wire_type: ::prost::encoding::WireType,
-                    _buf: &mut impl ::prost::bytes::Buf,
-                    _ctx: ::prost::encoding::DecodeContext,
-                ) -> ::core::result::Result<(), ::prost::DecodeError> {
-                    ::core::unimplemented!()
-                }
-
-                fn encoded_len(&self) -> usize {
-                    ::core::unimplemented!()
-                }
-
-                fn clear(&mut self) {
-                    ::core::unimplemented!()
-                }
+        } else {
+            // `Msg: prost::Message + Default`, and a type whose expansion failed has no emitted
+            // `Default` of its own. An enumeration gets one below; anything else has to derive it,
+            // and where it does not the `Msg` stub is skipped rather than bounded: `where Self:
+            // Default` on a concrete type is rejected outright (`trivial_bounds`), which would add
+            // the second error this whole path exists to avoid.
+            let msg = (matches!(mode, Mode::Enumeration) || derives_default(input))
+                .then(|| crate::emit::msg_impl(&generics, ident, &proto_names));
+            quote! {
+                #message
+                #msg
             }
-
-            #msg
         }
     };
 
@@ -460,6 +411,19 @@ fn prepend(attrs: &mut Vec<syn::Attribute>, docs: &[String]) {
     }
 }
 
+/// Visit every field of the item, wherever it sits: a struct's own, or one of a variant's.
+fn for_each_field(input: &mut DeriveInput, visit: impl FnMut(&mut syn::Field)) {
+    match &mut input.data {
+        syn::Data::Struct(data) => data.fields.iter_mut().for_each(visit),
+        syn::Data::Enum(data) => data
+            .variants
+            .iter_mut()
+            .flat_map(|variant| variant.fields.iter_mut())
+            .for_each(visit),
+        syn::Data::Union(_) => {}
+    }
+}
+
 /// Remove every `#[armonik(...)]` attribute: they were consumed by the expansion and are not
 /// registered anywhere once the item is re-emitted.
 fn strip(input: &mut DeriveInput) {
@@ -467,20 +431,10 @@ fn strip(input: &mut DeriveInput) {
         attrs.retain(|attr| !attr.path().is_ident("armonik"));
     }
     retain(&mut input.attrs);
-    match &mut input.data {
-        syn::Data::Struct(data) => {
-            for field in &mut data.fields {
-                retain(&mut field.attrs);
-            }
+    if let syn::Data::Enum(data) = &mut input.data {
+        for variant in &mut data.variants {
+            retain(&mut variant.attrs);
         }
-        syn::Data::Enum(data) => {
-            for variant in &mut data.variants {
-                retain(&mut variant.attrs);
-                for field in &mut variant.fields {
-                    retain(&mut field.attrs);
-                }
-            }
-        }
-        syn::Data::Union(_) => {}
     }
+    for_each_field(input, |field| retain(&mut field.attrs));
 }

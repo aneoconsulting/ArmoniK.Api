@@ -8,8 +8,7 @@ use crate::submitter::{create_tasks, try_get_task_output};
 use crate::utils::IntoCollection;
 use crate::{Output, TaskOptions, TaskRequest};
 
-#[deprecated]
-pub type Submitter<T = tonic::transport::Channel> = super::ServiceClient<services::Submitter, T>;
+pub use crate::rpc::submitter::Client as Submitter;
 
 impl<T: super::Channel> super::ServiceClient<services::Submitter, T> {
     #[deprecated]
