@@ -260,7 +260,8 @@ pub(crate) fn normalize_impl(
 /// The compile-time tripwire: a const-assert that the descriptor fingerprint the derive was
 /// expanded against still matches the schema baked into the crate. Emitted (in a `const _: () = {
 /// ... };` block) by every derive.
-pub(crate) fn tripwire(fingerprint: &proc_macro2::Literal) -> TokenStream {
+pub(crate) fn tripwire(fingerprint: u64) -> TokenStream {
+    let fingerprint = proc_macro2::Literal::u64_suffixed(fingerprint);
     quote! {
         assert!(
             crate::__schema::DESCRIPTOR_FINGERPRINT == #fingerprint,
@@ -274,7 +275,7 @@ pub(crate) fn tripwire(fingerprint: &proc_macro2::Literal) -> TokenStream {
 ///
 /// `ProtoField` because a field is encoded through it, `Send`/`Sync` because `prost::Message`
 /// requires them. Nothing else: `PartialEq` and `Debug` were here for the deleted `is_default`
-/// family and no emitted code needs them. The stub emission (`docs::stubs`) reads the same list, so
+/// family and no emitted code needs them. The stub emission (`item::stubs`) reads the same list, so
 /// that a stub impl applies exactly where the real one would.
 pub(crate) fn bound_generics(generics: &syn::Generics) -> syn::Generics {
     let mut generics = generics.clone();
@@ -289,7 +290,7 @@ pub(crate) fn bound_generics(generics: &syn::Generics) -> syn::Generics {
 }
 
 /// The `prost::Message` impl skeleton shared by every emission site (plain struct, transparent
-/// struct, transparent enum, whole-message oneof, and the `docs::stubs` error path). `clear` is
+/// struct, transparent enum, whole-message oneof, and the `item::stubs` error path). `clear` is
 /// `None` for the whole-value reset every real site wants -- every derived type is `Default`, and
 /// the zero-default invariant makes that the proto zero -- and `Some` only for a stub, whose type
 /// may have no `Default` at all.
@@ -327,6 +328,66 @@ pub(crate) fn message_impl(
                 #clear
             }
         }
+    }
+}
+
+/// The four method bodies a message-shaped type supplies. Everything else about its emission is the
+/// same whatever shape produced it, which is what [`message_shaped`] exists to say once.
+pub(crate) struct MessageBodies {
+    pub(crate) encode_raw: TokenStream,
+    pub(crate) merge_field: TokenStream,
+    pub(crate) encoded_len: TokenStream,
+    /// The `Normalize` projection the representation implies, one fragment per construct that
+    /// defines its own equivalence classes.
+    pub(crate) normalize: Vec<TokenStream>,
+}
+
+/// Everything a message-shaped type emits: the guard block, its registry entries, and the trait
+/// trio. The single call site of [`message_impl`], [`normalize_impl`] and [`msg_impl`].
+///
+/// Six shapes reach here (plain, transparent and generic structs, whole-message and embedded oneofs,
+/// and a transparent enumeration), and they differ only in the four bodies and in whether the type
+/// stands for a message at all. The four emitters covering them used to restate the assembly
+/// separately, so "a message-shaped type gets exactly these impls, with these bounds, under these
+/// names" was a fact spelled four times and true by coincidence.
+///
+/// `is_message` is false for an embedded oneof, which is a fragment of a message rather than one: it
+/// gets no `Msg` and registers nothing. A generic type is a message with no names, which
+/// [`registrations`] renders as nothing while `Msg` still carries an empty `NAMES`.
+pub(crate) fn message_shaped(
+    ident: &syn::Ident,
+    generics: &syn::Generics,
+    fingerprint: u64,
+    names: &[String],
+    is_message: bool,
+    asserts: TokenStream,
+    bodies: MessageBodies,
+) -> TokenStream {
+    let tripwire = tripwire(fingerprint);
+    let normalize = normalize_impl(generics, ident, &bodies.normalize);
+    let message = message_impl(
+        generics,
+        ident,
+        bodies.encode_raw,
+        bodies.merge_field,
+        bodies.encoded_len,
+        None,
+    );
+    let registrations = is_message.then(|| registrations(ident, names));
+    let msg = is_message.then(|| msg_impl(generics, ident, names));
+    quote! {
+        const _: () = {
+            #tripwire
+            #asserts
+        };
+
+        #registrations
+
+        #normalize
+
+        #message
+
+        #msg
     }
 }
 

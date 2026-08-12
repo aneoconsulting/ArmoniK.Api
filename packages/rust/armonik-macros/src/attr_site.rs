@@ -72,12 +72,13 @@ pub(crate) struct FieldAttrs {
     pub(crate) with: Option<(Span, syn::Type)>,
     pub(crate) present: bool,
     pub(crate) inline: Option<Span>,
+    /// Proto messages a `with` adapter flattens away, so they have no Rust type of their own.
+    /// Repeatable.
+    pub(crate) absorbs: Vec<String>,
 }
 
 /// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a spanned `reject` error,
-/// so each site keeps rejecting exactly what it did before. `absorbs` in particular is only
-/// tolerated where enabled ([`crate::collect_absorbs`] harvests it separately), and rejected like any stray
-/// key elsewhere.
+/// so each site keeps rejecting exactly what it did before.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Allowed {
     pub(crate) rename: bool,
@@ -133,8 +134,10 @@ pub(crate) fn scan_field_attrs(
                 collected.inline = Some(entry.span);
                 true
             }
-            // Harvested by `collect_absorbs` in lib.rs; only tolerated here.
-            AttrItem::Absorbs(_) if allowed.absorbs => true,
+            AttrItem::Absorbs(lit) if allowed.absorbs => {
+                collected.absorbs.push(lit.value());
+                true
+            }
             _ => {
                 errors.at(entry.span, reject);
                 false
@@ -174,25 +177,28 @@ mod tests {
         (collected, ok, errors.into_result().is_ok())
     }
 
-    /// `absorbs` stays rejected where a site does not opt in, and is tolerated where it does (no
-    /// error; `collect_absorbs` in lib.rs harvests it). This is the exact rule a naive shared
-    /// collector would drop, and no other test would catch it.
+    /// `absorbs` is collected where a site opts in and rejected where it does not. It used to be
+    /// merely *tolerated* here and harvested by a second walk over the whole item, so the value
+    /// read at this site was thrown away; the rule a naive shared collector would drop is the
+    /// rejection half, which no other test covers.
     #[test]
     fn absorbs_is_gated_per_site() {
-        let (_, ok, clean) = scan(
+        let (collected, ok, clean) = scan(
             &[entry(AttrItem::Absorbs(lit("some.Msg")))],
             Allowed {
                 absorbs: true,
                 ..Allowed::default()
             },
         );
-        assert!(ok && clean, "absorbs tolerated where opted in");
+        assert!(ok && clean, "absorbs accepted where opted in");
+        assert_eq!(collected.absorbs, ["some.Msg"], "and its value collected");
 
-        let (_, ok, clean) = scan(
+        let (collected, ok, clean) = scan(
             &[entry(AttrItem::Absorbs(lit("some.Msg")))],
             Allowed::default(),
         );
         assert!(!ok && !clean, "absorbs rejected where not opted in");
+        assert!(collected.absorbs.is_empty(), "and not collected");
     }
 
     #[test]

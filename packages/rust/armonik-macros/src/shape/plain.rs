@@ -6,56 +6,25 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 
 use crate::attr_site::{field_access, scan_attrs, unraw, Allowed, FieldAttrs};
-use crate::attrs::{self, AttrItem, Errors};
+use crate::attrs::Errors;
 use crate::descriptor::DescriptorIndex;
 use crate::emit::{
-    bound_generics, message_impl, msg_impl, normalize_impl, registrations, slot_asserts,
-    slot_merge_in_place, slot_write, tripwire,
+    bound_generics, message_shaped, slot_asserts, slot_merge_in_place, slot_write, MessageBodies,
 };
 use crate::matcher::{not_found, Found, Matcher};
 use crate::plan::{Expectation, MessagePlan, Slot, SlotCodec};
-use crate::shape::generic::generic_plan;
-use crate::shape::transparent::{transparent_message, transparent_plan};
+use crate::shape::transparent::transparent_message;
 
+/// Plan for a plain struct: every field is a field of the one proto message named at type level.
+///
+/// `proto_names` and `errors` come from [`crate::shape::resolve_message`], which owns the
+/// type-level attribute scan and the choice between this shape, `generic` and `transparent`.
 pub(crate) fn message_plan(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
+    proto_names: Vec<(Span, String)>,
+    mut errors: Errors,
 ) -> Result<MessagePlan, Errors> {
-    let mut errors = Errors::new();
-
-    let entries = attrs::parse(&input.attrs)?;
-
-    let mut proto_names: Vec<(Span, String)> = Vec::new();
-    let mut generic = false;
-    let mut transparent = false;
-    for entry in &entries {
-        match &entry.item {
-            AttrItem::Message(lit) => proto_names.push((entry.span, lit.value())),
-            AttrItem::Generic => generic = true,
-            AttrItem::Transparent => transparent = true,
-            AttrItem::Oneof(_) => {
-                errors.at(entry.span, "this armonik attribute mode is not valid here");
-            }
-            _ => errors.push(syn::Error::new(
-                entry.span,
-                "this armonik attribute is not valid at type level on a struct",
-            )),
-        }
-    }
-    if generic {
-        if !proto_names.is_empty() {
-            errors.at(
-                input.ident.span(),
-                "#[armonik(generic)] types are not validated against the descriptor; \
-                 remove the message attribute",
-            );
-            return Err(errors);
-        }
-        return generic_plan(input, index, errors);
-    }
-    if transparent {
-        return transparent_plan(input, index, proto_names, errors);
-    }
     if proto_names.is_empty() {
         errors.at(
             input.ident.span(),
@@ -103,6 +72,8 @@ pub(crate) fn message_plan(
     };
 
     let mut fields = Vec::new();
+    // Messages a `with` adapter flattens away, so no Rust type stands for them.
+    let mut absorbs = Vec::new();
     let mut matcher = Matcher::new(name, meta);
 
     for (field_index, field) in data.fields.iter().enumerate() {
@@ -110,7 +81,15 @@ pub(crate) fn message_plan(
         // No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one
         // of the six `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct,
         // which `generic_plan` handles. Spelling one here only ever restated what the proto says.
-        let Some((FieldAttrs { rename, with, .. }, _)) = scan_attrs(
+        let Some((
+            FieldAttrs {
+                rename,
+                with,
+                absorbs: declared,
+                ..
+            },
+            _,
+        )) = scan_attrs(
             &field.attrs,
             Allowed {
                 rename: true,
@@ -120,9 +99,11 @@ pub(crate) fn message_plan(
             },
             "this armonik attribute is not valid on a message field",
             &mut errors,
-        ) else {
+        )
+        else {
             continue;
         };
+        absorbs.extend(declared);
         let with = with.map(|(_, ty)| ty);
 
         let proto_name = match (&rename, &field.ident) {
@@ -143,7 +124,7 @@ pub(crate) fn message_plan(
 
         let proto_path = format!("{name}.{proto_name}");
 
-        let (tag, checks) = match resolved {
+        let (tag, checks, docs) = match resolved {
             Found::Oneof { tags } => {
                 if with.is_some() {
                     errors.at(
@@ -163,6 +144,9 @@ pub(crate) fn message_plan(
                     },
                     checks: None,
                     proto_path,
+                    // A oneof is reached through a Rust field named after the *declaration*, which
+                    // carries no comment of its own in the descriptor.
+                    docs: Vec::new(),
                 });
                 continue;
             }
@@ -171,7 +155,7 @@ pub(crate) fn message_plan(
                     Some(_) => None,
                     None => Expectation::of(field_meta),
                 };
-                (field_meta.tag, checks)
+                (field_meta.tag, checks, field_meta.docs.clone())
             }
         };
         fields.push(Slot {
@@ -184,6 +168,7 @@ pub(crate) fn message_plan(
             },
             checks,
             proto_path,
+            docs,
         });
     }
 
@@ -196,7 +181,9 @@ pub(crate) fn message_plan(
     Ok(MessagePlan {
         ident: input.ident.clone(),
         proto_names: proto_names.into_iter().map(|(_, name)| name).collect(),
+        docs: meta.docs.clone(),
         fields,
+        absorbs,
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
         transparent: false,
@@ -205,13 +192,10 @@ pub(crate) fn message_plan(
 
 pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let ident = &plan.ident;
-    let proto_names = &plan.proto_names;
-    let fingerprint = proc_macro2::Literal::u64_suffixed(plan.fingerprint);
-
     let generics = bound_generics(&plan.generics);
 
     if plan.transparent {
-        return transparent_message(plan, &generics, fingerprint);
+        return transparent_message(plan, &generics);
     }
 
     let mut encode_fragments = Vec::new();
@@ -242,40 +226,28 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         merge_arms.push(quote! { #keys => #merge });
     }
 
-    let registrations = registrations(ident, proto_names);
-    let normalize = normalize_impl(&generics, ident, &normalize_fragments);
-    let message = message_impl(
-        &generics,
+    message_shaped(
         ident,
-        quote! { #(#encode_fragments)* },
-        quote! {
-            match tag {
-                #(#merge_arms,)*
-                _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
-            }
+        &generics,
+        plan.fingerprint,
+        &plan.proto_names,
+        true,
+        asserts,
+        MessageBodies {
+            encode_raw: quote! { #(#encode_fragments)* },
+            merge_field: quote! {
+                match tag {
+                    #(#merge_arms,)*
+                    _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+                }
+            },
+            encoded_len: quote! {
+                #[allow(unused_mut)]
+                let mut len = 0;
+                #(#len_fragments)*
+                len
+            },
+            normalize: normalize_fragments,
         },
-        quote! {
-            #[allow(unused_mut)]
-            let mut len = 0;
-            #(#len_fragments)*
-            len
-        },
-        None,
-    );
-    let proto_field = msg_impl(&generics, ident, proto_names);
-    let tripwire = tripwire(&fingerprint);
-    quote! {
-        const _: () = {
-            #tripwire
-            #asserts
-        };
-
-        #registrations
-
-        #normalize
-
-        #message
-
-        #proto_field
-    }
+    )
 }

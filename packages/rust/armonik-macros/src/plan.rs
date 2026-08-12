@@ -1,8 +1,17 @@
-//! The resolved plans: what each shape decided, in the vocabulary the emitters read.
+//! The resolved plans: what each shape decided, in the vocabulary the emitters and the item
+//! rewriter read.
 //!
-//! Resolution fills these from the descriptor and the annotations; emission reads them and nothing
-//! else. Keeping them here rather than next to either half is what makes that split checkable: a
-//! plan type mentions no `TokenStream`, and an emitter reaches for no `DescriptorIndex`.
+//! Resolution fills these from the descriptor and the annotations; emission and `item` read them
+//! and nothing else. Keeping them here rather than next to either half is what makes that split
+//! checkable: a plan type mentions no `TokenStream`, and an emitter reaches for no
+//! `DescriptorIndex`.
+//!
+//! That is also why the harvested proto comments live here, on the slot or variant they belong to.
+//! `item::inject` used to look them up itself, matching Rust names to proto names a second time
+//! with rules that were nearly, but not exactly, the resolvers'. Nearly cost real documentation:
+//! inlined variant fields were looked up in the containing message and never found, and a
+//! transparent enum's values were never looked up at all. Resolution knows the answer at the moment
+//! it matches, so it writes it down.
 
 use proc_macro2::Span;
 
@@ -12,6 +21,8 @@ pub(crate) struct MessagePlan {
     pub(crate) ident: syn::Ident,
     /// Full proto names the type stands for (several for unified types).
     pub(crate) proto_names: Vec<String>,
+    /// Leading comment of the proto message, for the re-emitted item.
+    pub(crate) docs: Vec<String>,
     /// Fields sorted by tag (canonical encode order). In `transparent` mode this holds exactly the
     /// single delegate field.
     pub(crate) fields: Vec<Slot>,
@@ -20,6 +31,9 @@ pub(crate) struct MessagePlan {
     /// `#[armonik(transparent)]` on a struct: the type delegates its whole `prost::Message` impl to
     /// its single field.
     pub(crate) transparent: bool,
+    /// Proto messages a `with` adapter flattens away, declared through `#[armonik(absorbs = ...)]`,
+    /// so they have no Rust type of their own.
+    pub(crate) absorbs: Vec<String>,
 }
 
 pub(crate) enum FieldAccess {
@@ -91,6 +105,10 @@ pub(crate) struct Slot {
     pub(crate) checks: Option<Expectation>,
     /// `TypeName.field_name` of the proto field, for diagnostics.
     pub(crate) proto_path: String,
+    /// Leading comment of the proto field, which the re-emitted item carries as `#[doc]`. Empty
+    /// where the proto says nothing, and where there is nothing to say it about: a whole oneof (the
+    /// declaration carries no comment of its own), a transparent delegate, a generic field.
+    pub(crate) docs: Vec<String>,
 }
 
 impl Slot {
@@ -102,6 +120,26 @@ impl Slot {
             SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => None,
         }
     }
+
+    /// Whether this slot is the one reached through `field`, the `index`th field of its container.
+    /// How the item rewriter finds the syn field a slot stands for, without rematching names.
+    pub(crate) fn reaches(&self, field: &syn::Field, index: usize) -> bool {
+        match (&self.access, &field.ident) {
+            (Some(FieldAccess::Named(name)), Some(ident)) => name == ident,
+            (Some(FieldAccess::Indexed(at)), None) => at.index as usize == index,
+            _ => false,
+        }
+    }
+}
+
+/// One named variant and the proto value it stands for.
+pub(crate) struct EnumValue {
+    pub(crate) ident: syn::Ident,
+    pub(crate) number: i32,
+    /// Leading comment of the proto value, for the re-emitted item. Harvested here rather than by
+    /// the rewriter, which is what a transparent enum's values were missing: their comments live on
+    /// the enum at the end of the wrapper chain, which only resolution walks.
+    pub(crate) docs: Vec<String>,
 }
 
 /// Plan for a protobuf enum (or a transparent single-enum-field wrapper).
@@ -110,8 +148,10 @@ pub(crate) struct EnumPlan {
     /// The catch-all variant (`Unknown`) and its payload struct, which the expansion emits.
     pub(crate) unknown_variant: syn::Ident,
     pub(crate) payload: syn::Ident,
+    /// Leading comment of the proto enum, or in transparent mode of the outermost wrapper message.
+    pub(crate) docs: Vec<String>,
     /// Named variants with their proto numbers.
-    pub(crate) named: Vec<(syn::Ident, i32)>,
+    pub(crate) named: Vec<EnumValue>,
     /// Named variant covering 0, when there is one; otherwise the derive emits an `UNSPECIFIED`
     /// const based on the catch-all.
     pub(crate) zero_variant: Option<syn::Ident>,
@@ -141,6 +181,8 @@ pub(crate) enum EnumMode {
 pub(crate) struct OneofPlan {
     pub(crate) ident: syn::Ident,
     pub(crate) proto_name: String,
+    /// Leading comment of the proto message, for the re-emitted item.
+    pub(crate) docs: Vec<String>,
     /// Whether the enum stands for the whole message (annotation without `oneof = ...`), in which
     /// case it gets `prost::Message` + `ProtoField` implementations.
     pub(crate) whole_message: bool,

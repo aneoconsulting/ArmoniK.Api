@@ -62,6 +62,8 @@ pub(crate) fn generic_plan(
             },
             checks: None,
             proto_path,
+            // A generic type names no proto message, so there is nothing to harvest.
+            docs: Vec::new(),
         });
     }
 
@@ -71,9 +73,11 @@ pub(crate) fn generic_plan(
     Ok(MessagePlan {
         ident: input.ident.clone(),
         proto_names: Vec::new(),
+        docs: Vec::new(),
         fields,
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
         transparent: false,
+        absorbs: Vec::new(),
     })
 }
