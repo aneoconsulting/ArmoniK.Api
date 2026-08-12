@@ -11,7 +11,7 @@ use crate::descriptor::{FieldMeta, MessageMeta};
 
 /// Field-or-oneof lookup with coverage over one proto message: resolves names, records what was
 /// consumed, reports misses with the sorted "available:" list, and turns leftovers into
-/// completeness errors. One per unified message in [`message_plan`]; also drives inline struct
+/// completeness errors. One per message in [`crate::shape::plain::message_plan`]; also drives inline struct
 /// variants.
 pub(crate) struct Matcher<'a> {
     message_name: &'a str,
@@ -131,8 +131,8 @@ pub(crate) fn not_found(span: Span, what: &str, name: &str) -> syn::Error {
     )
 }
 
-/// The shared shape of every name-lookup miss: "no <what> named `name` in <container> (available:
-/// ...); <hint>".
+/// The shared shape of every name-lookup miss:
+/// `no {what} named {name} in {container} (available: ...); {hint}`.
 pub(crate) fn unknown_name(
     span: Span,
     what: &str,

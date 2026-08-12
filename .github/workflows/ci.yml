@@ -241,11 +241,21 @@ jobs:
         run: |
           cargo fmt --all --check
       - name: Doc
+        # `--document-private-items`, because a broken intra-doc link in a private item is still a
+        # broken link, and the crates that carry the design prose are mostly private.
         run: |
-          RUSTDOCFLAGS="-Dwarnings" cargo doc --workspace --no-deps
+          RUSTDOCFLAGS="-Dwarnings" cargo doc --workspace --no-deps --all-features \
+            --document-private-items
       - name: Clippy
+        # Two invocations on purpose. `-Dunused-crate-dependencies` is per *target*, and a test
+        # target links its whole package's dev-dependencies, so on `--all-targets` it reports every
+        # dependency that one test file happens not to name: a dozen false positives in
+        # `armonik-transport` alone. So the dependency lint runs over the shipped targets, and
+        # `--all-targets` runs everything else over the tests and benches too, which is where the
+        # unused imports and the bench-only lints live.
         run: |
           cargo clippy --workspace --all-features --no-deps -- -Dwarnings -Dunused-crate-dependencies
+          cargo clippy --workspace --all-features --all-targets --no-deps -- -Dwarnings
 
   features-rust:
     name: Check Rust feature configurations

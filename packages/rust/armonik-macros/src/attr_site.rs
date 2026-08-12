@@ -76,7 +76,7 @@ pub(crate) struct FieldAttrs {
 
 /// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a spanned `reject` error,
 /// so each site keeps rejecting exactly what it did before. `absorbs` in particular is only
-/// tolerated where enabled ([`crate::expand`] harvests it separately), and rejected like any stray
+/// tolerated where enabled ([`crate::collect_absorbs`] harvests it separately), and rejected like any stray
 /// key elsewhere.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Allowed {
@@ -154,7 +154,6 @@ mod tests {
     //! here instead.
 
     use proc_macro2::Span;
-    use syn::spanned::Spanned;
 
     use super::*;
 

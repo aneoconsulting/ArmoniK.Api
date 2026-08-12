@@ -77,16 +77,15 @@ impl ResultsService for Bench {
         impl futures::Stream<Item = Result<results::download::Response, tonic::Status>> + Send,
         tonic::Status,
     > {
-        // `into()` on the chunk, not a cast: the field is `Vec<u8>` before the
-        // migration to `bytes::Bytes` and `Bytes` after it, and `Vec<u8>`
-        // converts into both.
+        // `slice`, not a copy: `data_chunk` is `bytes::Bytes`, so each chunk is a view into the
+        // one payload buffer and the serving side of the measurement allocates nothing.
         let payload = &self.payload;
         let chunks = (0..payload.len())
             .step_by(CHUNK)
             .map(|offset| {
                 let end = (offset + CHUNK).min(payload.len());
                 Ok(results::download::Response {
-                    data_chunk: payload.slice(offset..end).into(),
+                    data_chunk: payload.slice(offset..end),
                 })
             })
             .collect::<Vec<_>>();
@@ -361,9 +360,9 @@ fn upload(c: &mut Criterion) {
 
     for size in SIZES {
         let channel = Bench::default().results_server();
-        // `Vec<u8>` chunks on purpose: the bound on `upload` is
-        // `Item: Into<Vec<u8>>` before the `bytes::Bytes` migration and
-        // `Item: Into<bytes::Bytes>` after it, and `Vec<u8>` satisfies both.
+        // `Vec<u8>` chunks: `upload` takes `Item: Into<bytes::Bytes>`, and a `Vec<u8>` converts
+        // by handing over its allocation, so the conversion inside the timed closure copies
+        // nothing. The clone `iter_batched` makes per iteration does, which is why it is setup.
         let chunks = vec![vec![0xa5u8; CHUNK]; size.div_ceil(CHUNK)];
 
         let client = armonik::Client::with_channel(channel).into_results();
