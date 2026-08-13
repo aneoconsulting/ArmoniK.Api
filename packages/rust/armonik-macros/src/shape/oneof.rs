@@ -518,13 +518,68 @@ fn resolve_inline_member(
     Ok((None, SlotCodec::Inline { parts }, None))
 }
 
-pub(crate) fn oneof_plan(
-    input: &syn::DeriveInput,
-    index: &DescriptorIndex,
-) -> Result<OneofPlan, Errors> {
-    let mut errors = Errors::new();
+/// The message's non-oneof fields as slots, in tag order: one per sibling that some variant bound.
+///
+/// Pure assembly, run once the variants have agreed on a name and type for each. A missing binding
+/// is only possible when every variant errored, and those errors are already reported.
+fn collect_siblings(
+    sibling_metas: &[&FieldMeta],
+    sibling_bindings: &[Option<(syn::Ident, syn::Type)>],
+    proto_name: &str,
+) -> Vec<Slot> {
+    let mut siblings: Vec<Slot> = sibling_metas
+        .iter()
+        .zip(sibling_bindings)
+        .filter_map(|(meta_field, binding)| {
+            let (ident, ty) = binding.as_ref()?;
+            Some(Slot {
+                span: ident.span(),
+                access: Some(FieldAccess::Named(ident.clone())),
+                tag: meta_field.tag,
+                codec: SlotCodec::Field {
+                    ty: Box::new(ty.clone()),
+                    adapter: None,
+                },
+                proto_path: format!("{proto_name}.{}", meta_field.name),
+                checks: Expectation::of(meta_field),
+                docs: meta_field.docs.clone(),
+            })
+        })
+        .collect();
+    siblings.sort_by_key(|sibling| sibling.tag);
+    siblings
+}
 
-    let entries = attrs::parse(&input.attrs)?;
+/// Which oneof the enum stands for, and whether it stands for the whole message.
+struct Selected<'a> {
+    /// Full proto name of the message.
+    proto_name: String,
+    meta: &'a crate::descriptor::MessageMeta,
+    oneof: &'a crate::descriptor::OneofMeta,
+    /// `message = ...` alone: the enum is the message, and its non-oneof fields become siblings
+    /// replicated in every variant.
+    whole_message: bool,
+}
+
+/// Read the type-level attributes and answer the two questions that fix the shape: which proto
+/// message, and which of its oneofs.
+///
+/// Four ways to get it wrong, all of them about the schema rather than about the Rust item, which is
+/// why this is worth reading on its own: no such oneof, a oneof that covers the whole message (use
+/// the whole-message shape), a message with no oneof at all (use a struct), and a message with
+/// several (declare one enum each).
+fn select_oneof<'a>(
+    input: &syn::DeriveInput,
+    index: &'a DescriptorIndex,
+    errors: &mut Errors,
+) -> Result<Selected<'a>, ()> {
+    let entries = match attrs::parse(&input.attrs) {
+        Ok(entries) => entries,
+        Err(err) => {
+            errors.push(err);
+            return Err(());
+        }
+    };
 
     let mut proto_name: Option<(Span, String)> = None;
     let mut oneof_name: Option<(Span, String)> = None;
@@ -550,12 +605,12 @@ pub(crate) fn oneof_plan(
             input.ident.span(),
             "oneof-shaped enums need #[armonik(message = \"...\")]",
         );
-        return Err(errors);
+        return Err(());
     };
 
     let Some(meta) = index.messages.get(&proto_name) else {
         errors.push(not_found(message_span, "message", &proto_name));
-        return Err(errors);
+        return Err(());
     };
     // `message = ...` alone: the enum stands for the whole message, whose single oneof is inferred
     // and whose non-oneof fields become siblings replicated in every variant. `oneof = ...`
@@ -568,7 +623,7 @@ pub(crate) fn oneof_plan(
                     *oneof_span,
                     format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
                 );
-                return Err(errors);
+                return Err(());
             };
             if meta
                 .fields
@@ -583,7 +638,7 @@ pub(crate) fn oneof_plan(
                          a whole-message enum"
                     ),
                 );
-                return Err(errors);
+                return Err(());
             }
             (oneof, false)
         }
@@ -597,7 +652,7 @@ pub(crate) fn oneof_plan(
                          oneof is derived on a struct"
                     ),
                 );
-                return Err(errors);
+                return Err(());
             }
             n => {
                 errors.at(
@@ -609,13 +664,197 @@ pub(crate) fn oneof_plan(
                          them in a struct"
                     ),
                 );
-                return Err(errors);
+                return Err(());
             }
         },
     };
+
+    Ok(Selected {
+        proto_name,
+        meta,
+        oneof,
+        whole_message,
+    })
+}
+
+/// What one variant resolved to.
+enum VariantOutcome {
+    /// It names the member at this position in the oneof.
+    ///
+    /// `variant` is `None` when it named the member but could not be resolved. The member is still
+    /// covered: the author did write a variant for it, so reporting the enum as leaving it uncovered
+    /// on top of the real error would make one mistake read as two. Boxed because the payload dwarfs
+    /// the other outcome, and this is a transient per-variant value.
+    Member {
+        position: usize,
+        variant: Option<Box<OneofVariant>>,
+    },
+    /// It means "the oneof has no member set". The caller owns the at-most-one rule, since that is a
+    /// fact about the enum rather than about this variant.
+    NoMemberSet,
+}
+
+/// Resolve one variant of a oneof-shaped enum. `None` once its errors are pushed and it names no
+/// member to attribute them to.
+fn resolve_one_variant(
+    variant: &syn::Variant,
+    selected: &Selected<'_>,
+    index: &DescriptorIndex,
+    sibling_metas: &[&FieldMeta],
+    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
+    absorbs: &mut Vec<String>,
+    errors: &mut Errors,
+) -> Option<VariantOutcome> {
+    let span = variant.ident.span();
+    let (
+        FieldAttrs {
+            rename,
+            with,
+            present,
+            inline,
+            absorbs: declared,
+            ..
+        },
+        _,
+    ) = scan_attrs(
+        &variant.attrs,
+        Allowed {
+            rename: true,
+            with: true,
+            present: true,
+            inline: true,
+            absorbs: true,
+            ..Allowed::default()
+        },
+        "this armonik attribute is not valid on a oneof variant",
+        errors,
+    )?;
+    absorbs.extend(declared);
+
+    // Split once, before anything asks what the variant means.
+    //
+    // `#[armonik(present)]` is the exception, and answers without looking: the member is carried
+    // by presence alone, so the variant carries nothing whatever its shape. Asking the fields
+    // would report a `present` unit variant in a message with non-oneof fields as having dropped
+    // them, when the mistake the author made is `present` itself, which `resolve_variant` says
+    // in those terms.
+    let carried = if present {
+        Carried::Fields(Vec::new())
+    } else {
+        carried(
+            &variant.fields,
+            sibling_metas,
+            sibling_bindings,
+            absorbs,
+            errors,
+            span,
+            &selected.proto_name,
+        )?
+    };
+
+    let member_name = rename
+        .clone()
+        .unwrap_or_else(|| crate::names::snake_case(&unraw(&variant.ident)));
+    let member = selected
+        .oneof
+        .fields
+        .iter()
+        .enumerate()
+        .find_map(|(position, &field)| {
+            (selected.meta.fields[field].name == member_name)
+                .then_some((position, &selected.meta.fields[field]))
+        });
+
+    // One notion, stated once: a variant means "the oneof has no member set" when it names no
+    // member and carries nothing of its own once the shared fields are accounted for.
+    //
+    // The attribute-less unit variant of a sibling-free enum and the struct variant carrying
+    // exactly the siblings are that one case seen at two sibling counts. They used to be two
+    // branches gated on opposite sides of `sibling_metas.is_empty()`, 27 lines apart, each with
+    // its own duplicate-detection and its own error message -- and the two messages were not the
+    // same string.
+    if member.is_none() && carried.is_empty() && !present && rename.is_none() {
+        return Some(VariantOutcome::NoMemberSet);
+    }
+    let Some((position, field_meta)) = member else {
+        let available = selected
+            .oneof
+            .fields
+            .iter()
+            .map(|&field| selected.meta.fields[field].name.clone())
+            .collect();
+        errors.push(unknown_name(
+            span,
+            "member",
+            &member_name,
+            &format!("oneof `{}.{}`", selected.proto_name, selected.oneof.name),
+            available,
+            "use #[armonik(rename = \"...\")] if the names differ",
+        ));
+        return None;
+    };
+    let proto_path = format!("{}.{}", selected.proto_name, field_meta.name);
+
+    let ctx = VariantCtx {
+        variant,
+        field_meta,
+        index,
+        span,
+        proto_name: &selected.proto_name,
+        proto_path: &proto_path,
+        member_name: &member_name,
+        present,
+        inline,
+    };
+    let (access, codec, checks) = match resolve_variant(
+        &ctx,
+        carried.into_leftovers(),
+        sibling_metas,
+        with,
+        absorbs,
+        errors,
+    ) {
+        Ok(resolved) => resolved,
+        Err(()) => {
+            return Some(VariantOutcome::Member {
+                position,
+                variant: None,
+            })
+        }
+    };
+
+    Some(VariantOutcome::Member {
+        position,
+        variant: Some(Box::new(OneofVariant {
+            ident: variant.ident.clone(),
+            own: Slot {
+                access,
+                span,
+                tag: field_meta.tag,
+                codec,
+                checks,
+                proto_path,
+                docs: field_meta.docs.clone(),
+            },
+        })),
+    })
+}
+
+pub(crate) fn oneof_plan(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+) -> Result<OneofPlan, Errors> {
+    let mut errors = Errors::new();
+
+    let Ok(selected) = select_oneof(input, index, &mut errors) else {
+        return Err(errors);
+    };
+
     // Non-oneof fields of a whole-message enum, replicated in every variant.
-    let sibling_metas: Vec<&FieldMeta> = if whole_message {
-        meta.fields
+    let sibling_metas: Vec<&FieldMeta> = if selected.whole_message {
+        selected
+            .meta
+            .fields
             .iter()
             .filter(|field| field.oneof.is_none())
             .collect()
@@ -637,156 +876,47 @@ pub(crate) fn oneof_plan(
 
     let mut variants = Vec::new();
     let mut default_variant: Option<syn::Ident> = None;
-    let mut covered = vec![false; oneof.fields.len()];
+    let mut covered = vec![false; selected.oneof.fields.len()];
     // Messages no Rust type stands for: the ones inlined into struct variants, and the ones a
     // `with` adapter flattens away, declared through `#[armonik(absorbs = "...")]`.
     let mut absorbs: Vec<String> = Vec::new();
     for variant in &data.variants {
-        let span = variant.ident.span();
-        let Some((
-            FieldAttrs {
-                rename,
-                with,
-                present,
-                inline,
-                absorbs: declared,
-                ..
-            },
-            _,
-        )) = scan_attrs(
-            &variant.attrs,
-            Allowed {
-                rename: true,
-                with: true,
-                present: true,
-                inline: true,
-                absorbs: true,
-                ..Allowed::default()
-            },
-            "this armonik attribute is not valid on a oneof variant",
-            &mut errors,
-        )
-        else {
-            continue;
-        };
-        absorbs.extend(declared);
-
-        // Split once, before anything asks what the variant means.
-        //
-        // `#[armonik(present)]` is the exception, and answers without looking: the member is carried
-        // by presence alone, so the variant carries nothing whatever its shape. Asking the fields
-        // would report a `present` unit variant in a message with non-oneof fields as having dropped
-        // them, when the mistake the author made is `present` itself, which `resolve_variant` says
-        // in those terms.
-        let carried = if present {
-            Carried::Fields(Vec::new())
-        } else {
-            let Some(carried) = carried(
-                &variant.fields,
-                &sibling_metas,
-                &mut sibling_bindings,
-                &mut absorbs,
-                &mut errors,
-                span,
-                &proto_name,
-            ) else {
-                continue;
-            };
-            carried
-        };
-
-        let member_name = rename
-            .clone()
-            .unwrap_or_else(|| crate::names::snake_case(&unraw(&variant.ident)));
-        let member = oneof
-            .fields
-            .iter()
-            .enumerate()
-            .find_map(|(position, &field)| {
-                (meta.fields[field].name == member_name).then_some((position, &meta.fields[field]))
-            });
-
-        // One notion, stated once: a variant means "the oneof has no member set" when it names no
-        // member and carries nothing of its own once the shared fields are accounted for.
-        //
-        // The attribute-less unit variant of a sibling-free enum and the struct variant carrying
-        // exactly the siblings are that one case seen at two sibling counts. They used to be two
-        // branches gated on opposite sides of `sibling_metas.is_empty()`, 27 lines apart, each with
-        // its own duplicate-detection and its own error message -- and the two messages were not the
-        // same string.
-        if member.is_none() && carried.is_empty() && !present && rename.is_none() {
-            if default_variant.replace(variant.ident.clone()).is_some() {
-                errors.at(
-                    span,
-                    "at most one attribute-less variant (the \"no member set\" case) is allowed",
-                );
-            }
-            continue;
-        }
-        let Some((position, field_meta)) = member else {
-            let available = oneof
-                .fields
-                .iter()
-                .map(|&field| meta.fields[field].name.clone())
-                .collect();
-            errors.push(unknown_name(
-                span,
-                "member",
-                &member_name,
-                &format!("oneof `{proto_name}.{}`", oneof.name),
-                available,
-                "use #[armonik(rename = \"...\")] if the names differ",
-            ));
-            continue;
-        };
-        covered[position] = true;
-        let proto_path = format!("{proto_name}.{}", field_meta.name);
-
-        let ctx = VariantCtx {
+        match resolve_one_variant(
             variant,
-            field_meta,
+            &selected,
             index,
-            span,
-            proto_name: &proto_name,
-            proto_path: &proto_path,
-            member_name: &member_name,
-            present,
-            inline,
-        };
-        let (access, codec, checks) = match resolve_variant(
-            &ctx,
-            carried.into_leftovers(),
             &sibling_metas,
-            with,
+            &mut sibling_bindings,
             &mut absorbs,
             &mut errors,
         ) {
-            Ok(resolved) => resolved,
-            Err(()) => continue,
-        };
-
-        variants.push(OneofVariant {
-            ident: variant.ident.clone(),
-            own: Slot {
-                access,
-                span,
-                tag: field_meta.tag,
-                codec,
-                checks,
-                proto_path,
-                docs: field_meta.docs.clone(),
-            },
-        });
+            Some(VariantOutcome::Member { position, variant }) => {
+                covered[position] = true;
+                variants.extend(variant.map(|variant| *variant));
+            }
+            // At most one of them, which is a fact about the enum rather than about any one
+            // variant, so it is checked here rather than by the resolver.
+            Some(VariantOutcome::NoMemberSet)
+                if default_variant.replace(variant.ident.clone()).is_some() =>
+            {
+                errors.at(
+                    variant.ident.span(),
+                    "at most one attribute-less variant (the \"no member set\" case) is allowed",
+                );
+            }
+            Some(VariantOutcome::NoMemberSet) => {}
+            None => {}
+        }
     }
 
     for (position, member_covered) in covered.iter().enumerate() {
         if !member_covered {
-            let field = &meta.fields[oneof.fields[position]];
+            let field = &selected.meta.fields[selected.oneof.fields[position]];
             errors.at(
                 input.ident.span(),
                 format!(
-                    "oneof member `{proto_name}.{}` (tag {}) is not covered by any variant",
-                    field.name, field.tag
+                    "oneof member `{}.{}` (tag {}) is not covered by any variant",
+                    selected.proto_name, field.name, field.tag
                 ),
             );
         }
@@ -794,32 +924,13 @@ pub(crate) fn oneof_plan(
 
     errors.into_result()?;
 
-    let mut siblings = Vec::new();
-    for (meta_field, binding) in sibling_metas.iter().zip(&sibling_bindings) {
-        // Missing bindings are only possible when every variant errored; those errors were reported
-        // above.
-        let Some((ident, ty)) = binding else { continue };
-        siblings.push(Slot {
-            span: ident.span(),
-            access: Some(FieldAccess::Named(ident.clone())),
-            tag: meta_field.tag,
-            codec: SlotCodec::Field {
-                ty: Box::new(ty.clone()),
-                adapter: None,
-            },
-            proto_path: format!("{proto_name}.{}", meta_field.name),
-            checks: Expectation::of(meta_field),
-            docs: meta_field.docs.clone(),
-        });
-    }
-    siblings.sort_by_key(|sibling| sibling.tag);
-
+    let siblings = collect_siblings(&sibling_metas, &sibling_bindings, &selected.proto_name);
     variants.sort_by_key(|variant| variant.own.tag);
     Ok(OneofPlan {
         ident: input.ident.clone(),
-        docs: meta.docs.clone(),
-        proto_name,
-        whole_message,
+        docs: selected.meta.docs.clone(),
+        proto_name: selected.proto_name,
+        whole_message: selected.whole_message,
         siblings,
         variants,
         default_variant,
