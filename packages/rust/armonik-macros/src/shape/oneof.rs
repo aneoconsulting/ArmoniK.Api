@@ -115,6 +115,25 @@ pub(crate) fn split_variant_fields(
         }
     }
 
+    failed |= !carries_every_sibling(&seen, sibling_metas, errors, variant_span, proto_name);
+
+    (!failed).then_some(leftovers)
+}
+
+/// Report every sibling field the variant failed to declare; `seen` marks the ones it did, and is
+/// parallel to `sibling_metas`. Returns whether the variant is complete.
+///
+/// Shared with the unit-variant case, which declares none of them: passing an all-false `seen` is
+/// how a unit variant gets the same diagnosis as a struct variant that dropped a field, instead of
+/// falling through to an "unknown member" error naming the wrong problem.
+fn carries_every_sibling(
+    seen: &[bool],
+    sibling_metas: &[&FieldMeta],
+    errors: &mut Errors,
+    variant_span: Span,
+    proto_name: &str,
+) -> bool {
+    let mut complete = true;
     for (position, field_seen) in seen.iter().enumerate() {
         if !field_seen {
             errors.at(
@@ -126,11 +145,74 @@ pub(crate) fn split_variant_fields(
                     sibling_metas[position].name
                 ),
             );
-            failed = true;
+            complete = false;
         }
     }
+    complete
+}
 
-    (!failed).then_some(leftovers)
+/// What a variant carries beyond the message's non-oneof fields, whatever its syntactic shape.
+///
+/// The single fact both questions about a variant are answered from: whether it means "the oneof has
+/// no member set", and, once it names a member, how that member is reached. Computing it once is
+/// what lets the two readings share a test; it also means the fields are split once, where a struct
+/// variant with siblings used to be split twice, here and again inside [`resolve_variant`].
+enum Carried {
+    /// A struct variant's fields beyond the shared ones: the member carried whole, or the member
+    /// message's own fields under `inline`. Empty means the variant carries nothing of its own,
+    /// which is the "no member set" case when it names no member either. A unit variant is the empty
+    /// case by construction.
+    Fields(Vec<Leftover>),
+    /// A tuple variant's payload, which is always a member and never a sibling, so a tuple variant
+    /// never means "no member set".
+    Payload,
+}
+
+impl Carried {
+    /// Whether the variant carries nothing of its own.
+    fn is_empty(&self) -> bool {
+        matches!(self, Carried::Fields(leftovers) if leftovers.is_empty())
+    }
+
+    /// The struct-variant leftovers; empty for the shapes that have none, which do not read them.
+    fn into_leftovers(self) -> Vec<Leftover> {
+        match self {
+            Carried::Fields(leftovers) => leftovers,
+            Carried::Payload => Vec::new(),
+        }
+    }
+}
+
+fn carried(
+    fields: &syn::Fields,
+    sibling_metas: &[&FieldMeta],
+    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
+    absorbs: &mut Vec<String>,
+    errors: &mut Errors,
+    variant_span: Span,
+    proto_name: &str,
+) -> Option<Carried> {
+    match fields {
+        syn::Fields::Named(named) => split_variant_fields(
+            named,
+            sibling_metas,
+            sibling_bindings,
+            absorbs,
+            errors,
+            variant_span,
+            proto_name,
+        )
+        .map(Carried::Fields),
+        // A unit variant carries nothing, which is only correct where the message has no non-oneof
+        // fields. Where it has them, the variant is missing all of them, and says so through the
+        // same check a struct variant gets.
+        syn::Fields::Unit => {
+            let seen = vec![false; sibling_metas.len()];
+            carries_every_sibling(&seen, sibling_metas, errors, variant_span, proto_name)
+                .then(|| Carried::Fields(Vec::new()))
+        }
+        syn::Fields::Unnamed(_) => Some(Carried::Payload),
+    }
 }
 
 /// A field of a struct variant that is not one of the message's non-oneof fields, so it belongs to
@@ -176,8 +258,8 @@ type ResolvedShape = Result<(Option<FieldAccess>, SlotCodec, Option<Expectation>
 /// the enum happens to have.
 fn resolve_variant(
     ctx: &VariantCtx,
+    leftovers: Vec<Leftover>,
     sibling_metas: &[&FieldMeta],
-    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
     with: Option<(Span, syn::Type)>,
     absorbs: &mut Vec<String>,
     errors: &mut Errors,
@@ -257,7 +339,7 @@ fn resolve_variant(
                 checks,
             ))
         }
-        syn::Fields::Named(named) => {
+        syn::Fields::Named(_) => {
             if let Some((with_span, _)) = &with {
                 errors.at(
                     *with_span,
@@ -265,17 +347,6 @@ fn resolve_variant(
                 );
                 return Err(());
             }
-            let Some(leftovers) = split_variant_fields(
-                named,
-                sibling_metas,
-                sibling_bindings,
-                absorbs,
-                errors,
-                ctx.span,
-                ctx.proto_name,
-            ) else {
-                return Err(());
-            };
 
             if ctx.inline.is_some() {
                 return resolve_inline_member(ctx, leftovers, absorbs, errors);
@@ -600,23 +671,29 @@ pub(crate) fn oneof_plan(
         };
         absorbs.extend(declared);
 
-        // The attribute-less unit variant is "no member set"; with sibling fields, that case is a
-        // struct variant carrying exactly them and is detected below, after member-name matching
-        // fails.
-        if matches!(variant.fields, syn::Fields::Unit)
-            && !present
-            && rename.is_none()
-            && sibling_metas.is_empty()
-        {
-            if default_variant.replace(variant.ident.clone()).is_some() {
-                errors.at(
-                    span,
-                    "at most one attribute-less unit variant (the \"no member set\" case) \
-                     is allowed",
-                );
-            }
-            continue;
-        }
+        // Split once, before anything asks what the variant means.
+        //
+        // `#[armonik(present)]` is the exception, and answers without looking: the member is carried
+        // by presence alone, so the variant carries nothing whatever its shape. Asking the fields
+        // would report a `present` unit variant in a message with non-oneof fields as having dropped
+        // them, when the mistake the author made is `present` itself, which `resolve_variant` says
+        // in those terms.
+        let carried = if present {
+            Carried::Fields(Vec::new())
+        } else {
+            let Some(carried) = carried(
+                &variant.fields,
+                &sibling_metas,
+                &mut sibling_bindings,
+                &mut absorbs,
+                &mut errors,
+                span,
+                &proto_name,
+            ) else {
+                continue;
+            };
+            carried
+        };
 
         let member_name = rename
             .clone()
@@ -628,35 +705,23 @@ pub(crate) fn oneof_plan(
             .find_map(|(position, &field)| {
                 (meta.fields[field].name == member_name).then_some((position, &meta.fields[field]))
             });
-        // A struct variant whose fields are *all* siblings names no member: it is the "no member
-        // set" case, the struct-variant twin of the attribute-less unit variant above.
-        if member.is_none() && !sibling_metas.is_empty() && !present && rename.is_none() {
-            if let syn::Fields::Named(named) = &variant.fields {
-                match split_variant_fields(
-                    named,
-                    &sibling_metas,
-                    &mut sibling_bindings,
-                    &mut absorbs,
-                    &mut errors,
+
+        // One notion, stated once: a variant means "the oneof has no member set" when it names no
+        // member and carries nothing of its own once the shared fields are accounted for.
+        //
+        // The attribute-less unit variant of a sibling-free enum and the struct variant carrying
+        // exactly the siblings are that one case seen at two sibling counts. They used to be two
+        // branches gated on opposite sides of `sibling_metas.is_empty()`, 27 lines apart, each with
+        // its own duplicate-detection and its own error message -- and the two messages were not the
+        // same string.
+        if member.is_none() && carried.is_empty() && !present && rename.is_none() {
+            if default_variant.replace(variant.ident.clone()).is_some() {
+                errors.at(
                     span,
-                    &proto_name,
-                ) {
-                    Some(leftovers) if leftovers.is_empty() => {
-                        if default_variant.replace(variant.ident.clone()).is_some() {
-                            errors.at(
-                                span,
-                                "at most one attribute-less variant (the \"no member \
-                                 set\" case) is allowed",
-                            );
-                        }
-                        continue;
-                    }
-                    // Something is left over, so the variant does mean to name a member: fall
-                    // through to the unknown-member error below.
-                    Some(_) => {}
-                    None => continue,
-                }
+                    "at most one attribute-less variant (the \"no member set\" case) is allowed",
+                );
             }
+            continue;
         }
         let Some((position, field_meta)) = member else {
             let available = oneof
@@ -690,8 +755,8 @@ pub(crate) fn oneof_plan(
         };
         let (access, codec, checks) = match resolve_variant(
             &ctx,
+            carried.into_leftovers(),
             &sibling_metas,
-            &mut sibling_bindings,
             with,
             &mut absorbs,
             &mut errors,
