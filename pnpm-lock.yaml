@@ -20,9 +20,9 @@ importers:
       eslint:
         specifier: ^9.9.1
         version: 9.9.1(jiti@1.21.6)
-      eslint-config-standard-with-typescript:
-        specifier: ^43.0.1
-        version: 43.0.1(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint-plugin-import@2.30.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-n@17.10.2(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-promise@6.6.0(eslint@9.9.1(jiti@1.21.6)))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4)
+      eslint-config-love:
+        specifier: ^43.1.0
+        version: 43.1.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint-plugin-import@2.30.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-n@17.10.2(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-promise@6.6.0(eslint@9.9.1(jiti@1.21.6)))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4)
       eslint-plugin-import:
         specifier: ^2.30.0
         version: 2.30.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6))
@@ -723,9 +723,8 @@ packages:
   eslint-config-flat-gitignore@0.1.8:
     resolution: {integrity: sha512-OEUbS2wzzYtUfshjOqzFo4Bl4lHykXUdM08TCnYNl7ki+niW4Q1R0j0FDFDr0vjVsI5ZFOz5LvluxOP+Ew+dYw==}
 
-  eslint-config-standard-with-typescript@43.0.1:
-    resolution: {integrity: sha512-WfZ986+qzIzX6dcr4yGUyVb/l9N3Z8wPXCc5z/70fljs3UbWhhV+WxrfgsqMToRzuuyX9MqZ974pq2UPhDTOcA==}
-    deprecated: Please use eslint-config-love, instead.
+  eslint-config-love@43.1.0:
+    resolution: {integrity: sha512-r3+7mSaOl0BEGf8LEntPPDbWTDw8o0Dpy9vdts7m+NAuSpmz9C/gL+64lC0Z8nKNE4uwdymPGll4czGQiR+XmQ==}
     peerDependencies:
       '@typescript-eslint/eslint-plugin': ^6.4.0
       eslint: ^8.0.1
@@ -822,6 +821,7 @@ packages:
   eslint-plugin-markdown@5.1.0:
     resolution: {integrity: sha512-SJeyKko1K6GwI0AN6xeCDToXDkfKZfXcexA6B+O2Wr2btUS9GrC+YgwSyVli5DJnctUHjFXcQ2cqTaAmVoLi2A==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: Please use @eslint/markdown instead
     peerDependencies:
       eslint: '>=8'
 
@@ -1043,6 +1043,7 @@ packages:
 
   glob@10.4.5:
     resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   globals@13.24.0:
@@ -2684,7 +2685,7 @@ snapshots:
       find-up-simple: 1.0.0
       parse-gitignore: 2.0.0
 
-  eslint-config-standard-with-typescript@43.0.1(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint-plugin-import@2.30.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-n@17.10.2(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-promise@6.6.0(eslint@9.9.1(jiti@1.21.6)))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4):
+  eslint-config-love@43.1.0(@typescript-eslint/eslint-plugin@7.18.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint-plugin-import@2.30.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-n@17.10.2(eslint@9.9.1(jiti@1.21.6)))(eslint-plugin-promise@6.6.0(eslint@9.9.1(jiti@1.21.6)))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4):
     dependencies:
       '@typescript-eslint/eslint-plugin': 7.18.0(@typescript-eslint/parser@8.4.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4))(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4)
       '@typescript-eslint/parser': 6.21.0(eslint@9.9.1(jiti@1.21.6))(typescript@5.5.4)
