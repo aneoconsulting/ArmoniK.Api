@@ -12,19 +12,19 @@ pub struct Request {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.AvailabilityReply")]
 pub enum Response {
+    /// No reply: no member was set.
+    ///
+    /// The absence used to decode to `NotCompleted("")`. `Ok` sits next to it here, so a reply
+    /// that says nothing cannot be read as one that says the result is available.
+    #[default]
+    Invalid,
     #[armonik(present)]
     Ok,
     #[armonik(rename = "error")]
     TaskError(TaskError),
     #[armonik(rename = "not_completed_task")]
     NotCompleted(String),
-}
-
-impl Default for Response {
-    fn default() -> Self {
-        Self::NotCompleted(Default::default())
-    }
 }

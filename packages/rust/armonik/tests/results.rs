@@ -370,6 +370,9 @@ rpc_tests! {
                     Some(Ok(results::upload::Request::DataChunk(chunk))) => {
                         size += chunk.len();
                     }
+                    Some(Ok(results::upload::Request::Invalid)) => {
+                        return Err(tonic::Status::invalid_argument("no member set"))
+                    }
                     Some(Err(err)) => return Err(err),
                     None => break,
                 }

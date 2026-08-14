@@ -1,24 +1,21 @@
 use super::Raw;
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.results.UploadResultDataRequest")]
 pub enum Request {
+    /// No member set.
+    ///
+    /// The absence used to decode to an `Identifier` with an empty session and result id, which
+    /// names a result rather than saying that the message named none.
+    #[default]
+    Invalid,
     #[armonik(rename = "id", inline)]
     Identifier {
         session_id: String,
         result_id: String,
     },
     DataChunk(bytes::Bytes),
-}
-
-impl Default for Request {
-    fn default() -> Self {
-        Self::Identifier {
-            session_id: Default::default(),
-            result_id: Default::default(),
-        }
-    }
 }
 
 #[armonik_macros::message]

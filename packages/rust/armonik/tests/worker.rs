@@ -51,6 +51,7 @@ rpc_tests! {
         project: |response| response.output,
         check: |output| match output {
             armonik::Output::Ok => panic!("Unexpected ok"),
+            armonik::Output::Invalid => panic!("Unexpected empty output"),
             armonik::Output::Error { details } => {
                 assert_eq!(details, "rpc-process-output")
             }
