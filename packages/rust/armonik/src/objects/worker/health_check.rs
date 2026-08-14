@@ -6,7 +6,7 @@ pub struct Request {}
 /// Health status of the worker, standing for the whole `HealthCheckReply`
 /// message (a transparent wrapper around its `ServingStatus` enum).
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[armonik(transparent, message = "armonik.api.grpc.v1.worker.HealthCheckReply")]
 pub enum Response {
     Serving,

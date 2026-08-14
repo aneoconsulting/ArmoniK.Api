@@ -1,5 +1,5 @@
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Default)]
 #[armonik(enum = "armonik.api.grpc.v1.FilterArrayOperator")]
 pub enum FilterArrayOperator {
     /// Contains the specified element.

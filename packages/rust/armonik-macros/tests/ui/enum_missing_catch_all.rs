@@ -6,7 +6,7 @@ include!("../support/prelude.rs");
 
 // proto3 enums are open, so an unknown value must have somewhere to go.
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 #[armonik(enum = "fixture.Colour")]
 pub enum Colour {
     Unspecified,
