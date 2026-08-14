@@ -421,6 +421,17 @@ pub(crate) fn slot_asserts(slot: &Slot, type_ident: &syn::Ident) -> TokenStream 
         (SlotCodec::Field { adapter, .. }, Some(ty)) if adapter.is_none() => {
             field_asserts_for(ty, slot.span, &slot.proto_path, &slot.checks, type_ident)
         }
+        // A oneof slot has no `Expectation` to check: it stands for a declaration rather than a
+        // field, so there is no kind or cardinality to compare. What it does have is an identity,
+        // and `proto_path` is already `message.oneof`. Without this, substituting one filter
+        // family's `Condition` for another's compiles clean and passes the whole harness, because
+        // the two are tag-compatible and the substitution is a byte-level bijection.
+        (SlotCodec::Oneof { ty, .. }, _) => {
+            let path = &slot.proto_path;
+            quote::quote_spanned! { slot.span =>
+                const _: () = crate::codec::assert_oneof::<#ty>(#path);
+            }
+        }
         _ => TokenStream::new(),
     }
 }

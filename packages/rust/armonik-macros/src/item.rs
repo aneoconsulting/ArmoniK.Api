@@ -194,11 +194,23 @@ fn stubs(input: &DeriveInput, kind: Kind) -> TokenStream {
         );
         if has(|item| matches!(item, AttrItem::Oneof(_))) {
             // An embedded oneof is carried by a field of the struct that owns it, which encodes it
-            // through `prost::Message` and projects it through `Normalize`. Unlike a whole message
-            // it gets no `Msg`: it stands for a fragment of one, not for a message.
+            // through `prost::Message`, projects it through `Normalize`, and const-asserts its
+            // identity through `Oneof`. Unlike a whole message it gets no `Msg`: it stands for a
+            // fragment of one, not for a message.
+            //
+            // The empty `ONEOF` is the "unchecked" case, and it is load-bearing rather than
+            // defensive: without it a typo'd `oneof = "..."` reports the real error plus an
+            // `E0277: Condition: Oneof` at every field carrying the type, which is the cascade this
+            // whole path exists to prevent.
+            let marker = quote! {
+                impl #generics crate::codec::Oneof for #ident #generics {
+                    const ONEOF: &'static [&'static str] = &[];
+                }
+            };
             let normalize =
                 crate::emit::normalize_impl(&generics, ident, std::slice::from_ref(&unimplemented));
             quote! {
+                #marker
                 #message
                 #normalize
             }

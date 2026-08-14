@@ -255,3 +255,19 @@ fn pair_map_rejects_non_delimited_wire_type() {
     .expect_err("a varint where a length-delimited entry belongs is a decode error");
     assert!(format!("{err}").contains("invalid wire type"), "{err}");
 }
+
+/// The empty list is unchecked, which is what makes the salvage stub's marker safe: a type whose
+/// expansion failed already has a `compile_error!` next to it, and this assert firing too would be
+/// the cascade the stub exists to prevent.
+#[test]
+fn an_empty_oneof_list_is_unchecked() {
+    use super::oneof_matches;
+
+    assert!(oneof_matches(&[], "anything.at.all"));
+    assert!(oneof_matches(&["a.b.c"], "a.b.c"));
+    assert!(!oneof_matches(&["a.b.c"], "a.b.d"));
+    // Several, as a unified type declares.
+    assert!(oneof_matches(&["a.b.c", "x.y.z"], "x.y.z"));
+    // A prefix is not a match: `names_contain` compares lengths first.
+    assert!(!oneof_matches(&["a.b.condition"], "a.b.cond"));
+}

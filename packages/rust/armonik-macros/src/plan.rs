@@ -186,6 +186,9 @@ pub(crate) struct OneofPlan {
     /// Whether the enum stands for the whole message (annotation without `oneof = ...`), in which
     /// case it gets `prost::Message` + `ProtoField` implementations.
     pub(crate) whole_message: bool,
+    /// `message.oneof` this type stands for, when it stands for one oneof of a larger message.
+    /// `None` for a whole-message enum, which is a message and records itself through `Msg::NAMES`.
+    pub(crate) oneof_path: Option<String>,
     /// Non-oneof fields of the message, replicated in every variant (whole-message enums only;
     /// empty when the oneof is the only field).
     pub(crate) siblings: Vec<Slot>,
