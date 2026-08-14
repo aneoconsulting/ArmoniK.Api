@@ -281,6 +281,23 @@ fn resolve_variant(
             );
             return Err(());
         }
+        // Rejected rather than supported. The two sets of fields would share one variant and one
+        // binding namespace, and their tags come from different messages, so a part at tag 4 and a
+        // sibling at tag 4 both bind `__f4`: supporting this needs a second naming scheme, for a
+        // shape no site wants. Without the check the resolver accepts it and the emitted patterns
+        // do not compile, pointing rustc's "append `, ..`" suggestion at the attribute.
+        if !sibling_metas.is_empty() {
+            errors.at(
+                inline_span,
+                format!(
+                    "inline and the non-oneof fields of `{}` cannot be combined: every variant \
+                     carries those fields, and inline spreads the member's own into the same \
+                     variant; carry the member whole in a field of its own instead",
+                    ctx.proto_name
+                ),
+            );
+            return Err(());
+        }
     }
     if ctx.present {
         // `present` needs a unit variant, and a message with non-oneof fields needs every variant
