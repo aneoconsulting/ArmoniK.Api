@@ -88,8 +88,7 @@ rpc_tests! {
     rpc unary notify_result_data {
         request: agent::notify_result_data::Request {
             communication_token: String::from("rpc-notify-result-data-input"),
-            session_id: String::new(),
-            result_ids: vec![String::new()],
+            results: vec![agent::notify_result_data::ResultIdentifier::default()],
         },
         respond: |request: agent::notify_result_data::Request| {
             agent::notify_result_data::Response {
