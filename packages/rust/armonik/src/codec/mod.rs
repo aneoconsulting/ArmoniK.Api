@@ -260,6 +260,20 @@ pub(crate) const fn assert_response_message<T: Msg>(output: &'static str) {
     );
 }
 
+/// What tokens cannot prove about a `#[armonik(transparent)]` struct: that the message it names is
+/// the one its delegate stands for.
+///
+/// A transparent struct is wire-identical to its single field, so its declared message *is* the
+/// delegate's, one to one. The delegate validates its own fields; nothing else validates that the
+/// two agree, which leaves `submitter::{cancel_tasks, list_tasks, count_tasks, list_sessions}` as
+/// four near-identical files differing only in that name.
+pub(crate) const fn assert_transparent_message<T: Msg>(name: &'static str) {
+    assert!(
+        names_contain(<T as Msg>::NAMES, name),
+        "the delegate does not implement the message this transparent struct names",
+    );
+}
+
 impl<T: Msg> ProtoField for T {
     const SHAPE: Shape = Shape {
         kind: FieldKind::Message,

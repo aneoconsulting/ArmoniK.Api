@@ -98,15 +98,23 @@ pub(crate) fn transparent_message(plan: &MessagePlan, generics: &syn::Generics) 
     let access = &field.access;
     let ty = field.ty().expect("the delegate carries a value");
 
+    // The delegate's *fields* need no assert, because the inner type validates its own. What does
+    // is the delegate's identity: this type is wire-identical to it, so the message named here has
+    // to be the one it stands for. Spanned on the delegate's type, which is the half that varies.
+    let asserts = plan.proto_names.iter().map(|name| {
+        quote::quote_spanned! { field.span =>
+            const _: () = crate::codec::assert_transparent_message::<#ty>(#name);
+        }
+    });
+    let asserts = quote! { #(#asserts)* };
+
     message_shaped(
         &plan.ident,
         generics,
         plan.fingerprint,
         &plan.proto_names,
         true,
-        // Nothing to assert: the field is not matched against the descriptor, because the inner
-        // type already validates itself.
-        TokenStream::new(),
+        asserts,
         MessageBodies {
             encode_raw: quote! { <#ty as ::prost::Message>::encode_raw(&self.#access, buf); },
             merge_field: quote! {
