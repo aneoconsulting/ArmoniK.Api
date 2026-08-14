@@ -439,7 +439,7 @@ fn expand_server(
         impl<S, B> crate::server::router::Routes<S, B> for #marker
         where
             S: #trait_ident + ::std::marker::Send + ::std::marker::Sync + 'static,
-            B: ::tonic::codegen::Body<Data = ::prost::bytes::Bytes>
+            B: ::tonic::codegen::Body
                 + ::std::marker::Send
                 + 'static,
             B::Error: ::std::convert::Into<::tonic::codegen::StdError>

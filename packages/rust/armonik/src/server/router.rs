@@ -59,11 +59,24 @@ pub(crate) trait Routes<S: 'static, B: 'static>: Service {
 /// `route_service`, or drive it straight from hyper: the `Service` impl takes any request body a
 /// tonic-generated server would. There is no `with_interceptor` constructor; wrap the router in
 /// `tonic::service::interceptor::InterceptedService::new` for that.
-#[derive(Debug)]
 pub struct Router<Svc, S> {
     inner: Arc<S>,
     config: ServerConfig,
     _svc: PhantomData<fn() -> Svc>,
+}
+
+/// Hand-written, because the derive would demand `Svc: Debug` and the service markers `service!`
+/// emits are unit structs implementing nothing. `Svc` is a `PhantomData<fn() -> Svc>` here, so it
+/// holds no value to print and the bound was never about this type's contents: a downstream
+/// `#[derive(Debug)]` over a struct with a `Router` field compiled on main and could not be made to
+/// compile here.
+impl<Svc, S: std::fmt::Debug> std::fmt::Debug for Router<Svc, S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Router")
+            .field("inner", &self.inner)
+            .field("config", &self.config)
+            .finish()
+    }
 }
 
 impl<Svc, S> Router<Svc, S> {
@@ -81,12 +94,11 @@ impl<Svc, S> Router<Svc, S> {
         }
     }
 
-    /// Enable decompressing requests with the given encoding.
+    /// Accept requests compressed with the given encoding.
     ///
-    /// Every `CompressionEncoding` variant sits behind one of tonic's compression features, and
-    /// this crate enables none of them, so there is nothing to pass until a dependent turns one on
-    /// (`tonic = { version = "0.14", features = ["gzip"] }`). Cargo features are additive, so doing
-    /// that from outside works; it is just not discoverable from here.
+    /// Every `CompressionEncoding` variant sits behind one of tonic's compression features; turn on
+    /// this crate's `gzip` to have one to pass. Cargo features being additive, a dependent
+    /// can also enable tonic's directly; these exist so it is discoverable from here.
     #[must_use]
     pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
         self.config.accept_compression_encodings.enable(encoding);
@@ -384,7 +396,7 @@ where
     S: Send + Sync + 'static,
     F: Fn(Arc<S>, R, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
-    B: tonic::codegen::Body<Data = ::prost::bytes::Bytes> + Send + 'static,
+    B: tonic::codegen::Body + Send + 'static,
     B::Error: Into<tonic::codegen::StdError> + Send + 'static,
 {
     let mut grpc = grpc(config);
@@ -413,7 +425,7 @@ where
     S: Send + Sync + 'static,
     F: Fn(Arc<S>, RequestStream<R>, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<R::Response, tonic::Status>> + Send + 'static,
-    B: tonic::codegen::Body<Data = ::prost::bytes::Bytes> + Send + 'static,
+    B: tonic::codegen::Body + Send + 'static,
     B::Error: Into<tonic::codegen::StdError> + Send + 'static,
 {
     let mut grpc = grpc(config);
@@ -443,7 +455,7 @@ where
     F: Fn(Arc<S>, R, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<St, tonic::Status>> + Send + 'static,
     St: futures::Stream<Item = Result<R::Response, tonic::Status>> + Send + 'static,
-    B: tonic::codegen::Body<Data = ::prost::bytes::Bytes> + Send + 'static,
+    B: tonic::codegen::Body + Send + 'static,
     B::Error: Into<tonic::codegen::StdError> + Send + 'static,
 {
     let mut grpc = grpc(config);
@@ -478,7 +490,7 @@ where
     F: Fn(Arc<S>, RequestStream<R>, RequestContext) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = Result<St, tonic::Status>> + Send + 'static,
     St: futures::Stream<Item = Result<R::Response, tonic::Status>> + Send + 'static,
-    B: tonic::codegen::Body<Data = ::prost::bytes::Bytes> + Send + 'static,
+    B: tonic::codegen::Body + Send + 'static,
     B::Error: Into<tonic::codegen::StdError> + Send + 'static,
 {
     let mut grpc = grpc(config);
@@ -494,16 +506,37 @@ where
         .await)
 }
 
+/// Apply the per-call configuration through tonic's *public* builders.
+///
+/// `apply_compression_config` and `apply_max_message_size_config` do the same in one call each, and
+/// are what tonic's own codegen uses, but both are `#[doc(hidden)]`: a 0.14.x patch may reshape
+/// them without considering it semver-relevant, and this is a library. `EnabledCompressionEncodings`
+/// has no public iterator, so the sets are drained with the public `pop` and re-applied in the
+/// order they were enabled in, which is the order the `grpc-accept-encoding` header lists.
 fn grpc<R: Rpc>(
     config: ServerConfig,
 ) -> tonic::server::Grpc<tonic_prost::ProstCodec<R::Response, R>> {
-    tonic::server::Grpc::new(tonic_prost::ProstCodec::default())
-        .apply_compression_config(
-            config.accept_compression_encodings,
-            config.send_compression_encodings,
-        )
-        .apply_max_message_size_config(
-            config.max_decoding_message_size,
-            config.max_encoding_message_size,
-        )
+    fn drain(mut encodings: EnabledCompressionEncodings) -> Vec<CompressionEncoding> {
+        let mut out = Vec::new();
+        while let Some(encoding) = encodings.pop() {
+            out.push(encoding);
+        }
+        out.reverse();
+        out
+    }
+
+    let mut grpc = tonic::server::Grpc::new(tonic_prost::ProstCodec::default());
+    for encoding in drain(config.accept_compression_encodings) {
+        grpc = grpc.accept_compressed(encoding);
+    }
+    for encoding in drain(config.send_compression_encodings) {
+        grpc = grpc.send_compressed(encoding);
+    }
+    if let Some(limit) = config.max_decoding_message_size {
+        grpc = grpc.max_decoding_message_size(limit);
+    }
+    if let Some(limit) = config.max_encoding_message_size {
+        grpc = grpc.max_encoding_message_size(limit);
+    }
+    grpc
 }

@@ -53,6 +53,10 @@ fn routes_any_request_body() {
 
     assert_routes::<Full<Bytes>>();
     assert_routes::<tonic::body::Body>();
+    // A body whose `Data` is not `Bytes`. The bound used to say `Body<Data = Bytes>`, which is
+    // stricter than tonic asks of its own servers (`HttpBody + Send + 'static`) and than anything
+    // in the router's bodies needs.
+    assert_routes::<Full<std::io::Cursor<Vec<u8>>>>();
 }
 
 /// Compile-only: a router still satisfies what `tonic::transport::Server::add_service` asks of a

@@ -1611,7 +1611,7 @@ so it could not have served as our disambiguator.)
 | Losing the two build-time extern guards | Replaced by expansion-time completeness (section 3.3) and the const asserts. The duplicate-generated-struct failure `guard_all_messages_externed` prevented cannot occur without codegen |
 | One larger crate, worse incrementality | Accepted. Touching a client file now recompiles the codec; ~16k lines total |
 | Feature matrix consolidates into one crate | Resolved by dropping the feature: the harness is a `#[cfg(test)]` module, so `prost-reflect` and `linkme` are dev-dependencies and no configuration ships it |
-| tonic 0.14 internals (`client::Grpc`, `server::Grpc`, `GrpcMethod`) | These are public API, and they are exactly what the generated code calls. Breakage tracks tonic majors we would upgrade deliberately |
+| tonic 0.14 internals (`client::Grpc`, `server::Grpc`, `GrpcMethod`) | These are public API, and they are exactly what the generated code calls. Breakage tracks tonic majors we would upgrade deliberately. The router did call two `#[doc(hidden)]` config appliers, which a 0.14.x *patch* could have reshaped; it now uses the public builders (`accept_compressed`, `send_compressed`, `max_*_message_size`) and drains the encoding sets through the public `pop` |
 
 ## 8. Migration plan (all landed)
 
