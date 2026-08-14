@@ -12,19 +12,19 @@ pub struct Request {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.ResultReply")]
 pub enum Response {
+    /// No reply: no member was set.
+    ///
+    /// The absence used to decode to `NotCompleted("")`, which names a task that is not done and
+    /// does not say which.
+    #[default]
+    Invalid,
     #[armonik(rename = "result")]
     DataChunk(DataChunk),
     #[armonik(rename = "error")]
     TaskError(TaskError),
     #[armonik(rename = "not_completed_task")]
     NotCompleted(String),
-}
-
-impl Default for Response {
-    fn default() -> Self {
-        Self::NotCompleted(Default::default())
-    }
 }

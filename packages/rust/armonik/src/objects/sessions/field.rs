@@ -21,9 +21,15 @@ pub enum RawField {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[armonik(message = "armonik.api.grpc.v1.sessions.SessionField")]
 pub enum Field {
+    /// No field: the oneof was left unset.
+    ///
+    /// Distinct from a raw field holding the unspecified value, which is what the absence used to
+    /// decode to: both name no field, but only this one round-trips as the empty message.
+    #[default]
+    Invalid,
     /// The session raw field.
     #[armonik(rename = "session_raw_field")]
     Raw(RawField),
@@ -35,10 +41,4 @@ pub enum Field {
         absorbs = "armonik.api.grpc.v1.sessions.TaskOptionGenericField"
     )]
     TaskOptionGeneric(String),
-}
-
-impl Default for Field {
-    fn default() -> Self {
-        Self::Raw(Default::default())
-    }
 }

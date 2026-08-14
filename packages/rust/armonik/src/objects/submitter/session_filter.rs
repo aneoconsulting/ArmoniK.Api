@@ -2,12 +2,18 @@ use super::super::SessionStatus;
 
 /// Status selector of the filter.
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(
     message = "armonik.api.grpc.v1.submitter.SessionFilter",
     oneof = "statuses"
 )]
 pub enum SessionFilterStatuses {
+    /// No status selector: `statuses` was left unset.
+    ///
+    /// Distinct from excluding the empty set, which is what the absence used to decode to: one
+    /// says the peer named no status constraint, the other that it named one and it is vacuous.
+    #[default]
+    Invalid,
     /// Select the sessions whose status is one of these.
     #[armonik(
         rename = "included",
@@ -22,12 +28,6 @@ pub enum SessionFilterStatuses {
         absorbs = "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest"
     )]
     Exclude(Vec<SessionStatus>),
-}
-
-impl Default for SessionFilterStatuses {
-    fn default() -> Self {
-        Self::Exclude(Default::default())
-    }
 }
 
 #[armonik_macros::message]

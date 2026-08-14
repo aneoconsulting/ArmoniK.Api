@@ -21,6 +21,7 @@ fn filter_session(filter: &submitter::TaskFilter) -> &str {
     match &filter.ids {
         submitter::TaskFilterIds::Sessions(ids) => &ids[0],
         submitter::TaskFilterIds::Tasks(_) => panic!("Expected a session filter"),
+        submitter::TaskFilterIds::Invalid => panic!("Expected a session filter, got no member"),
     }
 }
 
@@ -46,6 +47,7 @@ fn task_infos(response: submitter::create_tasks::Response) -> Vec<submitter::cre
     match response {
         submitter::create_tasks::Response::Status(statuses) => statuses,
         submitter::create_tasks::Response::Error(err) => panic!("Unexpected error {err:?}"),
+        submitter::create_tasks::Response::Invalid => panic!("Unexpected empty reply"),
     }
 }
 
@@ -53,6 +55,7 @@ fn task_id(status: &submitter::create_tasks::Status) -> &str {
     match status {
         submitter::create_tasks::Status::TaskInfo { task_id, .. } => task_id,
         submitter::create_tasks::Status::Error(err) => panic!("Unexpected error {err:?}"),
+        submitter::create_tasks::Status::Invalid => panic!("Unexpected empty status"),
     }
 }
 
@@ -239,6 +242,7 @@ rpc_tests! {
         project: |output| match output {
             armonik::Output::Ok => (),
             armonik::Output::Error { details } => panic!("Unexpected error {details:?}"),
+            armonik::Output::Invalid => panic!("Unexpected empty output"),
         },
         check: |_| {},
     }

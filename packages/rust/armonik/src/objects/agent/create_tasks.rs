@@ -42,9 +42,15 @@ impl Default for Request {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus")]
 pub enum Status {
+    /// No creation status: neither member was set.
+    ///
+    /// The absence used to decode to an empty `Error`, which reads as a task that failed with no
+    /// message rather than as a reply that says nothing.
+    #[default]
+    Invalid,
     #[armonik(inline)]
     TaskInfo {
         task_id: String,
@@ -55,19 +61,18 @@ pub enum Status {
     Error(String),
 }
 
-impl Default for Status {
-    fn default() -> Self {
-        Self::Error(Default::default())
-    }
-}
-
 /// The `CreateTaskReply` message: one oneof (tags 1-2, with the `CreationStatusList` wrapper
-/// flattened through `VecWrapper`) plus a sibling `communication_token = 4` carried by both
-/// variants. There is no "no member set" variant: an absent oneof decodes to the `Error` default.
+/// flattened through `VecWrapper`) plus a sibling `communication_token = 4` carried by every
+/// variant, `Invalid` (the "no member set" case) included, so a token survives any wire field order.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply")]
 pub enum Response {
+    /// No reply: neither member was set.
+    ///
+    /// The absence used to decode to an empty `Error`, which reads as a call that failed with no
+    /// message rather than as a reply that says nothing.
+    Invalid { communication_token: String },
     #[armonik(rename = "creation_status_list")]
     Status {
         communication_token: String,
@@ -85,9 +90,8 @@ pub enum Response {
 
 impl Default for Response {
     fn default() -> Self {
-        Self::Error {
+        Self::Invalid {
             communication_token: Default::default(),
-            error: Default::default(),
         }
     }
 }

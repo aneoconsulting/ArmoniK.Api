@@ -2,9 +2,15 @@ use super::super::TaskStatus;
 
 /// Task selector of the filter.
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter", oneof = "ids")]
 pub enum TaskFilterIds {
+    /// No id selector: `ids` was left unset.
+    ///
+    /// The absence used to decode to `Sessions([])`, which selects the tasks of no session, so a
+    /// filter a peer never wrote could select nothing at all.
+    #[default]
+    Invalid,
     /// Select the tasks from their session IDs.
     #[armonik(
         rename = "session",
@@ -21,20 +27,19 @@ pub enum TaskFilterIds {
     Tasks(Vec<String>),
 }
 
-impl Default for TaskFilterIds {
-    fn default() -> Self {
-        Self::Sessions(Default::default())
-    }
-}
-
 /// Status selector of the filter.
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(
     message = "armonik.api.grpc.v1.submitter.TaskFilter",
     oneof = "statuses"
 )]
 pub enum TaskFilterStatuses {
+    /// No status selector: `statuses` was left unset.
+    ///
+    /// Distinct from excluding the empty set, which is what the absence used to decode to.
+    #[default]
+    Invalid,
     /// Select the tasks whose status is one of these.
     #[armonik(
         rename = "included",
@@ -49,12 +54,6 @@ pub enum TaskFilterStatuses {
         absorbs = "armonik.api.grpc.v1.submitter.TaskFilter.StatusesRequest"
     )]
     Exclude(Vec<TaskStatus>),
-}
-
-impl Default for TaskFilterStatuses {
-    fn default() -> Self {
-        Self::Exclude(Default::default())
-    }
 }
 
 #[armonik_macros::message]

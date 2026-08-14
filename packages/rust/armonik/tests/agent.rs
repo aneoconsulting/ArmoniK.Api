@@ -186,6 +186,9 @@ rpc_tests! {
             agent::create_tasks::Response::Error { error, .. } => {
                 panic!("Expected a status list, but got Error({error})")
             }
+            agent::create_tasks::Response::Invalid { .. } => {
+                panic!("Expected a status list, but the reply set no member")
+            }
         },
         check: |statuses| match &statuses[0] {
             agent::create_tasks::Status::TaskInfo { task_id, .. } => {
@@ -193,6 +196,9 @@ rpc_tests! {
             }
             agent::create_tasks::Status::Error(err) => {
                 panic!("Expected TaskInfo, but got Error({err})")
+            }
+            agent::create_tasks::Status::Invalid => {
+                panic!("Expected TaskInfo, but the status set no member")
             }
         },
     }

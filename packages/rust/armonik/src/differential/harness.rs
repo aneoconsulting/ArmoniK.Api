@@ -120,6 +120,69 @@ fn default_encoding_is_the_proto_zero() {
     }
 }
 
+/// A message with no oneof member set decodes to a value with no oneof member set.
+///
+/// Stricter than the invariant above, which lets a defaulted oneof through as long as its payload
+/// is itself zero, and that slack is exactly what hid the bug: 15 of the flattened oneofs had no
+/// "no member set" variant, so an absent oneof decoded to whichever member the hand-written
+/// `Default` happened to pick, and re-encoded with that member set. A peer that left
+/// `value_condition` unset was read as `task_id string-equals ""`, which selects a different set of
+/// tasks and cannot be rejected.
+///
+/// Synthetic oneofs are skipped: proto3 `optional` is one, and `Option<T>` models it directly.
+#[test]
+fn an_absent_oneof_decodes_to_no_member() {
+    let pool = pool();
+    let mut wrong = Vec::new();
+    for (proto, hooks) in registry::entries() {
+        let desc = pool
+            .get_message_by_name(proto)
+            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
+
+        let reencoded = (hooks.roundtrip)(&[])
+            .unwrap_or_else(|err| panic!("`{proto}` fails to decode the empty message: {err}"));
+        let decoded = DynamicMessage::decode(desc.clone(), reencoded.as_slice())
+            .unwrap_or_else(|err| panic!("`{proto}` re-encodes the empty message as: {err}"));
+
+        for oneof in desc.oneofs() {
+            if oneof.is_synthetic() || FLATTENED_ONEOFS.contains(&proto) {
+                continue;
+            }
+            if let Some(field) = oneof.fields().find(|field| decoded.has_field(field)) {
+                wrong.push(format!(
+                    "`{proto}`: an empty message decodes with `{}.{}` set ({})",
+                    oneof.name(),
+                    field.name(),
+                    debug_fields(&decoded),
+                ));
+            }
+        }
+    }
+    assert!(
+        wrong.is_empty(),
+        "these types read an absent oneof as one of its members. Give each an attribute-less \
+         variant for \"no member set\", so the absence is a value rather than whichever member \
+         `Default` picks:\n    {}",
+        wrong.join("\n    "),
+    );
+}
+
+/// Messages whose oneof a [`transparent`](armonik_macros::enumeration#transparent) enumeration
+/// flattens away, so there is no Rust variant left to hold "no member set".
+///
+/// Justified by the shape rather than allowed by fiat: each of these is a wrapper whose oneof has a
+/// single member, itself a wrapper around one proto enum, and the flattened enum's unspecified
+/// value already means "names no field". The absent oneof and the present-but-unspecified member
+/// say the same thing, so nothing is lost by conflating them. Contrast
+/// `applications.FilterField.value_condition`, also a one-member oneof, where they say different
+/// things (no condition at all, versus a string condition on the empty string) and the Rust type
+/// therefore carries the variant.
+const FLATTENED_ONEOFS: &[&str] = &[
+    "armonik.api.grpc.v1.applications.ApplicationField",
+    "armonik.api.grpc.v1.partitions.PartitionField",
+    "armonik.api.grpc.v1.results.ResultField",
+];
+
 /// The path of the first field holding something other than the proto zero, if any.
 fn first_nonzero(message: &DynamicMessage) -> Option<String> {
     use prost_reflect::ReflectMessage;
@@ -162,15 +225,16 @@ fn is_nonzero(value: &prost_reflect::Value) -> bool {
 }
 
 /// Fields that collapse to "nothing" under the quotient by design: their only representations are
-/// equivalent to the empty message (the default member of a oneof whose payload carries no data).
-/// Every other field must stay information-bearing. The `Normalize` projections come from the same
-/// attributes as the codecs, so this ratchet is what keeps a codec bug from hiding behind a
-/// matching projection bug: a field erased by both shows up here and has to be justified by hand.
-const UNINFORMATIVE_FIELDS: &[&str] = &[
-    // The `Ok` member is the `Output` default and its payload is `Empty`: `{ ok: {} }` IS the zero
-    // value, indistinguishable from an absent message by the zero-default invariant.
-    "armonik.api.grpc.v1.Output.ok",
-];
+/// equivalent to the empty message. Every other field must stay information-bearing. The
+/// `Normalize` projections come from the same attributes as the codecs, so this ratchet is what
+/// keeps a codec bug from hiding behind a matching projection bug: a field erased by both shows up
+/// here and has to be justified by hand.
+///
+/// Empty, and that is the statement. It held `armonik.api.grpc.v1.Output.ok` for as long as `Ok`
+/// was the `Output` default, which made `{ ok: {} }` the zero value and so indistinguishable from
+/// an absent message. Giving `Output` a "no member set" variant separated the two, and took the
+/// last exception with it.
+const UNINFORMATIVE_FIELDS: &[&str] = &[];
 
 const PROBE_DEPTH: u32 = 3;
 

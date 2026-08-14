@@ -30,6 +30,14 @@ impl<T: super::Channel> super::ServiceClient<services::Agent, T> {
                 communication_token: _,
                 error,
             } => Err(tonic::Status::internal(error)).context(super::GrpcSnafu {}),
+            // A reply naming neither outcome. Not silently the empty success it used to be: the
+            // tasks may well have been created, and the caller has no way to find out from here.
+            create_tasks::Response::Invalid {
+                communication_token: _,
+            } => Err(tonic::Status::internal(
+                "the agent's CreateTask reply set neither creation_status_list nor error",
+            ))
+            .context(super::GrpcSnafu {}),
         }
     }
 

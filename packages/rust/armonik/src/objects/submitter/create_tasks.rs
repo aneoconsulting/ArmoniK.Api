@@ -31,9 +31,15 @@ pub enum LargeRequest {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus")]
 pub enum Status {
+    /// No creation status: neither member was set.
+    ///
+    /// The absence used to decode to an empty `Error`, which reads as a task that failed with no
+    /// message rather than as a reply that says nothing.
+    #[default]
+    Invalid,
     #[armonik(inline)]
     TaskInfo {
         task_id: String,
@@ -44,16 +50,16 @@ pub enum Status {
     Error(String),
 }
 
-impl Default for Status {
-    fn default() -> Self {
-        Self::Error(Default::default())
-    }
-}
-
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply")]
 pub enum Response {
+    /// No reply: neither member was set.
+    ///
+    /// The absence used to decode to an empty status list, which reads as a successful call that
+    /// created nothing.
+    #[default]
+    Invalid,
     /// The creation statuses, one per task creation request.
     #[armonik(
         rename = "creation_status_list",
@@ -63,10 +69,4 @@ pub enum Response {
     Status(Vec<Status>),
     /// The error message when all the task creations failed.
     Error(String),
-}
-
-impl Default for Response {
-    fn default() -> Self {
-        Self::Status(vec![])
-    }
 }

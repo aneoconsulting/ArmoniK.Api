@@ -30,9 +30,15 @@ pub enum SummaryField {
 }
 
 #[armonik_macros::message]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[armonik(message = "armonik.api.grpc.v1.tasks.TaskField")]
 pub enum Field {
+    /// No field: the oneof was left unset.
+    ///
+    /// Distinct from a summary field holding the unspecified value, which is what the absence used
+    /// to decode to: both name no field, but only this one round-trips as the empty message.
+    #[default]
+    Invalid,
     #[armonik(rename = "task_summary_field")]
     Summary(SummaryField),
     #[armonik(rename = "task_option_field")]
@@ -43,10 +49,4 @@ pub enum Field {
         absorbs = "armonik.api.grpc.v1.tasks.TaskOptionGenericField"
     )]
     OptionGeneric(String),
-}
-
-impl Default for Field {
-    fn default() -> Self {
-        Self::Summary(Default::default())
-    }
 }
