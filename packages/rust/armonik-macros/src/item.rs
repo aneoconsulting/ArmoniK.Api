@@ -279,9 +279,12 @@ fn enumeration_stubs(input: &DeriveInput, ident: &syn::Ident) -> TokenStream {
 
     quote! {
         #(
-            // No serde derive, unlike the real one: a stub next to a `compile_error!` is never
-            // serialized, and the `cfg` would be one the crate under test need not know about.
+            // The serde line, like the real one and for the same reason `salvage` puts it on the
+            // re-emitted enum: that enum's catch-all holds this struct, so a `derive(Deserialize)`
+            // above needs one here too. Without it, under `--all-features`, one mistake in an
+            // enumeration reports as three errors, which is the cascade this whole path prevents.
             #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             pub struct #payloads(i32);
 
             impl #payloads {
