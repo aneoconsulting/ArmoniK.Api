@@ -240,7 +240,7 @@ use syn::DeriveInput;
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);
     if !attr.is_empty() {
-        return no_args(&input, "message");
+        return no_args(input, Kind::Message, "message");
     }
     let plan = match shape::resolve_message(&input) {
         Ok(plan) => plan,
@@ -363,7 +363,7 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);
     if !attr.is_empty() {
-        return no_args(&input, "enumeration");
+        return no_args(input, Kind::Enumeration, "enumeration");
     }
     let plan = match shape::resolve_enumeration(&input) {
         Ok(plan) => plan,
@@ -399,13 +399,17 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
 
 /// The two attribute macros take no arguments of their own; everything is spelled in
 /// `#[armonik(...)]` on the item.
-fn no_args(input: &DeriveInput, macro_name: &str) -> TokenStream {
-    syn::Error::new(
+///
+/// Through [`item::salvage`] like every other failure: this one used to return the `compile_error!`
+/// alone, which deletes the annotated type, so a downstream `use` of it became `E0432` carrying a
+/// suggestion to import an unrelated variant of the same name. The real error was the third of
+/// three, and the only one that was true.
+fn no_args(input: DeriveInput, kind: Kind, macro_name: &str) -> TokenStream {
+    let error = syn::Error::new(
         input.ident.span(),
         format!("#[armonik_macros::{macro_name}] takes no arguments"),
-    )
-    .into_compile_error()
-    .into()
+    );
+    item::salvage(input, kind, error.into()).into()
 }
 
 /// Register a proto message name for a type alias, so generic instantiations

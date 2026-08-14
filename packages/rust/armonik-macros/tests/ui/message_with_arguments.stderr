@@ -1,5 +1,5 @@
 error: #[armonik_macros::message] takes no arguments
- --> tests/ui/message_with_arguments.rs:7:12
-  |
-7 | pub struct Simple {
-  |            ^^^^^^
+  --> tests/ui/message_with_arguments.rs:12:12
+   |
+12 | pub struct Simple {
+   |            ^^^^^^
