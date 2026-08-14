@@ -11,9 +11,8 @@ use prost::DecodeError;
 ///
 /// `merge_loop` reads the length prefix and loops on the *same* buffer, bounded by a byte count,
 /// rather than handing out a sub-buffer (prost 0.14 `src/encoding.rs:139-164`). So the recursion is
-/// plainly generic: it used to go through `dyn Buf` to stop a generic one monomorphizing an
-/// unbounded tower of `Take<&mut Take<...>>`, and there is no tower any more. Depth is the wrapper
-/// path's length, which the descriptor fixes at expansion time.
+/// plainly generic, with no tower of `Take<&mut Take<...>>` for a generic recursion to
+/// monomorphize. Depth is the wrapper path's length, which the descriptor fixes at expansion time.
 ///
 /// Going through prost also brings what the hand-rolled framing did not have: the recursion and
 /// length limits `ctx` carries, and the exact-length check that rejects a body whose fields run

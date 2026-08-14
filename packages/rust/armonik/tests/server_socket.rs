@@ -127,9 +127,9 @@ async fn an_unknown_method_is_unimplemented_and_names_the_path() {
     serving.abort();
 }
 
-/// The case that used to abort the connection: `http` accepts non-ASCII UTF-8 in a path, and the
-/// truncation sliced it at byte 128 whatever sat there. Over a real socket the panic took the
-/// hyper connection task with it, so this asserts the connection is still usable afterwards.
+/// A panic in `Service::call` takes the hyper connection task with it, so this asserts the
+/// connection still serves afterwards. `http` accepts non-ASCII UTF-8 in a path, and the
+/// truncation is in bytes.
 #[tokio::test]
 async fn a_long_non_ascii_path_does_not_take_the_connection_down() {
     let (mut channel, serving) = serve().await;

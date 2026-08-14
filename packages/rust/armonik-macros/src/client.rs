@@ -10,16 +10,11 @@
 //!
 //! # Resilience
 //!
-//! Every failure path re-emits the impl block. rust-analyzer only analyses an attributed item
-//! through the macro's output, so a macro that answers a malformed input with nothing but
-//! `compile_error!` takes the whole block out of the IDE: no completion, no go-to-definition, for
-//! every method in it, on every keystroke that leaves the block momentarily unparseable. The
-//! guidance for macro authors is to "produce its expansion on a best effort basis *together with*
-//! the `compile_error!` invocations", which is what `#[tokio::main]` does and `async_trait` does
-//! not. `item::salvage` applies the same rule to a derived type for the same reason.
-//!
-//! So the worst case here is a block with no injected docs and no registration, never a block that
-//! vanished.
+//! Every failure path re-emits the impl block, so the worst case is a block with no injected docs
+//! and no registration, never a block that vanished. rust-analyzer only sees an attributed item
+//! through the macro's output: answering a malformed input with `compile_error!` alone takes every
+//! method in the block out of the IDE, on every keystroke that leaves it unparseable.
+//! `item::salvage` applies the same rule to a derived type.
 
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::quote;

@@ -53,16 +53,12 @@ use syn::DeriveInput;
 ///
 /// Besides `prost::Message`, the expansion emits:
 /// - a `Msg` impl, which the codec's blanket `ProtoField` impl picks up, so
-///   the type composes as a field of other derived messages (`ProtoField`
-///   covers scalars, `String`, `bytes::Bytes`, `Vec<T>`, `Option<T>` for
-///   proto3 explicit presence, `HashMap<K, V>`,
-///   `prost_types::{Timestamp, Duration}`, and every derived type);
+///   the type composes as a field of other derived messages;
 /// - a fingerprint const-assert that fails the build once the expansion goes
 ///   stale against a newer descriptor;
-/// - under `cfg(test)`, the type's registration into
-///   `armonik`'s `differential::registrations::REGISTRY`, with its
-///   `Normalize` projection and harness hooks. A `cfg(test)` module, so
-///   nothing of it ships.
+/// - under `cfg(test)`, the type's registration into `armonik`'s
+///   `differential::registrations::REGISTRY`, with its `Normalize`
+///   projection and harness hooks.
 ///
 /// Derived types uphold the crate's zero-default invariant:
 /// `Default::default()` is the proto zero value, so decoding an empty message
@@ -221,11 +217,10 @@ use syn::DeriveInput;
 /// ```
 ///
 /// Spelled rather than inferred: `Variant { token, request: T }` is genuinely
-/// ambiguous between the two readings, and which one the derive picked used to
-/// depend on whether the enum had non-oneof fields at all. Without `inline`, one
-/// leftover field carries the member and several are an error naming this key;
-/// with it, a leftover matching no field of the member message is an error
-/// listing the ones that exist.
+/// ambiguous between the two readings. Without `inline`, one leftover field
+/// carries the member and several are an error naming this key; with it, a
+/// leftover matching no field of the member message is an error listing the
+/// ones that exist.
 ///
 /// `inline` combines with none of [`present`](#present), [`with`](#with), or a
 /// message that has non-oneof fields. The last is the one worth spelling out:
@@ -300,8 +295,8 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// The payload struct's field is private, so a catch-all value can only come
 /// from decoding or `From<i32>`, both of which normalize known values to their
 /// named variants (raw access via `.value() -> i32`). The expansion also emits
-/// `From<i32>` and `From<Self> for i32` (a dataful enum cannot be `as`-cast),
-/// an `UNSPECIFIED` associated const when the zero value has no named variant,
+/// `From<i32>` and `From<Self> for i32`, an `UNSPECIFIED` associated const
+/// when the zero value has no named variant,
 /// and `Default` (the zero value, per the crate's zero-default invariant)
 /// unless a variant carries the std `#[default]` attribute.
 ///
@@ -318,7 +313,7 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// Named values serialize as their variant name and the catch-all as a plain
 /// integer; deserializing accepts a name, an integer, or the `{"Unknown": 4}`
-/// object the derive used to write. Reading three shapes means
+/// object `derive(Deserialize)` writes. Reading three shapes means
 /// `deserialize_any`, so the self-describing formats work and the ones that
 /// need the type to drive the parse (bincode, postcard) do not.
 ///
@@ -409,10 +404,8 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// The two attribute macros take no arguments of their own; everything is spelled in
 /// `#[armonik(...)]` on the item.
 ///
-/// Through [`item::salvage`] like every other failure: this one used to return the `compile_error!`
-/// alone, which deletes the annotated type, so a downstream `use` of it became `E0432` carrying a
-/// suggestion to import an unrelated variant of the same name. The real error was the third of
-/// three, and the only one that was true.
+/// Through [`item::salvage`] like every other failure, so the annotated type survives: deleting it
+/// turns every downstream `use` into an `E0432` suggesting an unrelated item of the same name.
 fn no_args(input: DeriveInput, kind: Kind, macro_name: &str) -> TokenStream {
     let error = syn::Error::new(
         input.ident.span(),
@@ -443,21 +436,17 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 /// Declare the RPCs of one proto service, validated against the protobuf
-/// descriptor at expansion time. One invocation per service owns that
-/// service end to end: RPC identity, the server trait and router table, and
-/// the client convenience methods.
+/// descriptor at expansion time. One invocation per service owns RPC identity,
+/// the server trait and the router table for it.
 ///
 /// ```ignore
 /// crate::rpc::service! {
 ///     Results in crate::results @ "armonik.api.grpc.v1.results.Results";
-///     unexposed(WatchResults);
 ///
 ///     rpc ListResults(list::Request) -> list::Response;
-///     rpc GetOwnerTaskId(get_owner_task_id::Request) -> get_owner_task_id::Response => result_task;
 ///     rpc DownloadResultData(download::Request) -> stream download::Response;
 ///     rpc UploadResultData(stream upload::Request) -> upload::Response;
-///     rpc GetServiceConfiguration(get_service_configuration::Request)
-///         -> get_service_configuration::Response;
+///     rpc WatchResults(stream watch::Request) -> stream watch::Response;
 /// }
 /// ```
 ///
@@ -521,8 +510,7 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// streaming flags, no method is declared twice, no two methods share an
 /// handler name, and every method of the service is either declared or listed
 /// in `unexposed(...)`. Type facts, that the named Rust types implement the
-/// RPC's messages, are const-asserted over the codec's `NAMES`. A wrong sugar
-/// inference is an ordinary type error in the generated code.
+/// RPC's messages, are const-asserted over the codec's `NAMES`.
 #[proc_macro]
 pub fn service(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as service::ServiceDef);
@@ -591,11 +579,9 @@ pub fn client(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// Register the proto messages this type swallows, so they have no Rust type of their own and the
 /// differential harness counts them as covered through it.
 ///
-/// All of them come off the plan now: the explicit `#[armonik(absorbs = "...")]` names, which the
-/// per-site attribute scan collects, next to the ones a flattening construct implies (a transparent
-/// chain's middle wrappers, an inline variant's member message). The explicit ones used to need a
-/// second walk over every attribute site, because the scan that already read them threw the value
-/// away and only checked that the key was allowed.
+/// All off the plan: the explicit `#[armonik(absorbs = "...")]` names the per-site attribute scan
+/// collects, next to the ones a flattening construct implies (a transparent chain's middle
+/// wrappers, an inline variant's member message).
 fn absorbed(names: &[String]) -> TokenStream2 {
     let mut names = names.to_vec();
     names.sort();
@@ -617,8 +603,8 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
     let item_type: syn::ItemType = syn::parse2(item)?;
     let name = proto.value();
 
-    // The string used to be taken on trust, so a typo surfaced as four failing harness tests, the
-    // least cryptic of which reported an unmapped message and named neither this line nor the typo.
+    // Resolved rather than taken on trust: a typo is a spanned error here instead of four failing
+    // harness tests, none of which names this line.
     let index = descriptor::index().map_err(|message| syn::Error::new(proto.span(), message))?;
     let Some(meta) = index.messages.get(&name) else {
         return Err(matcher::not_found(proto.span(), "message", &name));

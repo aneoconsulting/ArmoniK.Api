@@ -390,10 +390,9 @@ const MAX_INDENT: usize = 3;
 /// request. And `<...>` in prose is swallowed by the browser while `<div>` is injected raw into the
 /// rendered page.
 ///
-/// So indentation is clamped rather than dropped, which keeps a line's relative indentation visible
-/// while no longer opening a block; a leading fence is escaped, for the block it would open and
-/// never close; and `[`, `<` and `\` are escaped, `[` because a link to an anchor that does not
-/// exist is a rustdoc warning and the build runs with `-Dwarnings`.
+/// So indentation is clamped rather than dropped, keeping relative indentation visible without
+/// opening a block; a leading fence is escaped; and `[`, `<` and `\` are escaped, `[` because a
+/// link to a missing anchor is a rustdoc warning and the build runs with `-Dwarnings`.
 ///
 /// Deliberately *not* `*`, `_`, `#` or `-`: none of them can break a build, and escaping them would
 /// change how 3,366 existing docblocks render, which is a diff nobody can review.

@@ -15,10 +15,7 @@ pub struct Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.ResultReply")]
 pub enum Response {
-    /// No reply: no member was set.
-    ///
-    /// The absence used to decode to `NotCompleted("")`, which names a task that is not done and
-    /// does not say which.
+    /// No member set, which `NotCompleted("")` is not.
     #[default]
     Invalid,
     #[armonik(rename = "result")]

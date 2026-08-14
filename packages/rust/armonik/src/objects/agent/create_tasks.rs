@@ -45,10 +45,7 @@ impl Default for Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus")]
 pub enum Status {
-    /// No creation status: neither member was set.
-    ///
-    /// The absence used to decode to an empty `Error`, which reads as a task that failed with no
-    /// message rather than as a reply that says nothing.
+    /// No member set, which an empty `Error` is not.
     #[default]
     Invalid,
     #[armonik(inline)]
@@ -68,10 +65,7 @@ pub enum Status {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply")]
 pub enum Response {
-    /// No reply: neither member was set.
-    ///
-    /// The absence used to decode to an empty `Error`, which reads as a call that failed with no
-    /// message rather than as a reply that says nothing.
+    /// No member set, which an empty `Error` is not.
     Invalid { communication_token: String },
     #[armonik(rename = "creation_status_list")]
     Status {
@@ -103,8 +97,7 @@ mod tests {
     use super::{Request, Response, Status};
     use crate::objects::{DataChunk, InitTaskRequest, TaskRequestHeader};
 
-    // prost-derived ground truth, mirroring the proto definitions (the generated types no longer
-    // exist for these extern'd messages).
+    // Independent prost-derived ground truth, mirroring the proto definitions.
 
     #[derive(Clone, PartialEq, Message)]
     struct RefRequest {
@@ -240,7 +233,7 @@ mod tests {
     #[test]
     fn request_token_without_member_keeps_token() {
         // `Invalid` carries the sibling token like every variant, so a memberless message is
-        // lossless (the historical conversion used to drop the token here).
+        // lossless.
         let mut buf = Vec::new();
         prost::encoding::string::encode(4, &"lonely".to_owned(), &mut buf);
         let ours = Request::decode(buf.as_slice()).unwrap();

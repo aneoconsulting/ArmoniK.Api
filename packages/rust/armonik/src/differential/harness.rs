@@ -395,7 +395,7 @@ fn descriptor_coverage_ratchet() {
 /// `rpc/*.rs` declares, `#[armonik_macros::client]` records what `client/*.rs` implements. Nothing
 /// else connects them, which is the point -- the client methods are written by hand, so their
 /// signatures cannot drift with the schema, and this is what replaces the guarantee that generating
-/// them used to give for free: that one exists at all.
+/// them gives for free: that one exists at all.
 ///
 /// `unexposed(...)` RPCs are not declared, which is what exempts them.
 #[test]

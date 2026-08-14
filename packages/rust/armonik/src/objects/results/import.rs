@@ -23,12 +23,8 @@ pub struct Response {
 }
 
 impl Response {
-    /// The updated results by name.
-    ///
-    /// A view rather than the field, and borrowed rather than owned, because `name` is not a key:
-    /// nothing on the wire makes it unique, so this map can hold fewer entries than `results`. The
-    /// response used to *be* this map, which meant a round trip could drop a result and no caller
-    /// could tell. It could not be correlated with the request either, which is keyed by result id.
+    /// The updated results by name, which is not a key: nothing on the wire makes `name` unique,
+    /// so this view can hold fewer entries than `results`.
     pub fn by_name(&self) -> HashMap<&str, &Raw> {
         self.results
             .iter()

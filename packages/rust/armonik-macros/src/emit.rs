@@ -21,9 +21,9 @@ impl quote::ToTokens for FieldAccess {
 }
 
 /// Runtime path of a descriptor kind, for const-assert patterns. `None` for the sint/fixed wire
-/// kinds the codec does not implement (no ArmoniK field uses them); the caller turns that into a
-/// clear "unsupported wire kind" compile error rather than referencing a `codec::FieldKind` variant
-/// that no longer exists.
+/// kinds the codec does not implement (no ArmoniK field uses them); the caller turns that into an
+/// "unsupported wire kind" error rather than naming a `codec::FieldKind` variant that does not
+/// exist.
 pub(crate) fn kind_pattern(kind: &FieldKind) -> Option<TokenStream> {
     let variant = match kind {
         FieldKind::Double => quote!(Double),
@@ -364,11 +364,9 @@ pub(crate) struct MessageBodies {
 /// Everything a message-shaped type emits: the guard block, its registry entries, and the trait
 /// trio. The single call site of [`message_impl`], [`normalize_impl`] and [`msg_impl`].
 ///
-/// Six shapes reach here (plain, transparent and generic structs, whole-message and embedded oneofs,
-/// and a transparent enumeration), and they differ only in the four bodies and in whether the type
-/// stands for a message at all. The four emitters covering them used to restate the assembly
-/// separately, so "a message-shaped type gets exactly these impls, with these bounds, under these
-/// names" was a fact spelled four times and true by coincidence.
+/// Six shapes reach here (plain, transparent and generic structs, whole-message and embedded
+/// oneofs, and a transparent enumeration), differing only in the four bodies and in whether the
+/// type stands for a message at all. Which impls, under which bounds, is stated once.
 ///
 /// `is_message` is false for an embedded oneof, which is a fragment of a message rather than one: it
 /// gets no `Msg` and registers nothing. A generic type is a message with no names, which

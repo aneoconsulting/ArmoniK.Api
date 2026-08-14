@@ -23,10 +23,8 @@ use super::{ProtoAdapter, ProtoField};
 /// message, the Rust side a map), carrying `normalize_dynamic`, and hosting
 /// `absorbs`.
 ///
-/// Key and value tags are therefore hardcoded, not parameters: the type used to
-/// read `PairMap<KT, VT>` while having exactly one implementation, for `<1, 2>`,
-/// and one instantiation across its six sites. Any other pair would need the
-/// hand-rolled framing back, and asking for one gave an unsatisfied-bound error
+/// Key and value tags are hardcoded rather than parameters: any other pair would need the framing
+/// hand-rolled again, and a `PairMap<KT, VT>` spelling only ever produced unsatisfied-bound errors
 /// pointing into expanded tokens.
 pub(crate) struct PairMap;
 

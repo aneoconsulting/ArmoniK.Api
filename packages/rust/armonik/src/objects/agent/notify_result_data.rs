@@ -17,11 +17,8 @@ pub struct Request {
 }
 
 impl Request {
-    /// Notify results that all belong to one session, which is what every caller does.
-    ///
-    /// The pairs carry a session each because the proto says so, not because a caller would want to
-    /// vary it. This spells the common case; the field is there for the one that does not, and for
-    /// reading a request off the wire without losing anything.
+    /// Notify results that all belong to one session, which is what every caller does. Build
+    /// [`results`](Self::results) directly to vary the session per result.
     pub fn in_session(
         communication_token: impl Into<String>,
         session_id: impl Into<String>,
@@ -54,9 +51,8 @@ mod tests {
 
     use super::{Request, ResultIdentifier};
 
-    /// prost-derived reference of `NotifyResultDataRequest` and its `ResultIdentifier` pairs, as an
-    /// independent codec: the multi-pair fixture below is encoded through it and decoded through
-    /// ours.
+    /// Independent prost-derived reference: the fixture below is encoded through it, decoded
+    /// through ours.
     #[derive(Clone, PartialEq, Message)]
     struct RefIdentifier {
         #[prost(string, tag = "1")]
@@ -73,12 +69,7 @@ mod tests {
         communication_token: String,
     }
 
-    /// Every pair keeps its own session.
-    ///
-    /// The request used to flatten the pairs into one shared session id, keeping the first non-empty
-    /// one, which lost the second session here: a server acting on the decoded request marked `r2`
-    /// available under `s1`. The empty session on `r0` was lost the same way, in the other
-    /// direction, since encoding replicated the shared id into every pair.
+    /// Every pair keeps its own session, including the empty one, and pairs may disagree.
     #[test]
     fn each_pair_keeps_its_own_session() {
         let reference = RefRequest {
@@ -123,8 +114,8 @@ mod tests {
         );
     }
 
-    /// The session id survives a request with no result, which the flattening dropped: it only ever
-    /// reached the wire inside a pair, and there was no pair to put it in.
+    /// A request with no result carries no session either: the session only reaches the wire
+    /// inside a pair.
     #[test]
     fn a_request_with_no_result_still_names_its_session() {
         let request = Request::in_session("tok", "s1", Vec::<String>::new());

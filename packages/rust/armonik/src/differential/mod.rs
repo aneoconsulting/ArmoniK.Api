@@ -16,12 +16,10 @@
 //!
 //! # Why the whole module is `#[cfg(test)]`
 //!
-//! It used to be a `_differential` feature turned on through a dev-dependency of the crate on
-//! itself, which meant every integration suite linked a lib built with the harness compiled in:
-//! the tested artifact was not the shipped one, and the shipped configuration was built by CI but
-//! never tested. It also forced `Normalize`, the registry and its hooks to be `pub`. Under
-//! `cfg(test)` the harness is a unit-test module like any other, `linkme` and `prost-reflect` are
-//! plain dev-dependencies, and none of it is public.
+//! A feature would mean the integration suites link a lib built with the harness in it, so the
+//! tested artifact would not be the shipped one, and it would force `Normalize`, the registry and
+//! its hooks to be `pub`. Under `cfg(test)` none of that is public and `linkme` and `prost-reflect`
+//! are plain dev-dependencies.
 
 use std::collections::BTreeMap;
 
@@ -91,9 +89,8 @@ pub fn wrapper_chain(message: &mut DynamicMessage) {
 /// `key_tag`: duplicates collapse (last wins) and order is lost, so entries are sorted by key.
 ///
 /// One caller, `PairMap`, whose key is a subfield of a pair message the proto declares for exactly
-/// that purpose. There used to be a second, locating the key by name, for a repeated field re-keyed
-/// on a field of its own element type: that shape lost entries whenever the field was not unique,
-/// and `results::import::Response` no longer takes it.
+/// that purpose. Keying on a field of the element type instead would need the key located by name,
+/// and would lose entries whenever that field is not unique.
 pub fn fold_pairs_by_tag(message: &mut DynamicMessage, tag: u32, key_tag: u32) {
     let Some(field) = message.descriptor().get_field(tag) else {
         return;

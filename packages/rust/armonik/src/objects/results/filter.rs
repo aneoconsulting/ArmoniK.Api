@@ -21,11 +21,8 @@ pub type Status = super::super::FilterStatus<ResultStatus>;
     oneof = "value_condition"
 )]
 pub enum Condition {
-    /// No condition: `value_condition` was left unset.
-    ///
-    /// A `FilterField` naming a field but no condition cannot be evaluated, so this is what a peer
-    /// that set no member decodes to. Without it the absence read as the first condition holding
-    /// its defaults, which is a filter over a different set rather than no filter at all.
+    /// No condition. A `FilterField` that names a field but no condition cannot be evaluated;
+    /// reading it as the first condition holding its defaults would filter on something else.
     #[default]
     Invalid,
     #[armonik(rename = "filter_string")]

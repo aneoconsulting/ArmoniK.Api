@@ -3,13 +3,7 @@
 //! `benches/roundtrip.rs` measures whole calls; this one isolates the codec,
 //! which is the part of the stack this branch replaces.
 //!
-//! # This is the post-revamp form
-//!
-//! The armonik types implement [`prost::Message`] themselves, so encoding is one
-//! pass over the value and decoding is one pass into it. Before the results
-//! service flipped, this file went through the generated `api::v3` mirrors and
-//! the conversions either way; it was rewritten at that commit, keeping the same
-//! benchmark ids and the same payloads so the two forms are comparable.
+//! The benchmark ids and payloads match the pre-revamp file, so the two are comparable.
 //!
 //! Three shapes, picked because they stress different things:
 //!
@@ -21,17 +15,13 @@
 //!
 //! # What `get_response` says about the unary regression
 //!
-//! `results/get` benches about +345 ns against the pre-revamp branch. This pair
-//! puts the whole response codec at roughly 133 ns to encode and 258 ns to
-//! decode, in a call that takes 2.2 µs. The part of that attributable to the
-//! encode-defaults decision is the 14 extra bytes it writes (59 against 45),
-//! which is under a third of the encode and a quarter of the decode: call it
-//! 80 to 95 ns of the 345. The remaining quarter-microsecond is fixed per-call
-//! cost, not codec.
-//!
-//! So reversing the encode-defaults decision would buy back well under a third
-//! of the regression and cost three interlocking mechanisms back (`is_default`,
-//! the presence rules it implied, and the harness's canonical-absence fold).
+//! `results/get` benches about +345 ns against the pre-revamp branch, in a call
+//! taking 2.2 µs. This pair puts the whole response codec at ~133 ns to encode
+//! and ~258 ns to decode, of which the encode-defaults decision accounts for the
+//! 14 extra bytes it writes (59 against 45): 80 to 95 ns of the 345. The rest is
+//! fixed per-call cost, so reversing that decision would buy back under a third
+//! of the regression and cost back `is_default`, the presence rules it implied,
+//! and the harness's canonical-absence fold.
 
 use armonik::results;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};

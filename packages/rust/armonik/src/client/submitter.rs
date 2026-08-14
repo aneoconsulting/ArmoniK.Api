@@ -35,8 +35,8 @@ impl<T: super::Channel> super::ServiceClient<services::Submitter, T> {
             create_tasks::Response::Error(msg) => {
                 Err(tonic::Status::internal(msg)).context(super::GrpcSnafu {})
             }
-            // A reply naming neither outcome. Not silently the empty success it used to be: the
-            // tasks may well have been created, and the caller has no way to find out from here.
+            // A reply naming neither outcome, which is not an empty success: the tasks may well
+            // have been created, and the caller cannot find out from here.
             create_tasks::Response::Invalid => Err(tonic::Status::internal(
                 "the submitter's reply set neither creation_status_list nor error",
             ))
@@ -57,8 +57,8 @@ impl<T: super::Channel> super::ServiceClient<services::Submitter, T> {
             create_tasks::Response::Error(msg) => {
                 Err(tonic::Status::internal(msg)).context(super::GrpcSnafu {})
             }
-            // A reply naming neither outcome. Not silently the empty success it used to be: the
-            // tasks may well have been created, and the caller has no way to find out from here.
+            // A reply naming neither outcome, which is not an empty success: the tasks may well
+            // have been created, and the caller cannot find out from here.
             create_tasks::Response::Invalid => Err(tonic::Status::internal(
                 "the submitter's reply set neither creation_status_list nor error",
             ))
@@ -85,7 +85,7 @@ impl<T: super::Channel> super::ServiceClient<services::Submitter, T> {
             Output::Error { details } => {
                 Err(tonic::Status::internal(details)).context(super::GrpcSnafu {})
             }
-            // An output naming neither outcome, which is not the success it used to read as.
+            // An output naming neither outcome, which is not a success.
             Output::Invalid => Err(tonic::Status::internal(
                 "the submitter's TryGetTaskOutput reply set neither ok nor error",
             ))

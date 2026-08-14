@@ -1,9 +1,8 @@
 //! Compile-fail suite: one case per diagnostic the derives can produce.
 //!
 //! The whole value of these macros is that a mistake in an annotation is a compile error *at the
-//! annotation* rather than a wrong byte on the wire, and none of those errors used to be under
-//! test: 92 `syn::Error::new` sites and 77 error pushes, guarded by unit tests that call the
-//! resolvers directly and never look at what rustc prints.
+//! annotation* rather than a wrong byte on the wire, so what rustc prints is the feature. Unit
+//! tests calling the resolvers directly cannot see it.
 //!
 //! Each case is a minimal `tests/ui/*.rs` paired with the exact `*.stderr` rustc prints for it.
 //! Regenerate after a deliberate wording change with:

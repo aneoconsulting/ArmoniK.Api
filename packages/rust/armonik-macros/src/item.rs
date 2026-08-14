@@ -394,9 +394,8 @@ fn apply<'a>(fields: impl Iterator<Item = &'a mut syn::Field>, slots: &[&Slot]) 
 
 /// Type-level docs for the salvage path, where there is no plan to read them off.
 ///
-/// Fields and variants get none: matching them to proto names is exactly the second resolver this
-/// module no longer has, and re-growing one for a build that is already failing would be the
-/// duplication back again.
+/// Fields and variants get none: matching them to proto names would be a second copy of the
+/// resolvers' rules, for a build that is failing anyway.
 fn inject_type_docs(input: &mut DeriveInput, kind: Kind) {
     let Ok(entries) = attrs::parse(&input.attrs) else {
         return;

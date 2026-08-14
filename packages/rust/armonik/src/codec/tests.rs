@@ -17,9 +17,8 @@
 //! Plus the `ProtoField` impls no API field instantiates, which therefore have no other coverage at
 //! all.
 //!
-//! This file used to be 707 lines, about 550 of them hand-copied derive output under a standing
-//! obligation to be updated before the emitter, which nothing enforced and which the harness had
-//! made redundant.
+//! Deliberately not a copy of the derive's output: the harness already compares against
+//! `DynamicMessage`, and a snapshot of the emitter would only ever be updated after it.
 
 use prost::bytes::BufMut;
 use prost::encoding::{DecodeContext, WireType};
@@ -156,11 +155,9 @@ fn the_leaf_impls_no_api_field_reaches() {
 /// Fields go out in ascending tag order, including across a whole-message oneof's members and the
 /// non-oneof fields that surround them.
 ///
-/// The emitter documents that discipline ("siblings below the oneof's tags are written before the
-/// member") and nothing tested it: the differential harness compares `DynamicMessage`s after
-/// `Normalize`, so it is blind to order, and pruning `codec/tests.rs` took the byte-exact
-/// assertions with it. `agent::create_tasks::Request` is the shape that exercises it: a oneof at
-/// tags 1 to 3 plus a `communication_token` sibling at tag 4.
+/// The harness compares `DynamicMessage`s after `Normalize`, so it is blind to order.
+/// `agent::create_tasks::Request` is the shape that exercises this: a oneof at tags 1 to 3 plus a
+/// `communication_token` sibling at tag 4.
 #[test]
 fn fields_are_emitted_in_ascending_tag_order() {
     let request = crate::agent::create_tasks::Request::InitRequest {
@@ -187,9 +184,8 @@ fn fields_are_emitted_in_ascending_tag_order() {
 /// A map entry holding the zero key and the zero value is written out, like every other field, and
 /// reads back as itself.
 ///
-/// This is the case the map codec used to be the single exception for: prost's `hash_map` skips a
-/// subfield equal to its default, so `{"": ""}` went on the wire as an empty entry. Both forms
-/// decode to the same map, which is why the differential harness cannot see the difference.
+/// prost's `hash_map` skips a subfield equal to its default, so it writes `{"": ""}` as an empty
+/// entry. Both forms decode to the same map, which is why the harness cannot see the difference.
 #[test]
 fn a_map_entry_of_defaults_is_written_out() {
     use std::collections::HashMap;
@@ -218,7 +214,7 @@ fn a_map_entry_of_defaults_is_written_out() {
     .expect("the entry merges");
     assert_eq!(decoded, values);
 
-    // And the form prost used to write still decodes to the same thing.
+    // And prost's form still decodes to the same thing.
     let empty_entry: &[u8] = &[0x0a, 0x00];
     let mut rest = empty_entry;
     let (_, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");

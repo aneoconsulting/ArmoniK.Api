@@ -6,12 +6,9 @@
 //! checkable: a plan type mentions no `TokenStream`, and an emitter reaches for no
 //! `DescriptorIndex`.
 //!
-//! That is also why the harvested proto comments live here, on the slot or variant they belong to.
-//! `item::inject` used to look them up itself, matching Rust names to proto names a second time
-//! with rules that were nearly, but not exactly, the resolvers'. Nearly cost real documentation:
-//! inlined variant fields were looked up in the containing message and never found, and a
-//! transparent enum's values were never looked up at all. Resolution knows the answer at the moment
-//! it matches, so it writes it down.
+//! The harvested proto comments live here too, on the slot or variant they belong to: resolution
+//! knows which proto element a Rust name matched at the moment it matches it, so looking that up a
+//! second time to attach the docs would mean a second copy of the matching rules.
 
 use proc_macro2::Span;
 
@@ -63,10 +60,9 @@ pub(crate) enum SlotCodec {
 /// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
 /// the descriptor's own vocabulary.
 ///
-/// There used to be a `Card` mirroring [`Cardinality`] and a `FieldChecks` mirroring the codec's
-/// `Expect`, with four functions whose whole job was to launder one into the other. The rules they
-/// encoded (a singular message field may be `Option` in Rust; a map checks its key and value kinds
-/// and names its value type) are not resolution decisions, so they live with the emitter instead.
+/// The descriptor's vocabulary, not the codec's: what a Rust type is allowed to be for it (a
+/// singular message field may be `Option`; a map checks its key and value kinds) is an emission
+/// rule, so it lives with the emitter.
 pub(crate) struct Expectation {
     pub(crate) kind: FieldKind,
     pub(crate) cardinality: Cardinality,
@@ -87,11 +83,7 @@ impl Expectation {
 ///
 /// A struct's field, a whole-message enum's non-oneof field (replicated across every variant), the
 /// member a variant carries, and one field of a member message spread into a variant under `inline`
-/// are the same thing seen from four places, and used to be four structs: `FieldPlan`,
-/// `SiblingPlan`, `InlinePart` and the `Payload` arm of an `OneofVariantShape`, of which the middle
-/// two were field-for-field identical. A per-field concern — a new attribute key that changes the
-/// encoding, a new check — was four edits and four chances to miss one, in a crate whose premise is
-/// that field-level duplication is what rots.
+/// are one type seen from four places, so a new attribute key or a new check is one edit.
 pub(crate) struct Slot {
     /// How the value is reached: `self.name` on a struct, the field name bound by the pattern in a
     /// struct variant, the single element of a tuple variant. `None` for a `present` marker, which

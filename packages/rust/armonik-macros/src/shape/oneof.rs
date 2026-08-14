@@ -153,10 +153,8 @@ fn carries_every_sibling(
 
 /// What a variant carries beyond the message's non-oneof fields, whatever its syntactic shape.
 ///
-/// The single fact both questions about a variant are answered from: whether it means "the oneof has
-/// no member set", and, once it names a member, how that member is reached. Computing it once is
-/// what lets the two readings share a test; it also means the fields are split once, where a struct
-/// variant with siblings used to be split twice, here and again inside [`resolve_variant`].
+/// Both questions about a variant are answered from this one fact: whether it means "the oneof has
+/// no member set", and, once it names a member, how that member is reached.
 enum Carried {
     /// A struct variant's fields beyond the shared ones: the member carried whole, or the member
     /// message's own fields under `inline`. Empty means the variant carries nothing of its own,
@@ -524,8 +522,8 @@ fn resolve_inline_member(
             },
             proto_path: format!("{inner_name}.{}", part_meta.name),
             checks: Expectation::of(part_meta),
-            // The member message's own field. The rewriter used to look these up in the
-            // *containing* message and silently find nothing.
+            // The member message's own field: looking it up in the *containing* message finds
+            // nothing, silently.
             docs: part_meta.docs.clone(),
         });
     }
@@ -782,14 +780,9 @@ fn resolve_one_variant(
                 .then_some((position, &selected.meta.fields[field]))
         });
 
-    // One notion, stated once: a variant means "the oneof has no member set" when it names no
-    // member and carries nothing of its own once the shared fields are accounted for.
-    //
-    // The attribute-less unit variant of a sibling-free enum and the struct variant carrying
-    // exactly the siblings are that one case seen at two sibling counts. They used to be two
-    // branches gated on opposite sides of `sibling_metas.is_empty()`, 27 lines apart, each with
-    // its own duplicate-detection and its own error message -- and the two messages were not the
-    // same string.
+    // A variant means "the oneof has no member set" when it names no member and carries nothing of
+    // its own once the shared fields are accounted for. The unit variant of a sibling-free enum and
+    // the struct variant carrying exactly the siblings are that one case at two sibling counts.
     if member.is_none() && carried.is_empty() && !present && rename.is_none() {
         return Some(VariantOutcome::NoMemberSet);
     }
@@ -1428,17 +1421,26 @@ mod tests {
     use super::*;
 
     /// Compile the compile-fail suite's fixture schema and point the descriptor loader at it.
+    ///
+    /// Once for the whole binary: tests run on their own threads, and two of them writing this file
+    /// while `descriptor::index` reads it hands one a truncated `FileDescriptorSet`, which decodes
+    /// to a prefix rather than erroring and is then cached by (mtime, len).
     fn fixture_index() -> std::sync::Arc<DescriptorIndex> {
         use prost::Message as _;
 
-        let dir = std::env::temp_dir().join("armonik-macros-oneof-fixture");
-        std::fs::create_dir_all(&dir).expect("create the fixture directory");
-        let descriptor = protox::compile(["tests/fixture.proto"], ["tests"])
-            .expect("compile tests/fixture.proto")
-            .encode_to_vec();
-        std::fs::write(dir.join("descriptor.bin"), &descriptor).expect("write the descriptor set");
-        std::env::set_var("OUT_DIR", &dir);
-        crate::descriptor::index().expect("the fixture index loads")
+        static INDEX: std::sync::OnceLock<std::sync::Arc<DescriptorIndex>> =
+            std::sync::OnceLock::new();
+        std::sync::Arc::clone(INDEX.get_or_init(|| {
+            let dir = std::env::temp_dir().join("armonik-macros-oneof-fixture");
+            std::fs::create_dir_all(&dir).expect("create the fixture directory");
+            let descriptor = protox::compile(["tests/fixture.proto"], ["tests"])
+                .expect("compile tests/fixture.proto")
+                .encode_to_vec();
+            std::fs::write(dir.join("descriptor.bin"), &descriptor)
+                .expect("write the descriptor set");
+            std::env::set_var("OUT_DIR", &dir);
+            crate::descriptor::index().expect("the fixture index loads")
+        }))
     }
 
     /// A variant's fields are bound under `__f<tag>`, never under the name the user gave them.
