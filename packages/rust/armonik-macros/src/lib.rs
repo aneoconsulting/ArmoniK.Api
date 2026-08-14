@@ -159,7 +159,9 @@ use syn::DeriveInput;
 /// `generic`, on a struct: skip descriptor validation, since a generic type
 /// cannot name one proto message. Every field carries an explicit
 /// [`tag`](#tag), and the differential harness validates the concrete
-/// instantiations instead.
+/// instantiations instead. Combines with neither [`message`](#message) nor
+/// [`transparent`](#transparent): both name the proto message this one says it
+/// does not have.
 ///
 /// ## rename
 ///
@@ -222,8 +224,14 @@ use syn::DeriveInput;
 /// depend on whether the enum had non-oneof fields at all. Without `inline`, one
 /// leftover field carries the member and several are an error naming this key;
 /// with it, a leftover matching no field of the member message is an error
-/// listing the ones that exist. `inline` combines with neither
-/// [`present`](#present) nor [`with`](#with).
+/// listing the ones that exist.
+///
+/// `inline` combines with none of [`present`](#present), [`with`](#with), or a
+/// message that has non-oneof fields. The last is the one worth spelling out:
+/// every variant of such an enum carries those fields, so an inlined member's
+/// own fields would land in the same variant, sharing a binding namespace with
+/// tags drawn from two different messages. Carry the member whole in a field of
+/// its own there.
 ///
 /// ## transparent
 ///

@@ -59,6 +59,15 @@ message Shared {
   }
 }
 
+// A oneof whose member is a message, next to a sibling field: the shape `inline` would have to
+// spread a member's own fields into a variant that already carries the sibling.
+message SharedInline {
+  string token = 1;
+  oneof pick {
+    Simple simple = 2;
+  }
+}
+
 // A fieldless message, for the `present` marker.
 message Empty {}
 

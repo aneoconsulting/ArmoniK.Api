@@ -60,14 +60,17 @@ pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Plan, Errors> 
     let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut stray: Vec<Span> = Vec::new();
     let mut oneof_attr = false;
-    let mut generic = false;
-    let mut transparent = false;
+    // Spans, not flags: the two are mutually exclusive and the rejection has to point at one of
+    // them. `generic` used to win silently, which frames the value one submessage deeper than the
+    // type says it does.
+    let mut generic: Option<Span> = None;
+    let mut transparent: Option<Span> = None;
     for entry in &entries {
         match &entry.item {
             AttrItem::Message(lit) => proto_names.push((entry.span, lit.value())),
             AttrItem::Oneof(_) => oneof_attr = true,
-            AttrItem::Generic => generic = true,
-            AttrItem::Transparent => transparent = true,
+            AttrItem::Generic => generic = Some(entry.span),
+            AttrItem::Transparent => transparent = Some(entry.span),
             _ => stray.push(entry.span),
         }
     }
@@ -76,18 +79,29 @@ pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Plan, Errors> 
     // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct. Dispatched on
     // before anything is reported, because a oneof rescans the type-level attributes for itself and
     // rejects a stray key in its own words.
-    if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && !generic) {
+    if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
         return oneof::oneof_plan(input, &index).map(Plan::Oneof);
     }
 
     let mut errors = Errors::new();
+    if let (Some(_), Some(transparent_span)) = (generic, transparent) {
+        errors.at(
+            transparent_span,
+            "generic and transparent cannot be combined: transparent flattens a single-field \
+             wrapper message into the type, generic skips descriptor validation because a \
+             generic type names no proto message, and there is no wrapper to flatten without \
+             one. generic used to win and transparent was dropped without a word, which frames \
+             the value one submessage level too deep",
+        );
+        return Err(errors);
+    }
     for span in stray {
         errors.at(
             span,
             "this armonik attribute is not valid at type level on a struct",
         );
     }
-    if generic {
+    if generic.is_some() {
         if !proto_names.is_empty() {
             errors.at(
                 input.ident.span(),
@@ -98,7 +112,7 @@ pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Plan, Errors> 
         }
         return generic::generic_plan(input, &index, errors).map(Plan::Struct);
     }
-    if transparent {
+    if transparent.is_some() {
         return transparent::transparent_plan(input, &index, proto_names, errors).map(Plan::Struct);
     }
     plain::message_plan(input, &index, proto_names, errors).map(Plan::Struct)
