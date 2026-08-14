@@ -48,12 +48,34 @@ that reads `descriptor.bin` at expansion, a two-crate build pipeline that
 rewrites a `FileDescriptorSet`, and a `linkme` slice harvested across a
 build-dependency edge with three `=`-pinned crates released in lockstep.
 
-This is the usual, and here the correct, infra-vs-boilerplate trade: the old
-lines were *O(messages)* and drifted silently with no automated net, while the
-new machinery is fixed-cost and the marginal message is near-free (the derive
-self-registers; a plain field's `Normalize` is the identity). But the payoff is
-"complexity amortized and made drift-proof", not "complexity removed", so approve
-the beta break on that basis, not on a per-message line count.
+**Measured, on checked-in Rust** (`git ls-tree` line counts, `main` against the
+branch as it stands):
+
+| area | main | branch | delta |
+|---|---:|---:|---:|
+| `objects/` | 6,699 | 4,306 | -2,393 |
+| `api/` (the generated shim) | 53 | 0 | -53 |
+| `client/` + `server/` + `rpc/` | 5,282 | 2,177 | -3,105 |
+| `codec/` | 0 | 1,438 | +1,438 |
+| `armonik-macros/src` | 0 | 6,985 | +6,985 |
+| `armonik-transport/src` | 1,274 | 1,270 | -4 |
+| **production total** | **13,308** | **16,176** | **+2,868 (+22%)** |
+| tests | 3,110 | 4,465 | +1,355 (+44%) |
+
+Two things that table corrects. "The ~6,700-line hand-written mirror is gone" is
+not what happened: `objects/` fell by 2,393 lines, and `api/v3.rs` was a 53-line
+`include_proto!` shim, so the generated code left the *build*, not the
+repository. And the amortization argument above does not survive the count. The
+schema has 206 messages and is frozen; there is no stream of new ones for a
+fixed cost to amortize against, so "the marginal message is near-free" is true
+and irrelevant.
+
+The argument that does survive is about what the lines *buy*, and it is not a
+line count at all: tags, wire kinds and cardinalities now come from the
+descriptor and disagreeing with it is a compile error; there is a round-trip
+oracle where there was none; there is one representation of each message instead
+of two with conversions between them; and the build needs no `protoc`. Approve
+the beta break on that, not on an amortization schedule.
 
 ## 2. Decisions (settled)
 
@@ -567,7 +589,9 @@ even though the branch lands as one unit:
    conveniences use it independently of the conversion layer.
 7. **Polish**: serde feature audit (`bytes/serde`; `Unknown` variants change
    the serde shape of formerly-unit enums), README/docs, CHANGELOG, version
-   bump, release pipeline extended to publish both crates version-locked.
+   bump. The release pipeline was *not* extended: `publish.yml` has no
+   `cargo publish` step, and the `=`-pinned crates are released by hand, in
+   the order `packages/rust/RELEASING.md` gives.
 8. **Benches** re-run; numbers in the PR.
 
 ## 6. Public API changes (breaking, accepted)
@@ -579,11 +603,11 @@ even though the branch lands as one unit:
   every message in their signatures is an armonik type (the five
   `Empty`-signature RPCs each speak their own wire-compatible `{}` type),
   and the leftovers are pruned from generation.
-- The message types moved to the new `armonik-types` crate (see section 3.1), which
-  `armonik` re-exports wholesale: `armonik::applications::Raw`,
-  `armonik::TaskOptions`, etc. keep resolving, so this is source-compatible.
-  Downstream that wants only the types (no tonic graph) can depend on
-  `armonik-types` directly.
+- The message types stayed in `armonik`: `armonik::applications::Raw`,
+  `armonik::TaskOptions` and the rest keep resolving from where they always
+  did. This bullet used to send readers to a separate `armonik-types` crate;
+  it was never split out (Part II section 3.1 records why), and this is the
+  migration guide, so it says what shipped rather than carrying a marker.
 - Client-streaming calls go through the same entry point as every other kind,
   `client.call(stream)` (superseded: this bullet used to describe a separate
   `call_streaming`; see Part II section 3.5 and 5.17). The named methods
@@ -647,7 +671,7 @@ raw value.
 | Derive reads a file at expansion (rust-analyzer, exotic caches) | single build-produced artifact, `OnceLock`-cached; fingerprint const-assert turns any staleness into a compile error; clear diagnostic when build scripts haven't run |
 | Descriptor/kind matching bugs in the macro | differential harness fuzzes every message both directions against `DynamicMessage` ground truth |
 | Generic filter types can't name one proto message | explicit field attributes on those ~5 types; per-instantiation coverage in the harness |
-| Two-crate release (`armonik-macros`) | `=version` pin; release CI publishes macros first, then armonik |
+| Three-crate release (`armonik-transport`, `armonik-macros`, `armonik`) | `=version` pin on the macros, which is what makes a mismatched pair fail to compile rather than misbehave. There is **no** release CI for these: `publish.yml` has no `cargo publish` step, and the order and its reasons are written down in `packages/rust/RELEASING.md` |
 | Big-bang review size | branch structured in the step order above; harness green from step 3 onward |
 
 ## 8. Future work

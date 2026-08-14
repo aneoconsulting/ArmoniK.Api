@@ -64,12 +64,6 @@ impl<T: ProtoField> ProtoField for Vec<T> {
     }
 }
 
-/// Map fields keep prost's map codec, which omits `== default` key and value
-/// subfields inside each entry (the canonical map-entry encoding, and where the
-/// `PartialEq` bound on the value comes from). Decoders fill those subfields
-/// back in from the defaults, so nothing is lost; a `#[armonik(with)]` adapter
-/// over pair messages inherits the same framing (see
-/// [`PairMap`](super::adapters::PairMap)).
 /// A proto `map<K, V>`, which is a repeated `{ K key = 1; V value = 2; }` entry message on the
 /// wire.
 ///
