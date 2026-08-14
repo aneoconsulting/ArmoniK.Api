@@ -366,7 +366,7 @@ fn clean_comment(comment: &str) -> Vec<String> {
             } else {
                 line.strip_prefix("* ").unwrap_or(line)
             };
-            line.to_owned()
+            escape_prose(line)
         })
         .collect();
     while lines.first().is_some_and(|line| line.is_empty()) {
@@ -376,6 +376,87 @@ fn clean_comment(comment: &str) -> Vec<String> {
         lines.pop();
     }
     lines
+}
+
+/// The most leading indentation CommonMark allows before it opens an indented code block.
+const MAX_INDENT: usize = 3;
+
+/// Render one harvested line as inert prose.
+///
+/// Proto comments are written for javadoc-style tooling, and two of their habits reach further than
+/// they look. An indented line becomes a **doctest**: four leading spaces open a CommonMark indented
+/// code block, rustdoc reads an unannotated one as Rust, and `cargo test` compiles it, so a comment
+/// like `*     GET /tasks?id=<id> HTTP/1.1` fails the Rust build from another package's pull
+/// request. And `<...>` in prose is swallowed by the browser while `<div>` is injected raw into the
+/// rendered page.
+///
+/// So indentation is clamped rather than dropped, which keeps a line's relative indentation visible
+/// while no longer opening a block; a leading fence is escaped, for the block it would open and
+/// never close; and `[`, `<` and `\` are escaped, `[` because a link to an anchor that does not
+/// exist is a rustdoc warning and the build runs with `-Dwarnings`.
+///
+/// Deliberately *not* `*`, `_`, `#` or `-`: none of them can break a build, and escaping them would
+/// change how 3,366 existing docblocks render, which is a diff nobody can review.
+///
+/// Code spans are copied through untouched. Markdown does not read these characters inside one, so
+/// escaping there would show the backslash.
+fn escape_prose(line: &str) -> String {
+    let body = line.trim_start();
+    // Measured the way CommonMark measures it, so a single leading tab counts as the code block it
+    // would open rather than as the one column it occupies.
+    let indent = line[..line.len() - body.len()]
+        .chars()
+        .fold(0, |width, ch| match ch {
+            '\t' => width + 4 - width % 4,
+            _ => width + 1,
+        });
+    let mut out = " ".repeat(indent.min(MAX_INDENT));
+    if body.starts_with("```") || body.starts_with("~~~") {
+        out.push('\\');
+    }
+
+    let bytes = body.as_bytes();
+    let mut at = 0;
+    while at < bytes.len() {
+        if bytes[at] == b'`' {
+            let run = backtick_run(bytes, at);
+            // A run with no matching close opens no code span, so it is literal text; either way
+            // the run itself needs no escape.
+            let end = closing_run(bytes, at + run, run).map_or(at + run, |close| close + run);
+            out.push_str(&body[at..end]);
+            at = end;
+            continue;
+        }
+        if matches!(bytes[at], b'[' | b'<' | b'\\') {
+            out.push('\\');
+        }
+        let width = body[at..].chars().next().map_or(1, char::len_utf8);
+        out.push_str(&body[at..at + width]);
+        at += width;
+    }
+    out
+}
+
+/// Length of the run of backticks starting at `at`.
+fn backtick_run(bytes: &[u8], at: usize) -> usize {
+    bytes[at..].iter().take_while(|byte| **byte == b'`').count()
+}
+
+/// Where the run of exactly `len` backticks that closes this code span starts, if there is one.
+fn closing_run(bytes: &[u8], from: usize, len: usize) -> Option<usize> {
+    let mut at = from;
+    while at < bytes.len() {
+        if bytes[at] != b'`' {
+            at += 1;
+            continue;
+        }
+        let run = backtick_run(bytes, at);
+        if run == len {
+            return Some(at);
+        }
+        at += run;
+    }
+    None
 }
 
 fn full_name(prefix: &str, name: &str) -> String {
@@ -564,4 +645,55 @@ fn field_kind(field: &FieldDescriptorProto) -> Result<FieldKind, String> {
         Type::Enum => FieldKind::Enum(type_name()),
         Type::Group => return Err("proto2 groups are not supported".to_owned()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_prose;
+
+    #[test]
+    fn indentation_is_clamped_below_a_code_block() {
+        assert_eq!(escape_prose("  two"), "  two");
+        assert_eq!(escape_prose("   three"), "   three");
+        assert_eq!(escape_prose("    four"), "   four");
+        assert_eq!(escape_prose("\tGET /tasks"), "   GET /tasks");
+    }
+
+    #[test]
+    fn a_leading_fence_is_escaped() {
+        assert_eq!(escape_prose("```sh"), "\\```sh");
+        assert_eq!(escape_prose("~~~"), "\\~~~");
+        assert_eq!(escape_prose("a ``` b"), "a ``` b");
+    }
+
+    #[test]
+    fn the_three_build_breaking_characters_are_escaped() {
+        assert_eq!(escape_prose("see [Something]"), "see \\[Something]");
+        assert_eq!(escape_prose("a <string> value"), "a \\<string> value");
+        assert_eq!(escape_prose("a \\ backslash"), "a \\\\ backslash");
+    }
+
+    /// The four that are left alone, because none can break a build and escaping them would
+    /// re-render every existing docblock.
+    #[test]
+    fn markdown_emphasis_is_left_alone() {
+        assert_eq!(escape_prose("*bold* _it_ # h - li"), "*bold* _it_ # h - li");
+    }
+
+    #[test]
+    fn code_spans_are_copied_through() {
+        assert_eq!(escape_prose("`Vec<T>` holds"), "`Vec<T>` holds");
+        assert_eq!(escape_prose("``a ` b<c>``"), "``a ` b<c>``");
+        // An unmatched run opens no span, so what follows is prose again.
+        assert_eq!(escape_prose("`unclosed <T>"), "`unclosed \\<T>");
+    }
+
+    #[test]
+    fn ordinary_prose_is_unchanged() {
+        assert_eq!(
+            escape_prose("The task creation date."),
+            "The task creation date."
+        );
+        assert_eq!(escape_prose(""), "");
+    }
 }
