@@ -422,7 +422,7 @@ fn every_rpc_has_a_client_method() {
     // A guard on the guard: an empty pair of slices would satisfy both assertions above.
     assert_eq!(
         declared.len(),
-        59,
+        60,
         "the RPC count moved; update this number once the change is deliberate"
     );
 }

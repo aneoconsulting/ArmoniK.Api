@@ -11,6 +11,7 @@ pub mod get_service_configuration;
 pub mod import;
 pub mod list;
 pub mod upload;
+pub mod watch;
 
 #[doc(hidden)]
 pub mod field;

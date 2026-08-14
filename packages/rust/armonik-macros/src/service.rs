@@ -129,13 +129,14 @@ impl Parse for ServiceDef {
     }
 }
 
-/// The three call shapes; drives kind markers, trait signatures and the `serve_*` helper each route
+/// The four call shapes; drives kind markers, trait signatures and the `serve_*` helper each route
 /// dispatches into.
 #[derive(Clone, Copy, PartialEq)]
 enum CallKind {
     Unary,
     ClientStream,
     ServerStream,
+    BidiStream,
 }
 
 /// Everything that varies with the call shape, in one place.
@@ -143,7 +144,7 @@ enum CallKind {
 /// These facts used to sit in separate matches in separate functions: the `Rpc::Kind` marker in
 /// [`expand_rpc`], and the signature shape and the `serve_*` helper in [`expand_server`]. Nothing
 /// tied them together, so a fourth call shape would be several edits and several chances to miss
-/// one. Here an arm is one shape, stated once.
+/// one. Here an arm is one shape, stated once, and adding `BidiStream` was one arm.
 struct KindFacts {
     /// The `crate::rpc::*` marker the `Rpc` impl names.
     marker: TokenStream,
@@ -175,6 +176,12 @@ impl CallKind {
                 serve: format_ident!("serve_client_stream"),
                 client_streams: true,
                 server_streams: false,
+            },
+            CallKind::BidiStream => KindFacts {
+                marker: quote!(crate::rpc::BidiStream),
+                serve: format_ident!("serve_bidi_stream"),
+                client_streams: true,
+                server_streams: true,
             },
         }
     }
@@ -532,13 +539,7 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Va
             (None, None) => CallKind::Unary,
             (None, Some(_)) => CallKind::ServerStream,
             (Some(_), None) => CallKind::ClientStream,
-            (Some(stream), Some(_)) => {
-                return Err(syn::Error::new(
-                    stream.span,
-                    "bidirectional streaming RPCs are not exposed; list the method in \
-                     `unexposed(...)`",
-                ))
-            }
+            (Some(_), Some(_)) => CallKind::BidiStream,
         };
 
         let handler = match &rpc.handler {

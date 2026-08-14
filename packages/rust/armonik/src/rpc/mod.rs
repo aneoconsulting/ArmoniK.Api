@@ -52,6 +52,9 @@ pub struct ServerStream;
 /// Marker: client-streaming RPC.
 pub struct ClientStream;
 
+/// Marker: bidirectional-streaming RPC.
+pub struct BidiStream;
+
 /// A request type that identifies exactly one RPC. Implementations are
 /// emitted by [`service!`].
 ///
@@ -62,9 +65,9 @@ pub struct ClientStream;
 pub trait Rpc: prost::Message + Default + std::fmt::Debug + 'static {
     /// The service this RPC belongs to.
     type Service: Service;
-    /// [`Unary`], [`ServerStream`] or [`ClientStream`].
+    /// [`Unary`], [`ServerStream`], [`ClientStream`] or [`BidiStream`].
     type Kind;
-    /// The response message, or the stream *item* for server-streaming RPCs.
+    /// The response message, or the stream *item* for the two server-streaming kinds.
     type Response: prost::Message + Default + std::fmt::Debug + 'static;
 
     /// Method name, as in the proto (`"ListResults"`).

@@ -30,6 +30,21 @@ impl<T: super::Channel> super::ServiceClient<services::Results, T> {
         Ok(self.call(request).await?.result)
     }
 
+    /// Watch results, sending the ids to watch as a stream and receiving status changes as another.
+    ///
+    /// Both directions stay open: more ids can be sent while responses arrive, which is what the
+    /// proto's chunking note means by sending several messages rather than one large one.
+    #[armonik(rpc = "WatchResults")]
+    pub async fn watch(
+        &mut self,
+        requests: impl futures::Stream<Item = crate::results::watch::Request> + Send + 'static,
+    ) -> Result<
+        impl futures::Stream<Item = Result<crate::results::watch::Response, super::RequestError>>,
+        super::RequestError,
+    > {
+        self.call(requests).await
+    }
+
     client_method!(ListResults:
         list(filters: filters<crate::results::filter::Field>, sort: plain<crate::results::Sort>, page: plain<i32>, page_size: plain<i32>)
         -> crate::results::list::Request => crate::results::list::Response);

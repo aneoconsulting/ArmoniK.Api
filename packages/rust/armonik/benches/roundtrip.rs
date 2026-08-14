@@ -25,7 +25,7 @@
 //! The unbenchmarked RPCs answer with `Default::default()`, which is what lets
 //! `rotate` call them without the file naming response fields it does not
 //! measure, and lets one version of the file compile against every commit of
-//! the branch.
+//! the branch. Only `watch` is left `unimplemented`.
 
 use std::sync::Arc;
 
@@ -171,6 +171,27 @@ impl ResultsService for Bench {
     ) -> Result<results::get_service_configuration::Response, tonic::Status> {
         Ok(Default::default())
     }
+
+    // Turbofished: a method that returns `impl Stream` still has to name a concrete one, even where
+    // it only ever fails, because the error arm alone leaves nothing to infer it from.
+    async fn watch(
+        self: Arc<Self>,
+        _request: impl futures::Stream<Item = Result<results::watch::Request, tonic::Status>>
+            + Send
+            + 'static,
+        _context: RequestContext,
+    ) -> Result<
+        impl futures::Stream<Item = Result<results::watch::Response, tonic::Status>> + Send,
+        tonic::Status,
+    > {
+        Err::<futures::stream::Empty<_>, _>(unimplemented())
+    }
+}
+
+/// `watch` is the one RPC the benchmark refuses rather than answers: it is bidirectional, so a
+/// `Default` response would still need a stream to carry it.
+fn unimplemented() -> tonic::Status {
+    tonic::Status::unimplemented("not part of the benchmark")
 }
 
 fn runtime() -> tokio::runtime::Runtime {
