@@ -1,5 +1,5 @@
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 pub enum TaskStatus {
     Creating,
@@ -42,17 +42,18 @@ mod tests {
         }
     }
 
-    /// The variants carry their proto values as discriminants, which is what the derived
-    /// `PartialOrd`/`Ord` compare.
+    /// Ordering is the proto values', for every variant including the catch-all: it is emitted in
+    /// terms of `i32::from`, so where a value sorts does not depend on whether this crate version
+    /// happens to name it.
     #[test]
     fn ordering_follows_the_proto_values() {
         assert!(TaskStatus::Creating < TaskStatus::Submitted);
         assert!(TaskStatus::Submitted < TaskStatus::Paused);
 
-        // The catch-all covers the zero value and the unknown ones, which sort before every named
-        // value, and among themselves by the raw value.
+        // The zero value sorts first and an unknown one sorts by what it holds, next to the named
+        // values rather than before all of them.
         assert!(TaskStatus::UNSPECIFIED < TaskStatus::Creating);
-        assert!(TaskStatus::from(999) < TaskStatus::Creating);
+        assert!(TaskStatus::Paused < TaskStatus::from(999));
         assert!(TaskStatus::UNSPECIFIED < TaskStatus::from(999));
 
         let mut sorted: Vec<TaskStatus> = (0..=13).rev().map(TaskStatus::from).collect();
@@ -61,11 +62,21 @@ mod tests {
         assert_eq!(values, (0..=13).collect::<Vec<i32>>());
     }
 
+    /// Equality and hashing read the same proto value ordering does, so the two spellings of one
+    /// value agree even though only one of them is reachable: `From<i32>` normalizes, and the
+    /// payload's field is private, so no caller outside this module can build the other.
     #[test]
-    fn unspecified_is_matchable() {
-        match TaskStatus::from(0) {
-            TaskStatus::UNSPECIFIED => {}
-            other => panic!("expected UNSPECIFIED, got {other:?}"),
-        }
+    fn equality_and_hashing_follow_the_proto_values() {
+        use std::collections::HashSet;
+
+        assert_eq!(TaskStatus::from(0), TaskStatus::UNSPECIFIED);
+        assert_ne!(TaskStatus::from(999), TaskStatus::UNSPECIFIED);
+        assert_ne!(TaskStatus::from(999), TaskStatus::from(998));
+
+        let statuses: HashSet<TaskStatus> =
+            (0..=13).chain(998..=999).map(TaskStatus::from).collect();
+        assert_eq!(statuses.len(), 16);
+        assert!(statuses.contains(&TaskStatus::Paused));
+        assert!(statuses.contains(&TaskStatus::from(999)));
     }
 }

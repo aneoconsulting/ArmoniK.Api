@@ -59,7 +59,7 @@ impl TaskOptions {
 /// Stands for the single-enum-field wrapper messages
 /// `sessions.TaskOptionField` and `tasks.TaskOptionField`.
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[armonik(transparent)]
 #[armonik(message = "armonik.api.grpc.v1.sessions.TaskOptionField")]
 #[armonik(message = "armonik.api.grpc.v1.tasks.TaskOptionField")]

@@ -25,6 +25,8 @@ use prost::DecodeError;
 
 pub(crate) mod adapters;
 mod containers;
+#[cfg(feature = "serde")]
+pub(crate) mod enum_serde;
 pub(crate) mod enumeration;
 mod leaves;
 pub(crate) mod wrapper_enum;

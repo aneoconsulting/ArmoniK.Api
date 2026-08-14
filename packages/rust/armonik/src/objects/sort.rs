@@ -1,5 +1,5 @@
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 #[armonik(enum = "armonik.api.grpc.v1.sort_direction.SortDirection")]
 pub enum SortDirection {
     #[default]
@@ -75,11 +75,11 @@ mod tests {
     use super::SortDirection;
 
     /// An enum whose zero value has a named variant: the catch-all covers only the unknown values,
-    /// and still sorts before every named one.
+    /// which sort by what they hold, so after every named one here.
     #[test]
     fn ordering_follows_the_proto_values() {
         assert!(SortDirection::Unspecified < SortDirection::Asc);
         assert!(SortDirection::Asc < SortDirection::Desc);
-        assert!(SortDirection::from(77) < SortDirection::Unspecified);
+        assert!(SortDirection::Desc < SortDirection::from(77));
     }
 }

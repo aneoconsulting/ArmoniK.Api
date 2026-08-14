@@ -270,7 +270,7 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// #[armonik_macros::enumeration]
-/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// #[derive(Debug, Clone, Copy)]
 /// #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 /// pub enum TaskStatus {
 ///     Creating,
@@ -290,20 +290,31 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// The payload struct's field is private, so a catch-all value can only come
 /// from decoding or `From<i32>`, both of which normalize known values to their
-/// named variants. No known value can hide inside the catch-all, which keeps
-/// the derived `PartialEq`/`Hash` semantically correct (raw access via
-/// `.value() -> i32`). The expansion also emits `From<i32>` and
-/// `From<Self> for i32` (a dataful enum cannot be `as`-cast), an `UNSPECIFIED`
-/// associated const when the zero value has no named variant, and `Default`
-/// (the zero value, per the crate's zero-default invariant) unless a variant
-/// carries the std `#[default]` attribute.
+/// named variants (raw access via `.value() -> i32`). The expansion also emits
+/// `From<i32>` and `From<Self> for i32` (a dataful enum cannot be `as`-cast),
+/// an `UNSPECIFIED` associated const when the zero value has no named variant,
+/// and `Default` (the zero value, per the crate's zero-default invariant)
+/// unless a variant carries the std `#[default]` attribute.
 ///
-/// The item is re-emitted `#[repr(i32)]`, each named variant carrying the proto
-/// value it stands for as its discriminant, so a derived `PartialOrd`/`Ord`
-/// (which compare discriminants) orders the type by proto value. The catch-all
-/// stands for no single value and takes `i32::MIN`, so the zero value and the
-/// unknown ones sort before every named value, and among themselves by the raw
-/// value.
+/// # What not to derive
+///
+/// `PartialEq`, `Eq`, `PartialOrd`, `Ord` and `Hash` are emitted, in terms of
+/// the proto value, and deriving any of them is a spanned error. One value has
+/// two spellings, the named variant and the catch-all holding its number, and
+/// they are one value; the derived versions would make them differ, and would
+/// order the catch-all by where it sits in the declaration rather than by what
+/// it holds. `Serialize` and `Deserialize` are emitted for the same reason:
+/// a derived `Deserialize` is generated in the module that owns the payload's
+/// private field, so it builds the catch-all directly, without normalizing.
+///
+/// Named values serialize as their variant name and the catch-all as a plain
+/// integer; deserializing accepts a name, an integer, or the `{"Unknown": 4}`
+/// object the derive used to write. Reading three shapes means
+/// `deserialize_any`, so the self-describing formats work and the ones that
+/// need the type to drive the parse (bincode, postcard) do not.
+///
+/// Emitting the comparison traits makes the type non-structural-match, so the
+/// `UNSPECIFIED` const is compared with `==` rather than matched on.
 ///
 /// Enum-typed fields of derived messages are declared with
 /// [`message`](macro@message), which checks that the field type stands for the
@@ -327,7 +338,7 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// #[armonik_macros::enumeration]
-/// #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// #[derive(Debug, Clone, Copy)]
 /// #[armonik(transparent, message = "armonik.api.grpc.v1.applications.ApplicationField")]
 /// pub enum ApplicationField {
 ///     // matched against the enum at the end of the wrapper chain

@@ -1,5 +1,5 @@
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Default)]
 #[armonik(enum = "armonik.api.grpc.v1.FilterStatusOperator")]
 pub enum FilterStatusOperator {
     /// Is equal to the specified status.

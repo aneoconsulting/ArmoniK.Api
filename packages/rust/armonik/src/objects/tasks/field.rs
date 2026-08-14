@@ -1,7 +1,7 @@
 use super::super::TaskOptionField;
 
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy)]
 #[armonik(transparent, message = "armonik.api.grpc.v1.tasks.TaskSummaryField")]
 pub enum SummaryField {
     TaskId,

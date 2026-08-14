@@ -46,12 +46,13 @@ pub(crate) fn rewrite(input: &mut DeriveInput, plan: &Plan) {
     input.attrs.push(serde_derive());
 }
 
-/// The same, plus the proto value each variant stands for as its discriminant.
+/// The same, minus the serde line: an enumeration's `Serialize`/`Deserialize` are emitted by hand
+/// (`shape::enumeration::serde`), because the derived pair spells the catch-all as an object and
+/// builds it without normalizing. The comparison traits are emitted for the same reason, so nothing
+/// here has to reach a proto value either.
 pub(crate) fn rewrite_enum(input: &mut DeriveInput, plan: &EnumPlan) {
     inject_enum(input, plan);
     strip(input);
-    tag_variants(input, plan);
-    input.attrs.push(serde_derive());
 }
 
 /// Hover-documentation anchors: every `#[armonik(...)]` key token of the input, re-emitted as an
@@ -304,33 +305,6 @@ fn enumeration_stubs(input: &DeriveInput, ident: &syn::Ident) -> TokenStream {
         }
 
         #default
-    }
-}
-
-/// Carry each variant's proto value as its discriminant, so that the ordering the type derives
-/// (`PartialOrd`/`Ord` compare discriminants) is the ordering of the proto values. The catch-all
-/// stands for the zero value and for every value unknown to this crate version, which share no
-/// single number: it takes `i32::MIN`, so they sort before every named value and among themselves
-/// by the raw value their payload holds.
-fn tag_variants(input: &mut DeriveInput, plan: &EnumPlan) {
-    // Explicit discriminants on an enum that has a dataful variant need a primitive representation.
-    input.attrs.push(syn::parse_quote!(#[repr(i32)]));
-    let syn::Data::Enum(data) = &mut input.data else {
-        return;
-    };
-    for variant in &mut data.variants {
-        let value: syn::Expr = if variant.ident == plan.unknown_variant {
-            syn::parse_quote!(i32::MIN)
-        } else {
-            match plan.named.iter().find(|value| value.ident == variant.ident) {
-                Some(value) => {
-                    let number = value.number;
-                    syn::parse_quote!(#number)
-                }
-                None => continue,
-            }
-        };
-        variant.discriminant = Some((syn::token::Eq::default(), value));
     }
 }
 

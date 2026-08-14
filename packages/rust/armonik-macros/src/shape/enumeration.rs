@@ -16,6 +16,7 @@ pub(crate) fn enum_plan(
     index: &DescriptorIndex,
 ) -> Result<EnumPlan, Errors> {
     let mut errors = Errors::new();
+    reject_implemented_derives(input, &mut errors);
 
     let entries = attrs::parse(&input.attrs)?;
 
@@ -386,7 +387,7 @@ pub(crate) fn plain_wire(plan: &EnumPlan, names: &[String]) -> TokenStream {
 }
 
 /// The value-level half, which has nothing to do with the wire: the catch-all payload struct, the
-/// two `i32` conversions, the `UNSPECIFIED` const and `Default`.
+/// two `i32` conversions, the `UNSPECIFIED` const, `Default`, the comparison traits and serde.
 ///
 /// Emitted for both modes, and only ever by `#[armonik_macros::enumeration]`, which is why the entry
 /// point calls it directly: no other macro has an `EnumPlan` to pass, so making it a slot in
@@ -395,6 +396,8 @@ pub(crate) fn items(plan: &EnumPlan) -> TokenStream {
     let ident = &plan.ident;
     let unknown = &plan.unknown_variant;
     let payload = &plan.payload;
+    let comparison = comparison(plan);
+    let serde = serde(plan);
 
     let payload_doc = format!(
         "Raw value of an `{ident}` not known to this crate version (or the \
@@ -427,7 +430,9 @@ pub(crate) fn items(plan: &EnumPlan) -> TokenStream {
     let unspecified_const = plan.zero_variant.is_none().then(|| {
         quote! {
             impl #ident {
-                /// Unspecified (zero) value; usable in `match` patterns.
+                /// The unspecified (zero) value. Compare with `==` rather than matching on it:
+                /// the comparison traits are implemented in terms of the proto value, which
+                /// makes the type non-structural-match.
                 pub const UNSPECIFIED: Self = Self::#unknown(#payload(0));
             }
         }
@@ -468,5 +473,120 @@ pub(crate) fn items(plan: &EnumPlan) -> TokenStream {
         #unspecified_const
 
         #default_impl
+
+        #comparison
+
+        #serde
+    }
+}
+
+/// The comparison traits, in terms of the proto value rather than the variant.
+///
+/// One value has two spellings, the named variant and the catch-all holding its number, and they
+/// are one value: `From<i32>` normalizes, so the second only ever arrives from a peer this crate
+/// version does not fully know. Deriving these would make the two unequal, unequally hashed, and
+/// would order the catch-all by where it happens to sit rather than by what it holds. Emitted, so
+/// the sites do not derive them; the resolver rejects it if they try.
+fn comparison(plan: &EnumPlan) -> TokenStream {
+    let ident = &plan.ident;
+    quote! {
+        impl ::core::cmp::PartialEq for #ident {
+            fn eq(&self, other: &Self) -> bool {
+                i32::from(*self) == i32::from(*other)
+            }
+        }
+
+        impl ::core::cmp::Eq for #ident {}
+
+        impl ::core::cmp::PartialOrd for #ident {
+            fn partial_cmp(&self, other: &Self) -> ::core::option::Option<::core::cmp::Ordering> {
+                ::core::option::Option::Some(::core::cmp::Ord::cmp(self, other))
+            }
+        }
+
+        impl ::core::cmp::Ord for #ident {
+            fn cmp(&self, other: &Self) -> ::core::cmp::Ordering {
+                ::core::cmp::Ord::cmp(&i32::from(*self), &i32::from(*other))
+            }
+        }
+
+        impl ::core::hash::Hash for #ident {
+            fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+                ::core::hash::Hash::hash(&i32::from(*self), state)
+            }
+        }
+    }
+}
+
+/// `Serialize`/`Deserialize` over the proto value, delegating the format to `codec::enum_serde`.
+///
+/// Hand-written for the same reason as the comparison traits above: the derived `Deserialize` is
+/// generated in the module that owns the payload's private field, so it builds the catch-all
+/// directly and a known value can hide inside it. Everything here goes through `From<i32>`.
+fn serde(plan: &EnumPlan) -> TokenStream {
+    let ident = &plan.ident;
+    let values = plan.named.iter().map(|value| {
+        let name = unraw(&value.ident);
+        let number = value.number;
+        quote!((#name, #number))
+    });
+    let name = unraw(ident);
+    let unknown = unraw(&plan.unknown_variant);
+    quote! {
+        #[cfg(feature = "serde")]
+        const _: () = {
+            const VALUES: crate::codec::enum_serde::Values = &[#(#values),*];
+
+            impl ::serde::Serialize for #ident {
+                fn serialize<S: ::serde::Serializer>(
+                    &self,
+                    serializer: S,
+                ) -> ::core::result::Result<S::Ok, S::Error> {
+                    crate::codec::enum_serde::serialize(VALUES, i32::from(*self), serializer)
+                }
+            }
+
+            impl<'de> ::serde::Deserialize<'de> for #ident {
+                fn deserialize<D: ::serde::Deserializer<'de>>(
+                    deserializer: D,
+                ) -> ::core::result::Result<Self, D::Error> {
+                    crate::codec::enum_serde::deserialize(VALUES, #name, #unknown, deserializer)
+                        .map(Self::from)
+                }
+            }
+        };
+    }
+}
+
+/// The traits the expansion implements itself, which a site must therefore not derive.
+const IMPLEMENTED: [&str; 5] = ["PartialEq", "Eq", "PartialOrd", "Ord", "Hash"];
+
+/// Reject `#[derive(PartialEq)]` and friends, rather than leaving rustc to report `E0119` at the
+/// attribute with no hint about which of the two impls it should keep.
+fn reject_implemented_derives(input: &syn::DeriveInput, errors: &mut Errors) {
+    use syn::spanned::Spanned as _;
+
+    for attr in &input.attrs {
+        if !attr.path().is_ident("derive") {
+            continue;
+        }
+        let Ok(paths) = attr.parse_args_with(
+            syn::punctuated::Punctuated::<syn::Path, syn::Token![,]>::parse_terminated,
+        ) else {
+            continue;
+        };
+        for path in &paths {
+            let Some(name) = IMPLEMENTED.iter().find(|name| path.is_ident(name)) else {
+                continue;
+            };
+            errors.at(
+                path.span(),
+                format!(
+                    "an enumeration must not derive `{name}`: the expansion implements it in \
+                     terms of the proto value, so that the two spellings of one value (the named \
+                     variant, and the catch-all holding its number) are one value"
+                ),
+            );
+        }
     }
 }
