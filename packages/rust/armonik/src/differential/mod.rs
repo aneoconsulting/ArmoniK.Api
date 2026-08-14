@@ -88,33 +88,12 @@ pub fn wrapper_chain(message: &mut DynamicMessage) {
 
 /// Fold a repeated message field exposed as a `HashMap` keyed by the pair subfield with number
 /// `key_tag`: duplicates collapse (last wins) and order is lost, so entries are sorted by key.
+///
+/// One caller, `PairMap`, whose key is a subfield of a pair message the proto declares for exactly
+/// that purpose. There used to be a second, locating the key by name, for a repeated field re-keyed
+/// on a field of its own element type: that shape lost entries whenever the field was not unique,
+/// and `results::import::Response` no longer takes it.
 pub fn fold_pairs_by_tag(message: &mut DynamicMessage, tag: u32, key_tag: u32) {
-    fold_pairs(message, tag, |pair| pair.descriptor().get_field(key_tag));
-}
-
-/// [`fold_pairs_by_tag`], with the key subfield located by name (for adapters keyed on a field of
-/// the entries' own message type).
-pub fn fold_pairs_by_name(message: &mut DynamicMessage, tag: u32, key_name: &str) {
-    fold_pairs(message, tag, |pair| {
-        pair.descriptor().get_field_by_name(key_name)
-    });
-}
-
-/// Total order over the pair-key values the adapters accept (`Eq + Hash` scalars); the order itself
-/// is arbitrary, it only has to be deterministic on both sides of a round-trip.
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
-enum MapKey {
-    Bool(bool),
-    Int(i64),
-    Uint(u64),
-    Str(String),
-}
-
-fn fold_pairs(
-    message: &mut DynamicMessage,
-    tag: u32,
-    key_field: impl Fn(&DynamicMessage) -> Option<prost_reflect::FieldDescriptor>,
-) {
     let Some(field) = message.descriptor().get_field(tag) else {
         return;
     };
@@ -129,7 +108,7 @@ fn fold_pairs(
         let Value::Message(pair) = &entry else {
             continue;
         };
-        let Some(key_desc) = key_field(pair) else {
+        let Some(key_desc) = pair.descriptor().get_field(key_tag) else {
             continue;
         };
         let key = match pair.get_field(&key_desc).as_ref() {
@@ -145,4 +124,14 @@ fn fold_pairs(
         by_key.insert(key, entry);
     }
     message.set_field(&field, Value::List(by_key.into_values().collect()));
+}
+
+/// Total order over the pair-key values the adapters accept (`Eq + Hash` scalars); the order itself
+/// is arbitrary, it only has to be deterministic on both sides of a round-trip.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum MapKey {
+    Bool(bool),
+    Int(i64),
+    Uint(u64),
+    Str(String),
 }

@@ -181,25 +181,22 @@ rpc_tests! {
             results: request
                 .results
                 .into_iter()
-                .map(|(name, opaque_id)| {
-                    (
-                        name.clone(),
-                        results::Raw {
-                            session_id: request.session_id.clone(),
-                            result_id: String::from("rpc-import-output"),
-                            name,
-                            opaque_id,
-                            ..Default::default()
-                        },
-                    )
+                .map(|(name, opaque_id)| results::Raw {
+                    session_id: request.session_id.clone(),
+                    result_id: String::from("rpc-import-output"),
+                    name,
+                    opaque_id,
+                    ..Default::default()
                 })
                 .collect(),
         },
         convenience: import("session-id", [("rpc-import-input", b"opaque-id".as_slice())]),
         project: |response| response.results,
-        check: |results| {
-            assert_eq!(results["rpc-import-input"].result_id, "rpc-import-output");
-            assert_eq!(results["rpc-import-input"].opaque_id, "opaque-id".as_bytes());
+        check: |results: Vec<results::Raw>| {
+            assert_eq!(results.len(), 1);
+            assert_eq!(results[0].name, "rpc-import-input");
+            assert_eq!(results[0].result_id, "rpc-import-output");
+            assert_eq!(results[0].opaque_id, "opaque-id".as_bytes());
         },
     }
 
