@@ -2,7 +2,11 @@
 authors = ["Florian Lemaitre <flemaitre@aneo.fr>"]
 description = "Internal derive macros for the armonik crate"
 edition = "2021"
-include = ["**/*.rs", "Cargo.toml", "LICENSE", "README.md"]
+# `tests/**` and not just the `.rs` under it: the compile-fail suite needs `tests/fixture.proto`
+# (its schema) and the `tests/ui/*.stderr` snapshots it compares against. Without them the published
+# crate cannot run its only test suite, which is what anyone vendoring a proc macro to audit it
+# before trusting it with their wire format would want to do first.
+include = ["**/*.rs", "Cargo.toml", "LICENSE", "README.md", "tests/**"]
 license = "Apache-2.0"
 readme = "README.md"
 name = "armonik-macros"

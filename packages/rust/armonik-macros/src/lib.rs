@@ -60,8 +60,9 @@ use syn::DeriveInput;
 /// - a fingerprint const-assert that fails the build once the expansion goes
 ///   stale against a newer descriptor;
 /// - under `cfg(test)`, the type's registration into
-///   `armonik::wire::REGISTRY`, with its `Normalize` projection and harness
-///   hooks.
+///   `armonik`'s `differential::registrations::REGISTRY`, with its
+///   `Normalize` projection and harness hooks. A `cfg(test)` module, so
+///   nothing of it ships.
 ///
 /// Derived types uphold the crate's zero-default invariant:
 /// `Default::default()` is the proto zero value, so decoding an empty message
@@ -190,7 +191,7 @@ use syn::DeriveInput;
 /// `absorbs = "full.proto.Name"`, on a field or variant carrying a
 /// [`with`](#with) adapter: the proto message the adapter flattens away (a
 /// pair-entry, `VecWrapper` or `StringWrapper` message), which therefore has no
-/// Rust type of its own. Registered as absorbed in `armonik::wire`, so the
+/// Rust type of its own. Registered as absorbed in `armonik`'s registry, so the
 /// differential harness counts it as covered through this parent. Repeatable.
 /// The other flatteners,
 /// [`transparent`](macro@enumeration#transparent) chains and inline struct variants,
@@ -426,8 +427,8 @@ fn no_args(input: DeriveInput, kind: Kind, macro_name: &str) -> TokenStream {
 /// the differential harness like any `#[armonik_macros::message]` type.
 ///
 /// The alias is re-emitted verbatim, plus the `crate::register!` entry a
-/// derive would emit for that proto name (into `armonik::wire::REGISTRY`, with
-/// its harness hooks). The aliased type must implement `prost::Message`,
+/// derive would emit for that proto name (into `armonik`'s
+/// `differential::registrations::REGISTRY`, with its harness hooks). The aliased type must implement `prost::Message`,
 /// and `Normalize` under `cfg(test)`.
 ///
 /// ```ignore

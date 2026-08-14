@@ -12,12 +12,15 @@
 //! [`ProtoField::SHAPE`] lets one derive-emitted `const` assertion per field check the Rust type
 //! against the descriptor at compile time (see [`shape_matches`]).
 //!
-//! The encode side has no notion of a default value: every declared field is written, whatever it
-//! holds. Zeros and empty nested messages therefore appear on the wire, which a proto3 receiver
-//! reads exactly like an absent implicit-presence field, and the decode side keeps its "absent =
-//! default" reading (seeded from `Default`, the proto zero for every armonik type). Meaningful
-//! presence rides on the Rust type instead: `Option<T>` omits `None`, a oneof emits its active
-//! member, empty containers encode to nothing.
+//! The encode side has no notion of a default *value*: a field holding its zero is written out
+//! like any other, so zeros and empty nested messages appear on the wire, where a proto3 receiver
+//! reads them exactly like an absent implicit-presence field. The decode side keeps its "absent =
+//! default" reading (seeded from `Default`, the proto zero for every armonik type).
+//!
+//! What is skipped is decided by the Rust *type*, never by the value: `Option<T>` omits `None`, a
+//! oneof writes its active member and no other, an empty container writes nothing (there are no
+//! elements to write), and a `present` marker writes only that it is set. Those are the cases where
+//! absence carries meaning, and they are the whole of the list.
 
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{DecodeContext, WireType};
