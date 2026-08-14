@@ -6,7 +6,11 @@
 //! expansion time.
 
 /// Declare the RPCs of one proto service. See [`armonik_macros::service!`].
-pub use armonik_macros::service;
+///
+/// Crate-internal: the expansion names `crate::codec::*` and `crate::rpc::*`, so it compiles in
+/// this crate and nowhere else. It was `pub use`d, which put a macro on the public API that no
+/// dependent could invoke.
+pub(crate) use armonik_macros::service;
 
 pub(crate) mod agent;
 pub(crate) mod applications;

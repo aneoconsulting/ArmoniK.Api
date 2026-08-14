@@ -15,6 +15,12 @@ rust-version.workspace = true
 [features]
 default = ["client"]
 serde = ["dep:serde", "bytes/serde", "armonik-transport?/serde"]
+# Every `CompressionEncoding` variant sits behind one of tonic's compression features, so without
+# one of these the compression knobs on `ServiceClient` and `Router` take an argument that cannot be
+# constructed. Additive, so a dependent can turn tonic's on directly instead; this is the
+# discoverable spelling. Only `gzip`: `zstd` would pull a C build into the lock file for a codec
+# nothing here has asked for, and enabling `tonic/zstd` directly still works.
+gzip = ["tonic/gzip"]
 client = ["_gen-client"]
 server = ["_gen-server"]
 agent = ["_gen-client", "_gen-server"]
@@ -51,9 +57,8 @@ criterion.workspace = true
 # self-registered into a `linkme` distributed slice.
 linkme = "0.3"
 prost-reflect = "0.16"
-# `gzip` so the router's two compression knobs can actually be called: every
-# `CompressionEncoding` variant is behind one of tonic's compression features,
-# and the library enables none of them.
+# `gzip` so the compression knobs can be *called* whatever features the crate is
+# built with; the library's own `gzip` feature is what a dependent turns on.
 tonic = { workspace = true, features = ["gzip"] }
 # Only the `get_nb_request` test helper needs these: it drives a raw HTTP request through the connector
 # `armonik-transport` builds, to read the mock server's `/calls.json`.
@@ -109,7 +114,15 @@ name = "results"
 required-features = ["client", "server"]
 
 [[test]]
+name = "request_shapes"
+required-features = ["client", "server"]
+
+[[test]]
 name = "server_mounting"
+required-features = ["client", "server"]
+
+[[test]]
+name = "server_socket"
 required-features = ["client", "server"]
 
 [[test]]

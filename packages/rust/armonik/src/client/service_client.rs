@@ -91,14 +91,24 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
         input.into_call(&mut self.inner).await
     }
 
-    /// Compress requests with the given encoding, if the server supports it.
+    /// Compress requests with the given encoding.
+    ///
+    /// No negotiation: the encoding is applied to every request from here on, and a server that
+    /// does not accept it fails every one of them with `UNIMPLEMENTED`. Enable it only against a
+    /// peer known to accept it.
+    ///
+    /// Every `CompressionEncoding` variant is behind one of tonic's compression features; turn on
+    /// this crate's `gzip` to have one to pass.
     #[must_use]
     pub fn send_compressed(mut self, encoding: tonic::codegen::CompressionEncoding) -> Self {
         self.inner = self.inner.send_compressed(encoding);
         self
     }
 
-    /// Enable decompressing responses.
+    /// Accept responses compressed with the given encoding.
+    ///
+    /// This half *is* advertised, in `grpc-accept-encoding`, so a server may use it or not. See
+    /// [`send_compressed`](Self::send_compressed) for where the encodings come from.
     #[must_use]
     pub fn accept_compressed(mut self, encoding: tonic::codegen::CompressionEncoding) -> Self {
         self.inner = self.inner.accept_compressed(encoding);
