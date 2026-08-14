@@ -53,7 +53,7 @@ impl<T: super::Channel> super::ServiceClient<services::Results, T> {
         -> crate::results::delete_data::Request => result_ids: Vec<String>);
     client_method!(ImportResultsData:
         import(session_id: into<String>, results: pairs<String, bytes::Bytes>)
-        -> crate::results::import::Request => results: std::collections::HashMap<String, crate::results::Raw>);
+        -> crate::results::import::Request => results: Vec<crate::results::Raw>);
     client_method!(GetServiceConfiguration:
         get_service_configuration()
         -> crate::results::get_service_configuration::Request => crate::results::get_service_configuration::Response);

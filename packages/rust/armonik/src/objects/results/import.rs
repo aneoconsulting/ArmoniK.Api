@@ -1,11 +1,5 @@
 use std::collections::HashMap;
 
-use prost::bytes::{Buf, BufMut};
-use prost::encoding::{self, DecodeContext, WireType};
-use prost::DecodeError;
-
-use crate::codec::{ProtoAdapter, ProtoField};
-
 use super::Raw;
 
 #[armonik_macros::message]
@@ -13,6 +7,7 @@ use super::Raw;
 #[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataRequest")]
 pub struct Request {
     pub session_id: String,
+    /// The opaque storage id to import into each result, keyed by result id.
     #[armonik(
         with = "crate::codec::adapters::PairMap",
         absorbs = "armonik.api.grpc.v1.results.ImportResultsDataRequest.ResultOpaqueId"
@@ -24,45 +19,56 @@ pub struct Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataResponse")]
 pub struct Response {
-    #[armonik(with = "RawByName")]
-    pub results: HashMap<String, Raw>,
+    pub results: Vec<Raw>,
 }
 
-/// `repeated ResultRaw` exposed as a `HashMap` keyed by the results' own
-/// `name` field: entry order is not preserved and duplicate names collapse
-/// (last wins), exactly like the historical conversion.
-pub(crate) struct RawByName;
+impl Response {
+    /// The updated results by name.
+    ///
+    /// A view rather than the field, and borrowed rather than owned, because `name` is not a key:
+    /// nothing on the wire makes it unique, so this map can hold fewer entries than `results`. The
+    /// response used to *be* this map, which meant a round trip could drop a result and no caller
+    /// could tell. It could not be correlated with the request either, which is keyed by result id.
+    pub fn by_name(&self) -> HashMap<&str, &Raw> {
+        self.results
+            .iter()
+            .map(|raw| (raw.name.as_str(), raw))
+            .collect()
+    }
 
-impl ProtoAdapter<HashMap<String, Raw>> for RawByName {
-    fn encode_field(tag: u32, value: &HashMap<String, Raw>, buf: &mut impl BufMut) {
-        for raw in value.values() {
-            Raw::encode_field(tag, raw, buf);
+    /// The updated results by result id, which is what [`Request::results`] is keyed by.
+    pub fn by_result_id(&self) -> HashMap<&str, &Raw> {
+        self.results
+            .iter()
+            .map(|raw| (raw.result_id.as_str(), raw))
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Raw, Response};
+
+    fn raw(result_id: &str, name: &str) -> Raw {
+        Raw {
+            result_id: String::from(result_id),
+            name: String::from(name),
+            ..Default::default()
         }
     }
 
-    fn merge_field(
-        wire_type: WireType,
-        value: &mut HashMap<String, Raw>,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), DecodeError> {
-        encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
-        let mut raw = Raw::default();
-        Raw::merge_field(wire_type, &mut raw, buf, ctx)?;
-        value.insert(raw.name.clone(), raw);
-        Ok(())
-    }
+    /// Two results may share a name, and the response keeps both. Keying the field by name lost one
+    /// of them, silently, and left the survivor unmatchable against the request that asked for it.
+    #[test]
+    fn two_results_sharing_a_name_both_survive() {
+        let response = Response {
+            results: vec![raw("r1", "shared"), raw("r2", "shared")],
+        };
 
-    fn encoded_len_field(tag: u32, value: &HashMap<String, Raw>) -> usize {
-        value
-            .values()
-            .map(|raw| Raw::encoded_len_field(tag, raw))
-            .sum()
-    }
-
-    /// The `HashMap` loses entry order and collapses duplicate names.
-    #[cfg(test)]
-    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
-        crate::differential::fold_pairs_by_name(message, tag, "name");
+        assert_eq!(response.results.len(), 2);
+        assert_eq!(response.by_name().len(), 1);
+        assert_eq!(response.by_result_id().len(), 2);
+        assert_eq!(response.by_result_id()["r1"].name, "shared");
+        assert_eq!(response.by_result_id()["r2"].name, "shared");
     }
 }
