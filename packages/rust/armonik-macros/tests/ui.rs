@@ -43,6 +43,12 @@
 //! this crate wrote, laid out by rustc's diagnostic frame; none is a rustc-owned diagnostic. Checked
 //! against stable, nightly and the 1.88 MSRV, which agree exactly. If a future rustc does change the
 //! frame, the fix is the `TRYBUILD=overwrite` line above.
+//!
+//! Which is why this runs on stable only. The snapshots are byte-compared and they gate a *shared*
+//! matrix job with no `continue-on-error`, so the day rustc's nightly reflows a note, every pull
+//! request in the repository goes red, C++ and C# and Python ones included, until someone
+//! regenerates 40-odd files and reviews them. The suite is worth having; it is not worth having on
+//! a toolchain that moves under it. `ARMONIK_UI=1` runs it anyway.
 
 /// Compile the fixture schema and hand the compile-fail runs an `OUT_DIR` holding it.
 ///
@@ -80,8 +86,23 @@ fn compile_the_fixture_descriptor() {
     std::env::set_var("OUT_DIR", dir);
 }
 
+/// Whether this run should byte-compare the snapshots; see the toolchain note in the module docs.
+fn snapshots_are_comparable() -> bool {
+    if std::env::var_os("ARMONIK_UI").is_some_and(|value| value == "1") {
+        return true;
+    }
+    !std::env::var("RUSTUP_TOOLCHAIN").is_ok_and(|toolchain| toolchain.starts_with("nightly"))
+}
+
 #[test]
 fn ui() {
+    if !snapshots_are_comparable() {
+        eprintln!(
+            "skipping the compile-fail snapshots: they are byte-compared and this is a nightly \
+             toolchain (set ARMONIK_UI=1 to run them anyway)"
+        );
+        return;
+    }
     compile_the_fixture_descriptor();
     trybuild::TestCases::new().compile_fail("tests/ui/*.rs");
 }
