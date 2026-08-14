@@ -142,6 +142,19 @@ where
     <S::Item as armonik::rpc::Rpc>::METHOD
 }
 
+/// Whether there is a mock server to talk to.
+///
+/// `scripts/mock_test.sh` exports `GrpcClient__Endpoint`, which is the one variable every armonik
+/// client and [`nb_requests`] reads, so its absence is how a bare `cargo test` says that the
+/// cross-implementation half of the suite has nothing to drive. Skipping on it keeps that half out
+/// of a local run without `#[ignore]`: an ignored test needs `--include-ignored`, and cargo forwards
+/// that flag to every harness in the workspace including rustdoc's, where it compiles the
+/// `ignore`-marked doc examples, which cannot compile by construction.
+#[allow(unused)]
+pub(crate) fn mock_is_live() -> bool {
+    matches!(std::env::var("GrpcClient__Endpoint"), Ok(endpoint) if !endpoint.is_empty())
+}
+
 /// The mock's tally of calls to one RPC. Driven through the same connector `armonik-transport`
 /// builds for the gRPC channel, so it follows the endpoint and TLS configuration the suite is
 /// running under.
@@ -493,14 +506,16 @@ macro_rules! rpc_tests {
             }
 
             // Both cases below need the C# mock server, which `scripts/mock_test.sh` starts and
-            // points `GrpcClient__Endpoint` at. Without it each fails with `InvalidUri(Empty)`,
-            // which made a plain `cargo test` a poor signal: half of every service suite failed for
-            // a reason that has nothing to do with the code. CI runs them with
-            // `--include-ignored`.
+            // points `GrpcClient__Endpoint` at. Without it each would fail with `InvalidUri(Empty)`,
+            // which makes a plain `cargo test` a poor signal: half of every service suite failing
+            // for a reason that has nothing to do with the code. So they skip on the variable the
+            // script exports (see `mock_is_live`), and CI needs no flag to run them.
             #[tokio::test]
-            #[ignore = "needs the ArmoniK.Api.Mock server; see scripts/mock_test.sh"]
             #[serial_test::serial($into)]
             async fn call() {
+                if !crate::common::mock_is_live() {
+                    return;
+                }
                 let counter = crate::common::Counter::read(
                     $mock,
                     crate::common::$method_of(&$request),
@@ -513,9 +528,11 @@ macro_rules! rpc_tests {
             }
 
             #[tokio::test]
-            #[ignore = "needs the ArmoniK.Api.Mock server; see scripts/mock_test.sh"]
             #[serial_test::serial($into)]
             async fn convenience() {
+                if !crate::common::mock_is_live() {
+                    return;
+                }
                 let counter = crate::common::Counter::read(
                     $mock,
                     crate::common::$method_of(&$request),
