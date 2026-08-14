@@ -47,9 +47,24 @@ impl<T: super::Channel> super::ServiceClient<services::Agent, T> {
     client_method!(CreateResults:
         create_results(communication_token: into<String>, session_id: into<String>, results: iter<crate::agent::create_results::RequestItem>)
         -> crate::agent::create_results::Request => results: Vec<crate::agent::ResultMetaData>);
-    client_method!(NotifyResultData:
-        notify_result_data(communication_token: into<String>, session_id: into<String>, result_ids: iter<String>)
-        -> crate::agent::notify_result_data::Request => result_ids: Vec<String>);
+    /// Notify results that all belong to one session, which is what the proto's `repeated
+    /// ResultIdentifier` is used for; build the request by hand to vary the session per result.
+    #[armonik(rpc = "NotifyResultData")]
+    pub async fn notify_result_data(
+        &mut self,
+        communication_token: impl Into<String>,
+        session_id: impl Into<String>,
+        result_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Result<Vec<String>, super::RequestError> {
+        Ok(self
+            .call(crate::agent::notify_result_data::Request::in_session(
+                communication_token,
+                session_id,
+                result_ids,
+            ))
+            .await?
+            .result_ids)
+    }
     client_method!(SubmitTasks:
         submit_tasks(communication_token: into<String>, session_id: into<String>, task_options: plain<Option<crate::TaskOptions>>, items: iter<crate::agent::submit_tasks::RequestItem>)
         -> crate::agent::submit_tasks::Request => items: Vec<crate::agent::submit_tasks::ResponseItem>);
