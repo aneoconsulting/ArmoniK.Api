@@ -30,6 +30,7 @@ use prost_reflect::{DynamicMessage, ReflectMessage, Value};
 mod arbitrary;
 mod compare;
 mod harness;
+mod mutate;
 mod probe;
 pub(crate) mod registrations;
 mod registry;

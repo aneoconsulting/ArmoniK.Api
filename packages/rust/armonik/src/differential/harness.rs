@@ -1,8 +1,11 @@
-//! The four differential tests: randomized `DynamicMessage`s generated from the real protobuf
+//! The differential tests: randomized `DynamicMessage`s generated from the real protobuf
 //! descriptors are round-tripped through the armonik types (decode + re-encode) and compared
 //! semantically. Two ratchets keep the quotient honest: every message of the descriptor pool must
 //! be registered or tracked, and every field of every registered message must stay
 //! information-bearing under the types' own `Normalize` projections.
+//!
+//! [`super::mutate`] re-runs the round-trip over the same messages encoded the other legal ways: a
+//! peer's choices about field order, packing, duplicates and fields this schema does not declare.
 //!
 //! Every randomized failure prints the seed needed to replay the exact case.
 
@@ -13,8 +16,8 @@ use super::{arbitrary, compare, probe, registrations, registry, rng};
 
 static DESCRIPTOR: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptor.bin"));
 
-const ITERATIONS: u64 = 64;
-const RECURSION_DEPTH: u32 = 3;
+pub(super) const ITERATIONS: u64 = 64;
+pub(super) const RECURSION_DEPTH: u32 = 3;
 
 pub(super) fn pool() -> DescriptorPool {
     DescriptorPool::decode(DESCRIPTOR).expect("embedded descriptor set decodes")
@@ -22,7 +25,7 @@ pub(super) fn pool() -> DescriptorPool {
 
 /// Recursive `name: value` dump of the set fields, for failure messages; `DynamicMessage`'s `Debug`
 /// impl prints whole descriptors.
-fn debug_fields(message: &DynamicMessage) -> String {
+pub(super) fn debug_fields(message: &DynamicMessage) -> String {
     use prost_reflect::ReflectMessage;
     use std::fmt::Write;
 
@@ -364,6 +367,26 @@ fn descriptor_coverage_ratchet() {
             "PERMANENT_UNMAPPED entry `{name}` does not exist in the descriptor"
         );
     }
+
+    // The block `mutate` files its synthetic unknown fields under has to stay unknown. Derived
+    // rather than restated: a schema that ever declares a tag up there would make those fields
+    // known to whichever message declared it, and the mutation would stop being one.
+    let highest = pool
+        .all_messages()
+        .flat_map(|message| {
+            message
+                .fields()
+                .map(|field| field.number())
+                .collect::<Vec<_>>()
+        })
+        .max()
+        .unwrap_or_default();
+    assert!(
+        highest < *super::mutate::UNKNOWN_TAGS.start(),
+        "the schema declares tag {highest}, which reaches into the block `mutate` uses for its \
+         synthetic unknown fields ({:?}). Move that block up.",
+        super::mutate::UNKNOWN_TAGS,
+    );
 }
 
 /// Every declared RPC has a client method, and every client method names a declared RPC.
