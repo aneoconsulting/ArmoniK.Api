@@ -172,7 +172,15 @@ where
         let mut path = req.uri().path();
         let truncated = path.len() > MAX_REPORTED_PATH;
         if truncated {
-            path = &path[..MAX_REPORTED_PATH];
+            // Back to a character boundary, because `http` accepts non-ASCII UTF-8 in a path and
+            // byte 128 of a client-supplied one lands mid-character often enough: slicing there
+            // panics inside this synchronous body, which unwinds the hyper connection task and
+            // every concurrent stream on it.
+            let end = (0..=MAX_REPORTED_PATH)
+                .rev()
+                .find(|index| path.is_char_boundary(*index))
+                .unwrap_or(0);
+            path = &path[..end];
         }
         let status = tonic::Status::unimplemented(if truncated {
             format!("{path}... is not implemented")

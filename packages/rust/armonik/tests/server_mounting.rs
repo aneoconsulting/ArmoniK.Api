@@ -121,25 +121,35 @@ async fn an_unrouted_path_is_unimplemented() {
 
 /// The unrouted path is repeated back to the client, but bounded: it is client-supplied, and the
 /// `grpc-message` header percent-encodes it.
+///
+/// Both an ASCII path and a multi-byte one. The bound is in bytes while the path is a `str`, so it
+/// is the second that used to panic: byte 128 of a path of `€` lands mid-character, and slicing
+/// there unwinds the synchronous body of `Service::call`, taking the connection and every
+/// concurrent stream on it. The ASCII case alone is why this survived a dedicated test.
 #[tokio::test]
 async fn a_long_unrouted_path_is_truncated() {
     use tonic::codegen::Service as _;
 
-    let long = "x".repeat(4096);
-    let mut router = Versions.versions_server();
-    let request = http::Request::builder()
-        .uri(format!("/{long}"))
-        .body(tonic::body::Body::empty())
-        .expect("build the request");
+    for (long, prefix) in [("x".repeat(4096), "/xxx"), ("€".repeat(60), "/€€€")] {
+        let mut router = Versions.versions_server();
+        let request = http::Request::builder()
+            .uri(format!("/{long}"))
+            .body(tonic::body::Body::empty())
+            .expect("build the request");
 
-    let response = router.call(request).await.expect("infallible");
-    let status = tonic::Status::from_header_map(response.headers()).expect("a grpc status");
-    assert!(
-        status.message().len() < 200,
-        "the message is bounded, got {} bytes",
-        status.message().len()
-    );
-    assert!(status.message().starts_with("/xxx"));
+        let response = router.call(request).await.expect("infallible");
+        let status = tonic::Status::from_header_map(response.headers()).expect("a grpc status");
+        assert!(
+            status.message().len() < 200,
+            "the message is bounded, got {} bytes",
+            status.message().len()
+        );
+        assert!(
+            status.message().starts_with(prefix),
+            "the status repeats the path back: {}",
+            status.message()
+        );
+    }
 }
 
 /// `poll_ready` resolves without naming the request body type.
