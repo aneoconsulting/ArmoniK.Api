@@ -12,8 +12,10 @@
 //!   in-memory channel, and asserts what comes back.
 //!
 //! In both pairs, `call` goes through `ServiceClient::call` with a request message (or, under
-//! `client_stream`, a stream of them) built by hand, and `convenience` goes through the method
-//! `service!` derives from that request's fields.
+//! `client_stream`, a stream of them) built by hand, and `convenience` goes through the client
+//! method in `client/<svc>.rs`. The `convenience:` clauses below are what pin those signatures:
+//! they name the method, its arguments and their order, so a signature cannot move without editing
+//! this file.
 //!
 //! These suites compile against `armonik` from the outside, so they also stand as the proof that
 //! the public API is usable: everything they touch has to be `pub`, which no in-crate test could

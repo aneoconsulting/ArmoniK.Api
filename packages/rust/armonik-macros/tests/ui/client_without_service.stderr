@@ -1,0 +1,7 @@
+error: #[armonik_macros::client] needs #[armonik(service = "full.proto.Service")] naming the service its methods belong to
+ --> tests/ui/client_without_service.rs:8:1
+  |
+8 | #[armonik_macros::client]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `armonik_macros::client` (in Nightly builds, run with -Z macro-backtrace for more info)

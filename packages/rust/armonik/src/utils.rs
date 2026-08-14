@@ -1,5 +1,9 @@
-/// Used by the client conveniences, which widen their arguments to `impl IntoIterator`.
+/// Used by the client methods that widen an argument to `impl IntoIterator`.
+///
+/// Unused under the narrowest use-case features: `--features agent` compiles only the `Worker`
+/// client, whose one method takes no arguments.
 #[cfg(feature = "_gen-client")]
+#[allow(dead_code)]
 pub(crate) trait IntoCollection<T> {
     fn into_collect(self) -> T;
 }
@@ -21,6 +25,7 @@ where
 /// methods: two levels of `impl IntoIterator` into the service's
 /// `filter::Or { or: Vec<filter::And> }` shape.
 #[cfg(feature = "_gen-client")]
+#[allow(dead_code)]
 pub(crate) fn into_filters<Field, And, Or>(
     filters: impl IntoIterator<Item = impl IntoIterator<Item = Field>>,
 ) -> Or

@@ -38,6 +38,11 @@ pub(crate) enum AttrItem {
     /// message the adapter flattens away, which therefore has no Rust type of its own. Harvested so
     /// the build script prunes it and the differential harness counts it as covered.
     Absorbs(LitStr),
+    /// `service = "full.proto.Service"`, on a client impl block: the proto service its methods
+    /// belong to, which is what `#[armonik_macros::client]` looks their documentation up in.
+    Service(LitStr),
+    /// `rpc = "MethodName"`, on a client method: the RPC it stands for.
+    Rpc(LitStr),
 }
 
 pub(crate) struct AttrEntry {
@@ -74,6 +79,8 @@ impl Parse for AttrList {
                 "tag" => AttrItem::Tag(eq_then(input)?),
                 "with" => AttrItem::With(eq_then(input)?),
                 "absorbs" => AttrItem::Absorbs(eq_then(input)?),
+                "service" => AttrItem::Service(eq_then(input)?),
+                "rpc" => AttrItem::Rpc(eq_then(input)?),
                 "generic" => AttrItem::Generic,
                 "transparent" => AttrItem::Transparent,
                 "present" => AttrItem::Present,
@@ -83,8 +90,8 @@ impl Parse for AttrList {
                         span,
                         format!(
                             "unknown armonik attribute key `{other}` (expected one of: \
-                             message, enum, oneof, rename, tag, with, absorbs, generic, \
-                             transparent, present, inline)"
+                             message, enum, oneof, rename, tag, with, absorbs, service, rpc, \
+                             generic, transparent, present, inline)"
                         ),
                     ));
                 }

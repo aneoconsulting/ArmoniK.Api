@@ -301,3 +301,41 @@ fn descriptor_coverage_ratchet() {
         );
     }
 }
+
+/// Every declared RPC has a client method, and every client method names a declared RPC.
+///
+/// The two sides are filled from opposite ends and never see each other: `service!` records what
+/// `rpc/*.rs` declares, `#[armonik_macros::client]` records what `client/*.rs` implements. Nothing
+/// else connects them, which is the point -- the client methods are written by hand, so their
+/// signatures cannot drift with the schema, and this is what replaces the guarantee that generating
+/// them used to give for free: that one exists at all.
+///
+/// `unexposed(...)` RPCs are not declared, which is what exempts them.
+#[test]
+fn every_rpc_has_a_client_method() {
+    use super::registrations::{CLIENT_METHODS, DECLARED_RPCS};
+
+    let key = |rpc: &super::registrations::Rpc| format!("{}/{}", rpc.service, rpc.method);
+    let declared: std::collections::BTreeSet<String> = DECLARED_RPCS.iter().map(key).collect();
+    let implemented: std::collections::BTreeSet<String> = CLIENT_METHODS.iter().map(key).collect();
+
+    let uncovered: Vec<&String> = declared.difference(&implemented).collect();
+    assert!(
+        uncovered.is_empty(),
+        "these RPCs have no client method; write one in `client/<svc>.rs` under \
+         #[armonik(rpc = \"...\")], or list the RPC in `unexposed(...)`:\n    {uncovered:#?}"
+    );
+
+    let unclaimed: Vec<&String> = implemented.difference(&declared).collect();
+    assert!(
+        unclaimed.is_empty(),
+        "these client methods name an RPC that no `service!` declares:\n    {unclaimed:#?}"
+    );
+
+    // A guard on the guard: an empty pair of slices would satisfy both assertions above.
+    assert_eq!(
+        declared.len(),
+        59,
+        "the RPC count moved; update this number once the change is deliberate"
+    );
+}

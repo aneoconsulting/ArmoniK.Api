@@ -8,5 +8,5 @@ armonik_macros::service! {
 
     rpc Get(get::Request) -> get::Response;
     rpc Watch(get::Request) -> stream get::Response;
-    rpc Push(stream push::Request) -> push::Response manual;
+    rpc Push(stream push::Request) -> push::Response;
 }

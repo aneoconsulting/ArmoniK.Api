@@ -49,6 +49,26 @@ pub(crate) struct Hooks {
 #[linkme::distributed_slice]
 pub(crate) static REGISTRY: [Registration];
 
+/// One RPC of one service, recorded from one of the two ends that has to agree about it.
+pub(crate) struct Rpc {
+    pub service: &'static str,
+    pub method: &'static str,
+}
+
+/// Every RPC a `service!` invocation declares. `unexposed(...)` ones are not here: they are declared
+/// precisely because the crate does not expose them.
+#[linkme::distributed_slice]
+pub(crate) static DECLARED_RPCS: [Rpc];
+
+/// Every client method that claims an RPC, recorded by `#[armonik_macros::client]`.
+///
+/// Two slices rather than one because the point is that they are filled from opposite ends: the
+/// declaration in `rpc/*.rs` and the implementation in `client/*.rs`. The test next door asserts
+/// they pair up, which is what replaces the guarantee the convenience generator used to give for
+/// free.
+#[linkme::distributed_slice]
+pub(crate) static CLIENT_METHODS: [Rpc];
+
 /// Every registered proto name that a Rust type implements, with that type's hooks.
 pub(crate) fn typed() -> impl Iterator<Item = (&'static str, Hooks)> {
     REGISTRY

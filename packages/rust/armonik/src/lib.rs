@@ -44,6 +44,26 @@ macro_rules! register {
     (unexposed: $($proto:literal),+ $(,)?) => {
         $($crate::register!(@untyped $proto, Unexposed);)+
     };
+    // The two ends of the RPC-coverage check: `service!` declares, `#[armonik_macros::client]`
+    // implements, and the test in `differential` asserts the two sets are equal.
+    (declared_rpc: $service:literal, $method:literal) => {
+        $crate::register!(@rpc DECLARED_RPCS, $service, $method);
+    };
+    (client_method: $service:literal, $method:literal) => {
+        $crate::register!(@rpc CLIENT_METHODS, $service, $method);
+    };
+
+    (@rpc $slice:ident, $service:literal, $method:literal) => {
+        #[cfg(test)]
+        const _: () = {
+            #[::linkme::distributed_slice($crate::differential::registrations::$slice)]
+            static R: $crate::differential::registrations::Rpc =
+                $crate::differential::registrations::Rpc {
+                    service: $service,
+                    method: $method,
+                };
+        };
+    };
 
     // One registration for a proto name with no Rust type of its own.
     (@untyped $proto:literal, $role:ident) => {

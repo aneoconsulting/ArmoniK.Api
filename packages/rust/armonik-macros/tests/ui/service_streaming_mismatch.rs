@@ -6,7 +6,7 @@ include!("../support/prelude.rs");
 armonik_macros::service! {
     Fixture in crate::fixture @ "fixture.Fixture";
 
-    rpc Get(stream get::Request) -> get::Response manual;
+    rpc Get(stream get::Request) -> get::Response;
     rpc Watch(watch::Request) -> stream watch::Response;
-    rpc Push(stream push::Request) -> push::Response manual;
+    rpc Push(stream push::Request) -> push::Response;
 }
