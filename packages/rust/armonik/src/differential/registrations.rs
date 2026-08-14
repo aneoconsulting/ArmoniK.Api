@@ -64,7 +64,7 @@ pub(crate) static DECLARED_RPCS: [Rpc];
 ///
 /// Two slices rather than one because the point is that they are filled from opposite ends: the
 /// declaration in `rpc/*.rs` and the implementation in `client/*.rs`. The test next door asserts
-/// they pair up, which is what replaces the guarantee the convenience generator used to give for
+/// they pair up, which is what replaces the guarantee a convenience generator would give for
 /// free.
 #[linkme::distributed_slice]
 pub(crate) static CLIENT_METHODS: [Rpc];

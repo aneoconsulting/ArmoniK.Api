@@ -8,7 +8,7 @@
 //!
 //! Methods are written out rather than generated. That is deliberate: a signature that is spelled
 //! here cannot move when a field is added to the proto message behind it, which is what generating
-//! them from the request's fields used to do to every caller.
+//! them from the request's fields would do to every caller.
 //!
 //! The common shape -- widen a few arguments, build the request, call, project one field -- goes
 //! through `client_method!`, which spells the signature just the same:

@@ -1,5 +1,5 @@
 error: proto message `fixture.Simplee` not found in the compiled descriptor set
-  --> tests/ui/alias_unknown_message.rs:10:25
-   |
-10 | #[armonik_macros::alias("fixture.Simplee")]
-   |                         ^^^^^^^^^^^^^^^^^
+ --> tests/ui/alias_unknown_message.rs:9:25
+  |
+9 | #[armonik_macros::alias("fixture.Simplee")]
+  |                         ^^^^^^^^^^^^^^^^^

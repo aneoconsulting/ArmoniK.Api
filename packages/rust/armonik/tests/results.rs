@@ -477,9 +477,8 @@ async fn an_unrouted_path_is_named_in_the_status() {
     use armonik::reexports::tonic;
     use armonik::reexports::tonic::codegen::Service as _;
 
-    // A method of this service the crate does not route. `WatchResults` used to be the one; it is
-    // routed now, so this reaches for a name the proto does not declare at all, which is the other
-    // half of what the router answers UNIMPLEMENTED for.
+    // A name the proto does not declare, which is the other half of what the router answers
+    // UNIMPLEMENTED for (the first being a method of another service).
     let mut router = Service::default().results_server();
     let request = http::Request::builder()
         .uri("/armonik.api.grpc.v1.results.Results/NoSuchMethod")

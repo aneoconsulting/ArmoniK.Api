@@ -34,10 +34,7 @@ pub enum LargeRequest {
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus")]
 pub enum Status {
-    /// No creation status: neither member was set.
-    ///
-    /// The absence used to decode to an empty `Error`, which reads as a task that failed with no
-    /// message rather than as a reply that says nothing.
+    /// No member set, which an empty `Error` is not.
     #[default]
     Invalid,
     #[armonik(inline)]
@@ -54,10 +51,7 @@ pub enum Status {
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply")]
 pub enum Response {
-    /// No reply: neither member was set.
-    ///
-    /// The absence used to decode to an empty status list, which reads as a successful call that
-    /// created nothing.
+    /// No member set, which an empty `Status` list is not.
     #[default]
     Invalid,
     /// The creation statuses, one per task creation request.

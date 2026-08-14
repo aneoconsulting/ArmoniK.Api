@@ -1,11 +1,12 @@
 //! Generic gRPC client: one [`ServiceClient`] type for every service, with
 //! the RPC deduced from the request type through [`Rpc`].
 //!
-//! One entry point, [`ServiceClient::call`], serves all three call kinds. The
+//! One entry point, [`ServiceClient::call`], serves all four call kinds. The
 //! *output* shape hangs off the call kind ([`Dispatch`], a GAT keyed on
-//! [`Unary`] / [`ServerStream`] / [`ClientStream`]); the *input* shape picks its
-//! own dispatch through [`IntoCall`], whose marker parameter is what keeps
-//! "a message" and "a stream of messages" from being one overlapping impl.
+//! [`Unary`] / [`ServerStream`] / [`ClientStream`] / [`BidiStream`]); the
+//! *input* shape picks its own dispatch through [`IntoCall`], whose marker
+//! parameter keeps "a message" and "a stream of messages" from being one
+//! overlapping impl.
 
 use std::marker::PhantomData;
 
@@ -15,7 +16,7 @@ use crate::rpc::{BidiStream, ClientStream, Rpc, ServerStream, Service, Unary};
 
 use super::RequestError;
 
-/// The channel bounds every client signature used to spell out, bundled.
+/// The channel bounds every client signature would otherwise spell out.
 pub trait Channel:
     tonic::client::GrpcService<
     tonic::body::Body,
@@ -67,14 +68,16 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
     }
 
     /// Perform a gRPC call. The RPC, and with it the call kind, is deduced from
-    /// the request type, so all three kinds go through this one method:
+    /// the request type, so all four kinds go through this one method:
     ///
-    /// * a unary or server-streaming RPC takes its request message, or a
-    ///   [`tonic::Request`] wrapping it (for per-call metadata and deadlines),
-    ///   and gives back the response message or a stream of response items;
-    /// * a client-streaming RPC takes a [`Stream`](futures::Stream) of its
-    ///   request messages, or a [`tonic::Request`] wrapping one, and gives back
-    ///   the single response message.
+    /// * a unary or server-streaming RPC takes its request message, and gives
+    ///   back the response message or a stream of response items;
+    /// * a client-streaming or bidirectional RPC takes a
+    ///   [`Stream`](futures::Stream) of its request messages, and gives back
+    ///   the response message or a stream of them.
+    ///
+    /// Either input may instead be a [`tonic::Request`] wrapping it, for
+    /// per-call metadata and deadlines.
     ///
     /// Both `R` and the marker `M` (see [`IntoCall`]) are inferred from the
     /// input, including when it is a pre-built [`tonic::Request`]. `M` never

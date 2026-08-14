@@ -177,10 +177,8 @@ mod tests {
         (collected, ok, errors.into_result().is_ok())
     }
 
-    /// `absorbs` is collected where a site opts in and rejected where it does not. It used to be
-    /// merely *tolerated* here and harvested by a second walk over the whole item, so the value
-    /// read at this site was thrown away; the rule a naive shared collector would drop is the
-    /// rejection half, which no other test covers.
+    /// `absorbs` is collected where a site opts in and *rejected* where it does not. The rejection
+    /// half is what a shared collector would drop, and no other test covers it.
     #[test]
     fn absorbs_is_gated_per_site() {
         let (collected, ok, clean) = scan(

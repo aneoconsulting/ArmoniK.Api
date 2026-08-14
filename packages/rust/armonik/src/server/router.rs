@@ -67,7 +67,7 @@ pub struct Router<Svc, S> {
 
 /// Hand-written, because the derive would demand `Svc: Debug` and the service markers `service!`
 /// emits are unit structs implementing nothing. `Svc` is a `PhantomData<fn() -> Svc>` here, so it
-/// holds no value to print and the bound was never about this type's contents: a downstream
+/// holds no value to print, so the bound says nothing about this type's contents: a downstream
 /// `#[derive(Debug)]` over a struct with a `Router` field compiled on main and could not be made to
 /// compile here.
 impl<Svc, S: std::fmt::Debug> std::fmt::Debug for Router<Svc, S> {

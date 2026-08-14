@@ -15,10 +15,7 @@ pub struct Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.AvailabilityReply")]
 pub enum Response {
-    /// No reply: no member was set.
-    ///
-    /// The absence used to decode to `NotCompleted("")`. `Ok` sits next to it here, so a reply
-    /// that says nothing cannot be read as one that says the result is available.
+    /// No member set. Distinct from [`Ok`](Self::Ok), which carries nothing but *is* set.
     #[default]
     Invalid,
     #[armonik(present)]

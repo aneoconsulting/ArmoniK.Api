@@ -24,10 +24,8 @@ pub enum RawField {
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[armonik(message = "armonik.api.grpc.v1.sessions.SessionField")]
 pub enum Field {
-    /// No field: the oneof was left unset.
-    ///
-    /// Distinct from a raw field holding the unspecified value, which is what the absence used to
-    /// decode to: both name no field, but only this one round-trips as the empty message.
+    /// No field named. `Raw(RawField::UNSPECIFIED)` says the same thing one level down, but only
+    /// this one round-trips as the empty message.
     #[default]
     Invalid,
     /// The session raw field.

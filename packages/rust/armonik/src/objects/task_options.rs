@@ -87,7 +87,7 @@ mod tests {
 
     use super::{TaskOptions, INFINITE_DURATION};
 
-    /// prost-derived reference (the generated type no longer exists).
+    /// Independent prost-derived reference.
     #[derive(Clone, PartialEq, Message)]
     struct RefOptions {
         #[prost(map = "string, string", tag = "1")]

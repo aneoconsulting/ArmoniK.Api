@@ -2,11 +2,10 @@
 //! descriptor, and how it is emitted. Plus the dispatch that picks one, which lives here because
 //! this is the module that owns the shapes.
 //!
-//! Shape-major, because that is the unit anyone reads: understanding what `#[armonik(transparent)]`
-//! does used to mean jumping between `resolve.rs` and `codegen.rs` across a three-thousand-line
-//! boundary. The plan/emit discipline is kept *within* each module, and the modules around it are
-//! what make that checkable: `plan` names no `TokenStream`, and `emit` reads the descriptor's
-//! vocabulary (`FieldKind`, `Cardinality`) without ever reaching for a `DescriptorIndex` to walk.
+//! Shape-major, because a shape is the unit anyone reads. The plan/emit split is kept *within*
+//! each module, and the modules around it keep it checkable: `plan` names no `TokenStream`, and
+//! `emit` reads the descriptor's vocabulary (`FieldKind`, `Cardinality`) without ever walking a
+//! `DescriptorIndex`.
 
 use proc_macro2::{Span, TokenStream};
 
@@ -49,10 +48,8 @@ impl Plan {
 
 /// Pick the shape `#[armonik_macros::message]` is standing for and resolve it.
 ///
-/// The single home of that decision. It used to have three: the entry point chose oneof vs plain,
-/// `plain::message_plan` then chose generic vs transparent vs plain, and the error path guessed a
-/// third time from the attributes. The type-level attribute loop below is what the sub-resolvers
-/// used to each run for themselves.
+/// The single home of that decision, and of the type-level attribute scan the shapes are chosen
+/// from: a shape resolver is handed what it needs and never rescans.
 pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Plan, Errors> {
     let index = index(input)?;
     let entries = attrs::parse(&input.attrs)?;
@@ -60,9 +57,7 @@ pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Plan, Errors> 
     let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut stray: Vec<Span> = Vec::new();
     let mut oneof_attr = false;
-    // Spans, not flags: the two are mutually exclusive and the rejection has to point at one of
-    // them. `generic` used to win silently, which frames the value one submessage deeper than the
-    // type says it does.
+    // Spans, not flags: the two are mutually exclusive and the rejection points at one of them.
     let mut generic: Option<Span> = None;
     let mut transparent: Option<Span> = None;
     for entry in &entries {
@@ -89,9 +84,7 @@ pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Plan, Errors> 
             transparent_span,
             "generic and transparent cannot be combined: transparent flattens a single-field \
              wrapper message into the type, generic skips descriptor validation because a \
-             generic type names no proto message, and there is no wrapper to flatten without \
-             one. generic used to win and transparent was dropped without a word, which frames \
-             the value one submessage level too deep",
+             generic type names no proto message, and there is no wrapper to flatten without one",
         );
         return Err(errors);
     }

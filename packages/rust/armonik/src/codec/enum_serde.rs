@@ -1,12 +1,10 @@
 //! Serde for the proto enumerations: one representation out, three spellings in.
 //!
-//! A named value serializes as its Rust variant name, which is what `derive(Serialize)` wrote
-//! before; the catch-all serializes as a plain integer, because `{"Unknown": 9999}` spells a Rust
-//! implementation detail where the number is the thing every other binding agrees on. Deserializing
-//! accepts all three shapes, and the enum's own `From<i32>` normalizes whatever comes back, so a
-//! known value cannot arrive inside the catch-all whichever spelling produced it. That last part is
-//! the point: `derive(Deserialize)` builds the payload struct directly, in the module that owns its
-//! private field, and so bypasses the conversion that keeps the invariant.
+//! A named value serializes as its Rust variant name; the catch-all as a plain integer, because
+//! `{"Unknown": 9999}` spells a Rust implementation detail where the number is what every other
+//! binding agrees on. Deserializing accepts all three shapes and normalizes through the enum's own
+//! `From<i32>`, which is the point: `derive(Deserialize)` is generated in the module that owns the
+//! payload's private field, so it builds the catch-all directly and skips that conversion.
 //!
 //! Reading three shapes means [`Deserializer::deserialize_any`], so this covers the self-describing
 //! formats (JSON, YAML, TOML) and not the ones that need the type to drive the parse (bincode,
@@ -91,9 +89,8 @@ impl<'de> Visitor<'de> for Raw {
         i32::try_from(value).map_err(|_| E::invalid_value(Unexpected::Unsigned(value), &self))
     }
 
-    /// The shape `derive(Deserialize)` used to write the catch-all as, so a document written by an
-    /// older version still reads. Its value is normalized like any other, which is exactly what
-    /// that derive did not do.
+    /// The externally-tagged spelling of the catch-all, accepted so a document written by
+    /// `derive(Deserialize)` still reads. Normalized like every other numeric path.
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
         let Some(key) = map.next_key::<String>()? else {
             return Err(A::Error::invalid_length(0, &self));
@@ -128,10 +125,9 @@ mod tests {
         assert_eq!(json(TaskStatus::from(9999)), "9999");
     }
 
-    /// The three spellings one value can arrive as, all normalized through `From<i32>`. The last is
-    /// what `derive(Deserialize)` used to write, and the reason this module exists: read by that
-    /// derive it produced a catch-all holding 4, which compared unequal to `Completed` and encoded
-    /// to the same bytes.
+    /// The three spellings one value can arrive as, all normalized through `From<i32>`. The last
+    /// is what `derive(Deserialize)` writes, and reading it with that derive yields a catch-all
+    /// holding 4: unequal to `Completed`, and the same bytes on the wire.
     #[test]
     fn every_spelling_of_a_known_value_reads_as_the_named_variant() {
         assert_eq!(read("\"Completed\""), TaskStatus::Completed);

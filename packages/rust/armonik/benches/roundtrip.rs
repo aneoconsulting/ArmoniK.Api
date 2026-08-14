@@ -1,11 +1,9 @@
 //! Round-trip latency and throughput of the results service, in process.
 //!
 //! The server is a [`ResultsService`] implementation handed straight to
-//! [`Client::with_channel`]: the tonic service *is* the channel, so no socket, no
-//! DNS and no TLS are involved and what the numbers measure is the gRPC codec
-//! plus the client and server glue. That is exactly the layer this branch
-//! rewrites, so the same file run at the base and at the tip compares the
-//! conversion-based implementation against the direct wire one.
+//! [`Client::with_channel`]: the tonic service *is* the channel, so no socket,
+//! DNS or TLS is involved and the numbers are the gRPC codec plus the client and
+//! server glue.
 //!
 //! One RPC per call kind, all on `Results`:
 //!
@@ -17,15 +15,13 @@
 //! channel is reused and what is timed is the call rather than the building of a
 //! gRPC stack; `client_construction` measures that separately.
 //!
-//! Everything goes through the public API. The two non-client-streaming kinds use
-//! `client.call(request)`; the client-streaming one uses `client.upload(..)`,
-//! because `call` is not spelled the same way for that kind at both ends of the
-//! branch while `upload` is.
+//! Everything goes through the public API: `client.call(request)` for the unary
+//! and server-streaming kinds, `client.upload(..)` for the client-streaming
+//! one.
 //!
 //! The unbenchmarked RPCs answer with `Default::default()`, which is what lets
 //! `rotate` call them without the file naming response fields it does not
-//! measure, and lets one version of the file compile against every commit of
-//! the branch. Only `watch` is left `unimplemented`.
+//! measure. Only `watch` is left `unimplemented`.
 
 use std::sync::Arc;
 

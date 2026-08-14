@@ -5,10 +5,7 @@ use super::super::TaskStatus;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter", oneof = "ids")]
 pub enum TaskFilterIds {
-    /// No id selector: `ids` was left unset.
-    ///
-    /// The absence used to decode to `Sessions([])`, which selects the tasks of no session, so a
-    /// filter a peer never wrote could select nothing at all.
+    /// No selector. Distinct from `Sessions([])`, which selects the tasks of no session.
     #[default]
     Invalid,
     /// Select the tasks from their session IDs.
@@ -35,9 +32,7 @@ pub enum TaskFilterIds {
     oneof = "statuses"
 )]
 pub enum TaskFilterStatuses {
-    /// No status selector: `statuses` was left unset.
-    ///
-    /// Distinct from excluding the empty set, which is what the absence used to decode to.
+    /// No selector. Distinct from `Exclude([])`, which is a constraint that happens to be vacuous.
     #[default]
     Invalid,
     /// Select the tasks whose status is one of these.
@@ -70,8 +65,7 @@ mod tests {
 
     use super::*;
 
-    /// prost-derived reference of `TaskFilter` (the generated type no longer
-    /// exists), with the two oneofs spelled out as optional fields.
+    /// Independent prost-derived reference, with the two oneofs spelled out as optional fields.
     #[derive(Clone, PartialEq, Message)]
     struct RefFilter {
         #[prost(message, optional, tag = "1")]

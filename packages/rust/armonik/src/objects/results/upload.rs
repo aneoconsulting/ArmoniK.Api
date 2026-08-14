@@ -4,10 +4,7 @@ use super::Raw;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.results.UploadResultDataRequest")]
 pub enum Request {
-    /// No member set.
-    ///
-    /// The absence used to decode to an `Identifier` with an empty session and result id, which
-    /// names a result rather than saying that the message named none.
+    /// No member set, which an `Identifier` of two empty ids is not.
     #[default]
     Invalid,
     #[armonik(rename = "id", inline)]

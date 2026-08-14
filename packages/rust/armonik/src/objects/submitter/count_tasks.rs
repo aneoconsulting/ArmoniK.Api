@@ -15,10 +15,8 @@ pub struct Request {
 /// Number of tasks per status, from the repeated `StatusCount` pairs (duplicate statuses collapse,
 /// last wins).
 ///
-/// A scoped response rather than an alias to [`Count`](crate::Count): the convenience emitter finds
-/// a type's field reflection by mangling the path written on the rpc line, and an alias has no
-/// reflection of its own. Duplicating the object per RPC site is what the crate does everywhere
-/// else a proto message is shared, and it is what let the second proc macro go.
+/// A scoped response rather than an alias to [`Count`](crate::Count), like every other proto
+/// message this crate shares across RPC sites: response types stay injective over RPCs.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.Count")]

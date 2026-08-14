@@ -8,10 +8,7 @@ use super::super::SessionStatus;
     oneof = "statuses"
 )]
 pub enum SessionFilterStatuses {
-    /// No status selector: `statuses` was left unset.
-    ///
-    /// Distinct from excluding the empty set, which is what the absence used to decode to: one
-    /// says the peer named no status constraint, the other that it named one and it is vacuous.
+    /// No selector. Distinct from `Exclude([])`, which is a constraint that happens to be vacuous.
     #[default]
     Invalid,
     /// Select the sessions whose status is one of these.
@@ -45,8 +42,7 @@ mod tests {
 
     use super::*;
 
-    /// prost-derived reference of `SessionFilter` (the generated type no longer
-    /// exists), with the oneof spelled out as optional fields.
+    /// Independent prost-derived reference, with the oneof spelled out as optional fields.
     #[derive(Clone, PartialEq, Message)]
     struct RefFilter {
         #[prost(string, repeated, tag = "1")]

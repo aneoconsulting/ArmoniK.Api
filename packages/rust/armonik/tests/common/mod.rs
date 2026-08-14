@@ -11,11 +11,10 @@
 //! * `<rpc>::in_process::{call, convenience}` drives it against the generated fake over an
 //!   in-memory channel, and asserts what comes back.
 //!
-//! In both pairs, `call` goes through `ServiceClient::call` with a request message (or, under
-//! `client_stream`, a stream of them) built by hand, and `convenience` goes through the client
-//! method in `client/<svc>.rs`. The `convenience:` clauses below are what pin those signatures:
-//! they name the method, its arguments and their order, so a signature cannot move without editing
-//! this file.
+//! In both pairs, `call` goes through `ServiceClient::call` with a hand-built request (a message,
+//! or a stream of them under the streaming-request kinds) and `convenience` goes through the client
+//! method in `client/<svc>.rs`. The `convenience:` clauses pin those signatures: they name the
+//! method, its arguments and their order, so a signature cannot move without editing this file.
 //!
 //! These suites compile against `armonik` from the outside, so they also stand as the proof that
 //! the public API is usable: everything they touch has to be `pub`, which no in-crate test could
@@ -266,21 +265,21 @@ impl Counter {
 /// (`unary`, `client_stream` for a stream of request messages, `server_stream`
 /// for a stream of responses, `bidi_stream` for both). Clauses, in this order:
 ///
-/// * `request:` is driven through `call`, which takes all three kinds: a request
-///   message, or a stream of them under `client_stream`. Written as a struct
-///   literal, which is also where the macro reads the request type from to emit
-///   the handler signature.
-/// * `respond:` is the fake's answer, and generates the handler. Omit it when
-///   the handler cannot be a plain function of the request, and hand-write that
-///   method in the `manual { .. }` block instead; the streaming kinds always
-///   need this.
-/// * `convenience:` is the derived method and the arguments to call it with.
-/// * `project:` is what that method pulls out of the response, which is the
-///   `=> field` on the `rpc` line. Omit it when the method hands back the whole
-///   response. Under `server_stream` it projects one item.
+/// * `request:` is driven through `call`: a request message, or a stream of them
+///   under the two streaming-request kinds. Written as a struct literal, which
+///   is also where the macro reads the request type from to emit the handler
+///   signature.
+/// * `respond:` is the fake's answer, and generates the handler. Omit it when the
+///   handler cannot be a plain function of one request, and hand-write that
+///   method in the `manual { .. }` block instead; every streaming kind does.
+/// * `convenience:` is the client method in `client/<svc>.rs` and the arguments
+///   to call it with.
+/// * `project:` is what that method pulls out of the response. Omit it when the
+///   method hands back the whole response, which is always the case under
+///   `bidi_stream`. Under `server_stream` it projects one item.
 /// * `check:` asserts on the projected value, and so is shared by both halves of
-///   the in-process pair. Under `server_stream` it takes the stream and reads
-///   `|stream| async move { .. }`.
+///   the in-process pair. Under the two response-streaming kinds it takes the
+///   stream and reads `|stream| async move { .. }`.
 /// * `mock_error:` is optional and only concerns the mock pair; see
 ///   [`accept`].
 ///

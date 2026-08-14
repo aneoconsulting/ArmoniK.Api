@@ -53,9 +53,8 @@ fn routes_any_request_body() {
 
     assert_routes::<Full<Bytes>>();
     assert_routes::<tonic::body::Body>();
-    // A body whose `Data` is not `Bytes`. The bound used to say `Body<Data = Bytes>`, which is
-    // stricter than tonic asks of its own servers (`HttpBody + Send + 'static`) and than anything
-    // in the router's bodies needs.
+    // A body whose `Data` is not `Bytes`: tonic asks its own servers only for
+    // `HttpBody + Send + 'static`, and nothing in the router's bodies needs more.
     assert_routes::<Full<std::io::Cursor<Vec<u8>>>>();
 }
 
@@ -126,10 +125,9 @@ async fn an_unrouted_path_is_unimplemented() {
 /// The unrouted path is repeated back to the client, but bounded: it is client-supplied, and the
 /// `grpc-message` header percent-encodes it.
 ///
-/// Both an ASCII path and a multi-byte one. The bound is in bytes while the path is a `str`, so it
-/// is the second that used to panic: byte 128 of a path of `€` lands mid-character, and slicing
-/// there unwinds the synchronous body of `Service::call`, taking the connection and every
-/// concurrent stream on it. The ASCII case alone is why this survived a dedicated test.
+/// Both an ASCII path and a multi-byte one: the bound is in bytes while the path is a `str`, so
+/// byte 128 of a path of `€` lands mid-character, and slicing there panics in the synchronous body
+/// of `Service::call`.
 #[tokio::test]
 async fn a_long_unrouted_path_is_truncated() {
     use tonic::codegen::Service as _;

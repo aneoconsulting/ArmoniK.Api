@@ -141,10 +141,7 @@ enum CallKind {
 
 /// Everything that varies with the call shape, in one place.
 ///
-/// These facts used to sit in separate matches in separate functions: the `Rpc::Kind` marker in
-/// [`expand_rpc`], and the signature shape and the `serve_*` helper in [`expand_server`]. Nothing
-/// tied them together, so a fourth call shape would be several edits and several chances to miss
-/// one. Here an arm is one shape, stated once, and adding `BidiStream` was one arm.
+/// One arm per shape, so adding a call kind is one edit rather than one per emitter.
 struct KindFacts {
     /// The `crate::rpc::*` marker the `Rpc` impl names.
     marker: TokenStream,
@@ -247,9 +244,8 @@ pub(crate) fn expand(def: ServiceDef) -> syn::Result<TokenStream> {
         }
     });
 
-    // The client alias, from the same declaration as the marker and with the same harvested docs.
-    // `client/<svc>.rs` used to spell both by hand, and two of the twelve transcriptions had already
-    // drifted from the proto prose they were copied from.
+    // The client alias, from the same declaration as the marker and with the same harvested docs:
+    // prose copied into `client/<svc>.rs` by hand drifts from the proto, and had.
     let deprecation = def.deprecated.then(|| quote!(#[deprecated]));
     let alias = quote! {
         #[cfg(feature = "_gen-client")]
@@ -468,9 +464,8 @@ fn request_module_segment(request: &Path) -> syn::Result<Ident> {
 /// What [`validate`] resolved: one entry per `rpc` line, plus what the `unexposed(...)` names
 /// resolved to.
 ///
-/// The messages are carried out rather than looked up again. `expand` used to re-find each
-/// unexposed method in the descriptor and assert the invariant with `.expect("validated")`, which is
-/// the same lookup twice with a panic holding the two halves together.
+/// The messages are carried out rather than looked up again, so no second lookup has to be held
+/// to the first by an `.expect("validated")`.
 struct Validated<'a> {
     rpcs: Vec<Resolved<'a>>,
     /// Input and output messages of the unexposed RPCs. No Rust type stands for them, so the

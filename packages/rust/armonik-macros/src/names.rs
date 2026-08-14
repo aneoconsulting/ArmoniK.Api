@@ -1,11 +1,8 @@
 //! The naming rules the expansions match Rust identifiers to proto names by.
 //!
-//! One home for them, because there used to be two: the resolver stripped the *proto enum's* simple
-//! name from a value, doc harvesting stripped a SCREAMING_SNAKE spelling of the *Rust type's* name.
-//! Those agree only while the two names are spelled the same, and where they diverged the type
-//! resolved fine and silently lost every one of its harvested value comments. `health_checks::Status`
-//! (proto `HealthStatusEnum`) was the live case, in a design whose stated point is that the proto
-//! prose stops being copied by hand.
+//! One home, because the two callers disagreeing is invisible: a value prefix stripped by the Rust
+//! type's name instead of the proto enum's still resolves, and silently harvests no comments.
+//! `health_checks::Status` (proto `HealthStatusEnum`) is a live case of the two differing.
 
 /// `HealthChecks` -> `health_checks`.
 pub(crate) fn snake(name: &str) -> String {
@@ -83,8 +80,7 @@ pub(crate) fn snake_case(camel: &str) -> String {
 mod tests {
     use super::*;
 
-    /// The rule doc harvesting used to get wrong: the prefix on the *values* is the proto enum's
-    /// name, which need not be the Rust type's.
+    /// The prefix on the values is the *proto enum's* name, which need not be the Rust type's.
     #[test]
     fn values_are_stripped_of_the_proto_enum_name() {
         assert_eq!(

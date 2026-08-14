@@ -2,8 +2,8 @@
 
 include!("../support/prelude.rs");
 
-// Two modes that cannot both apply: `generic` used to win and `transparent` was dropped in silence,
-// which frames the value one submessage level deeper than the type says it does.
+// Two modes that cannot both apply: resolving one and dropping the other frames the value a
+// submessage level away from where the type says it is.
 //
 // `#[derive(Debug)]` and not `Default`: the salvage stub skips the `Msg` impl for a type that does
 // not derive `Default`, and with it the case would carry a second, unrelated error.
