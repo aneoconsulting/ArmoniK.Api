@@ -20,15 +20,13 @@ use syn::parse_macro_input;
 
 mod attr_site;
 mod attrs;
-mod callback;
-mod convenience;
+mod client;
 mod descriptor;
 mod emit;
 mod item;
 mod matcher;
 mod names;
 mod plan;
-mod reflection;
 mod service;
 mod shape;
 
@@ -248,24 +246,16 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
         Ok(plan) => plan,
         Err(error) => return item::salvage(input, Kind::Message, error).into(),
     };
-    // Both read the item before `rewrite` mutates it, and before the list below moves it;
-    // `anchors` additionally has to see the `#[armonik(...)]` keys it points at, which `rewrite`
-    // strips.
+    // Read before `rewrite` mutates the item and before the list below moves it: `anchors` has to
+    // see the `#[armonik(...)]` keys it points at, which `rewrite` strips.
     let anchors = item::anchors(&input, Kind::Message);
-    let reflection = reflection::reflection(&input);
     let absorbed = absorbed(plan.absorbs());
     item::rewrite(&mut input, &plan);
 
-    [
-        input.into_token_stream(),
-        anchors,
-        plan.emit(),
-        absorbed,
-        reflection,
-    ]
-    .into_iter()
-    .collect::<TokenStream2>()
-    .into()
+    [input.into_token_stream(), anchors, plan.emit(), absorbed]
+        .into_iter()
+        .collect::<TokenStream2>()
+        .into()
 }
 
 /// Implement the wire representation of a protobuf enum for an ArmoniK API
@@ -455,28 +445,33 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `HealthChecks`/`HealthChecksService`). Two optional header lines follow:
 /// `unexposed(Method, ...);` lists RPCs the crate deliberately does not expose
 /// (the router answers UNIMPLEMENTED for their paths), and `deprecated;` marks
-/// every generated convenience method `#[deprecated]` (the `Submitter`
-/// service).
+/// the generated client alias `#[deprecated]` (the `Submitter` service).
 ///
 /// Each rpc line is:
 ///
 /// ```text
-/// rpc Method([stream] req::Request) -> [stream] req::Response [as name] [=> ...] [manual];
+/// rpc Method([stream] req::Request) -> [stream] req::Response [as name];
 /// ```
 ///
 /// - `stream` sits where the proto puts it: schema syntax validated against
 ///   the descriptor's streaming flags, not a config field.
-/// - The ergonomic name (server trait method, convenience method, telemetry
-///   label) is the module segment of the request path; `as name` overrides it
-///   when several RPCs share a module (`create_tasks::{Small,Large}Request`).
-/// - `=> ...` controls what the convenience method returns; see
-///   [Projection](#projection).
-/// - `manual` emits no convenience method: the opt-out for custom wiring or a
-///   wrong mechanical default (`worker::Process`, whose request would explode
-///   into nine parameters). Client-streaming RPCs are required to carry it,
-///   since a request stream has no single message to spread into parameters.
-///   Their entry point is `call`, like every other kind: it is the convenience
-///   method, not the call, that they opt out of.
+/// - `as name` names the **server** side: the `<Marker>Service` trait method
+///   that handles this RPC, the router entry that dispatches into it, and the
+///   telemetry label. It defaults to the module segment of the request path
+///   (`list::Request` gives `list`), and is spelled only where two RPCs share a
+///   request module and would otherwise collide in the trait, which is what
+///   `create_tasks::{Small,Large}Request` do.
+///
+///   It says nothing about the client. Client methods are hand-written in
+///   `client/*.rs` and name their own RPC through
+///   [`client`](macro@client)'s `#[armonik(rpc = "...")]`, so the two sides are
+///   named independently.
+///
+/// The client methods are *not* declared here. They live in `client/*.rs`,
+/// written out, and are tied back to these declarations by
+/// [`client`](macro@client) so that a test can prove every RPC has one. That is
+/// the point: a signature that is written down cannot move when a field is
+/// added to the proto message behind it.
 ///
 /// # What one invocation emits
 ///
@@ -484,45 +479,23 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///   `Service` impl; one `Rpc` impl per line, with const asserts that the
 ///   request and response types implement the method's input and output
 ///   messages, and a fingerprint tripwire against stale expansions.
-/// - **under `cfg(test)`**: the unexposed RPCs' message names, registered for the
-///   coverage ratchet. Derived from `unexposed(...)`, so the two allowlists
-///   cannot drift.
+/// - **under `cfg(test)`**: the unexposed RPCs' message names, registered for
+///   the coverage ratchet (derived from `unexposed(...)`, so the two allowlists
+///   cannot drift), and every declared RPC, registered for the client-coverage
+///   check that [`client`](macro@client) is the other half of.
 /// - **`_gen-server`**: the `<Marker>Service` trait (one method per RPC, docs
 ///   harvested, streaming shapes from the descriptor), the
 ///   `<Marker>ServiceExt::<marker>_server` wrapper, and the `Routes` table the
 ///   generic `Router` dispatches through.
-/// - **`_gen-client`**: one convenience method per non-manual rpc line, built
-///   by [`__emit_convenience`] from the request struct's fields through the
-///   field-reflection callbacks the derives emit. Parameters mirror the fields
-///   in declaration order (reorder the struct to reorder them), widened per
-///   sugar class: `String`/`Bytes` to `impl Into`, `Vec<T>` to
-///   `impl IntoIterator<Item = impl Into<T>>`, `HashMap<K, V>` to pair
-///   iterators, `filter::Or` to nested iterators. Docs harvested.
-///
-/// # Projection
-///
-/// What the convenience method returns, spelled on the line rather than
-/// inferred:
-///
-/// - *(default)* the whole response;
-/// - `=> field`: that field of the response, mapped over the stream items on a
-///   server-streaming RPC (`download` yielding `Bytes`);
-/// - `=> ()`: discard it and return `()`.
-///
-/// A bare line used to mean "the response's fields decide: exactly one field
-/// yields that field, several yield the whole response". That made the return
-/// type of 30 methods a function of a proto message's field count, so adding a
-/// second field to any of them silently changed the public API, and it needed a
-/// second pass through the response type's reflection callback, which is why a
-/// response with none (an enum, an alias) failed to resolve a mangled name
-/// instead of saying so.
+/// - **`_gen-client`**: the `Client` type alias, with the service's harvested
+///   docs.
 ///
 /// # Validation
 ///
 /// Schema facts are spanned errors at expansion time: the service and every
 /// method exist in the descriptor, the `stream` keywords agree with its
 /// streaming flags, no method is declared twice, no two methods share an
-/// ergonomic name, and every method of the service is either declared or listed
+/// handler name, and every method of the service is either declared or listed
 /// in `unexposed(...)`. Type facts, that the named Rust types implement the
 /// RPC's messages, are const-asserted over the codec's `NAMES`. A wrong sugar
 /// inference is an ordinary type error in the generated code.
@@ -534,15 +507,59 @@ pub fn service(input: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Internal continuation of the field-reflection callbacks: builds one client convenience method
-/// per RPC from the request struct's fields. Only ever invoked by `service!`-emitted code; see
-/// `convenience.rs`.
-#[doc(hidden)]
-#[proc_macro]
-pub fn __emit_convenience(input: TokenStream) -> TokenStream {
-    convenience::expand(input.into())
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
+/// Link the hand-written client methods of one service to the RPCs they stand for.
+///
+/// The methods in `client/*.rs` are written by hand, so their signatures are stable against schema
+/// changes by construction. This attribute supplies the two things they cannot supply themselves:
+/// it prepends each method the RPC's documentation, harvested from the proto rather than copied,
+/// and it registers the method so a test can prove every declared RPC has one.
+///
+/// ```ignore
+/// #[armonik_macros::client]
+/// #[armonik(service = "armonik.api.grpc.v1.sessions.Sessions")]
+/// impl<T: super::Channel> super::ServiceClient<services::Sessions, T> {
+///     #[armonik(rpc = "GetSession")]
+///     pub async fn get(&mut self, session_id: impl Into<String>) -> Result<Raw, RequestError> {
+///         Ok(self.call(get::Request { session_id: session_id.into() }).await?.session)
+///     }
+///
+///     client_method!(CreateSession: create(partition_ids: iter<String>)
+///         -> create::Request => session_id: String);
+/// }
+/// ```
+///
+/// # Attributes
+///
+/// ## service
+///
+/// `service = "full.proto.Service"`, on the impl block: the proto service its methods belong to,
+/// which is where their documentation is looked up. Spelled here rather than read off
+/// `ServiceClient<Sessions, T>` because a proc macro cannot resolve a path to the service it names.
+///
+/// ## rpc
+///
+/// `rpc = "MethodName"`, on a method: the RPC it stands for. A `client_method!` invocation says the
+/// same thing by leading with the RPC name.
+///
+/// # Failure
+///
+/// Every failure re-emits the block, with the error beside it rather than instead of it. An
+/// attributed item reaches the IDE only through its expansion, so a macro that answers a malformed
+/// input with nothing but `compile_error!` withdraws every method in the block from completion and
+/// go-to-definition on every keystroke that leaves it briefly unparseable.
+#[proc_macro_attribute]
+pub fn client(attr: TokenStream, input: TokenStream) -> TokenStream {
+    if !attr.is_empty() {
+        let error = syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "#[armonik_macros::client] takes no arguments; \
+             configure it with #[armonik(service = \"...\")]",
+        )
+        .into_compile_error();
+        let input = TokenStream2::from(input);
+        return quote::quote!(#input #error).into();
+    }
+    client::expand(input.into()).into()
 }
 
 // ---- Shared by the entry points ----

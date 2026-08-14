@@ -1,4 +1,32 @@
-//! ArmoniK clients for all the services
+//! ArmoniK clients for all the services.
+//!
+//! # Writing a client method
+//!
+//! One impl block per service, carrying `#[armonik_macros::client]` and the proto service name. The
+//! attribute prepends each method the RPC's documentation, harvested from the proto rather than
+//! copied, and registers it so `every_rpc_has_a_client_method` can prove no RPC was forgotten.
+//!
+//! Methods are written out rather than generated. That is deliberate: a signature that is spelled
+//! here cannot move when a field is added to the proto message behind it, which is what generating
+//! them from the request's fields used to do to every caller.
+//!
+//! The common shape -- widen a few arguments, build the request, call, project one field -- goes
+//! through `client_method!`, which spells the signature just the same:
+//!
+//! ```ignore
+//! #[armonik_macros::client]
+//! #[armonik(service = "armonik.api.grpc.v1.sessions.Sessions")]
+//! impl<T: super::Channel> super::ServiceClient<services::Sessions, T> {
+//!     client_method!(GetSession:
+//!         get(session_id: into<String>)
+//!         -> crate::sessions::get::Request => session: crate::sessions::Raw);
+//! }
+//! ```
+//!
+//! `into` / `iter` / `pairs` / `filters` / `plain` say how each argument is widened and converted
+//! back; the table is in `client/method.rs`. Anything that does not fit -- the bodies that turn a oneof
+//! response into an error, or build a request stream -- is an ordinary `fn` in the same block, under
+//! `#[armonik(rpc = "MethodName")]`.
 
 use snafu::{ResultExt, Snafu};
 
@@ -10,6 +38,11 @@ use armonik_transport::ConfigSnafu;
 pub use armonik_transport::{
     ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ReadEnvError,
 };
+
+#[cfg(feature = "_gen-client")]
+pub(crate) mod method;
+#[cfg(feature = "_gen-client")]
+pub(crate) use method::client_method;
 
 mod service_client;
 pub use service_client::{

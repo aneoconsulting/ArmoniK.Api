@@ -16,9 +16,13 @@
 //!
 //! The header names the service marker type to emit, the module the request
 //! and response paths are relative to, and the full proto service name.
-//! `stream` sits where the proto puts it. The ergonomic name (server trait
-//! method, telemetry label) is the module segment of the request path, or an
-//! explicit `as name` override when several RPCs share a module.
+//! `stream` sits where the proto puts it. The handler name -- the server trait
+//! method, and the telemetry label -- is the module segment of the request
+//! path, or an explicit `as name` override when several RPCs share a module.
+//!
+//! The client methods are written by hand in `client/*.rs` and tied back to
+//! these declarations by `#[armonik_macros::client]`; every RPC declared here
+//! must have one, which a test asserts.
 //!
 //! Validated against the descriptor, as spanned errors: the service exists,
 //! every `rpc` names one of its methods, the `stream` keywords agree with the
@@ -42,7 +46,6 @@ mod kw {
     syn::custom_keyword!(rpc);
     syn::custom_keyword!(unexposed);
     syn::custom_keyword!(stream);
-    syn::custom_keyword!(manual);
     syn::custom_keyword!(deprecated);
 }
 
@@ -61,23 +64,7 @@ struct RpcDef {
     request: Path,
     server_stream: Option<kw::stream>,
     response: Path,
-    ergonomic: Option<Ident>,
-    project: Project,
-    manual: bool,
-}
-
-/// What the generated convenience method returns, as the rpc line spells it: the whole response
-/// when the line says nothing, one projected field after `=> field`, or nothing after `=> ()`.
-///
-/// There used to be a fifth reading, `auto`, under which a bare line meant "project the single
-/// field, or return the whole response if there are several". That made 30 methods' return type a
-/// function of a proto message's field count: adding a second field to any of them silently
-/// changed the public API. It also cost the emitter a second pass through the response type's
-/// reflection callback, which was the only reason a response needed one.
-enum Project {
-    Whole,
-    Discard,
-    Field(Ident),
+    handler: Option<Ident>,
 }
 
 impl Parse for ServiceDef {
@@ -116,26 +103,10 @@ impl Parse for ServiceDef {
             input.parse::<Token![->]>()?;
             let server_stream = input.parse()?;
             let response: Path = input.parse()?;
-            let ergonomic = match input.parse::<Option<Token![as]>>()? {
+            let handler = match input.parse::<Option<Token![as]>>()? {
                 Some(_) => Some(input.parse::<Ident>()?),
                 None => None,
             };
-            let project = if input.peek(Token![=>]) {
-                input.parse::<Token![=>]>()?;
-                if input.peek(syn::token::Paren) {
-                    let unit;
-                    syn::parenthesized!(unit in input);
-                    if !unit.is_empty() {
-                        return Err(unit.error("expected `()` (discard the response)"));
-                    }
-                    Project::Discard
-                } else {
-                    Project::Field(input.parse()?)
-                }
-            } else {
-                Project::Whole
-            };
-            let manual = input.parse::<Option<kw::manual>>()?.is_some();
             input.parse::<Token![;]>()?;
             rpcs.push(RpcDef {
                 method,
@@ -143,9 +114,7 @@ impl Parse for ServiceDef {
                 request,
                 server_stream,
                 response,
-                ergonomic,
-                project,
-                manual,
+                handler,
             });
         }
 
@@ -171,18 +140,15 @@ enum CallKind {
 
 /// Everything that varies with the call shape, in one place.
 ///
-/// These four facts used to sit in four matches in three functions: the `Rpc::Kind` marker in
-/// [`expand_rpc`], the sugar tag in [`expand_convenience`], and the signature shape and the
-/// `serve_*` helper in [`expand_server`]. Nothing tied them together, so a fourth call shape would
-/// be four edits and four chances to miss one. Here an arm is one shape, stated once.
+/// These facts used to sit in separate matches in separate functions: the `Rpc::Kind` marker in
+/// [`expand_rpc`], and the signature shape and the `serve_*` helper in [`expand_server`]. Nothing
+/// tied them together, so a fourth call shape would be several edits and several chances to miss
+/// one. Here an arm is one shape, stated once.
 struct KindFacts {
     /// The `crate::rpc::*` marker the `Rpc` impl names.
     marker: TokenStream,
     /// The `server::router::serve_*` the route dispatches into.
     serve: Ident,
-    /// The tag `__emit_convenience` reads. `None` for a client-streaming rpc, which emits no
-    /// convenience method at all: it is required to carry `manual` (see [`validate`]).
-    sugar: Option<TokenStream>,
     /// Where a `stream` keyword sits, which is what the trait signature reads: a streaming side
     /// takes or returns `impl Stream` instead of the message.
     client_streams: bool,
@@ -195,21 +161,18 @@ impl CallKind {
             CallKind::Unary => KindFacts {
                 marker: quote!(crate::rpc::Unary),
                 serve: format_ident!("serve_unary"),
-                sugar: Some(quote!(unary)),
                 client_streams: false,
                 server_streams: false,
             },
             CallKind::ServerStream => KindFacts {
                 marker: quote!(crate::rpc::ServerStream),
                 serve: format_ident!("serve_server_stream"),
-                sugar: Some(quote!(server_stream)),
                 client_streams: false,
                 server_streams: true,
             },
             CallKind::ClientStream => KindFacts {
                 marker: quote!(crate::rpc::ClientStream),
                 serve: format_ident!("serve_client_stream"),
-                sugar: None,
                 client_streams: true,
                 server_streams: false,
             },
@@ -221,7 +184,7 @@ impl CallKind {
 struct Resolved<'a> {
     rpc: &'a RpcDef,
     meta: &'a MethodMeta,
-    ergonomic: Ident,
+    handler: Ident,
     kind: CallKind,
 }
 
@@ -260,10 +223,13 @@ pub(crate) fn expand(def: ServiceDef) -> syn::Result<TokenStream> {
         .map(|entry| expand_rpc(&def, entry, &full_name))
         .collect::<Vec<_>>();
     let server = expand_server(&def, &resolved, service_docs);
-    let conveniences = resolved
-        .iter()
-        .map(|entry| expand_convenience(&def, entry))
-        .collect::<syn::Result<Vec<_>>>()?;
+    // Every declared RPC, for the coverage check: `#[armonik_macros::client]` records the method
+    // that stands for each, and a test asserts the two sets are equal. `unexposed(...)` RPCs are not
+    // declared here, which is what exempts them.
+    let declared = resolved.iter().map(|entry| {
+        let method = entry.rpc.method.to_string();
+        quote! { crate::register!(declared_rpc: #full_name, #method); }
+    });
 
     // The unexposed RPCs' messages have no Rust type; register them for the differential harness's
     // coverage ratchet, so the message allowlist is derived from the same declaration as the RPC
@@ -306,65 +272,9 @@ pub(crate) fn expand(def: ServiceDef) -> syn::Result<TokenStream> {
 
         #unexposed
 
-        #(#conveniences)*
+        #(#declared)*
 
         #server
-    })
-}
-
-/// The client convenience method of one RPC: an invocation of the request type's field-reflection
-/// callback, continued into `__emit_convenience`, which builds the method from the fields (see
-/// `convenience.rs`). `manual` lines emit nothing: the opt-out for custom wiring or a wrong sugar
-/// default. Client-streaming lines are required to carry it (enforced in `validate`), so this one
-/// condition covers them too.
-fn expand_convenience(def: &ServiceDef, entry: &Resolved<'_>) -> syn::Result<TokenStream> {
-    if entry.rpc.manual {
-        return Ok(TokenStream::new());
-    }
-
-    let module = &def.module;
-    let marker = &def.marker;
-    let method = &entry.ergonomic;
-    let docs = &entry.meta.docs;
-    let deprecated = def.deprecated;
-
-    let request = &entry.rpc.request;
-    let response = &entry.rpc.response;
-    if request.segments.len() < 2 {
-        return Err(syn::Error::new_spanned(
-            request,
-            "convenience emission needs a `module::Type` request path; use `manual` to opt out",
-        ));
-    }
-    let parents = request.segments.iter().take(request.segments.len() - 1);
-    let req_parent = quote!(#(#parents)::*);
-    let req_stem =
-        crate::names::snake(&request.segments.last().expect("checked").ident.to_string());
-    let callback = quote::format_ident!("__armonik_fields_{req_stem}");
-
-    let kind = entry
-        .kind
-        .facts()
-        .sugar
-        .expect("a client-streaming rpc carries `manual`, filtered above");
-    let project = match &entry.rpc.project {
-        Project::Whole => quote!(whole),
-        Project::Discard => quote!(discard),
-        Project::Field(field) => quote!(field #field),
-    };
-
-    Ok(quote! {
-        #[cfg(feature = "_gen-client")]
-        #module::#req_parent::#callback! { armonik_macros::__emit_convenience! {
-            marker { #marker }
-            method { #method }
-            request { #module::#request }
-            response { #module::#response }
-            kind { #kind }
-            project { #project }
-            deprecated { #deprecated }
-            docs { #(#docs)* }
-        } }
     })
 }
 
@@ -372,14 +282,14 @@ fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenS
     let marker = &def.marker;
     let module = &def.module;
     let method = entry.rpc.method.to_string();
-    let ergonomic = &entry.ergonomic;
+    let handler = &entry.handler;
 
     let kind = entry.kind.facts().marker;
 
     let request = &entry.rpc.request;
     let response = &entry.rpc.response;
     let path = format!("/{full_name}/{method}");
-    let label = format!("{marker}::{ergonomic}");
+    let label = format!("{marker}::{handler}");
     let docs = &entry.meta.docs;
     let input = &entry.meta.input;
     let output = &entry.meta.output;
@@ -429,7 +339,7 @@ fn expand_server(
     // qualified form meant the shared two thirds -- the receiver, the context parameter, the
     // `Future + Send` return -- were written three times and had to be kept identical by hand.
     let methods = resolved.iter().map(|entry| {
-        let ergonomic = &entry.ergonomic;
+        let handler = &entry.handler;
         let docs = &entry.meta.docs;
         let request = &entry.rpc.request;
         let response = &entry.rpc.response;
@@ -456,7 +366,7 @@ fn expand_server(
         };
         quote! {
             #(#[doc = #docs])*
-            fn #ergonomic(
+            fn #handler(
                 self: ::std::sync::Arc<Self>,
                 request: #parameter,
                 context: crate::server::RequestContext,
@@ -467,10 +377,10 @@ fn expand_server(
     });
 
     let routes = resolved.iter().map(|entry| {
-        let ergonomic = &entry.ergonomic;
+        let handler = &entry.handler;
         let request = &entry.rpc.request;
         let serve = entry.kind.facts().serve;
-        let span = format!("{trait_ident}::{ergonomic}");
+        let span = format!("{trait_ident}::{handler}");
         quote! {
             (
                 <#module::#request as crate::rpc::Rpc>::PATH,
@@ -479,7 +389,7 @@ fn expand_server(
                         svc,
                         req,
                         config,
-                        |s: ::std::sync::Arc<S>, r, c| <S as #trait_ident>::#ergonomic(s, r, c),
+                        |s: ::std::sync::Arc<S>, r, c| <S as #trait_ident>::#handler(s, r, c),
                         ::tracing::debug_span!(#span),
                     ))
                 },
@@ -536,7 +446,7 @@ fn expand_server(
     }
 }
 
-/// The module segment of `list::Request`, the default ergonomic name.
+/// The module segment of `list::Request`, the default handler name.
 fn request_module_segment(request: &Path) -> syn::Result<Ident> {
     if request.segments.len() < 2 {
         return Err(syn::Error::new_spanned(
@@ -564,7 +474,7 @@ struct Validated<'a> {
 fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Validated<'a>> {
     let mut resolved = Vec::new();
     let mut declared = HashSet::new();
-    let mut ergonomics = HashSet::new();
+    let mut handlers = HashSet::new();
     for rpc in &def.rpcs {
         let meta = service
             .methods
@@ -618,26 +528,6 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Va
             ));
         }
 
-        // After the descriptor checks above, not while parsing: `stream` on a method the proto
-        // does not stream is one mistake, and asking for `manual` first would answer a question the
-        // author never meant to ask.
-        //
-        // A request stream has no single message to spread into parameters, so the derivation this
-        // macro performs -- one parameter per request field -- has nothing to work from. (The
-        // *entry point* is no longer the reason: `call` takes all three kinds since the `IntoCall`
-        // unification. A `stream in, response out` method would be derivable now, but all three
-        // client-streaming RPCs need a hand-written body anyway -- two turn a oneof response into
-        // an error, the third builds the request stream -- so deriving it would be an emission path
-        // with no consumer.) Spelling `manual` out keeps "no convenience method" readable from the
-        // rpc line alone.
-        if let (Some(stream), false) = (&rpc.client_stream, rpc.manual) {
-            return Err(syn::Error::new(
-                stream.span,
-                "a client-streaming rpc needs `manual`: its request is a stream, so there is \
-                 no message to spread into a convenience method's parameters",
-            ));
-        }
-
         let kind = match (rpc.client_stream, rpc.server_stream) {
             (None, None) => CallKind::Unary,
             (None, Some(_)) => CallKind::ServerStream,
@@ -651,21 +541,21 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Va
             }
         };
 
-        let ergonomic = match &rpc.ergonomic {
+        let handler = match &rpc.handler {
             Some(ident) => ident.clone(),
             None => request_module_segment(&rpc.request)?,
         };
-        if !ergonomics.insert(ergonomic.to_string()) {
+        if !handlers.insert(handler.to_string()) {
             return Err(syn::Error::new(
-                ergonomic.span(),
-                format!("two RPCs would both be named `{ergonomic}`; disambiguate with `as name`"),
+                handler.span(),
+                format!("two RPCs would both be named `{handler}`; disambiguate with `as name`"),
             ));
         }
 
         resolved.push(Resolved {
             rpc,
             meta,
-            ergonomic,
+            handler,
             kind,
         });
     }
