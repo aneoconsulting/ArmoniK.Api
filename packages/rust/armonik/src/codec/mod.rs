@@ -260,6 +260,38 @@ pub(crate) const fn assert_response_message<T: Msg>(output: &'static str) {
     );
 }
 
+/// The oneof a `#[armonik(oneof = "...")]` enum stands for, as `message.oneof` paths.
+///
+/// The counterpart of [`Msg::NAMES`] for the shape that is not a message: an embedded oneof is a
+/// fragment of one, so it implements [`prost::Message`] but not `Msg`, and nothing else records
+/// which fragment.
+pub(crate) trait Oneof {
+    /// One entry per proto oneof this type stands for; several when one Rust type serves unified
+    /// messages, as [`Msg::NAMES`] does.
+    const ONEOF: &'static [&'static str];
+}
+
+/// Whether `declared` covers `path`.
+///
+/// An empty list is unchecked, exactly as an empty [`Shape::names`] is: it is what `item::salvage`
+/// emits for a type whose expansion failed, and that type already has a `compile_error!` next to
+/// it. Firing here too would be the cascade the stub exists to prevent.
+pub(crate) const fn oneof_matches(declared: &'static [&'static str], path: &str) -> bool {
+    declared.is_empty() || names_contain(declared, path)
+}
+
+/// What tokens cannot prove about a field carrying a oneof: that its type stands for *that* oneof.
+///
+/// A tag-compatible substitution is a byte-level bijection, so neither the round-trip harness nor
+/// the field-information ratchet can see it: six filter families share one shape, which makes six
+/// ways to name the wrong one and still pass every test.
+pub(crate) const fn assert_oneof<T: Oneof>(path: &'static str) {
+    assert!(
+        oneof_matches(<T as Oneof>::ONEOF, path),
+        "the field's type does not stand for this oneof",
+    );
+}
+
 /// What tokens cannot prove about a `#[armonik(transparent)]` struct: that the message it names is
 /// the one its delegate stands for.
 ///

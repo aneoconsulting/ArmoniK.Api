@@ -946,6 +946,8 @@ pub(crate) fn oneof_plan(
     Ok(OneofPlan {
         ident: input.ident.clone(),
         docs: selected.meta.docs.clone(),
+        oneof_path: (!selected.whole_message)
+            .then(|| format!("{}.{}", selected.proto_name, selected.oneof.name)),
         proto_name: selected.proto_name,
         whole_message: selected.whole_message,
         siblings,
@@ -1118,7 +1120,17 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // `let value = self;` is the whole cost of sharing the bodies: they are written against a
     // `value` binding, and `prost::Message` takes a receiver where the deleted `ProtoOneof` took an
     // argument.
-    message_shaped(
+    //
+    // The `Oneof` marker goes on the embedded shape only, and says which oneof this stands for: a
+    // whole-message enum is a message and says so through `Msg::NAMES` already.
+    let marker = plan.oneof_path.as_ref().map(|path| {
+        quote! {
+            impl crate::codec::Oneof for #ident {
+                const ONEOF: &'static [&'static str] = &[#path];
+            }
+        }
+    });
+    let expansion = message_shaped(
         ident,
         &syn::Generics::default(),
         plan.fingerprint,
@@ -1156,7 +1168,12 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
             },
             normalize: normalize_fragments,
         },
-    )
+    );
+
+    quote! {
+        #expansion
+        #marker
+    }
 }
 
 /// The arms one variant contributes: one to each of the encode, length and merge walks, plus the
@@ -1468,5 +1485,57 @@ mod tests {
                 "`{field}` is bound under its own name somewhere",
             );
         }
+    }
+
+    /// An embedded oneof records which oneof it stands for; a whole-message enum does not.
+    ///
+    /// Not a `trybuild` case: this fires at const-eval against the real `codec`, which the
+    /// compile-fail suite deliberately does not host (see `tests/ui.rs`). Pinned at the token level
+    /// instead, which is what the suite's excluded classes get.
+    #[test]
+    fn an_embedded_oneof_records_the_oneof_it_stands_for() {
+        let index = fixture_index();
+
+        let embedded: syn::DeriveInput = syn::parse_quote! {
+            #[armonik(message = "fixture.Choice", oneof = "choice")]
+            pub enum Choice {
+                Text(String),
+                Simple(String),
+                #[armonik(present)]
+                Flag,
+                Hostile(String),
+            }
+        };
+        let plan = match oneof_plan(&embedded, &index) {
+            Ok(plan) => plan,
+            Err(errors) => panic!("the fixture resolves: {}", errors.into_syn_error()),
+        };
+        let emitted = oneof(&plan).to_string();
+        assert!(
+            emitted.contains("impl crate :: codec :: Oneof for Choice"),
+            "the marker is emitted: {emitted}",
+        );
+        assert!(
+            emitted.contains("\"fixture.Choice.choice\""),
+            "the marker names the oneof: {emitted}",
+        );
+
+        // The whole-message shape is a message, and says which one through `Msg::NAMES`.
+        let whole: syn::DeriveInput = syn::parse_quote! {
+            #[armonik(message = "fixture.OnlyOneof")]
+            pub enum OnlyOneof {
+                First(String),
+                Second(String),
+            }
+        };
+        let plan = match oneof_plan(&whole, &index) {
+            Ok(plan) => plan,
+            Err(errors) => panic!("the fixture resolves: {}", errors.into_syn_error()),
+        };
+        let emitted = oneof(&plan).to_string();
+        assert!(
+            !emitted.contains("crate :: codec :: Oneof for"),
+            "a whole-message enum gets no oneof marker: {emitted}",
+        );
     }
 }
