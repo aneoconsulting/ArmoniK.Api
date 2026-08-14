@@ -1,7 +1,5 @@
 super::service! {
     Results in crate::results @ "armonik.api.grpc.v1.results.Results";
-    unexposed(WatchResults);
-
     rpc ListResults(list::Request) -> list::Response;
     rpc GetResult(get::Request) -> get::Response;
     rpc GetOwnerTaskId(get_owner_task_id::Request) -> get_owner_task_id::Response;
@@ -12,4 +10,5 @@ super::service! {
     rpc DeleteResultsData(delete_data::Request) -> delete_data::Response;
     rpc ImportResultsData(import::Request) -> import::Response;
     rpc GetServiceConfiguration(get_service_configuration::Request) -> get_service_configuration::Response;
+    rpc WatchResults(stream watch::Request) -> stream watch::Response;
 }

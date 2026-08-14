@@ -19,6 +19,16 @@ fn upload_request() -> impl futures::Stream<Item = results::upload::Request> {
     ])
 }
 
+/// The stream `WatchResults` is driven with, in both halves of the pair. Bidirectional, so the
+/// same stream goes in through `call` and through the client method.
+fn watch_request() -> impl futures::Stream<Item = results::watch::Request> {
+    futures::stream::iter([results::watch::Request {
+        fetch_statuses: vec![armonik::ResultStatus::Created],
+        watch_statuses: vec![armonik::ResultStatus::Completed],
+        result_ids: vec![String::from("rpc-watch-input")],
+    }])
+}
+
 rpc_tests! {
     client: into_results;
     server: ResultsService, results_server;
@@ -270,7 +280,75 @@ rpc_tests! {
         },
     }
 
+    rpc bidi_stream watch {
+        request: watch_request(),
+        convenience: watch(watch_request()),
+        // No `project:`: a bidirectional method hands back the response stream whole, so both
+        // halves of the pair see the same thing and the check reads the response itself.
+        check: |mut stream| async move {
+            let response = stream.next().await.unwrap().unwrap();
+            assert_eq!(response.status, armonik::ResultStatus::Created);
+            assert_eq!(response.result_ids, ["rpc-watch-input"]);
+
+            let response = stream.next().await.unwrap().unwrap();
+            assert_eq!(response.status, armonik::ResultStatus::Completed);
+            assert_eq!(response.result_ids, ["rpc-watch-output"]);
+
+            assert!(stream.next().await.is_none());
+        },
+    }
+
     manual {
+        // One response per request message, plus one of its own, so the test can tell that both
+        // directions stayed open rather than the request being drained first.
+        async fn watch(
+            self: std::sync::Arc<Self>,
+            request: impl armonik::reexports::tokio_stream::Stream<
+                    Item = Result<results::watch::Request, tonic::Status>,
+                > + Send
+                + 'static,
+            _context: RequestContext,
+        ) -> Result<
+            impl armonik::reexports::tokio_stream::Stream<
+                    Item = Result<results::watch::Response, tonic::Status>,
+                > + Send,
+            tonic::Status,
+        > {
+            let drop_guard = self.dropped.clone().drop_guard();
+
+            if self.early {
+                if let Some(duration) = self.wait {
+                    tokio::time::sleep(duration).await;
+                }
+                if let Some(failure) = self.failure.clone() {
+                    Err(failure)?
+                }
+            }
+
+            Ok(async_stream::try_stream! {
+                let _drop_guard = drop_guard;
+                let mut request = std::pin::pin!(request);
+
+                while let Some(item) = request.next().await {
+                    if let Some(duration) = self.wait {
+                        tokio::time::sleep(duration).await;
+                    }
+                    if let Some(failure) = self.failure.clone() {
+                        Err(failure)?
+                    }
+                    yield results::watch::Response {
+                        status: armonik::ResultStatus::Created,
+                        result_ids: item?.result_ids,
+                    };
+                }
+
+                yield results::watch::Response {
+                    status: armonik::ResultStatus::Completed,
+                    result_ids: vec![String::from("rpc-watch-output")],
+                };
+            })
+        }
+
         // Drops its guard only once it has answered, so `get_wait` can tell a
         // cancelled call from a slow one.
         async fn get(
@@ -399,9 +477,12 @@ async fn an_unrouted_path_is_named_in_the_status() {
     use armonik::reexports::tonic;
     use armonik::reexports::tonic::codegen::Service as _;
 
+    // A method of this service the crate does not route. `WatchResults` used to be the one; it is
+    // routed now, so this reaches for a name the proto does not declare at all, which is the other
+    // half of what the router answers UNIMPLEMENTED for.
     let mut router = Service::default().results_server();
     let request = http::Request::builder()
-        .uri("/armonik.api.grpc.v1.results.Results/WatchResults")
+        .uri("/armonik.api.grpc.v1.results.Results/NoSuchMethod")
         .body(tonic::body::Body::default())
         .expect("request");
 
@@ -411,7 +492,7 @@ async fn an_unrouted_path_is_named_in_the_status() {
     assert_eq!(headers["grpc-status"], "12");
     let message = headers["grpc-message"].to_str().expect("ascii");
     assert!(
-        message.contains("armonik.api.grpc.v1.results.Results/WatchResults"),
+        message.contains("armonik.api.grpc.v1.results.Results/NoSuchMethod"),
         "unexpected message: {message}"
     );
 }
@@ -533,6 +614,42 @@ async fn download_wait_late() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn watch_wait_early() {
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut client = slow_client(&token, true);
+
+    if tokio::time::timeout(
+        tokio::time::Duration::from_micros(10),
+        client.watch(watch_request()),
+    )
+    .await
+    .is_ok()
+    {
+        panic!("Expected a timeout, but got a response stream");
+    }
+
+    assert_cancelled(token).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn watch_wait_late() {
+    let token = tokio_util::sync::CancellationToken::new();
+    let mut client = slow_client(&token, false);
+
+    let mut stream = client.watch(watch_request()).await.unwrap();
+
+    if let Ok(response) =
+        tokio::time::timeout(tokio::time::Duration::from_micros(10), stream.next()).await
+    {
+        panic!("Expected a timeout, but got a response: {response:?}");
+    }
+
+    std::mem::drop(stream);
+
+    assert_cancelled(token).await;
+}
+
+#[tokio::test(start_paused = true)]
 async fn upload_wait_early() {
     let token = tokio_util::sync::CancellationToken::new();
     let mut client = slow_client(&token, true);
@@ -603,6 +720,28 @@ async fn download_failure_late() {
 
     match stream.next().await {
         Some(outcome) => assert_invalid_argument(outcome, "rpc-download-late-error"),
+        None => panic!("Expected a failure, but got end of stream"),
+    }
+}
+
+#[tokio::test]
+async fn watch_failure_early() {
+    let mut client = failing_client("rpc-watch-early-error", true);
+
+    match client.watch(watch_request()).await {
+        Ok(_) => panic!("Expected a failure, but got a response stream"),
+        outcome => assert_invalid_argument(outcome.map(|_| ()), "rpc-watch-early-error"),
+    }
+}
+
+#[tokio::test]
+async fn watch_failure_late() {
+    let mut client = failing_client("rpc-watch-late-error", false);
+
+    let mut stream = client.watch(watch_request()).await.unwrap();
+
+    match stream.next().await {
+        Some(outcome) => assert_invalid_argument(outcome, "rpc-watch-late-error"),
         None => panic!("Expected a failure, but got end of stream"),
     }
 }

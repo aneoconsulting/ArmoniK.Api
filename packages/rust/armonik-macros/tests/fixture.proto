@@ -104,4 +104,5 @@ service Fixture {
   rpc Get(Simple) returns (Simple);
   rpc Watch(Simple) returns (stream Simple);
   rpc Push(stream Simple) returns (Simple);
+  rpc Chat(stream Simple) returns (stream Simple);
 }

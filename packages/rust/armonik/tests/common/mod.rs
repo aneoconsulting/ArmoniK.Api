@@ -264,7 +264,7 @@ impl Counter {
 ///
 /// Then one `rpc` line per RPC, the keyword after it being the call kind
 /// (`unary`, `client_stream` for a stream of request messages, `server_stream`
-/// for a stream of responses). Clauses, in this order:
+/// for a stream of responses, `bidi_stream` for both). Clauses, in this order:
 ///
 /// * `request:` is driven through `call`, which takes all three kinds: a request
 ///   message, or a stream of them under `client_stream`. Written as a struct
@@ -472,11 +472,58 @@ macro_rules! rpc_tests {
         }
     };
 
+    // Both halves at once: the request is a stream, like `client_stream`, and the response is one,
+    // like `server_stream`. No `@handler` arm goes with it, for the same reason the other two
+    // streaming kinds have none: a fake that answers a stream with a stream is not a function of
+    // one request, so it goes in `manual { .. }`.
+    (@pairs bidi_stream $name:ident, $into:ident, $server:ident, $mock:tt, {
+        request: $request:expr,
+        convenience: $method:ident ( $($arg:expr),* $(,)? ),
+        $( project: $project:expr, )?
+        check: $check:expr,
+        $( mock_error: $mock_error:expr, )?
+    }) => {
+        rpc_tests!(@mock $mock, $into, method_of_stream,
+            request = ($request),
+            call = (call),
+            convenience = ($method($($arg),*)),
+            settle = (drain),
+            mock_error = ($($mock_error)?),
+        );
+
+        mod in_process {
+            #[allow(unused_imports)]
+            use super::*;
+
+            #[tokio::test]
+            async fn call() {
+                let mut client = rpc_tests!(@client $into, $server);
+                let stream = client.call($request).await.unwrap();
+                // Boxed, so that the check sees the very type the convenience method returns rather
+                // than an adaptor wrapped around it.
+                let stream = futures::StreamExt::boxed(futures::StreamExt::map(stream, |item| {
+                    Result::map(item, |response| {
+                        $( let response = crate::common::project(response, $project); )?
+                        response
+                    })
+                }));
+                crate::common::check_async(stream, $check).await;
+            }
+
+            #[tokio::test]
+            async fn convenience() {
+                let mut client = rpc_tests!(@client $into, $server);
+                let stream = client.$method($($arg),*).await.unwrap();
+                crate::common::check_async(futures::StreamExt::boxed(stream), $check).await;
+            }
+        }
+    };
+
     (@pairs $kind:ident $($rest:tt)*) => {
         ::core::compile_error!(::core::concat!(
             "unknown rpc kind `",
             ::core::stringify!($kind),
-            "`: expected `unary`, `client_stream` or `server_stream`",
+            "`: expected `unary`, `client_stream`, `server_stream` or `bidi_stream`",
         ));
     };
 

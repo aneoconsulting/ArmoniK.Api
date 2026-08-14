@@ -1,4 +1,4 @@
-error: service `fixture.Fixture` has undeclared methods: Push; add `rpc` lines or list them in `unexposed(...)`
+error: service `fixture.Fixture` has undeclared methods: Push, Chat; add `rpc` lines or list them in `unexposed(...)`
  --> tests/ui/service_missing_rpc.rs:7:5
   |
 7 |     Fixture in crate::fixture @ "fixture.Fixture";

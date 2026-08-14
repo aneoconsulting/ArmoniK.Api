@@ -142,7 +142,7 @@ downstream pure-types build of `armonik-types` pulls neither.
 > **Stubs-only generation.** The descriptor set is compiled once (protox)
 > and used twice: the full set becomes `descriptor.bin` for the derives and
 > the differential harness, while the tonic stub generation receives a
-> *pruned* copy: the never-exposed WatchResults methods are dropped
+> *pruned* copy: the never-exposed Submitter.WatchResults method is dropped
 > (tonic answers UNIMPLEMENTED for unrouted paths), every message that
 > nothing generated references (field wrappers, watch messages, legacy) is
 > removed alongside all file-level enums, and every RPC slot carrying a
@@ -833,9 +833,9 @@ scoped where they belong rather than collected in a central array:
 // armonik/src/rpc/results.rs
 crate::rpc::service! {
     Results in crate::results @ "armonik.api.grpc.v1.results.Results";
-    unexposed(WatchResults);
 
     rpc ListResults(list::Request) -> list::Response;
+    rpc WatchResults(stream watch::Request) -> stream watch::Response;
     rpc GetOwnerTaskId(get_owner_task_id::Request) -> get_owner_task_id::Response;
     rpc DownloadResultData(download::Request) -> stream download::Response;
     rpc UploadResultData(stream upload::Request) -> upload::Response;
@@ -915,8 +915,8 @@ proto side is spelled out and the package falls out of it.
   `server_streaming` flags;
 - no method is declared twice;
 - every method of the service is declared, except those on an explicit
-  `unexposed(...)` list in the invocation (today: `WatchResults` on `Results`
-  and on `Submitter`).
+  `unexposed(...)` list in the invocation (today: `WatchResults` on
+  `Submitter`, whose copy the proto deprecates; the `Results` one is routed).
 
 That last one replaces `guard_all_rpcs_claimed` and the per-RPC path tests: a
 forgotten RPC is a compile error naming the method, not a test failure. The
@@ -1021,7 +1021,7 @@ impl<Svc: Service, T: Channel> ServiceClient<Svc, T> {
     pub fn with_channel(channel: T) -> Self { /* once */ }
 
     /// Perform a gRPC call. The RPC, and with it the kind, is deduced from the
-    /// request type: one entry point for all three kinds.
+    /// request type: one entry point for all four kinds.
     pub async fn call<R, M>(&mut self, input: impl IntoCall<R, M>)
         -> Result<<R::Kind as Dispatch>::Output<R>, RequestError>
     where R: Rpc<Service = Svc>, R::Kind: Dispatch
@@ -1167,8 +1167,8 @@ The unmatched-path arm answers
 `Status::unimplemented("<path> is not implemented").into_http()`, so the
 `grpc-message` names the method that was refused. That arm is where a method of
 another service lands, and where the `unexposed(...)` RPCs land: they have no
-route by construction, so `Results.WatchResults` and `Submitter.WatchResults`
-are refused there rather than by a generated stub.
+route by construction, so `Submitter.WatchResults` is refused there rather
+than by a generated stub.
 
 Because `stream` tells `service!` the shape of each RPC, it can emit the
 streaming trait signatures itself (`impl Stream<Item = Result<T, Status>>` in
@@ -1498,7 +1498,7 @@ existed. REST is not on the roadmap, the crate is beta, and the RPC table leaves
 exactly one conversion site per kind, so this stays a cheap follow-up. Revisit
 if `feat-implements-rest-json` or `wk/feat/rust-proxy` becomes real.
 
-### 5.17 The shapes tried before `IntoCall`, for one `call` over all three kinds
+### 5.17 The shapes tried before `IntoCall`, for one `call` over every kind
 
 The separate `call_streaming` was originally kept on the grounds that "a
 client-streaming call takes a `Stream<Item = R>` rather than an `R`, which no
@@ -1509,7 +1509,7 @@ outputs below are rustc 1.95.0.
 
 **(a) An `Input<R>` GAT on `Dispatch`** (`type Input<R>` = `R` for the message
 kinds, `BoxStream<'static, R>` for `ClientStream`, `call(input: <R::Kind as
-Dispatch>::Input<R>)`). Compiles, and does serve all three kinds — but the
+Dispatch>::Input<R>)`). Compiles, and does serve every kind — but the
 argument is now behind a projection, and Rust cannot invert one, so *every* call
 site loses inference, including the ones that have it today:
 
@@ -1619,7 +1619,7 @@ Each step compiled, was separately reviewable, and was committed on its own.
 One deviation from the written order: step 8 (the merge) had to follow step 7
 for the reason recorded in step 8 itself.
 
-0. **Spike** on one service, `Results` (all three call kinds), against the
+0. **Spike** on one service, `Results` (every call kind), against the
    existing `tests/results.rs` and the mock server, with the generated stubs
    still in place alongside: the `Channel` bundle, hand-written
    `Rpc`/`Service`/kind markers, `Dispatch` for `Unary` and `ServerStream`,

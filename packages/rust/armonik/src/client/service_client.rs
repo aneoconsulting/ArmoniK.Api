@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 use snafu::ResultExt;
 
-use crate::rpc::{ClientStream, Rpc, ServerStream, Service, Unary};
+use crate::rpc::{BidiStream, ClientStream, Rpc, ServerStream, Service, Unary};
 
 use super::RequestError;
 
@@ -146,6 +146,24 @@ pub trait DispatchMessage: Dispatch {
         R: Rpc<Kind = Self>;
 }
 
+/// The call kinds whose *request* is a stream: [`ClientStream`] and [`BidiStream`].
+///
+/// The mirror of [`DispatchMessage`], and the pairing is the point: the two traits partition the
+/// four kinds by input shape, so "you cannot upload with one message" and "you cannot call a unary
+/// RPC with a stream" are each a missing impl rather than a runtime surprise.
+pub trait DispatchStream: Dispatch {
+    /// Perform the call.
+    #[allow(async_fn_in_trait)]
+    async fn dispatch<T, R, S>(
+        grpc: &mut tonic::client::Grpc<T>,
+        request: tonic::Request<S>,
+    ) -> Result<Self::Output<R>, RequestError>
+    where
+        T: Channel,
+        R: Rpc<Kind = Self>,
+        S: futures::Stream<Item = R> + Send + 'static;
+}
+
 impl Dispatch for Unary {
     type Output<R: Rpc<Kind = Self>> = R::Response;
 }
@@ -179,6 +197,11 @@ impl Dispatch for ServerStream {
 
 impl Dispatch for ClientStream {
     type Output<R: Rpc<Kind = Self>> = R::Response;
+}
+
+impl Dispatch for BidiStream {
+    type Output<R: Rpc<Kind = Self>> =
+        futures::stream::BoxStream<'static, Result<R::Response, RequestError>>;
 }
 
 impl DispatchMessage for ServerStream {
@@ -225,10 +248,10 @@ impl DispatchMessage for ServerStream {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid input for `call`",
     label = "invalid `call` input",
-    note = "`call` takes the RPC's request message, a `tonic::Request` wrapping it, or — for a \
-            client-streaming RPC — a `Stream` of its request messages",
-    note = "a client-streaming RPC's request message is not a valid input on its own: send a \
-            stream of them (`futures::stream::iter([..])`, `async_stream::stream!`, ...)"
+    note = "`call` takes the RPC's request message, a `tonic::Request` wrapping it, or — for an \
+            RPC whose request is a stream — a `Stream` of its request messages",
+    note = "the request message of a streaming-request RPC is not a valid input on its own: send \
+            a stream of them (`futures::stream::iter([..])`, `async_stream::stream!`, ...)"
 )]
 pub trait IntoCall<R, M>
 where
@@ -284,59 +307,102 @@ where
 
 impl<R, S> IntoCall<R, ByStream> for S
 where
-    R: Rpc<Kind = ClientStream>,
+    R: Rpc,
+    R::Kind: DispatchStream,
     S: futures::Stream<Item = R> + Send + 'static,
 {
     async fn into_call<T: Channel>(
         self,
         grpc: &mut tonic::client::Grpc<T>,
-    ) -> Result<R::Response, RequestError> {
-        client_streaming(grpc, tonic::Request::new(self)).await
+    ) -> Result<<R::Kind as Dispatch>::Output<R>, RequestError> {
+        <R::Kind as DispatchStream>::dispatch(grpc, tonic::Request::new(self)).await
     }
 }
 
 #[diagnostic::do_not_recommend]
 impl<R, S> IntoCall<R, ByStreamRequest> for tonic::Request<S>
 where
-    R: Rpc<Kind = ClientStream>,
+    R: Rpc,
+    R::Kind: DispatchStream,
     S: futures::Stream<Item = R> + Send + 'static,
 {
     async fn into_call<T: Channel>(
         self,
         grpc: &mut tonic::client::Grpc<T>,
-    ) -> Result<R::Response, RequestError> {
-        client_streaming(grpc, self).await
+    ) -> Result<<R::Kind as Dispatch>::Output<R>, RequestError> {
+        <R::Kind as DispatchStream>::dispatch(grpc, self).await
     }
 }
 
-/// The client-streaming dispatch. Not a [`DispatchMessage`] impl: it is keyed on
-/// the *input* being a stream, and [`ClientStream`] is the only kind it serves,
-/// so there is nothing for a kind-generic signature to abstract over.
-async fn client_streaming<T, R, S>(
-    grpc: &mut tonic::client::Grpc<T>,
+impl DispatchStream for ClientStream {
+    async fn dispatch<T, R, S>(
+        grpc: &mut tonic::client::Grpc<T>,
+        request: tonic::Request<S>,
+    ) -> Result<R::Response, RequestError>
+    where
+        T: Channel,
+        R: Rpc<Kind = Self>,
+        S: futures::Stream<Item = R> + Send + 'static,
+    {
+        let span = span_for::<R>();
+        let request = tagged::<R, S>(request, &span);
+        let fut = async move {
+            ready(grpc).await?;
+            Ok(grpc
+                .client_streaming(request, path::<R>(), codec())
+                .await
+                .context(super::GrpcSnafu {})?
+                .into_inner())
+        };
+        tracing_futures::Instrument::instrument(fut, span).await
+    }
+}
+
+impl DispatchStream for BidiStream {
+    async fn dispatch<T, R, S>(
+        grpc: &mut tonic::client::Grpc<T>,
+        request: tonic::Request<S>,
+    ) -> Result<Self::Output<R>, RequestError>
+    where
+        T: Channel,
+        R: Rpc<Kind = Self>,
+        S: futures::Stream<Item = R> + Send + 'static,
+    {
+        let span = span_for::<R>();
+        let stream_span = span.clone();
+        let request = tagged::<R, S>(request, &span);
+        let fut = async move {
+            ready(grpc).await?;
+            // `streaming` is the primitive the other three tonic entry points delegate to, and the
+            // only one that also requires `S: Send`.
+            let stream = grpc
+                .streaming(request, path::<R>(), codec())
+                .await
+                .context(super::GrpcSnafu {})?
+                .into_inner();
+            let stream = futures::StreamExt::map(stream, |item| item.context(super::GrpcSnafu {}));
+            Ok(futures::StreamExt::boxed(
+                tracing_futures::Instrument::instrument(stream, stream_span),
+            ))
+        };
+        tracing_futures::Instrument::instrument(fut, span).await
+    }
+}
+
+/// Tag a stream-input request with its RPC's `GrpcMethod`, and put the caller's stream under a
+/// child span: it is polled while the call runs, so its events belong under the call rather than
+/// wherever the caller built it.
+fn tagged<R: Rpc, S>(
     request: tonic::Request<S>,
-) -> Result<R::Response, RequestError>
-where
-    T: Channel,
-    R: Rpc<Kind = ClientStream>,
-    S: futures::Stream<Item = R> + Send + 'static,
-{
-    let span = span_for::<R>();
-    let stream_span = tracing::trace_span!(parent: &span, "stream");
-    let fut = async move {
-        ready(grpc).await?;
-        let (metadata, mut extensions, stream) = request.into_parts();
-        extensions.insert(grpc_method::<R>());
-        // The caller's stream is polled while the call runs, under its own child span.
-        let stream = tracing_futures::Instrument::instrument(stream, stream_span);
-        let request = tonic::Request::from_parts(metadata, extensions, stream);
-        Ok(grpc
-            .client_streaming(request, path::<R>(), codec())
-            .await
-            .context(super::GrpcSnafu {})?
-            .into_inner())
-    };
-    tracing_futures::Instrument::instrument(fut, span).await
+    span: &tracing::Span,
+) -> tonic::Request<tracing_futures::Instrumented<S>> {
+    let (metadata, mut extensions, stream) = request.into_parts();
+    extensions.insert(grpc_method::<R>());
+    let stream = tracing_futures::Instrument::instrument(
+        stream,
+        tracing::trace_span!(parent: span, "stream"),
+    );
+    tonic::Request::from_parts(metadata, extensions, stream)
 }
 
 fn span_for<R: Rpc>() -> tracing::Span {

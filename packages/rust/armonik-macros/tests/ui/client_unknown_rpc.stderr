@@ -1,4 +1,4 @@
-error: no method named `Nope` in service `fixture.Fixture` (available: Get, Push, Watch); check the RPC name against the proto service
+error: no method named `Nope` in service `fixture.Fixture` (available: Chat, Get, Push, Watch); check the RPC name against the proto service
   --> tests/ui/client_unknown_rpc.rs:12:21
    |
 12 |     #[armonik(rpc = "Nope")]
