@@ -101,19 +101,17 @@ pub(crate) fn describe(expect: &Expectation) -> String {
     format!("{cards} {}", kind_description(&expect.kind))
 }
 
-/// One spanned shape assert per checked field: the field type's `SHAPE` against the descriptor's
-/// `Expect`.
-pub(crate) fn field_asserts_for(
-    ty: &syn::Type,
-    span: proc_macro2::Span,
+/// The `crate::codec::Expect` literal for one descriptor field.
+///
+/// `Err` is the spanned compile error for a wire kind the codec does not implement, which is the
+/// one thing that can go wrong building it. One home for this literal, because there are two
+/// readers: a field of a validated message, and a field of a generic type checked at each of its
+/// `#[armonik_macros::alias]` instantiations.
+pub(crate) fn expect_literal(
+    expect: &Expectation,
     proto_path: &str,
-    checks: &Option<Expectation>,
-    type_ident: &syn::Ident,
-) -> TokenStream {
-    let Some(expect) = checks else {
-        return TokenStream::new();
-    };
-
+    span: proc_macro2::Span,
+) -> Result<TokenStream, TokenStream> {
     // A map's own kind is not checked: what it is made of is, through `map`.
     let is_map = matches!(expect.cardinality, Cardinality::Map { .. });
     let kind_expr = if is_map {
@@ -121,7 +119,7 @@ pub(crate) fn field_asserts_for(
     } else {
         match kind_pattern(&expect.kind) {
             Some(token) => quote!(::core::option::Option::Some(#token)),
-            None => return unsupported_kind_error(&expect.kind, proto_path, span),
+            None => return Err(unsupported_kind_error(&expect.kind, proto_path, span)),
         }
     };
     let map_expr = match &expect.cardinality {
@@ -131,7 +129,7 @@ pub(crate) fn field_asserts_for(
             }
             (key_token, _) => {
                 let unsupported = if key_token.is_none() { key } else { value };
-                return unsupported_kind_error(unsupported, proto_path, span);
+                return Err(unsupported_kind_error(unsupported, proto_path, span));
             }
         },
         _ => quote!(::core::option::Option::None),
@@ -146,6 +144,32 @@ pub(crate) fn field_asserts_for(
         None => quote!(::core::option::Option::None),
     };
     let cards = cardinalities(expect).into_iter().map(|(token, _)| token);
+    Ok(quote! {
+        crate::codec::Expect {
+            kind: #kind_expr,
+            cardinalities: &[#(#cards),*],
+            name: #name_expr,
+            map: #map_expr,
+        }
+    })
+}
+
+/// One spanned shape assert per checked field: the field type's `SHAPE` against the descriptor's
+/// `Expect`.
+pub(crate) fn field_asserts_for(
+    ty: &syn::Type,
+    span: proc_macro2::Span,
+    proto_path: &str,
+    checks: &Option<Expectation>,
+    type_ident: &syn::Ident,
+) -> TokenStream {
+    let Some(expect) = checks else {
+        return TokenStream::new();
+    };
+    let literal = match expect_literal(expect, proto_path, span) {
+        Ok(literal) => literal,
+        Err(error) => return error,
+    };
     let message = format!(
         "armonik: the Rust type of the field of `{type_ident}` mapping to proto field \
          `{proto_path}` does not have the expected shape ({})",
@@ -155,12 +179,7 @@ pub(crate) fn field_asserts_for(
         assert!(
             crate::codec::shape_matches(
                 &<#ty as crate::codec::ProtoField>::SHAPE,
-                &crate::codec::Expect {
-                    kind: #kind_expr,
-                    cardinalities: &[#(#cards),*],
-                    name: #name_expr,
-                    map: #map_expr,
-                },
+                &#literal,
             ),
             #message
         );

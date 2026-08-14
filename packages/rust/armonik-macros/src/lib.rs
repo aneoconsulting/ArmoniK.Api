@@ -615,9 +615,69 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
     })?;
     let item_type: syn::ItemType = syn::parse2(item)?;
     let name = proto.value();
+
+    // The string used to be taken on trust, so a typo surfaced as four failing harness tests, the
+    // least cryptic of which reported an unmapped message and named neither this line nor the typo.
+    let index = descriptor::index().map_err(|message| syn::Error::new(proto.span(), message))?;
+    let Some(meta) = index.messages.get(&name) else {
+        return Err(matcher::not_found(proto.span(), "message", &name));
+    };
+
+    let asserts = alias_asserts(&item_type, &name, meta)?;
     let registrations = emit::registrations(&item_type.ident, std::slice::from_ref(&name));
     Ok(quote::quote! {
         #item_type
+        #asserts
         #registrations
+    })
+}
+
+/// The field asserts a generic instantiation gets, standing in for the ones its declaration cannot
+/// have: `#[armonik(generic)]` skips descriptor validation because a generic type names no proto
+/// message, so this is where its fields are finally checked against one.
+///
+/// Empty for the two shapes it cannot speak for: an alias that instantiates nothing (there is no
+/// `GenericFields` to read, and the aliased type validated itself), and a message with a oneof
+/// (whose members are not fields in this sense). Neither exists today; both are skipped rather than
+/// rejected, since an alias is a registration first and a check second.
+fn alias_asserts(
+    item_type: &syn::ItemType,
+    name: &str,
+    meta: &descriptor::MessageMeta,
+) -> syn::Result<TokenStream2> {
+    let syn::Type::Path(path) = item_type.ty.as_ref() else {
+        return Ok(TokenStream2::new());
+    };
+    let instantiated =
+        path.path.segments.last().is_some_and(|segment| {
+            matches!(segment.arguments, syn::PathArguments::AngleBracketed(_))
+        });
+    if !instantiated || !meta.oneofs.is_empty() {
+        return Ok(TokenStream2::new());
+    }
+
+    use syn::spanned::Spanned as _;
+
+    let ty = &item_type.ty;
+    let span = item_type.ty.span();
+    let mut fields: Vec<&descriptor::FieldMeta> = meta.fields.iter().collect();
+    fields.sort_by_key(|field| field.tag);
+    let mut expects = Vec::new();
+    for field in fields {
+        let Some(expect) = plan::Expectation::of(field) else {
+            return Ok(TokenStream2::new());
+        };
+        let path = format!("{name}.{}", field.name);
+        match emit::expect_literal(&expect, &path, span) {
+            Ok(literal) => {
+                let tag = field.tag;
+                expects.push(quote::quote! { (#tag, #literal) });
+            }
+            Err(error) => return Ok(error),
+        }
+    }
+
+    Ok(quote::quote_spanned! { span =>
+        const _: () = crate::codec::assert_generic_fields::<#ty>(&[#(#expects),*]);
     })
 }

@@ -198,6 +198,26 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         return transparent_message(plan, &generics);
     }
 
+    // A generic type carries its fields' tags and instantiated shapes to wherever it is
+    // instantiated, because it cannot be checked where it is declared: it names no proto message.
+    // Every `#[armonik_macros::alias]` over it then asserts them against the message it registers
+    // under. The `SHAPE`s are written against the type parameters, so each instantiation reports
+    // its own.
+    let generic_fields = plan.proto_names.is_empty().then(|| {
+        let params = &plan.generics;
+        let (_, ty_generics, _) = params.split_for_impl();
+        let entries = plan.fields.iter().map(|field| {
+            let tag = field.tag;
+            let dispatch = crate::emit::slot_dispatch(field);
+            quote! { (#tag, #dispatch::SHAPE) }
+        });
+        quote! {
+            impl #generics crate::codec::GenericFields for #ident #ty_generics {
+                const FIELDS: &'static [(u32, crate::codec::Shape)] = &[#(#entries),*];
+            }
+        }
+    });
+
     let mut encode_fragments = Vec::new();
     let mut merge_arms = Vec::new();
     let mut len_fragments = Vec::new();
@@ -226,7 +246,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         merge_arms.push(quote! { #keys => #merge });
     }
 
-    message_shaped(
+    let expansion = message_shaped(
         ident,
         &generics,
         plan.fingerprint,
@@ -249,5 +269,10 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
             },
             normalize: normalize_fragments,
         },
-    )
+    );
+
+    quote! {
+        #expansion
+        #generic_fields
+    }
 }

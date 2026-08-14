@@ -260,6 +260,53 @@ pub(crate) const fn assert_response_message<T: Msg>(output: &'static str) {
     );
 }
 
+/// The tag and instantiated shape of every field of a `#[armonik(generic)]` type.
+///
+/// A generic type names no proto message, so its fields cannot be checked where they are declared.
+/// They can be checked where the type is *instantiated*, and this is what carries them there: the
+/// associated const is written against the type parameters, so `Sort<tasks::Field>` reports the
+/// shape `tasks::Field` actually has.
+pub(crate) trait GenericFields {
+    /// `(tag, shape)` per field, in ascending tag order.
+    const FIELDS: &'static [(u32, Shape)];
+}
+
+/// Whether every field of a generic instantiation matches what the descriptor says, tag for tag.
+///
+/// Length first, so a proto revision that adds or drops a field is caught as such rather than as a
+/// mismatch on whichever field shifted.
+pub(crate) const fn fields_match(fields: &[(u32, Shape)], expect: &[(u32, Expect)]) -> bool {
+    if fields.len() != expect.len() {
+        return false;
+    }
+    let mut i = 0;
+    while i < fields.len() {
+        let (tag, shape) = &fields[i];
+        let (want_tag, want) = &expect[i];
+        if *tag != *want_tag || !shape_matches(shape, want) {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+/// What tokens cannot prove about an `#[armonik_macros::alias]`: that the generic instantiation it
+/// names has the fields the proto message it registers under declares.
+///
+/// `generic` mode skips descriptor validation because a generic type names no message, which left
+/// the instantiations checked only by the differential harness. That harness does catch a
+/// renumbered field (measured: renumbering `Sort.direction` fails `field_information_ratchet` and
+/// `registered_types_roundtrip`, and says which field vanished), so this is not new detection. What
+/// it is: the same fact at compile time, at the alias line, in every build rather than only under
+/// `cargo test --all-features`, which is the only configuration that compiles the harness at all.
+pub(crate) const fn assert_generic_fields<T: GenericFields>(expect: &[(u32, Expect)]) {
+    assert!(
+        fields_match(<T as GenericFields>::FIELDS, expect),
+        "the generic instantiation does not have the fields this proto message declares",
+    );
+}
+
 /// The oneof a `#[armonik(oneof = "...")]` enum stands for, as `message.oneof` paths.
 ///
 /// The counterpart of [`Msg::NAMES`] for the shape that is not a message: an embedded oneof is a
