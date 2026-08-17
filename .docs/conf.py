@@ -8,12 +8,23 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "ArmoniK.Api"
-copyright = "2021-%Y, ANEO"
 author = "ANEO"
-release = "main"
 
 import sys
 import os
+import datetime
+import subprocess
+
+copyright = f"2021-{datetime.date.today().year}, ANEO"
+
+try:
+    release = subprocess.check_output(
+        ["git", "describe", "--tags", "--abbrev=0"],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        stderr=subprocess.DEVNULL,
+    ).decode().strip()
+except Exception:
+    release = "unknown"
 sys.path.insert(0, os.path.abspath('../packages/python/src'))
 
 # -- General configuration ---------------------------------------------------
@@ -28,8 +39,8 @@ extensions = ["myst_parser",
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["requirements.txt", "README.md"]
-suppress_warnings = ["myst.header"]
+exclude_patterns = ["requirements.txt", "README.md", "content/api-reference/tmp.md"]
+suppress_warnings = ["myst.header", "duplicate_declaration.cpp", "ref.python"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -48,8 +59,8 @@ source_suffix = {
 }
 
 autodoc_mock_imports = [
-    'armonik._version', 
-    "grpc", 
+    'armonik._version',
+    "grpc",
     "cryptography",
     "armonik.protogen"
 ]
@@ -59,7 +70,7 @@ myst_fence_as_directive = ["mermaid"]
 myst_heading_anchors = 3
 
 breathe_projects = {
-    "ArmoniK.Api.Cpp": "content/api/cpp/doxygen/xml"
+    "ArmoniK.Api.Cpp": "content/api-reference/cpp/doxygen/xml"
 }
 breathe_default_project = "ArmoniK.Api.Cpp"
 
