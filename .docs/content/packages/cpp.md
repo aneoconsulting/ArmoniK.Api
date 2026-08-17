@@ -12,10 +12,9 @@ In order to compile the client and server on Linux, we use a Docker image to set
 ### Compilation Steps for Linux
 
 1. Open a terminal in the root directory of the cloned repository.
-2. Run the `compile.sh` script:
-This script compile the cpp project on linux systems.
+2. Run the `compile.sh` script. It compiles the C++ project on Linux systems:
 
-```bash [bash]
+```bash
 cd packages/cpp/tools
 ./compile.sh
 ```
@@ -32,8 +31,6 @@ Now you have successfully compiled the client and server on Linux using Docker.
 
 ### Compiling the Client and Server on Windows
 
-This guide explains how to compile the ArmoniK API client and server on Windows
-
 ### Prerequisites Windows
 
 Before getting started, make sure you have the following tools and packages installed on your machine:
@@ -42,47 +39,16 @@ Before getting started, make sure you have the following tools and packages inst
 - Visual Studio 2022
 - Git
 
-Before getting started, you will need PowerShell and be inform that the script will install localy in the folder tools/win64 all prerequisites excepting Visual Studio 2022 and CMake plugins :
+The (future) build script is expected to install the following prerequisites locally, under `tools/win64`, since they aren't covered by Visual Studio 2022 or its CMake plugins:
 
 - Chocolatey package manager
-- Grpc 1.54.0 built from source
+- gRPC 1.54.0 built from source
 - CMake
 - NASM
-
-### Compilation Steps for windows
-
-Follow these steps to compile the ArmoniK API client and server:
-
-From a PowerShell, go to the folder package/cpp/tools
-
-```powershell [PowerShell]
-cd packages\cpp\tools
-```
 
 ```{warning}
 A Windows compilation script is not yet available. This section is a placeholder — contributions are welcome.
 ```
-
-Wait for the script to complete. This may take some time, depending on the speed of your machine and the size of the project.
-
-Once the script has completed, you should see the compiled output in the install directory. From the root folder of repository ArmoniK.API
-
-```powershell [PowerShell]
-cd packages\cpp\tools\win64
-```
-
-### Troubleshooting
-
-If you encounter any issues during the compilation process, try the following troubleshooting steps:
-
-- Make sure you have all the prerequisites installed correctly.
-- Check that you are running PowerShell as an administrator.
-
-### Conclusion
-
-Compiling the ArmoniK API client and server on Windows can be a complex process.
-
-By following the steps outlined in this guide, you should be able to compile the project successfully and start using the ArmoniK API on Windows.
 
 ## Compilation of the Worker ArmoniK.Api.cpp Image for Deployment in ArmoniK Infrastructure
 
@@ -133,7 +99,7 @@ If you only deploy applications that consume the ArmoniK API, installing the run
 
 ### Building the packages
 
-```bash [bash]
+```bash
 cd packages/cpp/tools/packaging
 ./make-deb.sh    # produces libarmonik and libarmonik-dev .deb files
 ./make-rpm.sh    # produces libarmonik and libarmonik-devel .rpm files
@@ -143,7 +109,7 @@ Each script builds a Docker image with the required build dependencies, compiles
 
 ### Installing on Debian/Ubuntu
 
-```bash [bash]
+```bash
 # Runtime only
 sudo dpkg -i libarmonik-*.deb
 
@@ -153,7 +119,7 @@ sudo dpkg -i libarmonik-*.deb libarmonik-dev-*.deb
 
 ### Installing on RHEL/UBI
 
-```bash [bash]
+```bash
 # Runtime only
 sudo rpm -ivh libarmonik-*.rpm
 
@@ -165,13 +131,13 @@ sudo rpm -ivh libarmonik-*.rpm libarmonik-devel-*.rpm
 
 A `tar.gz` archive is also available for systems where DEB/RPM packages aren't suitable. Unlike the DEB/RPM packages, it is **not** split into runtime/devel components: the archive bundles the shared libraries, headers, and CMake config files together.
 
-```bash [bash]
+```bash
 cd packages/cpp/tools/packaging
 ./make-tar.gz.sh    # produces a libarmonik-*.tar.gz archive
 ```
 
 Install it by extracting it to the desired prefix (e.g. `/usr/local`):
 
-```bash [bash]
+```bash
 sudo tar -xzf libarmonik-*.tar.gz -C /usr/local --strip-components=1
 ```

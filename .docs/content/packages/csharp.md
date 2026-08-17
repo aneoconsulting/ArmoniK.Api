@@ -1,20 +1,19 @@
 # C# packages
 
-This page lists the namespaces in the C# projects of this repository.
-In each namespace, the included classes are available.
+This page lists the namespaces in the C# projects of this repository and the classes available in each.
 
 ## ArmoniK.Api.Client.Options
 
-In this namespace, there are options classes to configure the client connection to ArmoniK control plane.
+This namespace contains options classes to configure the client connection to the ArmoniK control plane.
 
 ## ArmoniK.Api.Client.Submitter
 
-This namespace includes some utilitarian classes for interaction with ArmoniK control plane.
-It also contains the generated gRPC classes built from the protobuf files related to the client to ArmoniK control plane.
+This namespace includes some utilitarian classes for interacting with the ArmoniK control plane.
+It also contains the generated gRPC classes built from the protobuf files used by the client to connect to the ArmoniK control plane.
 
 ## ArmoniK.Api.Common.Channel.Utils, ArmoniK.Api.Common.Options
 
-They contain some classes to create and configure (though options) gRPC Channels between ArmoniK workers and polling agents.
+They contain classes to create and configure (through options) gRPC channels between ArmoniK workers and polling agents.
 
 ## ArmoniK.Api.Core
 

@@ -1,6 +1,6 @@
 # Web package
 
-The TypeScript package is build on top of [ts-proto](https://www.npmjs.com/package/ts-proto). This tool is used to generate TypeScript services and messages from `.proto` files.
+The TypeScript package is built on top of [ts-proto](https://www.npmjs.com/package/ts-proto). This tool is used to generate TypeScript services and messages from `.proto` files.
 
 This package does not include any gRPC client or server implementation. You can use it to build a custom client or app.
 

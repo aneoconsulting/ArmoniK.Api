@@ -8,11 +8,9 @@ This guide provides steps to connect to ArmoniK securely using gRPC in Python. A
 
 Before proceeding, make sure that ArmoniK is deployed with the necessary certificates. Follow the steps below:
 
-1. Ensure that ArmoniK is deployed with authentication. Refer to the [How to configure authentication in ArmoniK](https://armonik.readthedocs.io/en/latest/content/user-guide/how-to-configure-authentication.html#) guide for detailed instructions.
+1. Deploy ArmoniK with authentication enabled. Refer to the [How to configure authentication in ArmoniK](https://armonik.readthedocs.io/en/latest/content/user-guide/how-to-configure-authentication.html) guide for detailed instructions.
 
-2. Deploy ArmoniK.
-
-3. Certificates will be generated:
+2. As part of that deployment, the following certificates will be generated:
 
 ### TLS
 
@@ -68,7 +66,9 @@ channel = grpc.secure_channel("armonik.local:5001", credentials)
 client = TasksClient(channel)
 ```
 
-### If the given certificate common name doesn't match the endpoint name (ArmoniK default certificates for example)
+### Certificate CN doesn't match the endpoint name
+
+This applies, for example, when using ArmoniK's default certificates.
 
 Update your system's hosts file to associate the ArmoniK control plane address with the domain name "armonik.local". Use the following command to edit the hosts file:
 
@@ -84,7 +84,7 @@ armonik.local:5001
 
 ## Launching the Python Script
 
-Once you have configured ArmoniK and updated your hosts file, you can execute the example script from the root. Ensure that you have the Armonik Python dependencie installed.
+Once you have configured ArmoniK and updated your hosts file, you can execute the example script from the root. Ensure that you have the ArmoniK Python dependency installed.
 
 ```bash
 pip install armonik
