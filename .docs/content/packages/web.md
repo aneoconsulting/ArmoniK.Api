@@ -1,14 +1,25 @@
 # Web package
 
-The TypeScript package is built on top of [ts-proto](https://www.npmjs.com/package/ts-proto). This tool is used to generate TypeScript services and messages from `.proto` files.
+Generated from the `.proto` files using [ts-proto](https://www.npmjs.com/package/ts-proto): TypeScript services and
+messages, with no bundled gRPC client or server implementation — use it as the typed building block for a custom
+client or app. If you're building an Angular app specifically, use the [Angular package](angular.md) instead.
 
-This package does not include any gRPC client or server implementation. You can use it to build a custom client or app.
+## Installation
 
-## Update Web Package
+```bash
+npm install @aneoconsultingfr/armonik.api
+```
 
-Nothing to do here. The TypeScript package is automatically updated by the CI/CD pipeline when a new release is published.
+## Updating
+
+The web package is published to npm automatically by CI on every release.
 
 ```{note}
-
-There is an edge release on every commit on the `main` branch. You can use it to test the latest features using the `next` tag of the package.
+There is an edge release on every commit to `main`, published under the `next` tag.
 ```
+
+## Using it
+
+There's no dedicated quickstart for the raw web package; see [Use ArmoniK API in an Angular App](../how-to/angular-integration.md)
+for how the generated services are typically consumed, adapting the transport setup to your own framework if not
+using Angular.

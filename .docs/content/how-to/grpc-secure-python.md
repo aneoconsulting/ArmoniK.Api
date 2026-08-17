@@ -1,109 +1,37 @@
 # Connecting to ArmoniK Securely using gRPC in Python
 
-## Overview
-
-This guide provides steps to connect to ArmoniK securely using gRPC in Python. ArmoniK supports both TLS and mTLS (mutual TLS) for secure communication.
+For the general TLS/mTLS setup in Python, see [Authentication](../getting-started/authentication.md#python). This
+page covers the certificate mismatch issue that comes up specifically with ArmoniK's default self-signed
+certificates.
 
 ## Prerequisites
 
-Before proceeding, make sure that ArmoniK is deployed with the necessary certificates. Follow the steps below:
+ArmoniK must be deployed with authentication enabled. Follow
+[How to configure authentication in ArmoniK](https://armonik.readthedocs.io/en/latest/content/user-guide/how-to-configure-authentication.html)
+(ArmoniK docs). That deployment produces:
 
-1. Deploy ArmoniK with authentication enabled. Refer to the [How to configure authentication in ArmoniK](https://armonik.readthedocs.io/en/latest/content/user-guide/how-to-configure-authentication.html) guide for detailed instructions.
+- `ca.crt` — Certificate Authority root certificate (TLS and mTLS)
+- `client.submitter.crt` / `client.submitter.key` — client certificate and key (mTLS only)
 
-2. As part of that deployment, the following certificates will be generated:
+## Certificate CN doesn't match the endpoint name
 
-### TLS
+This applies, for example, when using ArmoniK's default certificates: when connecting, the Common Name (CN) of the
+server certificate must match the endpoint hostname you connect to — otherwise the TLS handshake fails with a
+hostname verification error.
 
-- `ca.crt`: Certificate Authority root certificate
-
-### mTLS
-
-- `ca.crt`: Certificate Authority root certificate
-- `client.submitter.crt`: Client certificate for submission
-- `client.submitter.key`: Private key corresponding to the client certificate
-
-## Create Credentials for a Secure Channel
-
-### Use the provided certificates to establish secure channel credentials
-
-When interacting with ArmoniK using Python, use the Common Name (CN) of the certificate as the endpoint hostname. Ensure that the certificate's CN matches the endpoint name you pass to the channel.
-
-#### TLS
-
-```python
-import grpc
-from armonik.client import TasksClient  # replace with the client you need
-
-with open("ca.crt", "rb") as f:
-    ca_cert = f.read()
-
-credentials = grpc.ssl_channel_credentials(root_certificates=ca_cert)
-channel = grpc.secure_channel("armonik.local:5001", credentials)
-
-client = TasksClient(channel)
-```
-
-#### mTLS
-
-```python
-import grpc
-from armonik.client import TasksClient  # replace with the client you need
-
-with open("ca.crt", "rb") as f:
-    ca_cert = f.read()
-with open("client.submitter.crt", "rb") as f:
-    client_cert = f.read()
-with open("client.submitter.key", "rb") as f:
-    client_key = f.read()
-
-credentials = grpc.ssl_channel_credentials(
-    root_certificates=ca_cert,
-    private_key=client_key,
-    certificate_chain=client_cert,
-)
-channel = grpc.secure_channel("armonik.local:5001", credentials)
-
-client = TasksClient(channel)
-```
-
-### Certificate CN doesn't match the endpoint name
-
-This applies, for example, when using ArmoniK's default certificates.
-
-Update your system's hosts file to associate the ArmoniK control plane address with the domain name "armonik.local". Use the following command to edit the hosts file:
+Update your system's hosts file to associate the ArmoniK control plane address with the domain name used in the
+certificate's CN (typically `armonik.local`):
 
 ```bash
 sudo nano /etc/hosts
 ```
 
-Use `armonik.local` as endpoint and don't forget to specify the port
+Then use that name as the endpoint, including the port:
 
-```bash
-armonik.local:5001
+```python
+from armonik.common import create_channel
+
+channel = create_channel("https://armonik.local:5001", certificate_authority="ca.crt")
 ```
 
-## Launching the Python Script
-
-Once you have configured ArmoniK and updated your hosts file, you can execute the example script from the root. Ensure that you have the ArmoniK Python dependency installed.
-
-```bash
-pip install armonik
-```
-
-1. **For Insecure Channel**
-
-    ```bash
-    python examples/python/secure_grpc_client.py
-    ```
-
-2. **For TLS Secure Channel**
-
-    ```bash
-    python examples/python/secure_grpc_client.py --endpoint armonik.local:5001 --ssl [--ca <ca.crt path>]
-    ```
-
-3. **For Mutual TLS Secure Channel**
-
-    ```bash
-    python examples/python/secure_grpc_client.py --endpoint armonik.local:5001 --ssl [--ca <ca.crt path>] --key <client.submitter.key path> --cert <client.submitter.crt>
-    ```
+See [Troubleshooting](../troubleshooting/index.md) for the corresponding `UNAVAILABLE`/handshake error symptoms.

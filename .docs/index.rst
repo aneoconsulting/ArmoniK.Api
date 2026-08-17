@@ -14,6 +14,21 @@ ArmoniK.Api documentation
 
 .. toctree::
    :maxdepth: 2
+   :caption: Getting Started
+
+   content/getting-started/quickstart.md
+   content/getting-started/authentication.md
+   content/getting-started/versioning.md
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Concepts
+
+   content/concepts/glossary.md
+   content/concepts/submit-and-retrieve-results.md
+
+.. toctree::
+   :maxdepth: 2
    :caption: Packages
 
    content/packages/index.md
@@ -51,31 +66,11 @@ ArmoniK.Api documentation
    content/contributing/index.md
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: API Reference
 
-   content/api-reference/index.md
-
-.. toctree::
-   :maxdepth: 2
-   :caption: API Proto
-
-   content/api-reference/proto.md
-
-.. toctree::
-   :maxdepth: 1
-   :caption: API C#
-
-   content/api-reference/csharp/index.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: API Python
-
-   content/api-reference/python/PythonAPI.rst
-
-.. toctree::
-   :maxdepth: 1
-   :caption: API C++
-
-   content/api-reference/cpp/index.rst
+   Overview <content/api-reference/overview.md>
+   Proto <content/api-reference/proto.md>
+   C# <content/api-reference/csharp/index.rst>
+   Python <content/api-reference/python/PythonAPI.rst>
+   C++ <content/api-reference/cpp/index.rst>
