@@ -15,13 +15,21 @@
 //!
 //! # What `get_response` says about the unary regression
 //!
-//! `results/get` benches about +345 ns against the pre-revamp branch, in a call
-//! taking 2.2 µs. This pair puts the whole response codec at ~133 ns to encode
-//! and ~258 ns to decode, of which the encode-defaults decision accounts for the
-//! 14 extra bytes it writes (59 against 45): 80 to 95 ns of the 345. The rest is
-//! fixed per-call cost, so reversing that decision would buy back under a third
-//! of the regression and cost back `is_default`, the presence rules it implied,
-//! and the harness's canonical-absence fold.
+//! `results/get` benches about +250 ns against the pre-revamp branch, in a call
+//! taking 2.25 us; this pair puts the response codec at ~104 ns to encode and
+//! ~175 ns to decode.
+//!
+//! Four fifths of that regression is one commit, `97211b0d` "stop skipping default
+//! values on encode", which measures +192 ns against its own parent over 8
+//! interleaved rounds (exact permutation test on the per-round medians, p = 0.003).
+//! The extra bytes are not the reason: the defaults add 6 here, 59 against 53, from
+//! `status`, `opaque_id` and `manual_deletion`. The cost sits in the per-field work
+//! that commit also changed, which is not isolated. So reversing it would buy back
+//! most of the regression, and cost back `is_default`, the presence rules it
+//! implied, and the harness's canonical-absence fold.
+//!
+//! The rest of the gap is diffuse: bisecting it found no single commit clearing the
+//! ~100 ns this benchmark resolves at 8 rounds.
 
 use armonik::results;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
