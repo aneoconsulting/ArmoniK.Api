@@ -58,7 +58,7 @@ scripts/generate-envvars-doc.sh
 Requires the Python virtual environment to be active (see above).
 
 ```bash
-sphinx-apidoc -o .docs/content/api-reference/python packages/python/src/armonik
+sphinx-apidoc -T -o .docs/content/api-reference/python packages/python/src/armonik
 ```
 
 ### C++ API (`content/api-reference/cpp/doxygen/xml/`)

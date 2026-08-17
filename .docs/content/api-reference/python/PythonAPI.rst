@@ -2,8 +2,7 @@ API Reference
 =============
 
 .. toctree::
-   :maxdepth: 2
-   :caption: ArmoniK CLI API Reference
+   :maxdepth: 1
+   :glob:
 
-   modules
- 
+   armonik*
