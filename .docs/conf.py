@@ -39,7 +39,7 @@ extensions = ["myst_parser",
 ]
 
 templates_path = ["_templates"]
-exclude_patterns = ["requirements.txt", "README.md"]
+exclude_patterns = ["requirements.txt", "README.md", "content/api-reference/tmp.md"]
 suppress_warnings = ["myst.header"]
 
 # -- Options for HTML output -------------------------------------------------

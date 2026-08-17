@@ -22,6 +22,6 @@ This page collects common issues and their solutions when working with ArmoniK.A
 **Symptom**: Sphinx errors about missing files or modules.
 
 **Check**:
-- Run all generation scripts before `sphinx-build` (see [README](../../README.md)).
+- Run all generation scripts before `sphinx-build` (see `.docs/README.md`).
 - The Python virtual environment is activated and `requirements.txt` is installed.
 - Doxygen XML is present under `content/api-reference/cpp/doxygen/xml/`.
