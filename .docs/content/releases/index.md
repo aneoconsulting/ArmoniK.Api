@@ -4,7 +4,7 @@ A release is created when there is enough new features or bug fixes to justify a
 
 ## Create a release
 
-In order to be sure that every [packages](./packages) use the same version, we create script to automate the process. This script is written using [NodeJS](https://nodejs.org/en/) and can be found in the `scripts` folder.
+In order to be sure that every [packages](../packages/index.md) use the same version, we create script to automate the process. This script is written using [NodeJS](https://nodejs.org/en/) and can be found in the `scripts` folder.
 
 ### Prerequisites
 

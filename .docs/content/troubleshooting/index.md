@@ -15,7 +15,7 @@ This page collects common issues and their solutions when working with ArmoniK.A
 
 **Symptom**: TLS handshake fails with a hostname verification error.
 
-**Fix**: Either set `GrpcClient__OverrideTargetName` to the CN in the certificate, or add the CN to your `/etc/hosts` file and use it as the endpoint. See [Connecting securely with Python](../usage/use-armonik-grpc-securely-python.md).
+**Fix**: Either set `GrpcClient__OverrideTargetName` to the CN in the certificate, or add the CN to your `/etc/hosts` file and use it as the endpoint. See [Connecting to ArmoniK Securely using gRPC in Python](../how-to/grpc-secure-python.md).
 
 ## Sphinx build fails locally
 
@@ -24,4 +24,4 @@ This page collects common issues and their solutions when working with ArmoniK.A
 **Check**:
 - Run all generation scripts before `sphinx-build` (see [README](../../README.md)).
 - The Python virtual environment is activated and `requirements.txt` is installed.
-- Doxygen XML is present under `content/api/cpp/doxygen/xml/`.
+- Doxygen XML is present under `content/api-reference/cpp/doxygen/xml/`.

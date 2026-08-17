@@ -4,7 +4,7 @@ The API reference is generated from source and proto files for each supported la
 
 | Language | Source | Reference |
 |---|---|---|
-| Proto | `.proto` files in `Protos/V1/` | [Proto API](v1.md) |
+| Proto | `.proto` files in `Protos/V1/` | [Proto API](proto.md) |
 | C# | Generated from proto + hand-written extensions | [C# API](csharp/index.rst) |
 | Python | Sphinx autodoc from `packages/python/src/` | [Python API](python/PythonAPI.rst) |
 | C++ | Doxygen from `packages/cpp/` | [C++ API](cpp/index.rst) |

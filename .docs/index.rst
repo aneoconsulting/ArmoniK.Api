@@ -14,14 +14,6 @@ ArmoniK.Api documentation
 
 .. toctree::
    :maxdepth: 2
-   :caption: Getting Started
-
-   content/getting-started/index.md
-   content/getting-started/1.overview.md
-   content/getting-started/2.installation.md
-
-.. toctree::
-   :maxdepth: 2
    :caption: Packages
 
    content/packages/index.md
