@@ -40,7 +40,7 @@ extensions = ["myst_parser",
 
 templates_path = ["_templates"]
 exclude_patterns = ["requirements.txt", "README.md", "content/api-reference/tmp.md"]
-suppress_warnings = ["myst.header"]
+suppress_warnings = ["myst.header", "duplicate_declaration.cpp", "ref.python"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
@@ -59,8 +59,8 @@ source_suffix = {
 }
 
 autodoc_mock_imports = [
-    'armonik._version', 
-    "grpc", 
+    'armonik._version',
+    "grpc",
     "cryptography",
     "armonik.protogen"
 ]

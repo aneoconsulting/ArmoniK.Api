@@ -223,7 +223,7 @@ For this guide, you will display the result in a list, having a loading indicato
 
 First, let's create the list using HTML:
 
-```html [app.component.ts]
+```html+ng2 [app.component.ts]
 <ul>
   <li *ngFor="let partition of partitions; trackBy:trackByPartition">
     {{ partition.id }}
@@ -274,7 +274,7 @@ import { NgFor } from '@angular/common';
 
 You will use the `*ngIf` directive to display the loading indicator:
 
-```html [app.component.ts]
+```html+ng2 [app.component.ts]
 <div *ngIf="loading">
   Loading...
 </div>
@@ -322,7 +322,7 @@ import { NgIf } from '@angular/common';
 
 You will use the `button` element to display the refresh button:
 
-```html [app.component.ts]
+```html+ng2 [app.component.ts]
 <button (click)="refresh()">Refresh</button>
 ```
 
