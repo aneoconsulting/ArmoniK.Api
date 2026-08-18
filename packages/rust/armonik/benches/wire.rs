@@ -1,11 +1,8 @@
 //! Encoding and decoding of the results messages, with no gRPC around them.
 //!
-//! `benches/roundtrip.rs` measures whole calls; this one isolates the codec,
-//! which is the part of the stack this branch replaces.
-//!
-//! The benchmark ids and payloads match the pre-revamp file, so the two are comparable.
-//!
-//! Three shapes, picked because they stress different things:
+//! `benches/roundtrip.rs` measures whole calls; this one isolates the codec, which is
+//! the part of the stack this branch replaces. Three shapes, picked because they
+//! stress different things:
 //!
 //! * `list_response`: many small fields and a repeated nested message, so the
 //!   per-field work dominates;
@@ -13,23 +10,105 @@
 //! * `get_response`: the smallest realistic unary response, which is what
 //!   decomposes the unary round trip.
 //!
-//! # What `get_response` says about the unary regression
+//! # Running it
 //!
-//! `results/get` benches about +250 ns against the pre-revamp branch, in a call
-//! taking 2.25 us; this pair puts the response codec at ~104 ns to encode and
-//! ~175 ns to decode.
+//! Pin to one physical core, both its SMT siblings, and to two cores for
+//! `roundtrip.rs`, whose tokio runtime has two workers:
 //!
-//! Four fifths of that regression is one commit, `97211b0d` "stop skipping default
-//! values on encode", which measures +192 ns against its own parent over 8
-//! interleaved rounds (exact permutation test on the per-round medians, p = 0.003).
-//! The extra bytes are not the reason: the defaults add 6 here, 59 against 53, from
-//! `status`, `opaque_id` and `manual_deletion`. The cost sits in the per-field work
-//! that commit also changed, which is not isolated. So reversing it would buy back
-//! most of the regression, and cost back `is_default`, the presence rules it
-//! implied, and the harness's canonical-absence fold.
+//! ```sh
+//! taskset -c 4,14      cargo bench -p armonik --bench wire
+//! taskset -c 4,14,5,15 cargo bench -p armonik --bench roundtrip
+//! ```
 //!
-//! The rest of the gap is diffuse: bisecting it found no single commit clearing the
-//! ~100 ns this benchmark resolves at 8 rounds.
+//! Over 8 alternating runs that cut the run-to-run deviation from 7.0% to 2.4% on
+//! `encode/download_chunk` and from 1.2% to 0.5% on `encode/get_response`, moving the
+//! medians by 0.1%. Pinning to a single logical CPU is worse than not pinning at all,
+//! since it leaves the sibling free for other work. Compare configurations interleaved
+//! run by run and never in blocks: this machine drifts by more than most of the
+//! differences below, and blocks put that drift inside the comparison.
+//!
+//! # Measurements
+//!
+//! Three points of this branch in one pinned campaign, 4 interleaved rounds on a
+//! stable desktop (i9-7900X, no virtualisation), medians of the per-round medians,
+//! per-row deviation 0.3% to 4.4%. `base` is the branch point, where the ergonomic
+//! types are not `prost::Message`: its copy of this file converts to the generated
+//! `api::v3` type first, which is what a call did there, and its copy of
+//! `roundtrip.rs` drops the `watch` handler, that RPC being younger than the base.
+//!
+//! | | base | before the leaf skip | now | now vs base |
+//! |---|---|---|---|---|
+//! | `results/get` | 2.672 us | 2.903 us | 2.658 us | -0.5% |
+//! | `results/rotate/1` | 2.599 us | 2.925 us | 2.660 us | +2.4% |
+//! | `results/rotate/2` | 2.633 us | 2.915 us | 2.616 us | -0.6% |
+//! | `results/rotate/4` | 2.734 us | 2.942 us | 2.616 us | -4.3% |
+//! | `results/rotate/7` | 3.104 us | 3.316 us | 3.055 us | -1.6% |
+//! | `wire/encode/get_response` | 144 ns | 146 ns | 133 ns | -7.8% |
+//! | `wire/decode/get_response` | 222 ns | 268 ns | 231 ns | +4.4% |
+//! | `wire/encode/list_response` | 4.36 us | 4.49 us | 4.02 us | -8.0% |
+//! | `wire/decode/list_response` | 9.70 us | 10.81 us | 9.71 us | +0.1% |
+//! | `wire/encode/download_chunk` | 1.70 us | 1.71 us | 1.72 us | +1.3% |
+//! | `wire/decode/download_chunk` | 1.82 us | 31 ns | 33 ns | -98% |
+//!
+//! So the whole call is at parity with the generated types it replaced, and every
+//! codec row is at parity or better except the unary decode, +4.4%, which is one
+//! branch misprediction (below). The `now vs before` step, -8% to -14% on every row,
+//! is what leaving a zero off the wire bought. Half of that is simply fewer bytes: 53
+//! against 59 for the get response, 1700 against 1894 for the list, and 53 is what the
+//! generated types wrote too.
+//!
+//! ## Why the call rows need `rotate`
+//!
+//! The generated design emits a specialised, fully inlined server stub per RPC: 11,475
+//! instructions of machine code for `GetResult` alone, all of tonic's header, codec and
+//! trailer work folded in with its constants. This crate reaches the same tonic code
+//! generically, once per call shape.
+//!
+//! That makes a single-RPC benchmark the generated design's best case, and it flatters
+//! it enough to invert the conclusion. With only `get` implemented and the other
+//! handlers answering `unimplemented`, `base` measured 2.478 us against this crate's
+//! 2.668, a +7.7% regression. Implementing the other six handlers, without calling
+//! them, cost `base` 7.8% (2.478 to 2.672) and cost this crate nothing (2.668 to
+//! 2.658): seven stubs in one `call()` are worse than one, whatever runs. Rotating over
+//! several RPCs, which is what a server does, holds that parity from two upwards.
+//!
+//! Generating specialised handlers here was measured and dropped. Direct dispatch (a
+//! generated `if` chain instead of the routing table's `fn` pointer) plus
+//! `#[inline(always)]` on the four `serve_*` bodies removes 1510 instructions a call,
+//! 6%, and buys 29 cycles of 10,611: this path is not instruction-bound, and the
+//! variant measured 1.3% slower. Removing the per-RPC tracing span (-528 instructions)
+//! and `#[inline(always)]` alone were likewise flat.
+//!
+//! # Where the remaining gap sits
+//!
+//! Per iteration, `perf stat` over pinned `--profile-time` runs.
+//!
+//! `wire/decode/get_response` is +46 cycles against base while running 81 instructions
+//! *fewer*, 2880 against 2961. It pays 2.03 branch mispredictions a message where the
+//! generated types pay 0.09, and 94% of them land on one instruction, the indirect
+//! `jmp` of the tag jump table in `Raw::merge_field`; at ~18 cycles a miss that is 35
+//! of the 46. Both codecs lower the tag match to a jump table, so what differs is only
+//! how well the target sequence predicts.
+//!
+//! Two levers were measured there and neither is taken. Emitting the dispatch as a
+//! comparison chain instead of a `match` changes nothing: LLVM re-forms the jump tables
+//! and the mispredictions stay. Forcing that lowering globally with
+//! `-Cllvm-args=-min-jump-table-entries=64` does work on the codec, decode 207 ns and
+//! the list 9.02 us, both under base, but costs the whole call +6.5%, because the
+//! http/2 and tonic switches the flag also rewrites are hotter than ours. A local fix
+//! would have to be an unrolled in-order fast path in the generated merge, trading this
+//! codec's one-shape-per-field simplicity for ~15 ns a message.
+//!
+//! `download_chunk` is the row to distrust, and the reason is the machine rather than
+//! the code: the copy is a single `rep movsb`, 132 instructions an iteration, so what
+//! the row reports is memory-system state. Two campaigns half an hour apart landed on
+//! opposite sides of parity. What settles it is the work: 165 instructions an iteration
+//! here against 132 at base, the +33 being `Bytes::append_to`'s clone and drop, some 40
+//! cycles out of ~6400. Its decode is the `Vec<u8>` to `Bytes` move, 33 ns against
+//! 1.82 us, `replace_with` slicing the payload out of the input buffer with
+//! `copy_to_bytes` instead of copying it, which needs the source to be a `Bytes` and
+//! not the last reference to one; no encode path can consume the payload either way,
+//! since `Message::encode` takes `&self`.
 
 use armonik::results;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};
