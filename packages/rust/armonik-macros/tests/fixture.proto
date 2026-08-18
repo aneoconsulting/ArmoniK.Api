@@ -59,6 +59,16 @@ message Shared {
   }
 }
 
+// A whole message whose non-oneof field sits between two members, so no field order can be both
+// ascending and member-surrounded-by-siblings.
+message Straddled {
+  string token = 2;
+  oneof pick {
+    string text = 1;
+    string other = 3;
+  }
+}
+
 // A oneof whose member is a message, next to a sibling field: the shape `inline` would have to
 // spread a member's own fields into a variant that already carries the sibling.
 message SharedInline {

@@ -932,6 +932,28 @@ pub(crate) fn oneof_plan(
         }
     }
 
+    // The emitter writes the siblings below the oneof's tags before the member and the rest after
+    // it, so the tags only come out ascending if no sibling sits between two members.
+    let members: Vec<u32> = selected
+        .oneof
+        .fields
+        .iter()
+        .map(|&field| selected.meta.fields[field].tag)
+        .collect();
+    if let (Some(&low), Some(&high)) = (members.iter().min(), members.iter().max()) {
+        for field in sibling_metas.iter().filter(|f| low < f.tag && f.tag < high) {
+            errors.at(
+                input.ident.span(),
+                format!(
+                    "non-oneof field `{}.{}` (tag {}) sits between the members of oneof `{}` (tags \
+                     {low} to {high}); the member is written surrounded by the non-oneof fields, so \
+                     this message cannot be emitted in ascending tag order",
+                    selected.proto_name, field.name, field.tag, selected.oneof.name,
+                ),
+            );
+        }
+    }
+
     errors.into_result()?;
 
     let siblings = collect_siblings(&sibling_metas, &sibling_bindings, &selected.proto_name);
