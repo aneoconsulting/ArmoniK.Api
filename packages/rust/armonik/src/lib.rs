@@ -88,6 +88,7 @@ macro_rules! register {
                     proto: $proto,
                     role: $crate::differential::registrations::Role::Message(
                         $crate::differential::registrations::Hooks {
+                            type_name: || ::core::any::type_name::<$ty>(),
                             roundtrip: |bytes| ::core::result::Result::Ok(
                                 ::prost::Message::encode_to_vec(
                                     &<$ty as ::prost::Message>::decode(bytes)?,

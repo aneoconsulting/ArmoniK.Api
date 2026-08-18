@@ -97,6 +97,54 @@ fn registered_types_roundtrip() {
     }
 }
 
+/// Several Rust types can stand for one proto message: a request type per RPC that shares a wire
+/// message, one stand-in for `Empty` per RPC using it. [`registry::normalize`] keys on the proto
+/// name, since a nested message is a name with no Rust type attached, so it applies one member of
+/// each group to every message of that name, and which member is whichever the linker put first.
+/// Sound only while a group agrees, which is what this pins.
+#[test]
+fn types_sharing_a_proto_name_agree() {
+    use std::collections::HashMap;
+
+    let pool = pool();
+    let mut groups: HashMap<&str, Vec<registrations::Hooks>> = HashMap::new();
+    for (proto, hooks) in registry::entries() {
+        groups.entry(proto).or_default().push(hooks);
+    }
+
+    for (proto, group) in groups.iter().filter(|(_, group)| group.len() > 1) {
+        let desc = pool
+            .get_message_by_name(proto)
+            .unwrap_or_else(|| panic!("registry entry `{proto}` is not in the descriptor"));
+        let (first, rest) = group.split_first().expect("more than one registration");
+        for other in rest {
+            let (left_name, right_name) = ((first.type_name)(), (other.type_name)());
+            assert_eq!(
+                (first.default_encoding)(),
+                (other.default_encoding)(),
+                "`{proto}`: {left_name} and {right_name} encode different defaults, so the \
+                 canonical-absence fold depends on which one registered first",
+            );
+            for iteration in 0..ITERATIONS {
+                let seed = rng::seed(proto, iteration);
+                let mut rng = rng::SplitMix64::new(seed);
+                let message = arbitrary::message(&desc, &mut rng, RECURSION_DEPTH);
+                let (mut left, mut right) = (message.clone(), message);
+                (first.normalize)(&mut left);
+                (other.normalize)(&mut right);
+                assert!(
+                    compare::messages(&left, &right),
+                    "`{proto}`: {left_name} and {right_name} project it differently \
+                     (seed {seed:#018x})\n\
+                     {left_name}: {}\n{right_name}: {}",
+                    debug_fields(&left),
+                    debug_fields(&right),
+                );
+            }
+        }
+    }
+}
+
 /// The zero-default invariant: every type's `Default::default()` is the proto zero value. This is
 /// what lets decoding seed from `Default` with no special wire semantics, and it is checked on the
 /// encoding of `Default::default()` alone: decoding starts from `Default`, so anything that goes
