@@ -228,7 +228,9 @@ compiled first and its derives have run):
 alone stands for the *whole* message: its single oneof is inferred, and any
 non-oneof field of the message is a *sibling*, declared in every variant
 (including the attribute-less "no member set" one) so the per-field merge
-stays stateless and order-independent. `oneof = "..."` declares an enum for
+stays stateless and order-independent. A sibling whose tag falls between two
+member tags is rejected: encoding writes the siblings around the member, which
+for such a message has no ascending-tag spelling. `oneof = "..."` declares an enum for
 one oneof of a larger message, embedded in a struct, and is rejected when
 the oneof covers the whole message, keeping the two shapes visually
 distinct. At expansion time the macro:
@@ -333,20 +335,25 @@ impl TaskStatus {
 - **Opaque payload**: `UnknownTaskStatus` has a private field, so `Unknown` can
   only be constructed by `From<i32>`/decoding, which normalizes known values
   to their named variants. The invariant "no known value ever hides inside
-  `Unknown`" is compiler-enforced, keeping derived `PartialEq`/`Hash`
-  semantically correct. Raw access via `.value() -> i32`.
+  `Unknown`" is compiler-enforced, which is what makes `matches!(x,
+  Status::Completed)` agree with `x == Status::Completed`. Raw access via
+  `.value() -> i32`. Under `serde` the payload is its bare number both ways: its
+  `Deserialize` runs the same `From<i32>` and keeps only what lands on the
+  catch-all. A derive cannot, being generated inside the module that owns the
+  private field, where any number builds a payload.
 - **Coverage**: every proto value needs a named variant, except the zero one,
   which the catch-all may cover instead. `UNSPECIFIED` is emitted for that
   case and names it whatever the proto calls the value (`worker::
   health_check::Response::UNSPECIFIED` is `ServingStatus::UNKNOWN`). Where 0
   *is* a named variant (an operator enum whose 0 is `Equal`, `SortDirection::
   Unspecified`), `Unknown` simply never holds 0.
-- **Ordering**: the item is re-emitted `#[repr(i32)]` with each named variant
-  carrying its proto value as its discriminant, which is what a derived
-  `PartialOrd`/`Ord` compares, so the type orders by proto value. The catch-all
-  stands for no single value and takes `i32::MIN`, so the zero value and the
-  unknown ones sort before every named value and among themselves by the raw
-  value. `Sort<T>`/`SortMany<T>` derive `Ord` and need this to be meaningful.
+- **Comparison**: `PartialEq`, `Eq`, `PartialOrd`, `Ord` and `Hash` are emitted
+  in terms of `i32::from`, and deriving them at the site is rejected. One value
+  has two spellings, the named variant and a catch-all holding its number, and
+  only the proto value equates them; a derive would also order the catch-all by
+  where it sits in the item. So the type orders by proto value throughout, an
+  unknown value sorting by the number it carries rather than as a class.
+  `Sort<T>`/`SortMany<T>` derive `Ord` and need this to be meaningful.
 - `Default` is emitted (the zero value) unless a variant carries the std
   `#[default]` attribute.
 - Size is 8 bytes (discriminant + payload) instead of 4. Same-layout-as-`i32`
@@ -534,6 +541,11 @@ below for the two hand-written cross-field impls:
      `_differential` feature, enabled only through the self dev-dependency";
      see section 11.1), so new messages are covered with zero harness
      changes, and only the generic instantiations are hand-listed;
+   - several Rust types may register one proto name (a request type per RPC
+     sharing a wire message, the `Empty` stand-ins) while the projection is
+     keyed by the name alone, since a nested message is a name with no Rust type
+     attached: a ratchet holds every such group to one projection and one
+     default encoding, and names the pair that disagrees;
    - a coverage test iterates *all* messages in the descriptor pool and
      fails on any message with no registered Rust type (explicit allowlist
      for intentionally flattened ones);
@@ -623,9 +635,9 @@ even though the branch lands as one unit:
   matched by name against the descriptor.
 - Enums: dataful `Unknown(...)` variant replaces `Unspecified` unit variants
   (`UNSPECIFIED` const provided); `as i32` casts replaced by `From` impls;
-  matches need an `Unknown`/catch-all arm. The type stays `#[repr(i32)]`, each
-  named variant carrying its proto value as its discriminant, so `Ord` orders
-  by proto value; the catch-all takes `i32::MIN` and sorts first (see 6.1).
+  matches need an `Unknown`/catch-all arm. The comparison traits are emitted
+  rather than derived, in terms of the proto value, so `Ord` orders by it and an
+  unknown value sorts by the number it carries (see 6.1).
   `worker::health_check::Response` loses its named `Unknown` variant to the
   catch-all with the rest of the zero values: the status is
   `Response::UNSPECIFIED`.
