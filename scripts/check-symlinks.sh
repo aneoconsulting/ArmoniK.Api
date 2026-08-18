@@ -46,10 +46,11 @@ check() {
   printf '  ok  %-44s -> %s\n' "$path" "$blob"
 }
 
-# path                                  expected target
-check packages/rust/armonik/protos      ../../../Protos    || status=1
-check packages/rust/armonik/README.md   ../../../README.md || status=1
-check packages/rust/armonik/LICENSE     ../../../LICENSE   || status=1
+# path                                            expected target
+check packages/rust/armonik/protos                ../../../Protos    || status=1
+check packages/rust/armonik/README.md             ../../../README.md || status=1
+check packages/rust/armonik/LICENSE               ../../../LICENSE   || status=1
+check packages/rust/armonik-macros/LICENSE        ../../../LICENSE   || status=1
 
 if [ "$status" -ne 0 ]; then
   echo "One or more symlinks are no longer symlinks. See the Windows section of CONTRIBUTING.md." >&2
