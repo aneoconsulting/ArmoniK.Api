@@ -66,6 +66,11 @@ fn normalize_value(value: &mut Value) -> bool {
 /// back dynamically. This is the harness's only own contribution to the quotient, derived from the
 /// implementation itself instead of restated: whatever a type emits for "nothing" is what an absent
 /// field or member is equivalent to.
+///
+/// Keyed by proto name, so where several types stand for one message the first registration wins
+/// and the rest are dropped. Arbitrary, and safe only because
+/// [`super::harness::types_sharing_a_proto_name_agree`] holds them to one projection and one default
+/// encoding per name.
 fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, Hooks)> {
     static CANONICALS: OnceLock<HashMap<&'static str, (DynamicMessage, Hooks)>> = OnceLock::new();
     CANONICALS.get_or_init(|| {

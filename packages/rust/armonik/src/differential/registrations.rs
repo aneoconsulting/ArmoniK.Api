@@ -37,6 +37,9 @@ pub(crate) enum Role {
 /// A registered type's round-trip and projection hooks.
 #[derive(Clone, Copy)]
 pub(crate) struct Hooks {
+    /// Which Rust type this is, for the failures where several stand for one proto name. A hook
+    /// rather than a `&'static str` so that the macro does not have to spell out the path.
+    pub type_name: fn() -> &'static str,
     /// Decode the bytes as the armonik type and re-encode them.
     pub roundtrip: fn(&[u8]) -> Result<Vec<u8>, prost::DecodeError>,
     /// Canonical encoding of the type's `Default` (the zero-default invariant, and the harness's
