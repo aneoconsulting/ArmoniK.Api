@@ -459,7 +459,8 @@ loss through `normalize_dynamic`).
 > predicate so the length walk cannot disagree with what is written.
 >
 > Measured on the bench fixtures: `results/get` 53 bytes against 59, and the
-> 32-entry `results/list` response 1700 against 1894.
+> 32-entry `results/list` response 1700 against 1894. What that buys in time, and
+> what it leaves of the branch's unary regression, is in `benches/wire.rs`.
 
 - Non-`Option` message field ("absent = default"): decode merges in place,
   absence leaves the default; encode always writes the field, so a default
