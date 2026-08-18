@@ -1274,7 +1274,7 @@ fn emit_marker_variant(ctx: &EmitCtx<'_>, empty_message: bool) -> VariantArms {
         };
         let merge_arm = quote! {
             #tag => {
-                ::prost::encoding::skip_field(wire_type, tag, buf, ctx)?;
+                crate::codec::empty_body::merge(wire_type, buf, ctx)?;
                 *value = Self::#var;
                 ::core::result::Result::Ok(())
             }

@@ -410,8 +410,9 @@ pub(crate) trait ProtoAdapter<T> {
 /// zero of any other length-delimited kind (an empty string or `bytes`) when no value is held to
 /// encode from.
 pub(crate) mod empty_body {
-    use prost::bytes::BufMut;
-    use prost::encoding::{self, WireType};
+    use prost::bytes::{Buf, BufMut};
+    use prost::encoding::{self, DecodeContext, WireType};
+    use prost::DecodeError;
 
     pub(crate) fn encode(tag: u32, buf: &mut impl BufMut) {
         encoding::encode_key(tag, WireType::LengthDelimited, buf);
@@ -420,6 +421,21 @@ pub(crate) mod empty_body {
 
     pub(crate) fn encoded_len(tag: u32) -> usize {
         encoding::key_len(tag) + 1
+    }
+
+    /// Consume a body whose contents carry nothing, rejecting what prost's message codec rejects:
+    /// the wire type, the length framing, and the keys inside. Skipping the field instead would
+    /// accept a marker spelled as a varint, which no other implementation does.
+    pub(crate) fn merge(
+        wire_type: WireType,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
+        encoding::merge_loop(&mut (), buf, ctx, |_, buf, ctx| {
+            let (tag, wire_type) = encoding::decode_key(buf)?;
+            encoding::skip_field(wire_type, tag, buf, ctx)
+        })
     }
 }
 
