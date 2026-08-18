@@ -13,9 +13,9 @@
 //! * **`Option` presence is exact.** The harness compares after `Normalize`, whose
 //!   canonical-absence fold is precisely the distinction between `None` and `Some(default)`.
 //! * **`clear()` resets to the proto zero.** Nothing on the round-trip path calls it.
-//! * **a default nested message still goes on the wire.** The encode side has no notion of a
-//!   default value (see the module docs); that is a byte-level fact, and the harness compares
-//!   values.
+//! * **which zeros reach the wire.** An implicit-presence leaf leaves its zero out; a message field
+//!   and a oneof member are written whatever they hold. Three byte-level facts about values a reader
+//!   cannot tell apart, so the semantic comparison is blind to all of them.
 //!
 //! Plus the `ProtoField` impls no API field instantiates, which therefore have no other coverage at
 //! all.
@@ -109,8 +109,38 @@ fn clear_resets_to_the_proto_zero() {
     assert_eq!(raw, crate::sessions::Raw::default());
 }
 
-/// The encode side skips nothing: a nested message holding only defaults is still written, which a
-/// proto3 receiver reads exactly like an absent implicit-presence field.
+/// A zero leaf is left out of an implicit-presence field, which is what a proto3 encoder does and
+/// what the receiver cannot distinguish from an explicit zero.
+#[test]
+fn a_zero_leaf_is_left_off_the_wire() {
+    use crate::submitter::wait_for_availability::Request;
+
+    assert!(Request::default().encode_to_vec().is_empty());
+
+    // Only the set one: key, length, byte.
+    let one_set = Request {
+        session_id: String::from("s"),
+        result_id: String::new(),
+    };
+    assert_eq!(one_set.encode_to_vec(), [0x0a, 0x01, b's']);
+    assert_eq!(roundtrip(&one_set), one_set);
+}
+
+/// A oneof member is the exception: it is what selects the variant, so leaving a zero payload out
+/// would decode as no member set. The harness cannot see this, because `Normalize` folds a member
+/// holding its default onto the absent oneof.
+#[test]
+fn a_zero_oneof_member_stays_on_the_wire() {
+    // `InitKeyedDataStream.key`, a `string` member at tag 1.
+    let empty_key = crate::InitKeyedDataStream::Key(String::new());
+    assert_eq!(empty_key.encode_to_vec(), [0x0a, 0x00]);
+    assert_eq!(roundtrip(&empty_key), empty_key);
+    assert_ne!(empty_key, crate::InitKeyedDataStream::Invalid);
+}
+
+/// A nested message holding only defaults is written too: absent and default are the same value for
+/// the fields modelled without `Option`, and skipping it would cost a transparent wrapper its
+/// presence.
 #[test]
 fn a_default_nested_message_is_still_written() {
     // `results::get::Response` is a single message-typed field, `result`, at tag 1.

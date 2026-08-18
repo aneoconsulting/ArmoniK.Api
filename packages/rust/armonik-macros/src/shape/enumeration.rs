@@ -366,6 +366,12 @@ pub(crate) fn plain_wire(plan: &EnumPlan, names: &[String]) -> TokenStream {
                 crate::codec::enumeration::encoded_len(tag, value)
             }
 
+            // Whatever the enum calls it, the zero value is the one an implicit-presence field
+            // leaves out.
+            fn is_zero(value: &Self) -> bool {
+                i32::from(*value) == 0
+            }
+
             fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl ::prost::bytes::BufMut) {
                 crate::codec::enumeration::encode_repeated(tag, values, buf);
             }

@@ -431,23 +431,35 @@ loss through `normalize_dynamic`).
 > hold both proto fields, a *repeated* `success` occurrence that selects
 > `Success` drops an error message merged before it.
 
-> **No default is ever skipped on encode (supersedes the presence gate).**
-> The encode side has no notion of a default value: every field a type
-> declares is written, whatever it holds. Zeros, empty strings and
-> present-but-empty nested messages therefore go on the wire, where a proto3
-> receiver reads them exactly like an absent implicit-presence field. This
-> removed the whole `is_default` family (the `ProtoField`/`ProtoAdapter`
-> methods and their `nondefault` encode forms, the message-kind
-> "`encoded_len() == 0`" override, `Msg::ALWAYS_PRESENT` for the transparent
-> wrapper enums' force-emit, the hand-rolled `if raw == 0` skips in the
-> wrapper-enum helpers and the `is_empty()` guards in the two hand-written
-> impls), along with the `PartialEq` supertrait it needed. Those pieces only
-> existed to defend each other: skipping erased a zero wrapper enum's
-> presence, so wrapper enums were force-emitted, which in turn made
-> "all-default" and "encodes to zero bytes" disagree for the containing
-> message. The trade is a slightly larger encoding (zero fields on the wire)
-> for a codec with one rule instead of three, and it is what the derives now
-> emit for singular fields, oneof members and adapters alike.
+> **Only an implicit-presence leaf skips its zero (supersedes the presence gate
+> and the encode-everything rule after it).** A field whose codec is a scalar
+> leaf (the `ProtoField` primitives, `String`, `Bytes`, a proto enum) is left out
+> when it holds the proto zero, which is what every other proto3 encoder does and
+> what a receiver cannot tell from an absent field. Everything else is written
+> whatever it holds: `ProtoField::is_zero` and `ProtoAdapter::is_zero` are `false`
+> unless a leaf overrides them, so message fields, transparent wrappers, adapters
+> and containers never skip.
+>
+> The skip is a defaulted `encode_implicit`/`encoded_len_implicit` pair on the two
+> codec traits, not something the derives expand: which of a field's two entry
+> points to name is the one positional fact an expansion has and a codec does not,
+> since the same `String` is skippable as a struct field and not as a oneof
+> member, where the field being present is what selects the variant. So the
+> emitter picks a method name per slot, `Presence::Explicit` at that one, exactly
+> as it already picks between the singular and repeated forms.
+>
+> That scoping is what lets the rule stand alone, where the old `is_default`
+> family needed three rules to defend each other: skipping erased a zero wrapper
+> enum's presence, so wrapper enums were force-emitted, which made "all-default"
+> and "encodes to zero bytes" disagree for the containing message. A leaf-only
+> skip cannot start that cascade, because the message framing around a wrapper is
+> never conditional. So `Msg::ALWAYS_PRESENT`, the `nondefault` encode forms, the
+> message-kind "`encoded_len() == 0`" override and the `PartialEq` supertrait stay
+> gone; what came back is three defaulted methods per trait, sharing one
+> predicate so the length walk cannot disagree with what is written.
+>
+> Measured on the bench fixtures: `results/get` 53 bytes against 59, and the
+> 32-entry `results/list` response 1700 against 1894.
 
 - Non-`Option` message field ("absent = default"): decode merges in place,
   absence leaves the default; encode always writes the field, so a default
@@ -462,13 +474,12 @@ loss through `normalize_dynamic`).
   the derive.
 - Empty containers still encode to nothing: a `Vec` writes one field per
   element and a `HashMap` one per entry, so zero elements is zero bytes with
-  no default check involved. Map *entries* were the one exception, because
-  they went through prost's map codec, which omits `== default` key and value
-  subfields; the entry codec is written out here now, so the rule holds without
-  qualification and the `V: PartialEq` bound that expressed the exception is
-  gone (`codec/containers.rs`). Both forms decode identically, which is why the
-  differential harness cannot see the change and `codec/tests.rs` pins the
-  bytes instead.
+  no default check involved. A map *entry* writes both its subfields whatever
+  they hold, unlike a leaf field of a message: the entry codec is hand-written
+  (`codec/containers.rs`) and does not consult `is_zero`, where prost's map codec
+  omitted a `== default` key or value. Both forms decode identically, which is
+  why the differential harness cannot see the difference and `codec/tests.rs`
+  pins the bytes instead.
 - Flattened oneofs: decode with no variant set -> the default/`Invalid`
   variant; the active member is written even when its payload is the default,
   and an `Invalid`/no-member variant writes nothing (there is no member to
