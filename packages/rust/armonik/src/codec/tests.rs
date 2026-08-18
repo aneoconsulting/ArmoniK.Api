@@ -2,11 +2,14 @@
 //!
 //! The harness fuzzes every registered type against `prost-reflect` and compares semantically,
 //! which covers the derived majority far better than a hand-copied prototype of the emitter's
-//! output ever did. Four properties escape it, and they are what is left here, asserted on real
+//! output ever did. Five properties escape it, and they are what is left here, asserted on real
 //! `objects/` types rather than on mirrors of them:
 //!
 //! * **unpacked repeated scalars decode.** `prost-reflect` always *encodes* packed, so the harness
 //!   never produces the other form, which a conformant sender may send at any time.
+//! * **a field spelled with the wrong wire type is rejected.** The mutation harness reorders,
+//!   duplicates and unpacks records, but never re-spells one, so every wire-type check is invisible
+//!   to it.
 //! * **`Option` presence is exact.** The harness compares after `Normalize`, whose
 //!   canonical-absence fold is precisely the distinction between `None` and `Some(default)`.
 //! * **`clear()` resets to the proto zero.** Nothing on the round-trip path calls it.
@@ -250,6 +253,30 @@ fn pair_map_rejects_non_delimited_wire_type() {
     )
     .expect_err("a varint where a length-delimited entry belongs is a decode error");
     assert!(format!("{err}").contains("invalid wire type"), "{err}");
+}
+
+/// A `#[armonik(present)]` marker stands for an `Empty` member, so it is a message field on the
+/// wire: only a length-delimited body sets it. Presence alone carries the value, which is exactly
+/// what makes it tempting to accept any spelling of it.
+#[test]
+fn a_present_marker_rejects_a_non_delimited_wire_type() {
+    /// `Output.ok`, an `Empty`.
+    const OK_TAG: u32 = 2;
+
+    let mut varint = Vec::new();
+    prost::encoding::encode_key(OK_TAG, WireType::Varint, &mut varint);
+    prost::encoding::encode_varint(1, &mut varint);
+    let err = crate::Output::decode(varint.as_slice())
+        .expect_err("a varint where an `Empty` member belongs is a decode error");
+    assert!(format!("{err}").contains("invalid wire type"), "{err}");
+
+    let mut delimited = Vec::new();
+    prost::encoding::encode_key(OK_TAG, WireType::LengthDelimited, &mut delimited);
+    prost::encoding::encode_varint(0, &mut delimited);
+    assert_eq!(
+        crate::Output::decode(delimited.as_slice()).expect("an empty body sets the marker"),
+        crate::Output::Ok,
+    );
 }
 
 /// The empty list is unchecked, which is what makes the salvage stub's marker safe: a type whose
