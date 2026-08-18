@@ -179,14 +179,14 @@ fn unpacked(desc: &MessageDescriptor, records: &[Record<'_>]) -> Option<Vec<u8>>
     let mut out = Vec::new();
     let mut spread = false;
     for record in records {
-        let packed = record.wire_type == 2
-            && desc
-                .get_field(record.tag)
-                .is_some_and(|field| field.is_list() && is_packable(&field.kind()));
-        if !packed {
+        let Some(wire_type) = desc
+            .get_field(record.tag)
+            .filter(|field| record.wire_type == 2 && field.is_list())
+            .and_then(|field| element_wire_type(&field.kind()))
+        else {
             out.extend_from_slice(record.bytes);
             continue;
-        }
+        };
         // Past the key and the length prefix, the payload is the elements back to back.
         let mut at = 0;
         read_varint(record.bytes, &mut at)?;
@@ -195,18 +195,31 @@ fn unpacked(desc: &MessageDescriptor, records: &[Record<'_>]) -> Option<Vec<u8>>
         let mut element = 0;
         while element < payload.len() {
             let start = element;
-            read_varint(payload, &mut element)?;
-            out.extend(key(record.tag, 0));
-            out.extend_from_slice(&payload[start..element]);
+            match wire_type {
+                0 => {
+                    read_varint(payload, &mut element)?;
+                }
+                1 => element += 8,
+                _ => element += 4,
+            }
+            out.extend(key(record.tag, wire_type));
+            out.extend_from_slice(payload.get(start..element)?);
             spread = true;
         }
     }
     spread.then_some(out)
 }
 
-/// Whether a repeated field of this kind is packed by default, and so has an unpacked spelling.
-fn is_packable(kind: &Kind) -> bool {
-    !matches!(kind, Kind::String | Kind::Bytes | Kind::Message(_))
+/// The wire type each element of a packed repeated field takes once spelled one key per element, or
+/// `None` for a kind that is never packed. The fixed-width kinds keep their width: re-spelling them
+/// as varints would emit a different value under the same tag.
+fn element_wire_type(kind: &Kind) -> Option<u8> {
+    match kind {
+        Kind::String | Kind::Bytes | Kind::Message(_) => None,
+        Kind::Double | Kind::Fixed64 | Kind::Sfixed64 => Some(1),
+        Kind::Float | Kind::Fixed32 | Kind::Sfixed32 => Some(5),
+        _ => Some(0),
+    }
 }
 
 /// The original with every singular field written twice, which protobuf resolves and this schema
@@ -266,6 +279,20 @@ fn cases(desc: &MessageDescriptor, bytes: &[u8], iteration: u64) -> Vec<(String,
         cases.push((String::from("duplicated singular fields"), mutated));
     }
     cases
+}
+
+/// This schema has no repeated field of a fixed-width kind, so `unpacked` never spreads one and no
+/// message can show a wrong width. The mapping is pinned here instead.
+#[test]
+fn packed_elements_keep_their_width() {
+    assert_eq!(element_wire_type(&Kind::Int32), Some(0));
+    assert_eq!(element_wire_type(&Kind::Bool), Some(0));
+    assert_eq!(element_wire_type(&Kind::Double), Some(1));
+    assert_eq!(element_wire_type(&Kind::Sfixed64), Some(1));
+    assert_eq!(element_wire_type(&Kind::Float), Some(5));
+    assert_eq!(element_wire_type(&Kind::Fixed32), Some(5));
+    assert_eq!(element_wire_type(&Kind::String), None);
+    assert_eq!(element_wire_type(&Kind::Bytes), None);
 }
 
 #[test]
