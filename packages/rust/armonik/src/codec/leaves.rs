@@ -37,6 +37,10 @@ macro_rules! packed_scalar {
                 encoding::$module::encoded_len(tag, value)
             }
 
+            fn is_zero(value: &Self) -> bool {
+                *value == <Self as Default>::default()
+            }
+
             fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
                 encoding::$module::encode_packed(tag, values, buf);
             }
@@ -87,6 +91,10 @@ macro_rules! delimited_leaf {
 
             fn encoded_len_field(tag: u32, value: &Self) -> usize {
                 encoding::$module::encoded_len(tag, value)
+            }
+
+            fn is_zero(value: &Self) -> bool {
+                value.is_empty()
             }
         }
     };

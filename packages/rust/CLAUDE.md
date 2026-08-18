@@ -32,9 +32,13 @@ than by review.
   named constructors (`TaskOptions::recommended()`,
   `<service>::list::Request::recommended()`, `Sort::ascending`), never in
   `Default`.
-- **Every declared field is encoded**, whatever it holds. There is no
-  "skip the default" path; a proto3 receiver reads an explicit zero exactly like
-  an absent field.
+- **Only an implicit-presence leaf skips its zero.** A scalar, `String`, `Bytes`
+  or enum field holding the proto zero is left out, like any proto3 encoder;
+  everything else is written whatever it holds, message fields and oneof members
+  included (a member being there is what selects its variant). The skip lives in
+  `ProtoField::encode_implicit` over an `is_zero` that is `false` by default, so
+  a codec opts into skipping rather than out of it; the derives only pick which
+  of the two entry points each slot is written through.
 - **Enums are open**: one dataful `Unknown(UnknownX)` catch-all carries the zero
   value and anything this crate version does not know, losslessly. The
   comparison traits are emitted in terms of the proto value rather than derived

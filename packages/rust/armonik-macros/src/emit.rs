@@ -220,12 +220,28 @@ pub(crate) fn field_fragments(
     dispatch: &TokenStream,
     tag: u32,
     value: TokenStream,
+    presence: Presence,
 ) -> (u32, TokenStream, TokenStream) {
+    // Which pair of `ProtoField`/`ProtoAdapter` methods to name; the skip itself is theirs.
+    let (encode, len) = match presence {
+        Presence::Implicit => (quote!(encode_implicit), quote!(encoded_len_implicit)),
+        Presence::Explicit => (quote!(encode_field), quote!(encoded_len_field)),
+    };
     (
         tag,
-        quote! { #dispatch::encode_field(#tag, #value, buf); },
-        quote! { #dispatch::encoded_len_field(#tag, #value) },
+        quote! { #dispatch::#encode(#tag, #value, buf); },
+        quote! { #dispatch::#len(#tag, #value) },
     )
+}
+
+/// Which of a slot's two entry points to write it through.
+#[derive(Clone, Copy)]
+pub(crate) enum Presence {
+    /// An ordinary proto3 field: absent and zero are one value, so a zero is left out.
+    Implicit,
+    /// The field being there at all is what carries the information (a oneof member selects its
+    /// variant), so it is written whatever it holds.
+    Explicit,
 }
 
 /// Register the type's proto names via `armonik`'s `register!` macro, the single home of the
@@ -484,12 +500,12 @@ pub(crate) struct SlotWrite {
 /// The read side does not factor the same way, and deliberately is not forced to: a shared slot
 /// merges in place, while a variant's own slot has to take the shared ones out, merge, and rebuild
 /// the variant around them. Those are two templates about the *enum*, not about the slot.
-pub(crate) fn slot_write(slot: &Slot, value: &TokenStream) -> SlotWrite {
+pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -> SlotWrite {
     let tag = slot.tag;
     match &slot.codec {
         SlotCodec::Field { adapter, .. } => {
             let d = slot_dispatch(slot);
-            let (_, encode, len) = field_fragments(&d, tag, value.clone());
+            let (_, encode, len) = field_fragments(&d, tag, value.clone(), presence);
             SlotWrite {
                 encode,
                 len,
@@ -535,7 +551,9 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream) -> SlotWrite {
                 .iter()
                 .map(|part| {
                     let local = slot_local(part);
-                    let written = slot_write(part, &quote!(#local));
+                    // Ordinary fields of the absorbed message; the framing below is what carries
+                    // the member's presence, and it is written unconditionally.
+                    let written = slot_write(part, &quote!(#local), Presence::Implicit);
                     (written.encode, written.len)
                 })
                 .unzip();

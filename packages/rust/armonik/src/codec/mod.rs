@@ -178,6 +178,31 @@ pub(crate) trait ProtoField: Default {
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &Self) -> usize;
 
+    /// Whether this is the proto zero. `false` unless a leaf overrides it, which is what keeps
+    /// messages, wrappers and containers on the wire whatever they hold.
+    fn is_zero(value: &Self) -> bool {
+        let _ = value;
+        false
+    }
+
+    /// The implicit-presence pair: a zero is left out, since a proto3 reader cannot tell it from an
+    /// absent field. Both read the same predicate, so the length cannot disagree with what is
+    /// written. Fields whose presence is the information (a oneof's active member) go through
+    /// `encode_field` instead, and the derives pick between the two per slot.
+    fn encode_implicit(tag: u32, value: &Self, buf: &mut impl BufMut) {
+        if !Self::is_zero(value) {
+            Self::encode_field(tag, value, buf);
+        }
+    }
+
+    fn encoded_len_implicit(tag: u32, value: &Self) -> usize {
+        if Self::is_zero(value) {
+            0
+        } else {
+            Self::encoded_len_field(tag, value)
+        }
+    }
+
     // Repeated forms, used by `Vec<Self>`. Packable kinds override them with their packed
     // encodings; the defaults implement the unpacked form.
 
@@ -395,6 +420,28 @@ pub(crate) trait ProtoAdapter<T> {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &T) -> usize;
+
+    /// See [`ProtoField::is_zero`]. An adapter owns its wire form, so it is written whatever it
+    /// holds unless it says otherwise.
+    fn is_zero(value: &T) -> bool {
+        let _ = value;
+        false
+    }
+
+    /// See [`ProtoField::encode_implicit`].
+    fn encode_implicit(tag: u32, value: &T, buf: &mut impl BufMut) {
+        if !Self::is_zero(value) {
+            Self::encode_field(tag, value, buf);
+        }
+    }
+
+    fn encoded_len_implicit(tag: u32, value: &T) -> usize {
+        if Self::is_zero(value) {
+            0
+        } else {
+            Self::encoded_len_field(tag, value)
+        }
+    }
 
     /// Project the field at `tag` of a dynamic message onto the equivalence classes this adapter's
     /// Rust representation defines (for the differential harness; see

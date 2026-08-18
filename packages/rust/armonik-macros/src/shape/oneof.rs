@@ -12,6 +12,7 @@ use crate::attrs::{self, AttrItem, Errors};
 use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
 use crate::emit::{
     message_shaped, slot_asserts, slot_local, slot_merge_in_place, slot_write, MessageBodies,
+    Presence,
 };
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Expectation, FieldAccess, OneofPlan, OneofVariant, Slot, SlotCodec};
@@ -1039,7 +1040,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         .iter()
         .zip(&sib_locals)
         .map(|(sibling, local)| {
-            let written = slot_write(sibling, &quote!(#local));
+            let written = slot_write(sibling, &quote!(#local), Presence::Implicit);
             (sibling.tag, written.encode, written.len)
         })
         .partition(|(tag, _, _)| min_member_tag.is_some_and(|member| *tag < member));
@@ -1232,9 +1233,9 @@ fn emit_payload_variant(ctx: &EmitCtx<'_>) -> VariantArms {
         _ => None,
     };
 
-    // The active member carries the oneof's presence, so it is emitted even with a
-    // default payload, like every other field.
-    let written = slot_write(own, &quote!(payload));
+    // The active member carries the oneof's presence: leaving a zero payload out would decode as
+    // no member set, so this is the one slot that writes whatever it holds.
+    let written = slot_write(own, &quote!(payload), Presence::Explicit);
     let (encode, len) = (written.encode, written.len);
     let normalize = written.normalize;
 
@@ -1372,7 +1373,7 @@ fn emit_inline_variant(ctx: &EmitCtx<'_>, parts: &[Slot]) -> VariantArms {
     // the member message is absorbed and has no Rust type to delegate to.
     // No value expression of its own: an inlined member names its parts through the
     // bindings this arm's pattern introduces.
-    let written = slot_write(own, &TokenStream::new());
+    let written = slot_write(own, &TokenStream::new(), Presence::Explicit);
     let (encode, len) = (written.encode, written.len);
 
     let encode = quote! {

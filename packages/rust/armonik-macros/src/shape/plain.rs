@@ -10,6 +10,7 @@ use crate::attrs::Errors;
 use crate::descriptor::DescriptorIndex;
 use crate::emit::{
     bound_generics, message_shaped, slot_asserts, slot_merge_in_place, slot_write, MessageBodies,
+    Presence,
 };
 use crate::matcher::{not_found, Found, Matcher};
 use crate::plan::{Expectation, MessagePlan, Slot, SlotCodec};
@@ -231,7 +232,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
         let tag = field.tag;
         asserts.extend(slot_asserts(field, ident));
 
-        let written = slot_write(field, &quote!(&self.#access));
+        let written = slot_write(field, &quote!(&self.#access), Presence::Implicit);
         encode_fragments.push(written.encode);
         let len = written.len;
         len_fragments.push(quote! { len += #len; });

@@ -39,12 +39,23 @@ pub mod codec {
         const NAMES: &'static [&'static str];
     }
 
-    /// What a field's type is asked for. Only `SHAPE` and the three singular methods are named by
-    /// the stubs a failed expansion emits.
+    /// What a field's type is asked for. Only `SHAPE`, the three singular methods and the
+    /// implicit-presence pair are named by the stubs a failed expansion emits.
     pub trait ProtoField: Sized {
         const SHAPE: Shape;
 
         fn encode_field(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut);
+
+        /// Defaulted in `armonik::codec` on top of an `is_zero` predicate; a stub only needs the
+        /// name to resolve, so the stand-in forwards.
+        fn encode_implicit(tag: u32, value: &Self, buf: &mut impl ::prost::bytes::BufMut) {
+            Self::encode_field(tag, value, buf);
+        }
+
+        fn encoded_len_implicit(tag: u32, value: &Self) -> usize {
+            Self::encoded_len_field(tag, value)
+        }
+
         fn merge_field(
             wire_type: ::prost::encoding::WireType,
             value: &mut Self,
