@@ -143,8 +143,9 @@ where
 
 /// Whether there is a mock server to talk to.
 ///
-/// `scripts/mock_test.sh` exports `GrpcClient__Endpoint`, which is the one variable every armonik
-/// client and [`nb_requests`] reads, so its absence is how a bare `cargo test` says that the
+/// `.github/workflows/test.yml` exports `GrpcClient__Endpoint` in each of its six TLS steps before
+/// calling `scripts/mock_test.sh`, and it is the one variable every armonik client and
+/// [`nb_requests`] reads, so its absence is how a bare `cargo test` says that the
 /// cross-implementation half of the suite has nothing to drive. Skipping on it keeps that half out
 /// of a local run without `#[ignore]`: an ignored test needs `--include-ignored`, and cargo forwards
 /// that flag to every harness in the workspace including rustdoc's, where it compiles the
@@ -214,8 +215,10 @@ impl Counter {
 
     pub(crate) async fn assert_one_call(self) {
         let after = nb_requests(self.service, self.method).await;
+        // Saturating: a mock restarted mid-suite counts from zero again, and the assertion below is
+        // a better report of that than a subtraction overflow.
         assert_eq!(
-            after - self.before,
+            after.saturating_sub(self.before),
             1,
             "expected exactly one call to {}.{}",
             self.service,
@@ -257,9 +260,9 @@ impl Counter {
 /// trait with its `Router` builder, and the name the mock files its counters
 /// under. That last is the name of the C# class implementing it, so not always
 /// the proto service name (`Authentication`, `HealthChecks`), and `mock: none;`
-/// drops the mock pair for a service the mock does not implement. It doubles as
-/// the `serial_test` group, since the two halves of a pair share one counter and
-/// would race.
+/// drops the mock pair for a service the mock does not implement. The `Client`
+/// accessor doubles as the `serial_test` group, since the two halves of a pair
+/// share one counter and would race.
 ///
 /// Then one `rpc` line per RPC, the keyword after it being the call kind
 /// (`unary`, `client_stream` for a stream of request messages, `server_stream`
