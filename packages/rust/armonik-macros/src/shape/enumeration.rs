@@ -401,8 +401,9 @@ pub(crate) fn items(plan: &EnumPlan) -> TokenStream {
 
     let payload_doc = format!(
         "Raw value of an `{ident}` not known to this crate version (or the \
-         unspecified zero value). Only constructible by decoding, so a known \
-         value can never hide inside the catch-all variant.",
+         unspecified zero value). Only constructible from a value this crate \
+         version does not name, so a known value can never hide inside the \
+         catch-all variant.",
     );
 
     let from_named_arms = plan.named.iter().map(|value| {
@@ -441,7 +442,6 @@ pub(crate) fn items(plan: &EnumPlan) -> TokenStream {
     quote! {
         #[doc = #payload_doc]
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct #payload(i32);
 
         impl #payload {
@@ -518,20 +518,24 @@ fn comparison(plan: &EnumPlan) -> TokenStream {
     }
 }
 
-/// `Serialize`/`Deserialize` over the proto value, delegating the format to `codec::enum_serde`.
+/// `Serialize`/`Deserialize` over the proto value for the enum and its catch-all payload,
+/// delegating the format to `codec::enum_serde`.
 ///
-/// Hand-written for the same reason as the comparison traits above: the derived `Deserialize` is
+/// Hand-written for the same reason as the comparison traits above: a derived `Deserialize` is
 /// generated in the module that owns the payload's private field, so it builds the catch-all
-/// directly and a known value can hide inside it. Everything here goes through `From<i32>`.
+/// directly and a known value can hide inside it. The enum's goes through `From<i32>`, the
+/// payload's rejects the values the enum names.
 fn serde(plan: &EnumPlan) -> TokenStream {
     let ident = &plan.ident;
+    let payload = &plan.payload;
     let values = plan.named.iter().map(|value| {
         let name = unraw(&value.ident);
         let number = value.number;
         quote!((#name, #number))
     });
     let name = unraw(ident);
-    let unknown = unraw(&plan.unknown_variant);
+    let catch_all = &plan.unknown_variant;
+    let unknown = unraw(catch_all);
     quote! {
         #[cfg(feature = "serde")]
         const _: () = {
@@ -552,6 +556,34 @@ fn serde(plan: &EnumPlan) -> TokenStream {
                 ) -> ::core::result::Result<Self, D::Error> {
                     crate::codec::enum_serde::deserialize(VALUES, #name, #unknown, deserializer)
                         .map(Self::from)
+                }
+            }
+
+            // The payload is its number, in and out, like the catch-all that carries it.
+            impl ::serde::Serialize for #payload {
+                fn serialize<S: ::serde::Serializer>(
+                    &self,
+                    serializer: S,
+                ) -> ::core::result::Result<S::Ok, S::Error> {
+                    serializer.serialize_i32(self.0)
+                }
+            }
+
+            impl<'de> ::serde::Deserialize<'de> for #payload {
+                fn deserialize<D: ::serde::Deserializer<'de>>(
+                    deserializer: D,
+                ) -> ::core::result::Result<Self, D::Error> {
+                    let value = <i32 as ::serde::Deserialize>::deserialize(deserializer)?;
+                    // `From<i32>` already knows which numbers are named; a payload is what is left.
+                    match #ident::from(value) {
+                        #ident::#catch_all(raw) => ::core::result::Result::Ok(raw),
+                        _ => ::core::result::Result::Err(
+                            <D::Error as ::serde::de::Error>::custom(::std::format!(
+                                "`{}` names {value}, so it cannot be an unknown value",
+                                #name,
+                            )),
+                        ),
+                    }
                 }
             }
         };

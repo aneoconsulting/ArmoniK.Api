@@ -9,6 +9,10 @@
 //! Reading three shapes means [`Deserializer::deserialize_any`], so this covers the self-describing
 //! formats (JSON, YAML, TOML) and not the ones that need the type to drive the parse (bincode,
 //! postcard).
+//!
+//! The catch-all payload type has its own pair, emitted alongside these: the bare number both ways,
+//! read through the same `From<i32>` and kept only when it lands on the catch-all. That is what a
+//! caller naming the payload type in a struct of theirs gets.
 
 use std::fmt;
 
@@ -127,7 +131,8 @@ mod tests {
 
     /// The three spellings one value can arrive as, all normalized through `From<i32>`. The last
     /// is what `derive(Deserialize)` writes, and reading it with that derive yields a catch-all
-    /// holding 4: unequal to `Completed`, and the same bytes on the wire.
+    /// holding 4: `== Completed` and the same bytes on the wire, but no arm matching `Completed`
+    /// ever fires. Hence the `matches!` assertions below rather than equality alone.
     #[test]
     fn every_spelling_of_a_known_value_reads_as_the_named_variant() {
         assert_eq!(read("\"Completed\""), TaskStatus::Completed);
@@ -160,6 +165,28 @@ mod tests {
     fn a_value_outside_i32_is_rejected() {
         serde_json::from_str::<TaskStatus>("2147483648").expect_err("rejected");
         serde_json::from_str::<TaskStatus>("-2147483649").expect_err("rejected");
+    }
+
+    /// The payload type on its own, which a caller naming it in a struct of theirs gets. It reads
+    /// and writes the bare number, and refuses the numbers the enum names: such a payload would be
+    /// `== TaskStatus::Completed` while `matches!(.., TaskStatus::Completed)` is false.
+    #[test]
+    fn an_unknown_payload_round_trips_but_a_known_value_is_refused() {
+        let TaskStatus::Unknown(payload) = TaskStatus::from(9999) else {
+            panic!("9999 is not a named value");
+        };
+        assert_eq!(serde_json::to_string(&payload).expect("serialize"), "9999");
+        assert_eq!(
+            serde_json::from_str::<crate::UnknownTaskStatus>("9999").expect("deserialize"),
+            payload,
+        );
+
+        let error =
+            serde_json::from_str::<crate::UnknownTaskStatus>("4").expect_err("4 is `Completed`");
+        assert!(
+            error.to_string().contains("`TaskStatus` names 4"),
+            "{error}"
+        );
     }
 
     /// Through a field of a message, which is how these are actually written.
