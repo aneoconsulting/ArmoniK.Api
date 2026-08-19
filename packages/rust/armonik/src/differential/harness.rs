@@ -355,12 +355,6 @@ fn field_information_ratchet() {
     }
 }
 
-/// Messages present in the schema but referenced by nothing; see `registrations::UNREFERENCED_MESSAGES`. The
-/// messages of *unexposed RPCs* are not listed anywhere by hand: `service!` registers them from its
-/// `unexposed(...)` declaration (`registrations::unexposed()`), so that allowlist cannot drift from the RPC
-/// one.
-const PERMANENT_UNMAPPED: &[&str] = registrations::UNREFERENCED_MESSAGES;
-
 #[test]
 fn descriptor_coverage_ratchet() {
     let pool = pool();
@@ -379,7 +373,7 @@ fn descriptor_coverage_ratchet() {
         if registered.contains(&name)
             || absorbed.contains(&name)
             || unexposed.contains(&name)
-            || PERMANENT_UNMAPPED.contains(&name)
+            || registrations::UNREFERENCED_MESSAGES.contains(&name)
         {
             continue;
         }
@@ -414,10 +408,10 @@ fn descriptor_coverage_ratchet() {
 
     // Every tracked name must actually exist (a renamed or removed message leaves a stale allowlist
     // entry).
-    for name in PERMANENT_UNMAPPED {
+    for name in registrations::UNREFERENCED_MESSAGES {
         assert!(
             pool.get_message_by_name(name).is_some(),
-            "PERMANENT_UNMAPPED entry `{name}` does not exist in the descriptor"
+            "UNREFERENCED_MESSAGES entry `{name}` does not exist in the descriptor"
         );
     }
 

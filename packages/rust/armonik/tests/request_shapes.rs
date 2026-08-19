@@ -41,6 +41,22 @@ fn seen(context: &RequestContext) -> String {
     format!("{probe}/{timeout}")
 }
 
+/// A refusing handler per named RPC. The handler name is its request module's name, which is
+/// what lets one identifier stand for the whole method.
+macro_rules! unexercised {
+    ($($name:ident),* $(,)?) => {
+        $(
+            async fn $name(
+                self: Arc<Self>,
+                _request: results::$name::Request,
+                _context: RequestContext,
+            ) -> Result<results::$name::Response, tonic::Status> {
+                Err(unimplemented())
+            }
+        )*
+    };
+}
+
 impl ResultsService for Echo {
     async fn get(
         self: Arc<Self>,
@@ -70,62 +86,6 @@ impl ResultsService for Echo {
         })
     }
 
-    async fn list(
-        self: Arc<Self>,
-        _request: results::list::Request,
-        _context: RequestContext,
-    ) -> Result<results::list::Response, tonic::Status> {
-        Err(unimplemented())
-    }
-
-    async fn get_owner_task_id(
-        self: Arc<Self>,
-        _request: results::get_owner_task_id::Request,
-        _context: RequestContext,
-    ) -> Result<results::get_owner_task_id::Response, tonic::Status> {
-        Err(unimplemented())
-    }
-
-    async fn create_metadata(
-        self: Arc<Self>,
-        _request: results::create_metadata::Request,
-        _context: RequestContext,
-    ) -> Result<results::create_metadata::Response, tonic::Status> {
-        Err(unimplemented())
-    }
-
-    async fn create(
-        self: Arc<Self>,
-        _request: results::create::Request,
-        _context: RequestContext,
-    ) -> Result<results::create::Response, tonic::Status> {
-        Err(unimplemented())
-    }
-
-    async fn import(
-        self: Arc<Self>,
-        _request: results::import::Request,
-        _context: RequestContext,
-    ) -> Result<results::import::Response, tonic::Status> {
-        Err(unimplemented())
-    }
-
-    async fn delete_data(
-        self: Arc<Self>,
-        _request: results::delete_data::Request,
-        _context: RequestContext,
-    ) -> Result<results::delete_data::Response, tonic::Status> {
-        Err(unimplemented())
-    }
-
-    async fn get_service_configuration(
-        self: Arc<Self>,
-        _request: results::get_service_configuration::Request,
-        _context: RequestContext,
-    ) -> Result<results::get_service_configuration::Response, tonic::Status> {
-        Err(unimplemented())
-    }
-
     async fn download(
         self: Arc<Self>,
         _request: results::download::Request,
@@ -149,6 +109,18 @@ impl ResultsService for Echo {
     > {
         Err::<futures::stream::Empty<_>, _>(unimplemented())
     }
+
+    // The RPCs this suite does not exercise: it is about how a request carries its metadata,
+    // not about what any particular one answers.
+    unexercised!(
+        list,
+        get_owner_task_id,
+        create_metadata,
+        create,
+        import,
+        delete_data,
+        get_service_configuration
+    );
 }
 
 fn unimplemented() -> tonic::Status {

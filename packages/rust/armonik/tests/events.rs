@@ -54,13 +54,7 @@ rpc_tests! {
             Ok(async_stream::try_stream! {
                 let _drop_guard = end_ct.drop_guard();
                 loop {
-                    if let Some(duration) = self.wait {
-                        tokio::time::sleep(duration).await;
-                    }
-
-                    if let Some(failure) = self.failure.clone() {
-                        Err(failure)?
-                    }
+                    crate::common::knobs(self.wait, self.failure.clone()).await?;
 
                     yield events::subscribe::Response {
                         session_id: request.session_id.clone(),
