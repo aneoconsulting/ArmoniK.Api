@@ -20,32 +20,44 @@
 //! the public API is usable: everything they touch has to be `pub`, which no in-crate test could
 //! establish.
 
+// Each test binary uses a different subset of these helpers, so every one of them is unused
+// somewhere.
+#![allow(unused)]
+
 use std::collections::HashMap;
 
-/// Honour the `wait`/`failure` knobs the fake carries, then produce the response. Sleeping first is
-/// what the cancellation tests hang their timeouts on.
-#[allow(unused)]
+/// Honour the `wait`/`failure` knobs the fake carries. Sleeping first is what the cancellation
+/// tests hang their timeouts on.
+///
+/// Separate from [`stub`] because the streaming fakes apply the knobs per item, from inside a
+/// `try_stream!` block that has no response to hand back.
+pub(crate) async fn knobs(
+    duration: Option<tokio::time::Duration>,
+    failure: Option<tonic::Status>,
+) -> Result<(), tonic::Status> {
+    if let Some(duration) = duration {
+        tokio::time::sleep(duration).await;
+    }
+    match failure {
+        Some(failure) => Err(failure),
+        None => Ok(()),
+    }
+}
+
+/// [`knobs`], then the response: what a unary fake does.
 pub(crate) async fn stub<Response>(
     duration: Option<tokio::time::Duration>,
     failure: Option<tonic::Status>,
     response: impl FnOnce() -> Result<Response, tonic::Status>,
 ) -> Result<Response, tonic::Status> {
-    if let Some(duration) = duration {
-        tokio::time::sleep(duration).await;
-    }
-
-    if let Some(failure) = failure {
-        Err(failure)
-    } else {
-        response()
-    }
+    knobs(duration, failure).await?;
+    response()
 }
 
 /// Apply a `respond:` clause. A closure that is called directly gets no expected signature, so its
 /// parameter type cannot be inferred; going through a generic `FnOnce` bound is what lets the
 /// clauses be written with no type annotation on them. Same for [`project`], [`check`] and
 /// [`check_async`].
-#[allow(unused)]
 pub(crate) fn respond<Request, Response>(
     request: Request,
     respond: impl FnOnce(Request) -> Response,
@@ -54,7 +66,6 @@ pub(crate) fn respond<Request, Response>(
 }
 
 /// Apply a `project:` clause.
-#[allow(unused)]
 pub(crate) fn project<Value, Projected>(
     value: Value,
     projection: impl FnOnce(Value) -> Projected,
@@ -63,13 +74,11 @@ pub(crate) fn project<Value, Projected>(
 }
 
 /// Run a `check:` clause.
-#[allow(unused)]
 pub(crate) fn check<Value>(value: Value, check: impl FnOnce(Value)) {
     check(value)
 }
 
 /// [`check`], for the `async` closure a `server_stream` RPC needs.
-#[allow(unused)]
 pub(crate) async fn check_async<Value, Fut: std::future::Future<Output = ()>>(
     value: Value,
     check: impl FnOnce(Value) -> Fut,
@@ -79,7 +88,6 @@ pub(crate) async fn check_async<Value, Fut: std::future::Future<Output = ()>>(
 
 /// Drive a server-streaming response to its end, so the call completes instead of being dropped
 /// half-read.
-#[allow(unused)]
 pub(crate) async fn drain<S, T>(
     outcome: Result<S, armonik::client::RequestError>,
 ) -> Result<(), armonik::client::RequestError>
@@ -91,14 +99,12 @@ where
 }
 
 /// The `mock_error:` default: no failure is acceptable.
-#[allow(unused)]
 pub(crate) fn no_error(_: &tonic::Status) -> bool {
     false
 }
 
 /// The counterpart of [`drain`] for a response that is already a value, so that the mock pair can
 /// settle either kind through one call.
-#[allow(unused)]
 pub(crate) async fn keep<T>(
     outcome: Result<T, armonik::client::RequestError>,
 ) -> Result<T, armonik::client::RequestError> {
@@ -108,7 +114,6 @@ pub(crate) async fn keep<T>(
 /// Accept the outcome of one call against the mock. A few RPCs answer its stub data with a gRPC
 /// failure, which still counts as the call having landed; `accepted` says which failure that RPC
 /// may give, and defaults to none.
-#[allow(unused)]
 pub(crate) fn accept<T>(
     outcome: Result<T, armonik::client::RequestError>,
     accepted: fn(&tonic::Status) -> bool,
@@ -126,13 +131,11 @@ pub(crate) fn accept<T>(
 /// validates against the descriptor, so a test cannot end up watching the wrong counter. It reads
 /// the name off a request *value* rather than a type parameter, which is what lets a case spell the
 /// request out once.
-#[allow(unused)]
 pub(crate) fn method_of<R: armonik::rpc::Rpc>(_: &R) -> &'static str {
     R::METHOD
 }
 
 /// [`method_of`], for the item type of a client-streaming request.
-#[allow(unused)]
 pub(crate) fn method_of_stream<S>(_: &S) -> &'static str
 where
     S: futures::Stream,
@@ -150,7 +153,6 @@ where
 /// of a local run without `#[ignore]`: an ignored test needs `--include-ignored`, and cargo forwards
 /// that flag to every harness in the workspace including rustdoc's, where it compiles the
 /// `ignore`-marked doc examples, which cannot compile by construction.
-#[allow(unused)]
 pub(crate) fn mock_is_live() -> bool {
     matches!(std::env::var("GrpcClient__Endpoint"), Ok(endpoint) if !endpoint.is_empty())
 }
@@ -195,14 +197,12 @@ async fn nb_requests(service: &str, method: &str) -> usize {
 
 /// The `/calls.json` tally for one RPC, read before the call so that [`Counter::assert_one_call`]
 /// can check the delta afterwards.
-#[allow(unused)]
 pub(crate) struct Counter {
     service: &'static str,
     method: &'static str,
     before: usize,
 }
 
-#[allow(unused)]
 impl Counter {
     pub(crate) async fn read(service: &'static str, method: &'static str) -> Self {
         let before = nb_requests(service, method).await;
@@ -349,6 +349,10 @@ macro_rules! rpc_tests {
     (@handler $kind:ident $name:ident { $($case:tt)* }) => {};
 
     // ---- both pairs, per call kind ----
+    //
+    // Each arm is grammar: it names the clauses its kind accepts, then hands the two halves off.
+    // What the halves do differs along one axis only, whether the response is a value or a stream,
+    // so the bodies live in the two `@in_process` arms below rather than once per kind.
 
     (@pairs unary $name:ident, $into:ident, $server:ident, $mock:tt, {
         request: $($request_ty:ident)::+ { $($request_fields:tt)* },
@@ -365,30 +369,12 @@ macro_rules! rpc_tests {
             settle = (keep),
             mock_error = ($($mock_error)?),
         );
-
-        mod in_process {
-            #[allow(unused_imports)]
-            use super::*;
-
-            #[tokio::test]
-            async fn call() {
-                let mut client = rpc_tests!(@client $into, $server);
-                let response = client
-                    .call($($request_ty)::+ { $($request_fields)* })
-                    .await
-                    .unwrap();
-                let value = response;
-                $( let value = crate::common::project(value, $project); )?
-                crate::common::check(value, $check);
-            }
-
-            #[tokio::test]
-            async fn convenience() {
-                let mut client = rpc_tests!(@client $into, $server);
-                let value = client.$method($($arg),*).await.unwrap();
-                crate::common::check(value, $check);
-            }
-        }
+        rpc_tests!(@in_process value $into, $server,
+            request = ($($request_ty)::+ { $($request_fields)* }),
+            convenience = ($method($($arg),*)),
+            project = ($($project)?),
+            check = ($check),
+        );
     };
 
     (@pairs server_stream $name:ident, $into:ident, $server:ident, $mock:tt, {
@@ -405,36 +391,12 @@ macro_rules! rpc_tests {
             settle = (drain),
             mock_error = ($($mock_error)?),
         );
-
-        mod in_process {
-            #[allow(unused_imports)]
-            use super::*;
-
-            #[tokio::test]
-            async fn call() {
-                let mut client = rpc_tests!(@client $into, $server);
-                let stream = client
-                    .call($($request_ty)::+ { $($request_fields)* })
-                    .await
-                    .unwrap();
-                // Boxed, so that the check sees the very type the convenience method returns rather
-                // than an adaptor wrapped around it.
-                let stream = futures::StreamExt::boxed(futures::StreamExt::map(stream, |item| {
-                    Result::map(item, |response| {
-                        $( let response = crate::common::project(response, $project); )?
-                        response
-                    })
-                }));
-                crate::common::check_async(stream, $check).await;
-            }
-
-            #[tokio::test]
-            async fn convenience() {
-                let mut client = rpc_tests!(@client $into, $server);
-                let stream = client.$method($($arg),*).await.unwrap();
-                crate::common::check_async(stream, $check).await;
-            }
-        }
+        rpc_tests!(@in_process stream $into, $server,
+            request = ($($request_ty)::+ { $($request_fields)* }),
+            convenience = ($method($($arg),*)),
+            project = ($($project)?),
+            check = ($check),
+        );
     };
 
     (@pairs client_stream $name:ident, $into:ident, $server:ident, $mock:tt, {
@@ -451,27 +413,12 @@ macro_rules! rpc_tests {
             settle = (keep),
             mock_error = ($($mock_error)?),
         );
-
-        mod in_process {
-            #[allow(unused_imports)]
-            use super::*;
-
-            #[tokio::test]
-            async fn call() {
-                let mut client = rpc_tests!(@client $into, $server);
-                let response = client.call($request).await.unwrap();
-                let value = response;
-                $( let value = crate::common::project(value, $project); )?
-                crate::common::check(value, $check);
-            }
-
-            #[tokio::test]
-            async fn convenience() {
-                let mut client = rpc_tests!(@client $into, $server);
-                let value = client.$method($($arg),*).await.unwrap();
-                crate::common::check(value, $check);
-            }
-        }
+        rpc_tests!(@in_process value $into, $server,
+            request = ($request),
+            convenience = ($method($($arg),*)),
+            project = ($($project)?),
+            check = ($check),
+        );
     };
 
     // Both halves at once: the request is a stream, like `client_stream`, and the response is one,
@@ -492,7 +439,49 @@ macro_rules! rpc_tests {
             settle = (drain),
             mock_error = ($($mock_error)?),
         );
+        rpc_tests!(@in_process stream $into, $server,
+            request = ($request),
+            convenience = ($method($($arg),*)),
+            project = ($($project)?),
+            check = ($check),
+        );
+    };
 
+    // ---- the in-process pair, by response shape ----
+
+    (@in_process value $into:ident, $server:ident,
+        request = ($request:expr),
+        convenience = ($method:ident($($arg:expr),*)),
+        project = ($($project:expr)?),
+        check = ($check:expr),
+    ) => {
+        mod in_process {
+            #[allow(unused_imports)]
+            use super::*;
+
+            #[tokio::test]
+            async fn call() {
+                let mut client = rpc_tests!(@client $into, $server);
+                let value = client.call($request).await.unwrap();
+                $( let value = crate::common::project(value, $project); )?
+                crate::common::check(value, $check);
+            }
+
+            #[tokio::test]
+            async fn convenience() {
+                let mut client = rpc_tests!(@client $into, $server);
+                let value = client.$method($($arg),*).await.unwrap();
+                crate::common::check(value, $check);
+            }
+        }
+    };
+
+    (@in_process stream $into:ident, $server:ident,
+        request = ($request:expr),
+        convenience = ($method:ident($($arg:expr),*)),
+        project = ($($project:expr)?),
+        check = ($check:expr),
+    ) => {
         mod in_process {
             #[allow(unused_imports)]
             use super::*;
@@ -501,8 +490,8 @@ macro_rules! rpc_tests {
             async fn call() {
                 let mut client = rpc_tests!(@client $into, $server);
                 let stream = client.call($request).await.unwrap();
-                // Boxed, so that the check sees the very type the convenience method returns rather
-                // than an adaptor wrapped around it.
+                // Boxed on both halves, so the shared check sees one type: `call` projects through
+                // an adaptor, and a hand-written convenience method returns `impl Stream`.
                 let stream = futures::StreamExt::boxed(futures::StreamExt::map(stream, |item| {
                     Result::map(item, |response| {
                         $( let response = crate::common::project(response, $project); )?
@@ -546,12 +535,7 @@ macro_rules! rpc_tests {
 
             /// The failure this RPC may answer the mock's stub data with.
             fn accepted() -> fn(&tonic::Status) -> bool {
-                // Defaulted, then overwritten when the case names a failure; one of the two writes
-                // is always dead.
-                #[allow(unused_mut, unused_assignments)]
-                let mut accepted: fn(&tonic::Status) -> bool = crate::common::no_error;
-                $( accepted = $mock_error; )?
-                accepted
+                rpc_tests!(@accepted $($mock_error)?)
             }
 
             // Both cases below need the C# mock server, which `scripts/mock_test.sh` starts and
@@ -559,43 +543,37 @@ macro_rules! rpc_tests {
             // which makes a plain `cargo test` a poor signal: half of every service suite failing
             // for a reason that has nothing to do with the code. So they skip on the variable the
             // script exports (see `mock_is_live`), and CI needs no flag to run them.
-            #[tokio::test]
-            #[serial_test::serial($into)]
-            async fn call() {
-                if !crate::common::mock_is_live() {
-                    return;
-                }
-                let counter = crate::common::Counter::read(
-                    $mock,
-                    crate::common::$method_of(&$request),
-                )
-                .await;
-                let mut client = armonik::Client::new().await.unwrap().$into();
-                let outcome = crate::common::$settle(client.$call($request).await).await;
-                crate::common::accept(outcome, accepted());
-                counter.assert_one_call().await;
-            }
+            //
+            // The two differ only in how the RPC is reached, so both name a method of the client.
+            rpc_tests!(@mock_test call, $into, $mock, $method_of, ($request), $settle,
+                       $call($request));
+            rpc_tests!(@mock_test convenience, $into, $mock, $method_of, ($request), $settle,
+                       $method($($arg),*));
+        }
+    };
 
-            #[tokio::test]
-            #[serial_test::serial($into)]
-            async fn convenience() {
-                if !crate::common::mock_is_live() {
-                    return;
-                }
-                let counter = crate::common::Counter::read(
-                    $mock,
-                    crate::common::$method_of(&$request),
-                )
-                .await;
-                let mut client = armonik::Client::new().await.unwrap().$into();
-                let outcome = crate::common::$settle(client.$method($($arg),*).await).await;
-                crate::common::accept(outcome, accepted());
-                counter.assert_one_call().await;
+    (@mock_test $test:ident, $into:ident, $mock:tt, $method_of:ident, ($request:expr),
+        $settle:ident, $invoke:ident($($arg:expr),*)
+    ) => {
+        #[tokio::test]
+        #[serial_test::serial($into)]
+        async fn $test() {
+            if !crate::common::mock_is_live() {
+                return;
             }
+            let counter =
+                crate::common::Counter::read($mock, crate::common::$method_of(&$request)).await;
+            let mut client = armonik::Client::new().await.unwrap().$into();
+            let outcome = crate::common::$settle(client.$invoke($($arg),*).await).await;
+            crate::common::accept(outcome, accepted());
+            counter.assert_one_call().await;
         }
     };
 
     // ---- shared pieces ----
+
+    (@accepted) => { crate::common::no_error };
+    (@accepted $mock_error:expr) => { $mock_error };
 
     (@client $into:ident, $server:ident) => {
         armonik::Client::with_channel(Service::default().$server()).$into()

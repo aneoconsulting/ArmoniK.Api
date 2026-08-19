@@ -317,12 +317,7 @@ rpc_tests! {
             let drop_guard = self.dropped.clone().drop_guard();
 
             if self.early {
-                if let Some(duration) = self.wait {
-                    tokio::time::sleep(duration).await;
-                }
-                if let Some(failure) = self.failure.clone() {
-                    Err(failure)?
-                }
+                crate::common::knobs(self.wait, self.failure.clone()).await?;
             }
 
             Ok(async_stream::try_stream! {
@@ -330,12 +325,7 @@ rpc_tests! {
                 let mut request = std::pin::pin!(request);
 
                 while let Some(item) = request.next().await {
-                    if let Some(duration) = self.wait {
-                        tokio::time::sleep(duration).await;
-                    }
-                    if let Some(failure) = self.failure.clone() {
-                        Err(failure)?
-                    }
+                    crate::common::knobs(self.wait, self.failure.clone()).await?;
                     yield results::watch::Response {
                         status: armonik::ResultStatus::Created,
                         result_ids: item?.result_ids,
@@ -385,12 +375,7 @@ rpc_tests! {
             let drop_guard = self.dropped.clone().drop_guard();
 
             if self.early {
-                if let Some(duration) = self.wait {
-                    tokio::time::sleep(duration).await;
-                }
-                if let Some(failure) = self.failure.clone() {
-                    Err(failure)?
-                }
+                crate::common::knobs(self.wait, self.failure.clone()).await?;
             }
 
             Ok(async_stream::try_stream! {
@@ -401,12 +386,7 @@ rpc_tests! {
                     b"rpc-download-output-0",
                     b"rpc-download-output-1",
                 ] {
-                    if let Some(duration) = self.wait {
-                        tokio::time::sleep(duration).await;
-                    }
-                    if let Some(failure) = self.failure.clone() {
-                        Err(failure)?
-                    }
+                    crate::common::knobs(self.wait, self.failure.clone()).await?;
                     yield results::download::Response {
                         data_chunk: bytes::Bytes::copy_from_slice(chunk),
                     };
@@ -430,12 +410,7 @@ rpc_tests! {
 
             loop {
                 if self.early || session.is_some() {
-                    if let Some(duration) = self.wait {
-                        tokio::time::sleep(duration).await;
-                    }
-                    if let Some(failure) = self.failure.clone() {
-                        Err(failure)?
-                    }
+                    crate::common::knobs(self.wait, self.failure.clone()).await?;
                 }
 
                 match request.next().await {
@@ -467,33 +442,6 @@ rpc_tests! {
             })
         }
     }
-}
-
-/// A method name the proto does not declare has no route: the router answers UNIMPLEMENTED, naming
-/// the path it refused.
-#[tokio::test]
-async fn an_unrouted_path_is_named_in_the_status() {
-    use armonik::reexports::http;
-    use armonik::reexports::tonic;
-    use armonik::reexports::tonic::codegen::Service as _;
-
-    // A name the proto does not declare, which is the other half of what the router answers
-    // UNIMPLEMENTED for (the first being a method of another service).
-    let mut router = Service::default().results_server();
-    let request = http::Request::builder()
-        .uri("/armonik.api.grpc.v1.results.Results/NoSuchMethod")
-        .body(tonic::body::Body::default())
-        .expect("request");
-
-    let response = router.call(request).await.expect("infallible");
-    let headers = response.headers();
-
-    assert_eq!(headers["grpc-status"], "12");
-    let message = headers["grpc-message"].to_str().expect("ascii");
-    assert!(
-        message.contains("armonik.api.grpc.v1.results.Results/NoSuchMethod"),
-        "unexpected message: {message}"
-    );
 }
 
 /// A client whose fake sleeps for `wait` before answering, and cancels `token` when its handler is

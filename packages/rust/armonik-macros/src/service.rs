@@ -500,35 +500,22 @@ fn validate<'a>(def: &'a ServiceDef, service: &'a ServiceMeta) -> syn::Result<Va
             ));
         }
 
-        if meta.client_streaming != rpc.client_stream.is_some() {
-            return Err(syn::Error::new(
-                rpc.client_stream
-                    .map_or_else(|| rpc.method.span(), |kw| kw.span),
-                format!(
-                    "`{}` {} client-streaming in the proto",
-                    rpc.method,
-                    if meta.client_streaming {
-                        "is"
-                    } else {
-                        "is not"
-                    },
-                ),
-            ));
-        }
-        if meta.server_streaming != rpc.server_stream.is_some() {
-            return Err(syn::Error::new(
-                rpc.server_stream
-                    .map_or_else(|| rpc.method.span(), |kw| kw.span),
-                format!(
-                    "`{}` {} server-streaming in the proto",
-                    rpc.method,
-                    if meta.server_streaming {
-                        "is"
-                    } else {
-                        "is not"
-                    },
-                ),
-            ));
+        // Each `stream` keyword must sit where the proto puts it. The two sides are the same
+        // check, and the span is the keyword when there is one, the method name when there is not.
+        for (declared, in_proto, side) in [
+            (rpc.client_stream, meta.client_streaming, "client"),
+            (rpc.server_stream, meta.server_streaming, "server"),
+        ] {
+            if in_proto != declared.is_some() {
+                return Err(syn::Error::new(
+                    declared.map_or_else(|| rpc.method.span(), |kw| kw.span),
+                    format!(
+                        "`{}` {} {side}-streaming in the proto",
+                        rpc.method,
+                        if in_proto { "is" } else { "is not" },
+                    ),
+                ));
+            }
         }
 
         let kind = match (rpc.client_stream, rpc.server_stream) {
