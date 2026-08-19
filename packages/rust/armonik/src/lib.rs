@@ -27,8 +27,8 @@ pub(crate) mod utils;
 
 /// Register a type's proto names into the differential harness's registry. The one place the
 /// registration shape is written (the `linkme` slice, the `cfg(test)` gate, the hooks): the macros
-/// emit `crate::register!(...)` and the two hand-written impls call it directly, so none restates
-/// the slice's layout.
+/// emit `crate::register!(...)` and the hand-written impl calls it directly, so none restates the
+/// slice's layout.
 ///
 /// - `message: Ty, "proto.Name", ...`: a Rust type implementing the messages;
 /// - `absorbed: "proto.Name", ...`: a message flattened into a parent, no type;

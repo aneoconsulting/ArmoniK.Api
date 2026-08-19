@@ -309,9 +309,9 @@ pub(crate) fn tripwire(fingerprint: u64) -> TokenStream {
 /// The bounds every emitted impl puts on a generic type's parameters.
 ///
 /// `ProtoField` because a field is encoded through it, `Send`/`Sync` because `prost::Message`
-/// requires them. Nothing else: `PartialEq` and `Debug` were here for the deleted `is_default`
-/// family and no emitted code needs them. The stub emission (`item::stubs`) reads the same list, so
-/// that a stub impl applies exactly where the real one would.
+/// requires them, and nothing else, since no emitted code needs more. The stub emission
+/// (`item::stubs`) reads the same list, so that a stub impl applies exactly where the real one
+/// would.
 pub(crate) fn bound_generics(generics: &syn::Generics) -> syn::Generics {
     let mut generics = generics.clone();
     for param in generics.type_params_mut() {

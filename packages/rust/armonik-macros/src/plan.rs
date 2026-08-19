@@ -69,13 +69,14 @@ pub(crate) struct Expectation {
 }
 
 impl Expectation {
-    /// The expectation for a descriptor field, or `None` where there is nothing to check: a `with`
-    /// adapter, a oneof group, a generic field.
-    pub(crate) fn of(field: &FieldMeta) -> Option<Self> {
-        Some(Self {
+    /// The expectation for a descriptor field. Whether a slot is checked at all is the caller's
+    /// call, recorded in [`Slot::checks`]: a `with` adapter, a oneof group and a generic field have
+    /// nothing to check.
+    pub(crate) fn of(field: &FieldMeta) -> Self {
+        Self {
             kind: field.kind.clone(),
             cardinality: field.cardinality.clone(),
-        })
+        }
     }
 }
 

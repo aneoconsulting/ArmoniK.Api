@@ -15,6 +15,7 @@
 //! Counterfactual, measured: replacing that `skip_field` with `Ok(())` in `shape/plain.rs` leaves
 //! the suite green without this layer, and fails most of its cases with it.
 
+use prost::encoding::{self, WireType};
 use prost::Message;
 use prost_reflect::{DynamicMessage, Kind, MessageDescriptor};
 
@@ -84,22 +85,14 @@ fn read_varint(bytes: &[u8], at: &mut usize) -> Option<u64> {
     None
 }
 
+/// A field key, through the same primitive the encoder under test uses. `wire_type` is a raw number
+/// because the mutations pick one deliberately, including the group types the schema never uses.
 fn key(tag: u32, wire_type: u8) -> Vec<u8> {
+    let wire_type =
+        WireType::try_from(u64::from(wire_type)).expect("the mutations pick real wire types");
     let mut out = Vec::new();
-    write_varint(u64::from(tag) << 3 | u64::from(wire_type), &mut out);
+    encoding::encode_key(tag, wire_type, &mut out);
     out
-}
-
-fn write_varint(mut value: u64, out: &mut Vec<u8>) {
-    loop {
-        let byte = (value & 0x7f) as u8;
-        value >>= 7;
-        if value == 0 {
-            out.push(byte);
-            return;
-        }
-        out.push(byte | 0x80);
-    }
 }
 
 /// One synthetic unknown field, whole. `which` picks the wire type, and with it the tag.
@@ -109,7 +102,7 @@ fn unknown_field(which: usize) -> Vec<u8> {
     match which {
         0 => {
             out.extend(key(tag, 0));
-            write_varint(0x7fff_ffff_ffff_ffff, &mut out);
+            encoding::encode_varint(0x7fff_ffff_ffff_ffff, &mut out);
         }
         1 => {
             out.extend(key(tag, 1));
@@ -117,7 +110,7 @@ fn unknown_field(which: usize) -> Vec<u8> {
         }
         2 => {
             out.extend(key(tag, 2));
-            write_varint(5, &mut out);
+            encoding::encode_varint(5, &mut out);
             out.extend(b"bytes");
         }
         3 => {
@@ -125,7 +118,7 @@ fn unknown_field(which: usize) -> Vec<u8> {
             // `skip_field` has to find the matching end key and everything nested between them.
             out.extend(key(tag, 3));
             out.extend(key(tag + 100, 0));
-            write_varint(42, &mut out);
+            encoding::encode_varint(42, &mut out);
             out.extend(key(tag, 4));
         }
         _ => {
@@ -243,7 +236,7 @@ fn duplicated(desc: &MessageDescriptor, records: &[Record<'_>]) -> Option<Vec<u8
         match field.kind() {
             Kind::Message(_) => {
                 out.extend(key(record.tag, 2));
-                write_varint(0, &mut out);
+                encoding::encode_varint(0, &mut out);
             }
             _ => out.extend_from_slice(record.bytes),
         }
@@ -297,11 +290,7 @@ fn packed_elements_keep_their_width() {
 
 #[test]
 fn mutated_encodings_decode_to_the_same_value() {
-    let pool = harness::pool();
-    for (proto, hooks) in registry::entries() {
-        let desc = pool
-            .get_message_by_name(proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
+    for (proto, desc, hooks) in harness::registered() {
         for iteration in 0..harness::ITERATIONS {
             let seed = rng::seed(proto, iteration);
             let mut rng = rng::SplitMix64::new(seed);

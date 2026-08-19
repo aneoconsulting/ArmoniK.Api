@@ -469,8 +469,8 @@ rpc_tests! {
     }
 }
 
-/// `WatchResults` is declared `unexposed`, so it has no route: the router answers UNIMPLEMENTED,
-/// naming the path it refused.
+/// A method name the proto does not declare has no route: the router answers UNIMPLEMENTED, naming
+/// the path it refused.
 #[tokio::test]
 async fn an_unrouted_path_is_named_in_the_status() {
     use armonik::reexports::http;

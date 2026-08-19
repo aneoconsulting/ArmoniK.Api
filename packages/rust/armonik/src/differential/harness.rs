@@ -10,7 +10,10 @@
 //! Every randomized failure prints the seed needed to replay the exact case.
 
 use prost::Message;
-use prost_reflect::{DescriptorPool, DynamicMessage};
+use prost_reflect::{DescriptorPool, DynamicMessage, MessageDescriptor};
+use std::sync::OnceLock;
+
+use super::registrations::Hooks;
 
 use super::{arbitrary, compare, probe, registrations, registry, rng};
 
@@ -20,7 +23,26 @@ pub(super) const ITERATIONS: u64 = 64;
 pub(super) const RECURSION_DEPTH: u32 = 3;
 
 pub(super) fn pool() -> DescriptorPool {
-    DescriptorPool::decode(DESCRIPTOR).expect("embedded descriptor set decodes")
+    static POOL: OnceLock<DescriptorPool> = OnceLock::new();
+    // `DescriptorPool` is a handle, so the clone is a refcount bump rather than a second index.
+    POOL.get_or_init(|| {
+        DescriptorPool::decode(DESCRIPTOR).expect("embedded descriptor set decodes")
+    })
+    .clone()
+}
+
+/// Every registered type with the descriptor it claims, which is what a ratchet walks.
+///
+/// A registration naming a message the pool does not hold is a bug in the annotation rather than a
+/// property under test, so it panics here instead of at each of the call sites.
+pub(super) fn registered() -> impl Iterator<Item = (&'static str, MessageDescriptor, Hooks)> {
+    let pool = pool();
+    registry::entries().map(move |(proto, hooks)| {
+        let desc = pool
+            .get_message_by_name(proto)
+            .unwrap_or_else(|| panic!("registry entry `{proto}` is not in the descriptor"));
+        (proto, desc, hooks)
+    })
 }
 
 /// Recursive `name: value` dump of the set fields, for failure messages; `DynamicMessage`'s `Debug`
@@ -54,11 +76,7 @@ fn debug_value(value: &prost_reflect::Value) -> String {
 
 #[test]
 fn registered_types_roundtrip() {
-    let pool = pool();
-    for (proto, hooks) in registry::entries() {
-        let desc = pool
-            .get_message_by_name(proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
+    for (proto, desc, hooks) in registered() {
         for iteration in 0..ITERATIONS {
             let seed = rng::seed(proto, iteration);
             let mut rng = rng::SplitMix64::new(seed);
@@ -152,11 +170,7 @@ fn types_sharing_a_proto_name_agree() {
 /// allowed as long as its payload is itself zero, which is what a defaulted oneof encodes to.
 #[test]
 fn default_encoding_is_the_proto_zero() {
-    let pool = pool();
-    for (proto, hooks) in registry::entries() {
-        let desc = pool
-            .get_message_by_name(proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
+    for (proto, desc, hooks) in registered() {
         let message = DynamicMessage::decode(desc, (hooks.default_encoding)().as_slice())
             .unwrap_or_else(|err| panic!("the default encoding of `{}` decodes: {err}", proto));
         if let Some(field) = first_nonzero(&message) {
@@ -183,13 +197,8 @@ fn default_encoding_is_the_proto_zero() {
 /// Synthetic oneofs are skipped: proto3 `optional` is one, and `Option<T>` models it directly.
 #[test]
 fn an_absent_oneof_decodes_to_no_member() {
-    let pool = pool();
     let mut wrong = Vec::new();
-    for (proto, hooks) in registry::entries() {
-        let desc = pool
-            .get_message_by_name(proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
-
+    for (proto, desc, hooks) in registered() {
         let reencoded = (hooks.roundtrip)(&[])
             .unwrap_or_else(|err| panic!("`{proto}` fails to decode the empty message: {err}"));
         let decoded = DynamicMessage::decode(desc.clone(), reencoded.as_slice())
@@ -291,11 +300,7 @@ const PROBE_DEPTH: u32 = 3;
 
 #[test]
 fn field_information_ratchet() {
-    let pool = pool();
-    for (proto, hooks) in registry::entries() {
-        let desc = pool
-            .get_message_by_name(proto)
-            .unwrap_or_else(|| panic!("registry entry `{}` is not in the descriptor", proto));
+    for (proto, desc, hooks) in registered() {
         let mut empty = DynamicMessage::new(desc.clone());
         registry::normalize(&mut empty);
 

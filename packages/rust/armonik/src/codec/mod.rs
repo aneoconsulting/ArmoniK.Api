@@ -141,13 +141,7 @@ pub(crate) const fn shape_matches(shape: &Shape, expect: &Expect) -> bool {
         return false;
     }
     if let (Some(name), false) = (expect.name, shape.names.is_empty()) {
-        let mut found = false;
-        let mut i = 0;
-        while i < shape.names.len() {
-            found |= str_eq(shape.names[i], name);
-            i += 1;
-        }
-        if !found {
+        if !names_contain(shape.names, name) {
             return false;
         }
     }
@@ -247,18 +241,10 @@ pub(crate) trait Msg: prost::Message + Default {
 /// Whether `names` contains `name`; const, so the `service!`-emitted asserts can check at compile
 /// time that a type implements an RPC's input or output message.
 pub(crate) const fn names_contain(names: &'static [&'static str], name: &str) -> bool {
-    let name = name.as_bytes();
     let mut i = 0;
     while i < names.len() {
-        let candidate = names[i].as_bytes();
-        if candidate.len() == name.len() {
-            let mut j = 0;
-            while j < name.len() && candidate[j] == name[j] {
-                j += 1;
-            }
-            if j == name.len() {
-                return true;
-            }
+        if str_eq(names[i], name) {
+            return true;
         }
         i += 1;
     }

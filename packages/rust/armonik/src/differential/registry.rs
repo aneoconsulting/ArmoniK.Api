@@ -89,8 +89,10 @@ fn canonicals() -> &'static HashMap<&'static str, (DynamicMessage, Hooks)> {
 }
 
 fn apply_rules(message: &mut DynamicMessage) {
-    let name = message.descriptor().full_name().to_owned();
-    let Some((canonical, hooks)) = canonicals().get(name.as_str()) else {
+    // The descriptor is an owned handle, so it does not borrow `message`, which is handed out
+    // mutably below.
+    let descriptor = message.descriptor();
+    let Some((canonical, hooks)) = canonicals().get(descriptor.full_name()) else {
         return;
     };
     // The value projections declared by the type itself.

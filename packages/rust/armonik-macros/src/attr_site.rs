@@ -23,7 +23,7 @@ pub(crate) fn scan_attrs(
     allowed: Allowed,
     reject: &str,
     errors: &mut Errors,
-) -> Option<(FieldAttrs, bool)> {
+) -> Option<FieldAttrs> {
     match attrs::parse(attrs) {
         Ok(entries) => Some(scan_field_attrs(&entries, allowed, reject, errors)),
         Err(err) => {
@@ -90,62 +90,36 @@ pub(crate) struct Allowed {
 }
 
 /// Scan one field's or variant's `#[armonik(...)]` entries into a [`FieldAttrs`], pushing `reject`
-/// (spanned) for any key outside `allowed` and for a malformed `tag` or `with`. Returns the
-/// collected attributes and whether every entry was accepted. Callers that abandon a malformed
-/// field gate on the bool; the rest rely on the pushed errors and ignore it.
+/// (spanned) for any key outside `allowed` and for a malformed `tag` or `with`.
+///
+/// A rejected entry is reported and skipped, so the collected attributes are whatever was valid;
+/// callers act on the pushed errors, not on a return value.
 pub(crate) fn scan_field_attrs(
     entries: &[attrs::AttrEntry],
     allowed: Allowed,
     reject: &str,
     errors: &mut Errors,
-) -> (FieldAttrs, bool) {
+) -> FieldAttrs {
     let mut collected = FieldAttrs::default();
-    let mut ok = true;
     for entry in entries {
-        let accepted = match &entry.item {
-            AttrItem::Rename(lit) if allowed.rename => {
-                collected.rename = Some(lit.value());
-                true
-            }
+        match &entry.item {
+            AttrItem::Rename(lit) if allowed.rename => collected.rename = Some(lit.value()),
             AttrItem::Tag(lit) if allowed.tag => match lit.base10_parse::<u32>() {
-                Ok(tag) => {
-                    collected.tag = Some((entry.span, tag));
-                    true
-                }
-                Err(err) => {
-                    errors.at(entry.span, err);
-                    false
-                }
+                Ok(tag) => collected.tag = Some((entry.span, tag)),
+                Err(err) => errors.at(entry.span, err),
             },
             AttrItem::With(lit) if allowed.with => {
-                match parse_adapter_type(lit, entry.span, errors) {
-                    Some(ty) => {
-                        collected.with = Some((entry.span, ty));
-                        true
-                    }
-                    None => false,
+                if let Some(ty) = parse_adapter_type(lit, entry.span, errors) {
+                    collected.with = Some((entry.span, ty));
                 }
             }
-            AttrItem::Present if allowed.present => {
-                collected.present = true;
-                true
-            }
-            AttrItem::Inline if allowed.inline => {
-                collected.inline = Some(entry.span);
-                true
-            }
-            AttrItem::Absorbs(lit) if allowed.absorbs => {
-                collected.absorbs.push(lit.value());
-                true
-            }
-            _ => {
-                errors.at(entry.span, reject);
-                false
-            }
-        };
-        ok &= accepted;
+            AttrItem::Present if allowed.present => collected.present = true,
+            AttrItem::Inline if allowed.inline => collected.inline = Some(entry.span),
+            AttrItem::Absorbs(lit) if allowed.absorbs => collected.absorbs.push(lit.value()),
+            _ => errors.at(entry.span, reject),
+        }
     }
-    (collected, ok)
+    collected
 }
 
 #[cfg(test)]
@@ -171,37 +145,37 @@ mod tests {
         syn::LitStr::new(value, Span::call_site())
     }
 
-    fn scan(entries: &[attrs::AttrEntry], allowed: Allowed) -> (FieldAttrs, bool, bool) {
+    fn scan(entries: &[attrs::AttrEntry], allowed: Allowed) -> (FieldAttrs, bool) {
         let mut errors = Errors::new();
-        let (collected, ok) = scan_field_attrs(entries, allowed, "reject", &mut errors);
-        (collected, ok, errors.into_result().is_ok())
+        let collected = scan_field_attrs(entries, allowed, "reject", &mut errors);
+        (collected, errors.into_result().is_ok())
     }
 
     /// `absorbs` is collected where a site opts in and *rejected* where it does not. The rejection
     /// half is what a shared collector would drop, and no other test covers it.
     #[test]
     fn absorbs_is_gated_per_site() {
-        let (collected, ok, clean) = scan(
+        let (collected, clean) = scan(
             &[entry(AttrItem::Absorbs(lit("some.Msg")))],
             Allowed {
                 absorbs: true,
                 ..Allowed::default()
             },
         );
-        assert!(ok && clean, "absorbs accepted where opted in");
+        assert!(clean, "absorbs accepted where opted in");
         assert_eq!(collected.absorbs, ["some.Msg"], "and its value collected");
 
-        let (collected, ok, clean) = scan(
+        let (collected, clean) = scan(
             &[entry(AttrItem::Absorbs(lit("some.Msg")))],
             Allowed::default(),
         );
-        assert!(!ok && !clean, "absorbs rejected where not opted in");
+        assert!(!clean, "absorbs rejected where not opted in");
         assert!(collected.absorbs.is_empty(), "and not collected");
     }
 
     #[test]
     fn collects_only_enabled_keys() {
-        let (collected, ok, clean) = scan(
+        let (collected, clean) = scan(
             &[
                 entry(AttrItem::Rename(lit("proto_name"))),
                 entry(AttrItem::Present),
@@ -212,7 +186,7 @@ mod tests {
                 ..Allowed::default()
             },
         );
-        assert!(ok && clean);
+        assert!(clean);
         assert_eq!(collected.rename.as_deref(), Some("proto_name"));
         assert!(collected.present);
     }
@@ -220,14 +194,14 @@ mod tests {
     #[test]
     fn disallowed_key_is_rejected_and_not_collected() {
         // `present` at a site that only accepts `rename`.
-        let (collected, ok, clean) = scan(
+        let (collected, clean) = scan(
             &[entry(AttrItem::Present)],
             Allowed {
                 rename: true,
                 ..Allowed::default()
             },
         );
-        assert!(!ok && !clean);
+        assert!(!clean);
         assert!(!collected.present);
     }
 }

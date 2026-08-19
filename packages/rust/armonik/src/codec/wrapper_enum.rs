@@ -7,6 +7,9 @@ use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, key_len, DecodeContext, WireType};
 use prost::DecodeError;
 
+/// The enum itself, at the bottom of the chain: an ordinary `int32` enum field.
+use super::enumeration::merge as merge_leaf;
+
 /// Merge the body of one wrapper level, recursing into the next.
 ///
 /// `merge_loop` reads the length prefix and loops on the *same* buffer, bounded by a byte count,
@@ -36,19 +39,6 @@ fn merge_body<T: Copy + Into<i32> + From<i32>, B: Buf>(
             merge_body(rest, wire_type, value, buf, ctx)
         }
     })
-}
-
-/// The enum itself, at the bottom of the chain: an `int32` field.
-fn merge_leaf<T: Copy + Into<i32> + From<i32>>(
-    wire_type: WireType,
-    value: &mut T,
-    buf: &mut impl Buf,
-    ctx: DecodeContext,
-) -> Result<(), DecodeError> {
-    let mut raw: i32 = (*value).into();
-    encoding::int32::merge(wire_type, &mut raw, buf, ctx)?;
-    *value = T::from(raw);
-    Ok(())
 }
 
 // Body forms of the outermost wrapper (no containing field key), for the `prost::Message` impls of

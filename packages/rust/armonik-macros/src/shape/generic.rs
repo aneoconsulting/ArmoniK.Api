@@ -21,7 +21,7 @@ pub(crate) fn generic_plan(
     let mut fields = Vec::new();
     for (field_index, field) in data.fields.iter().enumerate() {
         let (span, access) = field_access(field, field_index);
-        let Some((FieldAttrs { tag, with, .. }, _)) = scan_attrs(
+        let Some(FieldAttrs { tag, with, .. }) = scan_attrs(
             &field.attrs,
             Allowed {
                 tag: true,

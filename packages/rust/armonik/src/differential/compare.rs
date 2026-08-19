@@ -14,9 +14,9 @@
 use prost_reflect::{DynamicMessage, FieldDescriptor, Kind, ReflectMessage, Value};
 
 pub fn messages(a: &DynamicMessage, b: &DynamicMessage) -> bool {
-    let desc = a.descriptor();
-    let equal = desc.fields().all(|field| field_equal(a, b, &field));
-    equal
+    a.descriptor()
+        .fields()
+        .all(|field| field_equal(a, b, &field))
 }
 
 fn field_equal(a: &DynamicMessage, b: &DynamicMessage, field: &FieldDescriptor) -> bool {

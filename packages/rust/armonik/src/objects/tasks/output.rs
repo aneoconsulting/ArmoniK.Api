@@ -35,15 +35,18 @@ const ERROR_TAG: u32 = 2;
 // member, and `with` adapters can change how a single field is encoded, but not that arity. Here
 // two plain fields project onto one enum, and the projection is cross-field: which variant a
 // `success` occurrence produces depends on whether an `error` was merged, and vice versa. Teaching
-// the derive this shape would cost more grammar and codegen than the two hand-written impls it
-// would replace (this one and `agent::notify_result_data::Request`), each used exactly once. The
-// differential harness fuzzes them against `DynamicMessage` ground truth exactly like the derived
-// types.
+// the derive this shape would cost more grammar and codegen than the one impl it would replace, and
+// this is the only type in the crate that needs it. The differential harness fuzzes it against
+// `DynamicMessage` ground truth exactly like the derived types.
 impl prost::Message for Output {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         match self {
             Output::Success => <bool as ProtoField>::encode_field(SUCCESS_TAG, &true, buf),
-            Output::Error(message) => <String as ProtoField>::encode_field(ERROR_TAG, message, buf),
+            // Implicit presence, like any proto3 string leaf: the empty message is the `Default`,
+            // which decodes back to this variant from an empty body.
+            Output::Error(message) => {
+                <String as ProtoField>::encode_implicit(ERROR_TAG, message, buf)
+            }
         }
     }
 
@@ -82,7 +85,9 @@ impl prost::Message for Output {
     fn encoded_len(&self) -> usize {
         match self {
             Output::Success => <bool as ProtoField>::encoded_len_field(SUCCESS_TAG, &true),
-            Output::Error(message) => <String as ProtoField>::encoded_len_field(ERROR_TAG, message),
+            Output::Error(message) => {
+                <String as ProtoField>::encoded_len_implicit(ERROR_TAG, message)
+            }
         }
     }
 

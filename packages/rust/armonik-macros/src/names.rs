@@ -4,22 +4,6 @@
 //! type's name instead of the proto enum's still resolves, and silently harvests no comments.
 //! `health_checks::Status` (proto `HealthStatusEnum`) is a live case of the two differing.
 
-/// `HealthChecks` -> `health_checks`.
-pub(crate) fn snake(name: &str) -> String {
-    let mut out = String::with_capacity(name.len() + 4);
-    for (i, ch) in name.chars().enumerate() {
-        if ch.is_uppercase() {
-            if i != 0 {
-                out.push('_');
-            }
-            out.extend(ch.to_lowercase());
-        } else {
-            out.push(ch);
-        }
-    }
-    out
-}
-
 /// `TASK_STATUS_CREATING` -> `TaskStatusCreating`.
 pub(crate) fn upper_camel(screaming_snake: &str) -> String {
     screaming_snake
@@ -58,9 +42,9 @@ pub(crate) fn variant_name(enum_simple_name: &str, value_name: &str) -> String {
 }
 
 /// `TaskDetailed` -> `task_detailed`: the proto field name a Rust field or variant matches by
-/// default.
+/// default, and the module name a service marker maps to.
 ///
-/// Distinct from [`snake`] only in that it is ASCII-only, which is what a proto identifier is.
+/// ASCII-only, which is what a proto identifier is.
 pub(crate) fn snake_case(camel: &str) -> String {
     let mut out = String::with_capacity(camel.len() + 4);
     for (i, c) in camel.chars().enumerate() {

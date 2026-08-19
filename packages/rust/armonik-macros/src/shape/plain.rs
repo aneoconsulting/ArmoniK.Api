@@ -43,9 +43,7 @@ pub(crate) fn message_plan(
     }
 
     // One proto message per struct. `message = ...` is repeatable on an *enum*, where a unified
-    // type stands for several identical protos; the struct side of that never had a user, and the
-    // machinery for it (resolve every field against every message, then check the messages agree on
-    // its tag, kind and cardinality) was 55 lines nothing exercised.
+    // type stands for several identical protos; a struct resolves against exactly one.
     for (span, _) in proto_names.iter().skip(1) {
         errors.at(
             *span,
@@ -82,15 +80,12 @@ pub(crate) fn message_plan(
         // No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one
         // of the six `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct,
         // which `generic_plan` handles. Spelling one here only ever restated what the proto says.
-        let Some((
-            FieldAttrs {
-                rename,
-                with,
-                absorbs: declared,
-                ..
-            },
-            _,
-        )) = scan_attrs(
+        let Some(FieldAttrs {
+            rename,
+            with,
+            absorbs: declared,
+            ..
+        }) = scan_attrs(
             &field.attrs,
             Allowed {
                 rename: true,
@@ -152,10 +147,7 @@ pub(crate) fn message_plan(
                 continue;
             }
             Found::Field(field_meta) => {
-                let checks = match &with {
-                    Some(_) => None,
-                    None => Expectation::of(field_meta),
-                };
+                let checks = with.is_none().then(|| Expectation::of(field_meta));
                 (field_meta.tag, checks, field_meta.docs.clone())
             }
         };

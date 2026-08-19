@@ -170,9 +170,8 @@ impl Errors {
 
     /// Record one spanned error.
     ///
-    /// A diagnostic is a span and a message; spelling out `push(syn::Error::new(` and its closing
-    /// parens around each of the 60-odd in `resolve.rs` was five lines of scaffolding for one
-    /// string, and made the message the least visible thing at the site.
+    /// A diagnostic is a span and a message, and the resolvers in `shape/` raise dozens: this keeps
+    /// the message the most visible thing at the site.
     pub(crate) fn at(&mut self, span: Span, message: impl std::fmt::Display) {
         self.errors.push(syn::Error::new(span, message));
     }

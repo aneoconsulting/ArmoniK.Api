@@ -38,8 +38,7 @@ impl Kind {
 /// Re-emit the item of a `#[armonik_macros::message]` type: the plan's docs injected,
 /// `#[armonik(...)]` stripped, the serde line added.
 ///
-/// Infallible, unlike the version that read the descriptor for itself: everything it needs is
-/// already in the plan.
+/// Infallible: everything it needs is already in the plan.
 pub(crate) fn rewrite(input: &mut DeriveInput, plan: &Plan) {
     inject(input, plan);
     strip(input);
@@ -83,7 +82,7 @@ pub(crate) fn anchors(input: &DeriveInput, kind: Kind) -> TokenStream {
     }
 }
 
-/// The `serde` line every one of these types carries, which was byte-identical at 198 sites.
+/// The `serde` line every one of these types carries.
 ///
 /// The `#[derive(...)]` above it is deliberately *not* emitted: it varies across ten shapes, and
 /// hiding it would take the derive set off the type.
