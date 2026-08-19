@@ -125,31 +125,35 @@ async fn an_unrouted_path_is_unimplemented() {
 /// The unrouted path is repeated back to the client, but bounded: it is client-supplied, and the
 /// `grpc-message` header percent-encodes it.
 ///
-/// Both an ASCII path and a multi-byte one: the bound is in bytes while the path is a `str`, so
-/// byte 128 of a path of `€` lands mid-character, and slicing there panics in the synchronous body
-/// of `Service::call`.
+/// The bound is asserted as invariance rather than as a byte count: two paths an order of magnitude
+/// apart in length produce the same message, which no unbounded echo can do. Both an ASCII path and
+/// a multi-byte one, because the bound is in bytes while the path is a `str`, so the cut in a path
+/// of `€` lands mid-character, and slicing there panics in the synchronous body of `Service::call`.
 #[tokio::test]
 async fn a_long_unrouted_path_is_truncated() {
     use tonic::codegen::Service as _;
 
-    for (long, prefix) in [("x".repeat(4096), "/xxx"), ("€".repeat(60), "/€€€")] {
-        let mut router = Versions.versions_server();
-        let request = http::Request::builder()
-            .uri(format!("/{long}"))
-            .body(tonic::body::Body::empty())
-            .expect("build the request");
+    for (unit, prefix) in [("x", "/xxx"), ("€", "/€€€")] {
+        let mut messages = Vec::new();
+        for repeats in [200, 4096] {
+            let mut router = Versions.versions_server();
+            let request = http::Request::builder()
+                .uri(format!("/{}", unit.repeat(repeats)))
+                .body(tonic::body::Body::empty())
+                .expect("build the request");
 
-        let response = router.call(request).await.expect("infallible");
-        let status = tonic::Status::from_header_map(response.headers()).expect("a grpc status");
-        assert!(
-            status.message().len() < 200,
-            "the message is bounded, got {} bytes",
-            status.message().len()
-        );
-        assert!(
-            status.message().starts_with(prefix),
-            "the status repeats the path back: {}",
-            status.message()
+            let response = router.call(request).await.expect("infallible");
+            let status = tonic::Status::from_header_map(response.headers()).expect("a grpc status");
+            assert!(
+                status.message().starts_with(prefix),
+                "the status repeats the path back: {}",
+                status.message()
+            );
+            messages.push(status.message().to_owned());
+        }
+        assert_eq!(
+            messages[0], messages[1],
+            "the message does not grow with the path"
         );
     }
 }

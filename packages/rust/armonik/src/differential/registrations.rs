@@ -2,8 +2,8 @@
 //! `#[armonik(absorbs = ...)]` annotations and the `service!` `unexposed(...)` declarations at
 //! compile time.
 //!
-//! Every `#[armonik_macros::message]`/`#[armonik_macros::enumeration]` expansion (and the two
-//! hand-written impls) registers one [`Registration`] per proto name into [`REGISTRY`], a single
+//! Every `#[armonik_macros::message]`/`#[armonik_macros::enumeration]` expansion (and the
+//! hand-written impl) registers one [`Registration`] per proto name into [`REGISTRY`], a single
 //! `linkme` distributed slice. Its consumer is the differential harness next door, which discovers
 //! every type's round-trip and `Normalize` projection through the [`Hooks`] a [`Role::Message`]
 //! carries, and whose coverage ratchet walks the registered names against the descriptor pool.

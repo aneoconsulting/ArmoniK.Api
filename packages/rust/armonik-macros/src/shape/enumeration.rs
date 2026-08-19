@@ -153,7 +153,7 @@ pub(crate) fn enum_plan(
             .attrs
             .iter()
             .any(|attr| attr.path().is_ident("default"));
-        let Some((FieldAttrs { rename, .. }, _)) = scan_attrs(
+        let Some(FieldAttrs { rename, .. }) = scan_attrs(
             &variant.attrs,
             Allowed {
                 rename: true,

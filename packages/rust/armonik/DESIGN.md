@@ -127,7 +127,7 @@ split earns its keep) so `armonik`'s build script can **harvest** the
 proto-name -> Rust-path extern map, the per-RPC substitutions and the absorbed
 (flattened-away) messages from the `#[armonik(...)]` annotations instead of
 hand-maintaining them. `armonik-types` is a build-dependency of `armonik`;
-every derive and the two hand-written impls register, through one `register!`
+every derive and the one hand-written impl register, through one `register!`
 macro (the single home of the registry's layout), one `Registration` per
 proto name into a single `linkme` slice (`armonik_types::wire::REGISTRY`, gated
 behind the base `_registry` feature the build-dependency enables). Each entry's
@@ -516,7 +516,7 @@ loss through `normalize_dynamic`).
 ## 4. Validation & testing
 
 Two layers, independent for the derived majority, with one caveat called out
-below for the two hand-written cross-field impls:
+below for the single hand-written cross-field impl:
 
 1. **Compile time** (derive vs descriptor): wrong/missing/extra fields, kind
    mismatches, presence-rule violations, enum variant name/value mismatches:
@@ -536,16 +536,15 @@ below for the two hand-written cross-field impls:
      value-level projections live in a `Normalize` impl per type, generated
      from the same constructs that shape the codec: each `with` adapter
      declares its own loss (`PairMap` order/duplicates), `present` markers
-     and `transparent` chains emit theirs. For the two hand-written
-     cross-field impls (`tasks::Output`, `agent::notify_result_data`) the
-     `Normalize` projection is co-authored with the codec, so the harness is
-     **not** an independent oracle there: a shared wrong belief about the wire
-     contract would pass both sides. Those two are pinned instead by
-     checked-in unit fixtures built and encoded through prost-derived
-     reference messages (an independent codec), covering the cross-field
-     combinations the field-information ratchet cannot reach probing one
-     field at a time: `{ success, error }` both set, multi-pair differing
-     session ids. Registration still requires the impl, so a projection is
+     and `transparent` chains emit theirs. For the one hand-written
+     cross-field impl (`tasks::Output`) the `Normalize` projection is
+     co-authored with the codec, so the harness is **not** an independent
+     oracle there: a shared wrong belief about the wire contract would pass
+     both sides. It is pinned instead by checked-in unit fixtures built and
+     encoded through a prost-derived reference message (an independent
+     codec), covering the cross-field combinations the field-information
+     ratchet cannot reach probing one field at a time: `{ success, error }`
+     both set. Registration still requires the impl, so a projection is
      never forgotten;
    - the proto-to-type mapping is **self-registering**: each derive (and
      hand-written impl) pushes its entry into a `linkme` distributed slice
@@ -1291,12 +1290,12 @@ like everyone else's, so a `stream in, projected response out` method would now
 be derivable -- but all three client-streaming RPCs need a hand-written body
 anyway, two to turn a oneof response into an error and one to build the request
 stream, so deriving it would be an emission path with no consumer, which
-section 5.11's rule rejects.) Today that leaves six hand-written
-methods (`results::upload`, `worker::process`, where nine exploded parameters is
-a wrong default, `submitter::{create_small_tasks, create_large_tasks,
-try_get_task_output}`, `agent::create_tasks`); the hand-written
-`notify_result_data::Request` carries hand-written reflection to stay
-generated.
+section 5.11's rule rejects.) Today that leaves eight hand-written
+methods (`results::{upload, watch}`, `worker::process`, where nine exploded
+parameters is a wrong default, `submitter::{create_small_tasks,
+create_large_tasks, try_get_task_output}`, `agent::create_tasks`, and
+`agent::notify_result_data`, whose `Request::in_session` constructor spreads one
+session across many result ids).
 
 Everything is type-checked post-expansion, so a wrong sugar inference is a
 compile error, never a wire bug; behaviorally, every generated method is

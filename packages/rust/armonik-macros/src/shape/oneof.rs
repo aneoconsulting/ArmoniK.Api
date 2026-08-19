@@ -41,15 +41,12 @@ pub(crate) fn split_variant_fields(
 
     for field in &named.named {
         let ident = field.ident.clone().expect("named fields have idents");
-        let Some((
-            FieldAttrs {
-                rename,
-                with,
-                absorbs: declared,
-                ..
-            },
-            _,
-        )) = scan_attrs(
+        let Some(FieldAttrs {
+            rename,
+            with,
+            absorbs: declared,
+            ..
+        }) = scan_attrs(
             &field.attrs,
             Allowed {
                 rename: true,
@@ -342,10 +339,7 @@ fn resolve_variant(
                 return Err(());
             }
             let adapter = with.map(|(_, adapter)| Box::new(adapter));
-            let checks = match &adapter {
-                Some(_) => None,
-                None => Expectation::of(ctx.field_meta),
-            };
+            let checks = adapter.is_none().then(|| Expectation::of(ctx.field_meta));
             Ok((
                 Some(FieldAccess::Indexed(syn::Index::from(0))),
                 SlotCodec::Field {
@@ -370,10 +364,7 @@ fn resolve_variant(
             match <[Leftover; 1]>::try_from(leftovers) {
                 Ok([payload]) => {
                     let adapter = payload.with.map(Box::new);
-                    let checks = match &adapter {
-                        Some(_) => None,
-                        None => Expectation::of(ctx.field_meta),
-                    };
+                    let checks = adapter.is_none().then(|| Expectation::of(ctx.field_meta));
                     Ok((
                         Some(FieldAccess::Named(payload.ident)),
                         SlotCodec::Field {
@@ -522,7 +513,7 @@ fn resolve_inline_member(
                 adapter: None,
             },
             proto_path: format!("{inner_name}.{}", part_meta.name),
-            checks: Expectation::of(part_meta),
+            checks: Some(Expectation::of(part_meta)),
             // The member message's own field: looking it up in the *containing* message finds
             // nothing, silently.
             docs: part_meta.docs.clone(),
@@ -557,7 +548,7 @@ fn collect_siblings(
                     adapter: None,
                 },
                 proto_path: format!("{proto_name}.{}", meta_field.name),
-                checks: Expectation::of(meta_field),
+                checks: Some(Expectation::of(meta_field)),
                 docs: meta_field.docs.clone(),
             })
         })
@@ -722,17 +713,14 @@ fn resolve_one_variant(
     errors: &mut Errors,
 ) -> Option<VariantOutcome> {
     let span = variant.ident.span();
-    let (
-        FieldAttrs {
-            rename,
-            with,
-            present,
-            inline,
-            absorbs: declared,
-            ..
-        },
-        _,
-    ) = scan_attrs(
+    let FieldAttrs {
+        rename,
+        with,
+        present,
+        inline,
+        absorbs: declared,
+        ..
+    } = scan_attrs(
         &variant.attrs,
         Allowed {
             rename: true,
@@ -1128,14 +1116,11 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // marker, which is what makes it usable as an RPC message and as a field of another message. An
     // embedded oneof is a fragment of a message rather than one, so it gets neither. Its
     // `prost::Message` impl is the same either way; nothing is layered on top, because there is
-    // nothing left to add. The old forwarding layer wrapped the same match in a second one whose
-    // default arm was `skip_field`, which the inner match already ends with. `Normalize` is emitted
-    // both ways: the containing message's delegates to it, since the members live on the parent's
-    // dynamic message.
+    // nothing left to add. `Normalize` is emitted both ways: the containing message's delegates to
+    // it, since the members live on the parent's dynamic message.
     //
     // `let value = self;` is the whole cost of sharing the bodies: they are written against a
-    // `value` binding, and `prost::Message` takes a receiver where the deleted `ProtoOneof` took an
-    // argument.
+    // `value` binding, and `prost::Message` takes a receiver.
     //
     // The `Oneof` marker goes on the embedded shape only, and says which oneof this stands for: a
     // whole-message enum is a message and says so through `Msg::NAMES` already.
@@ -1284,59 +1269,31 @@ fn emit_payload_variant(ctx: &EmitCtx<'_>) -> VariantArms {
 
 /// A `#[armonik(present)]` variant: the member is carried by its presence alone.
 fn emit_marker_variant(ctx: &EmitCtx<'_>, empty_message: bool) -> VariantArms {
-    let var = ctx.var;
-    let tag = ctx.own.tag;
-    if empty_message {
-        let encode = quote! {
-            Self::#var => {
-                crate::codec::empty_body::encode(#tag, buf);
-            }
-        };
-        let len = quote! {
-            Self::#var => crate::codec::empty_body::encoded_len(#tag),
-        };
-        let merge_arm = quote! {
-            #tag => {
-                crate::codec::empty_body::merge(wire_type, buf, ctx)?;
-                *value = Self::#var;
-                ::core::result::Result::Ok(())
-            }
-        };
-        VariantArms {
-            encode,
-            len,
-            merge: merge_arm,
-            normalize: None,
-        }
+    let (var, tag) = (ctx.var, ctx.own.tag);
+    // The write side is the shared one: a marker carries no value, so it needs no accessor.
+    let written = slot_write(ctx.own, &TokenStream::new(), Presence::Explicit);
+    let (encode, len) = (written.encode, written.len);
+    // Reading it back consumes whatever carried the presence, then selects the variant regardless of
+    // what that was: an explicit `false` still means the member is set.
+    let consume = if empty_message {
+        quote! { crate::codec::empty_body::merge(wire_type, buf, ctx)?; }
     } else {
-        // Only the member's presence survives (an explicit `false` reads as set).
-        let normalize = Some(quote! {
-            crate::differential::bool_marker(message, #tag);
-        });
-        let encode = quote! {
-            Self::#var => {
-                <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
-            }
-        };
-        let len = quote! {
-            Self::#var => <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true),
-        };
-        let merge_arm = quote! {
+        quote! {
+            let mut marker = false;
+            <bool as crate::codec::ProtoField>::merge_field(wire_type, &mut marker, buf, ctx)?;
+        }
+    };
+    VariantArms {
+        encode: quote! { Self::#var => { #encode } },
+        len: quote! { Self::#var => #len, },
+        merge: quote! {
             #tag => {
-                let mut marker = false;
-                <bool as crate::codec::ProtoField>::merge_field(
-                    wire_type, &mut marker, buf, ctx,
-                )?;
+                #consume
                 *value = Self::#var;
                 ::core::result::Result::Ok(())
             }
-        };
-        VariantArms {
-            encode,
-            len,
-            merge: merge_arm,
-            normalize,
-        }
+        },
+        normalize: written.normalize,
     }
 }
 

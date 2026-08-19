@@ -3,58 +3,42 @@ use std::path::{Path, PathBuf};
 
 use prost::Message;
 
-/// Proto files compiled into the descriptor set.
-const PROTO_FILES: &[&str] = &[
-    "protos/V1/agent_common.proto",
-    "protos/V1/agent_service.proto",
-    "protos/V1/applications_common.proto",
-    "protos/V1/applications_fields.proto",
-    "protos/V1/applications_filters.proto",
-    "protos/V1/applications_service.proto",
-    "protos/V1/auth_common.proto",
-    "protos/V1/auth_service.proto",
-    "protos/V1/events_common.proto",
-    "protos/V1/events_service.proto",
-    "protos/V1/filters_common.proto",
-    "protos/V1/objects.proto",
-    "protos/V1/health_checks_common.proto",
-    "protos/V1/health_checks_service.proto",
-    "protos/V1/partitions_common.proto",
-    "protos/V1/partitions_fields.proto",
-    "protos/V1/partitions_filters.proto",
-    "protos/V1/partitions_service.proto",
-    "protos/V1/result_status.proto",
-    "protos/V1/results_common.proto",
-    "protos/V1/results_fields.proto",
-    "protos/V1/results_filters.proto",
-    "protos/V1/results_service.proto",
-    "protos/V1/session_status.proto",
-    "protos/V1/sessions_common.proto",
-    "protos/V1/sessions_fields.proto",
-    "protos/V1/sessions_filters.proto",
-    "protos/V1/sessions_service.proto",
-    "protos/V1/sort_direction.proto",
-    "protos/V1/submitter_common.proto",
-    "protos/V1/submitter_service.proto",
-    "protos/V1/task_status.proto",
-    "protos/V1/tasks_common.proto",
-    "protos/V1/tasks_fields.proto",
-    "protos/V1/tasks_filters.proto",
-    "protos/V1/tasks_service.proto",
-    "protos/V1/versions_common.proto",
-    "protos/V1/versions_service.proto",
-    "protos/V1/worker_common.proto",
-    "protos/V1/worker_service.proto",
-];
+/// Where the schema lives. A symlink to the repository-wide `Protos`, shared with the other language
+/// bindings.
+const PROTO_DIR: &str = "protos/V1";
+
+/// Every `.proto` under [`PROTO_DIR`], sorted.
+///
+/// Read from the directory rather than listed, because the schema is shared: a file can arrive with
+/// another binding's change, and one that nothing already compiled imports would otherwise be absent
+/// from the descriptor set, which is the denominator of the harness's coverage ratchet.
+///
+/// Sorted so the descriptor bytes, and with them `DESCRIPTOR_FINGERPRINT`, do not depend on the order
+/// the filesystem hands entries back.
+fn proto_files() -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(PROTO_DIR)?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "proto"))
+        .collect();
+    if files.is_empty() {
+        return Err(format!("no .proto files under {PROTO_DIR}").into());
+    }
+    files.sort();
+    Ok(files)
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    for proto in PROTO_FILES {
-        println!("cargo:rerun-if-changed={proto}");
+    let protos = proto_files()?;
+    for proto in &protos {
+        println!("cargo:rerun-if-changed={}", proto.display());
     }
-    println!("cargo:rerun-if-changed=protos/V1");
+    // The directory itself as well, so that adding or removing a file re-runs this.
+    println!("cargo:rerun-if-changed={PROTO_DIR}");
 
     // Compile the descriptor set with protox (pure Rust, no protoc required).
-    let fds = protox::compile(PROTO_FILES, ["protos/V1"])?;
+    let fds = protox::compile(&protos, [PROTO_DIR])?;
     let bytes = fds.encode_to_vec();
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);

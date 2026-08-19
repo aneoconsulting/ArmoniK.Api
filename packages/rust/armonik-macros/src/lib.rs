@@ -651,9 +651,7 @@ fn alias_asserts(
     fields.sort_by_key(|field| field.tag);
     let mut expects = Vec::new();
     for field in fields {
-        let Some(expect) = plan::Expectation::of(field) else {
-            return Ok(TokenStream2::new());
-        };
+        let expect = plan::Expectation::of(field);
         let path = format!("{name}.{}", field.name);
         match emit::expect_literal(&expect, &path, span) {
             Ok(literal) => {

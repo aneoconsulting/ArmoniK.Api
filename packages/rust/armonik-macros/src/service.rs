@@ -244,8 +244,8 @@ pub(crate) fn expand(def: ServiceDef) -> syn::Result<TokenStream> {
         }
     });
 
-    // The client alias, from the same declaration as the marker and with the same harvested docs:
-    // prose copied into `client/<svc>.rs` by hand drifts from the proto, and had.
+    // The client alias, from the same declaration as the marker and with the same harvested docs, so
+    // that the prose in `client/<svc>.rs` cannot drift from the proto.
     let deprecation = def.deprecated.then(|| quote!(#[deprecated]));
     let alias = quote! {
         #[cfg(feature = "_gen-client")]
@@ -335,7 +335,8 @@ fn expand_server(
     let module = &def.module;
     let trait_ident = quote::format_ident!("{}Service", marker);
     let ext_ident = quote::format_ident!("{}ServiceExt", marker);
-    let server_fn = quote::format_ident!("{}_server", crate::names::snake(&marker.to_string()));
+    let server_fn =
+        quote::format_ident!("{}_server", crate::names::snake_case(&marker.to_string()));
 
     // One signature, with the two positions a `stream` keyword can sit in as the only variables:
     // the parameter type and the `Future`'s output. Spelling all three out in full `::std::`-
