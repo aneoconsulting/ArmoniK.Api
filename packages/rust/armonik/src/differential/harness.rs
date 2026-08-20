@@ -388,10 +388,22 @@ fn descriptor_coverage_ratchet() {
         missing.join("\",\n    \"")
     );
 
-    // The roles are not exclusive, and no longer can be: `StatusCount` is a Rust type of its own
-    // *and* flattened into maps elsewhere, so it is registered and absorbed at once, and both
-    // claims leave it covered. Absorption is derived from the descriptor by the macros now, so
-    // there is no hand-spelled entry left to contradict one.
+    // Registered and absorbed are not exclusive, and no longer can be: `StatusCount` is a Rust type
+    // of its own *and* flattened into maps elsewhere, and both claims leave it covered. `unexposed`
+    // is different: it is the one claim in the registry still written by hand, and it says the
+    // message has no Rust type and no parent, so a name that is also registered or absorbed is a
+    // clause that stopped being true.
+    let mut stale: Vec<&str> = unexposed
+        .iter()
+        .copied()
+        .filter(|name| registered.contains(name) || absorbed.contains(name))
+        .collect();
+    stale.sort();
+    assert!(
+        stale.is_empty(),
+        "these `unexposed(...)` messages are covered another way; drop the clause:\n    {stale:#?}"
+    );
+
     for name in &absorbed {
         assert!(
             pool.get_message_by_name(name).is_some(),
