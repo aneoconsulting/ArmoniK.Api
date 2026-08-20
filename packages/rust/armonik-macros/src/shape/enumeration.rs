@@ -310,6 +310,13 @@ pub(crate) fn enum_plan(
 /// The `enumeration` entry point matches on [`EnumMode`] to pick between them, which is where that
 /// decision belongs: `message` can never produce an `EnumPlan`, so nothing else has the choice.
 pub(crate) fn transparent_wire(plan: &EnumPlan, names: &[String], path: &[u32]) -> TokenStream {
+    // The chain as a codec type rather than a runtime walk over the tags: the enum at the bottom,
+    // one `Wrapper` per level above it, and the outermost tag written by the message itself.
+    let (root, nested) = path.split_first().expect("non-empty wrapper path");
+    let codec = nested.iter().rev().fold(
+        quote!(crate::codec::adapters::EnumLeaf),
+        |inner, tag| quote!(crate::codec::adapters::Wrapper<#inner, #tag>),
+    );
     message_shaped(
         &plan.ident,
         &syn::Generics::default(),
@@ -321,15 +328,19 @@ pub(crate) fn transparent_wire(plan: &EnumPlan, names: &[String], path: &[u32]) 
         TokenStream::new(),
         MessageBodies {
             encode_raw: quote! {
-                crate::codec::wrapper_enum::encode_raw(&[#(#path),*], self, buf);
+                <#codec as crate::codec::ProtoAdapter<Self>>::encode_field(#root, self, buf);
             },
             merge_field: quote! {
-                crate::codec::wrapper_enum::merge_root_field(
-                    &[#(#path),*], tag, wire_type, self, buf, ctx,
-                )
+                if tag == #root {
+                    <#codec as crate::codec::ProtoAdapter<Self>>::merge_field(
+                        wire_type, self, buf, ctx,
+                    )
+                } else {
+                    ::prost::encoding::skip_field(wire_type, tag, buf, ctx)
+                }
             },
             encoded_len: quote! {
-                crate::codec::wrapper_enum::encoded_len_raw(&[#(#path),*], self)
+                <#codec as crate::codec::ProtoAdapter<Self>>::encoded_len_field(#root, self)
             },
             // Zero, absent and present-but-empty carry no information at any depth of the chain.
             normalize: vec![quote! { crate::differential::wrapper_chain(message); }],

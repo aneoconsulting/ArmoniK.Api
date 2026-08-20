@@ -32,7 +32,6 @@ mod containers;
 pub(crate) mod enum_serde;
 pub(crate) mod enumeration;
 mod leaves;
-pub(crate) mod wrapper_enum;
 
 /// Wire-level kind of a protobuf field, checked by derive-emitted const-asserts against the
 /// descriptor. Only the kinds with a [`ProtoField`] impl are listed, so every variant is live; a
