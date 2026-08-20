@@ -12,7 +12,8 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
 use crate::descriptor::{Cardinality, FieldKind};
-use crate::plan::{Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
+use crate::generator::Generator;
+use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -26,7 +27,12 @@ impl quote::ToTokens for FieldAccess {
 /// Everything one [`Ir`] expands to, besides the re-emitted item: the guard block (fingerprint
 /// tripwire and shape asserts), the registry entries, the trait trio, and the mode extras (the
 /// `GenericFields` table of a generic type, the `Oneof` identity marker of an embedded oneof).
-pub(crate) fn message(ir: &Ir) -> TokenStream {
+///
+/// Total: a poisoned plan is emitted too, with real signatures and placeholder bodies at the scope
+/// the failure poisons (the whole wire impl of a struct whose field failed, one `unimplemented!()`
+/// arm per failed variant of an enum), so the type and its impls resolve everywhere they are used
+/// and the recorded errors are all the build fails with.
+pub(crate) fn message(ir: &Ir, generator: &mut Generator) {
     let ident = &ir.ident;
     let generics = bound_generics(&ir.generics);
 
@@ -36,6 +42,9 @@ pub(crate) fn message(ir: &Ir) -> TokenStream {
     }
 
     let bodies = match &ir.discr {
+        // A struct's wire form has no correct partial spelling: an instance carries every field,
+        // so one poisoned field (or a fully poisoned plan) poisons the whole body.
+        None if ir.poisoned => placeholder_bodies(),
         None => struct_bodies(&ir.shared),
         Some(discr) => enum_bodies(&ir.shared, discr),
     };
@@ -47,11 +56,15 @@ pub(crate) fn message(ir: &Ir) -> TokenStream {
     // its own.
     let generic_fields = ir.generic.then(|| {
         let (_, ty_generics, _) = ir.generics.split_for_impl();
-        let entries = ir.shared.iter().map(|slot| {
-            let tag = slot.tag;
-            let dispatch = slot_dispatch(slot);
-            quote! { (#tag, #dispatch::SHAPE) }
-        });
+        let entries = ir
+            .shared
+            .iter()
+            .filter(|slot| !matches!(slot.codec, SlotCodec::Poisoned))
+            .map(|slot| {
+                let tag = slot.tag;
+                let dispatch = slot_dispatch(slot);
+                quote! { (#tag, #dispatch::SHAPE) }
+            });
         quote! {
             impl #generics crate::codec::GenericFields for #ident #ty_generics {
                 const FIELDS: &'static [(u32, crate::codec::Shape)] = &[#(#entries),*];
@@ -65,26 +78,42 @@ pub(crate) fn message(ir: &Ir) -> TokenStream {
     // whole harness, because the two are tag-compatible and the substitution is a byte-level
     // bijection.
     let marker = ir.fragment_of.as_ref().map(|path| {
+        // The empty path is a poisoned fragment: an empty `ONEOF` is the unchecked case, which is
+        // what keeps the carrying struct's identity assert from adding a second error.
+        let paths = (!path.is_empty()).then_some(path).into_iter();
         quote! {
             impl crate::codec::Oneof for #ident {
-                const ONEOF: &'static [&'static str] = &[#path];
+                const ONEOF: &'static [&'static str] = &[#(#paths),*];
             }
         }
     });
 
-    let expansion = message_shaped(
+    let mut expansion = message_shaped(
         ident,
         &generics,
         ir.fingerprint,
         &ir.names,
+        ir.fragment_of.is_none() && !generator.poisoned(),
         ir.fragment_of.is_none(),
+        generator.poisoned(),
         asserts,
         bodies,
     );
-    quote! {
-        #expansion
-        #generic_fields
-        #marker
+    expansion.extend(generic_fields);
+    expansion.extend(marker);
+    generator.emit(expansion);
+}
+
+/// The wire bodies of a type that has no correct ones: real signatures, so everything the type is
+/// used by still resolves, and placeholder bodies, so even a build that somehow missed the
+/// recorded error cannot encode wrong bytes silently.
+pub(crate) fn placeholder_bodies() -> MessageBodies {
+    let unimplemented = quote!(::core::unimplemented!());
+    MessageBodies {
+        encode_raw: quote! { let _ = buf; #unimplemented },
+        merge_field: quote! { let _ = (tag, wire_type, buf, ctx); #unimplemented },
+        encoded_len: unimplemented,
+        normalize: Vec::new(),
     }
 }
 
@@ -153,6 +182,22 @@ fn struct_bodies(slots: &[Slot]) -> MessageBodies {
 /// the current variant's slot, a member occurrence switches variants while carrying the shared
 /// values over. A shared-free enum is the degenerate case with an empty shared list.
 fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
+    // Poisoned variants contribute one `unimplemented!()` arm to every match over the value, so
+    // the matches stay exhaustive over what the user wrote while binding nothing of it; the
+    // brace-with-rest pattern matches a unit, tuple or struct variant alike. They answer to no
+    // tag, so the tag matches need nothing.
+    let (arms, poisoned): (Vec<&Arm>, Vec<&Arm>) = discr
+        .arms
+        .iter()
+        .partition(|arm| !matches!(arm.own.codec, SlotCodec::Poisoned));
+    let poison_arms: Vec<TokenStream> = poisoned
+        .iter()
+        .map(|arm| {
+            let ident = &arm.ident;
+            quote! { Self::#ident { .. } => ::core::unimplemented!(), }
+        })
+        .collect();
+
     // Shared machinery (empty and inert without shared slots): all-variant patterns binding a
     // subset of them, plus their fragments. Every variant carries every shared slot, so the
     // fragments are emitted once *around* the member match rather than inside each of its arms, and
@@ -168,8 +213,7 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
     // as the emitter's own `buf`, `len`, `value`, `tag`, `wire_type` and `ctx`, and a proto field
     // named like any of those would otherwise shadow one.
     let shared_locals: Vec<syn::Ident> = shared.iter().map(slot_local).collect();
-    let variant_idents: Vec<&syn::Ident> = discr
-        .arms
+    let variant_idents: Vec<&syn::Ident> = arms
         .iter()
         .map(|arm| &arm.ident)
         .chain(discr.default_arm.iter())
@@ -194,34 +238,36 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
     let mut merge_arms = Vec::new();
     let mut normalize = Vec::new();
 
-    for arm in &discr.arms {
-        let arms = emit_arm(&EmitCtx {
+    for arm in &arms {
+        let tokens = emit_arm(&EmitCtx {
             var: &arm.ident,
             own: Some(&arm.own),
             shared,
             shared_idents: &shared_idents,
             shared_locals: &shared_locals,
             take_pats: &all_pats,
+            poison_arms: &poison_arms,
         });
-        encode_arms.push(arms.encode);
-        len_arms.push(arms.len);
-        merge_arms.extend(arms.merge);
-        normalize.extend(arms.normalize);
+        encode_arms.push(tokens.encode);
+        len_arms.push(tokens.len);
+        merge_arms.extend(tokens.merge);
+        normalize.extend(tokens.normalize);
     }
 
     // The "no member set" variant, through the same emitter: it owns no slot, so it writes only the
     // shared fields and is selected by no tag.
     if let Some(var) = discr.default_arm.as_ref() {
-        let arms = emit_arm(&EmitCtx {
+        let tokens = emit_arm(&EmitCtx {
             var,
             own: None,
             shared,
             shared_idents: &shared_idents,
             shared_locals: &shared_locals,
             take_pats: &all_pats,
+            poison_arms: &poison_arms,
         });
-        encode_arms.push(arms.encode);
-        len_arms.push(arms.len);
+        encode_arms.push(tokens.encode);
+        len_arms.push(tokens.len);
     }
 
     // A shared field's projection is a property of the field, not of the variant carrying it, so it
@@ -239,10 +285,14 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
         // than through its Rust type's own codec.
         let self_pats = pats(&[position]);
         let merge = slot_merge_in_place(slot, &quote!(#local));
+        // The bound arm only exists where a variant resolved; with every variant poisoned, the
+        // match is the poison arms alone.
+        let bound = (!variant_idents.is_empty()).then(|| quote!(#(#self_pats)|* => { #merge }));
         merge_arms.push(quote! {
             #stag => {
                 match value {
-                    #(#self_pats)|* => { #merge }
+                    #bound
+                    #(#poison_arms)*
                 }
             }
         });
@@ -255,6 +305,7 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
             let value = self;
             match value {
                 #(#encode_arms)*
+                #(#poison_arms)*
             }
         },
         merge_field: quote! {
@@ -268,6 +319,7 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
             let value = self;
             match value {
                 #(#len_arms)*
+                #(#poison_arms)*
             }
         },
         normalize,
@@ -295,6 +347,8 @@ struct EmitCtx<'a> {
     shared_locals: &'a [syn::Ident],
     /// All-variant patterns binding every shared field, for the take-and-rebuild merge.
     take_pats: &'a [TokenStream],
+    /// One `unimplemented!()` arm per poisoned variant, closing every match over the value.
+    poison_arms: &'a [TokenStream],
 }
 
 /// One variant's arms, whatever it carries.
@@ -312,6 +366,7 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
         shared_idents,
         shared_locals,
         take_pats,
+        poison_arms,
     } = ctx;
     // The variant's own bindings, and how the walks name the member's value where it has one: the
     // pattern binding for a bound slot, the unit for a presence marker (its adapters take `&()`
@@ -331,8 +386,9 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
                 (vec![slot], quote!(#local), quote!(&mut #local))
             }
             // A variant carries one member, never a whole oneof or message: an enum standing for a
-            // oneof *is* the flattened form, so there is nothing left to delegate to.
-            (SlotCodec::Delegate { .. }, _) => {
+            // oneof *is* the flattened form, so there is nothing left to delegate to. Poisoned
+            // arms are partitioned out before this is reached.
+            (SlotCodec::Delegate { .. } | SlotCodec::Poisoned, _) => {
                 unreachable!("a oneof variant carries a member, not a delegate")
             }
         },
@@ -400,6 +456,7 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
             #[allow(unused_parens)]
             let (#(#shared_locals),*) = match value {
                 #(#take_pats)|* => (#(::std::mem::take(#shared_locals)),*),
+                #(#poison_arms)*
             };
         }
     });
@@ -765,13 +822,19 @@ pub(crate) struct MessageBodies {
 ///
 /// `is_message` is false for an embedded oneof, which is a fragment of a message rather than one: it
 /// gets no `Msg` and registers nothing. A generic type is a message with no names, which
-/// [`registrations`] renders as nothing while `Msg` still carries an empty `NAMES`.
+/// [`registrations`] renders as nothing while `Msg` still carries an empty `NAMES`. `registered` is
+/// additionally false for any poisoned expansion: a half-resolved type in the differential registry
+/// only makes the harness's failures confusing. A poisoned expansion also gets a placeholder
+/// `clear` rather than the whole-value reset, whose `Default` a failed type need not have.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn message_shaped(
     ident: &syn::Ident,
     generics: &syn::Generics,
     fingerprint: u64,
     names: &[String],
+    registered: bool,
     is_message: bool,
+    poisoned: bool,
     asserts: TokenStream,
     bodies: MessageBodies,
 ) -> TokenStream {
@@ -783,9 +846,9 @@ pub(crate) fn message_shaped(
         bodies.encode_raw,
         bodies.merge_field,
         bodies.encoded_len,
-        None,
+        poisoned.then(|| quote!(::core::unimplemented!())),
     );
-    let registrations = is_message.then(|| registrations(ident, names));
+    let registrations = registered.then(|| registrations(ident, names));
     let msg = is_message.then(|| msg_impl(generics, ident, names));
     quote! {
         const _: () = {
@@ -868,8 +931,8 @@ pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
             None => quote!(<#ty as crate::codec::ProtoField>),
         },
         SlotCodec::Delegate { ty, .. } => quote!(<#ty as ::prost::Message>),
-        SlotCodec::Group { .. } => {
-            unreachable!("an inlined member frames itself")
+        SlotCodec::Group { .. } | SlotCodec::Poisoned => {
+            unreachable!("an inlined member frames itself; a poisoned slot is never dispatched")
         }
     }
 }
@@ -929,6 +992,9 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -
                 }),
             }
         }
+        // A poisoned slot never reaches the walks: a struct's whole body is a placeholder, an
+        // enum's poisoned arms are partitioned out.
+        SlotCodec::Poisoned => unreachable!("a poisoned slot is never written"),
         // The member message is absorbed, so its framing is hand-rolled here; its parts are
         // ordinary fields, named by the bindings the caller's pattern introduced.
         SlotCodec::Group { parts } => {
@@ -991,6 +1057,7 @@ pub(crate) fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStre
             let d = slot_dispatch(slot);
             quote! { #d::merge_field(#value, tag, wire_type, buf, ctx) }
         }
+        SlotCodec::Poisoned => unreachable!("a poisoned slot is never merged"),
         // The parts are ordinary fields, merged into the locals the caller's pattern bound, under
         // prost's own framing: the recursion and length limits `ctx` carries, and the rejection of a
         // body that runs past its declared end.

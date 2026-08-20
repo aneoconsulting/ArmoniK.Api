@@ -3,9 +3,3 @@ error: #[armonik(present)] needs a bool or message member, but `fixture.Choice.t
    |
 11 |     Text,
    |     ^^^^
-
-error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
- --> tests/ui/present_on_a_string.rs:9:10
-  |
-9 | pub enum Choice {
-  |          ^^^^^^

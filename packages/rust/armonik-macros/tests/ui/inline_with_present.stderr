@@ -3,9 +3,3 @@ error: `present` and `inline` each say how the member is carried (present: by pr
    |
 11 |     #[armonik(present, inline)]
    |                        ^^^^^^
-
-error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
- --> tests/ui/inline_with_present.rs:8:10
-  |
-8 | pub enum Choice {
-  |          ^^^^^^

@@ -3,15 +3,3 @@ error: no field or oneof named `nope` in proto message `fixture.Simple` (availab
    |
 14 |         nope: i32,
    |         ^^^^
-
-error: proto field `fixture.Simple.count` (tag 2) is not covered by any Rust field
-  --> tests/ui/inline_unknown_member_field.rs:12:5
-   |
-12 |     Simple {
-   |     ^^^^^^
-
-error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
- --> tests/ui/inline_unknown_member_field.rs:9:10
-  |
-9 | pub enum Choice {
-  |          ^^^^^^
