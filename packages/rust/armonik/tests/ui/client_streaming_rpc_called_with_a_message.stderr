@@ -1,0 +1,22 @@
+error[E0277]: `armonik::results::upload::Request` is not a valid input for `call`
+  --> tests/ui/client_streaming_rpc_called_with_a_message.rs:11:29
+   |
+11 |       let _call = client.call(armonik::results::upload::Request::DataChunk(
+   |  ________________________----_^
+   | |                        |
+   | |                        required by a bound introduced by this call
+12 | |         armonik::reexports::bytes::Bytes::new(),
+13 | |     ));
+   | |_____^ invalid `call` input
+   |
+   = help: the trait `IntoCall<_, _>` is not implemented for `armonik::results::upload::Request`
+   = note: `call` takes the RPC's request message, a `tonic::Request` wrapping it, or, for an RPC whose request is a stream, a `Stream` of its request messages
+   = note: which of the two depends on the RPC: a client-streaming or bidirectional one takes a `Stream` of its request messages (`futures::stream::iter([..])`, `async_stream::stream!`, ...), and a unary or server-streaming one takes the message itself, not a stream
+note: required by a bound in `ServiceClient::<Svc, T>::call`
+  --> src/client/service_client.rs
+   |
+   |     pub async fn call<R, M>(
+   |                  ---- required by a bound in this associated function
+   |         &mut self,
+   |         input: impl IntoCall<R, M>,
+   |                     ^^^^^^^^^^^^^^ required by this bound in `ServiceClient::<Svc, T>::call`

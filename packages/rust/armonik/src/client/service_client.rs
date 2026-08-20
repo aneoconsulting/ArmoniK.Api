@@ -261,10 +261,12 @@ impl DispatchMessage for ServerStream {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a valid input for `call`",
     label = "invalid `call` input",
-    note = "`call` takes the RPC's request message, a `tonic::Request` wrapping it, or — for an \
-            RPC whose request is a stream — a `Stream` of its request messages",
-    note = "the request message of a streaming-request RPC is not a valid input on its own: send \
-            a stream of them (`futures::stream::iter([..])`, `async_stream::stream!`, ...)"
+    note = "`call` takes the RPC's request message, a `tonic::Request` wrapping it, or, for an RPC \
+            whose request is a stream, a `Stream` of its request messages",
+    note = "which of the two depends on the RPC: a client-streaming or bidirectional one takes a \
+            `Stream` of its request messages (`futures::stream::iter([..])`, \
+            `async_stream::stream!`, ...), and a unary or server-streaming one takes the message \
+            itself, not a stream"
 )]
 pub trait IntoCall<R, M>
 where
