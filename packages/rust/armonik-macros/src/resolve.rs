@@ -11,7 +11,7 @@
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 
-use crate::attrs::{self, scan_attrs, unraw, Allowed, AttrItem, Errors, FieldAttrs};
+use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, Errors, FieldAttrs};
 use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
@@ -22,7 +22,7 @@ use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 /// from: a shape resolver is handed what it needs and never rescans.
 pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Ir, Errors> {
     let index = index(input)?;
-    let entries = attrs::parse(&input.attrs)?;
+    let entries = crate::attrs::parse(&input.attrs)?;
 
     let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut stray: Vec<Span> = Vec::new();
@@ -42,10 +42,10 @@ pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Ir, Errors> {
 
     // Enums are oneof-shaped: `message = ...` alone stands for a whole message with a single
     // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct. Dispatched on
-    // before anything is reported, because a oneof rescans the type-level attributes for itself and
-    // rejects a stray key in its own words.
+    // before anything is reported, because a oneof reads the same entries for itself and rejects a
+    // stray key in its own words.
     if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
-        return oneof_ir(input, &index);
+        return oneof_ir(input, &index, &entries);
     }
 
     let mut errors = Errors::new();
@@ -421,136 +421,134 @@ fn field_access(field: &syn::Field, index: usize) -> (Span, FieldAccess) {
 // One variant per member, either narrowing a single oneof of a larger message or standing for a
 // whole message whose non-oneof fields every variant carries.
 
-/// Partition a struct variant's named fields into the message's non-oneof fields and everything
-/// left over.
+/// The message's non-oneof fields, and the one Rust binding (name and type) every variant must
+/// agree on for each, fixed by the first variant that declares it and checked in the others, since
+/// the emitted patterns spell each sibling exactly one way.
 ///
-/// The non-oneof set is possibly empty, which is what makes this one function rather than two: an
-/// enum standing for a whole message with sibling fields and one narrowing a single oneof differ
-/// only in how many fields land on the left. Cross-variant bindings are checked here, since a
-/// sibling must be spelled the same way in every variant.
-///
-/// `None` when the variant is malformed; the errors are already pushed.
-fn split_variant_fields(
-    named: &syn::FieldsNamed,
-    sibling_metas: &[&FieldMeta],
-    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
-    absorbs: &mut Vec<String>,
-    errors: &mut Errors,
-    variant_span: Span,
-    proto_name: &str,
-) -> Option<Vec<Leftover>> {
-    let mut failed = false;
-    let mut seen = vec![false; sibling_metas.len()];
-    let mut leftovers: Vec<Leftover> = Vec::new();
-
-    for field in &named.named {
-        let ident = field.ident.clone().expect("named fields have idents");
-        let Some(FieldAttrs {
-            rename,
-            with,
-            absorbs: declared,
-            ..
-        }) = scan_attrs(
-            &field.attrs,
-            Allowed {
-                rename: true,
-                with: true,
-                absorbs: true,
-                ..Allowed::default()
-            },
-            "this armonik attribute is not valid on a struct variant field",
-            errors,
-        )
-        else {
-            failed = true;
-            continue;
-        };
-        absorbs.extend(declared);
-
-        let name = rename.unwrap_or_else(|| unraw(&ident));
-        if let Some(position) = sibling_metas.iter().position(|meta| meta.name == name) {
-            if let Some((with_span, _)) = with {
-                errors.at(
-                    with_span,
-                    "with = ... is only valid on the member payload field, not on a \
-                     sibling field",
-                );
-                failed = true;
-            }
-            seen[position] = true;
-            match &sibling_bindings[position] {
-                None => sibling_bindings[position] = Some((ident, field.ty.clone())),
-                Some((bound_ident, bound_ty)) => {
-                    if *bound_ident != ident {
-                        errors.at(
-                            ident.span(),
-                            format!(
-                                "sibling field `{name}` must use the same name in every \
-                                 variant (`{bound_ident}` elsewhere)"
-                            ),
-                        );
-                        failed = true;
-                    }
-                    if quote::quote!(#bound_ty).to_string() != {
-                        let ty = &field.ty;
-                        quote::quote!(#ty).to_string()
-                    } {
-                        errors.at(
-                            field.ty.span(),
-                            format!(
-                                "sibling field `{name}` must use the same type in every \
-                                 variant"
-                            ),
-                        );
-                        failed = true;
-                    }
-                }
-            }
-        } else {
-            leftovers.push(Leftover {
-                span: ident.span(),
-                ident,
-                name,
-                ty: field.ty.clone(),
-                with: with.map(|(_, ty)| ty),
-            });
-        }
-    }
-
-    failed |= !carries_every_sibling(&seen, sibling_metas, errors, variant_span, proto_name);
-
-    (!failed).then_some(leftovers)
+/// Possibly empty, which is what makes the resolution one code path rather than two: an enum
+/// standing for a whole message with sibling fields and one narrowing a single oneof differ only
+/// in how many entries land here.
+struct Siblings<'a> {
+    proto_name: &'a str,
+    entries: Vec<(&'a FieldMeta, Option<(syn::Ident, syn::Type)>)>,
 }
 
-/// Report every sibling field the variant failed to declare; `seen` marks the ones it did, and is
-/// parallel to `sibling_metas`. Returns whether the variant is complete.
-///
-/// Shared with the unit-variant case, which declares none of them: passing an all-false `seen` is
-/// how a unit variant gets the same diagnosis as a struct variant that dropped a field, instead of
-/// falling through to an "unknown member" error naming the wrong problem.
-fn carries_every_sibling(
-    seen: &[bool],
-    sibling_metas: &[&FieldMeta],
-    errors: &mut Errors,
-    variant_span: Span,
-    proto_name: &str,
-) -> bool {
-    let mut complete = true;
-    for (position, field_seen) in seen.iter().enumerate() {
-        if !field_seen {
-            errors.at(
-                variant_span,
-                format!(
-                    "the variant must carry the sibling field `{}` of `{proto_name}` \
-                     (every variant of a whole-message enum declares all non-oneof \
-                     fields)",
-                    sibling_metas[position].name
-                ),
-            );
-            complete = false;
+impl<'a> Siblings<'a> {
+    fn new(selected: &'a Selected<'_>) -> Self {
+        let metas = selected
+            .whole_message
+            .then(|| {
+                selected
+                    .meta
+                    .fields
+                    .iter()
+                    .filter(|field| field.oneof.is_none())
+            })
+            .into_iter()
+            .flatten();
+        Self {
+            proto_name: &selected.proto_name,
+            entries: metas.map(|meta| (meta, None)).collect(),
         }
     }
-    complete
+
+    fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// Claim the sibling named `name` for one variant's field: `None` when no sibling has that
+    /// name, so the field is a leftover belonging to the member. `Some(false)` when the binding
+    /// disagrees with the other variants', with the errors pushed.
+    fn claim(
+        &mut self,
+        seen: &mut [bool],
+        name: &str,
+        ident: &syn::Ident,
+        ty: &syn::Type,
+        errors: &mut Errors,
+    ) -> Option<bool> {
+        let position = self
+            .entries
+            .iter()
+            .position(|(meta, _)| meta.name == name)?;
+        seen[position] = true;
+        let mut ok = true;
+        match &self.entries[position].1 {
+            None => self.entries[position].1 = Some((ident.clone(), ty.clone())),
+            Some((bound_ident, bound_ty)) => {
+                if bound_ident != ident {
+                    errors.at(
+                        ident.span(),
+                        format!(
+                            "sibling field `{name}` must use the same name in every \
+                             variant (`{bound_ident}` elsewhere)"
+                        ),
+                    );
+                    ok = false;
+                }
+                if quote::quote!(#bound_ty).to_string() != quote::quote!(#ty).to_string() {
+                    errors.at(
+                        ty.span(),
+                        format!(
+                            "sibling field `{name}` must use the same type in every \
+                             variant"
+                        ),
+                    );
+                    ok = false;
+                }
+            }
+        }
+        Some(ok)
+    }
+
+    /// Report every sibling the variant failed to declare; `seen` marks the ones it did. Returns
+    /// whether the variant is complete.
+    fn require_all(&self, seen: &[bool], variant_span: Span, errors: &mut Errors) -> bool {
+        let mut complete = true;
+        for (position, field_seen) in seen.iter().enumerate() {
+            if !field_seen {
+                errors.at(
+                    variant_span,
+                    format!(
+                        "the variant must carry the sibling field `{}` of `{}` \
+                         (every variant of a whole-message enum declares all non-oneof \
+                         fields)",
+                        self.entries[position].0.name, self.proto_name
+                    ),
+                );
+                complete = false;
+            }
+        }
+        complete
+    }
+
+    /// The siblings as the plan's shared slots, in tag order: one per sibling that some variant
+    /// bound. A missing binding is only possible when every variant errored, and those errors are
+    /// already reported.
+    fn into_slots(self) -> Vec<Slot> {
+        let proto_name = self.proto_name;
+        let mut slots: Vec<Slot> = self
+            .entries
+            .into_iter()
+            .filter_map(|(meta, binding)| {
+                let (ident, ty) = binding?;
+                Some(Slot {
+                    span: ident.span(),
+                    access: Some(FieldAccess::Named(ident)),
+                    tag: meta.tag,
+                    codec: SlotCodec::Field {
+                        ty: Box::new(ty),
+                        adapter: None,
+                    },
+                    proto_path: format!("{proto_name}.{}", meta.name),
+                    checks: Some(Expectation::of(meta)),
+                    docs: meta.docs.clone(),
+                })
+            })
+            .collect();
+        slots.sort_by_key(|slot| slot.tag);
+        slots
+    }
 }
 
 /// What a variant carries beyond the message's non-oneof fields, whatever its syntactic shape.
@@ -583,36 +581,77 @@ impl Carried {
     }
 }
 
+/// Sort a variant's fields between the siblings it must carry and the leftovers belonging to the
+/// member. A unit variant is the named case over zero fields, so where the message has siblings it
+/// gets the same missing-field diagnosis as a struct variant that dropped them, instead of falling
+/// through to an "unknown member" error naming the wrong problem.
+///
+/// `None` when the variant is malformed; the errors are already pushed.
 fn carried(
     fields: &syn::Fields,
-    sibling_metas: &[&FieldMeta],
-    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
+    siblings: &mut Siblings<'_>,
     absorbs: &mut Vec<String>,
     errors: &mut Errors,
     variant_span: Span,
-    proto_name: &str,
 ) -> Option<Carried> {
-    match fields {
-        syn::Fields::Named(named) => split_variant_fields(
-            named,
-            sibling_metas,
-            sibling_bindings,
-            absorbs,
+    let named: Vec<&syn::Field> = match fields {
+        syn::Fields::Named(named) => named.named.iter().collect(),
+        syn::Fields::Unit => Vec::new(),
+        syn::Fields::Unnamed(_) => return Some(Carried::Payload),
+    };
+
+    let mut failed = false;
+    let mut seen = vec![false; siblings.entries.len()];
+    let mut leftovers: Vec<Leftover> = Vec::new();
+    for field in named {
+        let ident = field.ident.clone().expect("named fields have idents");
+        let Some(FieldAttrs {
+            rename,
+            with,
+            absorbs: declared,
+            ..
+        }) = scan_attrs(
+            &field.attrs,
+            Allowed {
+                rename: true,
+                with: true,
+                absorbs: true,
+                ..Allowed::default()
+            },
+            "this armonik attribute is not valid on a struct variant field",
             errors,
-            variant_span,
-            proto_name,
         )
-        .map(Carried::Fields),
-        // A unit variant carries nothing, which is only correct where the message has no non-oneof
-        // fields. Where it has them, the variant is missing all of them, and says so through the
-        // same check a struct variant gets.
-        syn::Fields::Unit => {
-            let seen = vec![false; sibling_metas.len()];
-            carries_every_sibling(&seen, sibling_metas, errors, variant_span, proto_name)
-                .then(|| Carried::Fields(Vec::new()))
+        else {
+            failed = true;
+            continue;
+        };
+        absorbs.extend(declared);
+
+        let name = rename.unwrap_or_else(|| unraw(&ident));
+        match siblings.claim(&mut seen, &name, &ident, &field.ty, errors) {
+            Some(ok) => {
+                if let Some((with_span, _)) = with {
+                    errors.at(
+                        with_span,
+                        "with = ... is only valid on the member payload field, not on a \
+                         sibling field",
+                    );
+                    failed = true;
+                }
+                failed |= !ok;
+            }
+            None => leftovers.push(Leftover {
+                span: ident.span(),
+                ident,
+                name,
+                ty: field.ty.clone(),
+                with: with.map(|(_, ty)| ty),
+            }),
         }
-        syn::Fields::Unnamed(_) => Some(Carried::Payload),
     }
+
+    failed |= !siblings.require_all(&seen, variant_span, errors);
+    (!failed).then_some(Carried::Fields(leftovers))
 }
 
 /// A field of a struct variant that is not one of the message's non-oneof fields, so it belongs to
@@ -631,8 +670,9 @@ struct Leftover {
 /// Folded in one place because the three name three different carriers, so any two of them together
 /// is one mistake with one message, whatever the pair.
 enum Carrier {
-    /// The member carried whole (the default), optionally through a variant-level `with` adapter.
-    Whole(Option<Box<syn::Type>>),
+    /// The member carried whole (the default), optionally through a variant-level `with` adapter
+    /// (the span is the `with` key's, where a misplaced adapter is reported).
+    Whole(Option<(Span, Box<syn::Type>)>),
     /// `#[armonik(present)]`: carried by presence alone.
     Present,
     /// `#[armonik(inline)]`: the member message's own fields, spread into the variant.
@@ -677,13 +717,13 @@ fn carrier(
     } else if let Some(span) = inline {
         Carrier::Inline(span)
     } else {
-        Carrier::Whole(with.map(|(_, ty)| Box::new(ty)))
+        Carrier::Whole(with.map(|(span, ty)| (span, Box::new(ty))))
     })
 }
 
 /// Read-only context shared by the per-carrier variant resolvers below: the variant being resolved
 /// and everything already known about the oneof member it maps to. The mutable state each resolver
-/// touches (`errors`, and the `absorbs`/`sibling_bindings` a particular shape feeds) is passed
+/// touches (`errors`, and the `absorbs`/`Siblings` a particular shape feeds) is passed
 /// alongside.
 struct VariantCtx<'a> {
     variant: &'a syn::Variant,
@@ -710,7 +750,7 @@ fn resolve_variant(
     ctx: &VariantCtx,
     carrier: Carrier,
     leftovers: Vec<Leftover>,
-    sibling_metas: &[&FieldMeta],
+    has_siblings: bool,
     absorbs: &mut Vec<String>,
     errors: &mut Errors,
 ) -> ResolvedShape {
@@ -720,7 +760,7 @@ fn resolve_variant(
             // variant to carry them. Both constraints are real and they cannot both be met, so say
             // that here rather than let the marker resolver demand a unit variant and the
             // completeness check then demand the fields back, three variants away.
-            if !sibling_metas.is_empty() {
+            if has_siblings {
                 errors.at(
                     ctx.span,
                     format!(
@@ -741,7 +781,7 @@ fn resolve_variant(
             // scheme, for a shape no site wants. Without the check the resolver accepts it and the
             // emitted patterns do not compile, pointing rustc's "append `, ..`" suggestion at the
             // attribute.
-            if !sibling_metas.is_empty() {
+            if has_siblings {
                 errors.at(
                     inline_span,
                     format!(
@@ -767,7 +807,7 @@ fn resolve_variant(
             // `Variant(T)`: the member carried whole, optionally through an adapter. It carries no
             // sibling fields, so the enum must have none.
             syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                if !sibling_metas.is_empty() {
+                if has_siblings {
                     errors.at(
                         ctx.span,
                         format!(
@@ -778,7 +818,7 @@ fn resolve_variant(
                     );
                     return Err(());
                 }
-                let adapter = with;
+                let adapter = with.map(|(_, ty)| ty);
                 let checks = adapter.is_none().then(|| Expectation::of(ctx.field_meta));
                 Ok((
                     Some(FieldAccess::Indexed(syn::Index::from(0))),
@@ -790,9 +830,9 @@ fn resolve_variant(
                 ))
             }
             syn::Fields::Named(_) => {
-                if with.is_some() {
+                if let Some((with_span, _)) = with {
                     errors.at(
-                        ctx.span,
+                        with_span,
                         "in a struct variant, put with = ... on the field carrying the member",
                     );
                     return Err(());
@@ -950,38 +990,6 @@ fn resolve_inline_member(
     Ok((None, SlotCodec::Group { parts }, None))
 }
 
-/// The message's non-oneof fields as slots, in tag order: one per sibling that some variant bound.
-///
-/// Pure assembly, run once the variants have agreed on a name and type for each. A missing binding
-/// is only possible when every variant errored, and those errors are already reported.
-fn collect_siblings(
-    sibling_metas: &[&FieldMeta],
-    sibling_bindings: &[Option<(syn::Ident, syn::Type)>],
-    proto_name: &str,
-) -> Vec<Slot> {
-    let mut siblings: Vec<Slot> = sibling_metas
-        .iter()
-        .zip(sibling_bindings)
-        .filter_map(|(meta_field, binding)| {
-            let (ident, ty) = binding.as_ref()?;
-            Some(Slot {
-                span: ident.span(),
-                access: Some(FieldAccess::Named(ident.clone())),
-                tag: meta_field.tag,
-                codec: SlotCodec::Field {
-                    ty: Box::new(ty.clone()),
-                    adapter: None,
-                },
-                proto_path: format!("{proto_name}.{}", meta_field.name),
-                checks: Some(Expectation::of(meta_field)),
-                docs: meta_field.docs.clone(),
-            })
-        })
-        .collect();
-    siblings.sort_by_key(|sibling| sibling.tag);
-    siblings
-}
-
 /// Which oneof the enum stands for, and whether it stands for the whole message.
 struct Selected<'a> {
     /// Full proto name of the message.
@@ -1003,19 +1011,12 @@ struct Selected<'a> {
 fn select_oneof<'a>(
     input: &syn::DeriveInput,
     index: &'a DescriptorIndex,
+    entries: &[AttrEntry],
     errors: &mut Errors,
 ) -> Result<Selected<'a>, ()> {
-    let entries = match attrs::parse(&input.attrs) {
-        Ok(entries) => entries,
-        Err(err) => {
-            errors.push(err);
-            return Err(());
-        }
-    };
-
     let mut proto_name: Option<(Span, String)> = None;
     let mut oneof_name: Option<(Span, String)> = None;
-    for entry in &entries {
+    for entry in entries {
         match &entry.item {
             AttrItem::Message(lit) => {
                 if proto_name.replace((entry.span, lit.value())).is_some() {
@@ -1132,8 +1133,7 @@ fn resolve_one_variant(
     variant: &syn::Variant,
     selected: &Selected<'_>,
     index: &DescriptorIndex,
-    sibling_metas: &[&FieldMeta],
-    sibling_bindings: &mut [Option<(syn::Ident, syn::Type)>],
+    siblings: &mut Siblings<'_>,
     absorbs: &mut Vec<String>,
     errors: &mut Errors,
 ) -> Option<VariantOutcome> {
@@ -1170,15 +1170,7 @@ fn resolve_one_variant(
     let carried = if present {
         Carried::Fields(Vec::new())
     } else {
-        carried(
-            &variant.fields,
-            sibling_metas,
-            sibling_bindings,
-            absorbs,
-            errors,
-            span,
-            &selected.proto_name,
-        )?
+        carried(&variant.fields, siblings, absorbs, errors, span)?
     };
 
     let member_name = rename
@@ -1225,43 +1217,32 @@ fn resolve_one_variant(
     };
     let proto_path = format!("{}.{}", selected.proto_name, field_meta.name);
 
-    let ctx = VariantCtx {
-        variant,
-        field_meta,
-        index,
-        span,
-        proto_name: &selected.proto_name,
-        proto_path: &proto_path,
-        member_name: &member_name,
+    // The carrier is folded here, once the member is known: a variant whose keys conflict, or
+    // whose shape does not fit its carrier, did still name its member, so the member reads as
+    // covered (`arm: None`) and one mistake reads as one error.
+    let resolved = {
+        let ctx = VariantCtx {
+            variant,
+            field_meta,
+            index,
+            span,
+            proto_name: &selected.proto_name,
+            proto_path: &proto_path,
+            member_name: &member_name,
+        };
+        carrier(span, with, present, inline, errors).and_then(|carrier| {
+            resolve_variant(
+                &ctx,
+                carrier,
+                carried.into_leftovers(),
+                !siblings.is_empty(),
+                absorbs,
+                errors,
+            )
+        })
     };
-    // Folded here, once the member is known: a variant whose keys conflict did still name its
-    // member, so the member reads as covered and one mistake reads as one error.
-    let Ok(carrier) = carrier(span, with, present, inline, errors) else {
-        return Some(VariantOutcome::Member {
-            position,
-            arm: None,
-        });
-    };
-    let (access, codec, checks) = match resolve_variant(
-        &ctx,
-        carrier,
-        carried.into_leftovers(),
-        sibling_metas,
-        absorbs,
-        errors,
-    ) {
-        Ok(resolved) => resolved,
-        Err(()) => {
-            return Some(VariantOutcome::Member {
-                position,
-                arm: None,
-            })
-        }
-    };
-
-    Some(VariantOutcome::Member {
-        position,
-        arm: Some(Box::new(Arm {
+    let arm = resolved.ok().map(|(access, codec, checks)| {
+        Box::new(Arm {
             ident: variant.ident.clone(),
             own: Slot {
                 access,
@@ -1272,32 +1253,23 @@ fn resolve_one_variant(
                 proto_path,
                 docs: field_meta.docs.clone(),
             },
-        })),
-    })
+        })
+    });
+    Some(VariantOutcome::Member { position, arm })
 }
 
-fn oneof_ir(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<Ir, Errors> {
+fn oneof_ir(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+    entries: &[AttrEntry],
+) -> Result<Ir, Errors> {
     let mut errors = Errors::new();
 
-    let Ok(selected) = select_oneof(input, index, &mut errors) else {
+    let Ok(selected) = select_oneof(input, index, entries, &mut errors) else {
         return Err(errors);
     };
-
     // Non-oneof fields of a whole-message enum, replicated in every variant.
-    let sibling_metas: Vec<&FieldMeta> = if selected.whole_message {
-        selected
-            .meta
-            .fields
-            .iter()
-            .filter(|field| field.oneof.is_none())
-            .collect()
-    } else {
-        Vec::new()
-    };
-    // Rust-side binding of each sibling (ident + type), fixed by the first variant that declares it
-    // and checked for consistency in the others.
-    let mut sibling_bindings: Vec<Option<(syn::Ident, syn::Type)>> =
-        (0..sibling_metas.len()).map(|_| None).collect();
+    let mut siblings = Siblings::new(&selected);
 
     let syn::Data::Enum(data) = &input.data else {
         errors.at(
@@ -1318,8 +1290,7 @@ fn oneof_ir(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<Ir, Err
             variant,
             &selected,
             index,
-            &sibling_metas,
-            &mut sibling_bindings,
+            &mut siblings,
             &mut absorbs,
             &mut errors,
         ) {
@@ -1357,7 +1328,7 @@ fn oneof_ir(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<Ir, Err
 
     errors.into_result()?;
 
-    let shared = collect_siblings(&sibling_metas, &sibling_bindings, &selected.proto_name);
+    let shared = siblings.into_slots();
     arms.sort_by_key(|arm| arm.own.tag);
     Ok(Ir {
         ident: input.ident.clone(),

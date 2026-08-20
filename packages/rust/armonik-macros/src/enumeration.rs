@@ -207,13 +207,20 @@ fn enum_plan(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<EnumPl
         return Err(errors);
     };
 
-    // Match every named variant against every proto enum; they must agree.
+    // Match every named variant against every proto enum; they must agree. What each match
+    // consumes is recorded per enum, so the completeness pass below reads what this loop decided
+    // instead of re-implementing the matching rule. The zero value starts out consumed: the
+    // catch-all covers it losslessly, and the emitted `UNSPECIFIED` const names it.
+    let mut consumed: Vec<Vec<bool>> = proto_enums
+        .iter()
+        .map(|(_, meta)| meta.values.iter().map(|(_, value)| *value == 0).collect())
+        .collect();
     let mut resolved: Vec<EnumValue> = Vec::new();
     let mut zero_variant = None;
     for (ident, proto_name) in &named {
         let mut number: Option<i32> = None;
         let mut docs: Vec<String> = Vec::new();
-        for (enum_name, meta) in &proto_enums {
+        for (position, (enum_name, meta)) in proto_enums.iter().enumerate() {
             let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
             let matched = meta.values.iter().position(|(value_name, _)| {
                 value_name == proto_name
@@ -221,6 +228,7 @@ fn enum_plan(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<EnumPl
             });
             match matched.map(|at| (at, &meta.values[at].1)) {
                 Some((at, value)) => {
+                    consumed[position][at] = true;
                     // Unified enums agree on their values, so the first one documents them.
                     if docs.is_empty() {
                         docs = meta.value_docs[at].clone();
@@ -261,16 +269,10 @@ fn enum_plan(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<EnumPl
         }
     }
 
-    // Completeness: every proto value needs a named variant, except the zero one, which the
-    // catch-all covers losslessly and the emitted `UNSPECIFIED` const names.
-    for (enum_name, meta) in &proto_enums {
-        let simple = enum_name.rsplit('.').next().unwrap_or(enum_name);
-        for (value_name, value) in &meta.values {
-            let mapped = crate::names::variant_name(simple, value_name);
-            let covered = named
-                .iter()
-                .any(|(_, proto_name)| *proto_name == mapped || proto_name == value_name);
-            if !(covered || *value == 0) {
+    // Completeness: every proto value the matching loop left unconsumed.
+    for (position, (enum_name, meta)) in proto_enums.iter().enumerate() {
+        for (at, (value_name, value)) in meta.values.iter().enumerate() {
+            if !consumed[position][at] {
                 errors.at(
                     input.ident.span(),
                     format!(

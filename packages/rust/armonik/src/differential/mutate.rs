@@ -12,7 +12,7 @@
 //! preserves unknown fields (every emitted `merge_field` ends in `skip_field`, and no type has an
 //! unknown-field member), so surviving would be the bug.
 //!
-//! Counterfactual, measured: replacing that `skip_field` with `Ok(())` in `shape/plain.rs` leaves
+//! Counterfactual, measured: replacing that `skip_field` with `Ok(())` in the message emitter (`armonik-macros/src/emit.rs`) leaves
 //! the suite green without this layer, and fails most of its cases with it.
 
 use prost::encoding::{self, WireType};

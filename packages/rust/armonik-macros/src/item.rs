@@ -109,7 +109,7 @@ pub(crate) fn salvage(mut input: DeriveInput, kind: Kind, error: Errors) -> Toke
     // Before `strip`, which is what the stubs read their shape and proto names from.
     let stubs = stubs(&input, kind);
     // Type-level docs only, and best-effort: the descriptor lookup may well be what failed.
-    inject_type_docs(&mut input, kind);
+    inject_type_docs(&mut input);
     strip(&mut input);
     // The same line the happy path adds. Without it, one mistake reads as one error under the
     // default features and as five, with `and 365 others`, under `--all-features`, which is what
@@ -388,7 +388,7 @@ fn apply<'a>(fields: impl Iterator<Item = &'a mut syn::Field>, slots: &[&Slot]) 
 ///
 /// Fields and variants get none: matching them to proto names would be a second copy of the
 /// resolvers' rules, for a build that is failing anyway.
-fn inject_type_docs(input: &mut DeriveInput, kind: Kind) {
+fn inject_type_docs(input: &mut DeriveInput) {
     let Ok(entries) = attrs::parse(&input.attrs) else {
         return;
     };
@@ -401,15 +401,13 @@ fn inject_type_docs(input: &mut DeriveInput, kind: Kind) {
     let Ok(index) = crate::descriptor::index() else {
         return;
     };
-    // A transparent enumeration names wrapper *messages*, so both tables are worth a look.
-    let docs = match kind {
-        Kind::Enumeration => index
-            .enums
-            .get(&proto)
-            .map(|meta| meta.docs.clone())
-            .or_else(|| index.messages.get(&proto).map(|meta| meta.docs.clone())),
-        Kind::Message => index.messages.get(&proto).map(|meta| meta.docs.clone()),
-    };
+    // Both tables, whatever the macro: one descriptor set never names a message and an enum the
+    // same, and a transparent enumeration names wrapper *messages*.
+    let docs = index
+        .enums
+        .get(&proto)
+        .map(|meta| meta.docs.clone())
+        .or_else(|| index.messages.get(&proto).map(|meta| meta.docs.clone()));
     if let Some(docs) = docs {
         prepend(&mut input.attrs, &docs);
     }
