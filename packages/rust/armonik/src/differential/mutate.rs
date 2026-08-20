@@ -12,8 +12,11 @@
 //! preserves unknown fields (every emitted `merge_field` ends in `skip_field`, and no type has an
 //! unknown-field member), so surviving would be the bug.
 //!
-//! Counterfactual, measured: replacing that `skip_field` with `Ok(())` in the message emitter (`armonik-macros/src/emit.rs`) leaves
-//! the suite green without this layer, and fails most of its cases with it.
+//! Counterfactual, measured: replacing that `skip_field` with `Ok(())` in the message emitter
+//! (`armonik-macros/src/emit.rs`) leaves every other test in the crate green, all 57 of them, and
+//! fails this one. On the unknown-field class specifically: an unknown field is the only mutation
+//! whose bytes have to be *skipped* rather than merged, so it is the only one that can see a
+//! fallback that consumes nothing.
 
 use prost::encoding::{self, WireType};
 use prost::Message;
@@ -26,7 +29,11 @@ use super::{arbitrary, compare, harness, registry, rng};
 /// A fixed block rather than `max(declared) + 1` per message, because a transparent wrapper
 /// delegates every tag to its inner type: "unknown here" has to mean unknown all the way down.
 /// `harness::descriptor_coverage_ratchet` keeps the schema's own tags below it.
-pub(super) const UNKNOWN_TAGS: std::ops::RangeInclusive<u32> = 1000..=1005;
+///
+/// One tag per case in [`UNKNOWN_CASES`], which is what sizes the block: a spare tag in it would
+/// read as a case that exists and does not.
+pub(super) const UNKNOWN_TAGS: std::ops::RangeInclusive<u32> =
+    1000..=(1000 + UNKNOWN_CASES as u32 - 1);
 
 /// One top-level record of an encoded message: its tag, its wire type, and the bytes it occupies,
 /// key included.
@@ -168,6 +175,12 @@ fn descending(records: &[Record<'_>]) -> Vec<u8> {
 ///
 /// Generalises `codec::tests::unpacked_repeated_enums_are_accepted` from one hand-picked field to
 /// every packable field of every registered message, inside real messages rather than a fixture.
+///
+/// Which is a narrow class in this schema, and the case is simply not produced for a message
+/// without one: of the repeated fields declared, six are enums (`ResultStatus` four times,
+/// `TaskStatus` and `SessionStatus` once each) and none is numeric; all the rest are `string` or a
+/// message, neither of which is packable. So this fires on two orders of magnitude fewer cases than
+/// its neighbours, and that is the schema rather than the mutation.
 fn unpacked(desc: &MessageDescriptor, records: &[Record<'_>]) -> Option<Vec<u8>> {
     let mut out = Vec::new();
     let mut spread = false;
