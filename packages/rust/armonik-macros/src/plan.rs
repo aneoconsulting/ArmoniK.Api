@@ -98,26 +98,6 @@ pub(crate) enum SlotCodec {
     Poisoned,
 }
 
-impl SlotCodec {
-    /// A leaf value and the check it implies, which is what an adapter substitutes away: a `with`
-    /// codec is checked by nothing, because the Rust representation is deliberately not the
-    /// proto's.
-    pub(crate) fn field(
-        ty: syn::Type,
-        adapter: Option<Box<syn::Type>>,
-        meta: &FieldMeta,
-    ) -> (Self, Option<Expectation>) {
-        let checks = adapter.is_none().then(|| Expectation::of(meta));
-        (
-            Self::Field {
-                ty: Box::new(ty),
-                adapter,
-            },
-            checks,
-        )
-    }
-}
-
 /// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
 /// the descriptor's own vocabulary.
 ///
@@ -167,7 +147,8 @@ pub(crate) struct Slot {
 
 impl Slot {
     /// A slot for one checked proto field: its tag, diagnostic path and harvested docs are the
-    /// descriptor's, and its check comes with its codec.
+    /// descriptor's; its codec and the check that survives it are the site's, because which
+    /// substitution leaves a shape to check is what `resolve::payload_codec` decides.
     pub(crate) fn field(
         message: &str,
         meta: &FieldMeta,
@@ -175,8 +156,12 @@ impl Slot {
         access: FieldAccess,
         ty: syn::Type,
         adapter: Option<Box<syn::Type>>,
+        checks: Option<Expectation>,
     ) -> Self {
-        let (codec, checks) = SlotCodec::field(ty, adapter, meta);
+        let codec = SlotCodec::Field {
+            ty: Box::new(ty),
+            adapter,
+        };
         Self {
             access: Some(access),
             span,

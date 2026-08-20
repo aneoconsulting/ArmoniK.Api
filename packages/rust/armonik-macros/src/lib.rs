@@ -193,8 +193,16 @@ use syn::DeriveInput;
 /// Rust type of its own. Registered as absorbed in `armonik`'s registry, so the
 /// differential harness counts it as covered through this parent. Repeatable.
 /// The other flatteners,
-/// [`transparent`](macro@enumeration#transparent) chains and inline struct variants,
-/// declare their absorbed messages automatically.
+/// [`flatten`](#flatten), [`transparent`](macro@enumeration#transparent) chains and inline
+/// struct variants, declare their absorbed messages automatically.
+///
+/// ## flatten
+///
+/// `flatten`, on a field or member payload field: the proto field is a single-field wrapper
+/// message (e.g. `VecWrapper { repeated string values = 1; }`), carried as its inner value. The
+/// wrapper is unwrapped from the descriptor: its tag path feeds the emitted
+/// `Wrapper<Own, N>` codec, the Rust type is shape-checked against the *inner* field (unlike
+/// [`with`](#with), which is trusted), and the wrapper message is absorbed automatically.
 ///
 /// ## present
 ///

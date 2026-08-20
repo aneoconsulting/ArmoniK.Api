@@ -12,18 +12,10 @@ pub enum SessionFilterStatuses {
     #[default]
     Invalid,
     /// Select the sessions whose status is one of these.
-    #[armonik(
-        rename = "included",
-        with = "crate::codec::adapters::Wrapper",
-        absorbs = "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest"
-    )]
+    #[armonik(rename = "included", flatten)]
     Include(Vec<SessionStatus>),
     /// Select the sessions whose status is none of these.
-    #[armonik(
-        rename = "excluded",
-        with = "crate::codec::adapters::Wrapper",
-        absorbs = "armonik.api.grpc.v1.submitter.SessionFilter.StatusesRequest"
-    )]
+    #[armonik(rename = "excluded", flatten)]
     Exclude(Vec<SessionStatus>),
 }
 

@@ -870,9 +870,10 @@ fn slot_asserts(slot: &Slot, type_ident: &syn::Ident, names: &[String]) -> Token
             .iter()
             .map(|part| slot_asserts(part, type_ident, names))
             .collect(),
-        // A `with` adapter is checked by nothing: it exists because the Rust representation is
-        // deliberately not the proto's.
-        (SlotCodec::Field { adapter, .. }, Some(ty)) if adapter.is_none() => {
+        // What is checked is whatever `checks` carries: the member itself for a plain field, the
+        // wrapper's inner field for a flattened one, nothing for a `with` adapter, which exists
+        // because the Rust representation is deliberately not the proto's.
+        (SlotCodec::Field { .. }, Some(ty)) => {
             field_asserts_for(ty, slot.span, &slot.proto_path, &slot.checks, type_ident)
         }
         (SlotCodec::Delegate { ty, tags }, _) => match tags {

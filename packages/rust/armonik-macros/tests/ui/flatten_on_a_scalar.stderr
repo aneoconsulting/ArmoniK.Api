@@ -1,0 +1,5 @@
+error: flatten unwraps a single-field wrapper message, but `fixture.Choice.text` is String
+ --> tests/ui/flatten_on_a_scalar.rs:9:15
+  |
+9 |     #[armonik(flatten)]
+  |               ^^^^^^^
