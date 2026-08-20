@@ -1067,16 +1067,7 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
             sib_locals: &sib_locals,
             take_pats: &all_pats,
         };
-        let arms = match &own.codec {
-            SlotCodec::Field { .. } => emit_payload_variant(&ctx),
-            SlotCodec::Marker { empty_message } => emit_marker_variant(&ctx, *empty_message),
-            SlotCodec::Inline { parts } => emit_inline_variant(&ctx, parts),
-            // A variant carries one member, never a whole oneof: an enum standing for a oneof *is*
-            // the flattened form, so there is nothing left to flatten.
-            SlotCodec::Oneof { .. } => {
-                unreachable!("a oneof variant carries a member, not another oneof")
-            }
-        };
+        let arms = emit_variant(&ctx);
         encode_arms.push(arms.encode);
         len_arms.push(arms.len);
         merge_arms.push(arms.merge);
@@ -1201,8 +1192,14 @@ struct EmitCtx<'a> {
     take_pats: &'a [TokenStream],
 }
 
-/// A variant carrying the member whole: `Variant(T)`, or one named field of a struct variant.
-fn emit_payload_variant(ctx: &EmitCtx<'_>) -> VariantArms {
+/// One variant's arms, whatever it carries.
+///
+/// A variant binds its own slot's values -- none for a `present` marker, one for a member carried
+/// whole, several for an `inline` member's parts -- and then the message's shared fields. Everything
+/// below is written against that one list, in braced form, so the three shapes differ only in what
+/// they put in it and in how [`slot_merge_in_place`] reads the member back. An empty list is not a
+/// special case: it interpolates to nothing.
+fn emit_variant(ctx: &EmitCtx<'_>) -> VariantArms {
     let EmitCtx {
         var,
         own,
@@ -1212,84 +1209,76 @@ fn emit_payload_variant(ctx: &EmitCtx<'_>) -> VariantArms {
     } = ctx;
     let tag = own.tag;
 
-    let merge = slot_merge_in_place(own, &quote!(&mut payload));
-    let binding = match own.access.as_ref() {
-        Some(FieldAccess::Named(field)) => Some(field),
-        _ => None,
-    };
-
-    // The active member carries the oneof's presence: leaving a zero payload out would decode as
-    // no member set, so this is the one slot that writes whatever it holds.
-    let written = slot_write(own, &quote!(payload), Presence::Explicit);
-    let (encode, len) = (written.encode, written.len);
-    let normalize = written.normalize;
-
-    // Matching binds the member as `payload` and ignores the siblings; constructing one
-    // needs them, so merging a member takes them along.
-    let pattern = match binding {
-        None => quote!(Self::#var(payload)),
-        Some(field) => quote!(Self::#var { #field: payload, .. }),
-    };
-    let (construct, take) = match binding {
-        None => (quote!(Self::#var(payload)), None),
-        Some(field) => (
-            quote!(Self::#var { #field: payload, #(#sib_idents: #sib_locals),* }),
-            Some(quote! {
-                #[allow(unused_parens)]
-                let (#(#sib_locals),*) = match value {
-                    #(#take_pats)|* => (#(::std::mem::take(#sib_locals)),*),
-                };
-            }),
-        ),
-    };
-
-    let encode = quote! { #pattern => { #encode } };
-    let len = quote! { #pattern => #len, };
-    let merge_arm = quote! {
-        #tag => {
-            #take
-            let mut payload = if let #pattern = value {
-                ::std::mem::take(payload)
-            } else {
-                ::core::default::Default::default()
-            };
-            #merge?;
-            *value = #construct;
-            ::core::result::Result::Ok(())
+    // The variant's own bindings, and the expression naming the member's value where it has one.
+    let (own_slots, value): (Vec<&Slot>, TokenStream) = match &own.codec {
+        SlotCodec::Marker { .. } => (Vec::new(), TokenStream::new()),
+        SlotCodec::Inline { parts } => (parts.iter().collect(), TokenStream::new()),
+        SlotCodec::Field { .. } => {
+            let local = slot_local(own);
+            (vec![own], quote!(#local))
+        }
+        // A variant carries one member, never a whole oneof: an enum standing for a oneof *is* the
+        // flattened form, so there is nothing left to flatten.
+        SlotCodec::Oneof { .. } => {
+            unreachable!("a oneof variant carries a member, not another oneof")
         }
     };
+    let own_keys: Vec<TokenStream> = own_slots
+        .iter()
+        .map(|slot| {
+            field_key(
+                slot.access
+                    .as_ref()
+                    .expect("a bound slot is reached by a field"),
+            )
+        })
+        .collect();
+    let own_locals: Vec<syn::Ident> = own_slots.iter().copied().map(slot_local).collect();
 
-    VariantArms {
-        encode,
-        len,
-        merge: merge_arm,
-        normalize,
-    }
-}
+    let pattern = quote!(Self::#var { #(#own_keys: #own_locals,)* .. });
+    let construct =
+        quote!(Self::#var { #(#own_keys: #own_locals,)* #(#sib_idents: #sib_locals),* });
 
-/// A `#[armonik(present)]` variant: the member is carried by its presence alone.
-fn emit_marker_variant(ctx: &EmitCtx<'_>, empty_message: bool) -> VariantArms {
-    let (var, tag) = (ctx.var, ctx.own.tag);
-    // The write side is the shared one: a marker carries no value, so it needs no accessor.
-    let written = slot_write(ctx.own, &TokenStream::new(), Presence::Explicit);
+    // The active member carries the oneof's presence: leaving a zero payload out would decode as no
+    // member set, so this is the one slot that writes whatever it holds.
+    let written = slot_write(own, &value, Presence::Explicit);
     let (encode, len) = (written.encode, written.len);
-    // Reading it back consumes whatever carried the presence, then selects the variant regardless of
-    // what that was: an explicit `false` still means the member is set.
-    let consume = if empty_message {
-        quote! { crate::codec::empty_body::merge(wire_type, buf, ctx)?; }
-    } else {
+
+    // Merging the member rebuilds the variant, so it needs the member's own values seeded from
+    // whatever is there, and the shared fields taken along.
+    let seeds = own_slots.iter().map(|slot| {
+        let ty = slot.ty().expect("a bound slot carries a value");
+        quote!(<#ty as ::core::default::Default>::default())
+    });
+    let seed = (!own_locals.is_empty()).then(|| {
         quote! {
-            let mut marker = false;
-            <bool as crate::codec::ProtoField>::merge_field(wire_type, &mut marker, buf, ctx)?;
+            #[allow(unused_parens)]
+            let (#(mut #own_locals),*) = if let #pattern = value {
+                (#(::std::mem::take(#own_locals)),*)
+            } else {
+                (#(#seeds),*)
+            };
         }
-    };
+    });
+    let take = (!sib_locals.is_empty()).then(|| {
+        quote! {
+            #[allow(unused_parens)]
+            let (#(#sib_locals),*) = match value {
+                #(#take_pats)|* => (#(::std::mem::take(#sib_locals)),*),
+            };
+        }
+    });
+    let merge = slot_merge_in_place(own, &quote!(&mut #value));
+
     VariantArms {
-        encode: quote! { Self::#var => { #encode } },
-        len: quote! { Self::#var => #len, },
+        encode: quote! { #pattern => { #encode } },
+        len: quote! { #pattern => #len, },
         merge: quote! {
             #tag => {
-                #consume
-                *value = Self::#var;
+                #take
+                #seed
+                #merge?;
+                *value = #construct;
                 ::core::result::Result::Ok(())
             }
         },
@@ -1297,95 +1286,12 @@ fn emit_marker_variant(ctx: &EmitCtx<'_>, empty_message: bool) -> VariantArms {
     }
 }
 
-/// A `#[armonik(inline)]` variant: the member message's own fields, spread into it and framed here.
-fn emit_inline_variant(ctx: &EmitCtx<'_>, parts: &[Slot]) -> VariantArms {
-    let var = ctx.var;
-    let own = ctx.own;
-    let tag = own.tag;
-
-    let part_idents: Vec<&syn::Ident> = parts
-        .iter()
-        .map(|part| match part.access.as_ref() {
-            Some(FieldAccess::Named(ident)) => ident,
-            _ => unreachable!("an inlined part is a named field of the variant"),
-        })
-        .collect();
-    // Bound under `__f<tag>` like the shared fields, and for the same reason: these
-    // locals share a scope with `buf`, `value`, `parts` and `body_len`.
-    let part_locals: Vec<syn::Ident> = parts.iter().map(slot_local).collect();
-    let part_tys: Vec<&syn::Type> = parts
-        .iter()
-        .map(|part| part.ty().expect("an inlined part carries a value"))
-        .collect();
-    let part_tags: Vec<u32> = parts.iter().map(|part| part.tag).collect();
-    let part_seeds: Vec<_> = parts
-        .iter()
-        .map(|part| {
-            let ty = part.ty().expect("an inlined part carries a value");
-            quote!(<#ty as ::core::default::Default>::default())
-        })
-        .collect();
-    // The parts are ordinary fields, written by the shared walk against the bindings
-    // this arm's pattern introduces; only the framing around them is hand-rolled, since
-    // the member message is absorbed and has no Rust type to delegate to.
-    // No value expression of its own: an inlined member names its parts through the
-    // bindings this arm's pattern introduces.
-    let written = slot_write(own, &TokenStream::new(), Presence::Explicit);
-    let (encode, len) = (written.encode, written.len);
-
-    let encode = quote! {
-        Self::#var { #(#part_idents: #part_locals),* } => { #encode }
-    };
-    let len = quote! {
-        Self::#var { #(#part_idents: #part_locals),* } => #len,
-    };
-    let merge_arm = quote! {
-        #tag => {
-            ::prost::encoding::check_wire_type(
-                ::prost::encoding::WireType::LengthDelimited,
-                wire_type,
-            )?;
-            #[allow(unused_parens)]
-            let (#(mut #part_locals),*) =
-                if let Self::#var { #(#part_idents: #part_locals),* } = value {
-                    (#(::std::mem::take(#part_locals)),*)
-                } else {
-                    (#(#part_seeds),*)
-                };
-            // Through prost's own framing, which brings the recursion and length
-            // limits `ctx` carries and rejects a body that runs past its declared end.
-            #[allow(unused_parens)]
-            let mut __parts = (#(#part_locals),*);
-            ::prost::encoding::merge_loop(
-                &mut __parts,
-                buf,
-                ctx,
-                |__parts, buf, ctx| {
-                    let (tag, wire_type) = ::prost::encoding::decode_key(buf)?;
-                    #[allow(unused_parens)]
-                    let (#(#part_locals),*) = __parts;
-                    match tag {
-                        #(
-                            #part_tags => <#part_tys as crate::codec::ProtoField>::merge_field(
-                                wire_type, #part_locals, buf, ctx,
-                            ),
-                        )*
-                        _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
-                    }
-                },
-            )?;
-            #[allow(unused_parens)]
-            let (#(#part_locals),*) = __parts;
-            *value = Self::#var { #(#part_idents: #part_locals),* };
-            ::core::result::Result::Ok(())
-        }
-    };
-
-    VariantArms {
-        encode,
-        len,
-        merge: merge_arm,
-        normalize: None,
+/// A field's key in braced syntax: its name, or its position for a tuple variant, whose fields are
+/// named `0`, `1`, ... So one pattern and one constructor serve every variant shape.
+fn field_key(access: &FieldAccess) -> TokenStream {
+    match access {
+        FieldAccess::Named(ident) => quote!(#ident),
+        FieldAccess::Indexed(index) => quote!(#index),
     }
 }
 

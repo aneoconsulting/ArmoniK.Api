@@ -597,14 +597,53 @@ pub(crate) fn slot_local(slot: &Slot) -> syn::Ident {
 /// Merge one slot into the place `value` names, for the slots a message reaches directly: a
 /// struct's field, or a whole-message enum's shared field.
 pub(crate) fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStream {
-    let d = slot_dispatch(slot);
     match &slot.codec {
-        SlotCodec::Field { .. } => quote! { #d::merge_field(wire_type, #value, buf, ctx) },
+        SlotCodec::Field { .. } => {
+            let d = slot_dispatch(slot);
+            quote! { #d::merge_field(wire_type, #value, buf, ctx) }
+        }
         SlotCodec::Oneof { .. } => {
+            let d = slot_dispatch(slot);
             quote! { #d::merge_field(#value, tag, wire_type, buf, ctx) }
         }
-        SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => {
-            unreachable!("markers and inlined members are only ever a variant's own slot")
+        // A marker carries no value, so reading it back is consuming whatever carried the presence.
+        SlotCodec::Marker {
+            empty_message: true,
+        } => quote! { crate::codec::empty_body::merge(wire_type, buf, ctx) },
+        SlotCodec::Marker {
+            empty_message: false,
+        } => quote! {{
+            let mut marker = false;
+            <bool as crate::codec::ProtoField>::merge_field(wire_type, &mut marker, buf, ctx)
+        }},
+        // The parts are ordinary fields, merged into the locals the caller's pattern bound, under
+        // prost's own framing: the recursion and length limits `ctx` carries, and the rejection of a
+        // body that runs past its declared end.
+        SlotCodec::Inline { parts } => {
+            let locals: Vec<syn::Ident> = parts.iter().map(slot_local).collect();
+            let tags = parts.iter().map(|part| part.tag);
+            let tys = parts
+                .iter()
+                .map(|part| part.ty().expect("an inlined part carries a value"));
+            let at = (0..parts.len()).map(syn::Index::from);
+            quote! {{
+                ::prost::encoding::check_wire_type(
+                    ::prost::encoding::WireType::LengthDelimited,
+                    wire_type,
+                )?;
+                let mut __parts = (#(&mut #locals,)*);
+                ::prost::encoding::merge_loop(&mut __parts, buf, ctx, |__parts, buf, ctx| {
+                    let (tag, wire_type) = ::prost::encoding::decode_key(buf)?;
+                    match tag {
+                        #(
+                            #tags => <#tys as crate::codec::ProtoField>::merge_field(
+                                wire_type, &mut *__parts.#at, buf, ctx,
+                            ),
+                        )*
+                        _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+                    }
+                })
+            }}
         }
     }
 }
