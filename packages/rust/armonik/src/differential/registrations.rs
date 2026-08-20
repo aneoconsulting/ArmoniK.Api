@@ -72,6 +72,12 @@ pub(crate) static DECLARED_RPCS: [Rpc];
 #[linkme::distributed_slice]
 pub(crate) static CLIENT_METHODS: [Rpc];
 
+/// Every service `#[armonik_macros::client]` compiled a client impl block for, recorded from the
+/// block rather than from its methods: which services exist in a build is what the coverage check
+/// has to filter on, and a service whose methods all vanished must not vanish with them.
+#[linkme::distributed_slice]
+pub(crate) static CLIENT_SERVICES: [&'static str];
+
 /// Every registered proto name that a Rust type implements, with that type's hooks.
 pub(crate) fn typed() -> impl Iterator<Item = (&'static str, Hooks)> {
     REGISTRY
