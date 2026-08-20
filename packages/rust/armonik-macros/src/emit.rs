@@ -505,6 +505,13 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -
     match &slot.codec {
         SlotCodec::Field { adapter, .. } => {
             let d = slot_dispatch(slot);
+            // An adapter owns its wire form, deciding for itself what "nothing" looks like, so it is
+            // never asked to leave a zero out: `PairMap` writes an empty map as no entries, and
+            // `ErrorAdapter`'s empty string is what its `Success` *is*.
+            let presence = match adapter {
+                Some(_) => Presence::Explicit,
+                None => presence,
+            };
             let (_, encode, len) = field_fragments(&d, tag, value.clone(), presence);
             SlotWrite {
                 encode,
