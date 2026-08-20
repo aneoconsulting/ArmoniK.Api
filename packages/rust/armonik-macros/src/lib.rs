@@ -29,11 +29,8 @@ mod names;
 mod plan;
 mod resolve;
 mod service;
-#[cfg(test)]
-mod snapshots;
 
 use item::Kind;
-use plan::EnumMode;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::DeriveInput;
 
@@ -384,13 +381,7 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
     };
     let anchors = item::anchors(&input, Kind::Enumeration);
     let absorbed = absorbed(&plan.absorbs);
-    // The one type in the crate that can be either family: a proto enum is a `ProtoField` in its own
-    // right, a transparent wrapper chain is message-shaped. The choice is read off `EnumMode`, here,
-    // because this is the only macro that has it.
-    let wire = match &plan.mode {
-        EnumMode::Plain { names } => enumeration::plain_wire(&plan, names),
-        EnumMode::Transparent { names, path } => enumeration::transparent_wire(&plan, names, path),
-    };
+    let wire = enumeration::wire(&plan);
     item::rewrite_enum(&mut input, &plan);
 
     [

@@ -632,7 +632,7 @@ struct Leftover {
 /// is one mistake with one message, whatever the pair.
 enum Carrier {
     /// The member carried whole (the default), optionally through a variant-level `with` adapter.
-    Whole(Option<syn::Type>),
+    Whole(Option<Box<syn::Type>>),
     /// `#[armonik(present)]`: carried by presence alone.
     Present,
     /// `#[armonik(inline)]`: the member message's own fields, spread into the variant.
@@ -677,7 +677,7 @@ fn carrier(
     } else if let Some(span) = inline {
         Carrier::Inline(span)
     } else {
-        Carrier::Whole(with.map(|(_, ty)| ty))
+        Carrier::Whole(with.map(|(_, ty)| Box::new(ty)))
     })
 }
 
@@ -778,7 +778,7 @@ fn resolve_variant(
                     );
                     return Err(());
                 }
-                let adapter = with.map(Box::new);
+                let adapter = with;
                 let checks = adapter.is_none().then(|| Expectation::of(ctx.field_meta));
                 Ok((
                     Some(FieldAccess::Indexed(syn::Index::from(0))),
