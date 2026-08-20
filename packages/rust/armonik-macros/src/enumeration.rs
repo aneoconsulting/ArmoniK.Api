@@ -5,7 +5,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 
 use crate::attrs::{self, scan_attrs, unraw, Allowed, AttrItem, FieldAttrs};
-use crate::descriptor::{DescriptorIndex, FieldKind};
+use crate::descriptor::{DescriptorIndex, FieldKind, MessageMeta};
 use crate::emit::{message_shaped, placeholder_bodies, tripwire, MessageBodies};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name};
@@ -70,11 +70,8 @@ pub(crate) fn resolve_enumeration(
                     generator.record(not_found(*span, "message", &current));
                     break None;
                 };
-                let [field] = meta.fields.as_slice() else {
-                    generator.error(
-                        *span,
-                        format!("`{current}` is not a single-field wrapper message"),
-                    );
+                let Some(field) = MessageMeta::sole_field(Some(meta), &current, *span, generator)
+                else {
                     break None;
                 };
                 path.push(field.tag);
