@@ -30,6 +30,9 @@ criterion = { version = "0.5", default-features = false, features = [
   "async_tokio",
   "cargo_bench_support",
 ] }
+# Descriptor-fingerprint hash. Shared because armonik-macros hashes at expansion time what
+# armonik's build script hashes at build time, and a divergent major would make the two disagree.
+fnv = "1"
 futures = "0.3"
 http-body-util = "0.1"
 humantime = "2.3.0"

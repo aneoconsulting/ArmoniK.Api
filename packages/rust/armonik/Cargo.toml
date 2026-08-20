@@ -83,7 +83,7 @@ protox = "0.9"
 prost.workspace = true
 # Descriptor-fingerprint hash; armonik-macros hashes it with the same crate at
 # expansion time, so the two sides cannot diverge (see build.rs).
-fnv = "1"
+fnv.workspace = true
 
 [[test]]
 name = "agent"
