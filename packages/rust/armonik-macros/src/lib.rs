@@ -155,8 +155,9 @@ use syn::DeriveInput;
 ///
 /// `generic`, on a struct: skip descriptor validation, since a generic type
 /// cannot name one proto message. Every field carries an explicit
-/// [`tag`](#tag), and the differential harness validates the concrete
-/// instantiations instead. Combines with neither [`message`](#message) nor
+/// [`tag`](#tag) and nothing else -- the instantiation is checked by comparing
+/// each field's `ProtoField` shape, which a [`with`](#with) adapter has none of
+/// -- and the differential harness validates the concrete instantiations too. Combines with neither [`message`](#message) nor
 /// [`transparent`](#transparent): both name the proto message this one says it
 /// does not have.
 ///
@@ -180,7 +181,8 @@ use syn::DeriveInput;
 /// representation that differs structurally from the proto shape (e.g.
 /// `PairMap` exposing repeated key/value pairs as a `HashMap`). Skips the
 /// descriptor kind checks on purpose; the differential harness covers the
-/// adapter, including its `normalize_dynamic` projection.
+/// adapter, including its `normalize_dynamic` projection. Not available in
+/// [`generic`](#generic) mode, whose only check is that shape comparison.
 ///
 /// ## absorbs
 ///

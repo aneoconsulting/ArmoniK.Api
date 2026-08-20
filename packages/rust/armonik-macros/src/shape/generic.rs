@@ -21,20 +21,22 @@ pub(crate) fn generic_plan(
     let mut fields = Vec::new();
     for (field_index, field) in data.fields.iter().enumerate() {
         let (span, access) = field_access(field, field_index);
-        let Some(FieldAttrs { tag, with, .. }) = scan_attrs(
+        // No `with`: the only check a generic type gets is the field-shape comparison at each
+        // `#[armonik_macros::alias]`, which reads `ProtoField::SHAPE` per field. An adapter has no
+        // shape to report -- it exists because the Rust representation is deliberately not the
+        // proto's -- so a field carrying one would have nothing to put in `GenericFields::FIELDS`.
+        let Some(FieldAttrs { tag, .. }) = scan_attrs(
             &field.attrs,
             Allowed {
                 tag: true,
-                with: true,
                 ..Allowed::default()
             },
-            "generic-mode fields only take tag = ... and with = ...",
+            "generic-mode fields only take tag = ...",
             &mut errors,
         ) else {
             continue;
         };
         let tag = tag.map(|(_, tag)| tag);
-        let with = with.map(|(_, ty)| ty);
         let Some(tag) = tag else {
             errors.at(
                 span,
@@ -58,7 +60,7 @@ pub(crate) fn generic_plan(
             tag,
             codec: SlotCodec::Field {
                 ty: Box::new(field.ty.clone()),
-                adapter: with.map(Box::new),
+                adapter: None,
             },
             checks: None,
             proto_path,
