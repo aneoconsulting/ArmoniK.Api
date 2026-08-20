@@ -11,7 +11,7 @@ use crate::descriptor::{FieldMeta, MessageMeta};
 
 /// Field-or-oneof lookup with coverage over one proto message: resolves names, records what was
 /// consumed, reports misses with the sorted "available:" list, and turns leftovers into
-/// completeness errors. One per message in [`crate::shape::plain::message_plan`]; also drives inline struct
+/// completeness errors. One per message in [`crate::resolve`]'s plain-struct walk; also drives inline struct
 /// variants.
 pub(crate) struct Matcher<'a> {
     message_name: &'a str,
