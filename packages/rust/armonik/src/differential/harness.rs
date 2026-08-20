@@ -445,12 +445,27 @@ fn descriptor_coverage_ratchet() {
 /// them gives for free: that one exists at all.
 ///
 /// `unexposed(...)` RPCs are not declared, which is what exempts them.
+///
+/// Only services that have a client method are checked. `rpc/*.rs` is unconditional -- the `Rpc`
+/// impls have to be, whatever the build -- while `client/*.rs` is gated per use case, so under
+/// `--features client` the agent's and the worker's methods are not compiled and their RPCs would
+/// read as uncovered. Restating those gates here would give `client/mod.rs`'s cfgs a second home;
+/// taking the services from the client side instead means every configuration checks exactly the
+/// surface it built, and the one CI runs (`--all-features`) checks all twelve. What this does not
+/// catch is a service losing *every* client method at once: that reads as a module the build left
+/// out. The count below is on the declared side, where nothing is gated.
 #[test]
 fn every_rpc_has_a_client_method() {
     use super::registrations::{CLIENT_METHODS, DECLARED_RPCS};
 
     let key = |rpc: &super::registrations::Rpc| format!("{}/{}", rpc.service, rpc.method);
-    let declared: std::collections::BTreeSet<String> = DECLARED_RPCS.iter().map(key).collect();
+    let compiled: std::collections::BTreeSet<&str> =
+        CLIENT_METHODS.iter().map(|rpc| rpc.service).collect();
+    let declared: std::collections::BTreeSet<String> = DECLARED_RPCS
+        .iter()
+        .filter(|rpc| compiled.contains(rpc.service))
+        .map(key)
+        .collect();
     let implemented: std::collections::BTreeSet<String> = CLIENT_METHODS.iter().map(key).collect();
 
     let uncovered: Vec<&String> = declared.difference(&implemented).collect();
@@ -466,9 +481,11 @@ fn every_rpc_has_a_client_method() {
         "these client methods name an RPC that no `service!` declares:\n    {unclaimed:#?}"
     );
 
-    // A guard on the guard: an empty pair of slices would satisfy both assertions above.
+    // A guard on the guard: an empty pair of slices would satisfy both assertions above. Counted
+    // over what `service!` declares rather than over the filtered set, so the number is the same
+    // in every configuration.
     assert_eq!(
-        declared.len(),
+        DECLARED_RPCS.len(),
         60,
         "the RPC count moved; update this number once the change is deliberate"
     );
