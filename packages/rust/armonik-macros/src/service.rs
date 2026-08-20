@@ -147,10 +147,6 @@ struct KindFacts {
     marker: TokenStream,
     /// The `server::router::serve_*` the route dispatches into.
     serve: Ident,
-    /// Where a `stream` keyword sits, which is what the trait signature reads: a streaming side
-    /// takes or returns `impl Stream` instead of the message.
-    client_streams: bool,
-    server_streams: bool,
 }
 
 impl CallKind {
@@ -159,26 +155,18 @@ impl CallKind {
             CallKind::Unary => KindFacts {
                 marker: quote!(crate::rpc::Unary),
                 serve: format_ident!("serve_unary"),
-                client_streams: false,
-                server_streams: false,
             },
             CallKind::ServerStream => KindFacts {
                 marker: quote!(crate::rpc::ServerStream),
                 serve: format_ident!("serve_server_stream"),
-                client_streams: false,
-                server_streams: true,
             },
             CallKind::ClientStream => KindFacts {
                 marker: quote!(crate::rpc::ClientStream),
                 serve: format_ident!("serve_client_stream"),
-                client_streams: true,
-                server_streams: false,
             },
             CallKind::BidiStream => KindFacts {
                 marker: quote!(crate::rpc::BidiStream),
                 serve: format_ident!("serve_bidi_stream"),
-                client_streams: true,
-                server_streams: true,
             },
         }
     }
@@ -355,15 +343,15 @@ fn expand_server(
             }
         };
         // `stream` sits where the proto puts it, so each side of the signature reads its own flag
-        // rather than the three shapes being enumerated together.
-        let facts = entry.kind.facts();
-        let parameter = if facts.client_streams {
+        // rather than the shapes being enumerated together. Straight from the descriptor: resolution
+        // has already held the declared `stream` keywords to it, so the two agree by then.
+        let parameter = if entry.meta.client_streaming {
             let stream = stream_of(quote!(#module::#request));
             quote!(#stream + 'static)
         } else {
             quote!(#module::#request)
         };
-        let output = if facts.server_streams {
+        let output = if entry.meta.server_streaming {
             stream_of(quote!(#module::#response))
         } else {
             quote!(#module::#response)

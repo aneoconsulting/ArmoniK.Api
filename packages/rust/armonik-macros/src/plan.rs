@@ -25,12 +25,23 @@ pub(crate) struct MessagePlan {
     pub(crate) fields: Vec<Slot>,
     pub(crate) generics: syn::Generics,
     pub(crate) fingerprint: u64,
-    /// `#[armonik(transparent)]` on a struct: the type delegates its whole `prost::Message` impl to
-    /// its single field.
-    pub(crate) transparent: bool,
+    /// Which of the three struct shapes this is, recorded by the resolver that chose it rather than
+    /// inferred downstream from a flag and an empty name list.
+    pub(crate) mode: Mode,
     /// Proto messages a `with` adapter flattens away, declared through `#[armonik(absorbs = ...)]`,
     /// so they have no Rust type of their own.
     pub(crate) absorbs: Vec<String>,
+}
+
+/// The three shapes a struct can take, chosen once by [`crate::shape::resolve_message`].
+///
+/// `Generic` names no proto message and carries explicit tags, so it is the one shape with nothing
+/// to validate against; `Transparent` delegates its whole wire impl to its single field.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Mode {
+    Plain,
+    Transparent,
+    Generic,
 }
 
 pub(crate) enum FieldAccess {

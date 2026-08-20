@@ -13,7 +13,7 @@ use crate::emit::{
     Presence,
 };
 use crate::matcher::{not_found, Found, Matcher};
-use crate::plan::{Expectation, MessagePlan, Slot, SlotCodec};
+use crate::plan::{Expectation, MessagePlan, Mode, Slot, SlotCodec};
 use crate::shape::transparent::transparent_message;
 
 /// Plan for a plain struct: every field is a field of the one proto message named at type level.
@@ -179,7 +179,7 @@ pub(crate) fn message_plan(
         absorbs,
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
-        transparent: false,
+        mode: Mode::Plain,
     })
 }
 
@@ -187,7 +187,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     let ident = &plan.ident;
     let generics = bound_generics(&plan.generics);
 
-    if plan.transparent {
+    if plan.mode == Mode::Transparent {
         return transparent_message(plan, &generics);
     }
 
@@ -196,7 +196,7 @@ pub(crate) fn message(plan: &MessagePlan) -> TokenStream {
     // Every `#[armonik_macros::alias]` over it then asserts them against the message it registers
     // under. The `SHAPE`s are written against the type parameters, so each instantiation reports
     // its own.
-    let generic_fields = plan.proto_names.is_empty().then(|| {
+    let generic_fields = (plan.mode == Mode::Generic).then(|| {
         let params = &plan.generics;
         let (_, ty_generics, _) = params.split_for_impl();
         let entries = plan.fields.iter().map(|field| {
