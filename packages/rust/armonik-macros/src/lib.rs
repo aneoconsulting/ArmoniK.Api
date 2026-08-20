@@ -76,7 +76,7 @@ use syn::DeriveInput;
 /// #[derive(Debug, Clone, Default, PartialEq, Eq)]
 /// #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 /// pub struct Response {
-///     #[armonik(with = "crate::codec::adapters::PairMap")]
+///     #[armonik(flatten)]
 ///     pub task_results: HashMap<String, Vec<String>>,
 /// }
 /// ```
@@ -179,30 +179,25 @@ use syn::DeriveInput;
 /// `with = "path::To::Adapter"`, on a field or single-payload tuple variant
 /// (in sibling variants, on the member payload field): encode through a custom
 /// `ProtoAdapter` instead of the type's `ProtoField` impl, for a Rust
-/// representation that differs structurally from the proto shape (e.g.
-/// `PairMap` exposing repeated key/value pairs as a `HashMap`). Skips the
-/// descriptor kind checks on purpose; the differential harness covers the
-/// adapter, including its `normalize_dynamic` projection. Not available in
-/// [`generic`](#generic) mode, whose only check is that shape comparison.
-///
-/// ## absorbs
-///
-/// `absorbs = "full.proto.Name"`, on a field or variant carrying a
-/// [`with`](#with) adapter: the proto message the adapter flattens away (a
-/// pair-entry, `VecWrapper` or `StringWrapper` message), which therefore has no
-/// Rust type of its own. Registered as absorbed in `armonik`'s registry, so the
-/// differential harness counts it as covered through this parent. Repeatable.
-/// The other flatteners,
-/// [`flatten`](#flatten), [`transparent`](macro@enumeration#transparent) chains and inline
-/// struct variants, declare their absorbed messages automatically.
+/// representation whose relation to the proto one is semantic rather than
+/// structural (e.g. `ErrorAdapter`, exposing an empty error string as
+/// success). Structural reshaping is [`flatten`](#flatten)'s job, which stays
+/// validated; `with` skips the descriptor kind checks on purpose, and the
+/// differential harness covers the adapter, including its
+/// `normalize_dynamic` projection. Not available in [`generic`](#generic) mode,
+/// whose only check is that shape comparison.
 ///
 /// ## flatten
 ///
-/// `flatten`, on a field or member payload field: the proto field is a single-field wrapper
-/// message (e.g. `VecWrapper { repeated string values = 1; }`), carried as its inner value. The
-/// wrapper is unwrapped from the descriptor: its tag path feeds the emitted
-/// `Wrapper<Own, N>` codec, the Rust type is shape-checked against the *inner* field (unlike
-/// [`with`](#with), which is trusted), and the wrapper message is absorbed automatically.
+/// `flatten`, on a field or member payload field: the proto field's message layer is absorbable,
+/// and the Rust type carries what is inside it. Two absorbable layers exist, told apart by the
+/// field's cardinality: a singular single-field wrapper (`VecWrapper { repeated string values =
+/// 1; }` carried as `Vec<String>`, through `Wrapper<Own, N>` with the tag read from the
+/// descriptor), and a repeated key/value pair (`IdStatus { string task_id = 1; TaskStatus status
+/// = 2; }`, the shape a proto map compiles to, carried as a `HashMap` through `PairMap`; entry
+/// order is not preserved and duplicate keys collapse). Either way the Rust type is shape-checked
+/// against the unwrapped form (unlike [`with`](#with), which is trusted) and the absorbed message
+/// needs no Rust type of its own.
 ///
 /// ## present
 ///

@@ -388,19 +388,10 @@ fn descriptor_coverage_ratchet() {
         missing.join("\",\n    \"")
     );
 
-    // A message with a Rust type cannot also be absorbed (an `absorbs` pointed at a real type).
-    let conflicts: Vec<&str> = absorbed
-        .iter()
-        .copied()
-        .filter(|name| registered.contains(name))
-        .collect();
-    assert!(
-        conflicts.is_empty(),
-        "these messages are both registered and absorbed:\n    {conflicts:?}"
-    );
-
-    // Every absorbed name must exist (a flattened message that was renamed or removed leaves a
-    // stale `absorbs`).
+    // The roles are not exclusive, and no longer can be: `StatusCount` is a Rust type of its own
+    // *and* flattened into maps elsewhere, so it is registered and absorbed at once, and both
+    // claims leave it covered. Absorption is derived from the descriptor by the macros now, so
+    // there is no hand-spelled entry left to contradict one.
     for name in &absorbed {
         assert!(
             pool.get_message_by_name(name).is_some(),

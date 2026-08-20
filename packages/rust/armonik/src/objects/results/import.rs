@@ -8,10 +8,7 @@ use super::Raw;
 pub struct Request {
     pub session_id: String,
     /// The opaque storage id to import into each result, keyed by result id.
-    #[armonik(
-        with = "crate::codec::adapters::PairMap",
-        absorbs = "armonik.api.grpc.v1.results.ImportResultsDataRequest.ResultOpaqueId"
-    )]
+    #[armonik(flatten)]
     pub results: HashMap<String, bytes::Bytes>,
 }
 

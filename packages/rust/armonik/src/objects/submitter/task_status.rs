@@ -14,10 +14,6 @@ pub struct Request {
 #[armonik(message = "armonik.api.grpc.v1.submitter.GetTaskStatusReply")]
 pub struct Response {
     /// The status of each task.
-    #[armonik(
-        rename = "id_statuses",
-        with = "crate::codec::adapters::PairMap",
-        absorbs = "armonik.api.grpc.v1.submitter.GetTaskStatusReply.IdStatus"
-    )]
+    #[armonik(rename = "id_statuses", flatten)]
     pub statuses: HashMap<String, TaskStatus>,
 }
