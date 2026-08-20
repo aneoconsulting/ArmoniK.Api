@@ -256,6 +256,7 @@ fn comments(file: &FileDescriptorProto) -> HashMap<Vec<i32>, Vec<String>> {
         4 => location.span[2],
         _ => start_line(location),
     };
+    let start_col = |location: &Location| location.span.get(1).copied().unwrap_or(0);
 
     let by_path: HashMap<&[i32], &Location> = info
         .location
@@ -280,9 +281,16 @@ fn comments(file: &FileDescriptorProto) -> HashMap<Vec<i32>, Vec<String>> {
         };
         let owner = previous_sibling(&location.path)
             .filter(|previous| {
-                by_path
-                    .get(previous.as_slice())
-                    .is_some_and(|previous| end_line(previous) + 1 >= start_line(location))
+                by_path.get(previous.as_slice()).is_some_and(|previous| {
+                    // Two conditions, both of which say there was nowhere to write this comment
+                    // above the element it is recorded against: that element starts on the line
+                    // right after the previous one, and nothing precedes it on its own line. A
+                    // comment written there -- `/** doc */ string y = 2;` -- pushes the element's
+                    // column past its sibling's, which is what tells that apart from the schema's
+                    // style, `string x = 1; /** doc */` with `y` on the next line.
+                    end_line(previous) + 1 == start_line(location)
+                        && start_col(location) <= start_col(previous)
+                })
             })
             .unwrap_or_else(|| location.path.clone());
         docs.entry(owner).or_insert_with(|| clean_comment(leading));
