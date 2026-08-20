@@ -29,6 +29,8 @@ sleep 5
 
 cd "$working_dir/$TEST_DIR"
 
+# Seeded, so a green run does not fall through to `exit` with whatever `kill` returned.
+ret=0
 $TEST_COMMAND || ret=$?
 
 echo $server_pid
