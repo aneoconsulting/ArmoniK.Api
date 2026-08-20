@@ -2,11 +2,9 @@
 //!
 //! The harness fuzzes every registered type against `prost-reflect` and compares semantically,
 //! which covers the derived majority far better than a hand-copied prototype of the emitter's
-//! output ever did. Five properties escape it, and they are what is left here, asserted on real
+//! output ever did. Four properties escape it, and they are what is left here, asserted on real
 //! `objects/` types rather than on mirrors of them:
 //!
-//! * **unpacked repeated scalars decode.** `prost-reflect` always *encodes* packed, so the harness
-//!   never produces the other form, which a conformant sender may send at any time.
 //! * **a field spelled with the wrong wire type is rejected.** The mutation harness reorders,
 //!   duplicates and unpacks records, but never re-spells one, so every wire-type check is invisible
 //!   to it.
@@ -15,14 +13,18 @@
 //! * **`clear()` resets to the proto zero.** Nothing on the round-trip path calls it.
 //! * **which zeros reach the wire.** An implicit-presence leaf leaves its zero out; a message field
 //!   is written whatever it holds. Two byte-level facts about values a reader cannot tell apart, so
-//!   the semantic comparison is blind to both. The third case, a oneof member holding its zero, is
-//!   *not* blind: every oneof enum carries a memberless variant, so dropping the payload decodes to
-//!   a different Rust value and the round-trip fails on it. Measured, by writing that member through
-//!   `encode_implicit`: `a_zero_oneof_member_stays_on_the_wire`, `registered_types_roundtrip` and
-//!   `mutated_encodings_decode_to_the_same_value`, and nothing else.
+//!   the semantic comparison is blind to both.
 //!
 //! Plus the `ProtoField` impls no API field instantiates, which therefore have no other coverage at
 //! all.
+//!
+//! Two properties used to be here and are not any more, both measured out rather than argued out. A
+//! oneof member holding its zero stays on the wire, which the round-trip *does* see: every oneof
+//! enum carries a memberless variant, so dropping the payload decodes to a different Rust value.
+//! And the unpacked form of a repeated field decodes, which `differential::mutate`'s `unpacked`
+//! class produces for every packable field of every registered message; that reaches the enum codec
+//! through the six repeated enum fields this schema declares, so a schema that stopped declaring
+//! one would need the case back, next to the other codecs no field instantiates.
 //!
 //! Deliberately not a copy of the derive's output: the harness already compares against
 //! `DynamicMessage`, and a snapshot of the emitter would only ever be updated after it.
@@ -36,43 +38,6 @@ use super::ProtoField;
 /// Encode and decode back, the way a peer would.
 fn roundtrip<T: Message + Default>(value: &T) -> T {
     T::decode(value.encode_to_vec().as_slice()).expect("a self-encoded message decodes")
-}
-
-/// A repeated enum arrives packed or unpacked at the sender's discretion; both decode, and this
-/// crate sends the packed form.
-#[test]
-fn unpacked_repeated_enums_are_accepted() {
-    use crate::SessionStatus;
-
-    let expected = vec![SessionStatus::Running, SessionStatus::Cancelled];
-
-    let mut packed = Vec::new();
-    <SessionStatus as ProtoField>::encode_repeated(1, &expected, &mut packed);
-
-    // The same values as one key per element, which is what a sender that does not pack emits.
-    let mut unpacked = Vec::new();
-    for status in &expected {
-        prost::encoding::encode_key(1, WireType::Varint, &mut unpacked);
-        prost::encoding::encode_varint(i32::from(*status) as u64, &mut unpacked);
-    }
-    assert_ne!(packed, unpacked, "the two forms are distinguishable");
-
-    for (form, bytes) in [("packed", &packed), ("unpacked", &unpacked)] {
-        let mut rest = bytes.as_slice();
-        let mut decoded: Vec<SessionStatus> = Vec::new();
-        while !rest.is_empty() {
-            let (tag, wire_type) = prost::encoding::decode_key(&mut rest).expect("the key decodes");
-            assert_eq!(tag, 1);
-            <SessionStatus as ProtoField>::merge_repeated(
-                wire_type,
-                &mut decoded,
-                &mut rest,
-                DecodeContext::default(),
-            )
-            .expect("the values merge");
-        }
-        assert_eq!(decoded, expected, "the {form} form decodes");
-    }
 }
 
 /// `None` and `Some(default)` are different on the wire and stay different through a round trip.
@@ -128,19 +93,6 @@ fn a_zero_leaf_is_left_off_the_wire() {
     };
     assert_eq!(one_set.encode_to_vec(), [0x0a, 0x01, b's']);
     assert_eq!(roundtrip(&one_set), one_set);
-}
-
-/// A oneof member is the exception: it is what selects the variant, so leaving a zero payload out
-/// would decode as no member set. `Normalize` folds a member holding its default onto the absent
-/// oneof, so the harness's *comparison* cannot see it; its round-trip can, the value coming back as
-/// the memberless variant. This pins it at the byte level, where the difference is.
-#[test]
-fn a_zero_oneof_member_stays_on_the_wire() {
-    // `InitKeyedDataStream.key`, a `string` member at tag 1.
-    let empty_key = crate::InitKeyedDataStream::Key(String::new());
-    assert_eq!(empty_key.encode_to_vec(), [0x0a, 0x00]);
-    assert_eq!(roundtrip(&empty_key), empty_key);
-    assert_ne!(empty_key, crate::InitKeyedDataStream::Invalid);
 }
 
 /// A nested message holding only defaults is written too: absent and default are the same value for
