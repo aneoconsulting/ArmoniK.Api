@@ -124,3 +124,34 @@ ps -eo pid=,comm=,args= | awk '$2=="dotnet" && /Mock\.dll/ {print $1}' | xargs -
   is wrong symmetrically survives it.
 - Keep `armonik/DESIGN.md` in step with the mechanisms; it is the only place the
   reasoning behind them is written down.
+
+## Simplifying
+
+Less is more, and the target is a mechanism general enough to need no special
+cases -- not fewer capabilities. `DESIGN.md` 12.1 records this at length; the
+rules are:
+
+- **A degenerate case falls out of the general code.** An empty list
+  interpolates to nothing, so the shape carrying none of something is the shape
+  carrying some of it. A branch that exists only because one arm has zero of what
+  another has is the defect, not the shape.
+- **Two orthogonal axes are not a product of named cases.** A sum type carrying
+  the coordinates it already encodes, or a mode inferred from a flag plus an
+  emptiness test, gives one fact two homes that can disagree. Read it where it is
+  decided.
+- **A shared helper should be total over what its callers reach.** Where a
+  sibling helper covers a case this one refuses, and the refusal is what pushed
+  that case into a bespoke path, the hole is the defect. A helper that is simply
+  never asked about a case -- `emit::slot_dispatch`, and the two slot codecs that
+  frame themselves -- is not.
+- **Generalize toward the common case.** A struct is not an enum with one
+  variant: unifying that way pessimizes every struct to subsume the two enums
+  that carry shared fields.
+- **Prefer removing a restriction to adding a guard.** If the emitter cannot
+  express a shape, ask whether ordering or composing differently would, before
+  writing a check that rejects it.
+
+Before proposing an architectural alternative, read the three registers of
+rejected options -- `DESIGN.md` Part II 5, 11.2, and 12.3. Each entry is recorded
+with the fact that refutes it, so the work is to refute the fact rather than to
+re-derive the option.
