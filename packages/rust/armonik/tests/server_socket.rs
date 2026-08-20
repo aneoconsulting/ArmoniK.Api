@@ -46,6 +46,20 @@ async fn serve() -> (tonic::transport::Channel, tokio::task::JoinHandle<()>) {
     serve_router(tonic::transport::Server::builder().add_service(Versions.versions_server())).await
 }
 
+/// Serve the results router, and hand back the token its `watch` handler holds while it reads.
+async fn serve_watcher() -> (
+    tonic::transport::Channel,
+    tokio::task::JoinHandle<()>,
+    tokio_util::sync::CancellationToken,
+) {
+    let watcher = Watcher::default();
+    let serving = watcher.serving.clone();
+    let (channel, server) =
+        serve_router(tonic::transport::Server::builder().add_service(watcher.results_server()))
+            .await;
+    (channel, server, serving)
+}
+
 /// Serve a router on an ephemeral port and hand back a channel to it, plus the task's handle so
 /// the caller drops the server with the test.
 async fn serve_router(
@@ -195,10 +209,27 @@ async fn an_unnegotiated_encoding_is_refused() {
     serving.abort();
 }
 
+/// A defaulting handler per named RPC. The handler name is its request module's name, which is what
+/// lets one identifier stand for the whole method; `ResultsService` has no default bodies, so a fake
+/// has to spell every RPC whether or not the test drives it.
+macro_rules! unexercised {
+    ($($name:ident),* $(,)?) => {
+        $(
+            async fn $name(
+                self: Arc<Self>,
+                _request: results::$name::Request,
+                _context: RequestContext,
+            ) -> Result<results::$name::Response, tonic::Status> {
+                Ok(Default::default())
+            }
+        )*
+    };
+}
+
 /// A `Results` fake whose `WatchResults` handler holds a cancellation guard for as long as it is
 /// reading requests, and answers one response per request. Every other method answers with a
 /// default, so the service can be mounted whole.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct Watcher {
     serving: tokio_util::sync::CancellationToken,
 }
@@ -278,69 +309,16 @@ impl ResultsService for Watcher {
         })
     }
 
-    async fn list(
-        self: Arc<Self>,
-        _request: results::list::Request,
-        _context: RequestContext,
-    ) -> Result<results::list::Response, tonic::Status> {
-        Ok(Default::default())
-    }
-
-    async fn get(
-        self: Arc<Self>,
-        _request: results::get::Request,
-        _context: RequestContext,
-    ) -> Result<results::get::Response, tonic::Status> {
-        Ok(Default::default())
-    }
-
-    async fn get_owner_task_id(
-        self: Arc<Self>,
-        _request: results::get_owner_task_id::Request,
-        _context: RequestContext,
-    ) -> Result<results::get_owner_task_id::Response, tonic::Status> {
-        Ok(Default::default())
-    }
-
-    async fn create_metadata(
-        self: Arc<Self>,
-        _request: results::create_metadata::Request,
-        _context: RequestContext,
-    ) -> Result<results::create_metadata::Response, tonic::Status> {
-        Ok(Default::default())
-    }
-
-    async fn create(
-        self: Arc<Self>,
-        _request: results::create::Request,
-        _context: RequestContext,
-    ) -> Result<results::create::Response, tonic::Status> {
-        Ok(Default::default())
-    }
-
-    async fn import(
-        self: Arc<Self>,
-        _request: results::import::Request,
-        _context: RequestContext,
-    ) -> Result<results::import::Response, tonic::Status> {
-        Ok(Default::default())
-    }
-
-    async fn delete_data(
-        self: Arc<Self>,
-        _request: results::delete_data::Request,
-        _context: RequestContext,
-    ) -> Result<results::delete_data::Response, tonic::Status> {
-        Ok(Default::default())
-    }
-
-    async fn get_service_configuration(
-        self: Arc<Self>,
-        _request: results::get_service_configuration::Request,
-        _context: RequestContext,
-    ) -> Result<results::get_service_configuration::Response, tonic::Status> {
-        Ok(Default::default())
-    }
+    unexercised!(
+        list,
+        get,
+        get_owner_task_id,
+        create_metadata,
+        create,
+        import,
+        delete_data,
+        get_service_configuration
+    );
 }
 
 /// Dropping a bidirectional call's response stream ends the call.
@@ -352,16 +330,7 @@ impl ResultsService for Watcher {
 /// future directly, whatever the request half is doing.
 #[tokio::test]
 async fn dropping_a_bidi_response_stream_ends_the_handler() {
-    let serving = tokio_util::sync::CancellationToken::new();
-    let (channel, server) = serve_router(
-        tonic::transport::Server::builder().add_service(
-            Watcher {
-                serving: serving.clone(),
-            }
-            .results_server(),
-        ),
-    )
-    .await;
+    let (channel, server, serving) = serve_watcher().await;
 
     // Unbounded and kept alive past the drop below: the request half stays open unless the client
     // closes it, which is the whole point.
@@ -398,15 +367,7 @@ async fn dropping_a_bidi_response_stream_ends_the_handler() {
 /// client's decoder reassembles.
 #[tokio::test]
 async fn a_server_streamed_body_arrives_in_order() {
-    let (channel, server) = serve_router(
-        tonic::transport::Server::builder().add_service(
-            Watcher {
-                serving: tokio_util::sync::CancellationToken::new(),
-            }
-            .results_server(),
-        ),
-    )
-    .await;
+    let (channel, server, _serving) = serve_watcher().await;
 
     let mut client = armonik::Client::with_channel(channel).into_results();
     let chunks: Vec<String> = client
@@ -432,15 +393,7 @@ async fn a_server_streamed_body_arrives_in_order() {
 /// before answering, which is what its total says.
 #[tokio::test]
 async fn a_client_streamed_body_arrives_whole() {
-    let (channel, server) = serve_router(
-        tonic::transport::Server::builder().add_service(
-            Watcher {
-                serving: tokio_util::sync::CancellationToken::new(),
-            }
-            .results_server(),
-        ),
-    )
-    .await;
+    let (channel, server, _serving) = serve_watcher().await;
 
     let mut client = armonik::Client::with_channel(channel).into_results();
     let response = client
