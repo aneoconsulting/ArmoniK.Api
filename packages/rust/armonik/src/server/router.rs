@@ -67,9 +67,12 @@ pub struct Router<Svc, S> {
 
 /// Hand-written, because the derive would demand `Svc: Debug` and the service markers `service!`
 /// emits are unit structs implementing nothing. `Svc` is a `PhantomData<fn() -> Svc>` here, so it
-/// holds no value to print, so the bound says nothing about this type's contents: a downstream
-/// `#[derive(Debug)]` over a struct with a `Router` field compiled on main and could not be made to
-/// compile here.
+/// holds no value to print and the bound would say nothing about this type's contents.
+///
+/// `S: Debug` stays, and it is a real requirement: a router over a service holding, say, a database
+/// pool is not `Debug`, so a downstream `#[derive(Debug)]` over a struct with such a `Router` field
+/// still does not compile. That matches what tonic's own `#[derive(Debug)] pub struct XServer<T>`
+/// asks for, and printing the service is the only thing this impl has to print.
 impl<Svc, S: std::fmt::Debug> std::fmt::Debug for Router<Svc, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Router")
@@ -474,9 +477,9 @@ where
 /// Serve one bidirectional-streaming request; `handler` receives the request stream and returns
 /// the response stream.
 ///
-/// `S: Send` on top of what the other three ask for: `tonic::server::Grpc::streaming` is the only
-/// one of the four entry points that requires it, and it is the primitive the other three delegate
-/// to.
+/// The bounds are `serve_server_stream`'s, with the handler taking a stream of requests instead of
+/// one: `tonic::server::Grpc::streaming` is the primitive the other three entry points delegate to,
+/// so it asks for nothing they do not.
 pub(crate) async fn serve_bidi_stream<S, R, F, Fut, St, B>(
     svc: Arc<S>,
     req: http::Request<B>,

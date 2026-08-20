@@ -9,7 +9,6 @@ pub use crate::rpc::results::Client as Results;
 #[armonik_macros::client]
 #[armonik(service = "armonik.api.grpc.v1.results.Results")]
 impl<T: super::Channel> super::ServiceClient<services::Results, T> {
-    /// Upload data for result with stream.
     #[armonik(rpc = "UploadResultData")]
     pub async fn upload<S>(
         &mut self,

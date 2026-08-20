@@ -228,9 +228,9 @@ compiled first and its derives have run):
 alone stands for the *whole* message: its single oneof is inferred, and any
 non-oneof field of the message is a *sibling*, declared in every variant
 (including the attribute-less "no member set" one) so the per-field merge
-stays stateless and order-independent. A sibling whose tag falls between two
-member tags is rejected: encoding writes the siblings around the member, which
-for such a message has no ascending-tag spelling. `oneof = "..."` declares an enum for
+stays stateless and order-independent. Each variant writes the fields it carries
+in tag order, so a sibling whose tag falls between two member tags is written
+where its tag puts it rather than rejected. `oneof = "..."` declares an enum for
 one oneof of a larger message, embedded in a struct, and is rejected when
 the oneof covers the whole message, keeping the two shapes visually
 distinct. At expansion time the macro:
@@ -312,7 +312,9 @@ rather than collapse to `Unspecified`. The shape
 
 ```rust
 #[armonik_macros::enumeration]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// The comparison traits are *not* derived here: the macro emits them over the proto value, and a
+// site derive of any of them is a spanned error.
+#[derive(Debug, Clone, Copy)]
 #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 pub enum TaskStatus {
     Creating,              // = 1, names matched against the proto
@@ -324,7 +326,8 @@ pub enum TaskStatus {
 }
 
 impl TaskStatus {
-    /// Matchable in patterns: `TaskStatus::UNSPECIFIED => ...`
+    /// Compared with `==`, not matched on: the comparison traits are implemented over the proto
+    /// value, which makes the type non-structural-match.
     pub const UNSPECIFIED: Self = Self::Unknown(UnknownTaskStatus(0));
 }
 ```
@@ -459,7 +462,7 @@ loss through `normalize_dynamic`).
 > predicate so the length walk cannot disagree with what is written.
 >
 > Measured on the bench fixtures: `results/get` 53 bytes against 59, and the
-> 32-entry `results/list` response 1700 against 1894. What that buys in time, and
+> 32-entry `results/list` response 1766 against 1960. What that buys in time, and
 > what it leaves of the branch's unary regression, is in `benches/wire.rs`.
 
 - Non-`Option` message field ("absent = default"): decode merges in place,
@@ -644,11 +647,14 @@ even though the branch lands as one unit:
   discriminants for ClientSubmission/WorkerSubmission/ClosedAt/PurgedAt/
   DeletedAt, which disagreed with `SessionRawEnumField`; values are now
   matched by name against the descriptor.
-- Enums: dataful `Unknown(...)` variant replaces `Unspecified` unit variants
-  (`UNSPECIFIED` const provided); `as i32` casts replaced by `From` impls;
-  matches need an `Unknown`/catch-all arm. The comparison traits are emitted
-  rather than derived, in terms of the proto value, so `Ord` orders by it and an
-  unknown value sorts by the number it carries (see 6.1).
+- Enums: dataful `Unknown(...)` variant replaces `Unspecified` unit variants;
+  `as i32` casts replaced by `From` impls; matches need an `Unknown`/catch-all
+  arm. The comparison traits are emitted rather than derived, in terms of the
+  proto value, so `Ord` orders by it and an unknown value sorts by the number it
+  carries (see 6.1) -- and that is also what makes the type non-structural-match,
+  so the `UNSPECIFIED` const provided for the removed unit variant is compared
+  with `==` rather than matched on. A `match` reaches it through its catch-all
+  arm, or through `From<i32>` on the value.
   `worker::health_check::Response` loses its named `Unknown` variant to the
   catch-all with the rest of the zero values: the status is
   `Response::UNSPECIFIED`.
@@ -659,7 +665,29 @@ even though the branch lands as one unit:
   zero-default invariant); `tasks::Output::default()` is `Error("")`, and an
   absent task output reads as an empty error rather than success. Section 6.1
   lists the replacements.
-- serde representation shifts for the affected enums and `Bytes` fields.
+- **Every oneof enum gained an `Invalid` variant** (24 of them), for "the
+  message arrived with no member set", which is a state proto3 can express and
+  the old shapes could not represent. Two consequences for a caller: a `match`
+  on any of them is now non-exhaustive, and two `Default`s changed *value* --
+  `Output::default()` was `Ok` (a reported success) and is now `Invalid` (no
+  outcome reported), and `DataChunk::default()` was `Data(Bytes::new())` and is
+  now `Invalid`. The `Output` one is the sharp edge: a peer that reports nothing
+  is not a peer that reports success, which is why the variant's rustdoc says so
+  at the declaration.
+- `agent::notify_result_data::Request` loses `session_id` and `result_ids` for
+  one `results: Vec<ResultIdentifier>`, matching the proto's repeated
+  `ResultIdentifier`. `Request::in_session(token, session, ids)` builds the
+  common shape, one session across many result ids.
+- `results::import::Response.results` goes from `HashMap<String, Raw>` to
+  `Vec<Raw>`: the proto message is a repeated `ResultRaw`, and keying it by
+  result id both invented an index and dropped duplicates. `by_name()` and
+  `by_result_id()` build a map from it where a caller wants one.
+- serde: `Bytes` fields shift, and so does **every enumeration**. A named value
+  is its Rust variant name as before; an unknown one is now the bare number
+  (`9999`) rather than `{"Unknown": 9999}`, which spelled a Rust implementation
+  detail where the number is what the other bindings agree on. Reading accepts
+  the name, the bare number and the old `{"Unknown": n}` form, all normalized
+  through `From<i32>`.
 - `prost_types::{Duration, Timestamp}` remain the public time types
   (unchanged).
 - Everything else keeps its current shape and module paths.
@@ -934,13 +962,13 @@ invocation:
 - `_gen-server`: the `ResultsService` trait with the harvested doc comments
   attached, `ResultsServiceExt`, and the `Routes` table the generic router
   consumes (section 3.6)
-- `_gen-client`: one convenience method per non-`manual` rpc line (section 3.7),
-  and `pub type Client<T> = ServiceClient<Results, T>` carrying the same
-  harvested docs as the marker. `client/<svc>.rs` is a one-line re-export of it
-  (`pub use crate::rpc::results::Client as Results;`). The twelve aliases used to
-  be hand-written there, each with a hand-transcribed service doc comment, two of
-  which had already drifted from the protos (`client/partitions.rs`,
-  `client/versions.rs`) — the duplication class Part II section 1 names as
+- `_gen-client`: `pub type Client<T> = ServiceClient<Results, T>`, carrying the
+  same harvested docs as the marker. `client/<svc>.rs` re-exports it under the
+  service's own name (`pub use crate::rpc::results::Client as Results;`), beside
+  the convenience methods it writes by hand (section 3.7). The twelve aliases used
+  to be hand-written there, each with a hand-transcribed service doc comment, two
+  of which had already drifted from the protos (`client/partitions.rs`,
+  `client/versions.rs`), the duplication class Part II section 1 names as
   motivation, reintroduced by hand. `client/agent.rs` and `client/worker.rs` keep
   a doc comment of their own, because those two protos document their service
   with nothing at all
@@ -1223,91 +1251,62 @@ argument or return position). The five hand-shaped signatures currently living
 after the `---` in `define_trait_methods!`, and the `---` escape hatch itself,
 go away.
 
-### 3.7 The convenience layer is fully derived from the request structs
+### 3.7 The convenience layer is written down, one line per method
 
-The convenience methods have **zero per-method source**: `service!` emits
-them, and their *signatures* come from the request structs' own fields, the
-one place the Rust types (not the proto types, section 5.8) are visible. Parameters
-mirror the fields in declaration order (field order is wire-irrelevant, so
-structs are reordered where ergonomics demand), widened by a sugar class the
-derive infers from each field's type:
+The convenience methods are hand-written, one per RPC, and their signatures are
+spelled at the call site rather than derived from anything. That is the point: a
+signature that is written down cannot move when a field is added to the proto
+message behind it, and 30 of the 59 methods used to have a return type that was
+a function of a response message's field count.
 
-| field type | parameter | conversion |
+Most methods are the same shape -- widen a few arguments, build the request,
+call it, hand back one field of the response -- so that shape is written once, as
+the `client_method!` `macro_rules!` in `client/method.rs`:
+
+```rust
+client_method!(ListResults:
+    list(filters: filters<crate::results::filter::Field>, sort: plain<crate::results::Sort>,
+         page: plain<i32>, page_size: plain<i32>)
+    -> crate::results::list::Request => results: Vec<crate::results::Raw>);
+```
+
+One line carries the rpc marker, the method name, each parameter with its
+widening class, the request type it builds, and the response field it projects
+(`=> field: Ty`, or nothing for the whole response). The classes are the sugar,
+and each is a pair of arms -- `param_ty!` for the signature, `param_value!` for
+the conversion back -- written next to each other so the two cannot disagree:
+
+| class | parameter | conversion |
 |---|---|---|
-| `String`, `Bytes`, `Vec<u8>` | `impl Into<...>` | `.into()` |
-| `Vec<T>` | `impl IntoIterator<Item = impl Into<T>>` | `.into_collect()` |
-| `HashMap<K, V>` | `impl IntoIterator<Item = (impl Into<K>, impl Into<V>)>` | pair map |
-| `filter::Or` | nested `impl IntoIterator` of `filter::Field` | `into_filters(...)` |
-| anything else | itself | moved |
+| `into<T>` | `impl Into<T>` | `.into()` |
+| `iter<T>` | `impl IntoIterator<Item = impl Into<T>>` | `into_collect()` |
+| `pairs<K, V>` | `impl IntoIterator<Item = (impl Into<K>, impl Into<V>)>` | pair map |
+| `filters<F>` | nested `impl IntoIterator` of `F` | `into_filters(...)` |
+| `plain<T>` | `T` | moved |
 
-The mechanism is a cross-macro handshake: `#[armonik_macros::message]` emits, next to
-each struct, a `__armonik_fields_*` callback macro (field names + sugar
-classes, CPS-style) and flat `__armonik_ty_*` aliases (so another module can
-name field and element types without transporting relative-path tokens);
-`service!` emits an invocation of the request's callback continued into the
-`__emit_convenience` proc macro, which builds the method. Method docs are the
-harvested proto comments.
-
-The *response* side is spelled on the rpc line, not inferred: a bare line
-returns the whole response, `=> field` projects that field, `=> ()` discards it.
-
-It used to be inferred, with the same three forms plus `=> *` for "whole,
-always": a bare line meant "project the single field, or return the whole
-response if there are several", which `__emit_convenience` resolved by chaining
-once through the *response* type's callback to count its fields. Two things were
-wrong with it. The return type of 30 of the 59 methods was a function of a proto
-message's field count, so adding a second field to any of those messages
-silently changed the public API. And that second hop was the only reason a
-*response* needed a reflection callback at all: a response with none, an enum or
-an alias, failed to resolve a mangled name rather than saying what was missing.
-Making the 30 say `=> field` deleted the hop, the `auto` form and `=> *` at
-once.
-
-The request side is untouched, and it is where the reflection earns its keep:
-the field list is what turns `list::Request { filters, sort, with_task_options,
-page, page_size }` into `client.list(filters, sort, with_task_options, page,
-page_size)`, and only a macro-to-macro channel can carry it to the rpc line,
-where the struct is not visible.
-
-That mangling is by the type path written on the rpc line, which an **alias** of
-a message breaks: `pub type Response = Count;` has no reflection of its own (the
-derive emitted it next to `Count`, under the `count` stem). A second attribute
-macro, `#[armonik_macros::reflect]`, used to carry it over for the two RPCs that
-needed it, and produced the worst diagnostic in the system when forgotten: it
-pointed at the *request*'s derive, in the wrong file, and suggested importing a
-mangled alias. Both sites now declare the message themselves
-(`submitter::{count_tasks, wait_for_completion}::Response`), which is what the
-crate does everywhere else a proto message is shared across RPC sites, and the
-second proc macro is gone. Two aliases remain and are fine, because neither
-projects: `submitter::get_service_configuration::Response = Configuration` and
-`submitter::try_get_task_output::Response = Output`.
-
-**Opt-out**: `manual` on the rpc line emits nothing: the escape for custom
-wiring or a wrong mechanical default. Client-streaming RPCs are required to
-carry it: their request is a stream, so there is no message to spread into
-parameters. (Since the `IntoCall` unification their *entry point* is `call`
-like everyone else's, so a `stream in, projected response out` method would now
-be derivable -- but all three client-streaming RPCs need a hand-written body
-anyway, two to turn a oneof response into an error and one to build the request
-stream, so deriving it would be an emission path with no consumer, which
-section 5.11's rule rejects.) Today that leaves eight hand-written
-methods (`results::{upload, watch}`, `worker::process`, where nine exploded
-parameters is a wrong default, `submitter::{create_small_tasks,
+Anything the shape does not fit is an ordinary `fn` beside it: eight methods are
+written out in full (`results::{upload, watch}`, `worker::process`, where nine
+exploded parameters is a wrong default, `submitter::{create_small_tasks,
 create_large_tasks, try_get_task_output}`, `agent::create_tasks`, and
 `agent::notify_result_data`, whose `Request::in_session` constructor spreads one
-session across many result ids).
+session across many result ids). A client-streaming RPC is always in this set:
+its request is a stream, so there is no message to spread into parameters.
 
-Everything is type-checked post-expansion, so a wrong sugar inference is a
-compile error, never a wire bug; behaviorally, every generated method is
-covered per method by the in-process integration suites. Accepted DX shift:
-parameter names and order are now mechanically the field names and order
-(e.g. `results::get` takes `id`, the agent methods take `communication_token`).
+What holds the layer to the schema, now that nothing generates it:
 
-An earlier draft had `#[armonik_macros::message]` emit a `Request::new(..)`
-constructor instead, and a first implementation generated only the bodies
-under hand-written signatures; both were dropped for this design, which is
-what actually deletes the layer. The nested-filter collect shared by the
-`list` methods survives as the `into_filters` helper the emission calls.
+- **existence**: `every_rpc_has_a_client_method` (section 4) fails if an rpc line
+  has no method carrying its `#[armonik(rpc = "...")]`, or a method names an rpc
+  that no `service!` declares;
+- **arity and types**: the `convenience:` clause of each case in
+  `tests/<svc>.rs`, which names the method and its arguments in order;
+- **the mapping**: the in-process fake asserts that the request it received
+  equals the case's `request:` clause. Two parameters of one type are the only
+  mistake the signature cannot catch, and that assertion is what catches it.
+
+Accepted DX shift from the generated layer: nothing, by construction -- the move
+was verified method for method (59 methods before, 60 after, one added, one
+return type changed, nothing renamed or reordered). The nested-filter collect the
+`list` methods share survives as the `into_filters` helper.
 
 ### 3.8 What the registry is for now
 
@@ -1754,7 +1753,7 @@ considered and rejected, so that none of it is re-proposed from scratch.
 
 | | |
 |---|---|
-| Macro diagnostics | A resolution error used to delete the annotated type, so one mistake became a page of unresolved imports with actively wrong suggestions. The item is now re-emitted next to the `compile_error!`, with stub impls for whichever trait its users reach it through (12 diagnostics down to 1 on the measured case). The rpc-line const asserts are spanned onto their own type paths, and `stream` is checked against the descriptor before `manual` is asked for |
+| Macro diagnostics | A resolution error used to delete the annotated type, so one mistake became a page of unresolved imports with actively wrong suggestions. The item is now re-emitted next to the `compile_error!`, with stub impls for whichever trait its users reach it through (12 diagnostics down to 1 on the measured case). The rpc-line const asserts are spanned onto their own type paths, and `stream` is checked against the descriptor |
 | Compile-fail suite | 31 `trybuild` cases in `armonik-macros/tests/ui`, one per error class, against a fixture schema the test compiles itself. The expansion-time diagnostics were the branch's best feature and had no coverage at all. The const-assert classes stay out: their messages belong to `armonik::codec` and fire at const-eval against the real impls |
 | Doc harvesting | Two independent bugs. Value matching stripped the *Rust* type's name where proto values are prefixed with the *proto* enum's, so `health_checks::Status` silently harvested nothing; and a same-line `/** */` comment, which protox records against the *next* element, documented every enum value as its predecessor. Both fixed; `names.rs` is now the one home of the naming rules |
 | Emission | The `serde` `cfg_attr` (198 byte-identical sites), the twelve client aliases (section 3.3) and the per-rpc const asserts (16 emitted lines each, 944 across the twelve invocations) come from the macros. `PartialEq`/`Debug` bounds on generic parameters, left over from the deleted `is_default` family, are gone |

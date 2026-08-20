@@ -52,10 +52,14 @@
 //!
 //! So the whole call is at parity with the generated types it replaced, and every
 //! codec row is at parity or better except the unary decode, +4.4%, which is one
-//! branch misprediction (below). The `now vs before` step, -8% to -14% on every row,
-//! is what leaving a zero off the wire bought. Half of that is simply fewer bytes: 53
-//! against 59 for the get response, 1700 against 1894 for the list, and 53 is what the
-//! generated types wrote too.
+//! branch misprediction (below). The `before the leaf skip` to `now` step is what
+//! leaving a zero off the wire bought: -8% to -14% on the eight rows built from small
+//! fields, -7.9% on `rotate/7`, and nothing on the two `download_chunk` rows (+0.6% and
+//! +6.5%), whose one large `bytes` field has no zero to leave off and whose absolute
+//! numbers, 31 and 33 ns for the decode, are where run-to-run noise lives. Half of the
+//! rest is simply fewer bytes: 53 against 59 for the get response and 1766 against 1960
+//! for the list, 9.9% off the list, and 53 is what the generated types wrote too.
+//! Re-measure both figures with the fixtures below when either moves.
 //!
 //! ## Why the call rows need `rotate`
 //!
