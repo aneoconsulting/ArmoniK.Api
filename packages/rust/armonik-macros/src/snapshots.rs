@@ -33,35 +33,38 @@ fn pretty(tokens: proc_macro2::TokenStream) -> String {
 /// Mirror of the `message` entry point, minus the proc_macro boundary.
 fn expand_message(input: proc_macro2::TokenStream) -> String {
     let mut input: syn::DeriveInput = syn::parse2(input).expect("input parses");
-    let plan = match crate::shape::resolve_message(&input) {
-        Ok(plan) => plan,
+    let ir = match crate::resolve::resolve_message(&input) {
+        Ok(ir) => ir,
         Err(errors) => panic!("resolves: {}", errors.into_syn_error()),
     };
     let anchors = crate::item::anchors(&input, crate::item::Kind::Message);
-    let absorbed = crate::absorbed(plan.absorbs());
-    crate::item::rewrite(&mut input, &plan);
+    let absorbed = crate::absorbed(&ir.absorbs);
+    crate::item::rewrite(&mut input, &ir);
     pretty(
-        [input.into_token_stream(), anchors, plan.emit(), absorbed]
-            .into_iter()
-            .collect(),
+        [
+            input.into_token_stream(),
+            anchors,
+            crate::emit::message(&ir),
+            absorbed,
+        ]
+        .into_iter()
+        .collect(),
     )
 }
 
 /// Mirror of the `enumeration` entry point.
 fn expand_enumeration(input: proc_macro2::TokenStream) -> String {
     let mut input: syn::DeriveInput = syn::parse2(input).expect("input parses");
-    let plan = match crate::shape::resolve_enumeration(&input) {
+    let plan = match crate::enumeration::resolve_enumeration(&input) {
         Ok(plan) => plan,
         Err(errors) => panic!("resolves: {}", errors.into_syn_error()),
     };
     let anchors = crate::item::anchors(&input, crate::item::Kind::Enumeration);
     let absorbed = crate::absorbed(&plan.absorbs);
     let wire = match &plan.mode {
-        crate::plan::EnumMode::Plain { names } => {
-            crate::shape::enumeration::plain_wire(&plan, names)
-        }
+        crate::plan::EnumMode::Plain { names } => crate::enumeration::plain_wire(&plan, names),
         crate::plan::EnumMode::Transparent { names, path } => {
-            crate::shape::enumeration::transparent_wire(&plan, names, path)
+            crate::enumeration::transparent_wire(&plan, names, path)
         }
     };
     crate::item::rewrite_enum(&mut input, &plan);
@@ -70,7 +73,7 @@ fn expand_enumeration(input: proc_macro2::TokenStream) -> String {
             input.into_token_stream(),
             anchors,
             wire,
-            crate::shape::enumeration::items(&plan),
+            crate::enumeration::items(&plan),
             absorbed,
         ]
         .into_iter()
@@ -216,8 +219,11 @@ fn dump_expansions() {
         ),
     ];
     for (name, input) in messages {
-        std::fs::write(dir.join(format!("{name}.rs")), expand_message(input.clone()))
-            .expect("write the snapshot");
+        std::fs::write(
+            dir.join(format!("{name}.rs")),
+            expand_message(input.clone()),
+        )
+        .expect("write the snapshot");
     }
 
     let enumerations: &[(&str, proc_macro2::TokenStream)] = &[

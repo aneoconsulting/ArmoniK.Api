@@ -18,17 +18,17 @@ use proc_macro::TokenStream;
 use quote::ToTokens;
 use syn::parse_macro_input;
 
-mod attr_site;
 mod attrs;
 mod client;
 mod descriptor;
 mod emit;
+mod enumeration;
 mod item;
 mod matcher;
 mod names;
 mod plan;
+mod resolve;
 mod service;
-mod shape;
 #[cfg(test)]
 mod snapshots;
 
@@ -250,20 +250,25 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
     if !attr.is_empty() {
         return no_args(input, Kind::Message, "message");
     }
-    let plan = match shape::resolve_message(&input) {
-        Ok(plan) => plan,
+    let ir = match resolve::resolve_message(&input) {
+        Ok(ir) => ir,
         Err(error) => return item::salvage(input, Kind::Message, error).into(),
     };
     // Read before `rewrite` mutates the item and before the list below moves it: `anchors` has to
     // see the `#[armonik(...)]` keys it points at, which `rewrite` strips.
     let anchors = item::anchors(&input, Kind::Message);
-    let absorbed = absorbed(plan.absorbs());
-    item::rewrite(&mut input, &plan);
+    let absorbed = absorbed(&ir.absorbs);
+    item::rewrite(&mut input, &ir);
 
-    [input.into_token_stream(), anchors, plan.emit(), absorbed]
-        .into_iter()
-        .collect::<TokenStream2>()
-        .into()
+    [
+        input.into_token_stream(),
+        anchors,
+        emit::message(&ir),
+        absorbed,
+    ]
+    .into_iter()
+    .collect::<TokenStream2>()
+    .into()
 }
 
 /// Implement the wire representation of a protobuf enum for an ArmoniK API
@@ -373,7 +378,7 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
     if !attr.is_empty() {
         return no_args(input, Kind::Enumeration, "enumeration");
     }
-    let plan = match shape::resolve_enumeration(&input) {
+    let plan = match enumeration::resolve_enumeration(&input) {
         Ok(plan) => plan,
         Err(error) => return item::salvage(input, Kind::Enumeration, error).into(),
     };
@@ -383,10 +388,8 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
     // right, a transparent wrapper chain is message-shaped. The choice is read off `EnumMode`, here,
     // because this is the only macro that has it.
     let wire = match &plan.mode {
-        EnumMode::Plain { names } => shape::enumeration::plain_wire(&plan, names),
-        EnumMode::Transparent { names, path } => {
-            shape::enumeration::transparent_wire(&plan, names, path)
-        }
+        EnumMode::Plain { names } => enumeration::plain_wire(&plan, names),
+        EnumMode::Transparent { names, path } => enumeration::transparent_wire(&plan, names, path),
     };
     item::rewrite_enum(&mut input, &plan);
 
@@ -397,7 +400,7 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
         // The value-level items: the payload struct, the two `i32` conversions, `UNSPECIFIED` and
         // `Default`. Called here rather than from anything shared, because only an enumeration has
         // them.
-        shape::enumeration::items(&plan),
+        enumeration::items(&plan),
         absorbed,
     ]
     .into_iter()
