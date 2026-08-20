@@ -20,6 +20,6 @@ pub struct Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.Count")]
 pub struct Response {
-    #[armonik(with = "crate::codec::adapters::PairMap")]
+    #[armonik(flatten)]
     pub values: HashMap<TaskStatus, i32>,
 }

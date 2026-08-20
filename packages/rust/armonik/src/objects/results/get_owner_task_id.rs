@@ -14,10 +14,7 @@ pub struct Request {
 #[armonik(message = "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse")]
 pub struct Response {
     /// Map to get the owner task id for each result id.
-    #[armonik(
-        with = "crate::codec::adapters::PairMap",
-        absorbs = "armonik.api.grpc.v1.results.GetOwnerTaskIdResponse.MapResultTask"
-    )]
+    #[armonik(flatten)]
     pub result_task: HashMap<String, String>,
     pub session_id: String,
 }

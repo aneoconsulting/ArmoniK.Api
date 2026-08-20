@@ -12,7 +12,7 @@ use proc_macro2::Span;
 use syn::spanned::Spanned;
 
 use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, FieldAttrs};
-use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
+use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
@@ -127,9 +127,9 @@ fn poisoned_ir(input: &syn::DeriveInput, index: &DescriptorIndex, names: Vec<Str
     }
 }
 
-/// The attributes a Rust field standing for a proto field takes, with the messages a `with` adapter
-/// on it flattens away collected into `absorbs`. `None` once the scan failed, which is the caller's
-/// to price: a struct's field poisons a slot, a variant's sibling poisons the variant.
+/// The attributes a Rust field standing for a proto field takes. `None` once the scan failed, which
+/// is the caller's to price: a struct's field poisons a slot, a variant's sibling poisons the
+/// variant.
 ///
 /// No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one of the
 /// six `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct, which
@@ -137,14 +137,12 @@ fn poisoned_ir(input: &syn::DeriveInput, index: &DescriptorIndex, names: Vec<Str
 fn proto_field_attrs(
     attrs: &[syn::Attribute],
     reject: &str,
-    absorbs: &mut Vec<String>,
     generator: &mut Generator,
 ) -> Option<ProtoFieldAttrs> {
     let FieldAttrs {
         rename,
         with,
         flatten,
-        absorbs: declared,
         ..
     } = scan_attrs(
         attrs,
@@ -152,13 +150,11 @@ fn proto_field_attrs(
             rename: true,
             with: true,
             flatten: true,
-            absorbs: true,
             ..Allowed::default()
         },
         reject,
         generator,
     )?;
-    absorbs.extend(declared);
     Some(ProtoFieldAttrs {
         rename,
         with,
@@ -166,8 +162,7 @@ fn proto_field_attrs(
     })
 }
 
-/// What a proto field's own attributes say about it, once the messages its adapter absorbs have
-/// been handed to the plan.
+/// What a proto field's own attributes say about it.
 struct ProtoFieldAttrs {
     /// The proto field's name where it differs from the Rust field's.
     rename: Option<String>,
@@ -245,9 +240,9 @@ fn plain_ir(
         }) = proto_field_attrs(
             &field.attrs,
             "this armonik attribute is not valid on a message field",
-            &mut absorbs,
             generator,
-        ) else {
+        )
+        else {
             fields.push(Slot::poisoned(span));
             continue;
         };
@@ -308,7 +303,6 @@ fn plain_ir(
                             generator,
                         )
                     })
-
                 else {
                     fields.push(Slot::poisoned(span));
                     continue;
@@ -673,7 +667,6 @@ impl Carried {
 fn carried(
     fields: &syn::Fields,
     siblings: &mut Siblings<'_>,
-    absorbs: &mut Vec<String>,
     generator: &mut Generator,
     variant_span: Span,
 ) -> Option<Carried> {
@@ -695,9 +688,9 @@ fn carried(
         }) = proto_field_attrs(
             &field.attrs,
             "this armonik attribute is not valid on a struct variant field",
-            absorbs,
             generator,
-        ) else {
+        )
+        else {
             failed = true;
             continue;
         };
@@ -742,9 +735,13 @@ struct Leftover {
     flatten: Option<Span>,
 }
 
-/// Unwrap a single-field wrapper message from the descriptor: the codec (`Wrapper<Own, tag>`)
-/// and the *inner* field's expectation, so a flattened site keeps its shape check, unlike a
-/// `with` adapter, which is trusted. The wrapper is absorbed: no Rust type stands for it.
+/// Unwrap an absorbable message layer from the descriptor: the codec and the expectation the Rust
+/// type is checked against, so a flattened site keeps its shape check, unlike a `with` adapter,
+/// which is trusted. Two layers are descriptor-provable, told apart by the member's cardinality: a
+/// singular single-field wrapper, carried as its inner value (`Wrapper<Own, tag>`), and a repeated
+/// key/value pair (the shape a proto map compiles to), carried as a map (`PairMap`). The absorbed
+/// message may still have a Rust type of its own elsewhere (`StatusCount` does); the two claims
+/// are compatible, since both leave it covered.
 fn flatten_codec(
     index: &DescriptorIndex,
     member: &FieldMeta,
@@ -757,7 +754,8 @@ fn flatten_codec(
         generator.error(
             span,
             format!(
-                "flatten unwraps a single-field wrapper message, but `{proto_path}` is {:?}",
+                "flatten absorbs a wrapper or key/value pair message, but `{proto_path}` \
+                 is {:?}",
                 member.kind
             ),
         );
@@ -766,20 +764,59 @@ fn flatten_codec(
     let inner = index
         .messages
         .get(inner_name)
-        .filter(|inner| inner.fields.len() == 1 && inner.oneofs.is_empty());
-    let Some(field) = inner.map(|inner| &inner.fields[0]) else {
-        generator.error(
-            span,
-            format!("`{inner_name}` is not a single-field wrapper message"),
-        );
-        return Err(());
+        .filter(|inner| inner.oneofs.is_empty());
+    let (adapter, expectation) = match &member.cardinality {
+        Cardinality::Singular => {
+            let Some([field]) = inner.map(|inner| inner.fields.as_slice()) else {
+                generator.error(
+                    span,
+                    format!("`{inner_name}` is not a single-field wrapper message"),
+                );
+                return Err(());
+            };
+            let tag = proc_macro2::Literal::u32_unsuffixed(field.tag);
+            let adapter: syn::Type = syn::parse_quote!(
+                crate::codec::adapters::Wrapper<crate::codec::adapters::Own, #tag>
+            );
+            (adapter, Expectation::of(field))
+        }
+        Cardinality::Repeated => {
+            let pair = inner.and_then(|inner| match inner.fields.as_slice() {
+                [key, value] if key.tag == 1 && value.tag == 2 => Some((key, value)),
+                _ => None,
+            });
+            let Some((key, value)) = pair else {
+                generator.error(
+                    span,
+                    format!(
+                        "`{inner_name}` is not a key/value pair message \
+                         (two fields, tags 1 and 2)"
+                    ),
+                );
+                return Err(());
+            };
+            let adapter: syn::Type = syn::parse_quote!(crate::codec::adapters::PairMap);
+            (
+                adapter,
+                Expectation {
+                    kind: member.kind.clone(),
+                    cardinality: Cardinality::Map {
+                        key: key.kind.clone(),
+                        value: value.kind.clone(),
+                    },
+                },
+            )
+        }
+        other => {
+            generator.error(
+                span,
+                format!("flatten does not apply to a {other:?} field (`{proto_path}`)"),
+            );
+            return Err(());
+        }
     };
     absorbs.push(inner_name.clone());
-    let tag = proc_macro2::Literal::u32_unsuffixed(field.tag);
-    let adapter: syn::Type = syn::parse_quote!(
-        crate::codec::adapters::Wrapper<crate::codec::adapters::Own, #tag>
-    );
-    Ok((Some(Box::new(adapter)), Some(Expectation::of(field))))
+    Ok((Some(Box::new(adapter)), Some(expectation)))
 }
 
 /// The codec substitution and shape check of a member carried whole: none (checked against the
@@ -1365,7 +1402,6 @@ fn resolve_one_variant(
         present,
         inline,
         flatten,
-        absorbs: declared,
         ..
     }) = scan_attrs(
         &variant.attrs,
@@ -1375,7 +1411,6 @@ fn resolve_one_variant(
             present: true,
             inline: true,
             flatten: true,
-            absorbs: true,
             ..Allowed::default()
         },
         "this armonik attribute is not valid on a oneof variant",
@@ -1384,7 +1419,6 @@ fn resolve_one_variant(
     else {
         return poisoned(None);
     };
-    absorbs.extend(declared);
 
     // Split once, before anything asks what the variant means.
     //
@@ -1396,7 +1430,7 @@ fn resolve_one_variant(
     let carried = if present {
         Some(Carried::Fields(Vec::new()))
     } else {
-        carried(&variant.fields, siblings, absorbs, generator, span)
+        carried(&variant.fields, siblings, generator, span)
     };
     let Some(carried) = carried else {
         return poisoned(None);
