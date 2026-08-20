@@ -52,15 +52,10 @@ pub(crate) fn resolve_message(
         }
     }
 
-    // Enums are oneof-shaped: `message = ...` alone stands for a whole message with a single
-    // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct. Dispatched on
-    // before anything is reported, because a oneof reads the same entries for itself and rejects a
-    // stray key in its own words.
-    if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
-        return oneof_ir(input, index, &entries, &proto_names, oneof_attr, generator);
-    }
-
     let names = || proto_names.iter().map(|(_, name)| name.clone()).collect();
+
+    // Ahead of the dispatch below, so no precedence path skips it: the pair is nonsense whichever
+    // shape would have won, and `oneof = ...` beside it would only hide the answer.
     if let (Some(_), Some(transparent_span)) = (generic, transparent) {
         generator.error(
             transparent_span,
@@ -69,6 +64,14 @@ pub(crate) fn resolve_message(
              generic type names no proto message, and there is no wrapper to flatten without one",
         );
         return poisoned_ir(input, index, names());
+    }
+
+    // Enums are oneof-shaped: `message = ...` alone stands for a whole message with a single
+    // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct. Dispatched on
+    // before anything else is reported, because a oneof reads the same entries for itself and
+    // rejects a stray key in its own words.
+    if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
+        return oneof_ir(input, index, &entries, &proto_names, oneof_attr, generator);
     }
     for span in stray {
         generator.error(
