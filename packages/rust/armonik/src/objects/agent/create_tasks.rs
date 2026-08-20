@@ -48,7 +48,7 @@ pub enum Status {
     /// No member set, which an empty `Error` is not.
     #[default]
     Invalid,
-    #[armonik(inline)]
+    #[armonik(inlined)]
     TaskInfo {
         task_id: String,
         expected_output_keys: Vec<String>,
@@ -70,7 +70,7 @@ pub enum Response {
     #[armonik(rename = "creation_status_list")]
     Status {
         communication_token: String,
-        #[armonik(flatten)]
+        #[armonik(inlined)]
         statuses: Vec<Status>,
     },
     Error {

@@ -8,7 +8,7 @@ use super::Raw;
 pub struct Request {
     pub session_id: String,
     /// The opaque storage id to import into each result, keyed by result id.
-    #[armonik(flatten)]
+    #[armonik(inlined)]
     pub results: HashMap<String, bytes::Bytes>,
 }
 

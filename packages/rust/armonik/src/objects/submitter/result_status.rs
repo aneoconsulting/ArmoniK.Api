@@ -15,6 +15,6 @@ pub struct Request {
 #[armonik(message = "armonik.api.grpc.v1.submitter.GetResultStatusReply")]
 pub struct Response {
     /// The status of each result.
-    #[armonik(rename = "id_statuses", flatten)]
+    #[armonik(rename = "id_statuses", inlined)]
     pub statuses: HashMap<String, ResultStatus>,
 }

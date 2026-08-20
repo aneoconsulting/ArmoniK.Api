@@ -1,5 +1,0 @@
-error: inline and the non-oneof fields of `fixture.SharedInline` cannot be combined: every variant carries those fields, and inline spreads the member's own into the same variant; carry the member whole in a field of its own instead
-  --> tests/ui/inline_with_shared_fields.rs:16:15
-   |
-16 |     #[armonik(inline)]
-   |               ^^^^^^

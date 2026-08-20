@@ -353,7 +353,7 @@ struct EmitCtx<'a> {
 /// One variant's arms, whatever it carries.
 ///
 /// A variant binds its own slot's values -- none for a `present` marker, one for a member carried
-/// whole, several for an `inline` member's parts -- and then the message's shared fields. Everything
+/// whole, several for an inlined member's parts -- and then the message's shared fields. Everything
 /// below is written against that one list, in braced form, so the shapes differ only in what they
 /// put in it and in how [`slot_merge_in_place`] reads the member back. An empty list is not a
 /// special case: it interpolates to nothing.
@@ -673,8 +673,8 @@ pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream
     }
 }
 
-/// Register proto messages a flattening construct swallows into its parent (a `with` adapter's
-/// `absorbs`, a transparent chain's middle wrappers, an inline struct variant's message), so they
+/// Register proto messages an absorbing construct swallows into its parent (an `inlined` field's
+/// wrapper or pair layer, a transparent chain's middle wrappers, an inlined variant's message), so they
 /// have no Rust type of their own, and the differential harness counts them as covered through
 /// their parent.
 pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
@@ -871,7 +871,7 @@ fn slot_asserts(slot: &Slot, type_ident: &syn::Ident, names: &[String]) -> Token
             .map(|part| slot_asserts(part, type_ident, names))
             .collect(),
         // What is checked is whatever `checks` carries: the member itself for a plain field, the
-        // wrapper's inner field for a flattened one, nothing for a `with` adapter, which exists
+        // wrapper's inner field for an inlined one, nothing for a `with` adapter, which exists
         // because the Rust representation is deliberately not the proto's.
         (SlotCodec::Field { .. }, Some(ty)) => {
             field_asserts_for(ty, slot.span, &slot.proto_path, &slot.checks, type_ident)

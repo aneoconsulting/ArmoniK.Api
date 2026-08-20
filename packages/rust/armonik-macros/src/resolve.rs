@@ -142,14 +142,14 @@ fn proto_field_attrs(
     let FieldAttrs {
         rename,
         with,
-        flatten,
+        inlined,
         ..
     } = scan_attrs(
         attrs,
         Allowed {
             rename: true,
             with: true,
-            flatten: true,
+            inlined: true,
             ..Allowed::default()
         },
         reject,
@@ -158,7 +158,7 @@ fn proto_field_attrs(
     Some(ProtoFieldAttrs {
         rename,
         with,
-        flatten,
+        inlined,
     })
 }
 
@@ -169,8 +169,8 @@ struct ProtoFieldAttrs {
     /// The `with = ...` codec substitution, spanned: where a site does not accept one, the error
     /// points at the key rather than at whatever carries it.
     with: Option<(Span, syn::Type)>,
-    /// `flatten`: the same, for the substitution the descriptor proves rather than names.
-    flatten: Option<Span>,
+    /// `inlined`: the same, for the substitution the descriptor proves rather than names.
+    inlined: Option<Span>,
 }
 
 // ---- Plain struct: every field is a field of one proto message ----
@@ -227,7 +227,7 @@ fn plain_ir(
     };
 
     let mut fields = Vec::new();
-    // Messages a `with` adapter flattens away, so no Rust type stands for them.
+    // Messages an `inlined` field absorbs, so no Rust type stands for them.
     let mut absorbs = Vec::new();
     let mut matcher = Matcher::new(name, meta);
 
@@ -236,7 +236,7 @@ fn plain_ir(
         let Some(ProtoFieldAttrs {
             rename,
             with,
-            flatten,
+            inlined,
         }) = proto_field_attrs(
             &field.attrs,
             "this armonik attribute is not valid on a message field",
@@ -268,10 +268,10 @@ fn plain_ir(
         let proto_path = format!("{name}.{proto_name}");
         match resolved {
             Found::Oneof { tags } => {
-                if with.is_some() || flatten.is_some() {
+                if with.is_some() || inlined.is_some() {
                     generator.error(
                         span,
-                        "with/flatten/tag attributes are not supported on oneof fields",
+                        "with/inlined/tag attributes are not supported on oneof fields",
                     );
                     fields.push(Slot::poisoned(span));
                     continue;
@@ -293,7 +293,7 @@ fn plain_ir(
             }
             Found::Field(field_meta) => {
                 let Ok((adapter, checks)) =
-                    payload_of(with, flatten, generator).and_then(|payload| {
+                    payload_of(with, inlined, generator).and_then(|payload| {
                         payload_codec(
                             index,
                             field_meta,
@@ -634,7 +634,7 @@ impl<'a> Siblings<'a> {
 /// no member set", and, once it names a member, how that member is reached.
 enum Carried {
     /// A struct variant's fields beyond the shared ones: the member carried whole, or the member
-    /// message's own fields under `inline`. Empty means the variant carries nothing of its own,
+    /// message's own fields under `inlined`. Empty means the variant carries nothing of its own,
     /// which is the "no member set" case when it names no member either. A unit variant is the empty
     /// case by construction.
     Fields(Vec<Leftover>),
@@ -684,7 +684,7 @@ fn carried(
         let Some(ProtoFieldAttrs {
             rename,
             with,
-            flatten,
+            inlined,
         }) = proto_field_attrs(
             &field.attrs,
             "this armonik attribute is not valid on a struct variant field",
@@ -698,7 +698,7 @@ fn carried(
         let name = rename.unwrap_or_else(|| unraw(&ident));
         match siblings.claim(&mut seen, &name, &ident, &field.ty, generator) {
             Some(ok) => {
-                for span in with.map(|(span, _)| span).into_iter().chain(flatten) {
+                for span in with.map(|(span, _)| span).into_iter().chain(inlined) {
                     generator.error(
                         span,
                         "this key is only valid on the member payload field, not on a \
@@ -714,7 +714,7 @@ fn carried(
                 name,
                 ty: field.ty.clone(),
                 with: with.map(|(_, ty)| ty),
-                flatten,
+                inlined,
             }),
         }
     }
@@ -724,7 +724,7 @@ fn carried(
 }
 
 /// A field of a struct variant that is not one of the message's non-oneof fields, so it belongs to
-/// the oneof member: the member carried whole, or one of its own fields under `inline`.
+/// the oneof member: the member carried whole, or one of its own fields under `inlined`.
 struct Leftover {
     ident: syn::Ident,
     /// The proto name it matches by: the Rust name, or `rename`.
@@ -732,17 +732,17 @@ struct Leftover {
     ty: syn::Type,
     span: Span,
     with: Option<syn::Type>,
-    flatten: Option<Span>,
+    inlined: Option<Span>,
 }
 
 /// Unwrap an absorbable message layer from the descriptor: the codec and the expectation the Rust
-/// type is checked against, so a flattened site keeps its shape check, unlike a `with` adapter,
+/// type is checked against, so an inlined site keeps its shape check, unlike a `with` adapter,
 /// which is trusted. Two layers are descriptor-provable, told apart by the member's cardinality: a
 /// singular single-field wrapper, carried as its inner value (`Wrapper<Own, tag>`), and a repeated
 /// key/value pair (the shape a proto map compiles to), carried as a map (`PairMap`). The absorbed
 /// message may still have a Rust type of its own elsewhere (`StatusCount` does); the two claims
 /// are compatible, since both leave it covered.
-fn flatten_codec(
+fn inlined_codec(
     index: &DescriptorIndex,
     member: &FieldMeta,
     proto_path: &str,
@@ -754,7 +754,7 @@ fn flatten_codec(
         generator.error(
             span,
             format!(
-                "flatten absorbs a wrapper or key/value pair message, but `{proto_path}` \
+                "inlined absorbs a wrapper or key/value pair message, but `{proto_path}` \
                  is {:?}",
                 member.kind
             ),
@@ -810,7 +810,7 @@ fn flatten_codec(
         other => {
             generator.error(
                 span,
-                format!("flatten does not apply to a {other:?} field (`{proto_path}`)"),
+                format!("inlined does not apply to a {other:?} field (`{proto_path}`)"),
             );
             return Err(());
         }
@@ -820,7 +820,7 @@ fn flatten_codec(
 }
 
 /// The codec substitution and shape check of a member carried whole: none (checked against the
-/// member itself), a `with` adapter (trusted), or `flatten` (unwrapped and checked against the
+/// member itself), a `with` adapter (trusted), or `inlined` (unwrapped and checked against the
 /// wrapper's inner field).
 fn payload_codec(
     index: &DescriptorIndex,
@@ -833,46 +833,47 @@ fn payload_codec(
     match payload {
         None => Ok((None, Some(Expectation::of(field_meta)))),
         Some(Payload::Adapter(_, ty)) => Ok((Some(ty), None)),
-        Some(Payload::Flatten(span)) => {
-            flatten_codec(index, field_meta, proto_path, span, absorbs, generator)
+        Some(Payload::Inlined(span)) => {
+            inlined_codec(index, field_meta, proto_path, span, absorbs, generator)
         }
     }
 }
 
 /// The one substitution a site carries, from the two keys that each name one. Both together is one
-/// mistake, reported on `flatten`, which is the key the descriptor could have proved instead.
+/// mistake, reported on `inlined`, which is the key the descriptor could have proved instead.
 fn payload_of(
     with: Option<(Span, syn::Type)>,
-    flatten: Option<Span>,
+    inlined: Option<Span>,
     generator: &mut Generator,
 ) -> Result<Option<Payload>, ()> {
-    match (with, flatten) {
+    match (with, inlined) {
         (Some(_), Some(span)) => {
             generator.error(
                 span,
-                "`flatten` and `with = ...` each say how the field is carried, so they \
+                "`inlined` and `with = ...` each say how the field is carried, so they \
                  cannot be combined",
             );
             Err(())
         }
         (Some((span, ty)), None) => Ok(Some(Payload::Adapter(span, Box::new(ty)))),
-        (None, Some(span)) => Ok(Some(Payload::Flatten(span))),
+        (None, Some(span)) => Ok(Some(Payload::Inlined(span))),
         (None, None) => Ok(None),
     }
 }
 
-/// How a variant says its member is carried, folded from the `present`, `inline`, `with` and
-/// `flatten` keys.
+/// How a variant says its member is carried, folded from the `present`, `inlined` and `with` keys.
 ///
-/// Folded in one place because they name four different carriers, so any two of them together is
+/// Folded in one place because they name three different carriers, so any two of them together is
 /// one mistake with one message, whatever the pair.
 enum Carrier {
     /// The member carried whole (the default), optionally through a codec substitution.
     Whole(Option<Payload>),
     /// `#[armonik(present)]`: carried by presence alone.
     Present,
-    /// `#[armonik(inline)]`: the member message's own fields, spread into the variant.
-    Inline(Span),
+    /// `#[armonik(inlined)]`: the member message gets no Rust type; what it contains lives in the
+    /// variant directly. What that means is read off the variant's shape: a struct variant spreads
+    /// the member's fields, a tuple variant carries the unwrapped inner value.
+    Inlined(Span),
 }
 
 /// The codec substitution of a member carried whole. The span is the key's, where a misplaced
@@ -880,30 +881,26 @@ enum Carrier {
 enum Payload {
     /// `with = "..."`: a named adapter, trusted (no shape check).
     Adapter(Span, Box<syn::Type>),
-    /// `flatten`: the wrapper unwrapped from the descriptor, checked against its inner field.
-    Flatten(Span),
+    /// `inlined`: the wrapper unwrapped from the descriptor, checked against its inner field.
+    Inlined(Span),
 }
 
 fn carrier(
     variant_span: Span,
     with: Option<(Span, syn::Type)>,
     present: bool,
-    inline: Option<Span>,
-    flatten: Option<Span>,
+    inlined: Option<Span>,
     generator: &mut Generator,
 ) -> Option<Carrier> {
     let mut named = Vec::new();
     if present {
         named.push((variant_span, "present"));
     }
-    if let Some(span) = inline {
-        named.push((span, "inline"));
+    if let Some(span) = inlined {
+        named.push((span, "inlined"));
     }
     if let Some((span, _)) = &with {
         named.push((*span, "with = ..."));
-    }
-    if let Some(span) = flatten {
-        named.push((span, "flatten"));
     }
     if let [_, (second_span, _), ..] = named.as_slice() {
         let keys = named
@@ -915,19 +912,16 @@ fn carrier(
             *second_span,
             format!(
                 "{keys} each say how the member is carried (present: by presence alone; \
-                 inline: its message's fields spread into the variant; with: through an \
-                 adapter; flatten: its single-field wrapper unwrapped), so they cannot be \
-                 combined"
+                 inlined: its message layer absorbed into the variant; with: through an \
+                 adapter), so they cannot be combined"
             ),
         );
         return None;
     }
     Some(if present {
         Carrier::Present
-    } else if let Some(span) = inline {
-        Carrier::Inline(span)
-    } else if let Some(span) = flatten {
-        Carrier::Whole(Some(Payload::Flatten(span)))
+    } else if let Some(span) = inlined {
+        Carrier::Inlined(span)
     } else {
         Carrier::Whole(with.map(|(span, ty)| Payload::Adapter(span, Box::new(ty))))
     })
@@ -987,35 +981,50 @@ fn resolve_variant(
             }
             resolve_marker_variant(ctx, generator)
         }
-        Carrier::Inline(inline_span) => {
-            // Rejected rather than supported. The two sets of fields would share one variant and
-            // one binding namespace, and their tags come from different messages, so a part at tag
-            // 4 and a sibling at tag 4 both bind `__f4`: supporting this needs a second naming
-            // scheme, for a shape no site wants. Without the check the resolver accepts it and the
-            // emitted patterns do not compile, pointing rustc's "append `, ..`" suggestion at the
-            // attribute.
-            if has_siblings {
-                generator.error(
-                    inline_span,
-                    format!(
-                        "inline and the non-oneof fields of `{}` cannot be combined: every variant \
-                         carries those fields, and inline spreads the member's own into the same \
-                         variant; carry the member whole in a field of its own instead",
-                        ctx.proto_name
-                    ),
-                );
-                return None;
+        // What `inlined` absorbs is read off the variant's shape: a struct variant spreads the
+        // member message's fields, a tuple variant carries the wrapper's inner value, and a unit
+        // variant has nowhere to put either.
+        Carrier::Inlined(key_span) => match &ctx.variant.fields {
+            syn::Fields::Named(_) => {
+                // Rejected rather than supported. The two sets of fields would share one variant
+                // and one binding namespace, and their tags come from different messages, so a part
+                // at tag 4 and a sibling at tag 4 both bind `__f4`: supporting this needs a second
+                // naming scheme, for a shape no site wants. Without the check the resolver accepts
+                // it and the emitted patterns do not compile, pointing rustc's "append `, ..`"
+                // suggestion at the attribute.
+                if has_siblings {
+                    generator.error(
+                        key_span,
+                        format!(
+                            "inlined and the non-oneof fields of `{}` cannot be combined: every \
+                             variant carries those fields, and inlined spreads the member's own \
+                             into the same variant; carry the member whole in a field of its own \
+                             instead",
+                            ctx.proto_name
+                        ),
+                    );
+                    return None;
+                }
+                resolve_inlined_member(ctx, leftovers, absorbs, generator)
             }
-            if !matches!(ctx.variant.fields, syn::Fields::Named(_)) {
+            syn::Fields::Unnamed(_) => resolve_variant(
+                ctx,
+                Carrier::Whole(Some(Payload::Inlined(key_span))),
+                leftovers,
+                has_siblings,
+                absorbs,
+                generator,
+            ),
+            syn::Fields::Unit => {
                 generator.error(
-                    inline_span,
-                    "inline needs a struct variant: there is nothing to spread the \
-                     member's fields into",
+                    key_span,
+                    "inlined needs a field to absorb the member into: a struct variant \
+                     spreads the member message's fields, a tuple variant carries the \
+                     wrapper's inner value",
                 );
-                return None;
+                None
             }
-            resolve_inline_member(ctx, leftovers, absorbs, generator)
-        }
+        },
         Carrier::Whole(payload) => match &ctx.variant.fields {
             // `Variant(T)`: the member carried whole, optionally through a codec substitution. It
             // carries no sibling fields, so the enum must have none.
@@ -1068,11 +1077,11 @@ fn resolve_variant(
                                 .with
                                 .map(|ty| Payload::Adapter(member.span, Box::new(ty))),
                         );
-                        payloads.extend(member.flatten.map(Payload::Flatten));
+                        payloads.extend(member.inlined.map(Payload::Inlined));
                         if payloads.len() > 1 {
                             generator.error(
                                 member.span,
-                                "`flatten` and `with = ...` each say how the member is carried, \
+                                "`inlined` and `with = ...` each say how the member is carried, \
                                  so they cannot be combined",
                             );
                             return None;
@@ -1111,7 +1120,7 @@ fn resolve_variant(
                             leftovers[1].span,
                             format!(
                                 "only one field of the variant may carry the member `{}`; \
-                                 add #[armonik(inline)] to the variant if these are the \
+                                 add #[armonik(inlined)] to the variant if these are the \
                                  member message's own fields, spread into it",
                                 ctx.member_name
                             ),
@@ -1170,9 +1179,9 @@ fn resolve_marker_variant(ctx: &VariantCtx, generator: &mut Generator) -> Resolv
     ))
 }
 
-/// `#[armonik(inline)]`: the variant's leftover fields are the member message's own fields, spread
-/// into the variant, so the member message has no Rust type and is absorbed.
-fn resolve_inline_member(
+/// `#[armonik(inlined)]` on a struct variant: the leftover fields are the member message's own
+/// fields, spread into the variant, so the member message has no Rust type and is absorbed.
+fn resolve_inlined_member(
     ctx: &VariantCtx,
     leftovers: Vec<Leftover>,
     absorbs: &mut Vec<String>,
@@ -1182,7 +1191,7 @@ fn resolve_inline_member(
         generator.error(
             ctx.span,
             format!(
-                "inline spreads a message member's fields, but `{}` is not a message",
+                "inlined spreads a message member's fields, but `{}` is not a message",
                 ctx.proto_path
             ),
         );
@@ -1206,10 +1215,10 @@ fn resolve_inline_member(
     // an arm binding only some of them would not even pattern-match the variant.
     let mut failed = false;
     for leftover in leftovers {
-        if leftover.with.is_some() || leftover.flatten.is_some() {
+        if leftover.with.is_some() || leftover.inlined.is_some() {
             generator.error(
                 leftover.span,
-                "with = ... and flatten are not supported on an inlined field",
+                "with = ... and inlined are not supported on an inlined field",
             );
             failed = true;
             continue;
@@ -1400,8 +1409,7 @@ fn resolve_one_variant(
         rename,
         with,
         present,
-        inline,
-        flatten,
+        inlined,
         ..
     }) = scan_attrs(
         &variant.attrs,
@@ -1409,8 +1417,7 @@ fn resolve_one_variant(
             rename: true,
             with: true,
             present: true,
-            inline: true,
-            flatten: true,
+            inlined: true,
             ..Allowed::default()
         },
         "this armonik attribute is not valid on a oneof variant",
@@ -1456,7 +1463,7 @@ fn resolve_one_variant(
         && carried.is_empty()
         && rename.is_none()
         && !present
-        && inline.is_none()
+        && inlined.is_none()
         && with.is_none()
     {
         return VariantOutcome::NoMemberSet;
@@ -1493,7 +1500,7 @@ fn resolve_one_variant(
             proto_path: &proto_path,
             member_name: &member_name,
         };
-        carrier(span, with, present, inline, flatten, generator).and_then(|carrier| {
+        carrier(span, with, present, inlined, generator).and_then(|carrier| {
             resolve_variant(
                 &ctx,
                 carrier,
@@ -1558,8 +1565,8 @@ fn oneof_ir(
     let mut arms = Vec::new();
     let mut default_arm: Option<syn::Ident> = None;
     let mut covered = vec![false; selected.oneof.fields.len()];
-    // Messages no Rust type stands for: the ones inlined into struct variants, and the ones a
-    // `with` adapter flattens away, declared through `#[armonik(absorbs = "...")]`.
+    // Messages no Rust type stands for: the ones `inlined` absorbs, spread into a struct variant
+    // or unwrapped from around a payload.
     let mut absorbs: Vec<String> = Vec::new();
     for variant in &data.variants {
         match resolve_one_variant(
@@ -1688,7 +1695,7 @@ mod tests {
                 Simple(String),
                 #[armonik(present)]
                 Flag,
-                #[armonik(inline)]
+                #[armonik(inlined)]
                 Hostile {
                     buf: String,
                     len: i32,

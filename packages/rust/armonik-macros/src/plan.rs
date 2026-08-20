@@ -35,8 +35,8 @@ pub(crate) struct Ir {
     pub(crate) fragment_of: Option<String>,
     /// Leading comment of the proto message, for the re-emitted item.
     pub(crate) docs: Vec<String>,
-    /// Proto messages a flattening construct swallowed into this type (a `with` adapter's
-    /// `absorbs`, an inline variant's member message), so they have no Rust type of their own.
+    /// Proto messages `inlined` swallowed into this type (a wrapper or pair layer around a field,
+    /// an inlined variant's member message), so they have no Rust type of their own.
     pub(crate) absorbs: Vec<String>,
     /// `#[armonik(generic)]`: no descriptor was read, the tags are authoritative, and the
     /// `GenericFields` table is emitted so every `#[armonik_macros::alias]` instantiation can
@@ -88,7 +88,7 @@ pub(crate) enum SlotCodec {
         ty: Box<syn::Type>,
         tags: Option<Vec<u32>>,
     },
-    /// `#[armonik(inline)]`: the member message's own fields, spread into the variant and framed
+    /// `#[armonik(inlined)]` on a struct variant: the member message's own fields, spread into the variant and framed
     /// here, since the message is absorbed and has no Rust type to delegate to.
     Group { parts: Vec<Slot> },
     /// A slot that failed to resolve, kept because the user wrote it: it has a shape but no proto
@@ -124,7 +124,7 @@ impl Expectation {
 /// One protobuf field, wherever it sits.
 ///
 /// A struct's field, a whole-message enum's non-oneof field (replicated across every variant), the
-/// member a variant carries, and one field of a member message spread into a variant under `inline`
+/// member a variant carries, and one field of a member message spread into a variant under `inlined`
 /// are one type seen from four places, so a new attribute key or a new check is one edit.
 pub(crate) struct Slot {
     /// How the value is reached: `self.name` on a struct, the field name bound by the pattern in a

@@ -36,12 +36,11 @@ pub(crate) enum AttrItem {
     With(LitStr),
     /// `present`: marker oneof variant selected by field presence.
     Present,
-    /// `inline`: the struct variant's leftover fields are the member message's own fields, spread
-    /// into the variant rather than carried whole by one of them.
-    Inline,
-    /// `flatten`: the field or member is a wrapper or key/value pair message, carried as its
-    /// inner value or as a map; the layer is unwrapped from the descriptor and absorbed.
-    Flatten,
+    /// `inlined`: a proto message layer gets no Rust type of its own; what it contains lives
+    /// directly at the site. On a struct variant, the member message's fields spread into the
+    /// variant; on a field or tuple variant, the wrapper or key/value pair layer unwrapped from
+    /// the descriptor (the inner value, or a map).
+    Inlined,
     /// `service = "full.proto.Service"`, on a client impl block: the proto service its methods
     /// belong to, which is what `#[armonik_macros::client]` looks their documentation up in.
     Service(LitStr),
@@ -87,15 +86,14 @@ impl Parse for AttrList {
                 "generic" => AttrItem::Generic,
                 "transparent" => AttrItem::Transparent,
                 "present" => AttrItem::Present,
-                "inline" => AttrItem::Inline,
-                "flatten" => AttrItem::Flatten,
+                "inlined" => AttrItem::Inlined,
                 other => {
                     return Err(syn::Error::new(
                         span,
                         format!(
                             "unknown armonik attribute key `{other}` (expected one of: \
                              message, enum, oneof, rename, tag, with, service, rpc, \
-                             generic, transparent, present, inline, flatten)"
+                             generic, transparent, present, inlined)"
                         ),
                     ));
                 }
@@ -204,8 +202,7 @@ pub(crate) struct FieldAttrs {
     pub(crate) tag: Option<(Span, u32)>,
     pub(crate) with: Option<(Span, syn::Type)>,
     pub(crate) present: bool,
-    pub(crate) inline: Option<Span>,
-    pub(crate) flatten: Option<Span>,
+    pub(crate) inlined: Option<Span>,
 }
 
 /// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a spanned `reject` error,
@@ -216,8 +213,7 @@ pub(crate) struct Allowed {
     pub(crate) tag: bool,
     pub(crate) with: bool,
     pub(crate) present: bool,
-    pub(crate) inline: bool,
-    pub(crate) flatten: bool,
+    pub(crate) inlined: bool,
 }
 
 /// Scan one field's or variant's `#[armonik(...)]` entries into a [`FieldAttrs`], pushing `reject`
@@ -245,8 +241,7 @@ fn scan_field_attrs(
                 }
             }
             AttrItem::Present if allowed.present => collected.present = true,
-            AttrItem::Inline if allowed.inline => collected.inline = Some(entry.span),
-            AttrItem::Flatten if allowed.flatten => collected.flatten = Some(entry.span),
+            AttrItem::Inlined if allowed.inlined => collected.inlined = Some(entry.span),
             _ => generator.error(entry.span, reject),
         }
     }

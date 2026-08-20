@@ -59,7 +59,7 @@ where
 
 /// `Wrapper { V inner = TAG }` exposed as the bare `V`: one length-delimited
 /// framing layer around the codec `A`, which is how single-field wrapper
-/// messages are flattened away. `#[armonik(flatten)]` emits `Wrapper<Own, N>`
+/// messages are flattened away. `#[armonik(inlined)]` emits `Wrapper<Own, N>`
 /// with the tag read from the descriptor; a transparent enumeration composes
 /// `Wrapper<..Wrapper<EnumLeaf, ..>..>` down its chain.
 pub(crate) struct Wrapper<A, const TAG: u32>(::core::marker::PhantomData<A>);

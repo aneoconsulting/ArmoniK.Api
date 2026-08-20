@@ -33,6 +33,6 @@ pub enum Field {
     Raw(RawField),
     #[armonik(rename = "task_option_field")]
     TaskOption(TaskOptionField),
-    #[armonik(rename = "task_option_generic_field", flatten)]
+    #[armonik(rename = "task_option_generic_field", inlined)]
     TaskOptionGeneric(String),
 }

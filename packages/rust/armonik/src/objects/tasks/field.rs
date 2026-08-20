@@ -41,6 +41,6 @@ pub enum Field {
     Summary(SummaryField),
     #[armonik(rename = "task_option_field")]
     Option(TaskOptionField),
-    #[armonik(rename = "task_option_generic_field", flatten)]
+    #[armonik(rename = "task_option_generic_field", inlined)]
     OptionGeneric(String),
 }
