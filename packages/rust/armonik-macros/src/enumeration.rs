@@ -309,11 +309,16 @@ fn enum_plan(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<EnumPl
 
 /// The wire half. A plain proto enum is an `int32` varint, so it implements `ProtoField` directly;
 /// a transparent wrapper chain is message-shaped and goes through the same bundle as every struct.
-/// These are the crate's two families, and this is the only type that can be either.
-///
-/// The `enumeration` entry point matches on [`EnumMode`] to pick between them, which is where that
-/// decision belongs: `message` can never produce an `EnumPlan`, so nothing else has the choice.
-pub(crate) fn transparent_wire(plan: &EnumPlan, names: &[String], path: &[u32]) -> TokenStream {
+/// These are the crate's two families, and the enumeration is the one type that can be either; the
+/// choice is read off [`EnumMode`] here because no other macro has one.
+pub(crate) fn wire(plan: &EnumPlan) -> TokenStream {
+    match &plan.mode {
+        EnumMode::Plain { names } => plain_wire(plan, names),
+        EnumMode::Transparent { names, path } => transparent_wire(plan, names, path),
+    }
+}
+
+fn transparent_wire(plan: &EnumPlan, names: &[String], path: &[u32]) -> TokenStream {
     // The chain as a codec type rather than a runtime walk over the tags: the enum at the bottom,
     // one `Wrapper` per level above it, and the outermost tag written by the message itself.
     let (root, nested) = path.split_first().expect("non-empty wrapper path");
@@ -354,7 +359,7 @@ pub(crate) fn transparent_wire(plan: &EnumPlan, names: &[String], path: &[u32]) 
 
 /// A proto enum on the wire: an `int32` varint, reached through `ProtoField` rather than through the
 /// `Msg` blanket, because a proto enum is not a message.
-pub(crate) fn plain_wire(plan: &EnumPlan, names: &[String]) -> TokenStream {
+fn plain_wire(plan: &EnumPlan, names: &[String]) -> TokenStream {
     let ident = &plan.ident;
     let tripwire = tripwire(plan.fingerprint);
     quote! {
