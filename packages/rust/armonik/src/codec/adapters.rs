@@ -57,15 +57,12 @@ where
     }
 }
 
-/// `Wrapper { V inner = 1 }` exposed as the bare `V` (a `String` or a
-/// `Vec<T>`): the single-field wrapper message is flattened away.
-///
-/// The inner tag is hardcoded, not a parameter. It read `Wrapper<TAG>` while
-/// all ten of its sites were `Wrapper`, which advertised a generality
-/// nothing exercised; `PairMap`'s const generics were collapsed for the same
-/// reason, one file over. A wrapper at another tag is a one-line change here
-/// and a `Wrapper<N>` again the day two of them coexist.
-pub(crate) struct Wrapper<A = Own, const TAG: u32 = 1>(::core::marker::PhantomData<A>);
+/// `Wrapper { V inner = TAG }` exposed as the bare `V`: one length-delimited
+/// framing layer around the codec `A`, which is how single-field wrapper
+/// messages are flattened away. `#[armonik(flatten)]` emits `Wrapper<Own, N>`
+/// with the tag read from the descriptor; a transparent enumeration composes
+/// `Wrapper<..Wrapper<EnumLeaf, ..>..>` down its chain.
+pub(crate) struct Wrapper<A, const TAG: u32>(::core::marker::PhantomData<A>);
 
 /// The value's own [`ProtoField`], as a codec type: the bottom of a wrapper chain, and what
 /// [`Wrapper`] wraps unless told otherwise.

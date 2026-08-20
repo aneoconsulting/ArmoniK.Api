@@ -39,6 +39,9 @@ pub(crate) enum AttrItem {
     /// `inline`: the struct variant's leftover fields are the member message's own fields, spread
     /// into the variant rather than carried whole by one of them.
     Inline,
+    /// `flatten`: the field or member is a single-field wrapper message, carried as its inner
+    /// value; the wrapper is unwrapped from the descriptor and absorbed.
+    Flatten,
     /// `absorbs = "full.proto.Name"`, on a field or variant carrying a `with` adapter: the proto
     /// message the adapter flattens away, which therefore has no Rust type of its own. Harvested so
     /// the build script prunes it and the differential harness counts it as covered.
@@ -90,13 +93,14 @@ impl Parse for AttrList {
                 "transparent" => AttrItem::Transparent,
                 "present" => AttrItem::Present,
                 "inline" => AttrItem::Inline,
+                "flatten" => AttrItem::Flatten,
                 other => {
                     return Err(syn::Error::new(
                         span,
                         format!(
                             "unknown armonik attribute key `{other}` (expected one of: \
                              message, enum, oneof, rename, tag, with, absorbs, service, rpc, \
-                             generic, transparent, present, inline)"
+                             generic, transparent, present, inline, flatten)"
                         ),
                     ));
                 }
@@ -206,6 +210,7 @@ pub(crate) struct FieldAttrs {
     pub(crate) with: Option<(Span, syn::Type)>,
     pub(crate) present: bool,
     pub(crate) inline: Option<Span>,
+    pub(crate) flatten: Option<Span>,
     /// Proto messages a `with` adapter flattens away, so they have no Rust type of their own.
     /// Repeatable.
     pub(crate) absorbs: Vec<String>,
@@ -220,6 +225,7 @@ pub(crate) struct Allowed {
     pub(crate) with: bool,
     pub(crate) present: bool,
     pub(crate) inline: bool,
+    pub(crate) flatten: bool,
     pub(crate) absorbs: bool,
 }
 
@@ -249,6 +255,7 @@ fn scan_field_attrs(
             }
             AttrItem::Present if allowed.present => collected.present = true,
             AttrItem::Inline if allowed.inline => collected.inline = Some(entry.span),
+            AttrItem::Flatten if allowed.flatten => collected.flatten = Some(entry.span),
             AttrItem::Absorbs(lit) if allowed.absorbs => collected.absorbs.push(lit.value()),
             _ => generator.error(entry.span, reject),
         }

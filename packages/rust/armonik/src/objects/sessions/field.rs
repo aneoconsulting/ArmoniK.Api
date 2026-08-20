@@ -33,10 +33,6 @@ pub enum Field {
     Raw(RawField),
     #[armonik(rename = "task_option_field")]
     TaskOption(TaskOptionField),
-    #[armonik(
-        rename = "task_option_generic_field",
-        with = "crate::codec::adapters::Wrapper",
-        absorbs = "armonik.api.grpc.v1.sessions.TaskOptionGenericField"
-    )]
+    #[armonik(rename = "task_option_generic_field", flatten)]
     TaskOptionGeneric(String),
 }

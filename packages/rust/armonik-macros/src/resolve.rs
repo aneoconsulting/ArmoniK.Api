@@ -143,6 +143,7 @@ fn proto_field_attrs(
     let FieldAttrs {
         rename,
         with,
+        flatten,
         absorbs: declared,
         ..
     } = scan_attrs(
@@ -150,6 +151,7 @@ fn proto_field_attrs(
         Allowed {
             rename: true,
             with: true,
+            flatten: true,
             absorbs: true,
             ..Allowed::default()
         },
@@ -157,7 +159,11 @@ fn proto_field_attrs(
         generator,
     )?;
     absorbs.extend(declared);
-    Some(ProtoFieldAttrs { rename, with })
+    Some(ProtoFieldAttrs {
+        rename,
+        with,
+        flatten,
+    })
 }
 
 /// What a proto field's own attributes say about it, once the messages its adapter absorbs have
@@ -168,6 +174,8 @@ struct ProtoFieldAttrs {
     /// The `with = ...` codec substitution, spanned: where a site does not accept one, the error
     /// points at the key rather than at whatever carries it.
     with: Option<(Span, syn::Type)>,
+    /// `flatten`: the same, for the substitution the descriptor proves rather than names.
+    flatten: Option<Span>,
 }
 
 // ---- Plain struct: every field is a field of one proto message ----
@@ -230,7 +238,11 @@ fn plain_ir(
 
     for (field_index, field) in data.fields.iter().enumerate() {
         let (span, access) = field_access(field, field_index);
-        let Some(ProtoFieldAttrs { rename, with }) = proto_field_attrs(
+        let Some(ProtoFieldAttrs {
+            rename,
+            with,
+            flatten,
+        }) = proto_field_attrs(
             &field.attrs,
             "this armonik attribute is not valid on a message field",
             &mut absorbs,
@@ -239,7 +251,6 @@ fn plain_ir(
             fields.push(Slot::poisoned(span));
             continue;
         };
-        let with = with.map(|(_, ty)| ty);
 
         let proto_name = match (&rename, &field.ident) {
             (Some(name), _) => name.clone(),
@@ -262,10 +273,10 @@ fn plain_ir(
         let proto_path = format!("{name}.{proto_name}");
         match resolved {
             Found::Oneof { tags } => {
-                if with.is_some() {
+                if with.is_some() || flatten.is_some() {
                     generator.error(
                         span,
-                        "with/tag attributes are not supported on oneof fields",
+                        "with/flatten/tag attributes are not supported on oneof fields",
                     );
                     fields.push(Slot::poisoned(span));
                     continue;
@@ -285,14 +296,33 @@ fn plain_ir(
                     docs: Vec::new(),
                 });
             }
-            Found::Field(field_meta) => fields.push(Slot::field(
-                name,
-                field_meta,
-                span,
-                access,
-                field.ty.clone(),
-                with.map(Box::new),
-            )),
+            Found::Field(field_meta) => {
+                let Ok((adapter, checks)) =
+                    payload_of(with, flatten, generator).and_then(|payload| {
+                        payload_codec(
+                            index,
+                            field_meta,
+                            &proto_path,
+                            payload,
+                            &mut absorbs,
+                            generator,
+                        )
+                    })
+
+                else {
+                    fields.push(Slot::poisoned(span));
+                    continue;
+                };
+                fields.push(Slot::field(
+                    name,
+                    field_meta,
+                    span,
+                    access,
+                    field.ty.clone(),
+                    adapter,
+                    checks,
+                ));
+            }
         }
     }
 
@@ -595,6 +625,7 @@ impl<'a> Siblings<'a> {
                     FieldAccess::Named(ident),
                     ty,
                     None,
+                    Some(Expectation::of(meta)),
                 ))
             })
             .collect();
@@ -657,7 +688,11 @@ fn carried(
     let mut leftovers: Vec<Leftover> = Vec::new();
     for field in named {
         let ident = field.ident.clone().expect("named fields have idents");
-        let Some(ProtoFieldAttrs { rename, with }) = proto_field_attrs(
+        let Some(ProtoFieldAttrs {
+            rename,
+            with,
+            flatten,
+        }) = proto_field_attrs(
             &field.attrs,
             "this armonik attribute is not valid on a struct variant field",
             absorbs,
@@ -670,10 +705,10 @@ fn carried(
         let name = rename.unwrap_or_else(|| unraw(&ident));
         match siblings.claim(&mut seen, &name, &ident, &field.ty, generator) {
             Some(ok) => {
-                if let Some((with_span, _)) = with {
+                for span in with.map(|(span, _)| span).into_iter().chain(flatten) {
                     generator.error(
-                        with_span,
-                        "with = ... is only valid on the member payload field, not on a \
+                        span,
+                        "this key is only valid on the member payload field, not on a \
                          sibling field",
                     );
                     failed = true;
@@ -686,6 +721,7 @@ fn carried(
                 name,
                 ty: field.ty.clone(),
                 with: with.map(|(_, ty)| ty),
+                flatten,
             }),
         }
     }
@@ -703,20 +739,112 @@ struct Leftover {
     ty: syn::Type,
     span: Span,
     with: Option<syn::Type>,
+    flatten: Option<Span>,
 }
 
-/// How a variant says its member is carried, folded from the `present`, `inline` and `with` keys.
+/// Unwrap a single-field wrapper message from the descriptor: the codec (`Wrapper<Own, tag>`)
+/// and the *inner* field's expectation, so a flattened site keeps its shape check, unlike a
+/// `with` adapter, which is trusted. The wrapper is absorbed: no Rust type stands for it.
+fn flatten_codec(
+    index: &DescriptorIndex,
+    member: &FieldMeta,
+    proto_path: &str,
+    span: Span,
+    absorbs: &mut Vec<String>,
+    generator: &mut Generator,
+) -> Result<(Option<Box<syn::Type>>, Option<Expectation>), ()> {
+    let FieldKind::Message(inner_name) = &member.kind else {
+        generator.error(
+            span,
+            format!(
+                "flatten unwraps a single-field wrapper message, but `{proto_path}` is {:?}",
+                member.kind
+            ),
+        );
+        return Err(());
+    };
+    let inner = index
+        .messages
+        .get(inner_name)
+        .filter(|inner| inner.fields.len() == 1 && inner.oneofs.is_empty());
+    let Some(field) = inner.map(|inner| &inner.fields[0]) else {
+        generator.error(
+            span,
+            format!("`{inner_name}` is not a single-field wrapper message"),
+        );
+        return Err(());
+    };
+    absorbs.push(inner_name.clone());
+    let tag = proc_macro2::Literal::u32_unsuffixed(field.tag);
+    let adapter: syn::Type = syn::parse_quote!(
+        crate::codec::adapters::Wrapper<crate::codec::adapters::Own, #tag>
+    );
+    Ok((Some(Box::new(adapter)), Some(Expectation::of(field))))
+}
+
+/// The codec substitution and shape check of a member carried whole: none (checked against the
+/// member itself), a `with` adapter (trusted), or `flatten` (unwrapped and checked against the
+/// wrapper's inner field).
+fn payload_codec(
+    index: &DescriptorIndex,
+    field_meta: &FieldMeta,
+    proto_path: &str,
+    payload: Option<Payload>,
+    absorbs: &mut Vec<String>,
+    generator: &mut Generator,
+) -> Result<(Option<Box<syn::Type>>, Option<Expectation>), ()> {
+    match payload {
+        None => Ok((None, Some(Expectation::of(field_meta)))),
+        Some(Payload::Adapter(_, ty)) => Ok((Some(ty), None)),
+        Some(Payload::Flatten(span)) => {
+            flatten_codec(index, field_meta, proto_path, span, absorbs, generator)
+        }
+    }
+}
+
+/// The one substitution a site carries, from the two keys that each name one. Both together is one
+/// mistake, reported on `flatten`, which is the key the descriptor could have proved instead.
+fn payload_of(
+    with: Option<(Span, syn::Type)>,
+    flatten: Option<Span>,
+    generator: &mut Generator,
+) -> Result<Option<Payload>, ()> {
+    match (with, flatten) {
+        (Some(_), Some(span)) => {
+            generator.error(
+                span,
+                "`flatten` and `with = ...` each say how the field is carried, so they \
+                 cannot be combined",
+            );
+            Err(())
+        }
+        (Some((span, ty)), None) => Ok(Some(Payload::Adapter(span, Box::new(ty)))),
+        (None, Some(span)) => Ok(Some(Payload::Flatten(span))),
+        (None, None) => Ok(None),
+    }
+}
+
+/// How a variant says its member is carried, folded from the `present`, `inline`, `with` and
+/// `flatten` keys.
 ///
-/// Folded in one place because the three name three different carriers, so any two of them together
-/// is one mistake with one message, whatever the pair.
+/// Folded in one place because they name four different carriers, so any two of them together is
+/// one mistake with one message, whatever the pair.
 enum Carrier {
-    /// The member carried whole (the default), optionally through a variant-level `with` adapter
-    /// (the span is the `with` key's, where a misplaced adapter is reported).
-    Whole(Option<(Span, Box<syn::Type>)>),
+    /// The member carried whole (the default), optionally through a codec substitution.
+    Whole(Option<Payload>),
     /// `#[armonik(present)]`: carried by presence alone.
     Present,
     /// `#[armonik(inline)]`: the member message's own fields, spread into the variant.
     Inline(Span),
+}
+
+/// The codec substitution of a member carried whole. The span is the key's, where a misplaced
+/// substitution is reported.
+enum Payload {
+    /// `with = "..."`: a named adapter, trusted (no shape check).
+    Adapter(Span, Box<syn::Type>),
+    /// `flatten`: the wrapper unwrapped from the descriptor, checked against its inner field.
+    Flatten(Span),
 }
 
 fn carrier(
@@ -724,6 +852,7 @@ fn carrier(
     with: Option<(Span, syn::Type)>,
     present: bool,
     inline: Option<Span>,
+    flatten: Option<Span>,
     generator: &mut Generator,
 ) -> Option<Carrier> {
     let mut named = Vec::new();
@@ -736,6 +865,9 @@ fn carrier(
     if let Some((span, _)) = &with {
         named.push((*span, "with = ..."));
     }
+    if let Some(span) = flatten {
+        named.push((span, "flatten"));
+    }
     if let [_, (second_span, _), ..] = named.as_slice() {
         let keys = named
             .iter()
@@ -747,7 +879,8 @@ fn carrier(
             format!(
                 "{keys} each say how the member is carried (present: by presence alone; \
                  inline: its message's fields spread into the variant; with: through an \
-                 adapter), so they cannot be combined"
+                 adapter; flatten: its single-field wrapper unwrapped), so they cannot be \
+                 combined"
             ),
         );
         return None;
@@ -756,8 +889,10 @@ fn carrier(
         Carrier::Present
     } else if let Some(span) = inline {
         Carrier::Inline(span)
+    } else if let Some(span) = flatten {
+        Carrier::Whole(Some(Payload::Flatten(span)))
     } else {
-        Carrier::Whole(with.map(|(span, ty)| (span, Box::new(ty))))
+        Carrier::Whole(with.map(|(span, ty)| Payload::Adapter(span, Box::new(ty))))
     })
 }
 
@@ -844,9 +979,9 @@ fn resolve_variant(
             }
             resolve_inline_member(ctx, leftovers, absorbs, generator)
         }
-        Carrier::Whole(with) => match &ctx.variant.fields {
-            // `Variant(T)`: the member carried whole, optionally through an adapter. It carries no
-            // sibling fields, so the enum must have none.
+        Carrier::Whole(payload) => match &ctx.variant.fields {
+            // `Variant(T)`: the member carried whole, optionally through a codec substitution. It
+            // carries no sibling fields, so the enum must have none.
             syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 if has_siblings {
                     generator.error(
@@ -859,33 +994,70 @@ fn resolve_variant(
                     );
                     return None;
                 }
-                let (codec, checks) = SlotCodec::field(
-                    fields.unnamed[0].ty.clone(),
-                    with.map(|(_, ty)| ty),
+                let Ok((adapter, checks)) = payload_codec(
+                    ctx.index,
                     ctx.field_meta,
-                );
+                    ctx.proto_path,
+                    payload,
+                    absorbs,
+                    generator,
+                ) else {
+                    return None;
+                };
                 Some((
                     Some(FieldAccess::Indexed(syn::Index::from(0))),
-                    codec,
+                    SlotCodec::Field {
+                        ty: Box::new(fields.unnamed[0].ty.clone()),
+                        adapter,
+                    },
                     checks,
                 ))
             }
             syn::Fields::Named(_) => {
-                if let Some((with_span, _)) = with {
+                if let Some(Payload::Adapter(span, _)) = payload {
                     generator.error(
-                        with_span,
+                        span,
                         "in a struct variant, put with = ... on the field carrying the member",
                     );
                     return None;
                 }
                 match <[Leftover; 1]>::try_from(leftovers) {
-                    Ok([payload]) => {
-                        let (codec, checks) = SlotCodec::field(
-                            payload.ty,
-                            payload.with.map(Box::new),
-                            ctx.field_meta,
+                    Ok([member]) => {
+                        // The variant-level carrier and the field-level keys land in the same
+                        // payload slot; naming two is one mistake with one message.
+                        let mut payloads = payload.into_iter().collect::<Vec<_>>();
+                        payloads.extend(
+                            member
+                                .with
+                                .map(|ty| Payload::Adapter(member.span, Box::new(ty))),
                         );
-                        Some((Some(FieldAccess::Named(payload.ident)), codec, checks))
+                        payloads.extend(member.flatten.map(Payload::Flatten));
+                        if payloads.len() > 1 {
+                            generator.error(
+                                member.span,
+                                "`flatten` and `with = ...` each say how the member is carried, \
+                                 so they cannot be combined",
+                            );
+                            return None;
+                        }
+                        let Ok((adapter, checks)) = payload_codec(
+                            ctx.index,
+                            ctx.field_meta,
+                            ctx.proto_path,
+                            payloads.pop(),
+                            absorbs,
+                            generator,
+                        ) else {
+                            return None;
+                        };
+                        Some((
+                            Some(FieldAccess::Named(member.ident)),
+                            SlotCodec::Field {
+                                ty: Box::new(member.ty),
+                                adapter,
+                            },
+                            checks,
+                        ))
                     }
                     Err(leftovers) if leftovers.is_empty() => {
                         generator.error(
@@ -997,10 +1169,10 @@ fn resolve_inline_member(
     // an arm binding only some of them would not even pattern-match the variant.
     let mut failed = false;
     for leftover in leftovers {
-        if leftover.with.is_some() {
+        if leftover.with.is_some() || leftover.flatten.is_some() {
             generator.error(
                 leftover.span,
-                "with = ... is not supported on an inlined field",
+                "with = ... and flatten are not supported on an inlined field",
             );
             failed = true;
             continue;
@@ -1020,6 +1192,7 @@ fn resolve_inline_member(
             FieldAccess::Named(leftover.ident),
             leftover.ty,
             None,
+            Some(Expectation::of(part_meta)),
         ));
     }
     if failed {
@@ -1191,6 +1364,7 @@ fn resolve_one_variant(
         with,
         present,
         inline,
+        flatten,
         absorbs: declared,
         ..
     }) = scan_attrs(
@@ -1200,6 +1374,7 @@ fn resolve_one_variant(
             with: true,
             present: true,
             inline: true,
+            flatten: true,
             absorbs: true,
             ..Allowed::default()
         },
@@ -1284,7 +1459,7 @@ fn resolve_one_variant(
             proto_path: &proto_path,
             member_name: &member_name,
         };
-        carrier(span, with, present, inline, generator).and_then(|carrier| {
+        carrier(span, with, present, inline, flatten, generator).and_then(|carrier| {
             resolve_variant(
                 &ctx,
                 carrier,

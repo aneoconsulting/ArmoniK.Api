@@ -55,11 +55,7 @@ pub enum Response {
     #[default]
     Invalid,
     /// The creation statuses, one per task creation request.
-    #[armonik(
-        rename = "creation_status_list",
-        with = "crate::codec::adapters::Wrapper",
-        absorbs = "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatusList"
-    )]
+    #[armonik(rename = "creation_status_list", flatten)]
     Status(Vec<Status>),
     /// The error message when all the task creations failed.
     Error(String),
