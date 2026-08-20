@@ -186,13 +186,19 @@ fn the_leaf_impls_no_api_field_reaches() {
     roundtrip_field(1.5f64);
     roundtrip_field(u64::MAX);
     // The negative zero survives, which a `==` zero test in `is_zero` would not do: it would leave
-    // the field off the wire, and an absent float reads back as `+0.0`.
-    for zero in [-0.0f64, -0.0f32 as f64] {
-        let mut buf = Vec::new();
-        <f64 as ProtoField>::encode_implicit(1, &zero, &mut buf);
-        assert!(!buf.is_empty(), "a negative zero is written out");
-        roundtrip_field(zero);
-    }
+    // the field off the wire, and an absent float reads back as `+0.0`. One case per codec, since
+    // each has its own override, and the differential harness reaches neither: no field of this
+    // schema is a float or a double.
+    let mut buf = Vec::new();
+    <f64 as ProtoField>::encode_implicit(1, &-0.0f64, &mut buf);
+    assert!(!buf.is_empty(), "a negative zero double is written out");
+    roundtrip_field(-0.0f64);
+
+    let mut buf = Vec::new();
+    <f32 as ProtoField>::encode_implicit(1, &-0.0f32, &mut buf);
+    assert!(!buf.is_empty(), "a negative zero float is written out");
+    roundtrip_field(-0.0f32);
+
     let mut buf = Vec::new();
     <f64 as ProtoField>::encode_implicit(1, &0.0, &mut buf);
     assert!(buf.is_empty(), "a positive zero is not");

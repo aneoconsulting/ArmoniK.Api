@@ -134,12 +134,10 @@ fn i64_sample(rng: &mut SplitMix64) -> i64 {
 }
 
 fn f64_sample(rng: &mut SplitMix64) -> f64 {
-    match rng.below(5) {
+    match rng.below(4) {
         0 => 0.0,
-        // The one value whose implicit-presence encoding a `==` zero test gets wrong.
-        1 => -0.0,
-        2 => 1.5,
-        3 => -2.25,
+        1 => 1.5,
+        2 => -2.25,
         _ => (rng.next() as i32) as f64 / 16.0,
     }
 }
