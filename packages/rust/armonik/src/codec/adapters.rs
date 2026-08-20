@@ -65,17 +65,60 @@ where
 /// nothing exercised; `PairMap`'s const generics were collapsed for the same
 /// reason, one file over. A wrapper at another tag is a one-line change here
 /// and a `Wrapper<N>` again the day two of them coexist.
-pub(crate) struct Wrapper;
+pub(crate) struct Wrapper<A = Own, const TAG: u32 = 1>(::core::marker::PhantomData<A>);
 
-/// The tag the wrapper message carries its single field at.
-const TAG: u32 = 1;
+/// The value's own [`ProtoField`], as a codec type: the bottom of a wrapper chain, and what
+/// [`Wrapper`] wraps unless told otherwise.
+pub(crate) struct Own;
 
-impl<V: ProtoField> ProtoAdapter<V> for Wrapper {
+impl<V: ProtoField> ProtoAdapter<V> for Own {
     fn encode_field(tag: u32, value: &V, buf: &mut impl BufMut) {
-        let body = V::encoded_len_field(TAG, value);
+        V::encode_field(tag, value, buf)
+    }
+
+    fn merge_field(
+        wire_type: WireType,
+        value: &mut V,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        V::merge_field(wire_type, value, buf, ctx)
+    }
+
+    fn encoded_len_field(tag: u32, value: &V) -> usize {
+        V::encoded_len_field(tag, value)
+    }
+}
+
+/// A proto enum as the `int32` it is on the wire: the bottom of a *transparent* enum's chain, whose
+/// Rust type is the enum itself rather than a struct holding one.
+pub(crate) struct EnumLeaf;
+
+impl<T: Copy + Into<i32> + From<i32>> ProtoAdapter<T> for EnumLeaf {
+    fn encode_field(tag: u32, value: &T, buf: &mut impl BufMut) {
+        super::enumeration::encode(tag, value, buf)
+    }
+
+    fn merge_field(
+        wire_type: WireType,
+        value: &mut T,
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        super::enumeration::merge(wire_type, value, buf, ctx)
+    }
+
+    fn encoded_len_field(tag: u32, value: &T) -> usize {
+        super::enumeration::encoded_len(tag, value)
+    }
+}
+
+impl<V, A: ProtoAdapter<V>, const TAG: u32> ProtoAdapter<V> for Wrapper<A, TAG> {
+    fn encode_field(tag: u32, value: &V, buf: &mut impl BufMut) {
+        let body = A::encoded_len_field(TAG, value);
         encoding::encode_key(tag, WireType::LengthDelimited, buf);
         encoding::encode_varint(body as u64, buf);
-        V::encode_field(TAG, value, buf);
+        A::encode_field(TAG, value, buf);
     }
 
     fn merge_field(
@@ -85,10 +128,13 @@ impl<V: ProtoField> ProtoAdapter<V> for Wrapper {
         ctx: DecodeContext,
     ) -> Result<(), DecodeError> {
         encoding::check_wire_type(WireType::LengthDelimited, wire_type)?;
+        // Through `merge_loop`, which bounds the body by a byte count on the same buffer rather than
+        // handing out a sub-buffer, so nesting stays monomorphic; and which brings the recursion and
+        // length limits `ctx` carries plus the exact-length check.
         encoding::merge_loop(value, buf, ctx, |value, buf, ctx| {
             let (tag, wire_type) = encoding::decode_key(buf)?;
             if tag == TAG {
-                V::merge_field(wire_type, value, buf, ctx)
+                A::merge_field(wire_type, value, buf, ctx)
             } else {
                 encoding::skip_field(wire_type, tag, buf, ctx)
             }
@@ -96,7 +142,7 @@ impl<V: ProtoField> ProtoAdapter<V> for Wrapper {
     }
 
     fn encoded_len_field(tag: u32, value: &V) -> usize {
-        let body = V::encoded_len_field(TAG, value);
+        let body = A::encoded_len_field(TAG, value);
         encoding::key_len(tag) + encoding::encoded_len_varint(body as u64) + body
     }
 }
