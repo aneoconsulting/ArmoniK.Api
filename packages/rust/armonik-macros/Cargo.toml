@@ -36,3 +36,5 @@ fnv.workspace = true
 # make every consumer of this crate build protox to produce it.
 protox = "0.9"
 trybuild = "1.0"
+# TEMPORARY: pretty-prints the expansion snapshots the refactor harness dumps (src/snapshots.rs).
+prettyplease = "0.2"

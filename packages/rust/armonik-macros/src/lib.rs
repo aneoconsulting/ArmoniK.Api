@@ -29,6 +29,8 @@ mod names;
 mod plan;
 mod service;
 mod shape;
+#[cfg(test)]
+mod snapshots;
 
 use item::Kind;
 use plan::EnumMode;
