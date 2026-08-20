@@ -90,6 +90,62 @@ impl<V: ProtoField> ProtoAdapter<V> for Own {
     }
 }
 
+/// A `#[armonik(present)]` `bool` member, whose value is its own presence: encoding writes `true`,
+/// and decoding consumes the bool *whatever it holds*, so an explicit `false` on the wire still
+/// selects the variant. The value type is `()` because there is nothing to hold.
+pub(crate) struct BoolPresence;
+
+impl ProtoAdapter<()> for BoolPresence {
+    fn encode_field(tag: u32, (): &(), buf: &mut impl BufMut) {
+        <bool as ProtoField>::encode_field(tag, &true, buf);
+    }
+
+    fn merge_field(
+        wire_type: WireType,
+        (): &mut (),
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        let mut marker = false;
+        <bool as ProtoField>::merge_field(wire_type, &mut marker, buf, ctx)
+    }
+
+    fn encoded_len_field(tag: u32, (): &()) -> usize {
+        <bool as ProtoField>::encoded_len_field(tag, &true)
+    }
+
+    /// Only presence survives: an explicit `false` still selects the variant.
+    #[cfg(test)]
+    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
+        crate::differential::bool_marker(message, tag);
+    }
+}
+
+/// A `#[armonik(present)]` empty-message member: an empty length-delimited body is all the
+/// information there is. Decoding rejects what prost's message codec rejects (the wire type, the
+/// length framing, the keys inside); presence and emptiness are already equivalent on the dynamic
+/// side, so the default identity projection is the right one.
+pub(crate) struct EmptyPresence;
+
+impl ProtoAdapter<()> for EmptyPresence {
+    fn encode_field(tag: u32, (): &(), buf: &mut impl BufMut) {
+        super::empty_body::encode(tag, buf);
+    }
+
+    fn merge_field(
+        wire_type: WireType,
+        (): &mut (),
+        buf: &mut impl Buf,
+        ctx: DecodeContext,
+    ) -> Result<(), DecodeError> {
+        super::empty_body::merge(wire_type, buf, ctx)
+    }
+
+    fn encoded_len_field(tag: u32, (): &()) -> usize {
+        super::empty_body::encoded_len(tag)
+    }
+}
+
 /// A proto enum as the `int32` it is on the wire: the bottom of a *transparent* enum's chain, whose
 /// Rust type is the enum itself rather than a struct holding one.
 pub(crate) struct EnumLeaf;

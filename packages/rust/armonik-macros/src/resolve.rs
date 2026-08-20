@@ -847,6 +847,10 @@ fn resolve_variant(
 }
 
 /// `#[armonik(present)]` unit variant selected by a `bool` or empty-message member.
+///
+/// A codec substitution like any other adapter: the value type is `()` (the member carries nothing
+/// but its own presence), and the one decision made here is which presence adapter the member's
+/// kind calls for.
 fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShape {
     if !matches!(ctx.variant.fields, syn::Fields::Unit) {
         errors.at(
@@ -855,9 +859,9 @@ fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShap
         );
         return Err(());
     }
-    let empty_message = match &ctx.field_meta.kind {
-        FieldKind::Bool => false,
-        FieldKind::Message(_) => true,
+    let adapter: syn::Type = match &ctx.field_meta.kind {
+        FieldKind::Bool => syn::parse_quote!(crate::codec::adapters::BoolPresence),
+        FieldKind::Message(_) => syn::parse_quote!(crate::codec::adapters::EmptyPresence),
         other => {
             errors.at(
                 ctx.span,
@@ -870,7 +874,14 @@ fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShap
             return Err(());
         }
     };
-    Ok((None, SlotCodec::Marker { empty_message }, None))
+    Ok((
+        None,
+        SlotCodec::Field {
+            ty: Box::new(syn::parse_quote!(())),
+            adapter: Some(Box::new(adapter)),
+        },
+        None,
+    ))
 }
 
 /// `#[armonik(inline)]`: the variant's leftover fields are the member message's own fields, spread
