@@ -106,9 +106,14 @@ macro_rules! register {
                             // hand-written `Message` impl has two independent matches.
                             roundtrip: |bytes| {
                                 let value = <$ty as ::prost::Message>::decode(bytes)?;
-                                let bytes = ::prost::Message::encode_to_vec(&value);
+                                // `encode_to_vec` is `with_capacity(encoded_len())` then
+                                // `encode_raw`, so spelling the two out is what keeps the length
+                                // from being walked twice for the assertion below.
+                                let len = ::prost::Message::encoded_len(&value);
+                                let mut bytes = ::std::vec::Vec::with_capacity(len);
+                                ::prost::Message::encode_raw(&value, &mut bytes);
                                 ::core::assert_eq!(
-                                    ::prost::Message::encoded_len(&value),
+                                    len,
                                     bytes.len(),
                                     "{}: encoded_len disagrees with what encode wrote",
                                     ::core::any::type_name::<$ty>(),
