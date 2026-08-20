@@ -439,21 +439,23 @@ fn descriptor_coverage_ratchet() {
 ///
 /// `unexposed(...)` RPCs are not declared, which is what exempts them.
 ///
-/// Only services that have a client method are checked. `rpc/*.rs` is unconditional -- the `Rpc`
+/// Only services this build has a client for are checked. `rpc/*.rs` is unconditional -- the `Rpc`
 /// impls have to be, whatever the build -- while `client/*.rs` is gated per use case, so under
 /// `--features client` the agent's and the worker's methods are not compiled and their RPCs would
-/// read as uncovered. Restating those gates here would give `client/mod.rs`'s cfgs a second home;
-/// taking the services from the client side instead means every configuration checks exactly the
-/// surface it built, and the one CI runs (`--all-features`) checks all twelve. What this does not
-/// catch is a service losing *every* client method at once: that reads as a module the build left
-/// out. The count below is on the declared side, where nothing is gated.
+/// read as uncovered. Restating those gates here would give `client/mod.rs`'s cfgs a second home,
+/// so the set comes from `CLIENT_SERVICES`, which `#[armonik_macros::client]` records per impl
+/// block from inside the gated module. Off the block and not off its methods, so a service that
+/// lost every one of them fails here instead of leaving quietly; every configuration checks
+/// exactly the surface it built, and the one CI runs (`--all-features`) checks all twelve.
 #[test]
 fn every_rpc_has_a_client_method() {
     use super::registrations::{CLIENT_METHODS, DECLARED_RPCS};
 
     let key = |rpc: &super::registrations::Rpc| format!("{}/{}", rpc.service, rpc.method);
-    let compiled: std::collections::BTreeSet<&str> =
-        CLIENT_METHODS.iter().map(|rpc| rpc.service).collect();
+    let compiled: std::collections::BTreeSet<&str> = super::registrations::CLIENT_SERVICES
+        .iter()
+        .copied()
+        .collect();
     let declared: std::collections::BTreeSet<String> = DECLARED_RPCS
         .iter()
         .filter(|rpc| compiled.contains(rpc.service))

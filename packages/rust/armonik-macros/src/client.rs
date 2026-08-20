@@ -101,6 +101,16 @@ fn rewrite(mut item: syn::ItemImpl) -> TokenStream {
         });
     }
 
+    // The block itself, not just its methods: the coverage check needs to know which services this
+    // build compiled a client for, and reading that off the methods would let a service that lost
+    // all of them leave the check quietly.
+    if let Some(service) = &service_name {
+        let service_literal = service.value();
+        registrations.push(quote! {
+            crate::register!(client_service: #service_literal);
+        });
+    }
+
     let errors = errors.into_iter().map(syn::Error::into_compile_error);
     quote! {
         #item

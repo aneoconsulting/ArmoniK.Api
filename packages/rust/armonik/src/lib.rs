@@ -52,6 +52,15 @@ macro_rules! register {
     (client_method: $service:literal, $method:literal) => {
         $crate::register!(@rpc CLIENT_METHODS, $service, $method);
     };
+    // The service a client impl block is for, so the check knows which ones this build has a client
+    // for without reading that off the methods it is checking.
+    (client_service: $service:literal) => {
+        #[cfg(test)]
+        const _: () = {
+            #[::linkme::distributed_slice($crate::differential::registrations::CLIENT_SERVICES)]
+            static S: &str = $service;
+        };
+    };
 
     (@rpc $slice:ident, $service:literal, $method:literal) => {
         #[cfg(test)]
