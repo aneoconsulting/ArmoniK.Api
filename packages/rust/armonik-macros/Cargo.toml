@@ -35,4 +35,4 @@ fnv.workspace = true
 # the fixture is only ever wanted by `tests/ui.rs`, and a build script would
 # make every consumer of this crate build protox to produce it.
 protox = "0.9"
-trybuild = "1.0"
+trybuild.workspace = true
