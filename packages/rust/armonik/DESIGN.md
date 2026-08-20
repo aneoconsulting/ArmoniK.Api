@@ -301,7 +301,8 @@ Everything not listed here is inferred from the descriptor.
 | `oneof = "type"` | type (enum) | the enum stands for one oneof of a larger message, embedded in a struct (without it, an enum stands for the whole single-oneof message); variants matched against oneof members |
 | `present` | variant | oneof variant carried by presence alone (e.g. `DataChunk::Complete` <-> `dataComplete: true`) |
 | `transparent` | type | single-field message flattened into its field's type (message `TaskOptionField { field: enum }` <-> Rust enum) |
-| `with = "path::to::Adapter"` | field | custom codec; names a *type* implementing `ProtoAdapter<T>`, not a module (section 3.5) |
+| `inlined` | field / variant | the proto message layer at this site gets no Rust type: a struct variant spreads the member message's fields, a field or tuple variant carries a single-field wrapper's inner value or a repeated key/value pair as a map. Unwrapped from the descriptor, so the Rust type is still shape-checked, and the absorbed message is derived rather than declared |
+| `with = "path::to::Adapter"` | field | custom codec; names a *type* implementing `ProtoAdapter<T>`, not a module (section 3.5). For a relation to the proto shape that is *semantic* rather than structural, which no descriptor carries: one site, `ErrorAdapter`. Structural reshaping is `inlined`'s, and stays checked |
 | `tag = N` | field | `generic` mode only, where it is authoritative; a descriptor-validated field takes its tag from the descriptor and spelling one was rejected as restating it |
 
 ### 3.4 Enums: the merged `Unknown` variant
@@ -1855,7 +1856,7 @@ Two corollaries, because both were nearly got wrong here:
 
 | | |
 |---|---|
-| Variant emission | One emitter over a list of bindings -- none for a `present` marker, one for a member carried whole, several for an `inline` member's parts -- where there were three. `slot_merge_in_place` covers all four slot codecs, so a marker's and an inlined member's read side sit beside the other two instead of inside the emitters. Braced patterns throughout, a tuple variant's field being named `0`, so nothing forks on the variant's syntax |
+| Variant emission | One emitter over a list of bindings -- none for a `present` marker, one for a member carried whole, several for an `inlined` member's parts -- where there were three. `slot_merge_in_place` covers all four slot codecs, so a marker's and an inlined member's read side sit beside the other two instead of inside the emitters. Braced patterns throughout, a tuple variant's field being named `0`, so nothing forks on the variant's syntax |
 | Field order | Each arm writes what its variant carries, ordered by tag, rather than the shared fields being written around the match. A shared field between two member tags is emitted instead of rejected; the resolver guard and its compile-fail case are gone, replaced by a unit test on the ordering. The "no member set" variant goes through the same emitter owning no slot, replacing two hand-written arms |
 | Wrapper chains | `Wrapper<A, TAG>` composes, so a transparent enum's chain is the type `Wrapper<..<EnumLeaf>>` resolved at expansion time rather than a slice of tags walked at run time. `codec::wrapper_enum` is deleted; `Wrapper` gains arbitrary tags, which is all the module had over it |
 | Single homes | A struct's shape is a `Mode` set by the resolver that chose it, not a `transparent` bool plus "generic" inferred from an empty name list. The trait signature reads `client_streaming`/`server_streaming` off the descriptor, which resolution has already held the `stream` keywords to, rather than off a third copy in `KindFacts` |
@@ -1896,7 +1897,7 @@ the fact before re-proposing.
   costs a vtable call per *byte*, the generic escape monomorphizes the table per
   buffer type, and a variant's payload has no fixed offset so it cannot express
   the 24 oneof enums at all. Net +60 checked-in lines and slower.
-- **Deleting `present`, `inline`, or the shared-field sets** to buy line count.
-  Measured at ~170 lines for the shared sets and ~220 for `inline`, against six
+- **Deleting `present`, `inlined`, or the shared-field sets** to buy line count.
+  Measured at ~170 lines for the shared sets and ~220 for `inlined`, against six
   public types changing shape. The implementation, not the capability, was the
   cost: see 12.1.
