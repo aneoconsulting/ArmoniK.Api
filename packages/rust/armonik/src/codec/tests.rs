@@ -14,8 +14,12 @@
 //!   canonical-absence fold is precisely the distinction between `None` and `Some(default)`.
 //! * **`clear()` resets to the proto zero.** Nothing on the round-trip path calls it.
 //! * **which zeros reach the wire.** An implicit-presence leaf leaves its zero out; a message field
-//!   and a oneof member are written whatever they hold. Three byte-level facts about values a reader
-//!   cannot tell apart, so the semantic comparison is blind to all of them.
+//!   is written whatever it holds. Two byte-level facts about values a reader cannot tell apart, so
+//!   the semantic comparison is blind to both. The third case, a oneof member holding its zero, is
+//!   *not* blind: every oneof enum carries a memberless variant, so dropping the payload decodes to
+//!   a different Rust value and the round-trip fails on it. Measured, by writing that member through
+//!   `encode_implicit`: `a_zero_oneof_member_stays_on_the_wire`, `registered_types_roundtrip` and
+//!   `mutated_encodings_decode_to_the_same_value`, and nothing else.
 //!
 //! Plus the `ProtoField` impls no API field instantiates, which therefore have no other coverage at
 //! all.
@@ -127,8 +131,9 @@ fn a_zero_leaf_is_left_off_the_wire() {
 }
 
 /// A oneof member is the exception: it is what selects the variant, so leaving a zero payload out
-/// would decode as no member set. The harness cannot see this, because `Normalize` folds a member
-/// holding its default onto the absent oneof.
+/// would decode as no member set. `Normalize` folds a member holding its default onto the absent
+/// oneof, so the harness's *comparison* cannot see it; its round-trip can, the value coming back as
+/// the memberless variant. This pins it at the byte level, where the difference is.
 #[test]
 fn a_zero_oneof_member_stays_on_the_wire() {
     // `InitKeyedDataStream.key`, a `string` member at tag 1.
@@ -180,6 +185,17 @@ fn the_leaf_impls_no_api_field_reaches() {
 
     roundtrip_field(1.5f64);
     roundtrip_field(u64::MAX);
+    // The negative zero survives, which a `==` zero test in `is_zero` would not do: it would leave
+    // the field off the wire, and an absent float reads back as `+0.0`.
+    for zero in [-0.0f64, -0.0f32 as f64] {
+        let mut buf = Vec::new();
+        <f64 as ProtoField>::encode_implicit(1, &zero, &mut buf);
+        assert!(!buf.is_empty(), "a negative zero is written out");
+        roundtrip_field(zero);
+    }
+    let mut buf = Vec::new();
+    <f64 as ProtoField>::encode_implicit(1, &0.0, &mut buf);
+    assert!(buf.is_empty(), "a positive zero is not");
     // `None` writes nothing, so nothing is what decodes back to it.
     roundtrip_field(Option::<u64>::None);
     roundtrip_field(Some(7u64));
@@ -214,8 +230,8 @@ fn fields_are_emitted_in_ascending_tag_order() {
     assert_eq!(roundtrip(&request), request);
 }
 
-/// A map entry holding the zero key and the zero value is written out, like every other field, and
-/// reads back as itself.
+/// A map entry holding the zero key and the zero value is written out whole, and reads back as
+/// itself.
 ///
 /// prost's `hash_map` skips a subfield equal to its default, so it writes `{"": ""}` as an empty
 /// entry. Both forms decode to the same map, which is why the harness cannot see the difference.

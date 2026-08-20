@@ -15,8 +15,18 @@ use prost::DecodeError;
 use super::{FieldKind, ProtoField, Shape};
 
 /// Scalar whose repeated form is packed (proto3 default for numeric kinds).
+///
+/// The optional third form spells the zero test. It defaults to `==`, which is right for every
+/// integral kind and wrong for the two floating ones: `-0.0 == 0.0`, so an implicit-presence `-0.0`
+/// would be left off the wire and read back as `+0.0`. protoc's C++, Java, C# and Python runtimes
+/// all bit-test a float here for exactly that reason.
 macro_rules! packed_scalar {
     ($ty:ty, $kind:ident, $module:ident) => {
+        packed_scalar!($ty, $kind, $module, |value: &$ty| {
+            *value == <$ty as Default>::default()
+        });
+    };
+    ($ty:ty, $kind:ident, $module:ident, $is_zero:expr) => {
         impl ProtoField for $ty {
             const SHAPE: Shape = Shape::scalar(FieldKind::$kind);
 
@@ -38,7 +48,8 @@ macro_rules! packed_scalar {
             }
 
             fn is_zero(value: &Self) -> bool {
-                *value == <Self as Default>::default()
+                #[allow(clippy::redundant_closure_call)]
+                ($is_zero)(value)
             }
 
             fn encode_repeated(tag: u32, values: &[Self], buf: &mut impl BufMut) {
@@ -61,8 +72,8 @@ macro_rules! packed_scalar {
     };
 }
 
-packed_scalar!(f64, Double, double);
-packed_scalar!(f32, Float, float);
+packed_scalar!(f64, Double, double, |value: &f64| value.to_bits() == 0);
+packed_scalar!(f32, Float, float, |value: &f32| value.to_bits() == 0);
 packed_scalar!(i32, Int32, int32);
 packed_scalar!(i64, Int64, int64);
 packed_scalar!(u32, UInt32, uint32);
