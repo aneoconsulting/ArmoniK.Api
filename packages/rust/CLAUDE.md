@@ -51,27 +51,40 @@ than by review.
 
 ## Commands
 
-Run from `packages/rust`. The first four are what CI runs (`format-rust` in
+Run from `packages/rust`. These are what CI runs (`format-rust` in
 `.github/workflows/ci.yml`), in this order:
 
 ```bash
 cargo build --workspace --locked
 cargo fmt --all --check
-RUSTDOCFLAGS="-Dwarnings" cargo doc --workspace --no-deps
+RUSTDOCFLAGS="-Dwarnings" cargo doc --workspace --no-deps --all-features --document-private-items
 cargo clippy --workspace --all-features --no-deps -- -Dwarnings -Dunused-crate-dependencies
+cargo clippy --workspace --all-features --all-targets --no-deps -- -Dwarnings
 ```
 
-CI only ever lints `--all-features`, so a client-less or server-less build can
-rot unnoticed. Check the combinations by hand after touching feature-gated code:
+Both clippy invocations, and in that order: `-Dunused-crate-dependencies` is per
+target and a test target links the whole package's dev-dependencies, so it only
+runs over the shipped targets; `--all-targets` is what covers the tests and the
+benches, and it is the one that catches a bench-only lint. If a scratch file under
+`armonik/benches/` does not build, rename it out of `*.rs` rather than dropping the
+invocation that would have found the real error under it: every `benches/*.rs` is a
+target, and `include = ["**/*.rs"]` would publish it too.
+
+`features-rust` covers the seven feature configurations someone can actually
+select, and `msrv-rust` pins the MSRV. Both are worth running by hand after
+touching feature-gated code or reaching for a newer language feature:
 
 ```bash
-for f in "" "server" "serde" "server,serde" "client" "agent" "worker"; do
-  cargo clippy -p armonik --no-default-features ${f:+--features $f} --no-deps --lib -- -Dwarnings
+for f in "" serde client server agent worker client,server; do
+  cargo clippy -p armonik --locked --no-default-features --features "$f" \
+    --no-deps -- -Dwarnings -Dunused-crate-dependencies
+  cargo test -p armonik --no-default-features --features "$f" --lib
 done
 ```
 
-`--all-targets` picks up untracked scratch files under `armonik/benches/`, which
-do not build. Lint with `--lib --tests` instead.
+The `cargo test` half matters as much as the lint: clippy on the default targets
+does not compile `cfg(test)`, so a test that only holds with every feature on
+passes CI's `--all-features` run and fails the first thing a contributor types.
 
 ## Tests
 
@@ -81,16 +94,25 @@ cargo test -p armonik --lib --all-features differential  # the ratchets, see bel
 cargo test -p armonik --all-features -- --skip mock      # integration, no server needed
 ```
 
-Each suite in `armonik/tests/*.rs` is one `rpc_tests!` block, one case per RPC,
-emitting an `in_process::{call, convenience}` pair against a generated fake and a
-`mock::{call, convenience}` pair against the .NET mock. The `mock` halves need
-that server, so they fail with a URI error unless it is running (below).
+Twelve of the sixteen suites in `armonik/tests/*.rs` are one `rpc_tests!` block,
+one case per RPC, emitting an `in_process::{call, convenience}` pair against a
+generated fake and a `mock::{call, convenience}` pair against the .NET mock. The
+`mock` halves skip themselves and report `ok` when `GrpcClient__Endpoint` is
+unset, so running them is opt-in by environment (below) rather than by flag; under
+`CI` an unset endpoint is an assertion failure instead, since there the whole
+cross-implementation half silently evaporating is the failure mode. The other four
+suites (`server_socket`, `server_mounting`, `call_inputs`, `ui`) are written
+out.
 
-The differential harness has five ratchets, all of which must keep passing:
-round-trip against randomized `DynamicMessage`s, per-field information (nothing
-the quotient erases without a justified allowlist entry), descriptor coverage
-(every message mapped or tracked), `default_encoding_is_the_proto_zero`, and the
-types sharing one proto name agreeing on their projection and default encoding.
+The differential harness has nine tests, all of which must keep passing:
+round-trip against randomized `DynamicMessage`s, decoding of *mutated* encodings
+(the byte-level layer: truncations, unknown fields, wire-type swaps, unpacking),
+per-field information (nothing the quotient erases without a justified allowlist
+entry), descriptor coverage (every message mapped or tracked),
+`default_encoding_is_the_proto_zero`, an absent oneof decoding to the memberless
+variant, packed elements keeping their width, the types sharing one proto name
+agreeing on their projection and default encoding, and every declared RPC having
+a client method.
 
 ### Running the mock
 

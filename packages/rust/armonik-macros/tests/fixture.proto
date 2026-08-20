@@ -59,8 +59,8 @@ message Shared {
   }
 }
 
-// A whole message whose non-oneof field sits between two members, so no field order can be both
-// ascending and member-surrounded-by-siblings.
+// A whole message whose non-oneof field sits between two members: each variant writes what it
+// carries in tag order, so the sibling lands before one member and after the other.
 message Straddled {
   string token = 2;
   oneof pick {

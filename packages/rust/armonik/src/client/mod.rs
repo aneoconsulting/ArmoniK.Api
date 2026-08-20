@@ -46,8 +46,8 @@ pub(crate) use method::client_method;
 
 mod service_client;
 pub use service_client::{
-    ByMessage, ByRequest, ByStream, ByStreamRequest, Channel, Dispatch, DispatchMessage, IntoCall,
-    ServiceClient,
+    ByMessage, ByRequest, ByStream, ByStreamRequest, Channel, Dispatch, DispatchMessage,
+    DispatchStream, IntoCall, ServiceClient,
 };
 
 // The four use-case features are four distinct use cases, and a user normally wants exactly one.
