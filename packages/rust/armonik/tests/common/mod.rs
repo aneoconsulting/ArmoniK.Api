@@ -169,7 +169,8 @@ pub(crate) fn mock_is_live() -> bool {
     }
     assert!(
         std::env::var_os("CI").is_none(),
-        "GrpcClient__Endpoint is unset under CI, so the mock half of the suite would report `ok`          without running. See .github/workflows/test.yml and scripts/mock_test.sh."
+        "GrpcClient__Endpoint is unset under CI, so the mock half of the suite would report `ok` \
+         without running. See .github/workflows/test.yml and scripts/mock_test.sh."
     );
     false
 }

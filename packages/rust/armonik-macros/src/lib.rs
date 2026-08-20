@@ -600,9 +600,9 @@ pub fn client(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// Register the proto messages this type swallows, so they have no Rust type of their own and the
 /// differential harness counts them as covered through it.
 ///
-/// All off the plan: the explicit `#[armonik(absorbs = "...")]` names the per-site attribute scan
-/// collects, next to the ones an absorbing construct implies (a transparent chain's middle
-/// wrappers, an inlined variant's member message).
+/// All off the plan, and all derived: the layer an `inlined` field or member absorbs, a transparent
+/// chain's middle wrappers, an inlined variant's member message. Nothing is spelled at the site, so
+/// no entry can name a message the descriptor no longer has.
 fn absorbed(names: &[String]) -> TokenStream2 {
     let mut names = names.to_vec();
     names.sort();
