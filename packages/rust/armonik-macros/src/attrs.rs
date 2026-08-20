@@ -11,6 +11,8 @@ use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, LitInt, LitStr, Token};
 
+use crate::generator::Generator;
+
 /// A single `key` or `key = value` entry inside `#[armonik(...)]`.
 pub(crate) enum AttrItem {
     /// `message = "full.proto.Name"`: proto message backing the type (repeatable for unified types)
@@ -156,57 +158,6 @@ pub(crate) fn key_spans(attrs: &[Attribute]) -> Vec<Span> {
         .collect()
 }
 
-/// Multi-error accumulation so one expansion reports every problem at once.
-pub(crate) struct Errors {
-    errors: Vec<syn::Error>,
-}
-
-impl Errors {
-    pub(crate) fn new() -> Self {
-        Self { errors: Vec::new() }
-    }
-
-    pub(crate) fn push(&mut self, error: syn::Error) {
-        self.errors.push(error);
-    }
-
-    /// Record one spanned error.
-    ///
-    /// A diagnostic is a span and a message, and the resolvers in `shape/` raise dozens: this keeps
-    /// the message the most visible thing at the site.
-    pub(crate) fn at(&mut self, span: Span, message: impl std::fmt::Display) {
-        self.errors.push(syn::Error::new(span, message));
-    }
-
-    /// `Ok(())` when no error was recorded, the combined error otherwise.
-    pub(crate) fn into_result(self) -> Result<(), Errors> {
-        if self.errors.is_empty() {
-            Ok(())
-        } else {
-            Err(self)
-        }
-    }
-
-    pub(crate) fn into_syn_error(self) -> syn::Error {
-        let mut errors = self.errors.into_iter();
-        let mut combined = errors
-            .next()
-            .unwrap_or_else(|| syn::Error::new(proc_macro2::Span::call_site(), "derive failed"));
-        for error in errors {
-            combined.combine(error);
-        }
-        combined
-    }
-}
-
-impl From<syn::Error> for Errors {
-    fn from(error: syn::Error) -> Self {
-        Self {
-            errors: vec![error],
-        }
-    }
-}
-
 /// The name an identifier matches proto names by: the ident, minus any raw prefix.
 pub(crate) fn unraw(ident: &syn::Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
@@ -218,12 +169,12 @@ pub(crate) fn scan_attrs(
     attrs: &[syn::Attribute],
     allowed: Allowed,
     reject: &str,
-    errors: &mut Errors,
+    generator: &mut Generator,
 ) -> Option<FieldAttrs> {
     match parse(attrs) {
-        Ok(entries) => Some(scan_field_attrs(&entries, allowed, reject, errors)),
+        Ok(entries) => Some(scan_field_attrs(&entries, allowed, reject, generator)),
         Err(err) => {
-            errors.push(err);
+            generator.record(err);
             None
         }
     }
@@ -234,12 +185,12 @@ pub(crate) fn scan_attrs(
 pub(crate) fn parse_adapter_type(
     lit: &syn::LitStr,
     span: Span,
-    errors: &mut Errors,
+    generator: &mut Generator,
 ) -> Option<syn::Type> {
     match syn::parse_str::<syn::Type>(&lit.value()) {
         Ok(ty) => Some(ty),
         Err(err) => {
-            errors.at(span, format!("invalid adapter type in with = ...: {err}"));
+            generator.error(span, format!("invalid adapter type in with = ...: {err}"));
             None
         }
     }
@@ -280,7 +231,7 @@ pub(crate) fn scan_field_attrs(
     entries: &[AttrEntry],
     allowed: Allowed,
     reject: &str,
-    errors: &mut Errors,
+    generator: &mut Generator,
 ) -> FieldAttrs {
     let mut collected = FieldAttrs::default();
     for entry in entries {
@@ -288,17 +239,17 @@ pub(crate) fn scan_field_attrs(
             AttrItem::Rename(lit) if allowed.rename => collected.rename = Some(lit.value()),
             AttrItem::Tag(lit) if allowed.tag => match lit.base10_parse::<u32>() {
                 Ok(tag) => collected.tag = Some((entry.span, tag)),
-                Err(err) => errors.at(entry.span, err),
+                Err(err) => generator.error(entry.span, err),
             },
             AttrItem::With(lit) if allowed.with => {
-                if let Some(ty) = parse_adapter_type(lit, entry.span, errors) {
+                if let Some(ty) = parse_adapter_type(lit, entry.span, generator) {
                     collected.with = Some((entry.span, ty));
                 }
             }
             AttrItem::Present if allowed.present => collected.present = true,
             AttrItem::Inline if allowed.inline => collected.inline = Some(entry.span),
             AttrItem::Absorbs(lit) if allowed.absorbs => collected.absorbs.push(lit.value()),
-            _ => errors.at(entry.span, reject),
+            _ => generator.error(entry.span, reject),
         }
     }
     collected
@@ -328,9 +279,9 @@ mod tests {
     }
 
     fn scan(entries: &[AttrEntry], allowed: Allowed) -> (FieldAttrs, bool) {
-        let mut errors = Errors::new();
-        let collected = scan_field_attrs(entries, allowed, "reject", &mut errors);
-        (collected, errors.into_result().is_ok())
+        let mut generator = Generator::new();
+        let collected = scan_field_attrs(entries, allowed, "reject", &mut generator);
+        (collected, !generator.poisoned())
     }
 
     /// `absorbs` is collected where a site opts in and *rejected* where it does not. The rejection

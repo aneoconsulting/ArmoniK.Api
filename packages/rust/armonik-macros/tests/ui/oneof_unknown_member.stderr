@@ -3,21 +3,3 @@ error: no member named `picture` in oneof `fixture.Choice.choice` (available: fl
    |
 11 |     Picture(String),
    |     ^^^^^^^
-
-error: oneof member `fixture.Choice.simple` (tag 3) is not covered by any variant
- --> tests/ui/oneof_unknown_member.rs:9:10
-  |
-9 | pub enum Choice {
-  |          ^^^^^^
-
-error: oneof member `fixture.Choice.flag` (tag 4) is not covered by any variant
- --> tests/ui/oneof_unknown_member.rs:9:10
-  |
-9 | pub enum Choice {
-  |          ^^^^^^
-
-error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
- --> tests/ui/oneof_unknown_member.rs:9:10
-  |
-9 | pub enum Choice {
-  |          ^^^^^^

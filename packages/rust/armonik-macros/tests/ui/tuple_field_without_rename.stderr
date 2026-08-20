@@ -9,15 +9,3 @@ error: tuple struct fields need #[armonik(rename = "proto_field_name")]
   |
 9 | pub struct Simple(pub String, pub i32);
   |                                   ^^^
-
-error: proto field `fixture.Simple.name` (tag 1) is not covered by any Rust field
- --> tests/ui/tuple_field_without_rename.rs:9:12
-  |
-9 | pub struct Simple(pub String, pub i32);
-  |            ^^^^^^
-
-error: proto field `fixture.Simple.count` (tag 2) is not covered by any Rust field
- --> tests/ui/tuple_field_without_rename.rs:9:12
-  |
-9 | pub struct Simple(pub String, pub i32);
-  |            ^^^^^^

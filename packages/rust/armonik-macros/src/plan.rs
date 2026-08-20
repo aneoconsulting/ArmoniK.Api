@@ -42,6 +42,10 @@ pub(crate) struct Ir {
     /// `GenericFields` table is emitted so every `#[armonik_macros::alias]` instantiation can
     /// assert the fields against the message it registers under.
     pub(crate) generic: bool,
+    /// Whether resolution degraded this plan: a slot or arm is [`SlotCodec::Poisoned`], or the
+    /// type-level attributes themselves did not resolve and everything below them is gone. The
+    /// emitter reads it to pick placeholder bodies where real ones would misstate the type.
+    pub(crate) poisoned: bool,
     /// Fields every alternative carries, sorted by tag: all fields of a struct, the non-oneof
     /// siblings of a whole-message enum, nothing for an embedded oneof.
     pub(crate) shared: Vec<Slot>,
@@ -91,6 +95,11 @@ pub(crate) enum SlotCodec {
     /// `#[armonik(inline)]`: the member message's own fields, spread into the variant and framed
     /// here, since the message is absorbed and has no Rust type to delegate to.
     Group { parts: Vec<Slot> },
+    /// A slot that failed to resolve, kept because the user wrote it: it has a shape but no proto
+    /// meaning, so the emitter keeps the code that mentions it compiling (an `unimplemented!()`
+    /// arm for a variant, a whole-body placeholder for a struct) while the recorded error fails
+    /// the build. Nothing else is emitted for it: no tag, no assert, no docs.
+    Poisoned,
 }
 
 /// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
@@ -141,12 +150,25 @@ pub(crate) struct Slot {
 }
 
 impl Slot {
-    /// The Rust type carrying the value, for the shape assert. `None` for an inlined member, whose
-    /// parts carry their own.
+    /// The Rust type carrying the value, for the shape assert. `None` where no type resolved: an
+    /// inlined member (whose parts carry their own), a poisoned slot.
     pub(crate) fn ty(&self) -> Option<&syn::Type> {
         match &self.codec {
             SlotCodec::Field { ty, .. } | SlotCodec::Delegate { ty, .. } => Some(ty),
-            SlotCodec::Group { .. } => None,
+            SlotCodec::Group { .. } | SlotCodec::Poisoned => None,
+        }
+    }
+
+    /// A slot for something the user wrote that resolution could not give a meaning.
+    pub(crate) fn poisoned(span: Span) -> Self {
+        Self {
+            access: None,
+            span,
+            tag: u32::MAX,
+            codec: SlotCodec::Poisoned,
+            checks: None,
+            proto_path: String::new(),
+            docs: Vec::new(),
         }
     }
 
@@ -175,18 +197,31 @@ pub(crate) struct EnumValue {
 pub(crate) struct EnumPlan {
     pub(crate) ident: syn::Ident,
     /// The catch-all variant (`Unknown`) and its payload struct, which the expansion emits.
-    pub(crate) unknown_variant: syn::Ident,
-    pub(crate) payload: syn::Ident,
+    /// `None` when the enum failed to declare one: the items that need its names are then skipped
+    /// or placeholder-bodied, and the recorded error fails the build.
+    pub(crate) catch_all: Option<CatchAll>,
     /// Leading comment of the proto enum, or in transparent mode of the outermost wrapper message.
     pub(crate) docs: Vec<String>,
     /// Named variants with their proto numbers.
     pub(crate) named: Vec<EnumValue>,
+    /// Variants the user wrote that resolution could not give a meaning: matched no proto value,
+    /// or took a shape no variant may have. Kept so the matches over the enum stay exhaustive
+    /// (each contributes an `unimplemented!()` arm) and so the payload struct a stray tuple
+    /// variant names still exists.
+    pub(crate) poisoned: Vec<PoisonedValue>,
     /// Named variant covering 0, when there is one; otherwise the derive emits an `UNSPECIFIED`
     /// const based on the catch-all.
     pub(crate) zero_variant: Option<syn::Ident>,
     /// Whether a variant carries the standard `#[default]` attribute, in which case the user
     /// derives `Default` and the macro must not.
     pub(crate) has_std_default: bool,
+    /// The comparison traits the item derives even though the expansion emits them: an error, and
+    /// the emitted impls that would collide are withheld (the derived ones satisfy the bounds).
+    pub(crate) derived_comparisons: bool,
+    /// Whether the item is an enum at all. When it is not, nothing variant-shaped can be said:
+    /// the wire impl degrades to placeholder bodies and the value-level items are withheld, since
+    /// every one of them matches over variants the item does not have.
+    pub(crate) is_enum: bool,
     pub(crate) mode: EnumMode,
     pub(crate) fingerprint: u64,
     /// Intermediate wrapper messages the transparent chain flattens away, so they have no Rust type
@@ -194,11 +229,28 @@ pub(crate) struct EnumPlan {
     pub(crate) absorbs: Vec<String>,
 }
 
+/// The catch-all tuple variant and the payload struct the expansion emits for it.
+pub(crate) struct CatchAll {
+    pub(crate) variant: syn::Ident,
+    pub(crate) payload: syn::Ident,
+}
+
+/// A variant that failed to resolve, and the payload struct it names when it is a single-payload
+/// tuple variant (emitted so the re-emitted item still resolves).
+pub(crate) struct PoisonedValue {
+    pub(crate) ident: syn::Ident,
+    pub(crate) payload: Option<syn::Ident>,
+}
+
 pub(crate) enum EnumMode {
     /// The Rust enum is a proto enum, an `int32` varint on the wire.
     Plain { names: Vec<String> },
     /// The Rust enum stands for proto message(s) wrapping an enum field through a chain of
     /// single-field wrappers; `path` holds the tags from the outermost wrapper down to the enum
-    /// field.
-    Transparent { names: Vec<String>, path: Vec<u32> },
+    /// field, or `None` when the chain failed to resolve, in which case the wire impl is a
+    /// placeholder.
+    Transparent {
+        names: Vec<String>,
+        path: Option<Vec<u32>>,
+    },
 }

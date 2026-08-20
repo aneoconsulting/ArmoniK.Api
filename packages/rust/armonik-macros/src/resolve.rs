@@ -11,18 +11,30 @@
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 
-use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, Errors, FieldAttrs};
+use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, FieldAttrs};
 use crate::descriptor::{DescriptorIndex, FieldKind, FieldMeta};
+use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 
-/// Pick the shape `#[armonik_macros::message]` is standing for and resolve it.
+/// Pick the shape `#[armonik_macros::message]` is standing for and resolve it. Total: whatever
+/// failed is recorded and the plan degrades (poisoned slots, or a fully poisoned plan when the
+/// type-level attributes themselves do not resolve), so emission always has something to say.
 ///
 /// The single home of that decision, and of the type-level attribute scan the shapes are chosen
 /// from: a shape resolver is handed what it needs and never rescans.
-pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Ir, Errors> {
-    let index = index(input)?;
-    let entries = crate::attrs::parse(&input.attrs)?;
+pub(crate) fn resolve_message(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+    generator: &mut Generator,
+) -> Ir {
+    let entries = match crate::attrs::parse(&input.attrs) {
+        Ok(entries) => entries,
+        Err(error) => {
+            generator.record(error);
+            return poisoned_ir(input, index.fingerprint, Vec::new(), false);
+        }
+    };
 
     let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut stray: Vec<Span> = Vec::new();
@@ -45,49 +57,40 @@ pub(crate) fn resolve_message(input: &syn::DeriveInput) -> Result<Ir, Errors> {
     // before anything is reported, because a oneof reads the same entries for itself and rejects a
     // stray key in its own words.
     if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
-        return oneof_ir(input, &index, &entries);
+        return oneof_ir(input, index, &entries, generator);
     }
 
-    let mut errors = Errors::new();
+    let names = || proto_names.iter().map(|(_, name)| name.clone()).collect();
     if let (Some(_), Some(transparent_span)) = (generic, transparent) {
-        errors.at(
+        generator.error(
             transparent_span,
             "generic and transparent cannot be combined: transparent flattens a single-field \
              wrapper message into the type, generic skips descriptor validation because a \
              generic type names no proto message, and there is no wrapper to flatten without one",
         );
-        return Err(errors);
+        return poisoned_ir(input, index.fingerprint, names(), false);
     }
     for span in stray {
-        errors.at(
+        generator.error(
             span,
             "this armonik attribute is not valid at type level on a struct",
         );
     }
     if generic.is_some() {
         if !proto_names.is_empty() {
-            errors.at(
+            generator.error(
                 input.ident.span(),
                 "#[armonik(generic)] types are not validated against the descriptor; \
                  remove the message attribute",
             );
-            return Err(errors);
+            return poisoned_ir(input, index.fingerprint, Vec::new(), false);
         }
-        return generic_ir(input, &index, errors);
+        return generic_ir(input, index, generator);
     }
     if transparent.is_some() {
-        return transparent_ir(input, &index, proto_names, errors);
+        return transparent_ir(input, index, proto_names, generator);
     }
-    plain_ir(input, &index, proto_names, errors)
-}
-
-/// The compiled descriptor set, or a spanned error naming the type that wanted it.
-///
-/// Loaded here rather than by the entry points, so that a descriptor which fails to load reads as
-/// the reason this type could not be resolved, and both macros stay free of `?`.
-pub(crate) fn index(input: &syn::DeriveInput) -> Result<std::sync::Arc<DescriptorIndex>, Errors> {
-    crate::descriptor::index()
-        .map_err(|message| syn::Error::new(input.ident.span(), message).into())
+    plain_ir(input, index, proto_names, generator)
 }
 
 /// The discriminant-less [`Ir`] every struct shape shares.
@@ -101,8 +104,28 @@ fn struct_ir(input: &syn::DeriveInput, fingerprint: u64, shared: Vec<Slot>) -> I
         docs: Vec::new(),
         absorbs: Vec::new(),
         generic: false,
+        poisoned: false,
         shared,
         discr: None,
+    }
+}
+
+/// The plan of a type whose type-level attributes did not resolve: nothing below them could be
+/// read, so everything degrades at once. The claimed proto `names` still reach `Msg::NAMES`, which
+/// is what keeps the `service!`-emitted asserts quiet, and `fragment` keeps an embedded oneof's
+/// `Oneof` identity marker (with the empty, unchecked path), so the struct carrying it does not
+/// add an error of its own.
+fn poisoned_ir(
+    input: &syn::DeriveInput,
+    fingerprint: u64,
+    names: Vec<String>,
+    fragment: bool,
+) -> Ir {
+    Ir {
+        names,
+        fragment_of: fragment.then(String::new),
+        poisoned: true,
+        ..struct_ir(input, fingerprint, Vec::new())
     }
 }
 
@@ -112,28 +135,29 @@ fn plain_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
     proto_names: Vec<(Span, String)>,
-    mut errors: Errors,
-) -> Result<Ir, Errors> {
+    generator: &mut Generator,
+) -> Ir {
+    let names = || proto_names.iter().map(|(_, name)| name.clone()).collect();
     if proto_names.is_empty() {
-        errors.at(
+        generator.error(
             input.ident.span(),
             "missing #[armonik(message = \"full.proto.Name\")] \
              (or #[armonik(generic)] with explicit tags)",
         );
-        return Err(errors);
+        return poisoned_ir(input, index.fingerprint, Vec::new(), false);
     }
     if !input.generics.params.is_empty() {
-        errors.at(
+        generator.error(
             input.ident.span(),
             "descriptor-validated types cannot be generic; use #[armonik(generic)]",
         );
-        return Err(errors);
+        return poisoned_ir(input, index.fingerprint, names(), false);
     }
 
     // One proto message per struct. `message = ...` is repeatable on an *enum*, where a unified
     // type stands for several identical protos; a struct resolves against exactly one.
     for (span, _) in proto_names.iter().skip(1) {
-        errors.at(
+        generator.error(
             *span,
             "a struct stands for one proto message; declare one #[armonik(message = ...)]",
         );
@@ -143,19 +167,19 @@ fn plain_ir(
         match index.messages.get(name) {
             Some(meta) => (name.as_str(), meta),
             None => {
-                errors.push(not_found(*span, "message", name));
-                return Err(errors);
+                generator.record(not_found(*span, "message", name));
+                return poisoned_ir(input, index.fingerprint, names(), false);
             }
         }
     };
 
     let syn::Data::Struct(data) = &input.data else {
-        errors.at(
+        generator.error(
             input.ident.span(),
             "#[armonik_macros::message] with `message = ...` expects a struct \
              (use `oneof = ...` for flattened oneofs)",
         );
-        return Err(errors);
+        return poisoned_ir(input, index.fingerprint, names(), false);
     };
 
     let mut fields = Vec::new();
@@ -182,9 +206,10 @@ fn plain_ir(
                 ..Allowed::default()
             },
             "this armonik attribute is not valid on a message field",
-            &mut errors,
+            generator,
         )
         else {
+            fields.push(Slot::poisoned(span));
             continue;
         };
         absorbs.extend(declared);
@@ -194,15 +219,17 @@ fn plain_ir(
             (Some(name), _) => name.clone(),
             (None, Some(ident)) => unraw(ident),
             (None, None) => {
-                errors.at(
+                generator.error(
                     span,
                     "tuple struct fields need #[armonik(rename = \"proto_field_name\")]",
                 );
+                fields.push(Slot::poisoned(span));
                 continue;
             }
         };
 
-        let Some(resolved) = matcher.find(&proto_name, span, &mut errors) else {
+        let Some(resolved) = matcher.find(&proto_name, span, generator) else {
+            fields.push(Slot::poisoned(span));
             continue;
         };
 
@@ -210,10 +237,11 @@ fn plain_ir(
         match resolved {
             Found::Oneof { tags } => {
                 if with.is_some() {
-                    errors.at(
+                    generator.error(
                         span,
                         "with/tag attributes are not supported on oneof fields",
                     );
+                    fields.push(Slot::poisoned(span));
                     continue;
                 }
                 fields.push(Slot {
@@ -246,18 +274,24 @@ fn plain_ir(
         }
     }
 
-    // Completeness: every proto field and oneof must be covered by a Rust field.
-    matcher.check_complete(input.ident.span(), &mut errors);
-
-    errors.into_result()?;
+    // Completeness: every proto field and oneof must be covered by a Rust field, checked only
+    // when every Rust field resolved: an unconsumed proto field otherwise already has its probable
+    // explanation on screen, and one mistake reads as one error.
+    let poisoned = fields
+        .iter()
+        .any(|field| matches!(field.codec, SlotCodec::Poisoned));
+    if !poisoned {
+        matcher.check_complete(input.ident.span(), generator);
+    }
 
     fields.sort_by_key(|field| field.tag);
-    Ok(Ir {
+    Ir {
         names: proto_names.into_iter().map(|(_, name)| name).collect(),
         docs: meta.docs.clone(),
         absorbs,
+        poisoned,
         ..struct_ir(input, index.fingerprint, fields)
-    })
+    }
 }
 
 // ---- Transparent struct: a single-field newtype delegating its whole impl to that field ----
@@ -269,41 +303,55 @@ fn transparent_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
     proto_names: Vec<(Span, String)>,
-    mut errors: Errors,
-) -> Result<Ir, Errors> {
+    generator: &mut Generator,
+) -> Ir {
+    let names: Vec<String> = proto_names.iter().map(|(_, name)| name.clone()).collect();
+    let mut failed = false;
     if !input.generics.params.is_empty() {
-        errors.at(
+        generator.error(
             input.ident.span(),
             "#[armonik(transparent)] structs cannot be generic",
         );
+        failed = true;
     }
     if proto_names.len() != 1 {
-        errors.at(
+        generator.error(
             input.ident.span(),
             "#[armonik(transparent)] structs need exactly one \
              #[armonik(message = \"full.proto.Name\")]",
         );
+        failed = true;
     }
     for (span, name) in &proto_names {
         if !index.messages.contains_key(name) {
-            errors.push(not_found(*span, "message", name));
+            generator.record(not_found(*span, "message", name));
+            failed = true;
         }
     }
-    let syn::Data::Struct(data) = &input.data else {
-        errors.at(
-            input.ident.span(),
-            "#[armonik(transparent)] expects a struct",
-        );
-        return Err(errors);
+    let field = match &input.data {
+        syn::Data::Struct(data) if data.fields.len() == 1 => {
+            data.fields.iter().next().expect("one field")
+        }
+        syn::Data::Struct(_) => {
+            generator.error(
+                input.ident.span(),
+                "#[armonik(transparent)] structs must have exactly one field, delegated to",
+            );
+            return poisoned_ir(input, index.fingerprint, names, false);
+        }
+        _ => {
+            generator.error(
+                input.ident.span(),
+                "#[armonik(transparent)] expects a struct",
+            );
+            return poisoned_ir(input, index.fingerprint, names, false);
+        }
     };
-    if data.fields.len() != 1 {
-        errors.at(
-            input.ident.span(),
-            "#[armonik(transparent)] structs must have exactly one field, delegated to",
-        );
-        return Err(errors);
+    if failed {
+        // The delegate cannot be checked against a message that did not resolve; a real delegation
+        // would just move the confusion into the emitted assert.
+        return poisoned_ir(input, index.fingerprint, names, false);
     }
-    let field = data.fields.iter().next().expect("one field");
     let (_, access) = field_access(field, 0);
     let delegate = Slot {
         access: Some(access),
@@ -319,32 +367,26 @@ fn transparent_ir(
         docs: Vec::new(),
     };
 
-    errors.into_result()?;
-
     let docs = proto_names
         .first()
         .and_then(|(_, name)| index.messages.get(name))
         .map(|meta| meta.docs.clone())
         .unwrap_or_default();
-    Ok(Ir {
-        names: proto_names.into_iter().map(|(_, name)| name).collect(),
+    Ir {
+        names,
         docs,
         ..struct_ir(input, index.fingerprint, vec![delegate])
-    })
+    }
 }
 
 // ---- Generic struct: no descriptor to validate against ----
 
 /// Every field carries its own tag, and the concrete instantiations are covered through their
 /// `#[armonik_macros::alias]` sites and the differential harness.
-fn generic_ir(
-    input: &syn::DeriveInput,
-    index: &DescriptorIndex,
-    mut errors: Errors,
-) -> Result<Ir, Errors> {
+fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut Generator) -> Ir {
     let syn::Data::Struct(data) = &input.data else {
-        errors.at(input.ident.span(), "#[armonik(generic)] expects a struct");
-        return Err(errors);
+        generator.error(input.ident.span(), "#[armonik(generic)] expects a struct");
+        return poisoned_ir(input, index.fingerprint, Vec::new(), false);
     };
 
     let mut fields = Vec::new();
@@ -361,15 +403,17 @@ fn generic_ir(
                 ..Allowed::default()
             },
             "generic-mode fields only take tag = ...",
-            &mut errors,
+            generator,
         ) else {
+            fields.push(Slot::poisoned(span));
             continue;
         };
         let Some((_, tag)) = tag else {
-            errors.at(
+            generator.error(
                 span,
                 "generic-mode fields need an explicit #[armonik(tag = ...)]",
             );
+            fields.push(Slot::poisoned(span));
             continue;
         };
 
@@ -393,13 +437,15 @@ fn generic_ir(
         });
     }
 
-    errors.into_result()?;
-
+    let poisoned = fields
+        .iter()
+        .any(|field| matches!(field.codec, SlotCodec::Poisoned));
     fields.sort_by_key(|field| field.tag);
-    Ok(Ir {
+    Ir {
         generic: true,
+        poisoned,
         ..struct_ir(input, index.fingerprint, fields)
-    })
+    }
 }
 
 /// Span and access path of a struct field (named, or by position).
@@ -465,7 +511,7 @@ impl<'a> Siblings<'a> {
         name: &str,
         ident: &syn::Ident,
         ty: &syn::Type,
-        errors: &mut Errors,
+        generator: &mut Generator,
     ) -> Option<bool> {
         let position = self
             .entries
@@ -477,7 +523,7 @@ impl<'a> Siblings<'a> {
             None => self.entries[position].1 = Some((ident.clone(), ty.clone())),
             Some((bound_ident, bound_ty)) => {
                 if bound_ident != ident {
-                    errors.at(
+                    generator.error(
                         ident.span(),
                         format!(
                             "sibling field `{name}` must use the same name in every \
@@ -487,7 +533,7 @@ impl<'a> Siblings<'a> {
                     ok = false;
                 }
                 if quote::quote!(#bound_ty).to_string() != quote::quote!(#ty).to_string() {
-                    errors.at(
+                    generator.error(
                         ty.span(),
                         format!(
                             "sibling field `{name}` must use the same type in every \
@@ -503,11 +549,11 @@ impl<'a> Siblings<'a> {
 
     /// Report every sibling the variant failed to declare; `seen` marks the ones it did. Returns
     /// whether the variant is complete.
-    fn require_all(&self, seen: &[bool], variant_span: Span, errors: &mut Errors) -> bool {
+    fn require_all(&self, seen: &[bool], variant_span: Span, generator: &mut Generator) -> bool {
         let mut complete = true;
         for (position, field_seen) in seen.iter().enumerate() {
             if !field_seen {
-                errors.at(
+                generator.error(
                     variant_span,
                     format!(
                         "the variant must carry the sibling field `{}` of `{}` \
@@ -591,7 +637,7 @@ fn carried(
     fields: &syn::Fields,
     siblings: &mut Siblings<'_>,
     absorbs: &mut Vec<String>,
-    errors: &mut Errors,
+    generator: &mut Generator,
     variant_span: Span,
 ) -> Option<Carried> {
     let named: Vec<&syn::Field> = match fields {
@@ -619,7 +665,7 @@ fn carried(
                 ..Allowed::default()
             },
             "this armonik attribute is not valid on a struct variant field",
-            errors,
+            generator,
         )
         else {
             failed = true;
@@ -628,10 +674,10 @@ fn carried(
         absorbs.extend(declared);
 
         let name = rename.unwrap_or_else(|| unraw(&ident));
-        match siblings.claim(&mut seen, &name, &ident, &field.ty, errors) {
+        match siblings.claim(&mut seen, &name, &ident, &field.ty, generator) {
             Some(ok) => {
                 if let Some((with_span, _)) = with {
-                    errors.at(
+                    generator.error(
                         with_span,
                         "with = ... is only valid on the member payload field, not on a \
                          sibling field",
@@ -650,7 +696,7 @@ fn carried(
         }
     }
 
-    failed |= !siblings.require_all(&seen, variant_span, errors);
+    failed |= !siblings.require_all(&seen, variant_span, generator);
     (!failed).then_some(Carried::Fields(leftovers))
 }
 
@@ -684,7 +730,7 @@ fn carrier(
     with: Option<(Span, syn::Type)>,
     present: bool,
     inline: Option<Span>,
-    errors: &mut Errors,
+    generator: &mut Generator,
 ) -> Result<Carrier, ()> {
     let mut named = Vec::new();
     if present {
@@ -702,7 +748,7 @@ fn carrier(
             .map(|(_, key)| format!("`{key}`"))
             .collect::<Vec<_>>()
             .join(" and ");
-        errors.at(
+        generator.error(
             *second_span,
             format!(
                 "{keys} each say how the member is carried (present: by presence alone; \
@@ -752,7 +798,7 @@ fn resolve_variant(
     leftovers: Vec<Leftover>,
     has_siblings: bool,
     absorbs: &mut Vec<String>,
-    errors: &mut Errors,
+    generator: &mut Generator,
 ) -> ResolvedShape {
     match carrier {
         Carrier::Present => {
@@ -761,7 +807,7 @@ fn resolve_variant(
             // that here rather than let the marker resolver demand a unit variant and the
             // completeness check then demand the fields back, three variants away.
             if has_siblings {
-                errors.at(
+                generator.error(
                     ctx.span,
                     format!(
                         "#[armonik(present)] needs a unit variant, but `{}` has non-oneof \
@@ -772,7 +818,7 @@ fn resolve_variant(
                 );
                 return Err(());
             }
-            resolve_marker_variant(ctx, errors)
+            resolve_marker_variant(ctx, generator)
         }
         Carrier::Inline(inline_span) => {
             // Rejected rather than supported. The two sets of fields would share one variant and
@@ -782,7 +828,7 @@ fn resolve_variant(
             // emitted patterns do not compile, pointing rustc's "append `, ..`" suggestion at the
             // attribute.
             if has_siblings {
-                errors.at(
+                generator.error(
                     inline_span,
                     format!(
                         "inline and the non-oneof fields of `{}` cannot be combined: every variant \
@@ -794,21 +840,21 @@ fn resolve_variant(
                 return Err(());
             }
             if !matches!(ctx.variant.fields, syn::Fields::Named(_)) {
-                errors.at(
+                generator.error(
                     inline_span,
                     "inline needs a struct variant: there is nothing to spread the \
                      member's fields into",
                 );
                 return Err(());
             }
-            resolve_inline_member(ctx, leftovers, absorbs, errors)
+            resolve_inline_member(ctx, leftovers, absorbs, generator)
         }
         Carrier::Whole(with) => match &ctx.variant.fields {
             // `Variant(T)`: the member carried whole, optionally through an adapter. It carries no
             // sibling fields, so the enum must have none.
             syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 if has_siblings {
-                    errors.at(
+                    generator.error(
                         ctx.span,
                         format!(
                             "`{}` has non-oneof fields, so every variant must be a struct \
@@ -831,7 +877,7 @@ fn resolve_variant(
             }
             syn::Fields::Named(_) => {
                 if let Some((with_span, _)) = with {
-                    errors.at(
+                    generator.error(
                         with_span,
                         "in a struct variant, put with = ... on the field carrying the member",
                     );
@@ -851,7 +897,7 @@ fn resolve_variant(
                         ))
                     }
                     Err(leftovers) if leftovers.is_empty() => {
-                        errors.at(
+                        generator.error(
                             ctx.span,
                             format!(
                                 "the variant needs a field carrying the member `{}`",
@@ -861,7 +907,7 @@ fn resolve_variant(
                         Err(())
                     }
                     Err(leftovers) => {
-                        errors.at(
+                        generator.error(
                             leftovers[1].span,
                             format!(
                                 "only one field of the variant may carry the member `{}`; \
@@ -875,7 +921,7 @@ fn resolve_variant(
                 }
             }
             _ => {
-                errors.at(
+                generator.error(
                     ctx.span,
                     "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
                      #[armonik(present)] marker, or the attribute-less default",
@@ -891,9 +937,9 @@ fn resolve_variant(
 /// A codec substitution like any other adapter: the value type is `()` (the member carries nothing
 /// but its own presence), and the one decision made here is which presence adapter the member's
 /// kind calls for.
-fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShape {
+fn resolve_marker_variant(ctx: &VariantCtx, generator: &mut Generator) -> ResolvedShape {
     if !matches!(ctx.variant.fields, syn::Fields::Unit) {
-        errors.at(
+        generator.error(
             ctx.span,
             "#[armonik(present)] variants must be unit variants",
         );
@@ -903,7 +949,7 @@ fn resolve_marker_variant(ctx: &VariantCtx, errors: &mut Errors) -> ResolvedShap
         FieldKind::Bool => syn::parse_quote!(crate::codec::adapters::BoolPresence),
         FieldKind::Message(_) => syn::parse_quote!(crate::codec::adapters::EmptyPresence),
         other => {
-            errors.at(
+            generator.error(
                 ctx.span,
                 format!(
                     "#[armonik(present)] needs a bool or message member, but \
@@ -930,10 +976,10 @@ fn resolve_inline_member(
     ctx: &VariantCtx,
     leftovers: Vec<Leftover>,
     absorbs: &mut Vec<String>,
-    errors: &mut Errors,
+    generator: &mut Generator,
 ) -> ResolvedShape {
     let FieldKind::Message(inner_name) = &ctx.field_meta.kind else {
-        errors.at(
+        generator.error(
             ctx.span,
             format!(
                 "inline spreads a message member's fields, but `{}` is not a message",
@@ -943,11 +989,11 @@ fn resolve_inline_member(
         return Err(());
     };
     let Some(inner) = ctx.index.messages.get(inner_name) else {
-        errors.at(ctx.span, format!("proto message `{inner_name}` not found"));
+        generator.error(ctx.span, format!("proto message `{inner_name}` not found"));
         return Err(());
     };
     if !inner.oneofs.is_empty() {
-        errors.at(
+        generator.error(
             ctx.span,
             format!("`{inner_name}` contains a oneof; it cannot be inlined into a struct variant"),
         );
@@ -956,17 +1002,22 @@ fn resolve_inline_member(
 
     let mut matcher = Matcher::new(inner_name, inner);
     let mut parts = Vec::new();
+    // A part that fails poisons the whole arm: the variant's fields are the member message's, and
+    // an arm binding only some of them would not even pattern-match the variant.
+    let mut failed = false;
     for leftover in leftovers {
         if leftover.with.is_some() {
-            errors.at(
+            generator.error(
                 leftover.span,
                 "with = ... is not supported on an inlined field",
             );
+            failed = true;
             continue;
         }
         // The message has no oneofs, so a hit is always a field.
-        let Some(Found::Field(part_meta)) = matcher.find(&leftover.name, leftover.span, errors)
+        let Some(Found::Field(part_meta)) = matcher.find(&leftover.name, leftover.span, generator)
         else {
+            failed = true;
             continue;
         };
         parts.push(Slot {
@@ -984,7 +1035,10 @@ fn resolve_inline_member(
             docs: part_meta.docs.clone(),
         });
     }
-    matcher.check_complete(ctx.span, errors);
+    if failed {
+        return Err(());
+    }
+    matcher.check_complete(ctx.span, generator);
     parts.sort_by_key(|part| part.tag);
     absorbs.push(inner_name.clone());
     Ok((None, SlotCodec::Group { parts }, None))
@@ -1012,38 +1066,38 @@ fn select_oneof<'a>(
     input: &syn::DeriveInput,
     index: &'a DescriptorIndex,
     entries: &[AttrEntry],
-    errors: &mut Errors,
-) -> Result<Selected<'a>, ()> {
+    generator: &mut Generator,
+) -> Option<Selected<'a>> {
     let mut proto_name: Option<(Span, String)> = None;
     let mut oneof_name: Option<(Span, String)> = None;
     for entry in entries {
         match &entry.item {
             AttrItem::Message(lit) => {
                 if proto_name.replace((entry.span, lit.value())).is_some() {
-                    errors.at(
+                    generator.error(
                         entry.span,
                         "flattened oneofs support a single proto message",
                     );
                 }
             }
             AttrItem::Oneof(lit) => oneof_name = Some((entry.span, lit.value())),
-            _ => errors.push(syn::Error::new(
+            _ => generator.error(
                 entry.span,
                 "this armonik attribute is not valid at type level on a flattened oneof",
-            )),
+            ),
         }
     }
     let Some((message_span, proto_name)) = proto_name else {
-        errors.at(
+        generator.error(
             input.ident.span(),
             "oneof-shaped enums need #[armonik(message = \"...\")]",
         );
-        return Err(());
+        return None;
     };
 
     let Some(meta) = index.messages.get(&proto_name) else {
-        errors.push(not_found(message_span, "message", &proto_name));
-        return Err(());
+        generator.record(not_found(message_span, "message", &proto_name));
+        return None;
     };
     // `message = ...` alone: the enum stands for the whole message, whose single oneof is inferred
     // and whose non-oneof fields become siblings replicated in every variant. `oneof = ...`
@@ -1052,18 +1106,18 @@ fn select_oneof<'a>(
     let (oneof, whole_message) = match &oneof_name {
         Some((oneof_span, oneof_name)) => {
             let Some((oneof_index, oneof)) = meta.oneof(oneof_name) else {
-                errors.at(
+                generator.error(
                     *oneof_span,
                     format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
                 );
-                return Err(());
+                return None;
             };
             if meta
                 .fields
                 .iter()
                 .all(|field| field.oneof == Some(oneof_index))
             {
-                errors.at(
+                generator.error(
                     *oneof_span,
                     format!(
                         "the oneof `{oneof_name}` covers the whole message `{proto_name}`; \
@@ -1071,24 +1125,24 @@ fn select_oneof<'a>(
                          a whole-message enum"
                     ),
                 );
-                return Err(());
+                return None;
             }
             (oneof, false)
         }
         None => match meta.oneofs.len() {
             1 => (&meta.oneofs[0], true),
             0 => {
-                errors.at(
+                generator.error(
                     input.ident.span(),
                     format!(
                         "proto message `{proto_name}` has no oneof; a message without a \
                          oneof is derived on a struct"
                     ),
                 );
-                return Err(());
+                return None;
             }
             n => {
-                errors.at(
+                generator.error(
                     input.ident.span(),
                     format!(
                         "proto message `{proto_name}` has {n} oneofs; an enum can stand \
@@ -1097,12 +1151,12 @@ fn select_oneof<'a>(
                          them in a struct"
                     ),
                 );
-                return Err(());
+                return None;
             }
         },
     };
 
-    Ok(Selected {
+    Some(Selected {
         proto_name,
         meta,
         oneof,
@@ -1112,40 +1166,47 @@ fn select_oneof<'a>(
 
 /// What one variant resolved to.
 enum VariantOutcome {
-    /// It names the member at this position in the oneof.
-    ///
-    /// `arm` is `None` when it named the member but could not be resolved. The member is still
-    /// covered: the author did write a variant for it, so reporting the enum as leaving it uncovered
-    /// on top of the real error would make one mistake read as two. Boxed because the payload dwarfs
-    /// the other outcome, and this is a transient per-variant value.
+    /// It names a member (`position` in the oneof, or `None` when even the member is unknown), and
+    /// contributes this arm: a real one, or a poisoned one whose slot keeps the matches over the
+    /// enum exhaustive with an `unimplemented!()` arm while the recorded error fails the build.
+    /// A poisoned arm still covers its member when the member is known: the author did write a
+    /// variant for it, so one mistake reads as one error rather than two.
+    /// Boxed because the arm dwarfs the other outcome, and this is a transient per-variant value.
     Member {
-        position: usize,
-        arm: Option<Box<Arm>>,
+        position: Option<usize>,
+        arm: Box<Arm>,
     },
     /// It means "the oneof has no member set". The caller owns the at-most-one rule, since that is a
     /// fact about the enum rather than about this variant.
     NoMemberSet,
 }
 
-/// Resolve one variant of a oneof-shaped enum. `None` once its errors are pushed and it names no
-/// member to attribute them to.
+/// Resolve one variant of a oneof-shaped enum. Total: a variant that cannot be resolved comes back
+/// as a poisoned arm, its errors recorded.
 fn resolve_one_variant(
     variant: &syn::Variant,
     selected: &Selected<'_>,
     index: &DescriptorIndex,
     siblings: &mut Siblings<'_>,
     absorbs: &mut Vec<String>,
-    errors: &mut Errors,
-) -> Option<VariantOutcome> {
+    generator: &mut Generator,
+) -> VariantOutcome {
     let span = variant.ident.span();
-    let FieldAttrs {
+    let poisoned = |position| VariantOutcome::Member {
+        position,
+        arm: Box::new(Arm {
+            ident: variant.ident.clone(),
+            own: Slot::poisoned(span),
+        }),
+    };
+    let Some(FieldAttrs {
         rename,
         with,
         present,
         inline,
         absorbs: declared,
         ..
-    } = scan_attrs(
+    }) = scan_attrs(
         &variant.attrs,
         Allowed {
             rename: true,
@@ -1156,8 +1217,11 @@ fn resolve_one_variant(
             ..Allowed::default()
         },
         "this armonik attribute is not valid on a oneof variant",
-        errors,
-    )?;
+        generator,
+    )
+    else {
+        return poisoned(None);
+    };
     absorbs.extend(declared);
 
     // Split once, before anything asks what the variant means.
@@ -1168,9 +1232,12 @@ fn resolve_one_variant(
     // them, when the mistake the author made is `present` itself, which `resolve_variant` says
     // in those terms.
     let carried = if present {
-        Carried::Fields(Vec::new())
+        Some(Carried::Fields(Vec::new()))
     } else {
-        carried(&variant.fields, siblings, absorbs, errors, span)?
+        carried(&variant.fields, siblings, absorbs, generator, span)
+    };
+    let Some(carried) = carried else {
+        return poisoned(None);
     };
 
     let member_name = rename
@@ -1196,7 +1263,7 @@ fn resolve_one_variant(
         && inline.is_none()
         && with.is_none()
     {
-        return Some(VariantOutcome::NoMemberSet);
+        return VariantOutcome::NoMemberSet;
     }
     let Some((position, field_meta)) = member else {
         let available = selected
@@ -1205,7 +1272,7 @@ fn resolve_one_variant(
             .iter()
             .map(|&field| selected.meta.fields[field].name.clone())
             .collect();
-        errors.push(unknown_name(
+        generator.record(unknown_name(
             span,
             "member",
             &member_name,
@@ -1213,13 +1280,13 @@ fn resolve_one_variant(
             available,
             "use #[armonik(rename = \"...\")] if the names differ",
         ));
-        return None;
+        return poisoned(None);
     };
     let proto_path = format!("{}.{}", selected.proto_name, field_meta.name);
 
     // The carrier is folded here, once the member is known: a variant whose keys conflict, or
     // whose shape does not fit its carrier, did still name its member, so the member reads as
-    // covered (`arm: None`) and one mistake reads as one error.
+    // covered and one mistake reads as one error.
     let resolved = {
         let ctx = VariantCtx {
             variant,
@@ -1230,19 +1297,23 @@ fn resolve_one_variant(
             proto_path: &proto_path,
             member_name: &member_name,
         };
-        carrier(span, with, present, inline, errors).and_then(|carrier| {
+        carrier(span, with, present, inline, generator).and_then(|carrier| {
             resolve_variant(
                 &ctx,
                 carrier,
                 carried.into_leftovers(),
                 !siblings.is_empty(),
                 absorbs,
-                errors,
+                generator,
             )
         })
     };
-    let arm = resolved.ok().map(|(access, codec, checks)| {
-        Box::new(Arm {
+    let Ok((access, codec, checks)) = resolved else {
+        return poisoned(Some(position));
+    };
+    VariantOutcome::Member {
+        position: Some(position),
+        arm: Box::new(Arm {
             ident: variant.ident.clone(),
             own: Slot {
                 access,
@@ -1253,32 +1324,44 @@ fn resolve_one_variant(
                 proto_path,
                 docs: field_meta.docs.clone(),
             },
-        })
-    });
-    Some(VariantOutcome::Member { position, arm })
+        }),
+    }
 }
 
 fn oneof_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
     entries: &[AttrEntry],
-) -> Result<Ir, Errors> {
-    let mut errors = Errors::new();
-
-    let Ok(selected) = select_oneof(input, index, entries, &mut errors) else {
-        return Err(errors);
+    generator: &mut Generator,
+) -> Ir {
+    // The claimed message names and the fragment marker survive a failed selection, so the
+    // degraded plan keeps the `service!` asserts and the carrying struct's oneof assert quiet.
+    let claimed = || {
+        entries
+            .iter()
+            .filter_map(|entry| match &entry.item {
+                AttrItem::Message(lit) => Some(lit.value()),
+                _ => None,
+            })
+            .collect()
     };
-    // Non-oneof fields of a whole-message enum, replicated in every variant.
-    let mut siblings = Siblings::new(&selected);
+    let is_fragment = entries
+        .iter()
+        .any(|entry| matches!(entry.item, AttrItem::Oneof(_)));
 
+    let Some(selected) = select_oneof(input, index, entries, generator) else {
+        return poisoned_ir(input, index.fingerprint, claimed(), is_fragment);
+    };
     let syn::Data::Enum(data) = &input.data else {
-        errors.at(
+        generator.error(
             input.ident.span(),
             "#[armonik(oneof = ...)] expects an enum",
         );
-        return Err(errors);
+        return poisoned_ir(input, index.fingerprint, claimed(), is_fragment);
     };
 
+    // Non-oneof fields of a whole-message enum, replicated in every variant.
+    let mut siblings = Siblings::new(&selected);
     let mut arms = Vec::new();
     let mut default_arm: Option<syn::Ident> = None;
     let mut covered = vec![false; selected.oneof.fields.len()];
@@ -1292,45 +1375,50 @@ fn oneof_ir(
             index,
             &mut siblings,
             &mut absorbs,
-            &mut errors,
+            generator,
         ) {
-            Some(VariantOutcome::Member { position, arm }) => {
-                covered[position] = true;
-                arms.extend(arm.map(|arm| *arm));
+            VariantOutcome::Member { position, arm } => {
+                if let Some(position) = position {
+                    covered[position] = true;
+                }
+                arms.push(*arm);
             }
             // At most one of them, which is a fact about the enum rather than about any one
             // variant, so it is checked here rather than by the resolver.
-            Some(VariantOutcome::NoMemberSet)
-                if default_arm.replace(variant.ident.clone()).is_some() =>
-            {
-                errors.at(
+            VariantOutcome::NoMemberSet if default_arm.replace(variant.ident.clone()).is_some() => {
+                generator.error(
                     variant.ident.span(),
                     "at most one attribute-less variant (the \"no member set\" case) is allowed",
                 );
             }
-            Some(VariantOutcome::NoMemberSet) => {}
-            None => {}
+            VariantOutcome::NoMemberSet => {}
         }
     }
 
-    for (position, member_covered) in covered.iter().enumerate() {
-        if !member_covered {
-            let field = &selected.meta.fields[selected.oneof.fields[position]];
-            errors.at(
-                input.ident.span(),
-                format!(
-                    "oneof member `{}.{}` (tag {}) is not covered by any variant",
-                    selected.proto_name, field.name, field.tag
-                ),
-            );
+    // Completeness, checked only when every variant resolved: an uncovered member otherwise
+    // already has its probable explanation on screen, and one mistake reads as one error.
+    let poisoned = arms
+        .iter()
+        .any(|arm| matches!(arm.own.codec, SlotCodec::Poisoned));
+    if !poisoned {
+        for (position, member_covered) in covered.iter().enumerate() {
+            if !member_covered {
+                let field = &selected.meta.fields[selected.oneof.fields[position]];
+                generator.error(
+                    input.ident.span(),
+                    format!(
+                        "oneof member `{}.{}` (tag {}) is not covered by any variant",
+                        selected.proto_name, field.name, field.tag
+                    ),
+                );
+            }
         }
     }
-
-    errors.into_result()?;
 
     let shared = siblings.into_slots();
+    // Poisoned arms carry no tag and sort last, in declaration order.
     arms.sort_by_key(|arm| arm.own.tag);
-    Ok(Ir {
+    Ir {
         ident: input.ident.clone(),
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
@@ -1340,9 +1428,10 @@ fn oneof_ir(
         names: vec![selected.proto_name],
         absorbs,
         generic: false,
+        poisoned,
         shared,
         discr: Some(Discr { arms, default_arm }),
-    })
+    }
 }
 
 #[cfg(test)]
@@ -1379,12 +1468,20 @@ mod tests {
         }))
     }
 
+    fn emit(ir: &Ir) -> String {
+        let mut generator = Generator::new();
+        crate::emit::message(ir, &mut generator);
+        generator.stream().to_string()
+    }
+
     fn resolve(input: &syn::DeriveInput) -> Ir {
-        let _ = fixture_index();
-        match resolve_message(input) {
-            Ok(ir) => ir,
-            Err(errors) => panic!("the fixture resolves: {}", errors.into_syn_error()),
+        let index = fixture_index();
+        let mut generator = Generator::new();
+        let ir = resolve_message(input, &index, &mut generator);
+        if let Some(error) = generator.into_error() {
+            panic!("the fixture resolves: {error}");
         }
+        ir
     }
 
     /// A variant's fields are bound under `__f<tag>`, never under the name the user gave them.
@@ -1410,7 +1507,7 @@ mod tests {
                 },
             }
         };
-        let emitted = crate::emit::message(&resolve(&input)).to_string();
+        let emitted = emit(&resolve(&input));
 
         // Each field appears only as a *pattern key* renaming it out of the way (`buf : __f1`).
         // Binding it under its own name is what would shadow the emitter's `buf`, `len`, `value`
@@ -1442,7 +1539,7 @@ mod tests {
                 Other { token: String, other: String },
             }
         };
-        let emitted = crate::emit::message(&resolve(&input)).to_string();
+        let emitted = emit(&resolve(&input));
 
         // In the `Text` arm the member is tag 1 and the shared field tag 2, so the member is written
         // first; in `Other` the member is tag 3, so the shared field is.
@@ -1483,7 +1580,7 @@ mod tests {
                 Hostile(String),
             }
         };
-        let emitted = crate::emit::message(&resolve(&embedded)).to_string();
+        let emitted = emit(&resolve(&embedded));
         assert!(
             emitted.contains("impl crate :: codec :: Oneof for Choice"),
             "the marker is emitted: {emitted}",
@@ -1501,7 +1598,7 @@ mod tests {
                 Second(String),
             }
         };
-        let emitted = crate::emit::message(&resolve(&whole)).to_string();
+        let emitted = emit(&resolve(&whole));
         assert!(
             !emitted.contains("crate :: codec :: Oneof for"),
             "a whole-message enum gets no oneof marker: {emitted}",

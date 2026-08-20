@@ -6,8 +6,8 @@
 
 use proc_macro2::Span;
 
-use crate::attrs::Errors;
 use crate::descriptor::{FieldMeta, MessageMeta};
+use crate::generator::Generator;
 
 /// Field-or-oneof lookup with coverage over one proto message: resolves names, records what was
 /// consumed, reports misses with the sorted "available:" list, and turns leftovers into
@@ -42,7 +42,7 @@ impl<'a> Matcher<'a> {
         &mut self,
         proto_name: &str,
         span: Span,
-        errors: &mut Errors,
+        generator: &mut Generator,
     ) -> Option<Found<'a>> {
         if let Some(position) = self
             .meta
@@ -53,7 +53,7 @@ impl<'a> Matcher<'a> {
             self.consumed[position] = true;
             let field = &self.meta.fields[position];
             if field.oneof.is_some() {
-                errors.at(
+                generator.error(
                     span,
                     format!(
                         "proto field `{}.{proto_name}` belongs to a oneof; \
@@ -81,7 +81,7 @@ impl<'a> Matcher<'a> {
             .map(|field| field.name.clone())
             .chain(self.meta.oneofs.iter().map(|oneof| oneof.name.clone()))
             .collect();
-        errors.push(unknown_name(
+        generator.record(unknown_name(
             span,
             "field or oneof",
             proto_name,
@@ -94,12 +94,14 @@ impl<'a> Matcher<'a> {
 
     /// Completeness: every uncovered proto field and oneof is an error at `at`. A field is covered
     /// through its oneof when the oneof was mapped whole; a oneof is covered when every member was
-    /// mapped individually.
-    pub(crate) fn check_complete(&self, at: Span, errors: &mut Errors) {
+    /// mapped individually. Callers skip this
+    /// when a Rust field failed to resolve, since an unconsumed proto field then already has its
+    /// probable explanation on screen: one mistake reads as one error.
+    pub(crate) fn check_complete(&self, at: Span, generator: &mut Generator) {
         for (position, field) in self.meta.fields.iter().enumerate() {
             let in_oneof_group = field.oneof.is_some_and(|oneof| self.consumed_oneofs[oneof]);
             if !self.consumed[position] && !in_oneof_group {
-                errors.at(
+                generator.error(
                     at,
                     format!(
                         "proto field `{}.{}` (tag {}) is not covered by any Rust field",
@@ -111,7 +113,7 @@ impl<'a> Matcher<'a> {
         for (index, oneof) in self.meta.oneofs.iter().enumerate() {
             let members_covered = oneof.fields.iter().all(|&field| self.consumed[field]);
             if !self.consumed_oneofs[index] && !members_covered {
-                errors.at(
+                generator.error(
                     at,
                     format!(
                         "proto oneof `{}.{}` is not covered by any Rust field",

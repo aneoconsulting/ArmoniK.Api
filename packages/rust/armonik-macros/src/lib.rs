@@ -23,6 +23,7 @@ mod client;
 mod descriptor;
 mod emit;
 mod enumeration;
+mod generator;
 mod item;
 mod matcher;
 mod names;
@@ -30,6 +31,7 @@ mod plan;
 mod resolve;
 mod service;
 
+use generator::Generator;
 use item::Kind;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::DeriveInput;
@@ -243,17 +245,17 @@ use syn::DeriveInput;
 ///
 #[proc_macro_attribute]
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
-    expand(input, Kind::Message, |input| {
-        no_args(&attr, input, "message")?;
-        let ir = resolve::resolve_message(input)?;
+    expand(input, |input, index, generator| {
+        if no_args(&attr, input, "message", generator) {
+            return;
+        }
+        let ir = resolve::resolve_message(input, index, generator);
         // Read before `rewrite` mutates the item: `anchors` has to see the `#[armonik(...)]` keys
         // it points at, which `rewrite` strips.
-        let anchors = item::anchors(input, Kind::Message);
-        let absorbed = absorbed(&ir.absorbs);
+        generator.emit(item::anchors(input, Kind::Message));
+        emit::message(&ir, generator);
+        generator.emit(absorbed(&ir.absorbs));
         item::rewrite(input, &ir);
-        Ok([anchors, emit::message(&ir), absorbed]
-            .into_iter()
-            .collect())
     })
 }
 
@@ -360,58 +362,63 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// the prost-style short form does not match.
 #[proc_macro_attribute]
 pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
-    expand(input, Kind::Enumeration, |input| {
-        no_args(&attr, input, "enumeration")?;
-        let plan = enumeration::resolve_enumeration(input)?;
-        let anchors = item::anchors(input, Kind::Enumeration);
-        let absorbed = absorbed(&plan.absorbs);
-        let wire = enumeration::wire(&plan);
-        item::rewrite_enum(input, &plan);
+    expand(input, |input, index, generator| {
+        if no_args(&attr, input, "enumeration", generator) {
+            return;
+        }
+        let plan = enumeration::resolve_enumeration(input, index, generator);
+        generator.emit(item::anchors(input, Kind::Enumeration));
+        let wire = enumeration::wire(&plan, generator);
+        generator.emit(wire);
         // `items` is the value-level half: the payload struct, the two `i32` conversions,
         // `UNSPECIFIED` and `Default`. Called here rather than from anything shared, because only
         // an enumeration has them.
-        Ok([anchors, wire, enumeration::items(&plan), absorbed]
-            .into_iter()
-            .collect())
+        generator.emit(enumeration::items(&plan));
+        generator.emit(absorbed(&plan.absorbs));
+        item::rewrite_enum(input, &plan);
     })
 }
 
-/// The shared entry point of the two attribute macros: parse the item, run the expansion, and
-/// always re-emit the item, which `f` mutates in place (doc injection, attribute strip) and only
-/// ever *adds* to, returning the additional implementations.
+/// The shared entry point of the two attribute macros: parse the item, load the descriptor, run
+/// the expansion, and always re-emit the item, which `f` mutates in place (doc injection,
+/// attribute strip) and only ever *adds* to, emitting the implementations into the [`Generator`].
 ///
-/// The one home of the failure policy, so an expansion step can `?` at will with no risk of
-/// partial output: on `Err` the item is salvaged from a pristine clone (re-emitted with the
-/// `#[armonik(...)]` keys stripped, next to the error and the stub impls its users need to
-/// type-check), because deleting the type would turn every downstream `use` into an `E0432`
-/// suggesting an unrelated item of the same name.
+/// The one home of the failure policy: there is none. Every step records what failed and degrades
+/// to what it can still say, the recorded errors become `compile_error!`s after the item and the
+/// impls, and a poisoned expansion resolves everywhere it is used while never building.
 fn expand(
     input: TokenStream,
-    kind: Kind,
-    f: impl FnOnce(&mut DeriveInput) -> Result<TokenStream2, attrs::Errors>,
+    f: impl FnOnce(&mut DeriveInput, &descriptor::DescriptorIndex, &mut Generator),
 ) -> TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);
-    let pristine = input.clone();
-    match f(&mut input) {
-        Ok(extra) => {
-            let input = input.into_token_stream();
-            [input, extra].into_iter().collect::<TokenStream2>().into()
-        }
-        Err(errors) => item::salvage(pristine, kind, errors).into(),
+    let mut generator = Generator::new();
+    // A descriptor that fails to load is a build-environment failure, not a mistake in the item:
+    // nothing can resolve, so nothing but the error is worth emitting.
+    match crate::descriptor::index() {
+        Ok(index) => f(&mut input, &index, &mut generator),
+        Err(message) => generator.error(input.ident.span(), message),
     }
+    generator.finish(input.into_token_stream()).into()
 }
 
 /// The two attribute macros take no arguments of their own; everything is spelled in
-/// `#[armonik(...)]` on the item.
-fn no_args(attr: &TokenStream, input: &DeriveInput, macro_name: &str) -> Result<(), attrs::Errors> {
+/// `#[armonik(...)]` on the item. True (with the error recorded, and nothing else expanded: the
+/// arguments say the grammar was misunderstood, so a second error about the attributes would make
+/// one mistake read as two) when arguments were given.
+fn no_args(
+    attr: &TokenStream,
+    input: &DeriveInput,
+    macro_name: &str,
+    generator: &mut Generator,
+) -> bool {
     if attr.is_empty() {
-        return Ok(());
+        return false;
     }
-    Err(syn::Error::new(
+    generator.error(
         input.ident.span(),
         format!("#[armonik_macros::{macro_name}] takes no arguments"),
-    )
-    .into())
+    );
+    true
 }
 
 /// Register a proto message name for a type alias, so generic instantiations
