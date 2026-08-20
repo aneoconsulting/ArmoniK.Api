@@ -1,7 +1,7 @@
 //! The emission pieces every shape is built from.
 //!
 //! One field is written the same way wherever it sits: a struct field, a oneof sibling, an active
-//! oneof member and one part of an inlined member all reduce to [`field_fragments`]. The rest is
+//! oneof member and one part of an inlined member all reduce to [`slot_write`]. The rest is
 //! the impl skeletons (`prost::Message`, `Msg`, `Normalize`), the registry call, the descriptor
 //! fingerprint tripwire, and the per-field shape assert.
 
@@ -198,40 +198,6 @@ pub(crate) fn unsupported_kind_error(
         kind_description(kind),
     );
     quote_spanned! {span=> ::core::compile_error!(#message); }
-}
-
-/// Qualified dispatch prefix for a field's codec: `ProtoField` and `ProtoAdapter` share their
-/// method names, so every fragment is written once and prefixed with whichever the field encodes
-/// through.
-pub(crate) fn dispatch(ty: &syn::Type, adapter: Option<&syn::Type>) -> TokenStream {
-    match adapter {
-        Some(adapter) => quote!(<#adapter as crate::codec::ProtoAdapter<#ty>>),
-        None => quote!(<#ty as crate::codec::ProtoField>),
-    }
-}
-
-/// The `(tag, encode statement, length expression)` fragments for one field, where `value` is the
-/// expression holding it. Every field is written the same way, nothing being conditional on what it
-/// holds, so a plain struct field, a oneof sibling, an active oneof member and one part of an
-/// inline variant all reduce to this. The encode statement writes into a `buf` in scope; the length
-/// is an expression, so a caller can sum it into an accumulator or return it straight out of a
-/// match arm.
-pub(crate) fn field_fragments(
-    dispatch: &TokenStream,
-    tag: u32,
-    value: TokenStream,
-    presence: Presence,
-) -> (u32, TokenStream, TokenStream) {
-    // Which pair of `ProtoField`/`ProtoAdapter` methods to name; the skip itself is theirs.
-    let (encode, len) = match presence {
-        Presence::Implicit => (quote!(encode_implicit), quote!(encoded_len_implicit)),
-        Presence::Explicit => (quote!(encode_field), quote!(encoded_len_field)),
-    };
-    (
-        tag,
-        quote! { #dispatch::#encode(#tag, #value, buf); },
-        quote! { #dispatch::#len(#tag, #value) },
-    )
 }
 
 /// Which of a slot's two entry points to write it through.
@@ -473,7 +439,12 @@ pub(crate) fn slot_asserts(slot: &Slot, type_ident: &syn::Ident) -> TokenStream 
 /// `ProtoAdapter` a `with` names.
 pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
     match &slot.codec {
-        SlotCodec::Field { ty, adapter } => dispatch(ty, adapter.as_deref()),
+        // `ProtoField` and `ProtoAdapter` share their method names, so a fragment is written once
+        // and prefixed with whichever the field encodes through.
+        SlotCodec::Field { ty, adapter } => match adapter {
+            Some(adapter) => quote!(<#adapter as crate::codec::ProtoAdapter<#ty>>),
+            None => quote!(<#ty as crate::codec::ProtoField>),
+        },
         SlotCodec::Oneof { ty, .. } => quote!(<#ty as ::prost::Message>),
         SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => {
             unreachable!("markers and inlined members frame themselves")
@@ -512,10 +483,14 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -
                 Some(_) => Presence::Explicit,
                 None => presence,
             };
-            let (_, encode, len) = field_fragments(&d, tag, value.clone(), presence);
+            // Which pair of the two method names to reach for; the skip itself is theirs.
+            let (encode, len) = match presence {
+                Presence::Implicit => (quote!(encode_implicit), quote!(encoded_len_implicit)),
+                Presence::Explicit => (quote!(encode_field), quote!(encoded_len_field)),
+            };
             SlotWrite {
-                encode,
-                len,
+                encode: quote! { #d::#encode(#tag, #value, buf); },
+                len: quote! { #d::#len(#tag, #value) },
                 // A `with` adapter defines its own equivalence classes; it declares them itself.
                 normalize: adapter
                     .is_some()
