@@ -37,7 +37,9 @@ const ERROR_TAG: u32 = 2;
 // `success` occurrence produces depends on whether an `error` was merged, and vice versa. Teaching
 // the derive this shape would cost more grammar and codegen than the one impl it would replace, and
 // this is the only type in the crate that needs it. The differential harness fuzzes it against
-// `DynamicMessage` ground truth exactly like the derived types.
+// `DynamicMessage` ground truth exactly like the derived types, and the registry's round-trip hook
+// asserts `encoded_len` against what `encode_raw` writes on every value it reaches, which is what
+// holds the two matches below to each other: a derived type gets both from one expression.
 impl prost::Message for Output {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         match self {
