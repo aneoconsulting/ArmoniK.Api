@@ -243,29 +243,18 @@ use syn::DeriveInput;
 ///
 #[proc_macro_attribute]
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(input as syn::DeriveInput);
-    if !attr.is_empty() {
-        return no_args(input, Kind::Message, "message");
-    }
-    let ir = match resolve::resolve_message(&input) {
-        Ok(ir) => ir,
-        Err(error) => return item::salvage(input, Kind::Message, error).into(),
-    };
-    // Read before `rewrite` mutates the item and before the list below moves it: `anchors` has to
-    // see the `#[armonik(...)]` keys it points at, which `rewrite` strips.
-    let anchors = item::anchors(&input, Kind::Message);
-    let absorbed = absorbed(&ir.absorbs);
-    item::rewrite(&mut input, &ir);
-
-    [
-        input.into_token_stream(),
-        anchors,
-        emit::message(&ir),
-        absorbed,
-    ]
-    .into_iter()
-    .collect::<TokenStream2>()
-    .into()
+    expand(input, Kind::Message, |input| {
+        no_args(&attr, input, "message")?;
+        let ir = resolve::resolve_message(input)?;
+        // Read before `rewrite` mutates the item: `anchors` has to see the `#[armonik(...)]` keys
+        // it points at, which `rewrite` strips.
+        let anchors = item::anchors(input, Kind::Message);
+        let absorbed = absorbed(&ir.absorbs);
+        item::rewrite(input, &ir);
+        Ok([anchors, emit::message(&ir), absorbed]
+            .into_iter()
+            .collect())
+    })
 }
 
 /// Implement the wire representation of a protobuf enum for an ArmoniK API
@@ -371,45 +360,58 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// the prost-style short form does not match.
 #[proc_macro_attribute]
 pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(input as syn::DeriveInput);
-    if !attr.is_empty() {
-        return no_args(input, Kind::Enumeration, "enumeration");
-    }
-    let plan = match enumeration::resolve_enumeration(&input) {
-        Ok(plan) => plan,
-        Err(error) => return item::salvage(input, Kind::Enumeration, error).into(),
-    };
-    let anchors = item::anchors(&input, Kind::Enumeration);
-    let absorbed = absorbed(&plan.absorbs);
-    let wire = enumeration::wire(&plan);
-    item::rewrite_enum(&mut input, &plan);
+    expand(input, Kind::Enumeration, |input| {
+        no_args(&attr, input, "enumeration")?;
+        let plan = enumeration::resolve_enumeration(input)?;
+        let anchors = item::anchors(input, Kind::Enumeration);
+        let absorbed = absorbed(&plan.absorbs);
+        let wire = enumeration::wire(&plan);
+        item::rewrite_enum(input, &plan);
+        // `items` is the value-level half: the payload struct, the two `i32` conversions,
+        // `UNSPECIFIED` and `Default`. Called here rather than from anything shared, because only
+        // an enumeration has them.
+        Ok([anchors, wire, enumeration::items(&plan), absorbed]
+            .into_iter()
+            .collect())
+    })
+}
 
-    [
-        input.into_token_stream(),
-        anchors,
-        wire,
-        // The value-level items: the payload struct, the two `i32` conversions, `UNSPECIFIED` and
-        // `Default`. Called here rather than from anything shared, because only an enumeration has
-        // them.
-        enumeration::items(&plan),
-        absorbed,
-    ]
-    .into_iter()
-    .collect::<TokenStream2>()
-    .into()
+/// The shared entry point of the two attribute macros: parse the item, run the expansion, and
+/// always re-emit the item, which `f` mutates in place (doc injection, attribute strip) and only
+/// ever *adds* to, returning the additional implementations.
+///
+/// The one home of the failure policy, so an expansion step can `?` at will with no risk of
+/// partial output: on `Err` the item is salvaged from a pristine clone (re-emitted with the
+/// `#[armonik(...)]` keys stripped, next to the error and the stub impls its users need to
+/// type-check), because deleting the type would turn every downstream `use` into an `E0432`
+/// suggesting an unrelated item of the same name.
+fn expand(
+    input: TokenStream,
+    kind: Kind,
+    f: impl FnOnce(&mut DeriveInput) -> Result<TokenStream2, attrs::Errors>,
+) -> TokenStream {
+    let mut input = parse_macro_input!(input as syn::DeriveInput);
+    let pristine = input.clone();
+    match f(&mut input) {
+        Ok(extra) => {
+            let input = input.into_token_stream();
+            [input, extra].into_iter().collect::<TokenStream2>().into()
+        }
+        Err(errors) => item::salvage(pristine, kind, errors).into(),
+    }
 }
 
 /// The two attribute macros take no arguments of their own; everything is spelled in
 /// `#[armonik(...)]` on the item.
-///
-/// Through [`item::salvage`] like every other failure, so the annotated type survives: deleting it
-/// turns every downstream `use` into an `E0432` suggesting an unrelated item of the same name.
-fn no_args(input: DeriveInput, kind: Kind, macro_name: &str) -> TokenStream {
-    let error = syn::Error::new(
+fn no_args(attr: &TokenStream, input: &DeriveInput, macro_name: &str) -> Result<(), attrs::Errors> {
+    if attr.is_empty() {
+        return Ok(());
+    }
+    Err(syn::Error::new(
         input.ident.span(),
         format!("#[armonik_macros::{macro_name}] takes no arguments"),
-    );
-    item::salvage(input, kind, error.into()).into()
+    )
+    .into())
 }
 
 /// Register a proto message name for a type alias, so generic instantiations
@@ -428,8 +430,14 @@ fn no_args(input: DeriveInput, kind: Kind, macro_name: &str) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
-    expand_alias(attr.into(), item.into())
-        .unwrap_or_else(syn::Error::into_compile_error)
+    let item = TokenStream2::from(item);
+    expand_alias(attr.into(), item.clone())
+        // The alias survives its own failure, like every salvaged item: only the registration is
+        // withheld, and the one real error is the only one reported.
+        .unwrap_or_else(|error| {
+            let error = error.into_compile_error();
+            quote::quote!(#item #error)
+        })
         .into()
 }
 
