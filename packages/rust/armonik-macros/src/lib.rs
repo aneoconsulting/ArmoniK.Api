@@ -229,16 +229,15 @@ use syn::DeriveInput;
 /// namespace with tags drawn from two different messages. Carry the member whole
 /// in a field of its own there.
 ///
-/// **On a field, a tuple variant, or a member payload field**, the proto
-/// field's message layer, unwrapped: the Rust type carries what is inside it.
-/// Two absorbable layers exist, told apart by the field's cardinality: a
-/// singular single-field wrapper (`VecWrapper { repeated string values = 1; }`
-/// carried as `Vec<String>`, through `Wrapper<Own, N>` with the tag read from
-/// the descriptor), and a repeated key/value pair (`IdStatus { string task_id =
-/// 1; TaskStatus status = 2; }`, the shape a proto map compiles to, carried as
-/// a `HashMap` through `PairMap`; entry order is not preserved and duplicate
-/// keys collapse). Either way the Rust type is shape-checked against the
-/// unwrapped form (unlike [`with`](#with), which is trusted).
+/// **On a field, a tuple variant, or a member payload field**, the field's
+/// message layer, unwrapped. Two layers qualify, told apart by cardinality:
+/// a singular single-field wrapper (`CreationStatusList { repeated
+/// CreationStatus creation_statuses = 1; }` as `Vec<Status>`, through
+/// `Wrapper<Own, N>` with `N` from the descriptor), and a repeated key/value
+/// pair (`IdStatus { string task_id = 1; TaskStatus status = 2; }` as a
+/// `HashMap` through `PairMap`, which drops entry order and collapses
+/// duplicate keys). Either way the Rust type is shape-checked against the
+/// unwrapped form, unlike [`with`](#with), which is trusted.
 ///
 /// ## transparent
 ///
@@ -447,7 +446,7 @@ fn no_args(
 pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
     let item = TokenStream2::from(item);
     expand_alias(attr.into(), item.clone())
-        // The alias survives its own failure, like every salvaged item: only the registration is
+        // The alias survives its own failure: the item is re-emitted, only the registration is
         // withheld, and the one real error is the only one reported.
         .unwrap_or_else(|error| {
             let error = error.into_compile_error();

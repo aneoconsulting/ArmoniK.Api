@@ -925,7 +925,7 @@ fn carrier(
 
 /// Read-only context shared by the per-carrier variant resolvers below: the variant being resolved
 /// and everything already known about the oneof member it maps to. The mutable state each resolver
-/// touches (`errors`, and the `absorbs`/`Siblings` a particular shape feeds) is passed
+/// touches (the `Generator`, and the `absorbs`/`Siblings` a particular shape feeds) is passed
 /// alongside.
 struct VariantCtx<'a> {
     variant: &'a syn::Variant,

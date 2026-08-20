@@ -173,8 +173,8 @@ fn descending(records: &[Record<'_>]) -> Vec<u8> {
 /// The original with every packed repeated field spread into one record per element, which is the
 /// other encoding proto3 allows and requires every reader to accept.
 ///
-/// Generalises `codec::tests::unpacked_repeated_enums_are_accepted` from one hand-picked field to
-/// every packable field of every registered message, inside real messages rather than a fixture.
+/// The only thing that produces this form: `prost-reflect` always encodes packed, so without this
+/// the decode side of every packable field goes unexercised.
 ///
 /// Which is a narrow class in this schema, and the case is simply not produced for a message
 /// without one: of the repeated fields declared, six are enums (`ResultStatus` four times,
