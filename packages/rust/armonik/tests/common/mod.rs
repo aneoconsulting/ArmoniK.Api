@@ -14,7 +14,10 @@
 //! In both pairs, `call` goes through `ServiceClient::call` with a hand-built request (a message,
 //! or a stream of them under the streaming-request kinds) and `convenience` goes through the client
 //! method in `client/<svc>.rs`. The `convenience:` clauses pin those signatures: they name the
-//! method, its arguments and their order, so a signature cannot move without editing this file.
+//! method, its arguments and their order, so a signature cannot move without editing the case. What
+//! pins the *mapping* -- which argument reaches which field, the one thing the types cannot say when
+//! two parameters share one -- is the unary fake asserting that the request it received equals the
+//! case's `request:` clause. Both halves send that same request, so the two clauses have to agree.
 //!
 //! These suites compile against `armonik` from the outside, so they also stand as the proof that
 //! the public API is usable: everything they touch has to be `pub`, which no in-crate test could
@@ -339,6 +342,16 @@ macro_rules! rpc_tests {
             request: $($request_ty)::+,
             _context: armonik::server::RequestContext,
         ) -> Result<<$($request_ty)::+ as armonik::rpc::Rpc>::Response, tonic::Status> {
+            // What ties a convenience method's parameters to the fields they have to reach. The
+            // `convenience:` clause pins arity and types; only this pins the mapping, so a swapped
+            // pair of same-typed arguments -- the one mistake the type system cannot see -- builds
+            // a different request and fails here. Both halves of the pair send this same request by
+            // construction, so there is nothing else for the fake to compare against.
+            assert_eq!(
+                request,
+                $($request_ty)::+ { $($request_fields)* },
+                "the convenience method built a different request"
+            );
             crate::common::stub(self.wait, self.failure.clone(), || {
                 Ok(crate::common::respond(request, $respond))
             })

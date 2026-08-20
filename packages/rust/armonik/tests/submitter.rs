@@ -16,15 +16,6 @@ fn task_filter(session_id: &str) -> submitter::TaskFilter {
     }
 }
 
-/// The session id a filter-taking RPC is asserted against.
-fn filter_session(filter: &submitter::TaskFilter) -> &str {
-    match &filter.ids {
-        submitter::TaskFilterIds::Sessions(ids) => &ids[0],
-        submitter::TaskFilterIds::Tasks(_) => panic!("Expected a session filter"),
-        submitter::TaskFilterIds::Invalid => panic!("Expected a session filter, got no member"),
-    }
-}
-
 /// The `Count` payload. `count_tasks` and `wait_for_completion` return the same proto message and
 /// each declares its own Rust type for it, which is what the crate does everywhere else a message
 /// is shared across RPC sites.
@@ -92,8 +83,7 @@ rpc_tests! {
             partition_ids: vec![String::from("create-session-input")],
             default_task_options: Default::default(),
         },
-        respond: |request: submitter::create_session::Request| {
-            assert_eq!(request.partition_ids[0], "create-session-input");
+        respond: |_request: submitter::create_session::Request| {
             submitter::create_session::Response {
                 session_id: String::from("create-session-output"),
             }
@@ -109,8 +99,7 @@ rpc_tests! {
         request: submitter::cancel_session::Request {
             session_id: String::from("cancel-session-input"),
         },
-        respond: |request: submitter::cancel_session::Request| {
-            assert_eq!(request.session_id, "cancel-session-input");
+        respond: |_request: submitter::cancel_session::Request| {
             submitter::cancel_session::Response {}
         },
         convenience: cancel_session("cancel-session-input"),
@@ -124,8 +113,7 @@ rpc_tests! {
             task_options: None,
             task_requests: vec![armonik::TaskRequest::default()],
         },
-        respond: |request: submitter::create_tasks::SmallRequest| {
-            assert_eq!(request.session_id, "create-small-tasks-input");
+        respond: |_request: submitter::create_tasks::SmallRequest| {
             statuses("create-small-tasks-output")
         },
         convenience: create_small_tasks(
@@ -158,8 +146,7 @@ rpc_tests! {
         request: submitter::list_tasks::Request {
             filter: task_filter("list-tasks-input"),
         },
-        respond: |request: submitter::list_tasks::Request| {
-            assert_eq!(filter_session(&request.filter), "list-tasks-input");
+        respond: |_request: submitter::list_tasks::Request| {
             submitter::list_tasks::Response {
                 task_ids: vec![String::from("list-tasks-output")],
             }
@@ -178,8 +165,7 @@ rpc_tests! {
                 statuses: Default::default(),
             },
         },
-        respond: |request: submitter::list_sessions::Request| {
-            assert_eq!(request.filter.ids[0], "list-sessions-input");
+        respond: |_request: submitter::list_sessions::Request| {
             submitter::list_sessions::Response {
                 session_ids: vec![String::from("list-sessions-output")],
             }
@@ -198,8 +184,7 @@ rpc_tests! {
         request: submitter::count_tasks::Request {
             filter: task_filter("count-tasks-input"),
         },
-        respond: |request: submitter::count_tasks::Request| {
-            assert_eq!(filter_session(&request.filter), "count-tasks-input");
+        respond: |_request: submitter::count_tasks::Request| {
             submitter::count_tasks::Response {
                 values: count_values(),
             }
@@ -234,8 +219,7 @@ rpc_tests! {
             session_id: String::from("try-get-task-output-input"),
             task_id: String::from("task-id"),
         },
-        respond: |request: submitter::try_get_task_output::Request| {
-            assert_eq!(request.session_id, "try-get-task-output-input");
+        respond: |_request: submitter::try_get_task_output::Request| {
             armonik::Output::Ok
         },
         convenience: try_get_task_output("try-get-task-output-input", "task-id"),
@@ -252,8 +236,7 @@ rpc_tests! {
             session_id: String::from("wait-for-availability-input"),
             result_id: String::from("result-id"),
         },
-        respond: |request: submitter::wait_for_availability::Request| {
-            assert_eq!(request.session_id, "wait-for-availability-input");
+        respond: |_request: submitter::wait_for_availability::Request| {
             submitter::wait_for_availability::Response::NotCompleted(String::from(
                 "wait-for-availability-output",
             ))
@@ -269,19 +252,20 @@ rpc_tests! {
 
     rpc unary wait_for_completion {
         request: submitter::wait_for_completion::Request {
+            // Deliberately unequal: two `bool` parameters in a row are the one pair the
+            // signature cannot keep apart, so the values have to.
             filter: task_filter("wait-for-completion-input"),
-            stop_on_first_task_error: false,
+            stop_on_first_task_error: true,
             stop_on_first_task_cancellation: false,
         },
-        respond: |request: submitter::wait_for_completion::Request| {
-            assert_eq!(filter_session(&request.filter), "wait-for-completion-input");
+        respond: |_request: submitter::wait_for_completion::Request| {
             submitter::wait_for_completion::Response {
                 values: count_values(),
             }
         },
         convenience: wait_for_completion(
             task_filter("wait-for-completion-input"),
-            false,
+            true,
             false,
         ),
         project: |response| response.values,
@@ -294,8 +278,7 @@ rpc_tests! {
         request: submitter::cancel_tasks::Request {
             filter: task_filter("cancel-tasks-input"),
         },
-        respond: |request: submitter::cancel_tasks::Request| {
-            assert_eq!(filter_session(&request.filter), "cancel-tasks-input");
+        respond: |_request: submitter::cancel_tasks::Request| {
             submitter::cancel_tasks::Response {}
         },
         convenience: cancel_tasks(task_filter("cancel-tasks-input")),
@@ -307,8 +290,7 @@ rpc_tests! {
         request: submitter::task_status::Request {
             task_ids: vec![String::from("task-status-input")],
         },
-        respond: |request: submitter::task_status::Request| {
-            assert_eq!(request.task_ids[0], "task-status-input");
+        respond: |_request: submitter::task_status::Request| {
             submitter::task_status::Response {
                 statuses: [(
                     String::from("task-status-output"),
@@ -333,8 +315,7 @@ rpc_tests! {
             session_id: String::from("result-status-input"),
             result_ids: vec![String::from("result-id")],
         },
-        respond: |request: submitter::result_status::Request| {
-            assert_eq!(request.session_id, "result-status-input");
+        respond: |_request: submitter::result_status::Request| {
             submitter::result_status::Response {
                 statuses: [(
                     String::from("result-status-output"),

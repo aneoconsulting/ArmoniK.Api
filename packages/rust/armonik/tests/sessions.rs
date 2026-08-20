@@ -174,14 +174,16 @@ rpc_tests! {
 
     rpc unary stop_submission {
         request: sessions::stop_submission::Request {
+            // Deliberately unequal: two `bool` parameters in a row are the one pair the
+            // signature cannot keep apart, so the values have to.
             session_id: String::from("rpc-stop-input"),
             client: true,
-            worker: true,
+            worker: false,
         },
         respond: |request| sessions::stop_submission::Response {
             session: session(request.session_id, "rpc-stop-output"),
         },
-        convenience: stop_submission("rpc-stop-input", true, true),
+        convenience: stop_submission("rpc-stop-input", true, false),
         project: |response| response.session,
         check: |session| {
             assert_eq!(session.session_id, "rpc-stop-input");
