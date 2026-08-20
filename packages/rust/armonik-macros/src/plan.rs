@@ -1,4 +1,4 @@
-//! The resolved plans: what each shape decided, in the vocabulary the emitters and the item
+//! The resolved plans: what resolution decided, in the vocabulary the emitters and the item
 //! rewriter read.
 //!
 //! Resolution fills these from the descriptor and the annotations; emission and `item` read them
@@ -6,42 +6,64 @@
 //! checkable: a plan type mentions no `TokenStream`, and an emitter reaches for no
 //! `DescriptorIndex`.
 //!
-//! The harvested proto comments live here too, on the slot or variant they belong to: resolution
-//! knows which proto element a Rust name matched at the moment it matches it, so looking that up a
-//! second time to attach the docs would mean a second copy of the matching rules.
+//! One plan for everything message-shaped ([`Ir`]): a message is shared fields plus an optional
+//! discriminant, and every shape `#[armonik_macros::message]` accepts is that form at some
+//! degenerate point. A plain struct has no discriminant; a transparent newtype is a single
+//! whole-message delegate; a generic struct is a message that names no proto; an embedded oneof is
+//! a discriminant alone; a whole-message enum has both. The shapes differ in how they are
+//! *resolved*, never in what they are.
+//!
+//! The harvested proto comments live here too, on the slot or arm they belong to: resolution knows
+//! which proto element a Rust name matched at the moment it matches it, so looking that up a second
+//! time to attach the docs would mean a second copy of the matching rules.
 
 use proc_macro2::Span;
 
 use crate::descriptor::{Cardinality, FieldKind, FieldMeta};
 
-pub(crate) struct MessagePlan {
+/// One message-shaped expansion: what every shape of `#[armonik_macros::message]` resolves to, and
+/// the wire half of a transparent enumeration.
+pub(crate) struct Ir {
     pub(crate) ident: syn::Ident,
-    /// Full proto names the type stands for (several for unified types).
-    pub(crate) proto_names: Vec<String>,
-    /// Leading comment of the proto message, for the re-emitted item.
-    pub(crate) docs: Vec<String>,
-    /// Fields sorted by tag (canonical encode order). In `transparent` mode this holds exactly the
-    /// single delegate field.
-    pub(crate) fields: Vec<Slot>,
     pub(crate) generics: syn::Generics,
     pub(crate) fingerprint: u64,
-    /// Which of the three struct shapes this is, recorded by the resolver that chose it rather than
-    /// inferred downstream from a flag and an empty name list.
-    pub(crate) mode: Mode,
-    /// Proto messages a `with` adapter flattens away, declared through `#[armonik(absorbs = ...)]`,
-    /// so they have no Rust type of their own.
+    /// Full proto names the type stands for (several for unified types). Empty in
+    /// [`generic`](Ir::generic) mode, which registers nothing.
+    pub(crate) names: Vec<String>,
+    /// `Some("message.oneof")` for an embedded oneof: a fragment of a message rather than one, so
+    /// it gets the `Oneof` identity marker instead of `Msg`, and registers nothing.
+    pub(crate) fragment_of: Option<String>,
+    /// Leading comment of the proto message, for the re-emitted item.
+    pub(crate) docs: Vec<String>,
+    /// Proto messages a flattening construct swallowed into this type (a `with` adapter's
+    /// `absorbs`, an inline variant's member message), so they have no Rust type of their own.
     pub(crate) absorbs: Vec<String>,
+    /// `#[armonik(generic)]`: no descriptor was read, the tags are authoritative, and the
+    /// `GenericFields` table is emitted so every `#[armonik_macros::alias]` instantiation can
+    /// assert the fields against the message it registers under.
+    pub(crate) generic: bool,
+    /// Fields every alternative carries, sorted by tag: all fields of a struct, the non-oneof
+    /// siblings of a whole-message enum, nothing for an embedded oneof.
+    pub(crate) shared: Vec<Slot>,
+    /// The oneof, when the type is an enum. `None` is a struct: one alternative, owning nothing.
+    pub(crate) discr: Option<Discr>,
 }
 
-/// The three shapes a struct can take, chosen once by [`crate::shape::resolve_message`].
-///
-/// `Generic` names no proto message and carries explicit tags, so it is the one shape with nothing
-/// to validate against; `Transparent` delegates its whole wire impl to its single field.
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum Mode {
-    Plain,
-    Transparent,
-    Generic,
+/// The discriminant of an enum-shaped message: one arm per oneof member, plus the optional
+/// attribute-less "no member set" arm, which owns nothing and is selected by no tag.
+pub(crate) struct Discr {
+    /// Arms in member tag order.
+    pub(crate) arms: Vec<Arm>,
+    pub(crate) default_arm: Option<syn::Ident>,
+}
+
+/// One named variant and the member slot it owns beyond the shared fields.
+pub(crate) struct Arm {
+    pub(crate) ident: syn::Ident,
+    /// What the arm carries. Its `span` is the variant's, which is where a shape assert about the
+    /// member points. Its `access` says how: a named field of a struct variant, the single element
+    /// of a tuple variant, or nothing for a `present` marker.
+    pub(crate) own: Slot,
 }
 
 pub(crate) enum FieldAccess {
@@ -51,21 +73,25 @@ pub(crate) enum FieldAccess {
 
 /// How one [`Slot`] gets on the wire.
 pub(crate) enum SlotCodec {
-    /// An ordinary field, through the type's `ProtoField` impl; `adapter` is the
+    /// A leaf value, through the type's `ProtoField` impl; `adapter` is the
     /// `#[armonik(with = "...")]` type when present (which skips the shape checks by design).
     Field {
         ty: Box<syn::Type>,
         adapter: Option<Box<syn::Type>>,
     },
-    /// A whole oneof of the message, routed to the flattened enum's own `prost::Message` impl;
-    /// `tags` are the member field tags that reach it.
-    Oneof { ty: Box<syn::Type>, tags: Vec<u32> },
+    /// Whole-message delegation through the value's own `prost::Message` impl. `tags` are the
+    /// field tags routed to it: the member tags of an embedded oneof, or `None` for every tag,
+    /// which is a `transparent` newtype's single field, wire-identical to the whole message.
+    Delegate {
+        ty: Box<syn::Type>,
+        tags: Option<Vec<u32>>,
+    },
     /// `#[armonik(present)]`: the member carries nothing but its own presence. A `bool` member
     /// encodes `true`, an empty-message member an empty message.
     Marker { empty_message: bool },
     /// `#[armonik(inline)]`: the member message's own fields, spread into the variant and framed
     /// here, since the message is absorbed and has no Rust type to delegate to.
-    Inline { parts: Vec<Slot> },
+    Group { parts: Vec<Slot> },
 }
 
 /// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
@@ -81,7 +107,7 @@ pub(crate) struct Expectation {
 
 impl Expectation {
     /// The expectation for a descriptor field. Whether a slot is checked at all is the caller's
-    /// call, recorded in [`Slot::checks`]: a `with` adapter, a oneof group and a generic field have
+    /// call, recorded in [`Slot::checks`]: a `with` adapter, a delegate and a generic field have
     /// nothing to check.
     pub(crate) fn of(field: &FieldMeta) -> Self {
         Self {
@@ -98,12 +124,12 @@ impl Expectation {
 /// are one type seen from four places, so a new attribute key or a new check is one edit.
 pub(crate) struct Slot {
     /// How the value is reached: `self.name` on a struct, the field name bound by the pattern in a
-    /// struct variant, the single element of a tuple variant. `None` for a `present` marker, which
-    /// carries no value at all.
+    /// struct variant, the single element of a tuple variant. `None` for a slot that carries no
+    /// value at all (a `present` marker, an inlined member whose parts carry their own).
     pub(crate) access: Option<FieldAccess>,
     pub(crate) span: Span,
-    /// Tag of the field, or the lowest member tag of a whole oneof, which is what orders it among
-    /// its siblings.
+    /// Tag of the field, or the lowest routed tag of a delegate, which is what orders it among its
+    /// siblings.
     pub(crate) tag: u32,
     pub(crate) codec: SlotCodec,
     pub(crate) checks: Option<Expectation>,
@@ -120,8 +146,8 @@ impl Slot {
     /// `present` marker, or an inlined member (whose parts carry their own).
     pub(crate) fn ty(&self) -> Option<&syn::Type> {
         match &self.codec {
-            SlotCodec::Field { ty, .. } | SlotCodec::Oneof { ty, .. } => Some(ty),
-            SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => None,
+            SlotCodec::Field { ty, .. } | SlotCodec::Delegate { ty, .. } => Some(ty),
+            SlotCodec::Marker { .. } | SlotCodec::Group { .. } => None,
         }
     }
 
@@ -176,40 +202,4 @@ pub(crate) enum EnumMode {
     /// single-field wrappers; `path` holds the tags from the outermost wrapper down to the enum
     /// field.
     Transparent { names: Vec<String>, path: Vec<u32> },
-}
-
-/// Plan for a oneof-shaped enum: either a whole message whose fields are a single oneof plus
-/// optional sibling fields (`message = ...` alone), or just the oneof `oneof_name` of the message,
-/// to be embedded in a struct (`message = ...`
-/// + `oneof = ...`).
-pub(crate) struct OneofPlan {
-    pub(crate) ident: syn::Ident,
-    pub(crate) proto_name: String,
-    /// Leading comment of the proto message, for the re-emitted item.
-    pub(crate) docs: Vec<String>,
-    /// Whether the enum stands for the whole message (annotation without `oneof = ...`), in which
-    /// case it gets `prost::Message` + `ProtoField` implementations.
-    pub(crate) whole_message: bool,
-    /// `message.oneof` this type stands for, when it stands for one oneof of a larger message.
-    /// `None` for a whole-message enum, which is a message and records itself through `Msg::NAMES`.
-    pub(crate) oneof_path: Option<String>,
-    /// Non-oneof fields of the message, replicated in every variant (whole-message enums only;
-    /// empty when the oneof is the only field).
-    pub(crate) siblings: Vec<Slot>,
-    pub(crate) variants: Vec<OneofVariant>,
-    /// The attribute-less variant standing for "no member set", if any: a unit variant, or a struct
-    /// variant carrying exactly the sibling fields when there are siblings.
-    pub(crate) default_variant: Option<syn::Ident>,
-    pub(crate) fingerprint: u64,
-    /// Messages inlined into struct variants (their fields are spread into the variant), so they
-    /// have no Rust type of their own.
-    pub(crate) absorbs: Vec<String>,
-}
-
-pub(crate) struct OneofVariant {
-    pub(crate) ident: syn::Ident,
-    /// What the variant carries. Its `span` is the variant's, which is where a shape assert about
-    /// the member points. Its `access` says how: a named field of a struct variant, the
-    /// single element of a tuple variant, or nothing for a `present` marker.
-    pub(crate) own: Slot,
 }

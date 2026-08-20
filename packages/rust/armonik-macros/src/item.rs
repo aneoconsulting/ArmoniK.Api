@@ -14,8 +14,7 @@ use quote::quote;
 use syn::DeriveInput;
 
 use crate::attrs::{self, AttrItem, Errors};
-use crate::plan::{EnumPlan, Slot, SlotCodec};
-use crate::shape::Plan;
+use crate::plan::{EnumPlan, Ir, Slot, SlotCodec};
 
 /// Which macro is expanding. Not a shuttle between layers: the salvage path has no plan to read the
 /// shape off, and the doc harvest matches enum values differently from message fields.
@@ -39,8 +38,8 @@ impl Kind {
 /// `#[armonik(...)]` stripped, the serde line added.
 ///
 /// Infallible: everything it needs is already in the plan.
-pub(crate) fn rewrite(input: &mut DeriveInput, plan: &Plan) {
-    inject(input, plan);
+pub(crate) fn rewrite(input: &mut DeriveInput, ir: &Ir) {
+    inject(input, ir);
     strip(input);
     input.attrs.push(serde_derive());
 }
@@ -328,44 +327,38 @@ fn enumeration_stubs(input: &DeriveInput, ident: &syn::Ident) -> TokenStream {
 /// A pure applier. It matches nothing: every `#[doc]` below was decided by resolution, which is
 /// what makes the inlined-variant and transparent-enum cases work at all. Slots are found through
 /// [`Slot::reaches`], the access path resolution already recorded.
-fn inject(input: &mut DeriveInput, plan: &Plan) {
-    match plan {
-        Plan::Struct(plan) => {
-            prepend(&mut input.attrs, &plan.docs);
-            let syn::Data::Struct(data) = &mut input.data else {
-                return;
-            };
+fn inject(input: &mut DeriveInput, ir: &Ir) {
+    prepend(&mut input.attrs, &ir.docs);
+    match (&mut input.data, &ir.discr) {
+        (syn::Data::Struct(data), None) => {
             apply(
                 data.fields.iter_mut(),
-                &plan.fields.iter().collect::<Vec<_>>(),
+                &ir.shared.iter().collect::<Vec<_>>(),
             );
         }
-        Plan::Oneof(plan) => {
-            prepend(&mut input.attrs, &plan.docs);
-            let syn::Data::Enum(data) = &mut input.data else {
-                return;
-            };
+        (syn::Data::Enum(data), Some(discr)) => {
             for variant in &mut data.variants {
-                let member = plan
-                    .variants
+                let arm = discr
+                    .arms
                     .iter()
                     .find(|candidate| candidate.ident == variant.ident);
-                if let Some(member) = member {
-                    prepend(&mut variant.attrs, &member.own.docs);
+                if let Some(arm) = arm {
+                    prepend(&mut variant.attrs, &arm.own.docs);
                 }
-                // Every variant carries the siblings; the "no member set" one carries only those.
-                // A member is reached either through its own field, or, under `inline`, through one
-                // field per part.
-                let mut slots: Vec<&Slot> = plan.siblings.iter().collect();
-                if let Some(member) = member {
-                    match &member.own.codec {
-                        SlotCodec::Inline { parts } => slots.extend(parts),
-                        _ => slots.push(&member.own),
+                // Every variant carries the shared fields; the "no member set" one carries only
+                // those. A member is reached either through its own field, or, under `inline`,
+                // through one field per part.
+                let mut slots: Vec<&Slot> = ir.shared.iter().collect();
+                if let Some(arm) = arm {
+                    match &arm.own.codec {
+                        SlotCodec::Group { parts } => slots.extend(parts),
+                        _ => slots.push(&arm.own),
                     }
                 }
                 apply(variant.fields.iter_mut(), &slots);
             }
         }
+        _ => {}
     }
 }
 

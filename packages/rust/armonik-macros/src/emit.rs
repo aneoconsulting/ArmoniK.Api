@@ -1,15 +1,18 @@
-//! The emission pieces every shape is built from.
+//! The one emitter every message-shaped type goes through, and the pieces it is built from.
 //!
-//! One field is written the same way wherever it sits: a struct field, a oneof sibling, an active
-//! oneof member and one part of an inlined member all reduce to [`slot_write`]. The rest is
-//! the impl skeletons (`prost::Message`, `Msg`, `Normalize`), the registry call, the descriptor
+//! [`message`] reads an [`Ir`] and nothing else. A struct is the degenerate enum with no
+//! discriminant, so there are exactly two body builders: [`struct_bodies`] writes the shared slots
+//! from `self`, [`enum_bodies`] writes each arm's slots from the bindings its pattern introduces.
+//! One field is written the same way wherever it sits -- a struct field, a shared sibling, an
+//! active member and one part of an inlined member all reduce to [`slot_write`]. The rest is the
+//! impl skeletons (`prost::Message`, `Msg`, `Normalize`), the registry call, the descriptor
 //! fingerprint tripwire, and the per-field shape assert.
 
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 
 use crate::descriptor::{Cardinality, FieldKind};
-use crate::plan::{Expectation, FieldAccess, Slot, SlotCodec};
+use crate::plan::{Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
@@ -19,6 +22,411 @@ impl quote::ToTokens for FieldAccess {
         }
     }
 }
+
+/// Everything one [`Ir`] expands to, besides the re-emitted item: the guard block (fingerprint
+/// tripwire and shape asserts), the registry entries, the trait trio, and the mode extras (the
+/// `GenericFields` table of a generic type, the `Oneof` identity marker of an embedded oneof).
+pub(crate) fn message(ir: &Ir) -> TokenStream {
+    let ident = &ir.ident;
+    let generics = bound_generics(&ir.generics);
+
+    let mut asserts = TokenStream::new();
+    for slot in ir.shared.iter().chain(arm_slots(&ir.discr)) {
+        asserts.extend(slot_asserts(slot, ident, &ir.names));
+    }
+
+    let bodies = match &ir.discr {
+        None => struct_bodies(&ir.shared),
+        Some(discr) => enum_bodies(&ir.shared, discr),
+    };
+
+    // A generic type carries its fields' tags and instantiated shapes to wherever it is
+    // instantiated, because it cannot be checked where it is declared: it names no proto message.
+    // Every `#[armonik_macros::alias]` over it then asserts them against the message it registers
+    // under. The `SHAPE`s are written against the type parameters, so each instantiation reports
+    // its own.
+    let generic_fields = ir.generic.then(|| {
+        let (_, ty_generics, _) = ir.generics.split_for_impl();
+        let entries = ir.shared.iter().map(|slot| {
+            let tag = slot.tag;
+            let dispatch = slot_dispatch(slot);
+            quote! { (#tag, #dispatch::SHAPE) }
+        });
+        quote! {
+            impl #generics crate::codec::GenericFields for #ident #ty_generics {
+                const FIELDS: &'static [(u32, crate::codec::Shape)] = &[#(#entries),*];
+            }
+        }
+    });
+
+    // The `Oneof` marker goes on the embedded shape only, and says which oneof this stands for: a
+    // whole-message enum is a message and says so through `Msg::NAMES` already. Without it,
+    // substituting one filter family's `Condition` for another's compiles clean and passes the
+    // whole harness, because the two are tag-compatible and the substitution is a byte-level
+    // bijection.
+    let marker = ir.fragment_of.as_ref().map(|path| {
+        quote! {
+            impl crate::codec::Oneof for #ident {
+                const ONEOF: &'static [&'static str] = &[#path];
+            }
+        }
+    });
+
+    let expansion = message_shaped(
+        ident,
+        &generics,
+        ir.fingerprint,
+        &ir.names,
+        ir.fragment_of.is_none(),
+        asserts,
+        bodies,
+    );
+    quote! {
+        #expansion
+        #generic_fields
+        #marker
+    }
+}
+
+/// The slots the discriminant's arms own, for the walks that visit every slot of the plan.
+fn arm_slots(discr: &Option<Discr>) -> impl Iterator<Item = &Slot> {
+    discr
+        .iter()
+        .flat_map(|discr| discr.arms.iter().map(|arm| &arm.own))
+}
+
+/// The four bodies of a discriminant-less message: every slot is shared, written from `self` and
+/// merged in place. A whole-message delegate (a `transparent` newtype's single field) supplies the
+/// merge fallback instead of a tag arm, since every tag is its.
+fn struct_bodies(slots: &[Slot]) -> MessageBodies {
+    let mut encode_fragments = Vec::new();
+    let mut merge_arms = Vec::new();
+    let mut fallback = None;
+    let mut len_fragments = Vec::new();
+    let mut normalize = Vec::new();
+
+    for slot in slots {
+        let access = slot.access.as_ref().expect("a struct field is reachable");
+        let written = slot_write(slot, &quote!(&self.#access), Presence::Implicit);
+        encode_fragments.push(written.encode);
+        let len = written.len;
+        len_fragments.push(quote! { len += #len; });
+        normalize.extend(written.normalize);
+
+        let merge = slot_merge_in_place(slot, &quote!(&mut self.#access));
+        match &slot.codec {
+            SlotCodec::Delegate { tags: None, .. } => fallback = Some(merge),
+            // A delegate answers to every one of its routed tags.
+            SlotCodec::Delegate {
+                tags: Some(tags), ..
+            } => merge_arms.push(quote! { #(#tags)|* => #merge }),
+            _ => {
+                let tag = slot.tag;
+                merge_arms.push(quote! { #tag => #merge });
+            }
+        }
+    }
+    let fallback =
+        fallback.unwrap_or_else(|| quote!(::prost::encoding::skip_field(wire_type, tag, buf, ctx)));
+
+    MessageBodies {
+        encode_raw: quote! { #(#encode_fragments)* },
+        merge_field: quote! {
+            match tag {
+                #(#merge_arms,)*
+                _ => #fallback,
+            }
+        },
+        encoded_len: quote! {
+            #[allow(unused_mut)]
+            let mut len = 0;
+            #(#len_fragments)*
+            len
+        },
+        normalize,
+    }
+}
+
+/// The four bodies of an enum-shaped message. With shared slots (non-oneof fields of a
+/// whole-message enum), every variant carries all of them, the "no member set" default included,
+/// which keeps the per-field merge stateless and order-independent: a shared occurrence merges into
+/// the current variant's slot, a member occurrence switches variants while carrying the shared
+/// values over. A shared-free enum is the degenerate case with an empty shared list.
+fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
+    // Shared machinery (empty and inert without shared slots): all-variant patterns binding a
+    // subset of them, plus their fragments. Every variant carries every shared slot, so the
+    // fragments are emitted once *around* the member match rather than inside each of its arms, and
+    // the arms only have to deal with the member.
+    let shared_idents: Vec<&syn::Ident> = shared
+        .iter()
+        .map(|slot| match slot.access.as_ref() {
+            Some(FieldAccess::Named(ident)) => ident,
+            _ => unreachable!("a shared slot is a named field of every variant"),
+        })
+        .collect();
+    // Bound under `__f<tag>`, never under the user's field name: these locals sit in the same scope
+    // as the emitter's own `buf`, `len`, `value`, `tag`, `wire_type` and `ctx`, and a proto field
+    // named like any of those would otherwise shadow one.
+    let shared_locals: Vec<syn::Ident> = shared.iter().map(slot_local).collect();
+    let variant_idents: Vec<&syn::Ident> = discr
+        .arms
+        .iter()
+        .map(|arm| &arm.ident)
+        .chain(discr.default_arm.iter())
+        .collect();
+    // `bound` selects which shared slots the pattern binds, by index.
+    let pats = |bound: &[usize]| -> Vec<TokenStream> {
+        let fields = bound.iter().map(|&i| shared_idents[i]);
+        let locals = bound.iter().map(|&i| &shared_locals[i]);
+        let binds: Vec<TokenStream> = fields
+            .zip(locals)
+            .map(|(field, local)| quote!(#field: #local))
+            .collect();
+        variant_idents
+            .iter()
+            .map(|variant| quote!(Self::#variant { #(#binds,)* .. }))
+            .collect()
+    };
+    let all_shared: Vec<usize> = (0..shared.len()).collect();
+    let all_pats = pats(&all_shared);
+    let mut encode_arms = Vec::new();
+    let mut len_arms = Vec::new();
+    let mut merge_arms = Vec::new();
+    let mut normalize = Vec::new();
+
+    for arm in &discr.arms {
+        let arms = emit_arm(&EmitCtx {
+            var: &arm.ident,
+            own: Some(&arm.own),
+            shared,
+            shared_idents: &shared_idents,
+            shared_locals: &shared_locals,
+            take_pats: &all_pats,
+        });
+        encode_arms.push(arms.encode);
+        len_arms.push(arms.len);
+        merge_arms.extend(arms.merge);
+        normalize.extend(arms.normalize);
+    }
+
+    // The "no member set" variant, through the same emitter: it owns no slot, so it writes only the
+    // shared fields and is selected by no tag.
+    if let Some(var) = discr.default_arm.as_ref() {
+        let arms = emit_arm(&EmitCtx {
+            var,
+            own: None,
+            shared,
+            shared_idents: &shared_idents,
+            shared_locals: &shared_locals,
+            take_pats: &all_pats,
+        });
+        encode_arms.push(arms.encode);
+        len_arms.push(arms.len);
+    }
+
+    // A shared field's projection is a property of the field, not of the variant carrying it, so it
+    // is collected once rather than per arm.
+    for (slot, local) in shared.iter().zip(shared_locals.iter()) {
+        normalize.extend(slot_write(slot, &quote!(#local), Presence::Implicit).normalize);
+    }
+
+    // A shared occurrence merges in place, whatever the current variant.
+    for (position, slot) in shared.iter().enumerate() {
+        let local = &shared_locals[position];
+        let stag = slot.tag;
+        // Only this slot is bound, so the others raise no unused binding; and through the shared
+        // helper, so a shared field carrying a `with` adapter is merged through the adapter rather
+        // than through its Rust type's own codec.
+        let self_pats = pats(&[position]);
+        let merge = slot_merge_in_place(slot, &quote!(#local));
+        merge_arms.push(quote! {
+            #stag => {
+                match value {
+                    #(#self_pats)|* => { #merge }
+                }
+            }
+        });
+    }
+
+    // `let value = self;` is the whole cost of sharing the bodies with the struct path's vocabulary:
+    // they are written against a `value` binding, and `prost::Message` takes a receiver.
+    MessageBodies {
+        encode_raw: quote! {
+            let value = self;
+            match value {
+                #(#encode_arms)*
+            }
+        },
+        merge_field: quote! {
+            let value = self;
+            match tag {
+                #(#merge_arms)*
+                _ => ::prost::encoding::skip_field(wire_type, tag, buf, ctx),
+            }
+        },
+        encoded_len: quote! {
+            let value = self;
+            match value {
+                #(#len_arms)*
+            }
+        },
+        normalize,
+    }
+}
+
+/// The arms one variant contributes: one to each of the encode, length and merge walks, plus the
+/// `Normalize` projection its representation implies.
+struct ArmTokens {
+    encode: TokenStream,
+    len: TokenStream,
+    /// `None` for the "no member set" variant, which no tag selects.
+    merge: Option<TokenStream>,
+    normalize: Option<TokenStream>,
+}
+
+/// What the arm emitter needs about the enum around it: the variant, the slot it owns, and the
+/// shared slots its arm writes alongside.
+struct EmitCtx<'a> {
+    var: &'a syn::Ident,
+    /// The slot this variant owns, or `None` for the "no member set" variant, which owns none.
+    own: Option<&'a Slot>,
+    shared: &'a [Slot],
+    shared_idents: &'a [&'a syn::Ident],
+    shared_locals: &'a [syn::Ident],
+    /// All-variant patterns binding every shared field, for the take-and-rebuild merge.
+    take_pats: &'a [TokenStream],
+}
+
+/// One variant's arms, whatever it carries.
+///
+/// A variant binds its own slot's values -- none for a `present` marker, one for a member carried
+/// whole, several for an `inline` member's parts -- and then the message's shared fields. Everything
+/// below is written against that one list, in braced form, so the shapes differ only in what they
+/// put in it and in how [`slot_merge_in_place`] reads the member back. An empty list is not a
+/// special case: it interpolates to nothing.
+fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
+    let EmitCtx {
+        var,
+        own,
+        shared,
+        shared_idents,
+        shared_locals,
+        take_pats,
+    } = ctx;
+    // The variant's own bindings, and the expression naming the member's value where it has one.
+    let (own_slots, value): (Vec<&Slot>, TokenStream) = match own.map(|slot| &slot.codec) {
+        None | Some(SlotCodec::Marker { .. }) => (Vec::new(), TokenStream::new()),
+        Some(SlotCodec::Group { parts }) => (parts.iter().collect(), TokenStream::new()),
+        Some(SlotCodec::Field { .. }) => {
+            let slot = own.expect("a field slot is a slot");
+            let local = slot_local(slot);
+            (vec![slot], quote!(#local))
+        }
+        // A variant carries one member, never a whole oneof or message: an enum standing for a
+        // oneof *is* the flattened form, so there is nothing left to delegate to.
+        Some(SlotCodec::Delegate { .. }) => {
+            unreachable!("a oneof variant carries a member, not a delegate")
+        }
+    };
+    let own_keys: Vec<TokenStream> = own_slots
+        .iter()
+        .map(|slot| {
+            field_key(
+                slot.access
+                    .as_ref()
+                    .expect("a bound slot is reached by a field"),
+            )
+        })
+        .collect();
+    let own_locals: Vec<syn::Ident> = own_slots.iter().copied().map(slot_local).collect();
+
+    // Binding every field for the walks that write them, and only the member's for the merge, which
+    // takes the shared fields out separately.
+    let bind_all =
+        quote!(Self::#var { #(#own_keys: #own_locals,)* #(#shared_idents: #shared_locals,)* });
+    let bind_own = quote!(Self::#var { #(#own_keys: #own_locals,)* .. });
+    let construct =
+        quote!(Self::#var { #(#own_keys: #own_locals,)* #(#shared_idents: #shared_locals),* });
+
+    // Every field this variant carries, in ascending tag order: the shared ones and, where it has
+    // one, its member. Ordering here rather than around the match is what lets a shared field sit
+    // between two members. The member carries the oneof's presence, so it writes whatever it holds;
+    // a shared field is an ordinary field of the message and skips its zero.
+    let mut writes: Vec<(u32, TokenStream, TokenStream)> = shared
+        .iter()
+        .zip(shared_locals.iter())
+        .map(|(slot, local)| {
+            let written = slot_write(slot, &quote!(#local), Presence::Implicit);
+            (slot.tag, written.encode, written.len)
+        })
+        .collect();
+    let mut normalize = None;
+    if let Some(slot) = own {
+        let written = slot_write(slot, &value, Presence::Explicit);
+        writes.push((slot.tag, written.encode, written.len));
+        normalize = written.normalize;
+    }
+    writes.sort_by_key(|(tag, _, _)| *tag);
+    let encodes = writes.iter().map(|(_, encode, _)| encode);
+    let lens = writes.iter().map(|(_, _, len)| len);
+
+    // Merging the member rebuilds the variant, so it needs the member's own values seeded from
+    // whatever is there, and the shared fields taken along.
+    let seeds = own_slots.iter().map(|slot| {
+        let ty = slot.ty().expect("a bound slot carries a value");
+        quote!(<#ty as ::core::default::Default>::default())
+    });
+    let seed = (!own_locals.is_empty()).then(|| {
+        quote! {
+            #[allow(unused_parens)]
+            let (#(mut #own_locals),*) = if let #bind_own = value {
+                (#(::std::mem::take(#own_locals)),*)
+            } else {
+                (#(#seeds),*)
+            };
+        }
+    });
+    let take = (!shared_locals.is_empty()).then(|| {
+        quote! {
+            #[allow(unused_parens)]
+            let (#(#shared_locals),*) = match value {
+                #(#take_pats)|* => (#(::std::mem::take(#shared_locals)),*),
+            };
+        }
+    });
+    // The "no member set" variant is reached by no tag, so it contributes no merge arm.
+    let merge = own.map(|slot| {
+        let tag = slot.tag;
+        let merge = slot_merge_in_place(slot, &quote!(&mut #value));
+        quote! {
+            #tag => {
+                #take
+                #seed
+                #merge?;
+                *value = #construct;
+                ::core::result::Result::Ok(())
+            }
+        }
+    });
+
+    ArmTokens {
+        encode: quote! { #bind_all => { #(#encodes)* } },
+        len: quote! { #bind_all => 0 #(+ #lens)*, },
+        merge,
+        normalize,
+    }
+}
+
+/// A field's key in braced syntax: its name, or its position for a tuple variant, whose fields are
+/// named `0`, `1`, ... So one pattern and one constructor serve every variant shape.
+fn field_key(access: &FieldAccess) -> TokenStream {
+    match access {
+        FieldAccess::Named(ident) => quote!(#ident),
+        FieldAccess::Indexed(index) => quote!(#index),
+    }
+}
+
+// ---- The pieces the emitter is built from ----
 
 /// Runtime path of a descriptor kind, for const-assert patterns. `None` for the sint/fixed wire
 /// kinds the codec does not implement (no ArmoniK field uses them); the caller turns that into an
@@ -238,7 +646,7 @@ pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
 
 /// Test-only `Normalize` impl: the type's value-level projection for the differential harness,
 /// stitched from the same constructs that shape the codec (adapters, presence markers, wrapper
-/// chains, oneof delegation).
+/// chains, delegation).
 pub(crate) fn normalize_impl(
     generics: &syn::Generics,
     ident: &syn::Ident,
@@ -290,11 +698,11 @@ pub(crate) fn bound_generics(generics: &syn::Generics) -> syn::Generics {
     generics
 }
 
-/// The `prost::Message` impl skeleton shared by every emission site (plain struct, transparent
-/// struct, transparent enum, whole-message oneof, and the `item::stubs` error path). `clear` is
-/// `None` for the whole-value reset every real site wants -- every derived type is `Default`, and
-/// the zero-default invariant makes that the proto zero -- and `Some` only for a stub, whose type
-/// may have no `Default` at all.
+/// The `prost::Message` impl skeleton shared by every emission site (the [`message`] emitter, the
+/// transparent enumeration, and the `item::stubs` error path). `clear` is `None` for the
+/// whole-value reset every real site wants -- every derived type is `Default`, and the zero-default
+/// invariant makes that the proto zero -- and `Some` only for a stub, whose type may have no
+/// `Default` at all.
 pub(crate) fn message_impl(
     generics: &syn::Generics,
     ident: &syn::Ident,
@@ -345,10 +753,6 @@ pub(crate) struct MessageBodies {
 
 /// Everything a message-shaped type emits: the guard block, its registry entries, and the trait
 /// trio. The single call site of [`message_impl`], [`normalize_impl`] and [`msg_impl`].
-///
-/// Six shapes reach here (plain, transparent and generic structs, whole-message and embedded
-/// oneofs, and a transparent enumeration), differing only in the four bodies and in whether the
-/// type stands for a message at all. Which impls, under which bounds, is stated once.
 ///
 /// `is_message` is false for an embedded oneof, which is a fragment of a message rather than one: it
 /// gets no `Msg` and registers nothing. A generic type is a message with no names, which
@@ -408,35 +812,44 @@ pub(crate) fn msg_impl(
 /// The shape assert for one slot, and for the parts of an inlined member.
 ///
 /// Every slot that names a Rust type gets one; a `present` marker names none, and an inlined member
-/// delegates to its parts.
-pub(crate) fn slot_asserts(slot: &Slot, type_ident: &syn::Ident) -> TokenStream {
+/// delegates to its parts. A delegate has no `Expectation` to check -- it stands for a declaration
+/// rather than a field, so there is no kind or cardinality to compare -- but it does have an
+/// identity, asserted so that substituting one wire-compatible type for another is caught: the
+/// oneof it narrows, or for a whole-message delegate the message(s) in `names` this type claims to
+/// be wire-identical to.
+fn slot_asserts(slot: &Slot, type_ident: &syn::Ident, names: &[String]) -> TokenStream {
     match (&slot.codec, slot.ty()) {
-        (SlotCodec::Inline { parts }, _) => parts
+        (SlotCodec::Group { parts }, _) => parts
             .iter()
-            .map(|part| slot_asserts(part, type_ident))
+            .map(|part| slot_asserts(part, type_ident, names))
             .collect(),
         // A `with` adapter is checked by nothing: it exists because the Rust representation is
         // deliberately not the proto's.
         (SlotCodec::Field { adapter, .. }, Some(ty)) if adapter.is_none() => {
             field_asserts_for(ty, slot.span, &slot.proto_path, &slot.checks, type_ident)
         }
-        // A oneof slot has no `Expectation` to check: it stands for a declaration rather than a
-        // field, so there is no kind or cardinality to compare. What it does have is an identity,
-        // and `proto_path` is already `message.oneof`. Without this, substituting one filter
-        // family's `Condition` for another's compiles clean and passes the whole harness, because
-        // the two are tag-compatible and the substitution is a byte-level bijection.
-        (SlotCodec::Oneof { ty, .. }, _) => {
-            let path = &slot.proto_path;
-            quote::quote_spanned! { slot.span =>
-                const _: () = crate::codec::assert_oneof::<#ty>(#path);
+        (SlotCodec::Delegate { ty, tags }, _) => match tags {
+            Some(_) => {
+                let path = &slot.proto_path;
+                quote_spanned! { slot.span =>
+                    const _: () = crate::codec::assert_oneof::<#ty>(#path);
+                }
             }
-        }
+            None => names
+                .iter()
+                .map(|name| {
+                    quote_spanned! { slot.span =>
+                        const _: () = crate::codec::assert_transparent_message::<#ty>(#name);
+                    }
+                })
+                .collect(),
+        },
         _ => TokenStream::new(),
     }
 }
 
-/// How a slot's value is encoded: through the field type's `ProtoField`, or through the
-/// `ProtoAdapter` a `with` names.
+/// How a slot's value is encoded: through the field type's `ProtoField`, the `ProtoAdapter` a
+/// `with` names, or the value's own `prost::Message` impl for a delegate.
 pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
     match &slot.codec {
         // `ProtoField` and `ProtoAdapter` share their method names, so a fragment is written once
@@ -445,8 +858,8 @@ pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
             Some(adapter) => quote!(<#adapter as crate::codec::ProtoAdapter<#ty>>),
             None => quote!(<#ty as crate::codec::ProtoField>),
         },
-        SlotCodec::Oneof { ty, .. } => quote!(<#ty as ::prost::Message>),
-        SlotCodec::Marker { .. } | SlotCodec::Inline { .. } => {
+        SlotCodec::Delegate { ty, .. } => quote!(<#ty as ::prost::Message>),
+        SlotCodec::Marker { .. } | SlotCodec::Group { .. } => {
             unreachable!("markers and inlined members frame themselves")
         }
     }
@@ -463,9 +876,9 @@ pub(crate) struct SlotWrite {
 /// The write side of one slot, whatever it sits in.
 ///
 /// `value` names the value, already by reference: `&self.field` for a struct's field, the binding a
-/// pattern introduced for a oneof's sibling or member. That one parameter is the whole difference
-/// between a struct's field and a variant's member on this side, which is why both emitters can
-/// share this. An `Inline` slot ignores it: its parts name themselves, through the bindings the
+/// pattern introduced for a shared slot or member. That one parameter is the whole difference
+/// between a struct's field and a variant's member on this side, which is why both body builders
+/// share this. A `Group` slot ignores it: its parts name themselves, through the bindings the
 /// caller's pattern introduces.
 ///
 /// The read side does not factor the same way, and deliberately is not forced to: a shared slot
@@ -497,7 +910,7 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -
                     .then(|| quote! { #d::normalize_dynamic(message, #tag); }),
             }
         }
-        SlotCodec::Oneof { ty, .. } => {
+        SlotCodec::Delegate { ty, .. } => {
             let d = slot_dispatch(slot);
             SlotWrite {
                 encode: quote! { #d::encode_raw(#value, buf); },
@@ -528,7 +941,7 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -
         },
         // The member message is absorbed, so its framing is hand-rolled here; its parts are
         // ordinary fields, named by the bindings the caller's pattern introduced.
-        SlotCodec::Inline { parts } => {
+        SlotCodec::Group { parts } => {
             let (encodes, lens): (Vec<_>, Vec<_>) = parts
                 .iter()
                 .map(|part| {
@@ -584,7 +997,7 @@ pub(crate) fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStre
             let d = slot_dispatch(slot);
             quote! { #d::merge_field(wire_type, #value, buf, ctx) }
         }
-        SlotCodec::Oneof { .. } => {
+        SlotCodec::Delegate { .. } => {
             let d = slot_dispatch(slot);
             quote! { #d::merge_field(#value, tag, wire_type, buf, ctx) }
         }
@@ -601,7 +1014,7 @@ pub(crate) fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStre
         // The parts are ordinary fields, merged into the locals the caller's pattern bound, under
         // prost's own framing: the recursion and length limits `ctx` carries, and the rejection of a
         // body that runs past its declared end.
-        SlotCodec::Inline { parts } => {
+        SlotCodec::Group { parts } => {
             let locals: Vec<syn::Ident> = parts.iter().map(slot_local).collect();
             let tags = parts.iter().map(|part| part.tag);
             let tys = parts

@@ -4,17 +4,21 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 
-use crate::attr_site::{scan_attrs, unraw, Allowed, FieldAttrs};
-use crate::attrs::{self, AttrItem, Errors};
+use crate::attrs::{self, scan_attrs, unraw, Allowed, AttrItem, Errors, FieldAttrs};
 use crate::descriptor::{DescriptorIndex, FieldKind};
 use crate::emit::{message_shaped, tripwire, MessageBodies};
 use crate::matcher::{not_found, unknown_name};
 use crate::plan::{EnumMode, EnumPlan, EnumValue};
 
-pub(crate) fn enum_plan(
-    input: &syn::DeriveInput,
-    index: &DescriptorIndex,
-) -> Result<EnumPlan, Errors> {
+/// Resolve `#[armonik_macros::enumeration]`. A proto enum and a transparent wrapper chain around
+/// one are two modes of a single plan rather than two shapes: [`enum_plan`] owns that split, and
+/// the entry point reads the mode back off the plan to pick the wire impl.
+pub(crate) fn resolve_enumeration(input: &syn::DeriveInput) -> Result<EnumPlan, Errors> {
+    let index = crate::resolve::index(input)?;
+    enum_plan(input, &index)
+}
+
+fn enum_plan(input: &syn::DeriveInput, index: &DescriptorIndex) -> Result<EnumPlan, Errors> {
     let mut errors = Errors::new();
     reject_implemented_derives(input, &mut errors);
 
