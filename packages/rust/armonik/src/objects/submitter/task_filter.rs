@@ -9,10 +9,10 @@ pub enum TaskFilterIds {
     #[default]
     Invalid,
     /// Select the tasks from their session IDs.
-    #[armonik(rename = "session", flatten)]
+    #[armonik(rename = "session", inlined)]
     Sessions(Vec<String>),
     /// Select the tasks from their task IDs.
-    #[armonik(rename = "task", flatten)]
+    #[armonik(rename = "task", inlined)]
     Tasks(Vec<String>),
 }
 
@@ -28,10 +28,10 @@ pub enum TaskFilterStatuses {
     #[default]
     Invalid,
     /// Select the tasks whose status is one of these.
-    #[armonik(rename = "included", flatten)]
+    #[armonik(rename = "included", inlined)]
     Include(Vec<TaskStatus>),
     /// Select the tasks whose status is none of these.
-    #[armonik(rename = "excluded", flatten)]
+    #[armonik(rename = "excluded", inlined)]
     Exclude(Vec<TaskStatus>),
 }
 

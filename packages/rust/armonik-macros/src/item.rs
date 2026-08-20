@@ -113,7 +113,7 @@ fn inject(input: &mut DeriveInput, ir: &Ir) {
                     prepend(&mut variant.attrs, &arm.own.docs);
                 }
                 // Every variant carries the shared fields; the "no member set" one carries only
-                // those. A member is reached either through its own field, or, under `inline`,
+                // those. A member is reached either through its own field, or, under `inlined`,
                 // through one field per part.
                 let mut slots: Vec<&Slot> = ir.shared.iter().collect();
                 if let Some(arm) = arm {

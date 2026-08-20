@@ -2,12 +2,14 @@
 
 include!("../support/prelude.rs");
 
+// A unit variant has nowhere to put the member's content: no fields to spread it into, no payload
+// to carry the unwrapped value.
 #[armonik_macros::message]
 #[derive(Debug)]
 #[armonik(message = "fixture.Choice", oneof = "choice")]
 pub enum Choice {
     Text(String),
     Simple(String),
-    #[armonik(present, inline)]
+    #[armonik(inlined)]
     Flag,
 }

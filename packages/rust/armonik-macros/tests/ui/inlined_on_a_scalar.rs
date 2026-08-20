@@ -6,8 +6,8 @@ include!("../support/prelude.rs");
 #[derive(Debug)]
 #[armonik(message = "fixture.Choice", oneof = "choice")]
 pub enum Choice {
+    #[armonik(inlined)]
     Text(String),
-    #[armonik(flatten)]
     Simple(String),
     #[armonik(present)]
     Flag,

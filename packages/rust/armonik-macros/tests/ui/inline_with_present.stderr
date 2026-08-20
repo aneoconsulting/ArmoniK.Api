@@ -1,5 +1,0 @@
-error: `present` and `inline` each say how the member is carried (present: by presence alone; inline: its message's fields spread into the variant; with: through an adapter; flatten: its single-field wrapper unwrapped), so they cannot be combined
-  --> tests/ui/inline_with_present.rs:11:24
-   |
-11 |     #[armonik(present, inline)]
-   |                        ^^^^^^

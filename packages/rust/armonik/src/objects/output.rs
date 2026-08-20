@@ -8,6 +8,6 @@ pub enum Output {
     Invalid,
     #[armonik(present)]
     Ok,
-    #[armonik(inline)]
+    #[armonik(inlined)]
     Error { details: String },
 }

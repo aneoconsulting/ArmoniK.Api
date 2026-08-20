@@ -76,7 +76,7 @@ use syn::DeriveInput;
 /// #[derive(Debug, Clone, Default, PartialEq, Eq)]
 /// #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 /// pub struct Response {
-///     #[armonik(flatten)]
+///     #[armonik(inlined)]
 ///     pub task_results: HashMap<String, Vec<String>>,
 /// }
 /// ```
@@ -98,12 +98,14 @@ use syn::DeriveInput;
 ///     #[default]
 ///     #[armonik(present)]
 ///     Ok,                           // member `ok`, carried by presence
+///     #[armonik(inlined)]
 ///     Error { details: String },    // member `error`, message fields inlined
 /// }
 /// ```
 ///
 /// Variant payloads take three forms: a single tuple payload (`Variant(T)`),
-/// a struct variant inlining the fields of a message member (`Error` above;
+/// an [`inlined`](#inlined) struct variant spreading the fields of a message
+/// member (`Error` above;
 /// that member's message must not itself contain a oneof), or a
 /// [`present`](#present) unit variant for a `bool` or empty-message member
 /// whose only information is that it is set. Non-oneof fields of the message
@@ -181,23 +183,11 @@ use syn::DeriveInput;
 /// `ProtoAdapter` instead of the type's `ProtoField` impl, for a Rust
 /// representation whose relation to the proto one is semantic rather than
 /// structural (e.g. `ErrorAdapter`, exposing an empty error string as
-/// success). Structural reshaping is [`flatten`](#flatten)'s job, which stays
+/// success). Structural reshaping is [`inlined`](#inlined)'s job, which stays
 /// validated; `with` skips the descriptor kind checks on purpose, and the
 /// differential harness covers the adapter, including its
 /// `normalize_dynamic` projection. Not available in [`generic`](#generic) mode,
 /// whose only check is that shape comparison.
-///
-/// ## flatten
-///
-/// `flatten`, on a field or member payload field: the proto field's message layer is absorbable,
-/// and the Rust type carries what is inside it. Two absorbable layers exist, told apart by the
-/// field's cardinality: a singular single-field wrapper (`VecWrapper { repeated string values =
-/// 1; }` carried as `Vec<String>`, through `Wrapper<Own, N>` with the tag read from the
-/// descriptor), and a repeated key/value pair (`IdStatus { string task_id = 1; TaskStatus status
-/// = 2; }`, the shape a proto map compiles to, carried as a `HashMap` through `PairMap`; entry
-/// order is not preserved and duplicate keys collapse). Either way the Rust type is shape-checked
-/// against the unwrapped form (unlike [`with`](#with), which is trusted) and the absorbed message
-/// needs no Rust type of its own.
 ///
 /// ## present
 ///
@@ -205,35 +195,50 @@ use syn::DeriveInput;
 /// A `bool` member encodes `true` (an explicit `false` still selects the
 /// variant), an empty-message member encodes an empty message.
 ///
-/// ## inline
+/// ## inlined
 ///
-/// `inline`, on a struct variant: its leftover fields (the ones that are not the
-/// message's own non-oneof fields) are the *member message's* fields, spread
-/// into the variant, rather than one field carrying the member whole. The member
-/// message then has no Rust type of its own and is registered as absorbed.
+/// `inlined`: a proto message gets no Rust type of its own; what it contains
+/// lives directly at the annotated site, and is registered as absorbed. What
+/// the site absorbs is read off its shape.
+///
+/// **On a struct variant**, the member message's fields, spread into the
+/// variant: the leftover fields (the ones that are not the message's own
+/// non-oneof fields) are the *member message's* fields, rather than one field
+/// carrying the member whole.
 ///
 /// ```ignore
 /// #[armonik(message = "armonik.api.grpc.v1.Output")]
 /// pub enum Output {
 ///     #[armonik(present)]
 ///     Ok,
-///     #[armonik(inline)]                 // `details` is `Output.Error.details`,
+///     #[armonik(inlined)]                // `details` is `Output.Error.details`,
 ///     Error { details: String },         // not an `Output.Error` carried whole
 /// }
 /// ```
 ///
 /// Spelled rather than inferred: `Variant { token, request: T }` is genuinely
-/// ambiguous between the two readings. Without `inline`, one leftover field
+/// ambiguous between the two readings. Without `inlined`, one leftover field
 /// carries the member and several are an error naming this key; with it, a
 /// leftover matching no field of the member message is an error listing the
 /// ones that exist.
 ///
-/// `inline` combines with none of [`present`](#present), [`with`](#with), or a
-/// message that has non-oneof fields. The last is the one worth spelling out:
-/// every variant of such an enum carries those fields, so an inlined member's
-/// own fields would land in the same variant, sharing a binding namespace with
-/// tags drawn from two different messages. Carry the member whole in a field of
-/// its own there.
+/// On a struct variant, `inlined` combines with none of [`present`](#present),
+/// [`with`](#with), or a message that has non-oneof fields. The last is the one
+/// worth spelling out: every variant of such an enum carries those fields, so an
+/// inlined member's own fields would land in the same variant, sharing a binding
+/// namespace with tags drawn from two different messages. Carry the member whole
+/// in a field of its own there.
+///
+/// **On a field, a tuple variant, or a member payload field**, the proto
+/// field's message layer, unwrapped: the Rust type carries what is inside it.
+/// Two absorbable layers exist, told apart by the field's cardinality: a
+/// singular single-field wrapper (`VecWrapper { repeated string values = 1; }`
+/// carried as `Vec<String>`, through `Wrapper<Own, N>` with the tag read from
+/// the descriptor), and a repeated key/value pair (`IdStatus { string task_id =
+/// 1; TaskStatus status = 2; }`, the shape a proto map compiles to, carried as
+/// a `HashMap` through `PairMap`; entry order is not preserved and duplicate
+/// keys collapse). Either way the Rust type is shape-checked against the
+/// unwrapped form (unlike [`with`](#with), which is trusted).
 ///
 /// ## transparent
 ///
@@ -596,8 +601,8 @@ pub fn client(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// differential harness counts them as covered through it.
 ///
 /// All off the plan: the explicit `#[armonik(absorbs = "...")]` names the per-site attribute scan
-/// collects, next to the ones a flattening construct implies (a transparent chain's middle
-/// wrappers, an inline variant's member message).
+/// collects, next to the ones an absorbing construct implies (a transparent chain's middle
+/// wrappers, an inlined variant's member message).
 fn absorbed(names: &[String]) -> TokenStream2 {
     let mut names = names.to_vec();
     names.sort();

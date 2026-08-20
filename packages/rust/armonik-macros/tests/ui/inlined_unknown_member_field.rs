@@ -2,14 +2,17 @@
 
 include!("../support/prelude.rs");
 
+// `fixture.Simple` has no `nope`.
 #[armonik_macros::message]
 #[derive(Debug)]
 #[armonik(message = "fixture.Choice", oneof = "choice")]
 pub enum Choice {
-    #[armonik(flatten)]
     Text(String),
-    Simple(String),
+    #[armonik(inlined)]
+    Simple {
+        name: String,
+        nope: i32,
+    },
     #[armonik(present)]
     Flag,
-    Hostile(String),
 }

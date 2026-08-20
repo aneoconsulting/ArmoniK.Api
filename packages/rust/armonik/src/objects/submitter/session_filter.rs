@@ -12,10 +12,10 @@ pub enum SessionFilterStatuses {
     #[default]
     Invalid,
     /// Select the sessions whose status is one of these.
-    #[armonik(rename = "included", flatten)]
+    #[armonik(rename = "included", inlined)]
     Include(Vec<SessionStatus>),
     /// Select the sessions whose status is none of these.
-    #[armonik(rename = "excluded", flatten)]
+    #[armonik(rename = "excluded", inlined)]
     Exclude(Vec<SessionStatus>),
 }
 

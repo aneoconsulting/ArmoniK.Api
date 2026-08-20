@@ -3,7 +3,7 @@
 include!("../support/prelude.rs");
 
 // `fixture.SharedInline` has a non-oneof `token` that every variant must carry, and a member that
-// is a message, so `inline` has fields to spread. The two sets would land in one variant sharing a
+// is a message, so `inlined` has fields to spread. The two sets would land in one variant sharing a
 // binding namespace, with tags from two different messages; rejected rather than supported, because
 // no site wants the shape and making it work needs a second naming scheme for the bindings.
 //
@@ -13,7 +13,7 @@ include!("../support/prelude.rs");
 #[derive(Debug)]
 #[armonik(message = "fixture.SharedInline")]
 pub enum Pick {
-    #[armonik(inline)]
+    #[armonik(inlined)]
     Simple {
         token: String,
         name: String,

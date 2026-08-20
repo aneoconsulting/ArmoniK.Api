@@ -7,7 +7,7 @@ pub enum Request {
     /// No member set, which an `Identifier` of two empty ids is not.
     #[default]
     Invalid,
-    #[armonik(rename = "id", inline)]
+    #[armonik(rename = "id", inlined)]
     Identifier {
         session_id: String,
         result_id: String,
