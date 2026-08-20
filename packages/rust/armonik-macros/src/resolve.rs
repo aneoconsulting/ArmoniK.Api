@@ -12,7 +12,7 @@ use proc_macro2::Span;
 use syn::spanned::Spanned;
 
 use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, FieldAttrs};
-use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta};
+use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta, MessageMeta};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
 use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
@@ -767,11 +767,7 @@ fn inlined_codec(
         .filter(|inner| inner.oneofs.is_empty());
     let (adapter, expectation) = match &member.cardinality {
         Cardinality::Singular => {
-            let Some([field]) = inner.map(|inner| inner.fields.as_slice()) else {
-                generator.error(
-                    span,
-                    format!("`{inner_name}` is not a single-field wrapper message"),
-                );
+            let Some(field) = MessageMeta::sole_field(inner, inner_name, span, generator) else {
                 return Err(());
             };
             let tag = proc_macro2::Literal::u32_unsuffixed(field.tag);
@@ -1069,31 +1065,25 @@ fn resolve_variant(
                 }
                 match <[Leftover; 1]>::try_from(leftovers) {
                     Ok([member]) => {
-                        // The variant-level carrier and the field-level keys land in the same
-                        // payload slot; naming two is one mistake with one message.
-                        let mut payloads = payload.into_iter().collect::<Vec<_>>();
-                        payloads.extend(
-                            member
-                                .with
-                                .map(|ty| Payload::Adapter(member.span, Box::new(ty))),
-                        );
-                        payloads.extend(member.inlined.map(Payload::Inlined));
-                        if payloads.len() > 1 {
-                            generator.error(
-                                member.span,
-                                "`inlined` and `with = ...` each say how the member is carried, \
-                                 so they cannot be combined",
-                            );
-                            return None;
-                        }
-                        let Ok((adapter, checks)) = payload_codec(
-                            ctx.index,
-                            ctx.field_meta,
-                            ctx.proto_path,
-                            payloads.pop(),
-                            absorbs,
+                        // The member field's own keys, and only those: a variant-level `with` is
+                        // reported above, and a variant-level `inlined` never reaches here, because
+                        // `Carrier::Inlined` dispatches on the variant's shape and this is the
+                        // struct-variant arm.
+                        let Ok((adapter, checks)) = payload_of(
+                            member.with.map(|ty| (member.span, ty)),
+                            member.inlined,
                             generator,
-                        ) else {
+                        )
+                        .and_then(|payload| {
+                            payload_codec(
+                                ctx.index,
+                                ctx.field_meta,
+                                ctx.proto_path,
+                                payload,
+                                absorbs,
+                                generator,
+                            )
+                        }) else {
                             return None;
                         };
                         Some((

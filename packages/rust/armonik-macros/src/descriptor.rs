@@ -82,6 +82,29 @@ pub(crate) struct MessageMeta {
 }
 
 impl MessageMeta {
+    /// The single field of a single-field wrapper message, or `None` once the error saying it is not
+    /// one is recorded. Two mechanisms unwrap such a layer, an `inlined` field and a transparent
+    /// chain, and this is the one place that sentence lives.
+    pub(crate) fn sole_field<'a>(
+        this: Option<&'a Self>,
+        name: &str,
+        span: proc_macro2::Span,
+        generator: &mut crate::generator::Generator,
+    ) -> Option<&'a FieldMeta> {
+        match this.map(|meta| meta.fields.as_slice()) {
+            Some([field]) => Some(field),
+            _ => {
+                generator.error(
+                    span,
+                    format!("`{name}` is not a single-field wrapper message"),
+                );
+                None
+            }
+        }
+    }
+}
+
+impl MessageMeta {
     pub(crate) fn oneof(&self, name: &str) -> Option<(usize, &OneofMeta)> {
         self.oneofs
             .iter()
