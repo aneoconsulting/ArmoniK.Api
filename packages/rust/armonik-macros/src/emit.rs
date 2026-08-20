@@ -674,8 +674,8 @@ pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream
 }
 
 /// Register proto messages an absorbing construct swallows into its parent (an `inlined` field's
-/// wrapper or pair layer, a transparent chain's middle wrappers, an inlined variant's message), so they
-/// have no Rust type of their own, and the differential harness counts them as covered through
+/// wrapper or pair layer, a transparent chain's middle wrappers, an inlined variant's message), so
+/// they have no Rust type of their own and the differential harness counts them as covered through
 /// their parent.
 pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
     if names.is_empty() {

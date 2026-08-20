@@ -1,7 +1,7 @@
 //! [`rpc_tests!`]: everything one RPC needs, declared once.
 //!
-//! Every suite is a single `rpc_tests!` block. From one case per RPC it emits the fake server, and
-//! two pairs of tests:
+//! Each of the twelve per-service suites is a single `rpc_tests!` block. From one case per RPC it
+//! emits the fake server, and two pairs of tests:
 //!
 //! * `<rpc>::mock::{call, convenience}` drives the RPC against `ArmoniK.Api.Mock`, which CI starts
 //!   (see `scripts/mock_test.sh`) and points `GrpcClient__Endpoint` at, once per TLS configuration.

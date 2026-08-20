@@ -88,8 +88,8 @@ pub(crate) enum SlotCodec {
         ty: Box<syn::Type>,
         tags: Option<Vec<u32>>,
     },
-    /// `#[armonik(inlined)]` on a struct variant: the member message's own fields, spread into the variant and framed
-    /// here, since the message is absorbed and has no Rust type to delegate to.
+    /// `#[armonik(inlined)]` on a struct variant: the member message's own fields, spread into the
+    /// variant and framed here, since the message is absorbed and has no Rust type to delegate to.
     Group { parts: Vec<Slot> },
     /// A slot that failed to resolve, kept because the user wrote it: it has a shape but no proto
     /// meaning, so the emitter keeps the code that mentions it compiling (an `unimplemented!()`

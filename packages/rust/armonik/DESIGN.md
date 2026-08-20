@@ -220,8 +220,8 @@ compiled first and its derives have run):
 > the item can be re-emitted with the proto documentation injected (type,
 > fields, oneof variants, enum values, the same harvest `service!` does for
 > services); the hand-transcribed doc comments were deleted from `objects/`.
-> Everything else below still holds; the `#[armonik(...)]` grammar is
-> unchanged (and now stripped from the re-emitted item).
+> Everything else below still holds, and the grammar is stripped from the
+> re-emitted item. The grammar itself has moved on: see 13.1.
 
 `#[armonik_macros::message]` on structs and oneof-shaped enums,
 `#[armonik_macros::enumeration]` on proto enums. An enum with `message = ...`
@@ -1754,7 +1754,7 @@ considered and rejected, so that none of it is re-proposed from scratch.
 
 | | |
 |---|---|
-| Macro diagnostics | A resolution error used to delete the annotated type, so one mistake became a page of unresolved imports with actively wrong suggestions. The item is now re-emitted next to the `compile_error!`, with stub impls for whichever trait its users reach it through (12 diagnostics down to 1 on the measured case). The rpc-line const asserts are spanned onto their own type paths, and `stream` is checked against the descriptor |
+| Macro diagnostics | A resolution error used to delete the annotated type, so one mistake became a page of unresolved imports with actively wrong suggestions. The item is now re-emitted next to the `compile_error!`, with stub impls for whichever trait its users reach it through (12 diagnostics down to 1 on the measured case). The rpc-line const asserts are spanned onto their own type paths, and `stream` is checked against the descriptor. **The stub impls are gone again in 13.1**: poisoning carries the same property with placeholder bodies inside the real impls |
 | Compile-fail suite | 31 `trybuild` cases in `armonik-macros/tests/ui`, one per error class, against a fixture schema the test compiles itself. The expansion-time diagnostics were the branch's best feature and had no coverage at all. The const-assert classes stay out: their messages belong to `armonik::codec` and fire at const-eval against the real impls |
 | Doc harvesting | Two independent bugs. Value matching stripped the *Rust* type's name where proto values are prefixed with the *proto* enum's, so `health_checks::Status` silently harvested nothing; and a same-line `/** */` comment, which protox records against the *next* element, documented every enum value as its predecessor. Both fixed; `names.rs` is now the one home of the naming rules |
 | Emission | The `serde` `cfg_attr` (198 byte-identical sites), the twelve client aliases (section 3.3) and the per-rpc const asserts (16 emitted lines each, 944 across the twelve invocations) come from the macros. `PartialEq`/`Debug` bounds on generic parameters, left over from the deleted `is_default` family, are gone |
@@ -1859,7 +1859,7 @@ Two corollaries, because both were nearly got wrong here:
 | Variant emission | One emitter over a list of bindings -- none for a `present` marker, one for a member carried whole, several for an `inlined` member's parts -- where there were three. `slot_merge_in_place` covers all four slot codecs, so a marker's and an inlined member's read side sit beside the other two instead of inside the emitters. Braced patterns throughout, a tuple variant's field being named `0`, so nothing forks on the variant's syntax |
 | Field order | Each arm writes what its variant carries, ordered by tag, rather than the shared fields being written around the match. A shared field between two member tags is emitted instead of rejected; the resolver guard and its compile-fail case are gone, replaced by a unit test on the ordering. The "no member set" variant goes through the same emitter owning no slot, replacing two hand-written arms |
 | Wrapper chains | `Wrapper<A, TAG>` composes, so a transparent enum's chain is the type `Wrapper<..<EnumLeaf>>` resolved at expansion time rather than a slice of tags walked at run time. `codec::wrapper_enum` is deleted; `Wrapper` gains arbitrary tags, which is all the module had over it |
-| Single homes | A struct's shape is a `Mode` set by the resolver that chose it, not a `transparent` bool plus "generic" inferred from an empty name list. The trait signature reads `client_streaming`/`server_streaming` off the descriptor, which resolution has already held the `stream` keywords to, rather than off a third copy in `KindFacts` |
+| Single homes | A struct's shape is a `Mode` set by the resolver that chose it, not a `transparent` bool plus "generic" inferred from an empty name list (**13.1 goes further**: `Mode` is gone, the shape being the presence or absence of a discriminant in one `Ir`). The trait signature reads `client_streaming`/`server_streaming` off the descriptor, which resolution has already held the `stream` keywords to, rather than off a third copy in `KindFacts` |
 | Adapters | `ProtoAdapter` loses the implicit-presence trio no adapter overrode and none could: `ErrorAdapter`'s two sites disagree about which variant the zero is. An adapter slot is written through `encode_field`, which says what is true -- an adapter owns its wire form |
 
 One defect fell out of it: the low/high partition discarded each shared field's
@@ -1901,3 +1901,55 @@ the fact before re-proposing.
   Measured at ~170 lines for the shared sets and ~220 for `inlined`, against six
   public types changing shape. The implementation, not the capability, was the
   cost: see 12.1.
+
+# Part V: one IR, no failure path, one absorption key
+
+Four passes after Part IV, on the same preference: the mechanism general enough
+to need no special case.
+
+## 13.1 What changed
+
+| | |
+|---|---|
+| One plan, one resolver, one emitter | The five shape modules and the three plan types collapsed into `plan::Ir`: a message is shared fields plus an optional discriminant, and every shape is that form at some degenerate point. A plain struct has no discriminant, a transparent newtype is one whole-message delegate, a struct's embedded oneof is the same delegate over the member tags, an embedded oneof is a discriminant alone, a whole-message enum has both. `resolve.rs` holds all shape resolution, `emit::message` all emission, with two body templates (struct walk, enum arms) and the take-seed-rebuild merge kept verbatim, since it carries prost's split-message semantics |
+| `present` is a codec | `BoolPresence`/`EmptyPresence`, two `ProtoAdapter<()>` impls, so a marker is a codec substitution like `with`. The `Marker` slot codec is gone |
+| No failure path | `expand()` runs the expansion against `(&mut DeriveInput, &DescriptorIndex, &mut Generator)`: the item is always re-emitted, the impls go into the `Generator`, and recorded errors become `compile_error!`s at the end. No `Result`, no `Errors` accumulator, no salvage stubs. Resolution is total, so a slot or variant that failed is *poisoned* rather than dropped, and what the user wrote stays in the plan |
+| Placeholder law | A placeholder stands for code, never for a name and never for a const. A struct with a poisoned field gets a whole-body `unimplemented!()` wire impl (a message has no correct partial encoding); a poisoned variant gets one `unimplemented!()` arm, so matches stay exhaustive over what was written; `From`, `Default` and `Deserialize` get placeholder bodies. What is withheld is names: a missing catch-all's payload struct, `UNSPECIFIED`, and the `cfg(test)` registration. User code cannot reference what it did not write |
+| One mistake, one error | A container holding a poisoned slot skips its completeness pass; a poisoned enumeration's `SHAPE` carries only the names that resolved. Measured on one deliberate mistake: a typo'd field name is 1 error (3 with the old stubs, 9 with none), a broken proto enum name 1 (8, 16). Thirteen secondary echoes left the ui snapshots and none gained a line |
+| `inlined` | One key for the two descriptor-provable absorbable layers, told apart by the member's cardinality: a singular single-field wrapper (carried through `Wrapper<Own, tag>`, the tag read from the descriptor) and a repeated key/value pair, the shape a proto map compiles to (`PairMap`, its expectation synthesized from the pair's two fields). All 18 structural `with` sites migrated, each gaining the shape check `with` never gave it and losing its hand-spelled adapter path. `absorbs` retired with them: every absorption is derived now, so none can go stale, and a message may be both registered and absorbed (`StatusCount` is) |
+| The grammar | Thirteen keys to twelve. `flatten` was the wrong word (serde's removes a layer from the *output*; this records that the *wire* has a layer the Rust side omits) and `inline` was the true analogue, so the two became one `inlined`, read off the annotated site's shape: a struct variant spreads the member's fields, a field or tuple variant carries the wrapper's inner value or the pairs as a map. A unit variant under it gained its own diagnostic |
+
+## 13.2 Settled decisions
+
+- **`with` stays, at one site.** `TaskSummary.output: Output` already has a wire
+  meaning through `Msg` plus the blanket `ProtoField` impl, and
+  `TaskSummary.error` needs that same type as a bare string with empty meaning
+  success: a semantic, non-injective rule no descriptor carries. A per-site codec
+  override is irreducible, and that is what `with` is.
+- **Sizes, honestly.** Phase 1 took `src/` from 4,914 to 4,757 code lines (-3%):
+  structural, not size, since the crate's mass is its diagnostic contract, doc
+  harvest, descriptor I/O and the service/client family. Phase 2 is net +80, the
+  ~230-line salvage machinery replaced about 1:1 by distributed degradation, and
+  the payoff is the error channel plus the measured diagnostics. Phase 3 is +145
+  for the new capability then -30 as the pair layer paid for itself. Phase 4 is
+  +8, the grammar losing a key while the `Inlined` arm gained three shapes.
+
+## 13.3 Considered and rejected
+
+- **Folding the struct emitter into the enum one.** Merges two functions and
+  makes both expansions worse.
+- **A generic `Scope` replacing `Matcher`.** Parameterization, not
+  generalization.
+- **Runtime field tables** instead of emitted statements: `dyn` dispatch in the
+  encode path for no saving (Part IV rejected the same shape).
+- **A transactional scoped `Generator`.** Lost its last call site once
+  `From`-style impls proved placeholder-able.
+- **Errors as inline tokens through `ToTokens`.** Forks the diagnostics channel
+  around the `Generator`.
+- **`darling`.** Blocked by the `enum` keyword key, and attribute parsing is ~4%
+  of the crate.
+- **`prost-types`/`prost-reflect` replacing `descriptor.rs`'s metas.**
+  Normalization would scatter to every consumer, and comments need a path-based
+  harvest regardless.
+- **One key over `inlined` and `with`.** One is checked and one is trusted; that
+  distinction is the point.
