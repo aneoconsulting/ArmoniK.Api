@@ -119,7 +119,7 @@ name = "results"
 required-features = ["client", "server"]
 
 [[test]]
-name = "request_shapes"
+name = "call_inputs"
 required-features = ["client", "server"]
 
 [[test]]

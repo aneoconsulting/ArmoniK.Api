@@ -117,7 +117,7 @@ mod tests {
     /// A request with no result carries no session either: the session only reaches the wire
     /// inside a pair.
     #[test]
-    fn a_request_with_no_result_still_names_its_session() {
+    fn the_session_reaches_the_wire_only_inside_a_pair() {
         let request = Request::in_session("tok", "s1", Vec::<String>::new());
         assert!(request.results.is_empty());
 
