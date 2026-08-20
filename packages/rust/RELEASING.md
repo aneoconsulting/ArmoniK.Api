@@ -34,15 +34,33 @@ manifests. `nr verify-versions` checks them. Do not edit them by hand: the `=` p
 `armonik/Cargo.toml` is the one a manual bump forgets, and the failure lands on the *consumer*, at
 compile time, with an expansion that names paths their `armonik` does not have.
 
-Then, from `packages/rust`:
+Then, from `packages/rust`, check what each crate would ship:
+
+```sh
+cargo package --list -p armonik-transport
+cargo package --list -p armonik-macros
+cargo package --list -p armonik
+```
+
+That is the check for `include`, and it works offline for all three (from a clean tree: a dirty one
+needs `--allow-dirty`). `armonik`'s list carries all 40 protos, resolved through the `protos`
+symlink, and every crate's carries its `LICENSE`; `armonik-macros` ships `tests/**` because its
+only test suite compiles a fixture proto, and without it a vendored copy of the crate cannot be
+tested by whoever vendored it.
+
+A **dry run** does more -- it builds the packaged crate -- and for that reason it cannot be run
+ahead of time for all three: `cargo publish -p armonik --dry-run` resolves the rewritten
+`=3.29.2-beta-0` requirement against the registry, so it fails with "no matching package named
+`armonik-macros`" until the macros are actually published. It is the publish order, one step
+earlier. So interleave:
 
 ```sh
 cargo publish -p armonik-transport --dry-run
+cargo publish -p armonik-transport
+# wait for it to appear in the index
 cargo publish -p armonik-macros --dry-run
+cargo publish -p armonik-macros
+# wait for it to appear in the index
 cargo publish -p armonik --dry-run
+cargo publish -p armonik
 ```
-
-A dry run packages the crate from its `include` list, so it is also what catches a file the
-manifest does not ship. `armonik-macros` ships `tests/**` for that reason: its only test suite
-compiles a fixture proto, and without it a vendored copy of the crate cannot be tested by whoever
-vendored it.
