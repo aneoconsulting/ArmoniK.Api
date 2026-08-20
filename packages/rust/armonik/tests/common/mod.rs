@@ -149,20 +149,15 @@ where
 
 /// Whether there is a mock server to talk to.
 ///
-/// `.github/workflows/test.yml` exports `GrpcClient__Endpoint` in each of its six TLS steps before
-/// calling `scripts/mock_test.sh`, and it is the one variable every armonik client and
-/// [`nb_requests`] reads, so its absence is how a bare `cargo test` says that the
-/// cross-implementation half of the suite has nothing to drive. Skipping on it keeps that half out
-/// of a local run without `#[ignore]`: an ignored test needs `--include-ignored`, and cargo forwards
-/// that flag to every harness in the workspace including rustdoc's, where it compiles the
-/// `ignore`-marked doc examples, which cannot compile by construction.
+/// `test.yml` exports `GrpcClient__Endpoint` in each of its six TLS steps, and it is the one
+/// variable every armonik client and [`nb_requests`] reads, so its absence is how a bare
+/// `cargo test` says the cross-implementation half has nothing to drive. Skipping beats `#[ignore]`,
+/// whose `--include-ignored` cargo forwards to rustdoc's harness too, where it compiles the
+/// `ignore`-marked examples that cannot compile by construction.
 ///
-/// A skipped test prints `ok`, where an ignored one printed `ignored`, so nothing in the output
-/// distinguishes "the mock half ran" from "the mock half was not there". That is fine locally and
-/// unacceptable under CI, where this half is the only check in the repository that is not this
-/// crate reading its own descriptor: a renamed step, a reordered one or an export that moved into
-/// `scripts/mock_test.sh` would evaporate it and leave the run green. So under `CI` the absence is
-/// a failure rather than a skip.
+/// A skip prints `ok`, so nothing distinguishes it from a run. Fine locally; under CI it would let
+/// the one check that is not this crate reading its own descriptor evaporate on a renamed step, so
+/// there the absence is a failure.
 pub(crate) fn mock_is_live() -> bool {
     if matches!(std::env::var("GrpcClient__Endpoint"), Ok(endpoint) if !endpoint.is_empty()) {
         return true;

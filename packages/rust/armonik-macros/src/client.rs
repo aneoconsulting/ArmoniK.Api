@@ -14,7 +14,7 @@
 //! and no registration, never a block that vanished. rust-analyzer only sees an attributed item
 //! through the macro's output: answering a malformed input with `compile_error!` alone takes every
 //! method in the block out of the IDE, on every keystroke that leaves it unparseable.
-//! `item::salvage` applies the same rule to a derived type.
+//! `item::rewrite` applies the same rule to a derived type.
 
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::quote;

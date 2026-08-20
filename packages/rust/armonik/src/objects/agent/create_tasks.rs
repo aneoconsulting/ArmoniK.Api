@@ -58,9 +58,9 @@ pub enum Status {
     Error(String),
 }
 
-/// The `CreateTaskReply` message: one oneof (tags 1-2, with the `CreationStatusList` wrapper
-/// flattened through `VecWrapper`) plus a sibling `communication_token = 4` carried by every
-/// variant, `Invalid` (the "no member set" case) included, so a token survives any wire field order.
+/// The `CreateTaskReply` message: one oneof (tags 1-2, its `CreationStatusList` wrapper absorbed)
+/// plus a sibling `communication_token = 4` carried by every variant, `Invalid` included, so a
+/// token survives any wire field order.
 #[armonik_macros::message]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply")]

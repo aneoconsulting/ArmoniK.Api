@@ -1,30 +1,22 @@
 //! What the differential harness structurally cannot see.
 //!
 //! The harness fuzzes every registered type against `prost-reflect` and compares semantically,
-//! which covers the derived majority far better than a hand-copied prototype of the emitter's
-//! output ever did. Four properties escape it, and they are what is left here, asserted on real
-//! `objects/` types rather than on mirrors of them:
+//! which covers the derived majority. What escapes it is asserted here, on real `objects/` types
+//! rather than on mirrors of them:
 //!
-//! * **a field spelled with the wrong wire type is rejected.** The mutation harness reorders,
-//!   duplicates and unpacks records, but never re-spells one, so every wire-type check is invisible
-//!   to it.
-//! * **`Option` presence is exact.** The harness compares after `Normalize`, whose
-//!   canonical-absence fold is precisely the distinction between `None` and `Some(default)`.
+//! * **a wrong wire type is rejected.** The mutation layer reorders, duplicates and unpacks
+//!   records, but never re-spells one.
+//! * **`Option` presence is exact.** The comparison runs after `Normalize`, whose canonical-absence
+//!   fold is exactly the `None` versus `Some(default)` distinction.
 //! * **`clear()` resets to the proto zero.** Nothing on the round-trip path calls it.
-//! * **which zeros reach the wire.** An implicit-presence leaf leaves its zero out; a message field
-//!   is written whatever it holds. Two byte-level facts about values a reader cannot tell apart, so
-//!   the semantic comparison is blind to both.
+//! * **which zeros reach the wire.** An implicit-presence leaf leaves its zero out, a message field
+//!   does not: byte-level facts about values a reader cannot tell apart.
+//! * **fields go out in ascending tag order.** `Normalize` leaves the comparison blind to order.
+//! * **the `ProtoField` impls no API field instantiates**, which have no other coverage at all.
 //!
-//! Plus the `ProtoField` impls no API field instantiates, which therefore have no other coverage at
-//! all.
-//!
-//! Two properties used to be here and are not any more, both measured out rather than argued out. A
-//! oneof member holding its zero stays on the wire, which the round-trip *does* see: every oneof
-//! enum carries a memberless variant, so dropping the payload decodes to a different Rust value.
-//! And the unpacked form of a repeated field decodes, which `differential::mutate`'s `unpacked`
-//! class produces for every packable field of every registered message; that reaches the enum codec
-//! through the six repeated enum fields this schema declares, so a schema that stopped declaring
-//! one would need the case back, next to the other codecs no field instantiates.
+//! The packed/unpacked pair belongs to `differential::mutate` instead: its `unpacked` class
+//! produces the form `prost-reflect` never encodes, for every packable field of every registered
+//! message, reaching the enum codec through this schema's six repeated enum fields.
 //!
 //! Deliberately not a copy of the derive's output: the harness already compares against
 //! `DynamicMessage`, and a snapshot of the emitter would only ever be updated after it.
@@ -283,9 +275,8 @@ fn a_present_marker_rejects_a_non_delimited_wire_type() {
     );
 }
 
-/// The empty list is unchecked, which is what makes the salvage stub's marker safe: a type whose
-/// expansion failed already has a `compile_error!` next to it, and this assert firing too would be
-/// the cascade the stub exists to prevent.
+/// The empty list is unchecked, which is what keeps a poisoned expansion to one error: the type
+/// already carries a `compile_error!`, and this assert firing too would be a cascade.
 #[test]
 fn an_empty_oneof_list_is_unchecked() {
     use super::oneof_matches;
