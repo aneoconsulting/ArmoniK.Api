@@ -19,9 +19,8 @@ use super::{ProtoAdapter, ProtoField};
 /// The three wire methods are pure forwards to the [`HashMap`] `ProtoField`
 /// implementation and change no bytes: that codec frames entries as tags 1 and
 /// 2, which is exactly what the pair messages use. What this adapter is
-/// actually for is suppressing the shape assert (the proto side is a repeated
-/// message, the Rust side a map), carrying `normalize_dynamic`, and hosting
-/// `absorbs`.
+/// actually for is carrying `normalize_dynamic` and the entry framing; the shape check is the
+/// resolver's, synthesized from the pair's two fields.
 ///
 /// Key and value tags are hardcoded rather than parameters: any other pair would need the framing
 /// hand-rolled again, and a `PairMap<KT, VT>` spelling only ever produced unsatisfied-bound errors

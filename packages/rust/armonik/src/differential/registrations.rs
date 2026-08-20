@@ -1,6 +1,6 @@
-//! The self-registering type registry, harvested from the `#[armonik(message = ...)]` /
-//! `#[armonik(absorbs = ...)]` annotations and the `service!` `unexposed(...)` declarations at
-//! compile time.
+//! The self-registering type registry, harvested at compile time from the
+//! `#[armonik(message = ...)]` annotations, the absorbed layers the derives derive from the
+//! descriptor, and the `service!` `unexposed(...)` declarations.
 //!
 //! Every `#[armonik_macros::message]`/`#[armonik_macros::enumeration]` expansion (and the
 //! hand-written impl) registers one [`Registration`] per proto name into [`REGISTRY`], a single
