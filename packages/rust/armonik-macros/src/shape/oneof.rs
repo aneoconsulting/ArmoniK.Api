@@ -1039,15 +1039,16 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     // A sibling occurrence merges in place, whatever the current variant.
     for (position, sibling) in plan.siblings.iter().enumerate() {
         let local = &sib_locals[position];
-        let sty = sibling.ty().expect("a sibling carries a value");
         let stag = sibling.tag;
+        // Only this sibling is bound, so the others raise no unused binding; and through the shared
+        // helper, so a shared field carrying a `with` adapter is merged through the adapter rather
+        // than through its Rust type's own codec.
         let self_pats = pats(&[position]);
+        let merge = slot_merge_in_place(sibling, &quote!(#local));
         merge_arms.push(quote! {
             #stag => {
                 match value {
-                    #(#self_pats)|* => {
-                        <#sty as crate::codec::ProtoField>::merge_field(wire_type, #local, buf, ctx)
-                    }
+                    #(#self_pats)|* => { #merge }
                 }
             }
         });
