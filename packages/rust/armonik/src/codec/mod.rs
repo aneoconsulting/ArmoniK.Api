@@ -406,28 +406,6 @@ pub(crate) trait ProtoAdapter<T> {
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &T) -> usize;
 
-    /// See [`ProtoField::is_zero`]. An adapter owns its wire form, so it is written whatever it
-    /// holds unless it says otherwise.
-    fn is_zero(value: &T) -> bool {
-        let _ = value;
-        false
-    }
-
-    /// See [`ProtoField::encode_implicit`].
-    fn encode_implicit(tag: u32, value: &T, buf: &mut impl BufMut) {
-        if !Self::is_zero(value) {
-            Self::encode_field(tag, value, buf);
-        }
-    }
-
-    fn encoded_len_implicit(tag: u32, value: &T) -> usize {
-        if Self::is_zero(value) {
-            0
-        } else {
-            Self::encoded_len_field(tag, value)
-        }
-    }
-
     /// Project the field at `tag` of a dynamic message onto the equivalence classes this adapter's
     /// Rust representation defines (for the differential harness; see
     /// `crate::differential::Normalize`). The default is the identity: adapters that only
