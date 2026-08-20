@@ -740,11 +740,11 @@ fn bound_generics(generics: &syn::Generics) -> syn::Generics {
     generics
 }
 
-/// The `prost::Message` impl skeleton shared by every emission site (the [`message`] emitter, the
-/// transparent enumeration, and the `item::stubs` error path). `clear` is `None` for the
-/// whole-value reset every real site wants -- every derived type is `Default`, and the zero-default
-/// invariant makes that the proto zero -- and `Some` only for a stub, whose type may have no
-/// `Default` at all.
+/// The `prost::Message` impl skeleton, filled in by [`message_shaped`]. `clear` is `None` for the
+/// whole-value reset a resolved type wants -- the zero-default invariant makes its `Default` the
+/// proto zero -- and `Some` for a poisoned one, whose reset would restore a value the expansion
+/// could not describe. That placeholder is about the body only: `Msg` requires `Default` of a
+/// poisoned type exactly as of a resolved one.
 fn message_impl(
     generics: &syn::Generics,
     ident: &syn::Ident,
@@ -801,8 +801,11 @@ pub(crate) struct MessageBodies {
 /// [`registrations`] renders as nothing while `Msg` still carries an empty `NAMES`.
 ///
 /// A `poisoned` expansion registers nothing either, whatever it is: a half-resolved type in the
-/// differential registry only makes the harness's failures confusing. It also gets a placeholder
-/// `clear` rather than the whole-value reset, whose `Default` a failed type need not have.
+/// differential registry only makes the harness's failures confusing. Its `clear` is a placeholder
+/// like its other bodies, since resetting a value whose wire form did not resolve is not something
+/// to run. It is not an exemption from `Default`: every message needs one (`Msg` requires it, and
+/// decoding seeds a field from it), so an item that provides none reads as a second error, because
+/// it is a second thing to fix.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn message_shaped(
     ident: &syn::Ident,
