@@ -300,6 +300,12 @@ jobs:
         # that only holds with every feature on passes the gate and fails the first command a
         # contributor runs. The lib tests are the ones that can depend on the configuration: the
         # integration suites carry `required-features` and simply do not build here.
+        #
+        # Three legs, not seven: measured, `server` runs exactly the 50 tests `""` does, and `agent`,
+        # `worker` and `client,server` run exactly the 51 that `client` does, while a leg costs about
+        # 3 minutes of CPU because tests share no artifacts with clippy. Add a leg here when a test
+        # is gated on that feature.
+        if: ${{ matrix.features == '' || matrix.features == 'serde' || matrix.features == 'client' }}
         run: |
           cargo test -p armonik --locked --no-default-features --features "${{ matrix.features }}" --lib
 
@@ -316,15 +322,21 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
-      - uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
-        with:
-          tool: sccache
+      # No sccache install here: nothing in this repository sets `RUSTC_WRAPPER`, so the other jobs
+      # install it and never use it.
+      # Read from the manifest, because the manifest is the promise: a copy here would also drift
+      # the other way, and a lowered `rust-version` with this gate still on the old compiler is a
+      # promise nothing checks.
+      - name: Read the MSRV
+        id: msrv
+        run: |
+          version=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+          [ -n "$version" ] || { echo "no rust-version in [workspace.package]" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@master
         with:
-          # Spelled out rather than read from the manifest: a bump has to be a deliberate edit here
-          # too, which is what stops the gate from following the code it is meant to hold.
-          toolchain: "1.88.0"
+          toolchain: ${{ steps.msrv.outputs.version }}
       - name: Check
         run: |
           cargo check --workspace --locked --all-features

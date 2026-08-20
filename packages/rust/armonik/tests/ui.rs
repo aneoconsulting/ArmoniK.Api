@@ -16,10 +16,13 @@
 //!
 //! and read the diff: an unexpected line there is the review.
 //!
-//! # Toolchain sensitivity
+//! # Where they run
 //!
 //! The snapshots are byte-compared, and rustc's rendering moves between channels, so they are
-//! pinned against stable and skipped on nightly. `ARMONIK_UI=1` runs them anyway.
+//! pinned against stable and skipped on nightly. They are also skipped off Linux: each case is a
+//! cold `cargo check` of a scratch project that pulls this crate's whole dependency graph (measured
+//! at ~2m40 of CPU for the three), and the snapshots carry nothing platform-specific to compare, so
+//! a second platform buys nothing. `ARMONIK_UI=1` runs them anyway.
 
 #![cfg(feature = "client")]
 
@@ -28,15 +31,18 @@ fn snapshots_are_comparable() -> bool {
     if std::env::var_os("ARMONIK_UI").is_some_and(|value| value == "1") {
         return true;
     }
-    !std::env::var("RUSTUP_TOOLCHAIN").is_ok_and(|toolchain| toolchain.starts_with("nightly"))
+    cfg!(target_os = "linux")
+        && !std::env::var("RUSTUP_TOOLCHAIN")
+            .is_ok_and(|toolchain| toolchain.starts_with("nightly"))
 }
 
 #[test]
 fn ui() {
     if !snapshots_are_comparable() {
         eprintln!(
-            "skipping the compile-fail snapshots: they are byte-compared and this is a nightly \
-             toolchain (set ARMONIK_UI=1 to run them anyway)"
+            "skipping the compile-fail snapshots: they are byte-compared, and this is either a \
+             nightly toolchain or not the platform they are pinned on (set ARMONIK_UI=1 to run \
+             them anyway)"
         );
         return;
     }
