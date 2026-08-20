@@ -4,7 +4,7 @@
 use crate::attr_site::{field_access, scan_attrs, Allowed, FieldAttrs};
 use crate::attrs::Errors;
 use crate::descriptor::DescriptorIndex;
-use crate::plan::{MessagePlan, Slot, SlotCodec};
+use crate::plan::{MessagePlan, Mode, Slot, SlotCodec};
 
 /// Plan for a generic type: no descriptor validation, explicit tags; the concrete instantiations
 /// are covered by the differential harness.
@@ -77,7 +77,7 @@ pub(crate) fn generic_plan(
         fields,
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
-        transparent: false,
+        mode: Mode::Generic,
         absorbs: Vec::new(),
     })
 }

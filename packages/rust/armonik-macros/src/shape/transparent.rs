@@ -9,7 +9,7 @@ use crate::attrs::Errors;
 use crate::descriptor::DescriptorIndex;
 use crate::emit::{message_shaped, MessageBodies};
 use crate::matcher::not_found;
-use crate::plan::{MessagePlan, Slot, SlotCodec};
+use crate::plan::{MessagePlan, Mode, Slot, SlotCodec};
 use syn::spanned::Spanned;
 
 /// Plan for a `#[armonik(transparent)]` struct: a single-field newtype that delegates its whole
@@ -85,7 +85,7 @@ pub(crate) fn transparent_plan(
         fields: vec![delegate],
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
-        transparent: true,
+        mode: Mode::Transparent,
         absorbs: Vec::new(),
     })
 }
