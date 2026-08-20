@@ -73,8 +73,10 @@ pub(crate) enum FieldAccess {
 
 /// How one [`Slot`] gets on the wire.
 pub(crate) enum SlotCodec {
-    /// A leaf value, through the type's `ProtoField` impl; `adapter` is the
-    /// `#[armonik(with = "...")]` type when present (which skips the shape checks by design).
+    /// A leaf value, through the type's `ProtoField` impl; `adapter` is the codec substitution
+    /// when there is one (which skips the shape checks by design): the `#[armonik(with = "...")]`
+    /// type, or the `BoolPresence`/`EmptyPresence` adapter a `#[armonik(present)]` marker picks,
+    /// whose value type is `()` and whose slot binds nothing (`access: None`).
     Field {
         ty: Box<syn::Type>,
         adapter: Option<Box<syn::Type>>,
@@ -86,9 +88,6 @@ pub(crate) enum SlotCodec {
         ty: Box<syn::Type>,
         tags: Option<Vec<u32>>,
     },
-    /// `#[armonik(present)]`: the member carries nothing but its own presence. A `bool` member
-    /// encodes `true`, an empty-message member an empty message.
-    Marker { empty_message: bool },
     /// `#[armonik(inline)]`: the member message's own fields, spread into the variant and framed
     /// here, since the message is absorbed and has no Rust type to delegate to.
     Group { parts: Vec<Slot> },
@@ -142,12 +141,12 @@ pub(crate) struct Slot {
 }
 
 impl Slot {
-    /// The Rust type carrying the value, for the shape assert. `None` where there is no value: a
-    /// `present` marker, or an inlined member (whose parts carry their own).
+    /// The Rust type carrying the value, for the shape assert. `None` for an inlined member, whose
+    /// parts carry their own.
     pub(crate) fn ty(&self) -> Option<&syn::Type> {
         match &self.codec {
             SlotCodec::Field { ty, .. } | SlotCodec::Delegate { ty, .. } => Some(ty),
-            SlotCodec::Marker { .. } | SlotCodec::Group { .. } => None,
+            SlotCodec::Group { .. } => None,
         }
     }
 

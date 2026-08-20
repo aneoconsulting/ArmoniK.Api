@@ -313,20 +313,29 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
         shared_locals,
         take_pats,
     } = ctx;
-    // The variant's own bindings, and the expression naming the member's value where it has one.
-    let (own_slots, value): (Vec<&Slot>, TokenStream) = match own.map(|slot| &slot.codec) {
-        None | Some(SlotCodec::Marker { .. }) => (Vec::new(), TokenStream::new()),
-        Some(SlotCodec::Group { parts }) => (parts.iter().collect(), TokenStream::new()),
-        Some(SlotCodec::Field { .. }) => {
-            let slot = own.expect("a field slot is a slot");
-            let local = slot_local(slot);
-            (vec![slot], quote!(#local))
-        }
-        // A variant carries one member, never a whole oneof or message: an enum standing for a
-        // oneof *is* the flattened form, so there is nothing left to delegate to.
-        Some(SlotCodec::Delegate { .. }) => {
-            unreachable!("a oneof variant carries a member, not a delegate")
-        }
+    // The variant's own bindings, and how the walks name the member's value where it has one: the
+    // pattern binding for a bound slot, the unit for a presence marker (its adapters take `&()`
+    // and bind nothing), nothing for a group, whose parts name themselves.
+    type Own<'s> = (Vec<&'s Slot>, TokenStream, TokenStream);
+    let (own_slots, value, place): Own<'_> = match own {
+        None => Default::default(),
+        Some(slot) => match (&slot.codec, &slot.access) {
+            (SlotCodec::Group { parts }, _) => (
+                parts.iter().collect(),
+                TokenStream::new(),
+                TokenStream::new(),
+            ),
+            (SlotCodec::Field { .. }, None) => (Vec::new(), quote!(&()), quote!(&mut ())),
+            (SlotCodec::Field { .. }, Some(_)) => {
+                let local = slot_local(slot);
+                (vec![slot], quote!(#local), quote!(&mut #local))
+            }
+            // A variant carries one member, never a whole oneof or message: an enum standing for a
+            // oneof *is* the flattened form, so there is nothing left to delegate to.
+            (SlotCodec::Delegate { .. }, _) => {
+                unreachable!("a oneof variant carries a member, not a delegate")
+            }
+        },
     };
     let own_keys: Vec<TokenStream> = own_slots
         .iter()
@@ -397,7 +406,7 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
     // The "no member set" variant is reached by no tag, so it contributes no merge arm.
     let merge = own.map(|slot| {
         let tag = slot.tag;
-        let merge = slot_merge_in_place(slot, &quote!(&mut #value));
+        let merge = slot_merge_in_place(slot, &place);
         quote! {
             #tag => {
                 #take
@@ -859,8 +868,8 @@ pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
             None => quote!(<#ty as crate::codec::ProtoField>),
         },
         SlotCodec::Delegate { ty, .. } => quote!(<#ty as ::prost::Message>),
-        SlotCodec::Marker { .. } | SlotCodec::Group { .. } => {
-            unreachable!("markers and inlined members frame themselves")
+        SlotCodec::Group { .. } => {
+            unreachable!("an inlined member frames itself")
         }
     }
 }
@@ -920,25 +929,6 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -
                 }),
             }
         }
-        // The active member carries the oneof's presence, so a marker writes something whatever it
-        // holds: `true` for a bool member, an empty body for a message one.
-        SlotCodec::Marker {
-            empty_message: false,
-        } => SlotWrite {
-            encode: quote! {
-                <bool as crate::codec::ProtoField>::encode_field(#tag, &true, buf);
-            },
-            len: quote! { <bool as crate::codec::ProtoField>::encoded_len_field(#tag, &true) },
-            // Only presence survives: an explicit `false` still selects the variant.
-            normalize: Some(quote! { crate::differential::bool_marker(message, #tag); }),
-        },
-        SlotCodec::Marker {
-            empty_message: true,
-        } => SlotWrite {
-            encode: quote! { crate::codec::empty_body::encode(#tag, buf); },
-            len: quote! { crate::codec::empty_body::encoded_len(#tag) },
-            normalize: None,
-        },
         // The member message is absorbed, so its framing is hand-rolled here; its parts are
         // ordinary fields, named by the bindings the caller's pattern introduced.
         SlotCodec::Group { parts } => {
@@ -1001,16 +991,6 @@ pub(crate) fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStre
             let d = slot_dispatch(slot);
             quote! { #d::merge_field(#value, tag, wire_type, buf, ctx) }
         }
-        // A marker carries no value, so reading it back is consuming whatever carried the presence.
-        SlotCodec::Marker {
-            empty_message: true,
-        } => quote! { crate::codec::empty_body::merge(wire_type, buf, ctx) },
-        SlotCodec::Marker {
-            empty_message: false,
-        } => quote! {{
-            let mut marker = false;
-            <bool as crate::codec::ProtoField>::merge_field(wire_type, &mut marker, buf, ctx)
-        }},
         // The parts are ordinary fields, merged into the locals the caller's pattern bound, under
         // prost's own framing: the recursion and length limits `ctx` carries, and the rejection of a
         // body that runs past its declared end.
