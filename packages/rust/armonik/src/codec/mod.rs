@@ -12,15 +12,19 @@
 //! [`ProtoField::SHAPE`] lets one derive-emitted `const` assertion per field check the Rust type
 //! against the descriptor at compile time (see [`shape_matches`]).
 //!
-//! The encode side has no notion of a default *value*: a field holding its zero is written out
-//! like any other, so zeros and empty nested messages appear on the wire, where a proto3 receiver
-//! reads them exactly like an absent implicit-presence field. The decode side keeps its "absent =
-//! default" reading (seeded from `Default`, the proto zero for every armonik type).
+//! An implicit-presence leaf leaves its zero off the wire, the way any proto3 encoder does: a
+//! scalar, `String`, `Bytes` or enum field holding the proto zero is not written, and a proto3
+//! reader cannot tell that from an absent field. Nothing else skips on the value. Message fields,
+//! oneof members, `present` markers and adapter fields are written whatever they hold, because for
+//! them presence is information -- a member being there is what selects its variant. The skip
+//! lives in [`ProtoField::encode_implicit`] over an [`ProtoField::is_zero`] that is `false` unless
+//! a leaf overrides it, so a codec opts into skipping rather than out of it, and the derives only
+//! pick which of the two entry points each slot is written through. The decode side keeps its
+//! "absent = default" reading (seeded from `Default`, the proto zero for every armonik type).
 //!
-//! What is skipped is decided by the Rust *type*, never by the value: `Option<T>` omits `None`, a
-//! oneof writes its active member and no other, an empty container writes nothing (there are no
-//! elements to write), and a `present` marker writes only that it is set. Those are the cases where
-//! absence carries meaning, and they are the whole of the list.
+//! What the Rust *type* decides rather than the value: `Option<T>` omits `None`, a oneof writes its
+//! active member and no other, and an empty container writes nothing (there are no elements to
+//! write).
 
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{DecodeContext, WireType};

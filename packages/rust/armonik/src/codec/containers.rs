@@ -68,9 +68,10 @@ impl<T: ProtoField> ProtoField for Vec<T> {
 /// wire.
 ///
 /// Hand-written rather than delegated to `prost::encoding::hash_map`, for one reason: prost's
-/// version skips a key or value equal to its default, and this crate's encode side skips nothing
-/// (see the module docs). Delegating made map entries the single exception to that rule, which cost
-/// a `V: PartialEq` bound to express and a line in DESIGN to record. Both are gone with it.
+/// version skips a key or value equal to its default, which it needs a `V: PartialEq` bound to
+/// decide. Here both subfields go through `ProtoField::encode_field`, so an entry is written whole
+/// whatever it holds -- the skipping this crate does do belongs to an implicit-presence *field*,
+/// through its leaf codec's `is_zero`, and a map entry's key and value are not that.
 ///
 /// A receiver reads the two forms identically: proto3 seeds an absent implicit-presence field from
 /// its default, which is exactly what the skipped subfield held.

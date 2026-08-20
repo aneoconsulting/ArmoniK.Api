@@ -1,8 +1,8 @@
 //! Semantic equality of dynamic messages.
 //!
-//! Byte equality is deliberately not required: the armonik encoder writes
-//! every field of a message, so a nested message the reference omitted comes
-//! back present and empty (indistinguishable from absent for the
+//! Byte equality is deliberately not required: the armonik encoder writes a
+//! message field whatever it holds, so a nested message the reference omitted
+//! comes back present and empty (indistinguishable from absent for the
 //! "absent = default" fields), and map iteration order is unstable.
 //! What must hold exactly:
 //!
