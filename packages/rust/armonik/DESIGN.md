@@ -1844,7 +1844,8 @@ Two corollaries, because both were nearly got wrong here:
 
 - **Generalize toward the common case.** A struct is not an enum with one
   variant. Unifying in that direction would emit or-patterns and take-and-rebuild
-  for 130 structs in order to subsume two enums.
+  for 154 plain structs in order to subsume the two enums that carry shared
+  fields.
 - **Prefer removing a restriction to adding a guard.** A non-oneof field whose
   tag sits between two members was *rejected*, because the emitter wrote the
   shared fields around the member match and could only put them before or after
