@@ -383,22 +383,61 @@ impl DispatchStream for BidiStream {
     {
         let span = span_for::<R>();
         let stream_span = span.clone();
-        let request = tagged::<R, S>(request, &span);
+        // The two halves are tied together here, before tonic sees either: the request stream runs
+        // until `cancelled` resolves, and the only sender lives in the returned response stream.
+        let (cancel, cancelled) = futures::channel::oneshot::channel::<()>();
+        let (metadata, extensions, stream) = tagged::<R, S>(request, &span).into_parts();
+        let request = tonic::Request::from_parts(
+            metadata,
+            extensions,
+            futures::StreamExt::take_until(stream, cancelled),
+        );
         let fut = async move {
             ready(grpc).await?;
-            // `streaming` is the primitive the other three tonic entry points delegate to, and the
-            // only one that also requires `S: Send`.
+            // `streaming` is the primitive the other three tonic entry points delegate to.
             let stream = grpc
                 .streaming(request, path::<R>(), codec())
                 .await
                 .context(super::GrpcSnafu {})?
                 .into_inner();
             let stream = futures::StreamExt::map(stream, |item| item.context(super::GrpcSnafu {}));
-            Ok(futures::StreamExt::boxed(
-                tracing_futures::Instrument::instrument(stream, stream_span),
-            ))
+            Ok(futures::StreamExt::boxed(Cancelling {
+                stream: futures::StreamExt::boxed(tracing_futures::Instrument::instrument(
+                    stream,
+                    stream_span,
+                )),
+                _cancel: cancel,
+            }))
         };
         tracing_futures::Instrument::instrument(fut, span).await
+    }
+}
+
+/// A bidirectional call's response stream, which closes the request half when it is dropped.
+///
+/// The request stream was moved into `call`, so this is the caller's only handle on the RPC and
+/// dropping it has to end the call. Dropping tonic's `Streaming` on its own does not: the request
+/// body is still open, so the server's handler stays parked on the next request message with its
+/// h2 stream and its task, for as long as the caller holds the sending end. Dropping the sender
+/// below resolves the future the request stream is `take_until`'d by, which half-closes the body,
+/// which is what a handler reading `while let Some(..)` waits for.
+///
+/// The other three kinds need none of this: their `Output` owns the whole call, so dropping it
+/// drops the request half with it.
+struct Cancelling<T> {
+    stream: futures::stream::BoxStream<'static, T>,
+    _cancel: futures::channel::oneshot::Sender<()>,
+}
+
+impl<T> futures::Stream for Cancelling<T> {
+    type Item = T;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<T>> {
+        // Both fields are `Unpin`, so there is nothing to project.
+        futures::Stream::poll_next(self.get_mut().stream.as_mut(), cx)
     }
 }
 

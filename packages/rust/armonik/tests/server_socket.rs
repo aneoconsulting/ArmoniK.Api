@@ -5,8 +5,13 @@
 //! `add_service` assertions are compile-only. So the paths that only a real connection exercises,
 //! everything hyper does between the wire and `Service::call`, had never been executed.
 //!
-//! That gap is not hypothetical: the unrouted-path truncation panicked on any non-ASCII path, in
-//! the synchronous body of `Service::call`, and its dedicated test only ever fed it ASCII.
+//! That gap is not hypothetical, twice over: the unrouted-path truncation panicked on any non-ASCII
+//! path, in the synchronous body of `Service::call`, and its dedicated test only ever fed it ASCII;
+//! and dropping a bidirectional call's response stream left the server handler parked forever, which
+//! no in-process test can see, because there the handler's future is dropped with the stream.
+//!
+//! So all four call shapes run here: unary, server-streamed, client-streamed, and bidirectional
+//! with its cancellation.
 
 #![cfg(all(feature = "client", feature = "server"))]
 
@@ -14,8 +19,11 @@ use std::sync::Arc;
 
 use armonik::reexports::tonic;
 use armonik::reexports::tonic::codegen::http;
-use armonik::server::{RequestContext, VersionsService, VersionsServiceExt};
-use armonik::versions;
+use armonik::server::{
+    RequestContext, ResultsService, ResultsServiceExt, VersionsService, VersionsServiceExt,
+};
+use armonik::{results, versions};
+use futures::StreamExt as _;
 
 #[derive(Clone, Default)]
 struct Versions;
@@ -33,9 +41,16 @@ impl VersionsService for Versions {
     }
 }
 
+/// Serve the versions router, which is all most of these tests need.
+async fn serve() -> (tonic::transport::Channel, tokio::task::JoinHandle<()>) {
+    serve_router(tonic::transport::Server::builder().add_service(Versions.versions_server())).await
+}
+
 /// Serve a router on an ephemeral port and hand back a channel to it, plus the task's handle so
 /// the caller drops the server with the test.
-async fn serve() -> (tonic::transport::Channel, tokio::task::JoinHandle<()>) {
+async fn serve_router(
+    router: tonic::transport::server::Router,
+) -> (tonic::transport::Channel, tokio::task::JoinHandle<()>) {
     // The listener is bound here and handed to the server as an incoming stream, rather than
     // letting `Server::serve` bind it: the test needs the port before the server starts, and
     // binding twice would race the connect below against the server's own bind.
@@ -50,10 +65,7 @@ async fn serve() -> (tonic::transport::Channel, tokio::task::JoinHandle<()>) {
                 yield listener.accept().await.map(|(stream, _)| stream);
             }
         };
-        let _ = tonic::transport::Server::builder()
-            .add_service(Versions.versions_server())
-            .serve_with_incoming(incoming)
-            .await;
+        let _ = router.serve_with_incoming(incoming).await;
     });
 
     let channel = tonic::transport::Endpoint::from_shared(format!("http://{address}"))
@@ -181,4 +193,267 @@ async fn an_unnegotiated_encoding_is_refused() {
     assert_eq!(status.code(), tonic::Code::Unimplemented);
 
     serving.abort();
+}
+
+/// A `Results` fake whose `WatchResults` handler holds a cancellation guard for as long as it is
+/// reading requests, and answers one response per request. Every other method answers with a
+/// default, so the service can be mounted whole.
+#[derive(Clone)]
+struct Watcher {
+    serving: tokio_util::sync::CancellationToken,
+}
+
+impl ResultsService for Watcher {
+    async fn watch(
+        self: Arc<Self>,
+        request: impl futures::Stream<Item = Result<results::watch::Request, tonic::Status>>
+            + Send
+            + 'static,
+        _context: RequestContext,
+    ) -> Result<
+        impl futures::Stream<Item = Result<results::watch::Response, tonic::Status>> + Send,
+        tonic::Status,
+    > {
+        let guard = self.serving.clone().drop_guard();
+        Ok(async_stream::stream! {
+            // Dropped when this stream ends or is dropped, which is either way the handler being
+            // over. A request half that never closes is what keeps it alive.
+            let _guard = guard;
+            let mut request = std::pin::pin!(request);
+
+            while let Some(item) = request.next().await {
+                yield item.map(|request| results::watch::Response {
+                    status: armonik::ResultStatus::Created,
+                    result_ids: request.result_ids,
+                });
+            }
+        })
+    }
+
+    /// One chunk per name, so the order of a server-streamed body is observable.
+    async fn download(
+        self: Arc<Self>,
+        request: results::download::Request,
+        _context: RequestContext,
+    ) -> Result<
+        impl futures::Stream<Item = Result<results::download::Response, tonic::Status>> + Send,
+        tonic::Status,
+    > {
+        Ok(futures::stream::iter(["first-", "second-"].map(
+            move |prefix| {
+                Ok(results::download::Response {
+                    data_chunk: format!("{prefix}{}", request.result_id).into(),
+                })
+            },
+        )))
+    }
+
+    /// Sums the chunk sizes off the request stream, so a client-streamed body that arrives short
+    /// is visible in the answer.
+    async fn upload(
+        self: Arc<Self>,
+        request: impl futures::Stream<Item = Result<results::upload::Request, tonic::Status>>
+            + Send
+            + 'static,
+        _context: RequestContext,
+    ) -> Result<results::upload::Response, tonic::Status> {
+        let mut request = std::pin::pin!(request);
+        let mut size = 0i64;
+        let mut result_id = String::new();
+        while let Some(message) = request.next().await {
+            match message? {
+                results::upload::Request::Identifier { result_id: id, .. } => result_id = id,
+                results::upload::Request::DataChunk(chunk) => size += chunk.len() as i64,
+                results::upload::Request::Invalid => {
+                    return Err(tonic::Status::invalid_argument("no member set"))
+                }
+            }
+        }
+        Ok(results::upload::Response {
+            result: results::Raw {
+                result_id,
+                size,
+                ..Default::default()
+            },
+        })
+    }
+
+    async fn list(
+        self: Arc<Self>,
+        _request: results::list::Request,
+        _context: RequestContext,
+    ) -> Result<results::list::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+
+    async fn get(
+        self: Arc<Self>,
+        _request: results::get::Request,
+        _context: RequestContext,
+    ) -> Result<results::get::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+
+    async fn get_owner_task_id(
+        self: Arc<Self>,
+        _request: results::get_owner_task_id::Request,
+        _context: RequestContext,
+    ) -> Result<results::get_owner_task_id::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+
+    async fn create_metadata(
+        self: Arc<Self>,
+        _request: results::create_metadata::Request,
+        _context: RequestContext,
+    ) -> Result<results::create_metadata::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+
+    async fn create(
+        self: Arc<Self>,
+        _request: results::create::Request,
+        _context: RequestContext,
+    ) -> Result<results::create::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+
+    async fn import(
+        self: Arc<Self>,
+        _request: results::import::Request,
+        _context: RequestContext,
+    ) -> Result<results::import::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+
+    async fn delete_data(
+        self: Arc<Self>,
+        _request: results::delete_data::Request,
+        _context: RequestContext,
+    ) -> Result<results::delete_data::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+
+    async fn get_service_configuration(
+        self: Arc<Self>,
+        _request: results::get_service_configuration::Request,
+        _context: RequestContext,
+    ) -> Result<results::get_service_configuration::Response, tonic::Status> {
+        Ok(Default::default())
+    }
+}
+
+/// Dropping a bidirectional call's response stream ends the call.
+///
+/// The request half was moved into `call`, so the response stream is the caller's only handle on
+/// the RPC: if dropping it does not close the request half, the server handler stays parked on
+/// `request.next()` for as long as the caller holds the sender, with its h2 stream and its task.
+/// No in-process test can see this -- there, dropping the returned stream drops the handler's
+/// future directly, whatever the request half is doing.
+#[tokio::test]
+async fn dropping_a_bidi_response_stream_ends_the_handler() {
+    let serving = tokio_util::sync::CancellationToken::new();
+    let (channel, server) = serve_router(
+        tonic::transport::Server::builder().add_service(
+            Watcher {
+                serving: serving.clone(),
+            }
+            .results_server(),
+        ),
+    )
+    .await;
+
+    // Unbounded and kept alive past the drop below: the request half stays open unless the client
+    // closes it, which is the whole point.
+    let (requests, stream) = futures::channel::mpsc::unbounded();
+    let mut client = armonik::Client::with_channel(channel).into_results();
+    let mut responses = client.watch(stream).await.expect("the call starts");
+
+    requests
+        .unbounded_send(results::watch::Request {
+            result_ids: vec![String::from("one")],
+            ..Default::default()
+        })
+        .expect("the request half is open");
+    let response = responses
+        .next()
+        .await
+        .expect("a response")
+        .expect("not a status");
+    assert_eq!(response.result_ids, ["one"]);
+
+    std::mem::drop(responses);
+
+    tokio::time::timeout(std::time::Duration::from_secs(10), serving.cancelled())
+        .await
+        .expect("the server handler ends when the response stream is dropped");
+
+    server.abort();
+}
+
+/// A server-streamed body over a real connection: several frames, in order, then a clean end.
+///
+/// In process this reaches `Service::call` directly and the stream is a `futures::Stream` all the
+/// way; over a socket every item is a length-prefixed frame that hyper writes, h2 windows and the
+/// client's decoder reassembles.
+#[tokio::test]
+async fn a_server_streamed_body_arrives_in_order() {
+    let (channel, server) = serve_router(
+        tonic::transport::Server::builder().add_service(
+            Watcher {
+                serving: tokio_util::sync::CancellationToken::new(),
+            }
+            .results_server(),
+        ),
+    )
+    .await;
+
+    let mut client = armonik::Client::with_channel(channel).into_results();
+    let chunks: Vec<String> = client
+        .call(results::download::Request {
+            session_id: String::from("session"),
+            result_id: String::from("result"),
+        })
+        .await
+        .expect("the call starts")
+        .map(|item| {
+            let response = item.expect("a chunk");
+            String::from_utf8(response.data_chunk.to_vec()).expect("utf-8")
+        })
+        .collect()
+        .await;
+
+    assert_eq!(chunks, ["first-result", "second-result"]);
+
+    server.abort();
+}
+
+/// A client-streamed body over a real connection: the handler reads every frame the caller sent
+/// before answering, which is what its total says.
+#[tokio::test]
+async fn a_client_streamed_body_arrives_whole() {
+    let (channel, server) = serve_router(
+        tonic::transport::Server::builder().add_service(
+            Watcher {
+                serving: tokio_util::sync::CancellationToken::new(),
+            }
+            .results_server(),
+        ),
+    )
+    .await;
+
+    let mut client = armonik::Client::with_channel(channel).into_results();
+    let response = client
+        .upload(
+            "session",
+            "result",
+            futures::stream::iter((0..8).map(|index| vec![0xa5u8; 1024 * (index + 1)])),
+        )
+        .await
+        .expect("the call succeeds");
+
+    assert_eq!(response.result_id, "result");
+    assert_eq!(response.size, (1..=8).map(|n| 1024 * n).sum::<i64>());
+
+    server.abort();
 }
