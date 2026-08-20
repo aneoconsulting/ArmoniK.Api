@@ -86,16 +86,18 @@ fn registered_types_roundtrip() {
             let reencoded = (hooks.roundtrip)(&bytes).unwrap_or_else(|err| {
                 panic!(
                     "armonik type failed to decode `{}` (seed {seed:#018x}): {err}\n\
-                     original: {original:#?}",
-                    proto
+                     original: {}",
+                    proto,
+                    debug_fields(&original),
                 )
             });
             let mut back = DynamicMessage::decode(desc.clone(), reencoded.as_slice())
                 .unwrap_or_else(|err| {
                     panic!(
                         "re-encoded bytes of `{}` do not decode (seed {seed:#018x}): {err}\n\
-                         original: {original:#?}",
-                        proto
+                         original: {}",
+                        proto,
+                        debug_fields(&original),
                     )
                 });
 
