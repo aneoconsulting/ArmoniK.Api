@@ -98,17 +98,14 @@ macro_rules! register {
                     role: $crate::differential::registrations::Role::Message(
                         $crate::differential::registrations::Hooks {
                             type_name: || ::core::any::type_name::<$ty>(),
-                            // `encoded_len` is asserted against what is written, on every value the
+                            // `encoded_len` asserted against what is written, on every value the
                             // fuzz and mutation corpora reach. Nothing else checks it: the vector
-                            // `encode_to_vec` sizes from just grows when the length under-reports,
-                            // so an over- or under-report is invisible to a round trip, and the
-                            // derived types get both numbers from one expression while the one
-                            // hand-written `Message` impl has two independent matches.
+                            // `encode_to_vec` sizes from just grows when the length under-reports.
+                            // Spelled out rather than through `encode_to_vec`, which is
+                            // `with_capacity(encoded_len())` plus `encode_raw`, so the length would
+                            // be walked twice.
                             roundtrip: |bytes| {
                                 let value = <$ty as ::prost::Message>::decode(bytes)?;
-                                // `encode_to_vec` is `with_capacity(encoded_len())` then
-                                // `encode_raw`, so spelling the two out is what keeps the length
-                                // from being walked twice for the assertion below.
                                 let len = ::prost::Message::encoded_len(&value);
                                 let mut bytes = ::std::vec::Vec::with_capacity(len);
                                 ::prost::Message::encode_raw(&value, &mut bytes);

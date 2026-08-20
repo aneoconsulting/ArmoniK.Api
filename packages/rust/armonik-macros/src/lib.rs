@@ -96,6 +96,7 @@ use syn::DeriveInput;
 /// #[armonik(message = "armonik.api.grpc.v1.Output")]
 /// pub enum Output {
 ///     #[default]
+///     Invalid,                      // no member set
 ///     #[armonik(present)]
 ///     Ok,                           // member `ok`, carried by presence
 ///     #[armonik(inlined)]
@@ -157,11 +158,11 @@ use syn::DeriveInput;
 /// ## generic
 ///
 /// `generic`, on a struct: skip descriptor validation, since a generic type
-/// cannot name one proto message. Every field carries an explicit
-/// [`tag`](#tag) and nothing else -- the instantiation is checked by comparing
-/// each field's `ProtoField` shape, which a [`with`](#with) adapter has none of
-/// -- and the differential harness validates the concrete instantiations too. Combines with neither [`message`](#message) nor
-/// [`transparent`](#transparent): both name the proto message this one says it
+/// cannot name one proto message. Fields take [`tag`](#tag) and nothing else:
+/// each instantiation is checked at its [`alias`](macro@alias) by comparing
+/// every field's `ProtoField` shape, which a [`with`](#with) adapter has none
+/// of. Combines with neither [`message`](#message) nor
+/// [`transparent`](#transparent), both of which name the message this says it
 /// does not have.
 ///
 /// ## rename
@@ -172,22 +173,21 @@ use syn::DeriveInput;
 ///
 /// ## tag
 ///
-/// `tag = N`, on a field: the field's proto tag, cross-checked against the
-/// descriptor. In [`generic`](#generic) mode there is no descriptor to read,
-/// so the tag is required and authoritative.
+/// `tag = N`, on a field of a [`generic`](#generic) struct, where it is
+/// required and authoritative. Rejected anywhere else: a descriptor-validated
+/// field takes its tag from the descriptor, and spelling one would restate it.
 ///
 /// ## with
 ///
 /// `with = "path::To::Adapter"`, on a field or single-payload tuple variant
-/// (in sibling variants, on the member payload field): encode through a custom
-/// `ProtoAdapter` instead of the type's `ProtoField` impl, for a Rust
-/// representation whose relation to the proto one is semantic rather than
-/// structural (e.g. `ErrorAdapter`, exposing an empty error string as
-/// success). Structural reshaping is [`inlined`](#inlined)'s job, which stays
-/// validated; `with` skips the descriptor kind checks on purpose, and the
-/// differential harness covers the adapter, including its
-/// `normalize_dynamic` projection. Not available in [`generic`](#generic) mode,
-/// whose only check is that shape comparison.
+/// (in sibling variants, on the member payload field): encode through a
+/// `ProtoAdapter` instead of the type's `ProtoField` impl, for a relation to
+/// the proto shape that is semantic rather than structural -- `ErrorAdapter`,
+/// reading an empty error string as success, is the one site. It skips the
+/// descriptor kind checks on purpose, so only the differential harness covers
+/// it, `normalize_dynamic` included. Structural reshaping is
+/// [`inlined`](#inlined)'s, and stays checked. Not accepted in
+/// [`generic`](#generic) mode, whose only check is that comparison.
 ///
 /// ## present
 ///
@@ -209,6 +209,7 @@ use syn::DeriveInput;
 /// ```ignore
 /// #[armonik(message = "armonik.api.grpc.v1.Output")]
 /// pub enum Output {
+///     Invalid,
 ///     #[armonik(present)]
 ///     Ok,
 ///     #[armonik(inlined)]                // `details` is `Output.Error.details`,
@@ -435,8 +436,9 @@ fn no_args(
 ///
 /// The alias is re-emitted verbatim, plus the `crate::register!` entry a
 /// derive would emit for that proto name (into `armonik`'s
-/// `differential::registrations::REGISTRY`, with its harness hooks). The aliased type must implement `prost::Message`,
-/// and `Normalize` under `cfg(test)`.
+/// `differential::registrations::REGISTRY`, with its harness hooks). The
+/// aliased type must implement `prost::Message`, and `Normalize` under
+/// `cfg(test)`.
 ///
 /// ```ignore
 /// #[armonik_macros::alias("armonik.api.grpc.v1.tasks.ListTasksRequest.Sort")]

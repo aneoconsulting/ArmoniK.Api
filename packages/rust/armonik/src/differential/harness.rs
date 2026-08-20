@@ -388,11 +388,10 @@ fn descriptor_coverage_ratchet() {
         missing.join("\",\n    \"")
     );
 
-    // Registered and absorbed are not exclusive, and no longer can be: `StatusCount` is a Rust type
-    // of its own *and* flattened into maps elsewhere, and both claims leave it covered. `unexposed`
-    // is different: it is the one claim in the registry still written by hand, and it says the
-    // message has no Rust type and no parent, so a name that is also registered or absorbed is a
-    // clause that stopped being true.
+    // Registered and absorbed are not exclusive: `StatusCount` is a Rust type of its own *and*
+    // flattened into maps elsewhere, and both claims leave it covered. `unexposed` is the one claim
+    // written by hand, and it says the message has neither a Rust type nor a parent, so a name that
+    // is also registered or absorbed is a clause that is not true.
     let mut stale: Vec<&str> = unexposed
         .iter()
         .copied()

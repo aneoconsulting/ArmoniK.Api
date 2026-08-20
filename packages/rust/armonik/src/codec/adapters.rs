@@ -13,14 +13,13 @@ use super::{ProtoAdapter, ProtoField};
 
 /// `repeated Pair { key = KT; value = VT }` exposed as a `HashMap`.
 ///
-/// Entry order is not preserved and duplicate keys collapse (last wins),
-/// exactly like the historical conversions.
+/// Entry order is not preserved and duplicate keys collapse (last wins).
 ///
 /// The three wire methods are pure forwards to the [`HashMap`] `ProtoField`
 /// implementation and change no bytes: that codec frames entries as tags 1 and
-/// 2, which is exactly what the pair messages use. What this adapter is
-/// actually for is carrying `normalize_dynamic` and the entry framing; the shape check is the
-/// resolver's, synthesized from the pair's two fields.
+/// 2, which is what the pair messages use. What the adapter is for is carrying
+/// `normalize_dynamic` and the entry framing; the shape check is the resolver's,
+/// synthesized from the pair's two fields.
 ///
 /// Key and value tags are hardcoded rather than parameters: any other pair would need the framing
 /// hand-rolled again, and a `PairMap<KT, VT>` spelling only ever produced unsatisfied-bound errors

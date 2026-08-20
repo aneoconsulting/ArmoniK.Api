@@ -29,17 +29,17 @@ impl Default for Output {
 const SUCCESS_TAG: u32 = 1;
 const ERROR_TAG: u32 = 2;
 
-// Hand-written rather than derived. Everything the derive emits (encode fragments, merge arms,
-// decode seeds, descriptor asserts) is generated from a one-Rust-field-to-one-proto-field
-// correspondence: Rust enums map to proto oneofs (or whole single-oneof messages), one variant per
-// member, and `with` adapters can change how a single field is encoded, but not that arity. Here
-// two plain fields project onto one enum, and the projection is cross-field: which variant a
-// `success` occurrence produces depends on whether an `error` was merged, and vice versa. Teaching
-// the derive this shape would cost more grammar and codegen than the one impl it would replace, and
-// this is the only type in the crate that needs it. The differential harness fuzzes it against
-// `DynamicMessage` ground truth exactly like the derived types, and the registry's round-trip hook
-// asserts `encoded_len` against what `encode_raw` writes on every value it reaches, which is what
-// holds the two matches below to each other: a derived type gets both from one expression.
+// Hand-written rather than derived. The derive maps Rust fields onto proto fields one for one, with
+// enums standing for oneofs, one variant per member; `with` changes how one field is encoded and
+// `inlined` absorbs a layer around one, but neither crosses fields. Here two plain proto fields
+// project onto one enum, and the projection is cross-field: which variant a `success` occurrence
+// produces depends on whether an `error` was merged, and vice versa. Teaching the derive that would
+// cost more grammar and codegen than the one impl it replaces, and no other type needs it.
+//
+// The differential harness fuzzes it against `DynamicMessage` ground truth exactly like the derived
+// types, and the registry's round-trip hook asserts `encoded_len` against what `encode_raw` writes,
+// which is what holds the two matches below to each other: a derived type gets both from one
+// expression.
 impl prost::Message for Output {
     fn encode_raw(&self, buf: &mut impl BufMut) {
         match self {

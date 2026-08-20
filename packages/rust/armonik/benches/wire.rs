@@ -94,25 +94,22 @@
 //! of the 46. Both codecs lower the tag match to a jump table, so what differs is only
 //! how well the target sequence predicts.
 //!
-//! Two levers were measured there and neither is taken. Emitting the dispatch as a
-//! comparison chain instead of a `match` changes nothing: LLVM re-forms the jump tables
-//! and the mispredictions stay. Forcing that lowering globally with
-//! `-Cllvm-args=-min-jump-table-entries=64` does work on the codec, decode 207 ns and
-//! the list 9.02 us, both under base, but costs the whole call +6.5%, because the
-//! http/2 and tonic switches the flag also rewrites are hotter than ours. A local fix
-//! would have to be an unrolled in-order fast path in the generated merge, trading this
-//! codec's one-shape-per-field simplicity for ~15 ns a message.
+//! Two levers were measured there, neither taken. A comparison chain instead of a
+//! `match` changes nothing: LLVM re-forms the jump tables. Forcing the lowering with
+//! `-Cllvm-args=-min-jump-table-entries=64` does fix the codec (decode 207 ns, the list
+//! 9.02 us, both under base) and costs the whole call +6.5%, the http/2 and tonic
+//! switches it also rewrites being hotter than ours. A local fix would be an unrolled
+//! in-order fast path in the generated merge, trading one-shape-per-field simplicity
+//! for ~15 ns a message.
 //!
-//! `download_chunk` is the row to distrust, and the reason is the machine rather than
-//! the code: the copy is a single `rep movsb`, 132 instructions an iteration, so what
-//! the row reports is memory-system state. Two campaigns half an hour apart landed on
-//! opposite sides of parity. What settles it is the work: 165 instructions an iteration
-//! here against 132 at base, the +33 being `Bytes::append_to`'s clone and drop, some 40
-//! cycles out of ~6400. Its decode is the `Vec<u8>` to `Bytes` move, 33 ns against
-//! 1.82 us, `replace_with` slicing the payload out of the input buffer with
-//! `copy_to_bytes` instead of copying it, which needs the source to be a `Bytes` and
-//! not the last reference to one; no encode path can consume the payload either way,
-//! since `Message::encode` takes `&self`.
+//! `download_chunk` is the row to distrust: the copy is a single `rep movsb`, so the row
+//! reports memory-system state, and two campaigns half an hour apart landed on opposite
+//! sides of parity. The work settles it: 165 instructions an iteration here against 132
+//! at base, the +33 being `Bytes::append_to`'s clone and drop, ~40 cycles of ~6400. Its
+//! decode is the `Vec<u8>`-to-`Bytes` move, 33 ns against 1.82 us: `replace_with` slices
+//! the payload out of the input buffer with `copy_to_bytes` instead of copying, which
+//! needs the source to be a `Bytes` and not the last reference to one. No encode path can
+//! consume the payload either way, since `Message::encode` takes `&self`.
 
 use armonik::results;
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion, Throughput};

@@ -12,7 +12,7 @@ does now, so a change to the mechanisms below changes it too.
 | Crate | Holds |
 |---|---|
 | `armonik` | the object types, the codec, `service!` invocations (`src/rpc/`), the generic `ServiceClient` and `Router`, the tests |
-| `armonik-macros` | `#[armonik_macros::message]`, `#[armonik_macros::enumeration]`, `#[armonik_macros::alias]` and `service!`; resolution against the descriptor, then codegen |
+| `armonik-macros` | `#[armonik_macros::message]`, `#[armonik_macros::enumeration]`, `#[armonik_macros::alias]`, `#[armonik_macros::client]` and `service!`; resolution against the descriptor, then codegen |
 | `armonik-transport` | endpoint configuration, TLS/mTLS, connectors. Independent, so depending on it alone keeps protobuf codegen out of a build |
 
 The protos in `../../Protos/V1` are the source of truth. `armonik/build.rs`
@@ -106,8 +106,9 @@ out.
 
 The differential harness has nine tests, all of which must keep passing:
 round-trip against randomized `DynamicMessage`s, decoding of *mutated* encodings
-(the byte-level layer: truncations, unknown fields, wire-type swaps, unpacking),
-per-field information (nothing the quotient erases without a justified allowlist
+(the byte-level layer: an interleaved unknown field, descending tag order,
+repeated fields spread unpacked, duplicated singular fields), per-field
+information (nothing the quotient erases without a justified allowlist
 entry), descriptor coverage (every message mapped or tracked),
 `default_encoding_is_the_proto_zero`, an absent oneof decoding to the memberless
 variant, packed elements keeping their width, the types sharing one proto name
@@ -164,8 +165,8 @@ rules are:
 - **A shared helper should be total over what its callers reach.** Where a
   sibling helper covers a case this one refuses, and the refusal is what pushed
   that case into a bespoke path, the hole is the defect. A helper that is simply
-  never asked about a case -- `emit::slot_dispatch`, and the two slot codecs that
-  frame themselves -- is not.
+  never asked about a case -- `emit::slot_dispatch`, over the `Group` and
+  `Poisoned` codecs, which frame themselves or are never dispatched -- is not.
 - **Generalize toward the common case.** A struct is not an enum with one
   variant: unifying that way pessimizes every struct to subsume the two enums
   that carry shared fields.
@@ -173,7 +174,7 @@ rules are:
   express a shape, ask whether ordering or composing differently would, before
   writing a check that rejects it.
 
-Before proposing an architectural alternative, read the three registers of
-rejected options -- `DESIGN.md` Part II 5, 11.2, and 12.3. Each entry is recorded
-with the fact that refutes it, so the work is to refute the fact rather than to
-re-derive the option.
+Before proposing an architectural alternative, read the four registers of
+rejected options -- `DESIGN.md` Part II 5, 11.2, 12.3 and 13.3. Each entry is
+recorded with the fact that refutes it, so the work is to refute the fact rather
+than to re-derive the option.
