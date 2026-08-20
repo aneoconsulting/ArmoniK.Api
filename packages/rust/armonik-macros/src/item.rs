@@ -145,8 +145,7 @@ fn inject_enum(input: &mut DeriveInput, plan: &EnumPlan) {
 fn apply<'a>(fields: impl Iterator<Item = &'a mut syn::Field>, slots: &[&Slot]) {
     for (index, field) in fields.enumerate() {
         if let Some(slot) = slots.iter().find(|slot| slot.reaches(field, index)) {
-            let docs = slot.docs.clone();
-            prepend(&mut field.attrs, &docs);
+            prepend(&mut field.attrs, &slot.docs);
         }
     }
 }

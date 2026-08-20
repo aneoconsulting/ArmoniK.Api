@@ -15,6 +15,8 @@ use crate::descriptor::{Cardinality, FieldKind};
 use crate::generator::Generator;
 use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 
+/// A field's key in braced syntax: its name, or its position for a tuple variant, whose fields are
+/// named `0`, `1`, ... So one pattern and one constructor serve every variant shape.
 impl quote::ToTokens for FieldAccess {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
@@ -44,7 +46,7 @@ pub(crate) fn message(ir: &Ir, generator: &mut Generator) {
     let bodies = match &ir.discr {
         // A struct's wire form has no correct partial spelling: an instance carries every field,
         // so one poisoned field (or a fully poisoned plan) poisons the whole body.
-        None if ir.poisoned => placeholder_bodies(),
+        None if ir.shared.iter().any(Slot::is_poisoned) => placeholder_bodies(),
         None => struct_bodies(&ir.shared),
         Some(discr) => enum_bodies(&ir.shared, discr),
     };
@@ -59,7 +61,7 @@ pub(crate) fn message(ir: &Ir, generator: &mut Generator) {
         let entries = ir
             .shared
             .iter()
-            .filter(|slot| !matches!(slot.codec, SlotCodec::Poisoned))
+            .filter(|slot| !slot.is_poisoned())
             .map(|slot| {
                 let tag = slot.tag;
                 let dispatch = slot_dispatch(slot);
@@ -93,7 +95,6 @@ pub(crate) fn message(ir: &Ir, generator: &mut Generator) {
         &generics,
         ir.fingerprint,
         &ir.names,
-        ir.fragment_of.is_none() && !generator.poisoned(),
         ir.fragment_of.is_none(),
         generator.poisoned(),
         asserts,
@@ -186,10 +187,8 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
     // the matches stay exhaustive over what the user wrote while binding nothing of it; the
     // brace-with-rest pattern matches a unit, tuple or struct variant alike. They answer to no
     // tag, so the tag matches need nothing.
-    let (arms, poisoned): (Vec<&Arm>, Vec<&Arm>) = discr
-        .arms
-        .iter()
-        .partition(|arm| !matches!(arm.own.codec, SlotCodec::Poisoned));
+    let (arms, poisoned): (Vec<&Arm>, Vec<&Arm>) =
+        discr.arms.iter().partition(|arm| !arm.own.is_poisoned());
     let poison_arms: Vec<TokenStream> = poisoned
         .iter()
         .map(|arm| {
@@ -233,21 +232,30 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
     };
     let all_shared: Vec<usize> = (0..shared.len()).collect();
     let all_pats = pats(&all_shared);
+    // Arm-invariant: every variant carries every shared field, so the merge takes them out of
+    // whatever is there before rebuilding the variant around the merged member.
+    let take = (!shared_locals.is_empty()).then(|| {
+        quote! {
+            #[allow(unused_parens)]
+            let (#(#shared_locals),*) = match value {
+                #(#all_pats)|* => (#(::std::mem::take(#shared_locals)),*),
+                #(#poison_arms)*
+            };
+        }
+    });
+    let ctx = EmitCtx {
+        shared,
+        shared_idents: &shared_idents,
+        shared_locals: &shared_locals,
+        take,
+    };
     let mut encode_arms = Vec::new();
     let mut len_arms = Vec::new();
     let mut merge_arms = Vec::new();
     let mut normalize = Vec::new();
 
     for arm in &arms {
-        let tokens = emit_arm(&EmitCtx {
-            var: &arm.ident,
-            own: Some(&arm.own),
-            shared,
-            shared_idents: &shared_idents,
-            shared_locals: &shared_locals,
-            take_pats: &all_pats,
-            poison_arms: &poison_arms,
-        });
+        let tokens = emit_arm(&ctx, &arm.ident, Some(&arm.own));
         encode_arms.push(tokens.encode);
         len_arms.push(tokens.len);
         merge_arms.extend(tokens.merge);
@@ -257,15 +265,7 @@ fn enum_bodies(shared: &[Slot], discr: &Discr) -> MessageBodies {
     // The "no member set" variant, through the same emitter: it owns no slot, so it writes only the
     // shared fields and is selected by no tag.
     if let Some(var) = discr.default_arm.as_ref() {
-        let tokens = emit_arm(&EmitCtx {
-            var,
-            own: None,
-            shared,
-            shared_idents: &shared_idents,
-            shared_locals: &shared_locals,
-            take_pats: &all_pats,
-            poison_arms: &poison_arms,
-        });
+        let tokens = emit_arm(&ctx, var, None);
         encode_arms.push(tokens.encode);
         len_arms.push(tokens.len);
     }
@@ -336,19 +336,18 @@ struct ArmTokens {
     normalize: Option<TokenStream>,
 }
 
-/// What the arm emitter needs about the enum around it: the variant, the slot it owns, and the
-/// shared slots its arm writes alongside.
+/// What the arm emitter needs about the enum around it: the shared slots every arm writes
+/// alongside its own, and the block that takes them out of whatever variant is there.
+///
+/// Enum-wide, so it is built once: an arm differs from its siblings only in the variant it names
+/// and the slot it owns, which is what [`emit_arm`] takes as arguments.
 struct EmitCtx<'a> {
-    var: &'a syn::Ident,
-    /// The slot this variant owns, or `None` for the "no member set" variant, which owns none.
-    own: Option<&'a Slot>,
     shared: &'a [Slot],
     shared_idents: &'a [&'a syn::Ident],
     shared_locals: &'a [syn::Ident],
-    /// All-variant patterns binding every shared field, for the take-and-rebuild merge.
-    take_pats: &'a [TokenStream],
-    /// One `unimplemented!()` arm per poisoned variant, closing every match over the value.
-    poison_arms: &'a [TokenStream],
+    /// Taking every shared field out of the value before the member is merged, for a merge that
+    /// rebuilds the variant. `None` without shared fields, where there is nothing to take.
+    take: Option<TokenStream>,
 }
 
 /// One variant's arms, whatever it carries.
@@ -358,15 +357,12 @@ struct EmitCtx<'a> {
 /// below is written against that one list, in braced form, so the shapes differ only in what they
 /// put in it and in how [`slot_merge_in_place`] reads the member back. An empty list is not a
 /// special case: it interpolates to nothing.
-fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
+fn emit_arm(ctx: &EmitCtx<'_>, var: &syn::Ident, own: Option<&Slot>) -> ArmTokens {
     let EmitCtx {
-        var,
-        own,
         shared,
         shared_idents,
         shared_locals,
-        take_pats,
-        poison_arms,
+        take,
     } = ctx;
     // The variant's own bindings, and how the walks name the member's value where it has one: the
     // pattern binding for a bound slot, the unit for a presence marker (its adapters take `&()`
@@ -393,14 +389,12 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
             }
         },
     };
-    let own_keys: Vec<TokenStream> = own_slots
+    let own_keys: Vec<&FieldAccess> = own_slots
         .iter()
         .map(|slot| {
-            field_key(
-                slot.access
-                    .as_ref()
-                    .expect("a bound slot is reached by a field"),
-            )
+            slot.access
+                .as_ref()
+                .expect("a bound slot is reached by a field")
         })
         .collect();
     let own_locals: Vec<syn::Ident> = own_slots.iter().copied().map(slot_local).collect();
@@ -451,15 +445,6 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
             };
         }
     });
-    let take = (!shared_locals.is_empty()).then(|| {
-        quote! {
-            #[allow(unused_parens)]
-            let (#(#shared_locals),*) = match value {
-                #(#take_pats)|* => (#(::std::mem::take(#shared_locals)),*),
-                #(#poison_arms)*
-            };
-        }
-    });
     // The "no member set" variant is reached by no tag, so it contributes no merge arm.
     let merge = own.map(|slot| {
         let tag = slot.tag;
@@ -483,22 +468,13 @@ fn emit_arm(ctx: &EmitCtx<'_>) -> ArmTokens {
     }
 }
 
-/// A field's key in braced syntax: its name, or its position for a tuple variant, whose fields are
-/// named `0`, `1`, ... So one pattern and one constructor serve every variant shape.
-fn field_key(access: &FieldAccess) -> TokenStream {
-    match access {
-        FieldAccess::Named(ident) => quote!(#ident),
-        FieldAccess::Indexed(index) => quote!(#index),
-    }
-}
-
 // ---- The pieces the emitter is built from ----
 
 /// Runtime path of a descriptor kind, for const-assert patterns. `None` for the sint/fixed wire
 /// kinds the codec does not implement (no ArmoniK field uses them); the caller turns that into an
 /// "unsupported wire kind" error rather than naming a `codec::FieldKind` variant that does not
 /// exist.
-pub(crate) fn kind_pattern(kind: &FieldKind) -> Option<TokenStream> {
+fn kind_pattern(kind: &FieldKind) -> Option<TokenStream> {
     let variant = match kind {
         FieldKind::Double => quote!(Double),
         FieldKind::Float => quote!(Float),
@@ -516,7 +492,7 @@ pub(crate) fn kind_pattern(kind: &FieldKind) -> Option<TokenStream> {
     Some(quote!(crate::codec::FieldKind::#variant))
 }
 
-pub(crate) fn kind_description(kind: &FieldKind) -> String {
+fn kind_description(kind: &FieldKind) -> String {
     match kind {
         FieldKind::Message(name) => format!("message {name}"),
         FieldKind::Enum(name) => format!("enum {name}"),
@@ -529,7 +505,7 @@ pub(crate) fn kind_description(kind: &FieldKind) -> String {
 ///
 /// One rule that is not a restatement: a singular *message* field may be either plain in Rust
 /// ("absent reads as default") or `Option` (presence is significant), so both are accepted.
-pub(crate) fn cardinalities(expect: &Expectation) -> Vec<(TokenStream, &'static str)> {
+fn cardinalities(expect: &Expectation) -> Vec<(TokenStream, &'static str)> {
     let one = |token, description| vec![(token, description)];
     match &expect.cardinality {
         Cardinality::Map { .. } => one(quote!(crate::codec::Cardinality::Map), "map"),
@@ -551,7 +527,7 @@ pub(crate) fn cardinalities(expect: &Expectation) -> Vec<(TokenStream, &'static 
 
 /// The proto type a message- or enum-kind field names, which the assert checks the Rust type
 /// against. Scalars name nothing and go unchecked.
-pub(crate) fn type_name(kind: &FieldKind) -> Option<&str> {
+fn type_name(kind: &FieldKind) -> Option<&str> {
     match kind {
         FieldKind::Message(name) | FieldKind::Enum(name) => Some(name),
         _ => None,
@@ -559,7 +535,7 @@ pub(crate) fn type_name(kind: &FieldKind) -> Option<&str> {
 }
 
 /// Human form of the expected shape, for the assert message.
-pub(crate) fn describe(expect: &Expectation) -> String {
+fn describe(expect: &Expectation) -> String {
     if let Cardinality::Map { key, value } = &expect.cardinality {
         return format!(
             "a map<{}, {}>",
@@ -630,7 +606,7 @@ pub(crate) fn expect_literal(
 
 /// One spanned shape assert per checked field: the field type's `SHAPE` against the descriptor's
 /// `Expect`.
-pub(crate) fn field_asserts_for(
+fn field_asserts_for(
     ty: &syn::Type,
     span: proc_macro2::Span,
     proto_path: &str,
@@ -662,7 +638,7 @@ pub(crate) fn field_asserts_for(
 
 /// A spanned compile error for a proto field whose wire kind the codec does not implement (the
 /// sint/fixed kinds; no ArmoniK field uses them, so `codec::FieldKind` omits them).
-pub(crate) fn unsupported_kind_error(
+fn unsupported_kind_error(
     kind: &FieldKind,
     proto_path: &str,
     span: proc_macro2::Span,
@@ -676,7 +652,7 @@ pub(crate) fn unsupported_kind_error(
 
 /// Which of a slot's two entry points to write it through.
 #[derive(Clone, Copy)]
-pub(crate) enum Presence {
+enum Presence {
     /// An ordinary proto3 field: absent and zero are one value, so a zero is left out.
     Implicit,
     /// The field being there at all is what carries the information (a oneof member selects its
@@ -713,7 +689,7 @@ pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
 /// Test-only `Normalize` impl: the type's value-level projection for the differential harness,
 /// stitched from the same constructs that shape the codec (adapters, presence markers, wrapper
 /// chains, delegation).
-pub(crate) fn normalize_impl(
+fn normalize_impl(
     generics: &syn::Generics,
     ident: &syn::Ident,
     fragments: &[TokenStream],
@@ -752,7 +728,7 @@ pub(crate) fn tripwire(fingerprint: u64) -> TokenStream {
 /// requires them, and nothing else, since no emitted code needs more. The stub emission
 /// (`item::stubs`) reads the same list, so that a stub impl applies exactly where the real one
 /// would.
-pub(crate) fn bound_generics(generics: &syn::Generics) -> syn::Generics {
+fn bound_generics(generics: &syn::Generics) -> syn::Generics {
     let mut generics = generics.clone();
     for param in generics.type_params_mut() {
         param
@@ -769,7 +745,7 @@ pub(crate) fn bound_generics(generics: &syn::Generics) -> syn::Generics {
 /// whole-value reset every real site wants -- every derived type is `Default`, and the zero-default
 /// invariant makes that the proto zero -- and `Some` only for a stub, whose type may have no
 /// `Default` at all.
-pub(crate) fn message_impl(
+fn message_impl(
     generics: &syn::Generics,
     ident: &syn::Ident,
     encode_raw: TokenStream,
@@ -822,9 +798,10 @@ pub(crate) struct MessageBodies {
 ///
 /// `is_message` is false for an embedded oneof, which is a fragment of a message rather than one: it
 /// gets no `Msg` and registers nothing. A generic type is a message with no names, which
-/// [`registrations`] renders as nothing while `Msg` still carries an empty `NAMES`. `registered` is
-/// additionally false for any poisoned expansion: a half-resolved type in the differential registry
-/// only makes the harness's failures confusing. A poisoned expansion also gets a placeholder
+/// [`registrations`] renders as nothing while `Msg` still carries an empty `NAMES`.
+///
+/// A `poisoned` expansion registers nothing either, whatever it is: a half-resolved type in the
+/// differential registry only makes the harness's failures confusing. It also gets a placeholder
 /// `clear` rather than the whole-value reset, whose `Default` a failed type need not have.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn message_shaped(
@@ -832,7 +809,6 @@ pub(crate) fn message_shaped(
     generics: &syn::Generics,
     fingerprint: u64,
     names: &[String],
-    registered: bool,
     is_message: bool,
     poisoned: bool,
     asserts: TokenStream,
@@ -848,7 +824,7 @@ pub(crate) fn message_shaped(
         bodies.encoded_len,
         poisoned.then(|| quote!(::core::unimplemented!())),
     );
-    let registrations = registered.then(|| registrations(ident, names));
+    let registrations = (is_message && !poisoned).then(|| registrations(ident, names));
     let msg = is_message.then(|| msg_impl(generics, ident, names));
     quote! {
         const _: () = {
@@ -868,11 +844,7 @@ pub(crate) fn message_shaped(
 
 /// The one-line `Msg` implementation for a message-shaped type: the blanket `ProtoField` impl in
 /// `codec` picks it up, so the type composes as a field of other derived messages.
-pub(crate) fn msg_impl(
-    generics: &syn::Generics,
-    ident: &syn::Ident,
-    proto_names: &[String],
-) -> TokenStream {
+fn msg_impl(generics: &syn::Generics, ident: &syn::Ident, proto_names: &[String]) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         impl #impl_generics crate::codec::Msg for #ident #ty_generics #where_clause {
@@ -922,7 +894,7 @@ fn slot_asserts(slot: &Slot, type_ident: &syn::Ident, names: &[String]) -> Token
 
 /// How a slot's value is encoded: through the field type's `ProtoField`, the `ProtoAdapter` a
 /// `with` names, or the value's own `prost::Message` impl for a delegate.
-pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
+fn slot_dispatch(slot: &Slot) -> TokenStream {
     match &slot.codec {
         // `ProtoField` and `ProtoAdapter` share their method names, so a fragment is written once
         // and prefixed with whichever the field encodes through.
@@ -939,7 +911,7 @@ pub(crate) fn slot_dispatch(slot: &Slot) -> TokenStream {
 
 /// What one slot contributes to the three walks over a message: the encode statement, the length
 /// expression, and the `Normalize` projection its representation implies.
-pub(crate) struct SlotWrite {
+struct SlotWrite {
     pub(crate) encode: TokenStream,
     pub(crate) len: TokenStream,
     pub(crate) normalize: Option<TokenStream>,
@@ -956,7 +928,7 @@ pub(crate) struct SlotWrite {
 /// The read side does not factor the same way, and deliberately is not forced to: a shared slot
 /// merges in place, while a variant's own slot has to take the shared ones out, merge, and rebuild
 /// the variant around them. Those are two templates about the *enum*, not about the slot.
-pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -> SlotWrite {
+fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -> SlotWrite {
     let tag = slot.tag;
     match &slot.codec {
         SlotCodec::Field { adapter, .. } => {
@@ -1041,13 +1013,13 @@ pub(crate) fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -
 /// emitter's own `buf`, `len`, `value`, `tag`, `wire_type`, `ctx`, `payload`, `parts` and
 /// `body_len`. A proto field named like any of those would otherwise shadow one, which is not a
 /// wrong encoding but an unimplementable message: the errors point into expanded code.
-pub(crate) fn slot_local(slot: &Slot) -> syn::Ident {
+fn slot_local(slot: &Slot) -> syn::Ident {
     quote::format_ident!("__f{}", slot.tag)
 }
 
 /// Merge one slot into the place `value` names, for the slots a message reaches directly: a
 /// struct's field, or a whole-message enum's shared field.
-pub(crate) fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStream {
+fn slot_merge_in_place(slot: &Slot, value: &TokenStream) -> TokenStream {
     match &slot.codec {
         SlotCodec::Field { .. } => {
             let d = slot_dispatch(slot);

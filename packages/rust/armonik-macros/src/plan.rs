@@ -42,10 +42,6 @@ pub(crate) struct Ir {
     /// `GenericFields` table is emitted so every `#[armonik_macros::alias]` instantiation can
     /// assert the fields against the message it registers under.
     pub(crate) generic: bool,
-    /// Whether resolution degraded this plan: a slot or arm is [`SlotCodec::Poisoned`], or the
-    /// type-level attributes themselves did not resolve and everything below them is gone. The
-    /// emitter reads it to pick placeholder bodies where real ones would misstate the type.
-    pub(crate) poisoned: bool,
     /// Fields every alternative carries, sorted by tag: all fields of a struct, the non-oneof
     /// siblings of a whole-message enum, nothing for an embedded oneof.
     pub(crate) shared: Vec<Slot>,
@@ -102,6 +98,26 @@ pub(crate) enum SlotCodec {
     Poisoned,
 }
 
+impl SlotCodec {
+    /// A leaf value and the check it implies, which is what an adapter substitutes away: a `with`
+    /// codec is checked by nothing, because the Rust representation is deliberately not the
+    /// proto's.
+    pub(crate) fn field(
+        ty: syn::Type,
+        adapter: Option<Box<syn::Type>>,
+        meta: &FieldMeta,
+    ) -> (Self, Option<Expectation>) {
+        let checks = adapter.is_none().then(|| Expectation::of(meta));
+        (
+            Self::Field {
+                ty: Box::new(ty),
+                adapter,
+            },
+            checks,
+        )
+    }
+}
+
 /// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
 /// the descriptor's own vocabulary.
 ///
@@ -150,6 +166,28 @@ pub(crate) struct Slot {
 }
 
 impl Slot {
+    /// A slot for one checked proto field: its tag, diagnostic path and harvested docs are the
+    /// descriptor's, and its check comes with its codec.
+    pub(crate) fn field(
+        message: &str,
+        meta: &FieldMeta,
+        span: Span,
+        access: FieldAccess,
+        ty: syn::Type,
+        adapter: Option<Box<syn::Type>>,
+    ) -> Self {
+        let (codec, checks) = SlotCodec::field(ty, adapter, meta);
+        Self {
+            access: Some(access),
+            span,
+            tag: meta.tag,
+            codec,
+            checks,
+            proto_path: format!("{message}.{}", meta.name),
+            docs: meta.docs.clone(),
+        }
+    }
+
     /// The Rust type carrying the value, for the shape assert. `None` where no type resolved: an
     /// inlined member (whose parts carry their own), a poisoned slot.
     pub(crate) fn ty(&self) -> Option<&syn::Type> {
@@ -157,6 +195,13 @@ impl Slot {
             SlotCodec::Field { ty, .. } | SlotCodec::Delegate { ty, .. } => Some(ty),
             SlotCodec::Group { .. } | SlotCodec::Poisoned => None,
         }
+    }
+
+    /// Whether resolution could give this slot no meaning. Read where a container degrades with
+    /// what it holds: a struct whose field failed has no correct partial wire form, and a
+    /// completeness pass over a container holding one would only restate the failure.
+    pub(crate) fn is_poisoned(&self) -> bool {
+        matches!(self.codec, SlotCodec::Poisoned)
     }
 
     /// A slot for something the user wrote that resolution could not give a meaning.
@@ -233,6 +278,17 @@ pub(crate) struct EnumPlan {
 pub(crate) struct CatchAll {
     pub(crate) variant: syn::Ident,
     pub(crate) payload: syn::Ident,
+}
+
+impl EnumPlan {
+    /// Keep a variant resolution could give no value: the re-emitted item still names it, so every
+    /// match over the enum needs an arm for it.
+    pub(crate) fn poison(&mut self, ident: &syn::Ident, payload: Option<syn::Ident>) {
+        self.poisoned.push(PoisonedValue {
+            ident: ident.clone(),
+            payload,
+        });
+    }
 }
 
 /// A variant that failed to resolve, and the payload struct it names when it is a single-payload

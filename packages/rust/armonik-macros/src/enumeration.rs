@@ -9,7 +9,7 @@ use crate::descriptor::{DescriptorIndex, FieldKind};
 use crate::emit::{message_shaped, placeholder_bodies, tripwire, MessageBodies};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name};
-use crate::plan::{CatchAll, EnumMode, EnumPlan, EnumValue, PoisonedValue};
+use crate::plan::{CatchAll, EnumMode, EnumPlan, EnumValue};
 
 /// Resolve `#[armonik_macros::enumeration]`. A proto enum and a transparent wrapper chain around
 /// one are two modes of a single plan rather than two shapes; the wire emitter reads the mode back
@@ -147,11 +147,9 @@ pub(crate) fn resolve_enumeration(
             .first()
             .map(|(_, meta)| meta.docs.clone())
             .unwrap_or_default(),
-        EnumMode::Transparent { names, .. } => names
-            .first()
-            .and_then(|name| index.messages.get(name))
-            .map(|meta| meta.docs.clone())
-            .unwrap_or_default(),
+        EnumMode::Transparent { names, .. } => {
+            index.message_docs(names.first().map(String::as_str))
+        }
     };
     let plan = EnumPlan {
         ident: input.ident.clone(),
@@ -200,10 +198,7 @@ pub(crate) fn resolve_enumeration(
             generator,
         );
         let Some(FieldAttrs { rename, .. }) = scanned else {
-            plan.poisoned.push(PoisonedValue {
-                ident: variant.ident.clone(),
-                payload: None,
-            });
+            plan.poison(&variant.ident, None);
             continue;
         };
 
@@ -223,18 +218,12 @@ pub(crate) fn resolve_enumeration(
                         "the catch-all payload must be a bare type name; the derive emits \
                          that struct",
                     );
-                    plan.poisoned.push(PoisonedValue {
-                        ident: variant.ident.clone(),
-                        payload: None,
-                    });
+                    plan.poison(&variant.ident, None);
                     continue;
                 };
                 if plan.catch_all.is_some() {
                     generator.error(variant.ident.span(), "#[armonik_macros::enumeration] expects exactly one catch-all tuple variant");
-                    plan.poisoned.push(PoisonedValue {
-                        ident: variant.ident.clone(),
-                        payload: Some(payload),
-                    });
+                    plan.poison(&variant.ident, Some(payload));
                 } else {
                     plan.catch_all = Some(CatchAll {
                         variant: variant.ident.clone(),
@@ -248,10 +237,7 @@ pub(crate) fn resolve_enumeration(
                     "#[armonik_macros::enumeration] variants must be unit variants or the single \
                      catch-all tuple variant",
                 );
-                plan.poisoned.push(PoisonedValue {
-                    ident: variant.ident.clone(),
-                    payload: None,
-                });
+                plan.poison(&variant.ident, None);
             }
         }
     }
@@ -324,10 +310,7 @@ pub(crate) fn resolve_enumeration(
             }
             // No number: the value did not match (its error is recorded above), or there was no
             // proto enum to match against (the name-level error already covers every variant).
-            None => plan.poisoned.push(PoisonedValue {
-                ident: ident.clone(),
-                payload: None,
-            }),
+            None => plan.poison(ident, None),
         }
     }
 
@@ -360,70 +343,71 @@ pub(crate) fn resolve_enumeration(
 pub(crate) fn wire(plan: &EnumPlan, generator: &Generator) -> TokenStream {
     match &plan.mode {
         EnumMode::Plain { names } => plain_wire(plan, names),
-        EnumMode::Transparent {
-            names,
-            path: Some(path),
-        } => transparent_wire(plan, names, path, generator),
-        // The chain did not resolve, so there is no wire form to write: real signatures,
-        // placeholder bodies, and the claimed names on `Msg` so the rpc asserts stay quiet.
-        EnumMode::Transparent { names, path: None } => message_shaped(
-            &plan.ident,
-            &syn::Generics::default(),
-            plan.fingerprint,
-            names,
-            false,
-            true,
-            true,
-            TokenStream::new(),
-            placeholder_bodies(),
-        ),
+        EnumMode::Transparent { names, path } => {
+            transparent_wire(plan, names, path.as_deref(), generator)
+        }
     }
 }
 
+/// `path` is `None` when the chain did not resolve, which is the degenerate case of the same
+/// expansion: real signatures over placeholder bodies, and the claimed names still on `Msg` so the
+/// rpc asserts stay quiet.
 fn transparent_wire(
     plan: &EnumPlan,
     names: &[String],
-    path: &[u32],
+    path: Option<&[u32]>,
     generator: &Generator,
 ) -> TokenStream {
-    // The chain as a codec type rather than a runtime walk over the tags: the enum at the bottom,
-    // one `Wrapper` per level above it, and the outermost tag written by the message itself.
-    let (root, nested) = path.split_first().expect("non-empty wrapper path");
-    let codec = nested.iter().rev().fold(
-        quote!(crate::codec::adapters::EnumLeaf),
-        |inner, tag| quote!(crate::codec::adapters::Wrapper<#inner, #tag>),
-    );
+    let bodies = match path {
+        // The chain as a codec type rather than a runtime walk over the tags: the enum at the
+        // bottom, one `Wrapper` per level above it, and the outermost tag written by the message
+        // itself.
+        Some(path) => {
+            let (root, nested) = path.split_first().expect("non-empty wrapper path");
+            let codec = nested.iter().rev().fold(
+                quote!(crate::codec::adapters::EnumLeaf),
+                |inner, tag| quote!(crate::codec::adapters::Wrapper<#inner, #tag>),
+            );
+            chain_bodies(root, &codec)
+        }
+        None => placeholder_bodies(),
+    };
     message_shaped(
         &plan.ident,
         &syn::Generics::default(),
         plan.fingerprint,
         names,
-        !generator.poisoned(),
         true,
         generator.poisoned(),
         // The variants were checked against the proto enum by resolution; there is no field here
         // whose Rust type a const-assert could check.
         TokenStream::new(),
-        MessageBodies {
-            encode_raw: quote! {
-                <#codec as crate::codec::ProtoAdapter<Self>>::encode_field(#root, self, buf);
-            },
-            merge_field: quote! {
-                if tag == #root {
-                    <#codec as crate::codec::ProtoAdapter<Self>>::merge_field(
-                        wire_type, self, buf, ctx,
-                    )
-                } else {
-                    ::prost::encoding::skip_field(wire_type, tag, buf, ctx)
-                }
-            },
-            encoded_len: quote! {
-                <#codec as crate::codec::ProtoAdapter<Self>>::encoded_len_field(#root, self)
-            },
-            // Zero, absent and present-but-empty carry no information at any depth of the chain.
-            normalize: vec![quote! { crate::differential::wrapper_chain(message); }],
-        },
+        bodies,
     )
+}
+
+/// The wire form of a resolved wrapper chain: the outermost tag, and the codec for everything under
+/// it.
+fn chain_bodies(root: &u32, codec: &TokenStream) -> MessageBodies {
+    MessageBodies {
+        encode_raw: quote! {
+            <#codec as crate::codec::ProtoAdapter<Self>>::encode_field(#root, self, buf);
+        },
+        merge_field: quote! {
+            if tag == #root {
+                <#codec as crate::codec::ProtoAdapter<Self>>::merge_field(
+                    wire_type, self, buf, ctx,
+                )
+            } else {
+                ::prost::encoding::skip_field(wire_type, tag, buf, ctx)
+            }
+        },
+        encoded_len: quote! {
+            <#codec as crate::codec::ProtoAdapter<Self>>::encoded_len_field(#root, self)
+        },
+        // Zero, absent and present-but-empty carry no information at any depth of the chain.
+        normalize: vec![quote! { crate::differential::wrapper_chain(message); }],
+    }
 }
 
 /// A proto enum on the wire: an `int32` varint, reached through `ProtoField` rather than through the

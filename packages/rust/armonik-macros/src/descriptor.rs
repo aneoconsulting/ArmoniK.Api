@@ -129,6 +129,17 @@ pub(crate) struct DescriptorIndex {
     pub(crate) services: HashMap<String, ServiceMeta>,
 }
 
+impl DescriptorIndex {
+    /// Leading comment of a message, for the type that stands for it. Empty for a type that names
+    /// no message and for a name the descriptor does not have: a plan is built either way, and the
+    /// missing name is already an error of its own.
+    pub(crate) fn message_docs(&self, name: Option<&str>) -> Vec<String> {
+        name.and_then(|name| self.messages.get(name))
+            .map(|meta| meta.docs.clone())
+            .unwrap_or_default()
+    }
+}
+
 struct Cached {
     mtime: Option<SystemTime>,
     len: u64,
