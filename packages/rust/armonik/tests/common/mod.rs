@@ -156,8 +156,22 @@ where
 /// of a local run without `#[ignore]`: an ignored test needs `--include-ignored`, and cargo forwards
 /// that flag to every harness in the workspace including rustdoc's, where it compiles the
 /// `ignore`-marked doc examples, which cannot compile by construction.
+///
+/// A skipped test prints `ok`, where an ignored one printed `ignored`, so nothing in the output
+/// distinguishes "the mock half ran" from "the mock half was not there". That is fine locally and
+/// unacceptable under CI, where this half is the only check in the repository that is not this
+/// crate reading its own descriptor: a renamed step, a reordered one or an export that moved into
+/// `scripts/mock_test.sh` would evaporate it and leave the run green. So under `CI` the absence is
+/// a failure rather than a skip.
 pub(crate) fn mock_is_live() -> bool {
-    matches!(std::env::var("GrpcClient__Endpoint"), Ok(endpoint) if !endpoint.is_empty())
+    if matches!(std::env::var("GrpcClient__Endpoint"), Ok(endpoint) if !endpoint.is_empty()) {
+        return true;
+    }
+    assert!(
+        std::env::var_os("CI").is_none(),
+        "GrpcClient__Endpoint is unset under CI, so the mock half of the suite would report `ok`          without running. See .github/workflows/test.yml and scripts/mock_test.sh."
+    );
+    false
 }
 
 /// The mock's tally of calls to one RPC. Driven through the same connector `armonik-transport`
