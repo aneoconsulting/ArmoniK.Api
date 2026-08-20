@@ -170,3 +170,60 @@ async fn poll_ready_needs_no_turbofish() {
         .await
         .expect("a router is always ready");
 }
+
+/// The two compression sets are applied to their own side of the call.
+///
+/// `accept_compressed` is what lets a *request* arrive compressed; `send_compressed` is what
+/// compresses the *response*. Both are drained out of tonic's `EnabledCompressionEncodings` with
+/// `pop` and re-applied one encoding at a time (`server::router::grpc`), because the one-call
+/// appliers tonic's own codegen uses are `#[doc(hidden)]`. Nothing else here would notice that
+/// reconstruction putting one set where the other belongs: every other test enables both at once, or
+/// neither.
+///
+/// The *order* within a set is not covered, and cannot be from here: it is only observable with two
+/// encodings enabled, and `gzip` is the only one this crate offers.
+#[tokio::test]
+async fn the_compression_sets_are_applied_to_their_own_side() {
+    use armonik::reexports::tonic::codegen::CompressionEncoding;
+
+    fn path() -> http::uri::PathAndQuery {
+        http::uri::PathAndQuery::from_static("/armonik.api.grpc.v1.versions.Versions/ListVersions")
+    }
+
+    // Accepting gzip is what makes the compressed request readable.
+    let mut grpc = tonic::client::Grpc::new(
+        Versions
+            .versions_server()
+            .accept_compressed(CompressionEncoding::Gzip),
+    )
+    .send_compressed(CompressionEncoding::Gzip);
+    grpc.ready().await.expect("the router is ready");
+    let response: tonic::Response<versions::list::Response> = grpc
+        .unary(
+            tonic::Request::new(versions::list::Request {}),
+            path(),
+            tonic_prost::ProstCodec::default(),
+        )
+        .await
+        .expect("a gzip request is read where `accept_compressed` enabled it");
+    assert_eq!(response.into_inner().core, "core");
+
+    // The same request against a router that only compresses its *responses*: nothing enabled
+    // reading a compressed body, so tonic refuses it rather than reading the bytes as-is.
+    let mut grpc = tonic::client::Grpc::new(
+        Versions
+            .versions_server()
+            .send_compressed(CompressionEncoding::Gzip),
+    )
+    .send_compressed(CompressionEncoding::Gzip);
+    grpc.ready().await.expect("the router is ready");
+    let outcome: Result<tonic::Response<versions::list::Response>, tonic::Status> = grpc
+        .unary(
+            tonic::Request::new(versions::list::Request {}),
+            path(),
+            tonic_prost::ProstCodec::default(),
+        )
+        .await;
+    let status = outcome.expect_err("`send_compressed` does not make a request readable");
+    assert_eq!(status.code(), tonic::Code::Unimplemented);
+}
