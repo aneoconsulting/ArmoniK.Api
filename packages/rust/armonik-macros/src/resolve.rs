@@ -32,7 +32,7 @@ pub(crate) fn resolve_message(
         Ok(entries) => entries,
         Err(error) => {
             generator.record(error);
-            return poisoned_ir(input, index.fingerprint, Vec::new(), false);
+            return poisoned_ir(input, index, Vec::new());
         }
     };
 
@@ -57,7 +57,7 @@ pub(crate) fn resolve_message(
     // before anything is reported, because a oneof reads the same entries for itself and rejects a
     // stray key in its own words.
     if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
-        return oneof_ir(input, index, &entries, generator);
+        return oneof_ir(input, index, &entries, &proto_names, oneof_attr, generator);
     }
 
     let names = || proto_names.iter().map(|(_, name)| name.clone()).collect();
@@ -68,7 +68,7 @@ pub(crate) fn resolve_message(
              wrapper message into the type, generic skips descriptor validation because a \
              generic type names no proto message, and there is no wrapper to flatten without one",
         );
-        return poisoned_ir(input, index.fingerprint, names(), false);
+        return poisoned_ir(input, index, names());
     }
     for span in stray {
         generator.error(
@@ -83,7 +83,7 @@ pub(crate) fn resolve_message(
                 "#[armonik(generic)] types are not validated against the descriptor; \
                  remove the message attribute",
             );
-            return poisoned_ir(input, index.fingerprint, Vec::new(), false);
+            return poisoned_ir(input, index, Vec::new());
         }
         return generic_ir(input, index, generator);
     }
@@ -104,7 +104,6 @@ fn struct_ir(input: &syn::DeriveInput, fingerprint: u64, shared: Vec<Slot>) -> I
         docs: Vec::new(),
         absorbs: Vec::new(),
         generic: false,
-        poisoned: false,
         shared,
         discr: None,
     }
@@ -112,21 +111,60 @@ fn struct_ir(input: &syn::DeriveInput, fingerprint: u64, shared: Vec<Slot>) -> I
 
 /// The plan of a type whose type-level attributes did not resolve: nothing below them could be
 /// read, so everything degrades at once. The claimed proto `names` still reach `Msg::NAMES`, which
-/// is what keeps the `service!`-emitted asserts quiet, and `fragment` keeps an embedded oneof's
-/// `Oneof` identity marker (with the empty, unchecked path), so the struct carrying it does not
-/// add an error of its own.
-fn poisoned_ir(
-    input: &syn::DeriveInput,
-    fingerprint: u64,
-    names: Vec<String>,
-    fragment: bool,
-) -> Ir {
+/// is what keeps the `service!`-emitted asserts quiet. One poisoned slot stands for the whole
+/// body, which is what the emitter reads to place a placeholder rather than a wire form.
+fn poisoned_ir(input: &syn::DeriveInput, index: &DescriptorIndex, names: Vec<String>) -> Ir {
     Ir {
         names,
-        fragment_of: fragment.then(String::new),
-        poisoned: true,
-        ..struct_ir(input, fingerprint, Vec::new())
+        ..struct_ir(
+            input,
+            index.fingerprint,
+            vec![Slot::poisoned(input.ident.span())],
+        )
     }
+}
+
+/// The attributes a Rust field standing for a proto field takes, with the messages a `with` adapter
+/// on it flattens away collected into `absorbs`. `None` once the scan failed, which is the caller's
+/// to price: a struct's field poisons a slot, a variant's sibling poisons the variant.
+///
+/// No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one of the
+/// six `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct, which
+/// [`generic_ir`] handles. Spelling one here only ever restated what the proto says.
+fn proto_field_attrs(
+    attrs: &[syn::Attribute],
+    reject: &str,
+    absorbs: &mut Vec<String>,
+    generator: &mut Generator,
+) -> Option<ProtoFieldAttrs> {
+    let FieldAttrs {
+        rename,
+        with,
+        absorbs: declared,
+        ..
+    } = scan_attrs(
+        attrs,
+        Allowed {
+            rename: true,
+            with: true,
+            absorbs: true,
+            ..Allowed::default()
+        },
+        reject,
+        generator,
+    )?;
+    absorbs.extend(declared);
+    Some(ProtoFieldAttrs { rename, with })
+}
+
+/// What a proto field's own attributes say about it, once the messages its adapter absorbs have
+/// been handed to the plan.
+struct ProtoFieldAttrs {
+    /// The proto field's name where it differs from the Rust field's.
+    rename: Option<String>,
+    /// The `with = ...` codec substitution, spanned: where a site does not accept one, the error
+    /// points at the key rather than at whatever carries it.
+    with: Option<(Span, syn::Type)>,
 }
 
 // ---- Plain struct: every field is a field of one proto message ----
@@ -144,14 +182,14 @@ fn plain_ir(
             "missing #[armonik(message = \"full.proto.Name\")] \
              (or #[armonik(generic)] with explicit tags)",
         );
-        return poisoned_ir(input, index.fingerprint, Vec::new(), false);
+        return poisoned_ir(input, index, Vec::new());
     }
     if !input.generics.params.is_empty() {
         generator.error(
             input.ident.span(),
             "descriptor-validated types cannot be generic; use #[armonik(generic)]",
         );
-        return poisoned_ir(input, index.fingerprint, names(), false);
+        return poisoned_ir(input, index, names());
     }
 
     // One proto message per struct. `message = ...` is repeatable on an *enum*, where a unified
@@ -168,7 +206,7 @@ fn plain_ir(
             Some(meta) => (name.as_str(), meta),
             None => {
                 generator.record(not_found(*span, "message", name));
-                return poisoned_ir(input, index.fingerprint, names(), false);
+                return poisoned_ir(input, index, names());
             }
         }
     };
@@ -179,7 +217,7 @@ fn plain_ir(
             "#[armonik_macros::message] with `message = ...` expects a struct \
              (use `oneof = ...` for flattened oneofs)",
         );
-        return poisoned_ir(input, index.fingerprint, names(), false);
+        return poisoned_ir(input, index, names());
     };
 
     let mut fields = Vec::new();
@@ -189,30 +227,15 @@ fn plain_ir(
 
     for (field_index, field) in data.fields.iter().enumerate() {
         let (span, access) = field_access(field, field_index);
-        // No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one
-        // of the six `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct,
-        // which `generic_ir` handles. Spelling one here only ever restated what the proto says.
-        let Some(FieldAttrs {
-            rename,
-            with,
-            absorbs: declared,
-            ..
-        }) = scan_attrs(
+        let Some(ProtoFieldAttrs { rename, with }) = proto_field_attrs(
             &field.attrs,
-            Allowed {
-                rename: true,
-                with: true,
-                absorbs: true,
-                ..Allowed::default()
-            },
             "this armonik attribute is not valid on a message field",
+            &mut absorbs,
             generator,
-        )
-        else {
+        ) else {
             fields.push(Slot::poisoned(span));
             continue;
         };
-        absorbs.extend(declared);
         let with = with.map(|(_, ty)| ty);
 
         let proto_name = match (&rename, &field.ident) {
@@ -259,27 +282,21 @@ fn plain_ir(
                     docs: Vec::new(),
                 });
             }
-            Found::Field(field_meta) => fields.push(Slot {
-                access: Some(access),
+            Found::Field(field_meta) => fields.push(Slot::field(
+                name,
+                field_meta,
                 span,
-                tag: field_meta.tag,
-                checks: with.is_none().then(|| Expectation::of(field_meta)),
-                codec: SlotCodec::Field {
-                    ty: Box::new(field.ty.clone()),
-                    adapter: with.map(Box::new),
-                },
-                proto_path,
-                docs: field_meta.docs.clone(),
-            }),
+                access,
+                field.ty.clone(),
+                with.map(Box::new),
+            )),
         }
     }
 
     // Completeness: every proto field and oneof must be covered by a Rust field, checked only
     // when every Rust field resolved: an unconsumed proto field otherwise already has its probable
     // explanation on screen, and one mistake reads as one error.
-    let poisoned = fields
-        .iter()
-        .any(|field| matches!(field.codec, SlotCodec::Poisoned));
+    let poisoned = fields.iter().any(Slot::is_poisoned);
     if !poisoned {
         matcher.check_complete(input.ident.span(), generator);
     }
@@ -289,7 +306,6 @@ fn plain_ir(
         names: proto_names.into_iter().map(|(_, name)| name).collect(),
         docs: meta.docs.clone(),
         absorbs,
-        poisoned,
         ..struct_ir(input, index.fingerprint, fields)
     }
 }
@@ -337,20 +353,20 @@ fn transparent_ir(
                 input.ident.span(),
                 "#[armonik(transparent)] structs must have exactly one field, delegated to",
             );
-            return poisoned_ir(input, index.fingerprint, names, false);
+            return poisoned_ir(input, index, names);
         }
         _ => {
             generator.error(
                 input.ident.span(),
                 "#[armonik(transparent)] expects a struct",
             );
-            return poisoned_ir(input, index.fingerprint, names, false);
+            return poisoned_ir(input, index, names);
         }
     };
     if failed {
         // The delegate cannot be checked against a message that did not resolve; a real delegation
         // would just move the confusion into the emitted assert.
-        return poisoned_ir(input, index.fingerprint, names, false);
+        return poisoned_ir(input, index, names);
     }
     let (_, access) = field_access(field, 0);
     let delegate = Slot {
@@ -367,14 +383,9 @@ fn transparent_ir(
         docs: Vec::new(),
     };
 
-    let docs = proto_names
-        .first()
-        .and_then(|(_, name)| index.messages.get(name))
-        .map(|meta| meta.docs.clone())
-        .unwrap_or_default();
     Ir {
+        docs: index.message_docs(proto_names.first().map(|(_, name)| name.as_str())),
         names,
-        docs,
         ..struct_ir(input, index.fingerprint, vec![delegate])
     }
 }
@@ -386,7 +397,7 @@ fn transparent_ir(
 fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut Generator) -> Ir {
     let syn::Data::Struct(data) = &input.data else {
         generator.error(input.ident.span(), "#[armonik(generic)] expects a struct");
-        return poisoned_ir(input, index.fingerprint, Vec::new(), false);
+        return poisoned_ir(input, index, Vec::new());
     };
 
     let mut fields = Vec::new();
@@ -437,13 +448,9 @@ fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut
         });
     }
 
-    let poisoned = fields
-        .iter()
-        .any(|field| matches!(field.codec, SlotCodec::Poisoned));
     fields.sort_by_key(|field| field.tag);
     Ir {
         generic: true,
-        poisoned,
         ..struct_ir(input, index.fingerprint, fields)
     }
 }
@@ -578,18 +585,14 @@ impl<'a> Siblings<'a> {
             .into_iter()
             .filter_map(|(meta, binding)| {
                 let (ident, ty) = binding?;
-                Some(Slot {
-                    span: ident.span(),
-                    access: Some(FieldAccess::Named(ident)),
-                    tag: meta.tag,
-                    codec: SlotCodec::Field {
-                        ty: Box::new(ty),
-                        adapter: None,
-                    },
-                    proto_path: format!("{proto_name}.{}", meta.name),
-                    checks: Some(Expectation::of(meta)),
-                    docs: meta.docs.clone(),
-                })
+                Some(Slot::field(
+                    proto_name,
+                    meta,
+                    ident.span(),
+                    FieldAccess::Named(ident),
+                    ty,
+                    None,
+                ))
             })
             .collect();
         slots.sort_by_key(|slot| slot.tag);
@@ -651,27 +654,15 @@ fn carried(
     let mut leftovers: Vec<Leftover> = Vec::new();
     for field in named {
         let ident = field.ident.clone().expect("named fields have idents");
-        let Some(FieldAttrs {
-            rename,
-            with,
-            absorbs: declared,
-            ..
-        }) = scan_attrs(
+        let Some(ProtoFieldAttrs { rename, with }) = proto_field_attrs(
             &field.attrs,
-            Allowed {
-                rename: true,
-                with: true,
-                absorbs: true,
-                ..Allowed::default()
-            },
             "this armonik attribute is not valid on a struct variant field",
+            absorbs,
             generator,
-        )
-        else {
+        ) else {
             failed = true;
             continue;
         };
-        absorbs.extend(declared);
 
         let name = rename.unwrap_or_else(|| unraw(&ident));
         match siblings.claim(&mut seen, &name, &ident, &field.ty, generator) {
@@ -731,7 +722,7 @@ fn carrier(
     present: bool,
     inline: Option<Span>,
     generator: &mut Generator,
-) -> Result<Carrier, ()> {
+) -> Option<Carrier> {
     let mut named = Vec::new();
     if present {
         named.push((variant_span, "present"));
@@ -756,9 +747,9 @@ fn carrier(
                  adapter), so they cannot be combined"
             ),
         );
-        return Err(());
+        return None;
     }
-    Ok(if present {
+    Some(if present {
         Carrier::Present
     } else if let Some(span) = inline {
         Carrier::Inline(span)
@@ -781,11 +772,12 @@ struct VariantCtx<'a> {
     member_name: &'a str,
 }
 
-/// A resolver returns the variant's shape, or `Err(())` after pushing the error(s) that make this
-/// variant unresolvable (the caller skips it).
 /// What a variant resolved to: how it carries the member, through which codec, and what the shape
 /// assert should check. The caller assembles them into the variant's [`Slot`].
-type ResolvedShape = Result<(Option<FieldAccess>, SlotCodec, Option<Expectation>), ()>;
+///
+/// `None` once the error(s) that make the variant unresolvable are recorded: the failure is already
+/// in the [`Generator`], so a resolver has nothing to carry back but the absence of a shape.
+type ResolvedShape = Option<(Option<FieldAccess>, SlotCodec, Option<Expectation>)>;
 
 /// Resolve one variant against the oneof member it names.
 ///
@@ -816,7 +808,7 @@ fn resolve_variant(
                         ctx.proto_name
                     ),
                 );
-                return Err(());
+                return None;
             }
             resolve_marker_variant(ctx, generator)
         }
@@ -837,7 +829,7 @@ fn resolve_variant(
                         ctx.proto_name
                     ),
                 );
-                return Err(());
+                return None;
             }
             if !matches!(ctx.variant.fields, syn::Fields::Named(_)) {
                 generator.error(
@@ -845,7 +837,7 @@ fn resolve_variant(
                     "inline needs a struct variant: there is nothing to spread the \
                      member's fields into",
                 );
-                return Err(());
+                return None;
             }
             resolve_inline_member(ctx, leftovers, absorbs, generator)
         }
@@ -862,16 +854,16 @@ fn resolve_variant(
                             ctx.proto_name
                         ),
                     );
-                    return Err(());
+                    return None;
                 }
-                let adapter = with.map(|(_, ty)| ty);
-                let checks = adapter.is_none().then(|| Expectation::of(ctx.field_meta));
-                Ok((
+                let (codec, checks) = SlotCodec::field(
+                    fields.unnamed[0].ty.clone(),
+                    with.map(|(_, ty)| ty),
+                    ctx.field_meta,
+                );
+                Some((
                     Some(FieldAccess::Indexed(syn::Index::from(0))),
-                    SlotCodec::Field {
-                        ty: Box::new(fields.unnamed[0].ty.clone()),
-                        adapter,
-                    },
+                    codec,
                     checks,
                 ))
             }
@@ -881,20 +873,16 @@ fn resolve_variant(
                         with_span,
                         "in a struct variant, put with = ... on the field carrying the member",
                     );
-                    return Err(());
+                    return None;
                 }
                 match <[Leftover; 1]>::try_from(leftovers) {
                     Ok([payload]) => {
-                        let adapter = payload.with.map(Box::new);
-                        let checks = adapter.is_none().then(|| Expectation::of(ctx.field_meta));
-                        Ok((
-                            Some(FieldAccess::Named(payload.ident)),
-                            SlotCodec::Field {
-                                ty: Box::new(payload.ty),
-                                adapter,
-                            },
-                            checks,
-                        ))
+                        let (codec, checks) = SlotCodec::field(
+                            payload.ty,
+                            payload.with.map(Box::new),
+                            ctx.field_meta,
+                        );
+                        Some((Some(FieldAccess::Named(payload.ident)), codec, checks))
                     }
                     Err(leftovers) if leftovers.is_empty() => {
                         generator.error(
@@ -904,7 +892,7 @@ fn resolve_variant(
                                 ctx.member_name
                             ),
                         );
-                        Err(())
+                        None
                     }
                     Err(leftovers) => {
                         generator.error(
@@ -916,7 +904,7 @@ fn resolve_variant(
                                 ctx.member_name
                             ),
                         );
-                        Err(())
+                        None
                     }
                 }
             }
@@ -926,7 +914,7 @@ fn resolve_variant(
                     "oneof variants must be `Variant(T)`, `Variant { .. }`, a \
                      #[armonik(present)] marker, or the attribute-less default",
                 );
-                Err(())
+                None
             }
         },
     }
@@ -943,7 +931,7 @@ fn resolve_marker_variant(ctx: &VariantCtx, generator: &mut Generator) -> Resolv
             ctx.span,
             "#[armonik(present)] variants must be unit variants",
         );
-        return Err(());
+        return None;
     }
     let adapter: syn::Type = match &ctx.field_meta.kind {
         FieldKind::Bool => syn::parse_quote!(crate::codec::adapters::BoolPresence),
@@ -957,10 +945,10 @@ fn resolve_marker_variant(ctx: &VariantCtx, generator: &mut Generator) -> Resolv
                     ctx.proto_path
                 ),
             );
-            return Err(());
+            return None;
         }
     };
-    Ok((
+    Some((
         None,
         SlotCodec::Field {
             ty: Box::new(syn::parse_quote!(())),
@@ -986,18 +974,18 @@ fn resolve_inline_member(
                 ctx.proto_path
             ),
         );
-        return Err(());
+        return None;
     };
     let Some(inner) = ctx.index.messages.get(inner_name) else {
         generator.error(ctx.span, format!("proto message `{inner_name}` not found"));
-        return Err(());
+        return None;
     };
     if !inner.oneofs.is_empty() {
         generator.error(
             ctx.span,
             format!("`{inner_name}` contains a oneof; it cannot be inlined into a struct variant"),
         );
-        return Err(());
+        return None;
     }
 
     let mut matcher = Matcher::new(inner_name, inner);
@@ -1020,28 +1008,24 @@ fn resolve_inline_member(
             failed = true;
             continue;
         };
-        parts.push(Slot {
-            span: leftover.span,
-            access: Some(FieldAccess::Named(leftover.ident)),
-            tag: part_meta.tag,
-            codec: SlotCodec::Field {
-                ty: Box::new(leftover.ty),
-                adapter: None,
-            },
-            proto_path: format!("{inner_name}.{}", part_meta.name),
-            checks: Some(Expectation::of(part_meta)),
-            // The member message's own field: looking it up in the *containing* message finds
-            // nothing, silently.
-            docs: part_meta.docs.clone(),
-        });
+        // Everything about the part is the *member* message's, `inner_name`: looking its field up
+        // in the containing message finds nothing, silently.
+        parts.push(Slot::field(
+            inner_name,
+            part_meta,
+            leftover.span,
+            FieldAccess::Named(leftover.ident),
+            leftover.ty,
+            None,
+        ));
     }
     if failed {
-        return Err(());
+        return None;
     }
     matcher.check_complete(ctx.span, generator);
     parts.sort_by_key(|part| part.tag);
     absorbs.push(inner_name.clone());
-    Ok((None, SlotCodec::Group { parts }, None))
+    Some((None, SlotCodec::Group { parts }, None))
 }
 
 /// Which oneof the enum stands for, and whether it stands for the whole message.
@@ -1308,7 +1292,7 @@ fn resolve_one_variant(
             )
         })
     };
-    let Ok((access, codec, checks)) = resolved else {
+    let Some((access, codec, checks)) = resolved else {
         return poisoned(Some(position));
     };
     VariantOutcome::Member {
@@ -1332,32 +1316,29 @@ fn oneof_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
     entries: &[AttrEntry],
+    proto_names: &[(Span, String)],
+    is_fragment: bool,
     generator: &mut Generator,
 ) -> Ir {
     // The claimed message names and the fragment marker survive a failed selection, so the
     // degraded plan keeps the `service!` asserts and the carrying struct's oneof assert quiet.
-    let claimed = || {
-        entries
-            .iter()
-            .filter_map(|entry| match &entry.item {
-                AttrItem::Message(lit) => Some(lit.value()),
-                _ => None,
-            })
-            .collect()
-    };
-    let is_fragment = entries
-        .iter()
-        .any(|entry| matches!(entry.item, AttrItem::Oneof(_)));
+    let claimed = || proto_names.iter().map(|(_, name)| name.clone()).collect();
 
     let Some(selected) = select_oneof(input, index, entries, generator) else {
-        return poisoned_ir(input, index.fingerprint, claimed(), is_fragment);
+        return Ir {
+            fragment_of: is_fragment.then(String::new),
+            ..poisoned_ir(input, index, claimed())
+        };
     };
     let syn::Data::Enum(data) = &input.data else {
         generator.error(
             input.ident.span(),
             "#[armonik(oneof = ...)] expects an enum",
         );
-        return poisoned_ir(input, index.fingerprint, claimed(), is_fragment);
+        return Ir {
+            fragment_of: is_fragment.then(String::new),
+            ..poisoned_ir(input, index, claimed())
+        };
     };
 
     // Non-oneof fields of a whole-message enum, replicated in every variant.
@@ -1397,9 +1378,7 @@ fn oneof_ir(
 
     // Completeness, checked only when every variant resolved: an uncovered member otherwise
     // already has its probable explanation on screen, and one mistake reads as one error.
-    let poisoned = arms
-        .iter()
-        .any(|arm| matches!(arm.own.codec, SlotCodec::Poisoned));
+    let poisoned = arms.iter().any(|arm| arm.own.is_poisoned());
     if !poisoned {
         for (position, member_covered) in covered.iter().enumerate() {
             if !member_covered {
@@ -1428,7 +1407,6 @@ fn oneof_ir(
         names: vec![selected.proto_name],
         absorbs,
         generic: false,
-        poisoned,
         shared,
         discr: Some(Discr { arms, default_arm }),
     }

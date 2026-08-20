@@ -182,7 +182,7 @@ pub(crate) fn scan_attrs(
 
 /// Parse the adapter type in `#[armonik(with = "path::To::Adapter")]`, pushing a spanned error (and
 /// returning `None`) when it does not parse.
-pub(crate) fn parse_adapter_type(
+fn parse_adapter_type(
     lit: &syn::LitStr,
     span: Span,
     generator: &mut Generator,
@@ -227,7 +227,7 @@ pub(crate) struct Allowed {
 ///
 /// A rejected entry is reported and skipped, so the collected attributes are whatever was valid;
 /// callers act on the pushed errors, not on a return value.
-pub(crate) fn scan_field_attrs(
+fn scan_field_attrs(
     entries: &[AttrEntry],
     allowed: Allowed,
     reject: &str,
