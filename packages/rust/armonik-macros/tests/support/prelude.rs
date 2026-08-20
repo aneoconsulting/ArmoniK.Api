@@ -37,8 +37,10 @@ pub(crate) use register;
 #[allow(dead_code)]
 pub mod codec {
     /// Reached through the blanket `ProtoField` impl by any message-shaped type. No bounds, unlike
-    /// the real one: a failing case's item rarely derives `Default`, and the poisoned expansion
-    /// never needs it (its `clear` is a placeholder).
+    /// the real one (`Msg: prost::Message + Default`): a failing case's item rarely derives
+    /// `Default`, and dropping the bound keeps each snapshot about the diagnostic it was written
+    /// for. The blind spot that buys, on purpose: in `armonik` a message with no `Default` is an
+    /// error of its own, which these cases cannot show.
     pub trait Msg {
         const NAMES: &'static [&'static str];
     }

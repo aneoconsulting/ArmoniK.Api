@@ -4,8 +4,9 @@
 //! Parsed by hand rather than through `parse_nested_meta`, because `enum` is a Rust keyword and
 //! must still be accepted as a key. One collector for every field and variant, with the accepted
 //! keys passed in as [`Allowed`], so a site cannot quietly start tolerating a key by forgetting to
-//! reject it. Also hosts the multi-error accumulator ([`Errors`]) the resolvers fill. The
-//! user-facing grammar documentation lives on the two macros in `lib.rs`; keep it in sync.
+//! reject it. A scan that fails records into the [`Generator`] and answers `None`, like every other
+//! step: what the site does with that is the site's own. The user-facing grammar documentation lives
+//! on the two macros in `lib.rs`; keep it in sync.
 
 use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
