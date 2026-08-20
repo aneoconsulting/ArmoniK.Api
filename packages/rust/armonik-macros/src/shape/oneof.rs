@@ -921,28 +921,6 @@ pub(crate) fn oneof_plan(
         }
     }
 
-    // The emitter writes the siblings below the oneof's tags before the member and the rest after
-    // it, so the tags only come out ascending if no sibling sits between two members.
-    let members: Vec<u32> = selected
-        .oneof
-        .fields
-        .iter()
-        .map(|&field| selected.meta.fields[field].tag)
-        .collect();
-    if let (Some(&low), Some(&high)) = (members.iter().min(), members.iter().max()) {
-        for field in sibling_metas.iter().filter(|f| low < f.tag && f.tag < high) {
-            errors.at(
-                input.ident.span(),
-                format!(
-                    "non-oneof field `{}.{}` (tag {}) sits between the members of oneof `{}` (tags \
-                     {low} to {high}); the member is written surrounded by the non-oneof fields, so \
-                     this message cannot be emitted in ascending tag order",
-                    selected.proto_name, field.name, field.tag, selected.oneof.name,
-                ),
-            );
-        }
-    }
-
     errors.into_result()?;
 
     let siblings = collect_siblings(&sibling_metas, &sibling_bindings, &selected.proto_name);
@@ -1009,44 +987,6 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     };
     let all_siblings: Vec<usize> = (0..plan.siblings.len()).collect();
     let all_pats = pats(&all_siblings);
-    // Binds every sibling by reference, whatever the variant.
-    let bind_siblings = (!sib_locals.is_empty()).then(|| {
-        let all = pats(&all_siblings);
-        quote! {
-            #[allow(unused_parens)]
-            let (#(#sib_locals),*) = match value {
-                #(#all)|* => (#(#sib_locals),*),
-            };
-        }
-    });
-    // Ascending tags across the whole message: the siblings below the oneof's tags are written
-    // before the member, the ones above it after. (The shapes the derive accepts never interleave
-    // the two.)
-    let min_member_tag = plan.variants.iter().map(|variant| variant.own.tag).min();
-    let (low, high): (Vec<_>, Vec<_>) = plan
-        .siblings
-        .iter()
-        .zip(&sib_locals)
-        .map(|(sibling, local)| {
-            let written = slot_write(sibling, &quote!(#local), Presence::Implicit);
-            (sibling.tag, written.encode, written.len)
-        })
-        .partition(|(tag, _, _)| min_member_tag.is_some_and(|member| *tag < member));
-    let sib_encode = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
-        entries
-            .iter()
-            .map(|(_, encode, _)| encode.clone())
-            .collect()
-    };
-    let sib_len = |entries: &[(u32, TokenStream, TokenStream)]| -> Vec<TokenStream> {
-        entries
-            .iter()
-            .map(|(_, _, len)| quote! { len += #len; })
-            .collect()
-    };
-    let (low_encode, low_len) = (sib_encode(&low), sib_len(&low));
-    let (high_encode, high_len) = (sib_encode(&high), sib_len(&high));
-
     let mut encode_arms = Vec::new();
     let mut len_arms = Vec::new();
     let mut merge_arms = Vec::new();
@@ -1060,18 +1000,40 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
     for variant in &plan.variants {
         let own = &variant.own;
         asserts.extend(slot_asserts(own, ident));
-        let ctx = EmitCtx {
+        let arms = emit_variant(&EmitCtx {
             var: &variant.ident,
-            own,
+            own: Some(own),
+            siblings: &plan.siblings,
             sib_idents: &sib_idents,
             sib_locals: &sib_locals,
             take_pats: &all_pats,
-        };
-        let arms = emit_variant(&ctx);
+        });
         encode_arms.push(arms.encode);
         len_arms.push(arms.len);
-        merge_arms.push(arms.merge);
+        merge_arms.extend(arms.merge);
         normalize_fragments.extend(arms.normalize);
+    }
+
+    // The "no member set" variant, through the same emitter: it owns no slot, so it writes only the
+    // shared fields and is selected by no tag.
+    if let Some(var) = plan.default_variant.as_ref() {
+        let arms = emit_variant(&EmitCtx {
+            var,
+            own: None,
+            siblings: &plan.siblings,
+            sib_idents: &sib_idents,
+            sib_locals: &sib_locals,
+            take_pats: &all_pats,
+        });
+        encode_arms.push(arms.encode);
+        len_arms.push(arms.len);
+    }
+
+    // A shared field's projection is a property of the field, not of the variant carrying it, so it
+    // is collected once rather than per arm.
+    for (sibling, local) in plan.siblings.iter().zip(sib_locals.iter()) {
+        normalize_fragments
+            .extend(slot_write(sibling, &quote!(#local), Presence::Implicit).normalize);
     }
 
     // A sibling occurrence merges in place, whatever the current variant.
@@ -1090,18 +1052,6 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
             }
         });
     }
-
-    // The "no member set" variant has no member to write; its siblings are written outside the
-    // match like every other variant's. `{ .. }` matches whatever shape the variant has (unit, or
-    // carrying the siblings).
-    let default_encode_arm = plan
-        .default_variant
-        .as_ref()
-        .map(|var| quote! { Self::#var { .. } => {} });
-    let default_len_arm = plan
-        .default_variant
-        .as_ref()
-        .map(|var| quote! { Self::#var { .. } => 0, });
 
     // A whole-message enum is additionally the message itself: it registers and gets the `Msg`
     // marker, which is what makes it usable as an RPC message and as a field of another message. An
@@ -1132,13 +1082,9 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
         MessageBodies {
             encode_raw: quote! {
                 let value = self;
-                #bind_siblings
-                #(#low_encode)*
                 match value {
                     #(#encode_arms)*
-                    #default_encode_arm
                 }
-                #(#high_encode)*
             },
             merge_field: quote! {
                 let value = self;
@@ -1149,14 +1095,9 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
             },
             encoded_len: quote! {
                 let value = self;
-                #bind_siblings
-                let mut len = match value {
+                match value {
                     #(#len_arms)*
-                    #default_len_arm
-                };
-                #(#low_len)*
-                #(#high_len)*
-                len
+                }
             },
             normalize: normalize_fragments,
         },
@@ -1173,19 +1114,18 @@ pub(crate) fn oneof(plan: &OneofPlan) -> TokenStream {
 struct VariantArms {
     encode: TokenStream,
     len: TokenStream,
-    merge: TokenStream,
+    /// `None` for the "no member set" variant, which no tag selects.
+    merge: Option<TokenStream>,
     normalize: Option<TokenStream>,
 }
 
-/// What a variant emitter needs about the enum around it: the variant, the slot it owns, and the
-/// shared fields every arm has to carry along.
-///
-/// Resolution already names its three cases (`resolve_variant`, `resolve_marker_variant`,
-/// `resolve_inline_member`); these are the same three on the emission side, so a shape can be read
-/// end to end without unpicking one long match.
+/// What the variant emitter needs about the enum around it: the variant, the slot it owns, and the
+/// shared fields its arm writes alongside.
 struct EmitCtx<'a> {
     var: &'a syn::Ident,
-    own: &'a Slot,
+    /// The slot this variant owns, or `None` for the "no member set" variant, which owns none.
+    own: Option<&'a Slot>,
+    siblings: &'a [Slot],
     sib_idents: &'a [&'a syn::Ident],
     sib_locals: &'a [syn::Ident],
     /// All-variant patterns binding every shared field, for the take-and-rebuild merge.
@@ -1203,23 +1143,23 @@ fn emit_variant(ctx: &EmitCtx<'_>) -> VariantArms {
     let EmitCtx {
         var,
         own,
+        siblings,
         sib_idents,
         sib_locals,
         take_pats,
     } = ctx;
-    let tag = own.tag;
-
     // The variant's own bindings, and the expression naming the member's value where it has one.
-    let (own_slots, value): (Vec<&Slot>, TokenStream) = match &own.codec {
-        SlotCodec::Marker { .. } => (Vec::new(), TokenStream::new()),
-        SlotCodec::Inline { parts } => (parts.iter().collect(), TokenStream::new()),
-        SlotCodec::Field { .. } => {
-            let local = slot_local(own);
-            (vec![own], quote!(#local))
+    let (own_slots, value): (Vec<&Slot>, TokenStream) = match own.map(|slot| &slot.codec) {
+        None | Some(SlotCodec::Marker { .. }) => (Vec::new(), TokenStream::new()),
+        Some(SlotCodec::Inline { parts }) => (parts.iter().collect(), TokenStream::new()),
+        Some(SlotCodec::Field { .. }) => {
+            let slot = own.expect("a field slot is a slot");
+            let local = slot_local(slot);
+            (vec![slot], quote!(#local))
         }
         // A variant carries one member, never a whole oneof: an enum standing for a oneof *is* the
         // flattened form, so there is nothing left to flatten.
-        SlotCodec::Oneof { .. } => {
+        Some(SlotCodec::Oneof { .. }) => {
             unreachable!("a oneof variant carries a member, not another oneof")
         }
     };
@@ -1235,14 +1175,34 @@ fn emit_variant(ctx: &EmitCtx<'_>) -> VariantArms {
         .collect();
     let own_locals: Vec<syn::Ident> = own_slots.iter().copied().map(slot_local).collect();
 
-    let pattern = quote!(Self::#var { #(#own_keys: #own_locals,)* .. });
+    // Binding every field for the walks that write them, and only the member's for the merge, which
+    // takes the shared fields out separately.
+    let bind_all = quote!(Self::#var { #(#own_keys: #own_locals,)* #(#sib_idents: #sib_locals,)* });
+    let bind_own = quote!(Self::#var { #(#own_keys: #own_locals,)* .. });
     let construct =
         quote!(Self::#var { #(#own_keys: #own_locals,)* #(#sib_idents: #sib_locals),* });
 
-    // The active member carries the oneof's presence: leaving a zero payload out would decode as no
-    // member set, so this is the one slot that writes whatever it holds.
-    let written = slot_write(own, &value, Presence::Explicit);
-    let (encode, len) = (written.encode, written.len);
+    // Every field this variant carries, in ascending tag order: the shared ones and, where it has
+    // one, its member. Ordering here rather than around the match is what lets a shared field sit
+    // between two members. The member carries the oneof's presence, so it writes whatever it holds;
+    // a shared field is an ordinary field of the message and skips its zero.
+    let mut writes: Vec<(u32, TokenStream, TokenStream)> = siblings
+        .iter()
+        .zip(sib_locals.iter())
+        .map(|(sibling, local)| {
+            let written = slot_write(sibling, &quote!(#local), Presence::Implicit);
+            (sibling.tag, written.encode, written.len)
+        })
+        .collect();
+    let mut normalize = None;
+    if let Some(slot) = own {
+        let written = slot_write(slot, &value, Presence::Explicit);
+        writes.push((slot.tag, written.encode, written.len));
+        normalize = written.normalize;
+    }
+    writes.sort_by_key(|(tag, _, _)| *tag);
+    let encodes = writes.iter().map(|(_, encode, _)| encode);
+    let lens = writes.iter().map(|(_, _, len)| len);
 
     // Merging the member rebuilds the variant, so it needs the member's own values seeded from
     // whatever is there, and the shared fields taken along.
@@ -1253,7 +1213,7 @@ fn emit_variant(ctx: &EmitCtx<'_>) -> VariantArms {
     let seed = (!own_locals.is_empty()).then(|| {
         quote! {
             #[allow(unused_parens)]
-            let (#(mut #own_locals),*) = if let #pattern = value {
+            let (#(mut #own_locals),*) = if let #bind_own = value {
                 (#(::std::mem::take(#own_locals)),*)
             } else {
                 (#(#seeds),*)
@@ -1268,12 +1228,11 @@ fn emit_variant(ctx: &EmitCtx<'_>) -> VariantArms {
             };
         }
     });
-    let merge = slot_merge_in_place(own, &quote!(&mut #value));
-
-    VariantArms {
-        encode: quote! { #pattern => { #encode } },
-        len: quote! { #pattern => #len, },
-        merge: quote! {
+    // The "no member set" variant is reached by no tag, so it contributes no merge arm.
+    let merge = own.map(|slot| {
+        let tag = slot.tag;
+        let merge = slot_merge_in_place(slot, &quote!(&mut #value));
+        quote! {
             #tag => {
                 #take
                 #seed
@@ -1281,8 +1240,14 @@ fn emit_variant(ctx: &EmitCtx<'_>) -> VariantArms {
                 *value = #construct;
                 ::core::result::Result::Ok(())
             }
-        },
-        normalize: written.normalize,
+        }
+    });
+
+    VariantArms {
+        encode: quote! { #bind_all => { #(#encodes)* } },
+        len: quote! { #bind_all => 0 #(+ #lens)*, },
+        merge,
+        normalize,
     }
 }
 
@@ -1373,6 +1338,52 @@ mod tests {
                 "`{field}` is bound under its own name somewhere",
             );
         }
+    }
+
+    /// A shared field between two member tags is written in tag order, not rejected.
+    ///
+    /// Each variant's arm writes the fields that variant carries, ordered by tag, so a shared field
+    /// straddling the oneof's members needs nothing special. `fixture.Straddled` puts `token` at
+    /// tag 2 between members at 1 and 3.
+    #[test]
+    fn a_shared_field_between_members_is_written_in_tag_order() {
+        let index = fixture_index();
+        let input: syn::DeriveInput = syn::parse_quote! {
+            #[armonik(message = "fixture.Straddled")]
+            pub enum Straddled {
+                Text { token: String, text: String },
+                Other { token: String, other: String },
+            }
+        };
+        let plan = match oneof_plan(&input, &index) {
+            Ok(plan) => plan,
+            Err(errors) => panic!(
+                "a straddling shared field resolves: {}",
+                errors.into_syn_error()
+            ),
+        };
+        let emitted = oneof(&plan).to_string();
+
+        // In the `Text` arm the member is tag 1 and the shared field tag 2, so the member is written
+        // first; in `Other` the member is tag 3, so the shared field is.
+        let text = emitted
+            .split("Self :: Text")
+            .nth(1)
+            .expect("a Text arm is emitted");
+        assert!(
+            text.find("(1u32").expect("the member is written")
+                < text.find("(2u32").expect("the shared field is written"),
+            "tag 1 before tag 2 in the Text arm: {text}",
+        );
+        let other = emitted
+            .split("Self :: Other")
+            .nth(1)
+            .expect("an Other arm is emitted");
+        assert!(
+            other.find("(2u32").expect("the shared field is written")
+                < other.find("(3u32").expect("the member is written"),
+            "tag 2 before tag 3 in the Other arm: {other}",
+        );
     }
 
     /// An embedded oneof records which oneof it stands for; a whole-message enum does not.

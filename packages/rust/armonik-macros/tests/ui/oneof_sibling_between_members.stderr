@@ -1,5 +1,0 @@
-error: non-oneof field `fixture.Straddled.token` (tag 2) sits between the members of oneof `pick` (tags 1 to 3); the member is written surrounded by the non-oneof fields, so this message cannot be emitted in ascending tag order
- --> tests/ui/oneof_sibling_between_members.rs:9:10
-  |
-9 | pub enum Straddled {
-  |          ^^^^^^^^^
