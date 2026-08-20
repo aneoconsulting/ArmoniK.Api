@@ -12,10 +12,10 @@ keywords = ["cloud", "HTC", "gRPC", "ArmoniK", "Aneo"]
 license = { text = "Apache v2.0 LICENSE" }
 classifiers = ["Programming Language :: Python :: 3"]
 dependencies = [
-    "grpcio>=1.62,<2",
-    "protobuf>=4.21.6,<8",
+    "grpcio>=1.83.0,<2",
+    "protobuf>=4.25.9,<8",
     "deprecation",
-    "cryptography>=36",
+    "cryptography>=36.0.2",
 ]
 [project.urls]
 "Homepage" = "https://github.com/aneoconsulting/ArmoniK.Api"
@@ -42,7 +42,7 @@ tests = [
 ]
 dev = [
     # Codegen toolchain, only needed to (re)generate src/armonik/protogen.
-    'grpcio-tools==1.62.3',
+    'grpcio-tools==1.83.0',
     'mypy',
     'ruff',
     'types-protobuf',
