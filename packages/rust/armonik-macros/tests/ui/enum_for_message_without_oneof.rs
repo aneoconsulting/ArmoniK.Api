@@ -2,9 +2,8 @@
 
 include!("../support/prelude.rs");
 
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Simple")]
 #[derive(Debug)]
-#[armonik(message = "fixture.Simple")]
 pub enum Simple {
     Name(String),
 }

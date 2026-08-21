@@ -3,9 +3,8 @@
 include!("../support/prelude.rs");
 
 // A descriptor-validated field takes its tag from the descriptor; `tag` belongs to `generic` mode.
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Simple")]
 #[derive(Debug, Default)]
-#[armonik(message = "fixture.Simple")]
 pub struct Simple {
     #[armonik(tag = 1)]
     pub name: String,

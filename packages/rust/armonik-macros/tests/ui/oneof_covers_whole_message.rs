@@ -3,9 +3,9 @@
 include!("../support/prelude.rs");
 
 // `pick` is all of `fixture.OnlyOneof`, so naming it adds nothing.
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.OnlyOneof")]
 #[derive(Debug)]
-#[armonik(message = "fixture.OnlyOneof", oneof = "pick")]
+#[armonik(oneof = "pick")]
 pub enum OnlyOneof {
     First(String),
     Second(String),

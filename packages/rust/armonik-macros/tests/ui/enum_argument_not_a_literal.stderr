@@ -1,0 +1,5 @@
+error: expected string literal
+ --> tests/ui/enum_argument_not_a_literal.rs:9:31
+  |
+9 | #[armonik_macros::enumeration(fixture.Colour)]
+  |                               ^^^^^^^

@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.task_status.TaskStatus")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 pub enum TaskStatus {
     Creating,
     Submitted,

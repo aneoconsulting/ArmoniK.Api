@@ -3,9 +3,8 @@
 include!("../support/prelude.rs");
 
 // `fixture.Simple` has no `colour`.
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Simple")]
 #[derive(Debug, Default)]
-#[armonik(message = "fixture.Simple")]
 pub struct Simple {
     pub name: String,
     pub count: i32,

@@ -1,6 +1,6 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.results.ResultField")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(transparent, message = "armonik.api.grpc.v1.results.ResultField")]
+#[armonik(transparent)]
 pub enum Field {
     SessionId,
     Name,

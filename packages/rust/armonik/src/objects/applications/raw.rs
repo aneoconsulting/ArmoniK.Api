@@ -1,6 +1,5 @@
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.applications.ApplicationRaw")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.applications.ApplicationRaw")]
 pub struct Raw {
     pub name: String,
     pub version: String,

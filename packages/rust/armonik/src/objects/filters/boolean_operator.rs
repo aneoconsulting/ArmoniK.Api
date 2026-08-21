@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.FilterBooleanOperator")]
 #[derive(Debug, Clone, Copy, Default)]
-#[armonik(enum = "armonik.api.grpc.v1.FilterBooleanOperator")]
 pub enum FilterBooleanOperator {
     /// Is the same as the specified boolean.
     #[default]

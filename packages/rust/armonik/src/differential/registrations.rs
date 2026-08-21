@@ -1,5 +1,5 @@
 //! The self-registering type registry, harvested at compile time from the
-//! `#[armonik(message = ...)]` annotations, the absorbed layers the derives derive from the
+//! names each derive was given, the absorbed layers the derives derive from the
 //! descriptor, and the `service!` `unexposed(...)` declarations.
 //!
 //! Every `#[armonik_macros::message]`/`#[armonik_macros::enumeration]` expansion (and the

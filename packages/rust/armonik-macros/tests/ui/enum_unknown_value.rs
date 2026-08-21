@@ -5,9 +5,8 @@ include!("../support/prelude.rs");
 
 
 // `Blue` matches no value of `fixture.Colour`.
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("fixture.Colour")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(enum = "fixture.Colour")]
 pub enum Colour {
     Red,
     Green,

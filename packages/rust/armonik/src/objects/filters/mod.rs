@@ -32,23 +32,20 @@ pub use string_operator::{FilterStringOperator, UnknownFilterStringOperator};
 macro_rules! impl_filter {
     // Migrated form: direct wire implementations from the descriptor.
     (Filter[$field:ty, $condition:ty]: protos[$or_proto:literal, $and_proto:literal, $field_proto:literal]) => {
-        #[armonik_macros::message]
+        #[armonik_macros::message($or_proto)]
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[armonik(message = $or_proto)]
         pub struct Or {
             pub or: Vec<And>,
         }
 
-        #[armonik_macros::message]
+        #[armonik_macros::message($and_proto)]
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[armonik(message = $and_proto)]
         pub struct And {
             pub and: Vec<Field>,
         }
 
-        #[armonik_macros::message]
+        #[armonik_macros::message($field_proto)]
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
-        #[armonik(message = $field_proto)]
         pub struct Field {
             pub field: $field,
             #[armonik(rename = "value_condition")]

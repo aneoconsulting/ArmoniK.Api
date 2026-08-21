@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.FilterNumberOperator")]
 #[derive(Debug, Clone, Copy, Default)]
-#[armonik(enum = "armonik.api.grpc.v1.FilterNumberOperator")]
 pub enum FilterNumberOperator {
     /// Is equal to the specified number.
     #[default]

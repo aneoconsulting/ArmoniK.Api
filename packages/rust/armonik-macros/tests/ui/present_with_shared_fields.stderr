@@ -1,5 +1,5 @@
 error: #[armonik(present)] needs a unit variant, but `fixture.Shared` has non-oneof fields that every variant must carry; give the variant an empty member type instead
-  --> tests/ui/present_with_shared_fields.rs:12:5
+  --> tests/ui/present_with_shared_fields.rs:11:5
    |
-12 |     Flag,
+11 |     Flag,
    |     ^^^^

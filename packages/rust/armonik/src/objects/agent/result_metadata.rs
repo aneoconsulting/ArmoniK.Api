@@ -1,8 +1,7 @@
 use super::super::ResultStatus;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.ResultMetaData")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.agent.ResultMetaData")]
 pub struct ResultMetaData {
     pub session_id: String,
     pub result_id: String,

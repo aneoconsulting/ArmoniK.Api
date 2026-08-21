@@ -1,8 +1,7 @@
 use super::super::{SessionStatus, TaskOptions};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.sessions.SessionRaw")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.sessions.SessionRaw")]
 pub struct Raw {
     pub session_id: String,
     pub status: SessionStatus,

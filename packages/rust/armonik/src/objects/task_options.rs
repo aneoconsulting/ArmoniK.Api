@@ -7,9 +7,8 @@ pub const INFINITE_DURATION: prost_types::Duration = prost_types::Duration {
     nanos: 0,
 };
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.TaskOptions")]
 #[derive(Debug, Clone, Default)]
-#[armonik(message = "armonik.api.grpc.v1.TaskOptions")]
 pub struct TaskOptions {
     pub options: HashMap<String, String>,
     #[cfg_attr(feature = "serde", serde(with = "crate::utils::serde_duration"))]
@@ -58,11 +57,12 @@ impl TaskOptions {
 
 /// Stands for the single-enum-field wrapper messages
 /// `sessions.TaskOptionField` and `tasks.TaskOptionField`.
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration(
+    "armonik.api.grpc.v1.sessions.TaskOptionField",
+    "armonik.api.grpc.v1.tasks.TaskOptionField"
+)]
 #[derive(Debug, Clone, Copy)]
 #[armonik(transparent)]
-#[armonik(message = "armonik.api.grpc.v1.sessions.TaskOptionField")]
-#[armonik(message = "armonik.api.grpc.v1.tasks.TaskOptionField")]
 pub enum TaskOptionField {
     MaxDuration,
     MaxRetries,

@@ -1,5 +1,5 @@
 error: the variant must carry the sibling field `token` of `fixture.Shared` (every variant of a whole-message enum declares all non-oneof fields)
-  --> tests/ui/unit_variant_with_shared_fields.rs:14:5
+  --> tests/ui/unit_variant_with_shared_fields.rs:13:5
    |
-14 |     None,
+13 |     None,
    |     ^^^^

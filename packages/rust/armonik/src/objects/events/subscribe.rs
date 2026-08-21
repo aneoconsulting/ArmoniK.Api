@@ -1,8 +1,7 @@
 use super::Update;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.events.EventSubscriptionRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.events.EventSubscriptionRequest")]
 pub struct Request {
     pub session_id: String,
     #[armonik(rename = "tasks_filters")]
@@ -12,9 +11,8 @@ pub struct Request {
     pub returned_events: Vec<super::EventsEnum>,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.events.EventSubscriptionResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.events.EventSubscriptionResponse")]
 pub struct Response {
     pub session_id: String,
     pub update: Update,

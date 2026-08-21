@@ -1,5 +1,5 @@
-error: a struct stands for one proto message; declare one #[armonik(message = ...)]
- --> tests/ui/struct_with_two_messages.rs:8:39
+error: a struct stands for one proto message; give the macro one name
+ --> tests/ui/struct_with_two_messages.rs:6:45
   |
-8 | #[armonik(message = "fixture.Simple", message = "fixture.Typed")]
-  |                                       ^^^^^^^
+6 | #[armonik_macros::message("fixture.Simple", "fixture.Typed")]
+  |                                             ^^^^^^^^^^^^^^^

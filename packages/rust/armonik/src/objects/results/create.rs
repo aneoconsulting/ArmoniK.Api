@@ -1,8 +1,7 @@
 use super::Raw;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.CreateResultsRequest.ResultCreate")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.CreateResultsRequest.ResultCreate")]
 pub struct RequestItem {
     pub name: String,
     pub data: bytes::Bytes,
@@ -19,17 +18,15 @@ impl<K: Into<String>, V: Into<bytes::Bytes>> From<(K, V)> for RequestItem {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.CreateResultsRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.CreateResultsRequest")]
 pub struct Request {
     pub session_id: String,
     pub results: Vec<RequestItem>,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.CreateResultsResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.CreateResultsResponse")]
 pub struct Response {
     pub results: Vec<Raw>,
 }

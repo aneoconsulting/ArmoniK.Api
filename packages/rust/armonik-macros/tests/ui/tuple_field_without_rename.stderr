@@ -1,11 +1,11 @@
 error: tuple struct fields need #[armonik(rename = "proto_field_name")]
- --> tests/ui/tuple_field_without_rename.rs:9:23
+ --> tests/ui/tuple_field_without_rename.rs:8:23
   |
-9 | pub struct Simple(pub String, pub i32);
+8 | pub struct Simple(pub String, pub i32);
   |                       ^^^^^^
 
 error: tuple struct fields need #[armonik(rename = "proto_field_name")]
- --> tests/ui/tuple_field_without_rename.rs:9:35
+ --> tests/ui/tuple_field_without_rename.rs:8:35
   |
-9 | pub struct Simple(pub String, pub i32);
+8 | pub struct Simple(pub String, pub i32);
   |                                   ^^^

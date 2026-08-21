@@ -1,15 +1,13 @@
 use super::Raw;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.sessions.CancelSessionRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.sessions.CancelSessionRequest")]
 pub struct Request {
     pub session_id: String,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.sessions.CancelSessionResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.sessions.CancelSessionResponse")]
 pub struct Response {
     pub session: Raw,
 }

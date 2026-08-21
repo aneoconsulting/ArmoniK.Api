@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.partitions.PartitionRaw")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.partitions.PartitionRaw")]
 pub struct Raw {
     #[armonik(rename = "id")]
     pub partition_id: String,

@@ -28,6 +28,7 @@ use crate::plan::{
 pub(crate) fn resolve_message(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
+    proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> Ir {
     let entries = match crate::attrs::parse(&input.attrs) {
@@ -38,7 +39,6 @@ pub(crate) fn resolve_message(
         }
     };
 
-    let mut proto_names: Vec<(Span, String)> = Vec::new();
     let mut stray: Vec<Span> = Vec::new();
     let mut oneof_attr = false;
     // Spans, not flags: the two are mutually exclusive and the rejection points at one of them.
@@ -46,15 +46,12 @@ pub(crate) fn resolve_message(
     let mut transparent: Option<Span> = None;
     for entry in &entries {
         match &entry.item {
-            AttrItem::Message(lit) => proto_names.push((entry.span, lit.value())),
             AttrItem::Oneof(_) => oneof_attr = true,
             AttrItem::Generic => generic = Some(entry.span),
             AttrItem::Transparent => transparent = Some(entry.span),
             _ => stray.push(entry.span),
         }
     }
-
-    let names = || proto_names.iter().map(|(_, name)| name.clone()).collect();
 
     // Ahead of the dispatch below, so no precedence path skips it: the pair is nonsense whichever
     // shape would have won, and `oneof = ...` beside it would only hide the answer.
@@ -65,7 +62,7 @@ pub(crate) fn resolve_message(
              wrapper message into the type, generic skips descriptor validation because a \
              generic type names no proto message, and there is no wrapper to flatten without one",
         );
-        return poisoned_ir(input, index, names());
+        return poisoned_ir(input, index, claimed(proto_names));
     }
 
     // Enums are oneof-shaped: `message = ...` alone stands for a whole message with a single
@@ -73,7 +70,7 @@ pub(crate) fn resolve_message(
     // before anything else is reported, because a oneof reads the same entries for itself and
     // rejects a stray key in its own words.
     if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
-        return oneof_ir(input, index, &entries, &proto_names, oneof_attr, generator);
+        return oneof_ir(input, index, &entries, proto_names, oneof_attr, generator);
     }
     for span in stray {
         generator.error(
@@ -180,14 +177,14 @@ struct ProtoFieldAttrs {
 fn plain_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
-    proto_names: Vec<(Span, String)>,
+    proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> Ir {
-    let names = || proto_names.iter().map(|(_, name)| name.clone()).collect();
     if proto_names.is_empty() {
         generator.error(
             input.ident.span(),
-            "missing #[armonik(message = \"full.proto.Name\")] \
+            "missing the proto message this type stands for: \
+             #[armonik_macros::message(\"full.proto.Name\")] \
              (or #[armonik(generic)] with explicit tags)",
         );
         return poisoned_ir(input, index, Vec::new());
@@ -197,15 +194,15 @@ fn plain_ir(
             input.ident.span(),
             "descriptor-validated types cannot be generic; use #[armonik(generic)]",
         );
-        return poisoned_ir(input, index, names());
+        return poisoned_ir(input, index, claimed(proto_names));
     }
 
-    // One proto message per struct. `message = ...` is repeatable on an *enum*, where a unified
-    // type stands for several identical protos; a struct resolves against exactly one.
+    // One proto message per struct. Several names are an *enum*'s form, where a unified type
+    // stands for several identical protos; a struct resolves against exactly one.
     for (span, _) in proto_names.iter().skip(1) {
         generator.error(
             *span,
-            "a struct stands for one proto message; declare one #[armonik(message = ...)]",
+            "a struct stands for one proto message; give the macro one name",
         );
     }
     let (name, meta) = {
@@ -214,7 +211,7 @@ fn plain_ir(
             Some(meta) => (name.as_str(), meta),
             None => {
                 generator.record(not_found(*span, "message", name));
-                return poisoned_ir(input, index, names());
+                return poisoned_ir(input, index, claimed(proto_names));
             }
         }
     };
@@ -225,7 +222,7 @@ fn plain_ir(
             "#[armonik_macros::message] with `message = ...` expects a struct \
              (use `oneof = ...` for flattened oneofs)",
         );
-        return poisoned_ir(input, index, names());
+        return poisoned_ir(input, index, claimed(proto_names));
     };
 
     let mut fields = Vec::new();
@@ -333,7 +330,7 @@ fn plain_ir(
 
     fields.sort_by_key(|field| field.tag);
     Ir {
-        names: proto_names.into_iter().map(|(_, name)| name).collect(),
+        names: claimed(proto_names),
         docs: meta.docs.clone(),
         absorbs,
         ..struct_ir(input, index.fingerprint, fields)
@@ -348,10 +345,10 @@ fn plain_ir(
 fn transparent_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
-    proto_names: Vec<(Span, String)>,
+    proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> Ir {
-    let names: Vec<String> = proto_names.iter().map(|(_, name)| name.clone()).collect();
+    let names = claimed(proto_names);
     let mut failed = false;
     if !input.generics.params.is_empty() {
         generator.error(
@@ -363,12 +360,12 @@ fn transparent_ir(
     if proto_names.len() != 1 {
         generator.error(
             input.ident.span(),
-            "#[armonik(transparent)] structs need exactly one \
-             #[armonik(message = \"full.proto.Name\")]",
+            "#[armonik(transparent)] structs need exactly one name: \
+             #[armonik_macros::message(\"full.proto.Name\")]",
         );
         failed = true;
     }
-    for (span, name) in &proto_names {
+    for (span, name) in proto_names {
         if !index.messages.contains_key(name) {
             generator.record(not_found(*span, "message", name));
             failed = true;
@@ -758,6 +755,12 @@ struct Leftover {
     span: Span,
     with: Option<syn::Type>,
     inlined: Option<Span>,
+}
+
+/// The proto names a type claims, as the registry and the asserts spell them: the spans are for
+/// diagnostics, and everything downstream wants the names alone.
+pub(crate) fn claimed(proto_names: &[(Span, String)]) -> Vec<String> {
+    proto_names.iter().map(|(_, name)| name.clone()).collect()
 }
 
 /// Unwrap an absorbable message layer from the descriptor: the codec and the expectation the Rust
@@ -1295,20 +1298,15 @@ fn select_oneof<'a>(
     input: &syn::DeriveInput,
     index: &'a DescriptorIndex,
     entries: &[AttrEntry],
+    proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> Option<Selected<'a>> {
-    let mut proto_name: Option<(Span, String)> = None;
+    for (span, _) in proto_names.iter().skip(1) {
+        generator.error(*span, "flattened oneofs support a single proto message");
+    }
     let mut oneof_name: Option<(Span, String)> = None;
     for entry in entries {
         match &entry.item {
-            AttrItem::Message(lit) => {
-                if proto_name.replace((entry.span, lit.value())).is_some() {
-                    generator.error(
-                        entry.span,
-                        "flattened oneofs support a single proto message",
-                    );
-                }
-            }
             AttrItem::Oneof(lit) => oneof_name = Some((entry.span, lit.value())),
             _ => generator.error(
                 entry.span,
@@ -1316,10 +1314,11 @@ fn select_oneof<'a>(
             ),
         }
     }
-    let Some((message_span, proto_name)) = proto_name else {
+    let Some((message_span, proto_name)) = proto_names.first().cloned() else {
         generator.error(
             input.ident.span(),
-            "oneof-shaped enums need #[armonik(message = \"...\")]",
+            "oneof-shaped enums need the proto message they stand for: \
+             #[armonik_macros::message(\"full.proto.Name\")]",
         );
         return None;
     };
@@ -1350,8 +1349,8 @@ fn select_oneof<'a>(
                     *oneof_span,
                     format!(
                         "the oneof `{oneof_name}` covers the whole message `{proto_name}`; \
-                         drop the oneof attribute: #[armonik(message = ...)] alone declares \
-                         a whole-message enum"
+                         drop the oneof attribute: the message name alone declares a \
+                         whole-message enum"
                     ),
                 );
                 return None;
@@ -1567,12 +1566,11 @@ fn oneof_ir(
 ) -> Ir {
     // The claimed message names and the fragment marker survive a failed selection, so the
     // degraded plan keeps the `service!` asserts and the carrying struct's oneof assert quiet.
-    let claimed = || proto_names.iter().map(|(_, name)| name.clone()).collect();
 
-    let Some(selected) = select_oneof(input, index, entries, generator) else {
+    let Some(selected) = select_oneof(input, index, entries, proto_names, generator) else {
         return Ir {
             fragment_of: is_fragment.then(String::new),
-            ..poisoned_ir(input, index, claimed())
+            ..poisoned_ir(input, index, claimed(proto_names))
         };
     };
     let syn::Data::Enum(data) = &input.data else {
@@ -1582,7 +1580,7 @@ fn oneof_ir(
         );
         return Ir {
             fragment_of: is_fragment.then(String::new),
-            ..poisoned_ir(input, index, claimed())
+            ..poisoned_ir(input, index, claimed(proto_names))
         };
     };
 
@@ -1699,10 +1697,11 @@ mod tests {
         generator.stream().to_string()
     }
 
-    fn resolve(input: &syn::DeriveInput) -> Ir {
+    fn resolve(input: &syn::DeriveInput, proto: &str) -> Ir {
         let index = fixture_index();
         let mut generator = Generator::new();
-        let ir = resolve_message(input, &index, &mut generator);
+        let names = [(Span::call_site(), proto.to_owned())];
+        let ir = resolve_message(input, &index, &names, &mut generator);
         if let Some(error) = generator.into_error() {
             panic!("the fixture resolves: {error}");
         }
@@ -1717,7 +1716,7 @@ mod tests {
     #[test]
     fn variant_fields_are_bound_out_of_the_way() {
         let input: syn::DeriveInput = syn::parse_quote! {
-            #[armonik(message = "fixture.Choice", oneof = "choice")]
+            #[armonik(oneof = "choice")]
             pub enum Choice {
                 Text(String),
                 Simple(String),
@@ -1732,7 +1731,7 @@ mod tests {
                 },
             }
         };
-        let emitted = emit(&resolve(&input));
+        let emitted = emit(&resolve(&input, "fixture.Choice"));
 
         // Each field appears only as a *pattern key* renaming it out of the way (`buf : __f1`).
         // Binding it under its own name is what would shadow the emitter's `buf`, `len`, `value`
@@ -1758,13 +1757,12 @@ mod tests {
     #[test]
     fn a_shared_field_between_members_is_written_in_tag_order() {
         let input: syn::DeriveInput = syn::parse_quote! {
-            #[armonik(message = "fixture.Straddled")]
             pub enum Straddled {
                 Text { token: String, text: String },
                 Other { token: String, other: String },
             }
         };
-        let emitted = emit(&resolve(&input));
+        let emitted = emit(&resolve(&input, "fixture.Straddled"));
 
         // In the `Text` arm the member is tag 1 and the shared field tag 2, so the member is written
         // first; in `Other` the member is tag 3, so the shared field is.
@@ -1796,7 +1794,7 @@ mod tests {
     #[test]
     fn an_embedded_oneof_records_the_oneof_it_stands_for() {
         let embedded: syn::DeriveInput = syn::parse_quote! {
-            #[armonik(message = "fixture.Choice", oneof = "choice")]
+            #[armonik(oneof = "choice")]
             pub enum Choice {
                 Text(String),
                 Simple(String),
@@ -1805,7 +1803,7 @@ mod tests {
                 Hostile(String),
             }
         };
-        let emitted = emit(&resolve(&embedded));
+        let emitted = emit(&resolve(&embedded, "fixture.Choice"));
         assert!(
             emitted.contains("impl crate :: codec :: Oneof for Choice"),
             "the marker is emitted: {emitted}",
@@ -1817,13 +1815,12 @@ mod tests {
 
         // The whole-message shape is a message, and says which one through `Msg::NAMES`.
         let whole: syn::DeriveInput = syn::parse_quote! {
-            #[armonik(message = "fixture.OnlyOneof")]
             pub enum OnlyOneof {
                 First(String),
                 Second(String),
             }
         };
-        let emitted = emit(&resolve(&whole));
+        let emitted = emit(&resolve(&whole, "fixture.OnlyOneof"));
         assert!(
             !emitted.contains("crate :: codec :: Oneof for"),
             "a whole-message enum gets no oneof marker: {emitted}",

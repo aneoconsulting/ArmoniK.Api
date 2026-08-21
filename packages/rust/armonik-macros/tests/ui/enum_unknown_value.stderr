@@ -1,5 +1,5 @@
 error: no value named `Blue` in proto enum `fixture.Colour` (available: Green, Red, Unspecified); use #[armonik(rename = "...")] with the full proto value name if needed
-  --> tests/ui/enum_unknown_value.rs:14:5
+  --> tests/ui/enum_unknown_value.rs:13:5
    |
-14 |     Blue,
+13 |     Blue,
    |     ^^^^

@@ -9,9 +9,8 @@ include!("../support/prelude.rs");
 //
 // Without the check this resolved and then emitted patterns that do not compile, with rustc
 // suggesting you append `, ..` to the `#[armonik_macros::message]` attribute.
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.SharedInline")]
 #[derive(Debug)]
-#[armonik(message = "fixture.SharedInline")]
 pub enum Pick {
     #[armonik(inlined)]
     Simple {

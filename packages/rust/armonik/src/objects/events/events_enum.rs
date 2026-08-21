@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.events.EventsEnum")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(enum = "armonik.api.grpc.v1.events.EventsEnum")]
 pub enum EventsEnum {
     NewTask,
     TaskStatusUpdate,

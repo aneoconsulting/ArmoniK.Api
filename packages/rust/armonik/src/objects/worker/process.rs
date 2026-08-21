@@ -1,8 +1,7 @@
 use super::super::{Configuration, Output, TaskOptions};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.worker.ProcessRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.worker.ProcessRequest")]
 pub struct Request {
     pub communication_token: String,
     pub session_id: String,
@@ -15,9 +14,8 @@ pub struct Request {
     pub configuration: Configuration,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.worker.ProcessReply")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.worker.ProcessReply")]
 pub struct Response {
     pub output: Output,
 }

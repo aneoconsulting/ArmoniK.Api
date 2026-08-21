@@ -4,9 +4,8 @@ include!("../support/prelude.rs");
 
 
 
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("fixture.Nope")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(enum = "fixture.Nope")]
 pub enum Colour {
     Red,
     Unknown(UnknownColour),

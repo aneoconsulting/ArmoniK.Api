@@ -2,9 +2,8 @@
 
 include!("../support/prelude.rs");
 
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Nope")]
 #[derive(Debug, Default)]
-#[armonik(message = "fixture.Nope")]
 pub struct Simple {
     pub name: String,
 }

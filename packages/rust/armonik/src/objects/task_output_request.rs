@@ -1,6 +1,5 @@
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.TaskOutputRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.TaskOutputRequest")]
 pub struct TaskOutputRequest {
     #[armonik(rename = "session")]
     pub session_id: String,

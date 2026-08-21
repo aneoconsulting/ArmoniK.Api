@@ -4,9 +4,8 @@ include!("../support/prelude.rs");
 
 
 
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("fixture.Colour")]
 #[derive(Debug, Default)]
-#[armonik(enum = "fixture.Colour")]
 pub struct Colour {
     pub value: i32,
 }

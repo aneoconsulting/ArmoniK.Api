@@ -1,5 +1,5 @@
 error: no oneof named `choise` in proto message `fixture.Choice`
- --> tests/ui/oneof_unknown_name.rs:7:39
+ --> tests/ui/oneof_unknown_name.rs:7:11
   |
-7 | #[armonik(message = "fixture.Choice", oneof = "choise")]
-  |                                       ^^^^^
+7 | #[armonik(oneof = "choise")]
+  |           ^^^^^

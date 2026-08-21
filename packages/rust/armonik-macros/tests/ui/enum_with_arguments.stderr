@@ -1,5 +1,0 @@
-error: #[armonik_macros::enumeration] takes no arguments
-  --> tests/ui/enum_with_arguments.rs:11:10
-   |
-11 | pub enum Colour {
-   |          ^^^^^^

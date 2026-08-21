@@ -2,18 +2,16 @@ use super::super::{DataChunk, TaskError};
 
 /// Request for retrieving a result; stands in for the `ResultRequest` message
 /// at the Submitter.TryGetResultStream RPC.
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.ResultRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.ResultRequest")]
 pub struct Request {
     #[armonik(rename = "session")]
     pub session_id: String,
     pub result_id: String,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.ResultReply")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.ResultReply")]
 pub enum Response {
     /// No member set, which `NotCompleted("")` is not.
     #[default]

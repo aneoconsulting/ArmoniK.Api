@@ -1,8 +1,7 @@
 use super::Raw;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.UploadResultDataRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.UploadResultDataRequest")]
 pub enum Request {
     /// No member set, which an `Identifier` of two empty ids is not.
     #[default]
@@ -15,9 +14,8 @@ pub enum Request {
     DataChunk(bytes::Bytes),
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.UploadResultDataResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.UploadResultDataResponse")]
 pub struct Response {
     pub result: Raw,
 }

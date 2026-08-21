@@ -3,9 +3,8 @@
 include!("../support/prelude.rs");
 
 // `present` wants a unit variant; `fixture.Shared.token` wants every variant to carry it.
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Shared")]
 #[derive(Debug)]
-#[armonik(message = "fixture.Shared")]
 pub enum Shared {
     Text { token: String, text: String },
     #[armonik(present)]

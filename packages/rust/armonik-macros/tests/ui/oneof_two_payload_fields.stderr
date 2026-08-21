@@ -1,5 +1,5 @@
 error: only one field of the variant may carry the member `text`; add #[armonik(inlined)] to the variant if these are the member message's own fields, spread into it
-  --> tests/ui/oneof_two_payload_fields.rs:13:9
+  --> tests/ui/oneof_two_payload_fields.rs:12:9
    |
-13 |         extra: String,
+12 |         extra: String,
    |         ^^^^^

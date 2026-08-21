@@ -1,8 +1,7 @@
 use super::super::ResultStatus;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.ResultRaw")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.ResultRaw")]
 pub struct Raw {
     pub session_id: String,
     pub name: String,

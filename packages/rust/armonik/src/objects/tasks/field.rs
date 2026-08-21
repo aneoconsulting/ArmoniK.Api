@@ -1,8 +1,8 @@
 use super::super::TaskOptionField;
 
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.tasks.TaskSummaryField")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(transparent, message = "armonik.api.grpc.v1.tasks.TaskSummaryField")]
+#[armonik(transparent)]
 pub enum SummaryField {
     TaskId,
     SessionId,
@@ -29,9 +29,8 @@ pub enum SummaryField {
     Unknown(UnknownSummaryField),
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.TaskField")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.tasks.TaskField")]
 pub enum Field {
     /// No field named. `Summary(SummaryField::UNSPECIFIED)` says the same thing one level down,
     /// but only this one round-trips as the empty message.

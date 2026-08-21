@@ -1,15 +1,13 @@
 /// One result to notify: the session it belongs to, and its own id.
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.agent.NotifyResultDataRequest.ResultIdentifier")]
 pub struct ResultIdentifier {
     pub session_id: String,
     pub result_id: String,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.NotifyResultDataRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.NotifyResultDataRequest")]
 pub struct Request {
     pub communication_token: String,
     #[armonik(rename = "ids")]
@@ -38,9 +36,8 @@ impl Request {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.NotifyResultDataResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.NotifyResultDataResponse")]
 pub struct Response {
     pub result_ids: Vec<String>,
 }

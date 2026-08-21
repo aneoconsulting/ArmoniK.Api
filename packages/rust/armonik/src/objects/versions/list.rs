@@ -1,11 +1,9 @@
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.versions.ListVersionsRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.versions.ListVersionsRequest")]
 pub struct Request {}
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.versions.ListVersionsResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.versions.ListVersionsResponse")]
 pub struct Response {
     /// Version of ArmoniK.Core
     pub core: String,

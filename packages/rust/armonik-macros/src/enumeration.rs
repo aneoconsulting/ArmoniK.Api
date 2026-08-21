@@ -18,6 +18,7 @@ use crate::plan::{anchored, respan, CatchAll, EnumMode, EnumPlan, EnumValue};
 pub(crate) fn resolve_enumeration(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
+    proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> EnumPlan {
     let derived_comparisons = reject_implemented_derives(input, generator);
@@ -30,13 +31,9 @@ pub(crate) fn resolve_enumeration(
         }
     };
 
-    let mut enum_names: Vec<(Span, String)> = Vec::new();
-    let mut message_names: Vec<(Span, String)> = Vec::new();
     let mut transparent = false;
     for entry in &entries {
         match &entry.item {
-            AttrItem::Enum(lit) => enum_names.push((entry.span, lit.value())),
-            AttrItem::Message(lit) => message_names.push((entry.span, lit.value())),
             AttrItem::Transparent => transparent = true,
             _ => generator.error(
                 entry.span,
@@ -53,15 +50,17 @@ pub(crate) fn resolve_enumeration(
     // they are registered as absorbed.
     let mut absorbs: Vec<crate::plan::Absorbed> = Vec::new();
     let mode = if transparent {
-        if message_names.is_empty() {
+        // What the argument names follows the mode: here the wrapper messages the enum is
+        // flattened out of, and in the other arm the proto enum itself.
+        if proto_names.is_empty() {
             generator.error(
                 input.ident.span(),
-                "#[armonik(transparent)] requires #[armonik(message = \"full.proto.Name\")] \
-                 naming the single-field wrapper message",
+                "#[armonik(transparent)] requires the single-field wrapper message as the \
+                 macro's argument: #[armonik_macros::enumeration(\"full.proto.Name\")]",
             );
         }
         let mut wrapper_path: Option<Vec<u32>> = None;
-        for (span, name) in &message_names {
+        for (span, name) in proto_names {
             // Follow the chain of single-field wrappers down to the enum.
             let mut current = name.clone();
             let mut path = Vec::new();
@@ -114,17 +113,18 @@ pub(crate) fn resolve_enumeration(
             }
         }
         EnumMode::Transparent {
-            names: message_names.iter().map(|(_, name)| name.clone()).collect(),
+            names: crate::resolve::claimed(proto_names),
             path: wrapper_path,
         }
     } else {
-        if enum_names.is_empty() {
+        if proto_names.is_empty() {
             generator.error(
                 input.ident.span(),
-                "missing #[armonik(enum = \"full.proto.Name\")]",
+                "missing the proto enum this type stands for: \
+                 #[armonik_macros::enumeration(\"full.proto.Name\")]",
             );
         }
-        for (span, name) in &enum_names {
+        for (span, name) in proto_names {
             match index.enums.get(name) {
                 Some(meta) => proto_enums.push((name.clone(), meta)),
                 None => generator.record(not_found(*span, "enum", name)),

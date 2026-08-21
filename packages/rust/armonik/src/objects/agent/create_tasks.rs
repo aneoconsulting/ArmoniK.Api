@@ -1,8 +1,7 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest.InitRequest")]
 pub struct InitRequest {
     pub task_options: Option<TaskOptions>,
 }
@@ -10,9 +9,8 @@ pub struct InitRequest {
 /// The `CreateTaskRequest` message: one oneof (tags 1-3) plus a sibling `communication_token = 4`,
 /// carried by every variant, `Invalid` (the "no member set" case) included, so a token survives any
 /// wire field order.
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.CreateTaskRequest")]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskRequest")]
 pub enum Request {
     Invalid {
         communication_token: String,
@@ -41,9 +39,8 @@ impl Default for Request {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply.CreationStatus")]
 pub enum Status {
     /// No member set, which an empty `Error` is not.
     #[default]
@@ -61,9 +58,8 @@ pub enum Status {
 /// The `CreateTaskReply` message: one oneof (tags 1-2, its `CreationStatusList` wrapper absorbed)
 /// plus a sibling `communication_token = 4` carried by every variant, `Invalid` included, so a
 /// token survives any wire field order.
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.CreateTaskReply")]
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.CreateTaskReply")]
 pub enum Response {
     /// No member set, which an empty `Error` is not.
     Invalid { communication_token: String },

@@ -1,9 +1,9 @@
 use super::super::TaskStatus;
 
 /// Task selector of the filter.
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter", oneof = "ids")]
+#[armonik(oneof = "ids")]
 pub enum TaskFilterIds {
     /// No selector. Distinct from `Sessions([])`, which selects the tasks of no session.
     #[default]
@@ -17,12 +17,9 @@ pub enum TaskFilterIds {
 }
 
 /// Status selector of the filter.
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(
-    message = "armonik.api.grpc.v1.submitter.TaskFilter",
-    oneof = "statuses"
-)]
+#[armonik(oneof = "statuses")]
 pub enum TaskFilterStatuses {
     /// No selector. Distinct from `Exclude([])`, which is a constraint that happens to be vacuous.
     #[default]
@@ -35,9 +32,8 @@ pub enum TaskFilterStatuses {
     Exclude(Vec<TaskStatus>),
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.TaskFilter")]
 pub struct TaskFilter {
     pub ids: TaskFilterIds,
     pub statuses: TaskFilterStatuses,
