@@ -9,7 +9,7 @@ use crate::descriptor::{DescriptorIndex, FieldKind, MessageMeta};
 use crate::emit::{message_shaped, placeholder_bodies, tripwire, MessageBodies};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name};
-use crate::plan::{CatchAll, EnumMode, EnumPlan, EnumValue};
+use crate::plan::{anchored, respan, CatchAll, EnumMode, EnumPlan, EnumValue};
 
 /// Resolve `#[armonik_macros::enumeration]`. A proto enum and a transparent wrapper chain around
 /// one are two modes of a single plan rather than two shapes; the wire emitter reads the mode back
@@ -149,7 +149,7 @@ pub(crate) fn resolve_enumeration(
         }
     };
     let plan = EnumPlan {
-        ident: input.ident.clone(),
+        ident: respan(&input.ident),
         catch_all: None,
         docs,
         named: Vec::new(),
@@ -206,7 +206,10 @@ pub(crate) fn resolve_enumeration(
             }
             syn::Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 let payload = match &fields.unnamed[0].ty {
-                    syn::Type::Path(path) if path.qself.is_none() => path.path.get_ident().cloned(),
+                    syn::Type::Path(path) if path.qself.is_none() => path
+                        .path
+                        .get_ident()
+                        .map(|ident| anchored(ident, fields.paren_token.span.open())),
                     _ => None,
                 };
                 let Some(payload) = payload else {
@@ -223,7 +226,7 @@ pub(crate) fn resolve_enumeration(
                     plan.poison(&variant.ident, Some(payload));
                 } else {
                     plan.catch_all = Some(CatchAll {
-                        variant: variant.ident.clone(),
+                        variant: respan(&variant.ident),
                         payload,
                     });
                 }
@@ -297,10 +300,10 @@ pub(crate) fn resolve_enumeration(
         match number {
             Some(number) => {
                 if number == 0 {
-                    plan.zero_variant = Some(ident.clone());
+                    plan.zero_variant = Some(respan(ident));
                 }
                 plan.named.push(EnumValue {
-                    ident: ident.clone(),
+                    ident: respan(ident),
                     number,
                     docs,
                 });

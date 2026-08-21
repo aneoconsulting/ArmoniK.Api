@@ -633,7 +633,8 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
     };
 
     let asserts = alias_asserts(&item_type, &name, meta)?;
-    let registrations = emit::registrations(&item_type.ident, std::slice::from_ref(&name));
+    let registrations =
+        emit::registrations(&plan::respan(&item_type.ident), std::slice::from_ref(&name));
     Ok(quote::quote! {
         #item_type
         #asserts
@@ -669,6 +670,10 @@ fn alias_asserts(
 
     let ty = &item_type.ty;
     let span = item_type.ty.span();
+    // The assert is anchored on the `=`: punctuation on the alias's own line, so a failure renders
+    // that line while hover on the aliased type finds nothing of the expansion under it (see
+    // `plan::At`). `span` stays the type's, for the diagnostics.
+    let anchor = item_type.eq_token.span();
     let mut fields: Vec<&descriptor::FieldMeta> = meta.fields.iter().collect();
     fields.sort_by_key(|field| field.tag);
     let mut expects = Vec::new();
@@ -684,7 +689,7 @@ fn alias_asserts(
         }
     }
 
-    Ok(quote::quote_spanned! { span =>
+    Ok(quote::quote_spanned! { anchor =>
         const _: () = crate::codec::assert_generic_fields::<#ty>(&[#(#expects),*]);
     })
 }

@@ -65,6 +65,11 @@ struct RpcDef {
     server_stream: Option<kw::stream>,
     response: Path,
     handler: Option<Ident>,
+    /// The punctuation the line's two asserts are anchored on, each just left of the type it is
+    /// about: the parenthesis opening the request, the arrow introducing the response. Kept for
+    /// that alone -- the grammar needs neither.
+    paren: syn::token::Paren,
+    arrow: Token![->],
 }
 
 impl Parse for ServiceDef {
@@ -94,13 +99,13 @@ impl Parse for ServiceDef {
             input.parse::<kw::rpc>()?;
             let method: Ident = input.parse()?;
             let args;
-            syn::parenthesized!(args in input);
+            let paren = syn::parenthesized!(args in input);
             let client_stream = args.parse()?;
             let request: Path = args.parse()?;
             if !args.is_empty() {
                 return Err(args.error("expected a single request type"));
             }
-            input.parse::<Token![->]>()?;
+            let arrow = input.parse::<Token![->]>()?;
             let server_stream = input.parse()?;
             let response: Path = input.parse()?;
             let handler = match input.parse::<Option<Token![as]>>()? {
@@ -115,6 +120,8 @@ impl Parse for ServiceDef {
                 server_stream,
                 response,
                 handler,
+                paren,
+                arrow,
             });
         }
 
@@ -285,13 +292,14 @@ fn expand_rpc(def: &ServiceDef, entry: &Resolved<'_>, full_name: &str) -> TokenS
     let input = &entry.meta.input;
     let output = &entry.meta.output;
 
-    // Spanned onto the rpc line's own type paths rather than onto the invocation: a `service!` body
+    // Anchored on the rpc line's own punctuation rather than on the invocation: a `service!` body
     // holds up to 15 rpc lines, and an assert spanned at the invocation says only that one of them
-    // names the wrong type.
-    let request_assert = quote_spanned! { request.span() =>
+    // names the wrong type. Punctuation rather than the type path it is about, because everything an
+    // expansion spans onto a name is what an IDE shows when hovering that name (see `plan::At`).
+    let request_assert = quote_spanned! { entry.rpc.paren.span.open() =>
         const _: () = crate::codec::assert_request_message::<#module::#request>(#input);
     };
-    let response_assert = quote_spanned! { response.span() =>
+    let response_assert = quote_spanned! { entry.rpc.arrow.span() =>
         const _: () = crate::codec::assert_response_message::<#module::#response>(#output);
     };
 

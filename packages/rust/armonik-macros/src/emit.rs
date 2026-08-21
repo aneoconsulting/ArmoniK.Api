@@ -13,7 +13,7 @@ use quote::{quote, quote_spanned};
 
 use crate::descriptor::{Cardinality, FieldKind};
 use crate::generator::Generator;
-use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
+use crate::plan::{Arm, At, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 
 /// A field's key in braced syntax: its name, or its position for a tuple variant, whose fields are
 /// named `0`, `1`, ... So one pattern and one constructor serve every variant shape.
@@ -605,10 +605,12 @@ pub(crate) fn expect_literal(
 }
 
 /// One spanned shape assert per checked field: the field type's `SHAPE` against the descriptor's
-/// `Expect`.
+/// `Expect`. Spanned on the slot's anchor rather than its name, so a failure still renders the
+/// field's line without the expansion landing where an IDE hovers; the compile error for a wire
+/// kind the codec has no impl for is a diagnostic, and points at the name.
 fn field_asserts_for(
     ty: &syn::Type,
-    span: proc_macro2::Span,
+    at: At,
     proto_path: &str,
     checks: &Option<Expectation>,
     type_ident: &syn::Ident,
@@ -616,7 +618,7 @@ fn field_asserts_for(
     let Some(expect) = checks else {
         return TokenStream::new();
     };
-    let literal = match expect_literal(expect, proto_path, span) {
+    let literal = match expect_literal(expect, proto_path, at.name) {
         Ok(literal) => literal,
         Err(error) => return error,
     };
@@ -625,7 +627,7 @@ fn field_asserts_for(
          `{proto_path}` does not have the expected shape ({})",
         describe(expect),
     );
-    quote_spanned! {span=>
+    quote_spanned! {at.code=>
         assert!(
             crate::codec::shape_matches(
                 &<#ty as crate::codec::ProtoField>::SHAPE,
@@ -872,19 +874,19 @@ fn slot_asserts(slot: &Slot, type_ident: &syn::Ident, names: &[String]) -> Token
         // wrapper's inner field for an inlined one, nothing for a `with` adapter, which exists
         // because the Rust representation is deliberately not the proto's.
         (SlotCodec::Field { .. }, Some(ty)) => {
-            field_asserts_for(ty, slot.span, &slot.proto_path, &slot.checks, type_ident)
+            field_asserts_for(ty, slot.at, &slot.proto_path, &slot.checks, type_ident)
         }
         (SlotCodec::Delegate { ty, tags }, _) => match tags {
             Some(_) => {
                 let path = &slot.proto_path;
-                quote_spanned! { slot.span =>
+                quote_spanned! { slot.at.code =>
                     const _: () = crate::codec::assert_oneof::<#ty>(#path);
                 }
             }
             None => names
                 .iter()
                 .map(|name| {
-                    quote_spanned! { slot.span =>
+                    quote_spanned! { slot.at.code =>
                         const _: () = crate::codec::assert_transparent_message::<#ty>(#name);
                     }
                 })
