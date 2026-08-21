@@ -190,11 +190,10 @@ fn default_encoding_is_the_proto_zero() {
 /// A message with no oneof member set decodes to a value with no oneof member set.
 ///
 /// Stricter than the invariant above, which lets a defaulted oneof through as long as its payload
-/// is itself zero, and that slack is exactly what hid the bug: 15 of the flattened oneofs had no
-/// "no member set" variant, so an absent oneof decoded to whichever member the hand-written
-/// `Default` happened to pick, and re-encoded with that member set. A peer that left
-/// `value_condition` unset was read as `task_id string-equals ""`, which selects a different set of
-/// tasks and cannot be rejected.
+/// is itself zero. That slack is a wire hazard: without a "no member set" variant, an absent oneof
+/// decodes to whichever member `Default` picks and re-encodes with that member set, so a peer that
+/// leaves `value_condition` unset reads as `task_id string-equals ""`, which selects a different set
+/// of tasks and cannot be rejected.
 ///
 /// Synthetic oneofs are skipped: proto3 `optional` is one, and `Option<T>` models it directly.
 #[test]

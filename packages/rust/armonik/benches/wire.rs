@@ -1,8 +1,8 @@
 //! Encoding and decoding of the results messages, with no gRPC around them.
 //!
-//! `benches/roundtrip.rs` measures whole calls; this one isolates the codec, which is
-//! the part of the stack this branch replaces. Three shapes, picked because they
-//! stress different things:
+//! `benches/roundtrip.rs` measures whole calls; this one isolates the codec, the
+//! part of the stack these types replace. Three shapes, picked because they stress
+//! different things:
 //!
 //! * `list_response`: many small fields and a repeated nested message, so the
 //!   per-field work dominates;
@@ -29,37 +29,34 @@
 //!
 //! # Measurements
 //!
-//! Three points of this branch in one pinned campaign, 4 interleaved rounds on a
-//! stable desktop (i9-7900X, no virtualisation), medians of the per-round medians,
-//! per-row deviation 0.3% to 4.4%. `base` is the branch point, where the ergonomic
-//! types are not `prost::Message`: its copy of this file converts to the generated
-//! `api::v3` type first, which is what a call did there, and its copy of
-//! `roundtrip.rs` drops the `watch` handler, that RPC being younger than the base.
+//! One pinned campaign, 4 interleaved rounds on a stable desktop (i9-7900X, no
+//! virtualisation), medians of the per-round medians, per-row deviation 0.3% to
+//! 4.4%. `base` is the generated design these types replace, where they are not
+//! `prost::Message`: its copy of this file converts to the generated `api::v3`
+//! type first, which is what a call did there, and its copy of `roundtrip.rs`
+//! drops the `watch` handler, that RPC being younger.
 //!
-//! | | base | before the leaf skip | now | now vs base |
-//! |---|---|---|---|---|
-//! | `results/get` | 2.672 us | 2.903 us | 2.658 us | -0.5% |
-//! | `results/rotate/1` | 2.599 us | 2.925 us | 2.660 us | +2.4% |
-//! | `results/rotate/2` | 2.633 us | 2.915 us | 2.616 us | -0.6% |
-//! | `results/rotate/4` | 2.734 us | 2.942 us | 2.616 us | -4.3% |
-//! | `results/rotate/7` | 3.104 us | 3.316 us | 3.055 us | -1.6% |
-//! | `wire/encode/get_response` | 144 ns | 146 ns | 133 ns | -7.8% |
-//! | `wire/decode/get_response` | 222 ns | 268 ns | 231 ns | +4.4% |
-//! | `wire/encode/list_response` | 4.36 us | 4.49 us | 4.02 us | -8.0% |
-//! | `wire/decode/list_response` | 9.70 us | 10.81 us | 9.71 us | +0.1% |
-//! | `wire/encode/download_chunk` | 1.70 us | 1.71 us | 1.72 us | +1.3% |
-//! | `wire/decode/download_chunk` | 1.82 us | 31 ns | 33 ns | -98% |
+//! | | base | now | vs base |
+//! |---|---|---|---|
+//! | `results/get` | 2.672 us | 2.658 us | -0.5% |
+//! | `results/rotate/1` | 2.599 us | 2.660 us | +2.4% |
+//! | `results/rotate/2` | 2.633 us | 2.616 us | -0.6% |
+//! | `results/rotate/4` | 2.734 us | 2.616 us | -4.3% |
+//! | `results/rotate/7` | 3.104 us | 3.055 us | -1.6% |
+//! | `wire/encode/get_response` | 144 ns | 133 ns | -7.8% |
+//! | `wire/decode/get_response` | 222 ns | 231 ns | +4.4% |
+//! | `wire/encode/list_response` | 4.36 us | 4.02 us | -8.0% |
+//! | `wire/decode/list_response` | 9.70 us | 9.71 us | +0.1% |
+//! | `wire/encode/download_chunk` | 1.70 us | 1.72 us | +1.3% |
+//! | `wire/decode/download_chunk` | 1.82 us | 33 ns | -98% |
 //!
-//! So the whole call is at parity with the generated types it replaced, and every
-//! codec row is at parity or better except the unary decode, +4.4%, which is one
-//! branch misprediction (below). The `before the leaf skip` to `now` step is what
-//! leaving a zero off the wire bought: -8% to -14% on the eight rows built from small
-//! fields, -7.9% on `rotate/7`, and nothing on the two `download_chunk` rows (+0.6% and
-//! +6.5%), whose one large `bytes` field has no zero to leave off and whose absolute
-//! numbers, 31 and 33 ns for the decode, are where run-to-run noise lives. Half of the
-//! rest is simply fewer bytes: 53 against 59 for the get response and 1766 against 1960
-//! for the list, 9.9% off the list, and 53 is what the generated types wrote too.
-//! Re-measure both figures with the fixtures below when either moves.
+//! So the whole call is at parity with the generated types, and every codec row is
+//! at parity or better except the unary decode, +4.4%, which is one branch
+//! misprediction (below). The `download_chunk` decode is the outlier in the other
+//! direction: `bytes` fields decode by slicing the input buffer instead of copying
+//! it. Byte counts are part of it: an encoded `results/get` response is 53 bytes,
+//! the same as the generated types wrote, and the 32-entry `results/list` response
+//! is 1766. Re-measure both with the fixtures below when either moves.
 //!
 //! ## Why the call rows need `rotate`
 //!
@@ -123,8 +120,8 @@ const CHUNK: usize = 80 * 1024;
 
 /// A `Raw` with its stable fields filled in.
 ///
-/// Field-by-field rather than a struct literal: `Raw` gains and loses fields
-/// along this branch and only these are stable throughout.
+/// Field-by-field rather than a struct literal: these are the fields the byte
+/// counts above are measured over, whatever else `Raw` carries.
 #[allow(clippy::field_reassign_with_default)]
 fn raw(index: usize) -> results::Raw {
     let mut raw = results::Raw::default();

@@ -2,15 +2,14 @@
 //!
 //! Nothing else in the repository puts one there: every in-process round trip drives a router as a
 //! client channel, which reaches `Service::call` directly, and `server_mounting.rs`'s two
-//! `add_service` assertions are compile-only. So the paths that only a real connection exercises,
-//! everything hyper does between the wire and `Service::call`, had never been executed.
+//! `add_service` assertions are compile-only. So this is the only cover for everything hyper does
+//! between the wire and `Service::call` -- a client-supplied path reaching the synchronous body,
+//! framing, flow control, and a half-close.
 //!
-//! That gap is not hypothetical, twice over: the unrouted-path truncation panicked on any non-ASCII
-//! path, in the synchronous body of `Service::call`, and its dedicated test only ever fed it ASCII;
-//! and dropping a bidirectional call's response stream left the server handler parked forever, which
-//! no in-process test can see, because there the handler's future is dropped with the stream.
-//!
-//! So all four call shapes run here: unary, server-streamed, client-streamed, and bidirectional
+//! Two of those are invisible in process by construction: a path is never routed through hyper
+//! there, and dropping a bidirectional call's response stream drops the handler's future with it,
+//! where over a socket the request half has to be closed for the handler to end. All four call
+//! shapes run here for that reason: unary, server-streamed, client-streamed, and bidirectional
 //! with its cancellation.
 
 #![cfg(all(feature = "client", feature = "server"))]

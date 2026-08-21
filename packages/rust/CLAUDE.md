@@ -137,8 +137,12 @@ ps -eo pid=,comm=,args= | awk '$2=="dotnet" && /Mock\.dll/ {print $1}' | xargs -
 
 ## Conventions
 
-- Comments and rustdoc describe the current state. Not what the code used to do,
-  not what a previous implementation did; that is what the history is for.
+- Comments and rustdoc describe the current state. They may say what a design
+  replaced, where that is what explains the shape (the generated stubs, the
+  conversion layer, tonic's own codegen), and they may record an alternative that
+  was tried and refuted. They must not narrate how the code got here: no
+  intermediate state of the work in progress, no incident it fixed along the way.
+  That is what the history and the pull request are for.
 - A wire-behaviour change needs a test that pins the direction, not just a
   passing round-trip: the harness compares re-encoded bytes, so a mapping that
   is wrong symmetrically survives it.
