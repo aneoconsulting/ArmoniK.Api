@@ -134,27 +134,31 @@ pub(crate) enum SlotCodec {
 /// A proto message an expansion swallows, so no Rust type of its own stands for it, and what makes
 /// that true.
 ///
-/// `when` is the field type whose `SHAPE` settles it, for the one claim the descriptor cannot make
-/// alone: a repeated key/value pair message is absorbed exactly where the Rust type carrying it is a
-/// map, which is the same const the shape assert reads. `None` where the descriptor does settle it:
-/// an `inlined` wrapper, an inlined variant's member message, a transparent chain's middle wrapper.
-#[derive(Clone)]
+/// `when` is the const that settles the claim, which the registry evaluates: `true` where the
+/// descriptor settles it outright (an `inlined` wrapper, an inlined variant's member message, a
+/// transparent chain's middle wrapper), and the map-ness of the carrying type for the one claim the
+/// descriptor cannot make alone, since a repeated key/value pair message has no Rust type of its own
+/// exactly where the field carrying it is a map.
 pub(crate) struct Absorbed {
     pub(crate) name: String,
-    pub(crate) when: Option<syn::Type>,
+    pub(crate) when: syn::Expr,
 }
 
 impl Absorbed {
     /// A message the descriptor proves has no Rust type here.
     pub(crate) fn always(name: String) -> Self {
-        Self { name, when: None }
+        Self {
+            name,
+            when: syn::parse_quote!(true),
+        }
     }
 
     /// A pair message, absorbed if `ty` turns out to be the map form rather than a list of pairs.
-    pub(crate) fn if_map(name: String, ty: syn::Type) -> Self {
+    /// The predicate lives in `armonik`, next to the `SHAPE` it reads.
+    pub(crate) fn if_map(name: String, ty: &syn::Type) -> Self {
         Self {
             name,
-            when: Some(ty),
+            when: syn::parse_quote!(crate::codec::is_map::<#ty>()),
         }
     }
 }
@@ -163,6 +167,9 @@ impl Absorbed {
 /// emitted straight from this, in the descriptor's own vocabulary. A field may allow several (see
 /// [`Slot::checks`]), and the assert accepts any of them.
 ///
+/// A map says what it is made of through its cardinality, whose two fields are checked as fields in
+/// their own right, so there is no second home for that and no way to state the two apart.
+///
 /// The descriptor's vocabulary, not the codec's, and the latitude splits along it: how many shapes
 /// a field allows is read off the descriptor, so resolution builds the list; what counts as one of
 /// them (a singular message field may be `Option`) is an emission rule, so it lives with the
@@ -170,11 +177,6 @@ impl Absorbed {
 pub(crate) struct Expectation {
     pub(crate) kind: FieldKind,
     pub(crate) cardinality: Cardinality,
-    /// A map's key and value, each an expectation in its own right, so the check on them is the
-    /// same one every other field gets: kind, name *and* cardinality. Their kinds also sit in
-    /// `cardinality`, which is the descriptor's own way of saying what a map is made of; this is
-    /// what the Rust type is held to.
-    pub(crate) map: Option<(Box<Expectation>, Box<Expectation>)>,
 }
 
 impl Expectation {
@@ -185,40 +187,20 @@ impl Expectation {
         Self {
             kind: field.kind.clone(),
             cardinality: field.cardinality.clone(),
-            // A proto `map` compiles to an entry message whose two fields are both singular, so
-            // that is what its key and value are held to.
-            map: match &field.cardinality {
-                Cardinality::Map { key, value } => Some((
-                    Box::new(Expectation::singular(key.clone())),
-                    Box::new(Expectation::singular(value.clone())),
-                )),
-                _ => None,
-            },
         }
     }
 
-    /// The expectation for a singular field of `kind`: what a map entry's key and value are.
-    pub(crate) fn singular(kind: FieldKind) -> Self {
+    /// A repeated key/value pair field held to the map its wire form compiles from: the pair's two
+    /// fields as the map's entry, which is the shape a proto `map` field arrives in already, so
+    /// both spellings are one expectation and each side is checked as a field in its own right (a
+    /// `repeated` value stays `repeated`).
+    pub(crate) fn pair_map(meta: &FieldMeta, key: &FieldMeta, value: &FieldMeta) -> Self {
         Self {
-            kind,
-            cardinality: Cardinality::Singular,
-            map: None,
-        }
-    }
-
-    /// A repeated key/value pair message held to the map it is the wire form of: the pair's own
-    /// two fields, each checked as itself, so a `repeated` value stays `repeated`.
-    pub(crate) fn pair_map(kind: FieldKind, key: &FieldMeta, value: &FieldMeta) -> Self {
-        Self {
+            kind: meta.kind.clone(),
             cardinality: Cardinality::Map {
-                key: key.kind.clone(),
-                value: value.kind.clone(),
+                key: Box::new(key.clone()),
+                value: Box::new(value.clone()),
             },
-            kind,
-            map: Some((
-                Box::new(Expectation::of(key)),
-                Box::new(Expectation::of(value)),
-            )),
         }
     }
 }

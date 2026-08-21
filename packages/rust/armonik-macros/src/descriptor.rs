@@ -40,7 +40,7 @@ pub(crate) enum FieldKind {
 }
 
 /// Cardinality of a protobuf field.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub(crate) enum Cardinality {
     /// Singular proto3 field: implicit presence.
     Singular,
@@ -49,11 +49,30 @@ pub(crate) enum Cardinality {
     /// Repeated field (packedness is decided by the Rust element type's `ProtoField` impl, not
     /// restated from the descriptor).
     Repeated,
-    /// Map field, folded from its synthetic `*Entry` message.
-    Map { key: FieldKind, value: FieldKind },
+    /// Map field, folded from its synthetic `*Entry` message: the entry's two fields, which are
+    /// what a Rust type standing for the map is held to. Fields rather than kinds, because a
+    /// `repeated Pair` field held to the map its wire form compiles from is the same shape stated
+    /// from a hand-written pair message, whose value may itself be `repeated`.
+    Map {
+        key: Box<FieldMeta>,
+        value: Box<FieldMeta>,
+    },
+}
+
+impl Cardinality {
+    /// The word a diagnostic calls this, since `Debug` on a map would print its whole entry.
+    pub(crate) fn label(&self) -> &'static str {
+        match self {
+            Cardinality::Singular => "singular",
+            Cardinality::Optional => "optional",
+            Cardinality::Repeated => "repeated",
+            Cardinality::Map { .. } => "map",
+        }
+    }
 }
 
 /// A field of a protobuf message, as seen by the derives.
+#[derive(Clone, Debug)]
 pub(crate) struct FieldMeta {
     pub(crate) name: String,
     pub(crate) tag: u32,
@@ -82,6 +101,21 @@ pub(crate) struct MessageMeta {
 }
 
 impl MessageMeta {
+    /// The key and value of a key/value pair message: exactly two fields, at tags 1 and 2, which
+    /// is what a proto `map` entry compiles to. `None` for anything else, oneofs included. The
+    /// sibling of [`sole_field`](Self::sole_field): the other message shape a field can be held to
+    /// without the message having a Rust type, and a predicate rather than a diagnostic because
+    /// failing it only means the field is held to its own shape instead.
+    pub(crate) fn pair_fields(&self) -> Option<(&FieldMeta, &FieldMeta)> {
+        if !self.oneofs.is_empty() {
+            return None;
+        }
+        match self.fields.as_slice() {
+            [key, value] if key.tag == 1 && value.tag == 2 => Some((key, value)),
+            _ => None,
+        }
+    }
+
     /// The single field of a single-field wrapper message, or `None` once the error saying it is not
     /// one is recorded. Two mechanisms unwrap such a layer, an `inlined` field and a transparent
     /// chain, and this is the one place that sentence lives.
@@ -511,7 +545,7 @@ fn full_name(prefix: &str, name: &str) -> String {
 fn collect_map_entries(
     prefix: &str,
     message: &DescriptorProto,
-    map_entries: &mut HashMap<String, (FieldKind, FieldKind)>,
+    map_entries: &mut HashMap<String, (FieldMeta, FieldMeta)>,
 ) -> Result<(), String> {
     let full = full_name(prefix, message.name());
     if message.options.as_ref().is_some_and(|o| o.map_entry()) {
@@ -525,7 +559,7 @@ fn collect_map_entries(
             .iter()
             .find(|f| f.number() == 2)
             .ok_or_else(|| format!("map entry `{full}` has no value field"))?;
-        map_entries.insert(full, (field_kind(key)?, field_kind(value)?));
+        map_entries.insert(full, (entry_field(key)?, entry_field(value)?));
         return Ok(());
     }
     for nested in &message.nested_type {
@@ -534,10 +568,23 @@ fn collect_map_entries(
     Ok(())
 }
 
+/// One field of a synthetic map entry: singular by construction, and carrying no comment of its
+/// own, so only its name, tag and kind are the descriptor's to give.
+fn entry_field(field: &FieldDescriptorProto) -> Result<FieldMeta, String> {
+    Ok(FieldMeta {
+        name: field.name().to_owned(),
+        tag: field.number() as u32,
+        kind: field_kind(field)?,
+        cardinality: Cardinality::Singular,
+        docs: Vec::new(),
+        oneof: None,
+    })
+}
+
 fn add_message(
     prefix: &str,
     message: &DescriptorProto,
-    map_entries: &HashMap<String, (FieldKind, FieldKind)>,
+    map_entries: &HashMap<String, (FieldMeta, FieldMeta)>,
     comments: &HashMap<Vec<i32>, Vec<String>>,
     path: Vec<i32>,
     index: &mut DescriptorIndex,
@@ -584,8 +631,8 @@ fn add_message(
                 if let Some((key, value)) = map_entries.get(type_name) {
                     (
                         Cardinality::Map {
-                            key: key.clone(),
-                            value: value.clone(),
+                            key: Box::new(key.clone()),
+                            value: Box::new(value.clone()),
                         },
                         None,
                     )

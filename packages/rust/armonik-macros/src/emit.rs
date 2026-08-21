@@ -538,11 +538,11 @@ fn type_name(kind: &FieldKind) -> Option<&str> {
 
 /// Human form of the expected shape, for the assert message.
 fn describe(expect: &Expectation) -> String {
-    if let Some((key, value)) = &expect.map {
+    if let Cardinality::Map { key, value } = &expect.cardinality {
         return format!(
             "a map<{}, {}>",
-            entry_description(key),
-            entry_description(value)
+            entry_description(&Expectation::of(key)),
+            entry_description(&Expectation::of(value))
         );
     }
     let cards = cardinalities(expect)
@@ -576,8 +576,13 @@ pub(crate) fn expect_literal(
     span: proc_macro2::Span,
 ) -> Result<TokenStream, TokenStream> {
     // A map's own kind and name are not checked: what it is made of is, through `map`, where the
-    // key and the value are each an `Expect` of their own.
-    let (kind_expr, name_expr) = match &expect.map {
+    // key and the value are each an `Expect` of their own, built from the two fields the
+    // descriptor's map cardinality carries.
+    let entry = match &expect.cardinality {
+        Cardinality::Map { key, value } => Some((Expectation::of(key), Expectation::of(value))),
+        _ => None,
+    };
+    let (kind_expr, name_expr) = match &entry {
         Some(_) => (
             quote!(::core::option::Option::None),
             quote!(::core::option::Option::None),
@@ -594,7 +599,7 @@ pub(crate) fn expect_literal(
             (kind, name)
         }
     };
-    let map_expr = match &expect.map {
+    let map_expr = match &entry {
         Some((key, value)) => {
             let key = expect_literal(key, proto_path, span)?;
             let value = expect_literal(value, proto_path, span)?;
@@ -698,28 +703,18 @@ pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream
 /// key/value pair carried as a map), so they have no Rust type of their own and the differential
 /// harness counts them as covered through their parent.
 ///
-/// A pair message registers conditionally: whether it is absorbed at all is the field type's
-/// answer, not the descriptor's, so the registration carries the type and reads the same `SHAPE`
-/// const the shape assert does. Otherwise a pair carried as `Vec<Pair>` would claim to have no Rust
-/// type while having one.
+/// Each claim carries the const that settles it, because one of them is not the descriptor's to
+/// make: whether a repeated key/value pair is absorbed at all is the field type's answer, read off
+/// the same `SHAPE` the shape assert reads. Claiming it outright would say no Rust type stands for
+/// a pair carried as `Vec<Pair>`, which has one.
 pub(crate) fn absorbed_registrations(absorbs: &[Absorbed]) -> TokenStream {
-    let always = absorbs.iter().filter(|a| a.when.is_none()).map(|a| &a.name);
-    let proven = match always.clone().next() {
-        Some(_) => quote! { crate::register!(absorbed: #(#always),*); },
-        None => TokenStream::new(),
-    };
-    let conditional = absorbs.iter().filter_map(|absorbed| {
-        let (name, ty) = (&absorbed.name, absorbed.when.as_ref()?);
-        Some(quote! { #name => #ty })
-    });
-    let decided = match conditional.clone().next() {
-        Some(_) => quote! { crate::register!(absorbed_if_map: #(#conditional),*); },
-        None => TokenStream::new(),
-    };
-    quote! {
-        #proven
-        #decided
-    }
+    absorbs
+        .iter()
+        .map(|absorbed| {
+            let (name, when) = (&absorbed.name, &absorbed.when);
+            quote! { crate::register!(absorbed: #name => #when); }
+        })
+        .collect()
 }
 
 /// Test-only `Normalize` impl: the type's value-level projection for the differential harness,
@@ -1014,6 +1009,10 @@ fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -> SlotWrite
                     // Ordinary fields of the absorbed message; the framing below is what carries
                     // the member's presence, and it is written unconditionally.
                     let written = slot_write(part, &quote!(#local), Presence::Implicit);
+                    // Not `written.normalize`: a part's tag is the *member* message's, so its
+                    // projection would have to be applied inside the member's dynamic submessage,
+                    // which `normalize_dynamic(message, tag)` cannot reach. No part needs one
+                    // today, and a part whose type projects (a map) would need that descent first.
                     (written.encode, written.len)
                 })
                 .unzip();

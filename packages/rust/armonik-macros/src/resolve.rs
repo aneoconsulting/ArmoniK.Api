@@ -789,8 +789,8 @@ fn inlined_codec(
         generator.error(
             span,
             format!(
-                "inlined does not apply to a {:?} field (`{proto_path}`)",
-                member.cardinality
+                "inlined does not apply to a {} field (`{proto_path}`)",
+                member.cardinality.label()
             ),
         );
         return Err(());
@@ -829,25 +829,16 @@ fn expectations(
     let mut shapes = vec![Expectation::of(meta)];
     if let (Cardinality::Repeated, FieldKind::Message(inner_name)) = (&meta.cardinality, &meta.kind)
     {
-        if let Some((key, value)) = pair_fields(index, inner_name) {
-            shapes.push(Expectation::pair_map(meta.kind.clone(), key, value));
-            absorbs.push(Absorbed::if_map(inner_name.clone(), ty.clone()));
+        if let Some((key, value)) = index
+            .messages
+            .get(inner_name)
+            .and_then(MessageMeta::pair_fields)
+        {
+            shapes.push(Expectation::pair_map(meta, key, value));
+            absorbs.push(Absorbed::if_map(inner_name.clone(), ty));
         }
     }
     shapes
-}
-
-/// The key and value of a pair message: exactly two fields, at tags 1 and 2, which is what a proto
-/// `map` entry compiles to. `None` for anything else, oneofs included.
-fn pair_fields<'a>(
-    index: &'a DescriptorIndex,
-    name: &str,
-) -> Option<(&'a FieldMeta, &'a FieldMeta)> {
-    let message = index.messages.get(name).filter(|m| m.oneofs.is_empty())?;
-    match message.fields.as_slice() {
-        [key, value] if key.tag == 1 && value.tag == 2 => Some((key, value)),
-        _ => None,
-    }
 }
 
 /// The codec substitution and shape check of a member carried whole: none (checked against the
