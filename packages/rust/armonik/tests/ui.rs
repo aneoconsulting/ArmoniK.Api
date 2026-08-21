@@ -3,9 +3,8 @@
 //! `ServiceClient::call` takes one argument for four call kinds, and which inputs are valid depends
 //! on the RPC. That is enforced by `IntoCall` having no impl for the wrong pairing, so what a caller
 //! actually sees is the `#[diagnostic::on_unimplemented]` text on the trait -- the whole reason the
-//! `M` marker parameter exists. Nothing else pins that text, and re-running the three misuse probes
-//! by hand is how a regression in it shipped once: all three still errored, and the wording that
-//! named the mistake was gone.
+//! `M` marker parameter exists. Nothing else pins that text: probing the three misuses by hand
+//! shows that each still errors, not that the wording still names the mistake.
 //!
 //! Each case is a minimal `tests/ui/*.rs` paired with the exact `*.stderr` rustc prints for it.
 //! Regenerate after a deliberate wording change with:
