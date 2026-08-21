@@ -1,11 +1,8 @@
 use super::{NewResult, NewTask, ResultOwnerUpdate, ResultStatusUpdate, TaskStatusUpdate};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.events.EventSubscriptionResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(
-    message = "armonik.api.grpc.v1.events.EventSubscriptionResponse",
-    oneof = "update"
-)]
+#[armonik(oneof = "update")]
 pub enum Update {
     /// Invalid update
     #[default]

@@ -1,25 +1,22 @@
 use super::super::{DataChunk, InitTaskRequest, TaskOptions, TaskRequest};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.CreateSmallTaskRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.CreateSmallTaskRequest")]
 pub struct SmallRequest {
     pub session_id: String,
     pub task_options: Option<TaskOptions>,
     pub task_requests: Vec<TaskRequest>,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest.InitRequest")]
 pub struct InitRequest {
     pub session_id: String,
     pub task_options: Option<TaskOptions>,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.CreateLargeTaskRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.CreateLargeTaskRequest")]
 pub enum LargeRequest {
     #[default]
     Invalid,
@@ -30,9 +27,8 @@ pub enum LargeRequest {
     DataChunk(DataChunk),
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply.CreationStatus")]
 pub enum Status {
     /// No member set, which an empty `Error` is not.
     #[default]
@@ -47,9 +43,8 @@ pub enum Status {
     Error(String),
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.CreateTaskReply")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.submitter.CreateTaskReply")]
 pub enum Response {
     /// No member set, which an empty `Status` list is not.
     #[default]

@@ -1,9 +1,8 @@
 use super::ResultMetaData;
 
 /// Result to create without data.
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest.ResultCreate")]
 pub struct RequestItem {
     /// The name of the result to create.
     pub name: String,
@@ -15,9 +14,8 @@ impl<T: Into<String>> From<T> for RequestItem {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.CreateResultsMetaDataRequest")]
 pub struct Request {
     pub communication_token: String,
     pub session_id: String,
@@ -25,9 +23,8 @@ pub struct Request {
     pub results: Vec<RequestItem>,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.agent.CreateResultsMetaDataResponse")]
 pub struct Response {
     pub communication_token: String,
     /// The list of ResultMetaData results that were created.

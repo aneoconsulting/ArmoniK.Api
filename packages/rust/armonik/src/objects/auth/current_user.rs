@@ -1,13 +1,11 @@
 use super::User;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.auth.GetCurrentUserRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.auth.GetCurrentUserRequest")]
 pub struct Request {}
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.auth.GetCurrentUserResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.auth.GetCurrentUserResponse")]
 pub struct Response {
     pub user: User,
 }

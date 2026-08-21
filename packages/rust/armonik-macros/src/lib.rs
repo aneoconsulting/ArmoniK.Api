@@ -39,6 +39,12 @@ use syn::DeriveInput;
 /// Implement `prost::Message` for an ArmoniK API type, validated against the
 /// protobuf descriptors compiled by the `armonik` build script.
 ///
+/// The macro's argument is the full proto name of the message the type stands
+/// for, or several names for a unified type standing for identical messages,
+/// which must agree on every field. Every validated type has one, so it is the
+/// macro's argument rather than a key that could be left out; a
+/// [`generic`](#generic) type gives none.
+///
 /// Tags, wire kinds and cardinalities come from the descriptor, never from the
 /// source. Every disagreement with the proto message (unknown field, uncovered
 /// proto field or oneof, kind or cardinality mismatch) is a spanned error
@@ -72,9 +78,8 @@ use syn::DeriveInput;
 /// tuple structs must rename every field):
 ///
 /// ```ignore
-/// #[armonik_macros::message]
+/// #[armonik_macros::message("armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 /// #[derive(Debug, Clone, Default, PartialEq, Eq)]
-/// #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 /// pub struct Response {
 ///     #[armonik(inlined)]
 ///     pub task_results: HashMap<String, Vec<String>>,
@@ -91,9 +96,8 @@ use syn::DeriveInput;
 /// case and becomes the `Default`:
 ///
 /// ```ignore
-/// #[armonik_macros::message]
+/// #[armonik_macros::message("armonik.api.grpc.v1.Output")]
 /// #[derive(Debug, Clone, Default, PartialEq, Eq)]
-/// #[armonik(message = "armonik.api.grpc.v1.Output")]
 /// pub enum Output {
 ///     #[default]
 ///     Invalid,                      // no member set
@@ -139,13 +143,6 @@ use syn::DeriveInput;
 ///
 /// Everything not declared through `#[armonik(...)]` is inferred from the
 /// descriptor.
-///
-/// ## message
-///
-/// `message = "full.proto.Name"`, on the type: the proto message the type
-/// stands for, validated field by field. Repeatable when one Rust type stands
-/// for several identical messages (unified types), which must agree on every
-/// field.
 ///
 /// ## oneof
 ///
@@ -207,7 +204,7 @@ use syn::DeriveInput;
 /// carrying the member whole.
 ///
 /// ```ignore
-/// #[armonik(message = "armonik.api.grpc.v1.Output")]
+/// #[armonik_macros::message("armonik.api.grpc.v1.Output")]
 /// pub enum Output {
 ///     Invalid,
 ///     #[armonik(present)]
@@ -262,11 +259,12 @@ use syn::DeriveInput;
 ///
 #[proc_macro_attribute]
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let attr = TokenStream2::from(attr);
     expand(input, |input, index, generator| {
-        if no_args(&attr, input, "message", generator) {
+        let Some(names) = proto_names(attr, generator) else {
             return;
-        }
-        let ir = resolve::resolve_message(input, index, generator);
+        };
+        let ir = resolve::resolve_message(input, index, &names, generator);
         // Read before `rewrite` mutates the item: `anchors` has to see the `#[armonik(...)]` keys
         // it points at, which `rewrite` strips.
         generator.emit(item::anchors(input, Kind::Message));
@@ -282,14 +280,17 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// is re-emitted with the proto documentation injected (the enum and each
 /// matched value) and the `#[armonik(...)]` attributes stripped.
 ///
+/// The macro's argument is the full proto name of the enum the type stands for,
+/// or several for a unified type; with [`transparent`](#transparent) it names
+/// the single-field wrapper messages instead, whose tag paths must agree.
+///
 /// proto3 enums are open, so unknown values must round-trip losslessly. The
 /// expansion requires exactly one catch-all tuple variant, whose payload
 /// struct it emits itself:
 ///
 /// ```ignore
-/// #[armonik_macros::enumeration]
+/// #[armonik_macros::enumeration("armonik.api.grpc.v1.task_status.TaskStatus")]
 /// #[derive(Debug, Clone, Copy)]
-/// #[armonik(enum = "armonik.api.grpc.v1.task_status.TaskStatus")]
 /// pub enum TaskStatus {
 ///     Creating,
 ///     Submitted,
@@ -340,12 +341,6 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 ///
 /// # Attributes
 ///
-/// ## enum
-///
-/// `enum = "full.proto.Name"`, on the type: the proto enum the type stands
-/// for. Repeatable when one Rust type stands for several identical enums
-/// (unified types), which must agree on every value.
-///
 /// ## transparent
 ///
 /// `transparent`, on the type: the enum stands for a chain of single-field
@@ -367,23 +362,18 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// }
 /// ```
 ///
-/// ## message
-///
-/// `message = "full.proto.Name"`, on the type, with
-/// [`transparent`](#transparent): the single-field wrapper message standing
-/// for the enum. Repeatable; the wrapper tag paths must agree.
-///
 /// ## rename
 ///
 /// `rename = "FULL_PROTO_VALUE_NAME"`, on a variant: the proto value name when
 /// the prost-style short form does not match.
 #[proc_macro_attribute]
 pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let attr = TokenStream2::from(attr);
     expand(input, |input, index, generator| {
-        if no_args(&attr, input, "enumeration", generator) {
+        let Some(names) = proto_names(attr, generator) else {
             return;
-        }
-        let plan = enumeration::resolve_enumeration(input, index, generator);
+        };
+        let plan = enumeration::resolve_enumeration(input, index, &names, generator);
         generator.emit(item::anchors(input, Kind::Enumeration));
         let wire = enumeration::wire(&plan, generator);
         generator.emit(wire);
@@ -418,24 +408,21 @@ fn expand(
     generator.finish(input.into_token_stream()).into()
 }
 
-/// The two attribute macros take no arguments of their own; everything is spelled in
-/// `#[armonik(...)]` on the item. True (with the error recorded, and nothing else expanded: the
-/// arguments say the grammar was misunderstood, so a second error about the attributes would make
-/// one mistake read as two) when arguments were given.
-fn no_args(
-    attr: &TokenStream,
-    input: &DeriveInput,
-    macro_name: &str,
+/// The proto names the macro was given, or `None` once the malformed argument is recorded.
+///
+/// `None` stops the expansion rather than resolving against no name: the item is re-emitted either
+/// way, and resolving would add "missing the proto message" to a mistake that is already reported.
+fn proto_names(
+    attr: TokenStream2,
     generator: &mut Generator,
-) -> bool {
-    if attr.is_empty() {
-        return false;
+) -> Option<Vec<(proc_macro2::Span, String)>> {
+    match attrs::proto_names(attr) {
+        Ok(names) => Some(names),
+        Err(error) => {
+            generator.record(error);
+            None
+        }
     }
-    generator.error(
-        input.ident.span(),
-        format!("#[armonik_macros::{macro_name}] takes no arguments"),
-    );
-    true
 }
 
 /// Register a proto message name for a type alias, so generic instantiations

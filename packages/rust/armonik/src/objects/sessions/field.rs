@@ -1,8 +1,8 @@
 use super::super::TaskOptionField;
 
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.sessions.SessionRawField")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(transparent, message = "armonik.api.grpc.v1.sessions.SessionRawField")]
+#[armonik(transparent)]
 pub enum RawField {
     SessionId,
     Status,
@@ -20,9 +20,8 @@ pub enum RawField {
     Unknown(UnknownRawField),
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.sessions.SessionField")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.sessions.SessionField")]
 pub enum Field {
     /// No field named. `Raw(RawField::UNSPECIFIED)` says the same thing one level down, but only
     /// this one round-trips as the empty message.

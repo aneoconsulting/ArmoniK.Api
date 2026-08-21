@@ -1,5 +1,5 @@
 error: no field or oneof named `colour` in proto message `fixture.Simple` (available: count, name); use #[armonik(rename = "...")] if the names differ
-  --> tests/ui/unknown_field.rs:12:9
+  --> tests/ui/unknown_field.rs:11:9
    |
-12 |     pub colour: String,
+11 |     pub colour: String,
    |         ^^^^^^

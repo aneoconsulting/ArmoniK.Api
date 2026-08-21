@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.result_status.ResultStatus")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(enum = "armonik.api.grpc.v1.result_status.ResultStatus")]
 pub enum ResultStatus {
     Created,
     Completed,

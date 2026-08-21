@@ -1,6 +1,5 @@
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.InitKeyedDataStream")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.InitKeyedDataStream")]
 pub enum InitKeyedDataStream {
     /// No member set, which an empty `Key` is not.
     #[default]

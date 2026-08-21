@@ -2,9 +2,9 @@
 
 include!("../support/prelude.rs");
 
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Choice")]
 #[derive(Debug)]
-#[armonik(message = "fixture.Choice", oneof = "choise")]
+#[armonik(oneof = "choise")]
 pub enum Choice {
     Text(String),
 }

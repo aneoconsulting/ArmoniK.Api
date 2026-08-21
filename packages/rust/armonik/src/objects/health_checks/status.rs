@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.health_checks.HealthStatusEnum")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(enum = "armonik.api.grpc.v1.health_checks.HealthStatusEnum")]
 pub enum Status {
     Healthy,
     Degraded,

@@ -1,9 +1,8 @@
 use super::super::{TaskOptions, TaskStatus};
 use super::Output;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.TaskSummary")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.tasks.TaskSummary")]
 pub struct Summary {
     #[armonik(rename = "id")]
     pub task_id: String,

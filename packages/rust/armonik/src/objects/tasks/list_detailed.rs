@@ -3,9 +3,8 @@ use super::{filter, Field, Raw, Sort, SummaryField};
 /// Shares its wire form (`ListTasksRequest`) with [`super::list::Request`];
 /// a distinct type keeps the two RPCs' requests distinct (request types are
 /// injective over RPCs).
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.ListTasksRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksRequest")]
 pub struct Request {
     pub filters: filter::Or,
     pub sort: Sort,
@@ -40,9 +39,8 @@ mod tests {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.ListTasksDetailedResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksDetailedResponse")]
 pub struct Response {
     pub tasks: Vec<Raw>,
     pub page: i32,

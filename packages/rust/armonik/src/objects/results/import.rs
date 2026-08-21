@@ -2,18 +2,16 @@ use std::collections::HashMap;
 
 use super::Raw;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.ImportResultsDataRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataRequest")]
 pub struct Request {
     pub session_id: String,
     /// The opaque storage id to import into each result, keyed by result id.
     pub results: HashMap<String, bytes::Bytes>,
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.results.ImportResultsDataResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.results.ImportResultsDataResponse")]
 pub struct Response {
     pub results: Vec<Raw>,
 }

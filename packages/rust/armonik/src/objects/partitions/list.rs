@@ -1,8 +1,7 @@
 use super::{filter, Field, Raw, Sort};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.partitions.ListPartitionsRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.partitions.ListPartitionsRequest")]
 pub struct Request {
     pub filters: filter::Or,
     pub sort: Sort,
@@ -34,9 +33,8 @@ mod tests {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.partitions.ListPartitionsResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.partitions.ListPartitionsResponse")]
 pub struct Response {
     pub partitions: Vec<Raw>,
     pub page: i32,

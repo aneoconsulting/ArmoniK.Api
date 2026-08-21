@@ -1,8 +1,7 @@
 use ::bytes::Bytes;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.DataChunk")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.DataChunk")]
 pub enum DataChunk {
     /// No member set, which a zero-length `Data` chunk is not.
     #[default]

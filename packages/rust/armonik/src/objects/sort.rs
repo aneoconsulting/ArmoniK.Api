@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.sort_direction.SortDirection")]
 #[derive(Debug, Clone, Copy, Default)]
-#[armonik(enum = "armonik.api.grpc.v1.sort_direction.SortDirection")]
 pub enum SortDirection {
     #[default]
     Unspecified,

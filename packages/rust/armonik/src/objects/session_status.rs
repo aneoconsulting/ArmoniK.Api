@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.session_status.SessionStatus")]
 #[derive(Debug, Clone, Copy)]
-#[armonik(enum = "armonik.api.grpc.v1.session_status.SessionStatus")]
 pub enum SessionStatus {
     Running,
     Cancelled,

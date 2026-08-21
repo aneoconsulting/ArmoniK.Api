@@ -3,9 +3,9 @@
 include!("../support/prelude.rs");
 
 // `present` records that a member was set; it needs a bool or an empty message, not a string.
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Choice")]
 #[derive(Debug)]
-#[armonik(message = "fixture.Choice", oneof = "choice")]
+#[armonik(oneof = "choice")]
 pub enum Choice {
     #[armonik(present)]
     Text,

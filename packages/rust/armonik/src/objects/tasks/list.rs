@@ -1,8 +1,7 @@
 use super::{filter, Field, Sort, Summary, SummaryField};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.ListTasksRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksRequest")]
 pub struct Request {
     pub filters: filter::Or,
     pub sort: Sort,
@@ -39,9 +38,8 @@ mod tests {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.ListTasksResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.tasks.ListTasksResponse")]
 pub struct Response {
     pub tasks: Vec<Summary>,
     pub page: i32,

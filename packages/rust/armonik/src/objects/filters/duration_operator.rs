@@ -1,6 +1,5 @@
-#[armonik_macros::enumeration]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.FilterDurationOperator")]
 #[derive(Debug, Clone, Copy, Default)]
-#[armonik(enum = "armonik.api.grpc.v1.FilterDurationOperator")]
 pub enum FilterDurationOperator {
     /// Is equal to the specified duration.
     #[default]

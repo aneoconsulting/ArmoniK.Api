@@ -1,26 +1,23 @@
 //! The `#[armonik(...)]` attribute grammar: parsing, and the per-site scan that decides what
 //! each field or variant accepts.
 //!
-//! Parsed by hand rather than through `parse_nested_meta`, because `enum` is a Rust keyword and
-//! must still be accepted as a key. One collector for every field and variant, with the accepted
-//! keys passed in as [`Allowed`], so a site cannot quietly start tolerating a key by forgetting to
+//! Parsed by hand rather than through `parse_nested_meta`: a key is an identifier, optionally
+//! `= <literal>` whose type the [`AttrItem`] constructor picks, and an unknown one is named back
+//! with the keys that do exist. One collector for every field and variant, with the accepted keys
+//! passed in as [`Allowed`], so a site cannot quietly start tolerating a key by forgetting to
 //! reject it. A scan that fails records into the [`Generator`] and answers `None`, like every other
 //! step: what the site does with that is the site's own. The user-facing grammar documentation lives
 //! on the two macros in `lib.rs`; keep it in sync.
 
-use proc_macro2::Span;
-use syn::parse::{Parse, ParseStream};
+use proc_macro2::{Span, TokenStream};
+use syn::parse::{Parse, ParseStream, Parser};
+use syn::punctuated::Punctuated;
 use syn::{Attribute, LitInt, LitStr, Token};
 
 use crate::generator::Generator;
 
 /// A single `key` or `key = value` entry inside `#[armonik(...)]`.
 pub(crate) enum AttrItem {
-    /// `message = "full.proto.Name"`: proto message backing the type (repeatable for unified types)
-    /// or, on an enum with `transparent`, the single-field wrapper messages.
-    Message(LitStr),
-    /// `enum = "full.proto.Name"`: proto enum backing the type.
-    Enum(LitStr),
     /// `oneof = "name"`: the type is the flattened oneof of that name.
     Oneof(LitStr),
     /// `generic`: no descriptor validation; fields carry explicit `tag`s.
@@ -66,17 +63,10 @@ impl Parse for AttrList {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let mut entries = Vec::new();
         while !input.is_empty() {
-            let (span, key) = if input.peek(Token![enum]) {
-                let token: Token![enum] = input.parse()?;
-                (token.span, "enum".to_owned())
-            } else {
-                let ident: syn::Ident = input.parse()?;
-                (ident.span(), ident.to_string())
-            };
+            let ident: syn::Ident = input.parse()?;
+            let (span, key) = (ident.span(), ident.to_string());
 
             let item = match key.as_str() {
-                "message" => AttrItem::Message(eq_then(input)?),
-                "enum" => AttrItem::Enum(eq_then(input)?),
                 "oneof" => AttrItem::Oneof(eq_then(input)?),
                 "rename" => AttrItem::Rename(eq_then(input)?),
                 "tag" => AttrItem::Tag(eq_then(input)?),
@@ -92,8 +82,8 @@ impl Parse for AttrList {
                         span,
                         format!(
                             "unknown armonik attribute key `{other}` (expected one of: \
-                             message, enum, oneof, rename, tag, with, service, rpc, \
-                             generic, transparent, present, inlined)"
+                             oneof, rename, tag, with, service, rpc, generic, transparent, \
+                             present, inlined)"
                         ),
                     ));
                 }
@@ -107,6 +97,21 @@ impl Parse for AttrList {
         }
         Ok(AttrList(entries))
     }
+}
+
+/// The proto names a macro was given as its argument: `#[armonik_macros::message("a.B")]`, or
+/// several for a unified type standing for identical messages. Empty where the macro was given
+/// none, which only a `generic` type may be, and which resolution reports for itself.
+///
+/// The name is the macro's argument rather than an `#[armonik(...)]` key because it is what the
+/// macro is *for*: every validated expansion needs one, so taking it as an argument is the grammar
+/// saying so, and there is no key to forget.
+pub(crate) fn proto_names(attr: TokenStream) -> syn::Result<Vec<(Span, String)>> {
+    let names = Punctuated::<LitStr, Token![,]>::parse_terminated.parse2(attr)?;
+    Ok(names
+        .into_iter()
+        .map(|name| (name.span(), name.value()))
+        .collect())
 }
 
 /// Collect every entry of every `#[armonik(...)]` attribute in `attrs`.

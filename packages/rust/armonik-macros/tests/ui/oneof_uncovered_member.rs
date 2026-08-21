@@ -3,9 +3,9 @@
 include!("../support/prelude.rs");
 
 // `simple` and `flag` have no variant.
-#[armonik_macros::message]
+#[armonik_macros::message("fixture.Choice")]
 #[derive(Debug)]
-#[armonik(message = "fixture.Choice", oneof = "choice")]
+#[armonik(oneof = "choice")]
 pub enum Choice {
     Text(String),
 }

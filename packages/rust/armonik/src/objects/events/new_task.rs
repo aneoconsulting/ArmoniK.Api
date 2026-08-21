@@ -1,8 +1,7 @@
 use super::super::TaskStatus;
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.events.EventSubscriptionResponse.NewTask")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(message = "armonik.api.grpc.v1.events.EventSubscriptionResponse.NewTask")]
 pub struct NewTask {
     pub task_id: String,
     pub payload_id: String,

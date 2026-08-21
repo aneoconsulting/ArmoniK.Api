@@ -1,8 +1,7 @@
 use super::{filter, Field, Raw, RawField, Sort};
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.sessions.ListSessionsRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.sessions.ListSessionsRequest")]
 pub struct Request {
     pub filters: filter::Or,
     pub sort: Sort,
@@ -37,9 +36,8 @@ mod tests {
     }
 }
 
-#[armonik_macros::message]
+#[armonik_macros::message("armonik.api.grpc.v1.sessions.ListSessionsResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(message = "armonik.api.grpc.v1.sessions.ListSessionsResponse")]
 pub struct Response {
     pub sessions: Vec<Raw>,
     pub page: i32,
