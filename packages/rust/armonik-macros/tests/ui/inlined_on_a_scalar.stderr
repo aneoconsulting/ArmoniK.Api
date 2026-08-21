@@ -1,4 +1,4 @@
-error: inlined absorbs a wrapper or key/value pair message, but `fixture.Choice.text` is String
+error: inlined absorbs a wrapper message, but `fixture.Choice.text` is String
  --> tests/ui/inlined_on_a_scalar.rs:9:15
   |
 9 |     #[armonik(inlined)]

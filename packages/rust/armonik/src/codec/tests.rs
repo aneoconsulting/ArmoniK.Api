@@ -228,20 +228,17 @@ fn a_map_entry_of_defaults_is_written_out() {
     assert_eq!(decoded, values);
 }
 
-/// The `PairMap` delegation must keep rejecting a mis-typed field key: the wire-type check lives in
-/// prost's map codec, and forwarding to it is the whole implementation.
+/// A map entry is a message, so only a length-delimited field is one: the check guards both the
+/// proto `map` fields and the `inlined` repeated pair fields, which share this codec.
 #[test]
-fn pair_map_rejects_non_delimited_wire_type() {
+fn a_map_entry_rejects_a_non_delimited_wire_type() {
     use std::collections::HashMap;
-
-    use super::adapters::PairMap;
-    use super::ProtoAdapter;
 
     let mut buf = Vec::new();
     buf.put_u8(0);
 
     let mut map = HashMap::<String, String>::new();
-    let err = <PairMap as ProtoAdapter<HashMap<String, String>>>::merge_field(
+    let err = <HashMap<String, String> as ProtoField>::merge_field(
         WireType::Varint,
         &mut map,
         &mut buf.as_slice(),

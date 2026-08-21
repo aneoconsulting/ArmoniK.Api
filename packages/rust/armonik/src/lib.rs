@@ -32,6 +32,8 @@ pub(crate) mod utils;
 ///
 /// - `message: Ty, "proto.Name", ...`: a Rust type implementing the messages;
 /// - `absorbed: "proto.Name", ...`: a message flattened into a parent, no type;
+/// - `absorbed_if_map: "proto.Name" => Ty, ...`: the same claim where the Rust type settles it, for
+///   a repeated key/value pair message, absorbed exactly where `Ty` is the map form;
 /// - `unexposed: "proto.Name", ...`: a message of an RPC the crate does not expose, no type either,
 ///   emitted by `service!` from `unexposed(...)`.
 macro_rules! register {
@@ -39,7 +41,15 @@ macro_rules! register {
         $($crate::register!(@type $proto, $ty);)+
     };
     (absorbed: $($proto:literal),+ $(,)?) => {
-        $($crate::register!(@untyped $proto, Absorbed);)+
+        $($crate::register!(@absorbed $proto, true);)+
+    };
+    (absorbed_if_map: $($proto:literal => $ty:ty),+ $(,)?) => {
+        $($crate::register!(
+            @absorbed $proto,
+            <$ty as $crate::codec::ProtoField>::SHAPE
+                .cardinality
+                .same($crate::codec::Cardinality::Map)
+        );)+
     };
     (unexposed: $($proto:literal),+ $(,)?) => {
         $($crate::register!(@untyped $proto, Unexposed);)+
@@ -70,6 +80,21 @@ macro_rules! register {
                 $crate::differential::registrations::Rpc {
                     service: $service,
                     method: $method,
+                };
+        };
+    };
+
+    // One registration for a message a parent swallows, `when` saying whether it did: `true`
+    // where the descriptor settles it, and the map-ness of the carrying type where that is what
+    // decides, which is a const because the shape assert reads the same one.
+    (@absorbed $proto:literal, $when:expr) => {
+        #[cfg(test)]
+        const _: () = {
+            #[::linkme::distributed_slice($crate::differential::registrations::REGISTRY)]
+            static R: $crate::differential::registrations::Registration =
+                $crate::differential::registrations::Registration {
+                    proto: $proto,
+                    role: $crate::differential::registrations::Role::Absorbed { when: $when },
                 };
         };
     };

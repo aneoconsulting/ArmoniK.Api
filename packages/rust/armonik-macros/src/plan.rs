@@ -37,9 +37,9 @@ pub(crate) struct Ir {
     pub(crate) fragment_of: Option<String>,
     /// Leading comment of the proto message, for the re-emitted item.
     pub(crate) docs: Vec<String>,
-    /// Proto messages `inlined` swallowed into this type (a wrapper or pair layer around a field,
-    /// an inlined variant's member message), so they have no Rust type of their own.
-    pub(crate) absorbs: Vec<String>,
+    /// Proto messages this type swallowed (a wrapper layer around a field, an inlined variant's
+    /// member message, a repeated pair carried as a map), so they have no Rust type of their own.
+    pub(crate) absorbs: Vec<Absorbed>,
     /// `#[armonik(generic)]`: no descriptor was read, the tags are authoritative, and the
     /// `GenericFields` table is emitted so every `#[armonik_macros::alias]` instantiation can
     /// assert the fields against the message it registers under.
@@ -131,15 +131,50 @@ pub(crate) enum SlotCodec {
     Poisoned,
 }
 
-/// What the descriptor says a checked field is: the shape assert is emitted straight from this, in
-/// the descriptor's own vocabulary.
+/// A proto message an expansion swallows, so no Rust type of its own stands for it, and what makes
+/// that true.
 ///
-/// The descriptor's vocabulary, not the codec's: what a Rust type is allowed to be for it (a
-/// singular message field may be `Option`; a map checks its key and value kinds) is an emission
-/// rule, so it lives with the emitter.
+/// `when` is the field type whose `SHAPE` settles it, for the one claim the descriptor cannot make
+/// alone: a repeated key/value pair message is absorbed exactly where the Rust type carrying it is a
+/// map, which is the same const the shape assert reads. `None` where the descriptor does settle it:
+/// an `inlined` wrapper, an inlined variant's member message, a transparent chain's middle wrapper.
+#[derive(Clone)]
+pub(crate) struct Absorbed {
+    pub(crate) name: String,
+    pub(crate) when: Option<syn::Type>,
+}
+
+impl Absorbed {
+    /// A message the descriptor proves has no Rust type here.
+    pub(crate) fn always(name: String) -> Self {
+        Self { name, when: None }
+    }
+
+    /// A pair message, absorbed if `ty` turns out to be the map form rather than a list of pairs.
+    pub(crate) fn if_map(name: String, ty: syn::Type) -> Self {
+        Self {
+            name,
+            when: Some(ty),
+        }
+    }
+}
+
+/// One shape the descriptor allows a checked field's Rust type to have: the shape assert is
+/// emitted straight from this, in the descriptor's own vocabulary. A field may allow several (see
+/// [`Slot::checks`]), and the assert accepts any of them.
+///
+/// The descriptor's vocabulary, not the codec's, and the latitude splits along it: how many shapes
+/// a field allows is read off the descriptor, so resolution builds the list; what counts as one of
+/// them (a singular message field may be `Option`) is an emission rule, so it lives with the
+/// emitter.
 pub(crate) struct Expectation {
     pub(crate) kind: FieldKind,
     pub(crate) cardinality: Cardinality,
+    /// A map's key and value, each an expectation in its own right, so the check on them is the
+    /// same one every other field gets: kind, name *and* cardinality. Their kinds also sit in
+    /// `cardinality`, which is the descriptor's own way of saying what a map is made of; this is
+    /// what the Rust type is held to.
+    pub(crate) map: Option<(Box<Expectation>, Box<Expectation>)>,
 }
 
 impl Expectation {
@@ -150,6 +185,40 @@ impl Expectation {
         Self {
             kind: field.kind.clone(),
             cardinality: field.cardinality.clone(),
+            // A proto `map` compiles to an entry message whose two fields are both singular, so
+            // that is what its key and value are held to.
+            map: match &field.cardinality {
+                Cardinality::Map { key, value } => Some((
+                    Box::new(Expectation::singular(key.clone())),
+                    Box::new(Expectation::singular(value.clone())),
+                )),
+                _ => None,
+            },
+        }
+    }
+
+    /// The expectation for a singular field of `kind`: what a map entry's key and value are.
+    pub(crate) fn singular(kind: FieldKind) -> Self {
+        Self {
+            kind,
+            cardinality: Cardinality::Singular,
+            map: None,
+        }
+    }
+
+    /// A repeated key/value pair message held to the map it is the wire form of: the pair's own
+    /// two fields, each checked as itself, so a `repeated` value stays `repeated`.
+    pub(crate) fn pair_map(kind: FieldKind, key: &FieldMeta, value: &FieldMeta) -> Self {
+        Self {
+            cardinality: Cardinality::Map {
+                key: key.kind.clone(),
+                value: value.kind.clone(),
+            },
+            kind,
+            map: Some((
+                Box::new(Expectation::of(key)),
+                Box::new(Expectation::of(value)),
+            )),
         }
     }
 }
@@ -199,7 +268,12 @@ pub(crate) struct Slot {
     /// siblings.
     pub(crate) tag: u32,
     pub(crate) codec: SlotCodec,
-    pub(crate) checks: Option<Expectation>,
+    /// The shapes the Rust type may have, any one of which satisfies the assert. Empty where
+    /// nothing is checked (a `with` adapter, a delegate, a generic field). Two where the
+    /// descriptor field admits two representations: a repeated key/value pair message is the same
+    /// bytes as the map it compiles from, so either is correct, and which one this is is the Rust
+    /// type's answer, not the macro's.
+    pub(crate) checks: Vec<Expectation>,
     /// `TypeName.field_name` of the proto field, for diagnostics.
     pub(crate) proto_path: String,
     /// Leading comment of the proto field, which the re-emitted item carries as `#[doc]`. Empty
@@ -219,7 +293,7 @@ impl Slot {
         access: FieldAccess,
         ty: syn::Type,
         adapter: Option<Box<syn::Type>>,
-        checks: Option<Expectation>,
+        checks: Vec<Expectation>,
     ) -> Self {
         let codec = SlotCodec::Field {
             ty: Box::new(ty),
@@ -260,7 +334,7 @@ impl Slot {
             at: At::unanchored(span),
             tag: u32::MAX,
             codec: SlotCodec::Poisoned,
-            checks: None,
+            checks: Vec::new(),
             proto_path: String::new(),
             docs: Vec::new(),
         }
@@ -321,7 +395,7 @@ pub(crate) struct EnumPlan {
     pub(crate) fingerprint: u64,
     /// Intermediate wrapper messages the transparent chain flattens away, so they have no Rust type
     /// of their own.
-    pub(crate) absorbs: Vec<String>,
+    pub(crate) absorbs: Vec<Absorbed>,
 }
 
 /// The catch-all tuple variant and the payload struct the expansion emits for it.

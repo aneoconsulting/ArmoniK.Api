@@ -8,6 +8,5 @@ use super::TaskStatus;
 pub struct Count {
     /// Number of tasks per status, from the repeated `StatusCount` pairs
     /// (duplicate statuses collapse, last wins).
-    #[armonik(inlined)]
     pub values: HashMap<TaskStatus, i32>,
 }
