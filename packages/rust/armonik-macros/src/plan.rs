@@ -24,6 +24,8 @@ use crate::descriptor::{Cardinality, FieldKind, FieldMeta};
 /// One message-shaped expansion: what every shape of `#[armonik_macros::message]` resolves to, and
 /// the wire half of a transparent enumeration.
 pub(crate) struct Ir {
+    /// The type's name, as the emitter writes it in the impl headers and the registry call; see
+    /// [`respan`]. The re-emitted item carries the user's own token.
     pub(crate) ident: syn::Ident,
     pub(crate) generics: syn::Generics,
     pub(crate) fingerprint: u64,
@@ -60,15 +62,46 @@ pub(crate) struct Discr {
 /// One named variant and the member slot it owns beyond the shared fields.
 pub(crate) struct Arm {
     pub(crate) ident: syn::Ident,
-    /// What the arm carries. Its `span` is the variant's, which is where a shape assert about the
-    /// member points. Its `access` says how: a named field of a struct variant, the single element
-    /// of a tuple variant, or nothing for a `present` marker.
+    /// What the arm carries. Its [`At`] is the variant's: a diagnostic about the member points at
+    /// the variant's name, an assert about it at the variant's delimiter. Its `access` says how the
+    /// value is reached: a named field of a struct variant, the single element of a tuple variant,
+    /// or nothing for a `present` marker.
     pub(crate) own: Slot,
 }
 
 pub(crate) enum FieldAccess {
     Named(syn::Ident),
     Indexed(syn::Index),
+}
+
+impl FieldAccess {
+    /// A named field, reached through the emitter's own copy of the name; see [`respan`].
+    pub(crate) fn named(ident: &syn::Ident) -> Self {
+        Self::Named(respan(ident))
+    }
+}
+
+/// The emitter's copy of a name the user wrote: a field it reads as `self.field`, a variant it
+/// matches as `Self::Variant`, a name a pattern binds. Respanned onto the macro, because the
+/// re-emitted item carries the user's own tokens, so the declaration is where an IDE finds the
+/// field or the variant; a use still spanned onto it stacks a second entry on the first. Names
+/// resolve nominally, so the span carries nothing else here.
+///
+/// A name the expansion *defines* goes through [`anchored`] instead.
+pub(crate) fn respan(ident: &syn::Ident) -> syn::Ident {
+    anchored(ident, Span::call_site())
+}
+
+/// The same, anchored on a token of the user's choosing rather than on the macro: for a name the
+/// expansion *defines*, a catch-all's payload struct, whose only mention in the source is the use
+/// of it inside `Unknown(UnknownX)`. Leaving the definition on that token would show the struct
+/// twice under one hover, once as the definition and once as the use; anchoring it on the
+/// parenthesis beside the use leaves the name showing the struct once, the way any use of a type
+/// does, while navigation and errors still land on the line that names it.
+pub(crate) fn anchored(ident: &syn::Ident, anchor: Span) -> syn::Ident {
+    let mut ident = ident.clone();
+    ident.set_span(anchor);
+    ident
 }
 
 /// How one [`Slot`] gets on the wire.
@@ -121,6 +154,35 @@ impl Expectation {
     }
 }
 
+/// Where a slot's two kinds of output point.
+///
+/// `name` is the name the user wrote -- the field's, or the variant's for a member it carries --
+/// which is what a diagnostic about it underlines and what a reader hunting for it reads. `code` is
+/// where the emitted asserts are spanned, and it is punctuation --
+/// the field's colon, the delimiter of the variant carrying a member -- because an IDE hovering a
+/// name shows everything an expansion spanned onto that name: an `assert!` there reads as two dozen
+/// entries about `core::panicking` and `crate::codec` stacked under the field. Punctuation is a
+/// token nobody hovers, and rustc renders the field's own line under a failing assert either way.
+#[derive(Clone, Copy)]
+pub(crate) struct At {
+    pub(crate) name: Span,
+    pub(crate) code: Span,
+}
+
+impl At {
+    /// A site with no punctuation to anchor on, or none that is its own: a tuple field, the single
+    /// field of the newtype carrying it; a field of a whole-message enum, replicated across every
+    /// variant, so no one variant is where it is wrong; a poisoned slot, which emits nothing. A
+    /// failing assert points at the invocation there, rather than at the name, which would put the
+    /// expansion back under hover.
+    pub(crate) fn unanchored(name: Span) -> Self {
+        Self {
+            name,
+            code: Span::call_site(),
+        }
+    }
+}
+
 /// One protobuf field, wherever it sits.
 ///
 /// A struct's field, a whole-message enum's non-oneof field (replicated across every variant), the
@@ -131,7 +193,8 @@ pub(crate) struct Slot {
     /// struct variant, the single element of a tuple variant. `None` for a slot that carries no
     /// value at all (a `present` marker, an inlined member whose parts carry their own).
     pub(crate) access: Option<FieldAccess>,
-    pub(crate) span: Span,
+    /// Where this slot's diagnostics and asserts point; see [`At`].
+    pub(crate) at: At,
     /// Tag of the field, or the lowest routed tag of a delegate, which is what orders it among its
     /// siblings.
     pub(crate) tag: u32,
@@ -152,7 +215,7 @@ impl Slot {
     pub(crate) fn field(
         message: &str,
         meta: &FieldMeta,
-        span: Span,
+        at: At,
         access: FieldAccess,
         ty: syn::Type,
         adapter: Option<Box<syn::Type>>,
@@ -164,7 +227,7 @@ impl Slot {
         };
         Self {
             access: Some(access),
-            span,
+            at,
             tag: meta.tag,
             codec,
             checks,
@@ -189,11 +252,12 @@ impl Slot {
         matches!(self.codec, SlotCodec::Poisoned)
     }
 
-    /// A slot for something the user wrote that resolution could not give a meaning.
+    /// A slot for something the user wrote that resolution could not give a meaning. It has no
+    /// anchor: nothing is emitted for it to anchor, and the recorded error is what points at it.
     pub(crate) fn poisoned(span: Span) -> Self {
         Self {
             access: None,
-            span,
+            at: At::unanchored(span),
             tag: u32::MAX,
             codec: SlotCodec::Poisoned,
             checks: None,
@@ -225,6 +289,7 @@ pub(crate) struct EnumValue {
 
 /// Plan for a protobuf enum (or a transparent single-enum-field wrapper).
 pub(crate) struct EnumPlan {
+    /// The type's name, as the emitter writes it; see [`respan`].
     pub(crate) ident: syn::Ident,
     /// The catch-all variant (`Unknown`) and its payload struct, which the expansion emits.
     /// `None` when the enum failed to declare one: the items that need its names are then skipped
@@ -262,6 +327,7 @@ pub(crate) struct EnumPlan {
 /// The catch-all tuple variant and the payload struct the expansion emits for it.
 pub(crate) struct CatchAll {
     pub(crate) variant: syn::Ident,
+    /// Anchored beside the use the user wrote, not on it; see [`anchored`].
     pub(crate) payload: syn::Ident,
 }
 
@@ -270,7 +336,7 @@ impl EnumPlan {
     /// match over the enum needs an arm for it.
     pub(crate) fn poison(&mut self, ident: &syn::Ident, payload: Option<syn::Ident>) {
         self.poisoned.push(PoisonedValue {
-            ident: ident.clone(),
+            ident: respan(ident),
             payload,
         });
     }

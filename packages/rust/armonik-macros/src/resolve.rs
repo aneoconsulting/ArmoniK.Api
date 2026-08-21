@@ -15,7 +15,7 @@ use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, FieldAttrs};
 use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta, MessageMeta};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
-use crate::plan::{Arm, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
+use crate::plan::{respan, Arm, At, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 
 /// Pick the shape `#[armonik_macros::message]` is standing for and resolve it. Total: whatever
 /// failed is recorded and the plan degrades (poisoned slots, or a fully poisoned plan when the
@@ -99,7 +99,7 @@ pub(crate) fn resolve_message(
 /// The discriminant-less [`Ir`] every struct shape shares.
 fn struct_ir(input: &syn::DeriveInput, fingerprint: u64, shared: Vec<Slot>) -> Ir {
     Ir {
-        ident: input.ident.clone(),
+        ident: respan(&input.ident),
         generics: input.generics.clone(),
         fingerprint,
         names: Vec::new(),
@@ -232,7 +232,7 @@ fn plain_ir(
     let mut matcher = Matcher::new(name, meta);
 
     for (field_index, field) in data.fields.iter().enumerate() {
-        let (span, access) = field_access(field, field_index);
+        let (at, access) = field_access(field, field_index);
         let Some(ProtoFieldAttrs {
             rename,
             with,
@@ -243,7 +243,7 @@ fn plain_ir(
             generator,
         )
         else {
-            fields.push(Slot::poisoned(span));
+            fields.push(Slot::poisoned(at.name));
             continue;
         };
 
@@ -252,16 +252,16 @@ fn plain_ir(
             (None, Some(ident)) => unraw(ident),
             (None, None) => {
                 generator.error(
-                    span,
+                    at.name,
                     "tuple struct fields need #[armonik(rename = \"proto_field_name\")]",
                 );
-                fields.push(Slot::poisoned(span));
+                fields.push(Slot::poisoned(at.name));
                 continue;
             }
         };
 
-        let Some(resolved) = matcher.find(&proto_name, span, generator) else {
-            fields.push(Slot::poisoned(span));
+        let Some(resolved) = matcher.find(&proto_name, at.name, generator) else {
+            fields.push(Slot::poisoned(at.name));
             continue;
         };
 
@@ -270,15 +270,15 @@ fn plain_ir(
             Found::Oneof { tags } => {
                 if with.is_some() || inlined.is_some() {
                     generator.error(
-                        span,
+                        at.name,
                         "with/inlined/tag attributes are not supported on oneof fields",
                     );
-                    fields.push(Slot::poisoned(span));
+                    fields.push(Slot::poisoned(at.name));
                     continue;
                 }
                 fields.push(Slot {
                     access: Some(access),
-                    span,
+                    at,
                     tag: tags.iter().copied().min().unwrap_or_default(),
                     codec: SlotCodec::Delegate {
                         ty: Box::new(field.ty.clone()),
@@ -304,13 +304,13 @@ fn plain_ir(
                         )
                     })
                 else {
-                    fields.push(Slot::poisoned(span));
+                    fields.push(Slot::poisoned(at.name));
                     continue;
                 };
                 fields.push(Slot::field(
                     name,
                     field_meta,
-                    span,
+                    at,
                     access,
                     field.ty.clone(),
                     adapter,
@@ -395,10 +395,10 @@ fn transparent_ir(
         // would just move the confusion into the emitted assert.
         return poisoned_ir(input, index, names);
     }
-    let (_, access) = field_access(field, 0);
+    let (at, access) = field_access(field, 0);
     let delegate = Slot {
         access: Some(access),
-        span: field.ty.span(),
+        at,
         tag: 0,
         codec: SlotCodec::Delegate {
             ty: Box::new(field.ty.clone()),
@@ -429,7 +429,7 @@ fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut
 
     let mut fields = Vec::new();
     for (field_index, field) in data.fields.iter().enumerate() {
-        let (span, access) = field_access(field, field_index);
+        let (at, access) = field_access(field, field_index);
         // No `with`: the only check a generic type gets is the field-shape comparison at each
         // `#[armonik_macros::alias]`, which reads `ProtoField::SHAPE` per field. An adapter has no
         // shape to report -- it exists because the Rust representation is deliberately not the
@@ -443,15 +443,15 @@ fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut
             "generic-mode fields only take tag = ...",
             generator,
         ) else {
-            fields.push(Slot::poisoned(span));
+            fields.push(Slot::poisoned(at.name));
             continue;
         };
         let Some((_, tag)) = tag else {
             generator.error(
-                span,
+                at.name,
                 "generic-mode fields need an explicit #[armonik(tag = ...)]",
             );
-            fields.push(Slot::poisoned(span));
+            fields.push(Slot::poisoned(at.name));
             continue;
         };
 
@@ -462,7 +462,7 @@ fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut
             .unwrap_or_else(|| field_index.to_string());
         fields.push(Slot {
             access: Some(access),
-            span,
+            at,
             tag,
             codec: SlotCodec::Field {
                 ty: Box::new(field.ty.clone()),
@@ -482,18 +482,39 @@ fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut
     }
 }
 
-/// Span and access path of a struct field (named, or by position).
-fn field_access(field: &syn::Field, index: usize) -> (Span, FieldAccess) {
-    let span = field
-        .ident
-        .as_ref()
-        .map(|ident| ident.span())
-        .unwrap_or_else(|| field.ty.span());
-    let access = match &field.ident {
-        Some(ident) => FieldAccess::Named(ident.clone()),
-        None => FieldAccess::Indexed(syn::Index::from(index)),
-    };
-    (span, access)
+/// Where a struct field's expansion points, and how its value is reached (by name, or by position).
+///
+/// A named field is written `name: ty`, so the colon is what its asserts anchor on; syn models that
+/// colon as optional, and a field without one anchors like a tuple field, which has no punctuation
+/// of its own and is the single field of the `transparent` newtype or renamed tuple struct carrying
+/// it: unanchored.
+fn field_access(field: &syn::Field, index: usize) -> (At, FieldAccess) {
+    match &field.ident {
+        Some(ident) => (
+            At {
+                name: ident.span(),
+                code: field
+                    .colon_token
+                    .map_or_else(Span::call_site, |colon| colon.span()),
+            },
+            FieldAccess::named(ident),
+        ),
+        None => (
+            At::unanchored(field.ty.span()),
+            FieldAccess::Indexed(syn::Index::from(index)),
+        ),
+    }
+}
+
+/// The anchor for what a variant's member emits, its inlined parts included (see [`At`]): the
+/// delimiter around the variant's fields, punctuation on the variant's own line. A unit variant
+/// carries a `present` marker, which has no Rust type and so asserts nothing.
+fn variant_code(variant: &syn::Variant) -> Span {
+    match &variant.fields {
+        syn::Fields::Named(fields) => fields.brace_token.span.open(),
+        syn::Fields::Unnamed(fields) => fields.paren_token.span.open(),
+        syn::Fields::Unit => Span::call_site(),
+    }
 }
 
 // ---- Oneof-shaped enums ----
@@ -615,8 +636,8 @@ impl<'a> Siblings<'a> {
                 Some(Slot::field(
                     proto_name,
                     meta,
-                    ident.span(),
-                    FieldAccess::Named(ident),
+                    At::unanchored(ident.span()),
+                    FieldAccess::named(&ident),
                     ty,
                     None,
                     Some(Expectation::of(meta)),
@@ -1087,7 +1108,7 @@ fn resolve_variant(
                             return None;
                         };
                         Some((
-                            Some(FieldAccess::Named(member.ident)),
+                            Some(FieldAccess::named(&member.ident)),
                             SlotCodec::Field {
                                 ty: Box::new(member.ty),
                                 adapter,
@@ -1224,8 +1245,11 @@ fn resolve_inlined_member(
         parts.push(Slot::field(
             inner_name,
             part_meta,
-            leftover.span,
-            FieldAccess::Named(leftover.ident),
+            At {
+                name: leftover.span,
+                code: variant_code(ctx.variant),
+            },
+            FieldAccess::named(&leftover.ident),
             leftover.ty,
             None,
             Some(Expectation::of(part_meta)),
@@ -1391,7 +1415,7 @@ fn resolve_one_variant(
     let poisoned = |position| VariantOutcome::Member {
         position,
         arm: Box::new(Arm {
-            ident: variant.ident.clone(),
+            ident: respan(&variant.ident),
             own: Slot::poisoned(span),
         }),
     };
@@ -1507,10 +1531,13 @@ fn resolve_one_variant(
     VariantOutcome::Member {
         position: Some(position),
         arm: Box::new(Arm {
-            ident: variant.ident.clone(),
+            ident: respan(&variant.ident),
             own: Slot {
                 access,
-                span,
+                at: At {
+                    name: span,
+                    code: variant_code(variant),
+                },
                 tag: field_meta.tag,
                 codec,
                 checks,
@@ -1575,7 +1602,9 @@ fn oneof_ir(
             }
             // At most one of them, which is a fact about the enum rather than about any one
             // variant, so it is checked here rather than by the resolver.
-            VariantOutcome::NoMemberSet if default_arm.replace(variant.ident.clone()).is_some() => {
+            VariantOutcome::NoMemberSet
+                if default_arm.replace(respan(&variant.ident)).is_some() =>
+            {
                 generator.error(
                     variant.ident.span(),
                     "at most one attribute-less variant (the \"no member set\" case) is allowed",
@@ -1607,7 +1636,7 @@ fn oneof_ir(
     // Poisoned arms carry no tag and sort last, in declaration order.
     arms.sort_by_key(|arm| arm.own.tag);
     Ir {
-        ident: input.ident.clone(),
+        ident: respan(&input.ident),
         generics: input.generics.clone(),
         fingerprint: index.fingerprint,
         fragment_of: (!selected.whole_message)

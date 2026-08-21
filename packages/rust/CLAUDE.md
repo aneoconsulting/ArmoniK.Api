@@ -146,6 +146,14 @@ ps -eo pid=,comm=,args= | awk '$2=="dotnet" && /Mock\.dll/ {print $1}' | xargs -
 - A wire-behaviour change needs a test that pins the direction, not just a
   passing round-trip: the harness compares re-encoded bytes, so a mapping that
   is wrong symmetrically survives it.
+- What an expansion emits is spanned on punctuation, never on a name the user
+  wrote: hovering a name in an IDE shows everything an expansion spanned onto it,
+  so an `assert!` at a field's name reads as two dozen entries about
+  `core::panicking` stacked under the field. A field's colon, a variant's
+  delimiter, an alias's `=`, the parenthesis or arrow of an `rpc` line: each puts
+  a failing assert on the right line and is a token nobody hovers. Diagnostics
+  are the opposite -- they point at the name, and the compile-fail snapshots pin
+  that. `plan::At` carries the two per slot.
 
 ## Simplifying
 
