@@ -263,6 +263,7 @@ std::vector<std::string> armonik::api::worker::TaskHandler::get_result_ids(
 
   *request.mutable_results() = {results.begin(), results.end()};
   request.set_session_id(session_id_);
+  request.set_communication_token(token_);
 
   Status status = stub_.CreateResultsMetaData(&context_client_writer, request, &reply);
   if (!status.ok()) {
