@@ -160,6 +160,14 @@ pub(crate) const fn shape_matches(shape: &Shape, expect: &Expect) -> bool {
     true
 }
 
+/// Whether `T`'s representation is a map, which is what settles a claim the descriptor cannot: a
+/// repeated key/value pair message has no Rust type of its own exactly where the field carrying it
+/// is a map. Read off the same `SHAPE` the shape assert reads, so one const answers both.
+#[cfg(test)]
+pub(crate) const fn is_map<T: ProtoField>() -> bool {
+    T::SHAPE.cardinality.same(Cardinality::Map)
+}
+
 /// A type that can be encoded and decoded as a single protobuf field.
 ///
 /// `Default` is what decoding seeds a field from (the proto zero value for every armonik type);

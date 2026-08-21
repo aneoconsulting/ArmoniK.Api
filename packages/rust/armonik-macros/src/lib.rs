@@ -271,7 +271,7 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
         // it points at, which `rewrite` strips.
         generator.emit(item::anchors(input, Kind::Message));
         emit::message(&ir, generator);
-        generator.emit(absorbed(&ir.absorbs));
+        generator.emit(emit::absorbed_registrations(&ir.absorbs));
         item::rewrite(input, &ir);
     })
 }
@@ -391,7 +391,7 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
         // `UNSPECIFIED` and `Default`. Called here rather than from anything shared, because only
         // an enumeration has them.
         generator.emit(enumeration::items(&plan));
-        generator.emit(absorbed(&plan.absorbs));
+        generator.emit(emit::absorbed_registrations(&plan.absorbs));
         item::rewrite_enum(input, &plan);
     })
 }
@@ -606,30 +606,6 @@ pub fn client(attr: TokenStream, input: TokenStream) -> TokenStream {
 }
 
 // ---- Shared by the entry points ----
-
-/// Register the proto messages this type swallows, so they have no Rust type of their own and the
-/// differential harness counts them as covered through it.
-///
-/// All off the plan, and all derived: the layer an `inlined` field or member absorbs, a transparent
-/// chain's middle wrappers, an inlined variant's member message, the pair message behind a field
-/// carried as a map. Nothing is spelled at the site, so no entry can name a message the descriptor
-/// no longer has.
-fn absorbed(absorbs: &[plan::Absorbed]) -> TokenStream2 {
-    // A claim is the message plus what settles it, so two fields swallowing one message through
-    // different types are two claims, and the harness counts the message absorbed if either holds.
-    let key = |absorbed: &plan::Absorbed| {
-        let when = absorbed
-            .when
-            .as_ref()
-            .map(|ty| quote::quote!(#ty).to_string())
-            .unwrap_or_default();
-        (absorbed.name.clone(), when)
-    };
-    let mut absorbs = absorbs.to_vec();
-    absorbs.sort_by_key(key);
-    absorbs.dedup_by_key(|absorbed| key(absorbed));
-    emit::absorbed_registrations(&absorbs)
-}
 
 /// `#[armonik_macros::alias("proto.Name")]` on a `type` alias: re-emit the alias and register
 /// `(proto name, Rust path)` the way a derive would, so generic instantiations carrying no
