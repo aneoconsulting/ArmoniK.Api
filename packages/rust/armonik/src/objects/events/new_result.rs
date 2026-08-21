@@ -1,17 +1,9 @@
 use super::super::ResultStatus;
 
-use crate::api::v3;
-
-/// Represents an update to the status of a result.
+#[armonik_macros::message("armonik.api.grpc.v1.events.EventSubscriptionResponse.NewResult")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NewResult {
-    /// The result id.
     pub result_id: String,
-    /// The owner task id.
     pub owner_id: String,
-    /// The result status.
     pub status: ResultStatus,
 }
-
-super::super::impl_convert!(struct NewResult = v3::events::event_subscription_response::NewResult { result_id, owner_id, status = enum status });

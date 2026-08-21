@@ -1,81 +1,23 @@
-use snafu::ResultExt;
+use crate::client::client_method;
+use crate::rpc::services;
 
-use crate::api::v3;
-use crate::worker::{health_check, process};
-use crate::Output;
+/// The Worker gRPC service, called by the agent to run tasks. (The proto documents
+/// the service with nothing at all, so this sentence is the crate's own.)
+pub use crate::rpc::worker::Client as Worker;
 
-use super::GrpcCall;
-
-#[derive(Clone)]
-pub struct Worker<T> {
-    inner: v3::worker::worker_client::WorkerClient<T>,
-}
-
-impl<T> Worker<T>
-where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: v3::worker::worker_client::WorkerClient::new(channel),
-        }
-    }
-
-    pub async fn health_check(&mut self) -> Result<health_check::Response, super::RequestError> {
-        self.call(health_check::Request {}).await
-    }
-
+#[armonik_macros::client]
+#[armonik(service = "armonik.api.grpc.v1.worker.Worker")]
+impl<T: super::Channel> super::ServiceClient<services::Worker, T> {
+    /// Process a task and return its output.
+    #[armonik(rpc = "Process")]
     pub async fn process(
         &mut self,
-        request: process::Request,
-    ) -> Result<Output, super::RequestError> {
+        request: crate::worker::process::Request,
+    ) -> Result<crate::Output, super::RequestError> {
         Ok(self.call(request).await?.output)
     }
 
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
-        &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
-    }
-}
-
-super::impl_call! {
-    Worker {
-        async fn call(self, request: health_check::Request) -> Result<health_check::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .health_check(request),
-                tracing::debug_span!("Worker::health_check")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-
-        async fn call(self, request: process::Request) -> Result<process::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .process(request),
-                tracing::debug_span!("Worker::process")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-    }
+    client_method!(HealthCheck:
+        health_check()
+        -> crate::worker::health_check::Request => crate::worker::health_check::Response);
 }

@@ -228,11 +228,13 @@ jobs:
           fetch-depth: 0
       - uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
         with:
-          tool: protoc,sccache
+          tool: sccache
       - name: Install toolchain
-        if: ${{ !contains(matrix.toolchain, 'nightly') }}
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
         with:
+          # The matrix leg, not a fixed channel: installing stable on the nightly leg made it a
+          # second identical stable run, so the nightly doc and clippy signal did not exist.
+          toolchain: ${{ matrix.toolchain }}
           components: rust-src,rust-docs,rustfmt,clippy
       - name: Build
         run: |
@@ -241,11 +243,105 @@ jobs:
         run: |
           cargo fmt --all --check
       - name: Doc
+        # `--document-private-items`, because a broken intra-doc link in a private item is still a
+        # broken link, and the crates that carry the design prose are mostly private.
         run: |
-          RUSTDOCFLAGS="-Dwarnings" cargo doc --workspace --no-deps
+          RUSTDOCFLAGS="-Dwarnings" cargo doc --workspace --no-deps --all-features \
+            --document-private-items
       - name: Clippy
+        # Two invocations on purpose. `-Dunused-crate-dependencies` is per *target*, and a test
+        # target links its whole package's dev-dependencies, so on `--all-targets` it reports every
+        # dependency that one test file happens not to name: a dozen false positives in
+        # `armonik-transport` alone. So the dependency lint runs over the shipped targets, and
+        # `--all-targets` runs everything else over the tests and benches too, which is where the
+        # unused imports and the bench-only lints live.
         run: |
           cargo clippy --workspace --all-features --no-deps -- -Dwarnings -Dunused-crate-dependencies
+          cargo clippy --workspace --all-features --all-targets --no-deps -- -Dwarnings
+
+  features-rust:
+    name: Check Rust feature configurations
+    # The gate above runs once, with every feature on. That is the one configuration nobody ships:
+    # the four use-case features are alternatives, and a user normally picks exactly one. Each of
+    # these is a configuration someone can actually select, and the crate checks in about three
+    # seconds, so covering them all costs less than the one build above.
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - ''
+          - serde
+          - client
+          - server
+          - agent
+          - worker
+          - client,server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/rust
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@019e22100565643c6890fe3f00da0b63017c1672 # v2
+        with:
+          tool: sccache
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          # `v1` takes the channel as an input, where the `stable` branch defaulted it.
+          toolchain: stable
+          components: clippy
+      - name: Clippy
+        run: |
+          cargo clippy -p armonik --locked --no-default-features --features "${{ matrix.features }}" \
+            --no-deps -- -Dwarnings -Dunused-crate-dependencies
+      - name: Test
+        # Clippy above checks the shipped targets, which do not include `cfg(test)`, so a unit test
+        # that only holds with every feature on passes the gate and fails the first command a
+        # contributor runs. The lib tests are the ones that can depend on the configuration: the
+        # integration suites carry `required-features` and simply do not build here.
+        #
+        # Three legs, not seven: measured, `server` runs exactly the 50 tests `""` does, and `agent`,
+        # `worker` and `client,server` run exactly the 51 that `client` does, while a leg costs about
+        # 3 minutes of CPU because tests share no artifacts with clippy. Add a leg here when a test
+        # is gated on that feature.
+        if: ${{ matrix.features == '' || matrix.features == 'serde' || matrix.features == 'client' }}
+        run: |
+          cargo test -p armonik --locked --no-default-features --features "${{ matrix.features }}" --lib
+
+  msrv-rust:
+    name: Check Rust MSRV
+    # `rust-version` in `[workspace.package]` is a promise to consumers, and this is what checks it.
+    # The shipped targets only: a dev-dependency or a bench is free to need a newer compiler than a
+    # dependent does.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/rust
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+      # No sccache install here: nothing in this repository sets `RUSTC_WRAPPER`, so the other jobs
+      # install it and never use it.
+      # Read from the manifest, because the manifest is the promise: a copy here would also drift
+      # the other way, and a lowered `rust-version` with this gate still on the old compiler is a
+      # promise nothing checks.
+      - name: Read the MSRV
+        id: msrv
+        run: |
+          version=$(sed -n 's/^rust-version = "\(.*\)"$/\1/p' Cargo.toml)
+          [ -n "$version" ] || { echo "no rust-version in [workspace.package]" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - name: Check
+        run: |
+          cargo check --workspace --locked --all-features
 
   lint-js:
     name: Lint JS

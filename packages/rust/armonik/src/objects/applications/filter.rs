@@ -1,45 +1,24 @@
 use super::super::FilterString;
 
-use crate::{api::v3, impl_filter};
+use crate::impl_filter;
 
 impl_filter!(
     Filter[super::Field, Condition]:
-    v3::applications::Filters[
-        v3::applications::FiltersAnd[
-            v3::applications::FilterField,
-            v3::applications::filter_field::ValueCondition
-        ]
+    protos[
+        "armonik.api.grpc.v1.applications.Filters",
+        "armonik.api.grpc.v1.applications.FiltersAnd",
+        "armonik.api.grpc.v1.applications.FilterField"
     ]
 );
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.applications.FilterField")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[armonik(oneof = "value_condition")]
 pub enum Condition {
+    /// No condition. A `FilterField` that names a field but no condition cannot be evaluated;
+    /// reading it as the first condition holding its defaults would filter on something else.
+    #[default]
+    Invalid,
+    #[armonik(rename = "filter_string")]
     String(FilterString),
 }
-
-impl Default for Condition {
-    fn default() -> Self {
-        Self::String(Default::default())
-    }
-}
-
-impl From<Condition> for v3::applications::filter_field::ValueCondition {
-    fn from(value: Condition) -> Self {
-        match value {
-            Condition::String(cond) => Self::FilterString(cond.into()),
-        }
-    }
-}
-
-impl From<v3::applications::filter_field::ValueCondition> for Condition {
-    fn from(value: v3::applications::filter_field::ValueCondition) -> Self {
-        match value {
-            v3::applications::filter_field::ValueCondition::FilterString(cond) => {
-                Self::String(cond.into())
-            }
-        }
-    }
-}
-
-super::super::impl_convert!(req Condition : v3::applications::filter_field::ValueCondition);

@@ -1,47 +1,47 @@
-use crate::api::v3;
+use super::{filter, Field, Raw, Sort};
 
-use super::{filter, Raw, Sort};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.applications.ListApplicationsRequest")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Request {
-    pub page: i32,
-    pub page_size: i32,
     pub filters: filter::Or,
     pub sort: Sort,
+    pub page: i32,
+    pub page_size: i32,
 }
 
-impl Default for Request {
-    fn default() -> Self {
+impl Request {
+    /// A first page of 100 applications, sorted ascending on the application
+    /// name, with no filter. `Default::default()` is the proto zero value, like
+    /// every armonik type, so a page size of 0 and an empty sort naming no
+    /// field at all: this names one.
+    pub fn recommended() -> Self {
         Self {
-            page: 0,
+            sort: Sort::ascending([Field::Name]),
             page_size: 100,
-            filters: Default::default(),
-            sort: Default::default(),
+            ..Default::default()
         }
     }
 }
 
-super::super::impl_convert!(struct Request = v3::applications::ListApplicationsRequest { page, page_size, filters = option filters, sort = option sort });
+#[cfg(test)]
+mod tests {
+    /// See [`crate::tasks::list`]'s counterpart. This one sorts on several fields, so the empty
+    /// list is the shape that names no field, and the zero value is still not one.
+    #[test]
+    fn recommended_names_a_real_sort_field() {
+        let fields = super::Request::recommended().sort.fields;
+        assert!(!fields.is_empty(), "recommended() names a sort field");
+        for field in fields {
+            assert_ne!(i32::from(field), 0);
+        }
+    }
+}
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.applications.ListApplicationsResponse")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Response {
     pub applications: Vec<Raw>,
     pub page: i32,
     pub page_size: i32,
     pub total: i32,
 }
-
-impl Default for Response {
-    fn default() -> Self {
-        Self {
-            applications: Vec::new(),
-            page: 0,
-            page_size: 100,
-            total: 0,
-        }
-    }
-}
-
-super::super::impl_convert!(struct Response = v3::applications::ListApplicationsResponse { list applications, page, page_size, total });

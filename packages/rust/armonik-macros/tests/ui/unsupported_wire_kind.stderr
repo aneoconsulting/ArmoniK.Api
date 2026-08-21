@@ -1,0 +1,5 @@
+error: armonik: proto field `fixture.Unsupported.packed` uses wire kind sfixed32, which the codec does not implement
+  --> tests/ui/unsupported_wire_kind.rs:10:9
+   |
+10 |     pub packed: i32,
+   |         ^^^^^^

@@ -1,35 +1,15 @@
-use crate::api::v3;
-
-/// Request deleting data from results results but keeping metadata.
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.results.DeleteResultsDataRequest")]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Request {
-    /// The session of the results.
     pub session_id: String,
-    /// The ID of the results to delete.
+    #[armonik(rename = "result_id")]
     pub result_ids: Vec<String>,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::results::DeleteResultsDataRequest {
-        session_id,
-        result_ids = result_id,
-    }
-);
-
-/// Response deleting data from results results but keeping metadata.
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.results.DeleteResultsDataResponse")]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Response {
-    /// The session of the results.
     pub session_id: String,
-    /// The ID of the deleted results.
+    #[armonik(rename = "result_id")]
     pub result_ids: Vec<String>,
 }
-
-super::super::impl_convert!(
-    struct Response = v3::results::DeleteResultsDataResponse {
-        session_id,
-        result_ids = result_id,
-    }
-);

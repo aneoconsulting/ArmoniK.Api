@@ -1,0 +1,5 @@
+error: two RPCs would both be named `get`; disambiguate with `as name`
+  --> tests/ui/service_duplicate_handler_name.rs:10:15
+   |
+10 |     rpc Watch(get::Request) -> stream get::Response;
+   |               ^^^

@@ -11,18 +11,15 @@ pub mod get_service_configuration;
 pub mod import;
 pub mod list;
 pub mod upload;
+pub mod watch;
 
-mod field;
-mod raw;
+#[doc(hidden)]
+pub mod field;
+#[doc(hidden)]
+pub mod raw;
 
-pub use field::Field;
+pub use field::{Field, UnknownField};
 pub use raw::Raw;
 
+#[armonik_macros::alias("armonik.api.grpc.v1.results.ListResultsRequest.Sort")]
 pub type Sort = super::Sort<Field>;
-
-super::super::impl_convert!(
-    struct Sort = crate::api::v3::results::list_results_request::Sort {
-        field = option field,
-        direction = enum direction,
-    }
-);

@@ -1,0 +1,38 @@
+[package]
+authors.workspace = true
+description = "Internal derive macros for the armonik crate"
+edition.workspace = true
+# `tests/**` and not just the `.rs` under it: the compile-fail suite needs `tests/fixture.proto`
+# (its schema) and the `tests/ui/*.stderr` snapshots it compares against. Without them the published
+# crate cannot run its only test suite, which is what anyone vendoring a proc macro to audit it
+# before trusting it with their wire format would want to do first.
+include = ["**/*.rs", "Cargo.toml", "LICENSE", "README.md", "tests/**"]
+license.workspace = true
+readme = "README.md"
+name = "armonik-macros"
+repository.workspace = true
+# The one field not inherited: `nr update-versions` rewrites it here, and `armonik` pins it
+# with `=` (see `scripts/versions/_contants.ts`).
+version = "3.29.2-beta-0"
+rust-version.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+prost.workspace = true
+prost-types.workspace = true
+# Descriptor-fingerprint hash; the same crate hashes it in armonik's build
+# script, so the two sides cannot diverge (see `descriptor::index`).
+fnv.workspace = true
+
+[dev-dependencies]
+# The compile-fail suite compiles its own fixture schema, the way `armonik`'s
+# build script compiles the real one. A dev-dependency and not a build script:
+# the fixture is only ever wanted by `tests/ui.rs`, and a build script would
+# make every consumer of this crate build protox to produce it.
+protox = "0.9"
+trybuild.workspace = true

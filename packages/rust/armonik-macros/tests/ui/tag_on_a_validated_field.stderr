@@ -1,0 +1,5 @@
+error: this armonik attribute is not valid on a message field
+ --> tests/ui/tag_on_a_validated_field.rs:9:15
+  |
+9 |     #[armonik(tag = 1)]
+  |               ^^^

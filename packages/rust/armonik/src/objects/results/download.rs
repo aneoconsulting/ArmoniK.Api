@@ -1,32 +1,12 @@
-use crate::api::v3;
-
-/// Request for getting a result.
+#[armonik_macros::message("armonik.api.grpc.v1.results.DownloadResultDataRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
-    /// The session of the result.
     pub session_id: String,
-    /// The ID of the result.
     pub result_id: String,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::results::DownloadResultDataRequest {
-        session_id,
-        result_id,
-    }
-);
-
-/// Response for getting a result.
+#[armonik_macros::message("armonik.api.grpc.v1.results.DownloadResultDataResponse")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
-    /// A chunk of data.
-    pub data_chunk: Vec<u8>,
+    pub data_chunk: bytes::Bytes,
 }
-
-super::super::impl_convert!(
-    struct Response = v3::results::DownloadResultDataResponse {
-        data_chunk,
-    }
-);

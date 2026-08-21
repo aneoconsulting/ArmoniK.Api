@@ -1,0 +1,5 @@
+error: no member named `picture` in oneof `fixture.Choice.choice` (available: flag, hostile, simple, text); use #[armonik(rename = "...")] if the names differ
+  --> tests/ui/oneof_unknown_member.rs:11:5
+   |
+11 |     Picture(String),
+   |     ^^^^^^^

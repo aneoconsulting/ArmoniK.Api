@@ -1,9 +1,7 @@
 use super::super::{Configuration, Output, TaskOptions};
 
-use crate::api::v3;
-
+#[armonik_macros::message("armonik.api.grpc.v1.worker.ProcessRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
     pub communication_token: String,
     pub session_id: String,
@@ -16,28 +14,8 @@ pub struct Request {
     pub configuration: Configuration,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::worker::ProcessRequest {
-        communication_token,
-        session_id,
-        task_id,
-        task_options = option task_options,
-        list expected_output_keys,
-        payload_id,
-        list data_dependencies,
-        data_folder,
-        configuration = option configuration,
-    }
-);
-
+#[armonik_macros::message("armonik.api.grpc.v1.worker.ProcessReply")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {
     pub output: Output,
 }
-
-super::super::impl_convert!(
-    struct Response = v3::worker::ProcessReply {
-        output = option output,
-    }
-);

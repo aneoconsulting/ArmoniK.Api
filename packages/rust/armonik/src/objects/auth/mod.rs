@@ -2,6 +2,7 @@
 
 pub mod current_user;
 
-mod user;
+#[doc(hidden)]
+pub mod user;
 
 pub use user::User;

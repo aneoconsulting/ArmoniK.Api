@@ -3,14 +3,13 @@
 pub mod filter;
 pub mod list;
 
-mod field;
-mod raw;
+#[doc(hidden)]
+pub mod field;
+#[doc(hidden)]
+pub mod raw;
 
-pub use field::Field;
+pub use field::{Field, UnknownField};
 pub use raw::Raw;
 
+#[armonik_macros::alias("armonik.api.grpc.v1.applications.ListApplicationsRequest.Sort")]
 pub type Sort = super::SortMany<Field>;
-
-super::impl_convert!(
-    struct Sort = crate::api::v3::applications::list_applications_request::Sort { direction = enum direction, list fields }
-);

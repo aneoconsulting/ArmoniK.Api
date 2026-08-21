@@ -1,96 +1,140 @@
 use super::super::TaskStatus;
-use crate::utils::IntoCollection;
 
-use crate::api::v3;
-
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Task selector of the filter.
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[armonik(oneof = "ids")]
 pub enum TaskFilterIds {
+    /// No selector. Distinct from `Sessions([])`, which selects the tasks of no session.
+    #[default]
+    Invalid,
+    /// Select the tasks from their session IDs.
+    #[armonik(rename = "session", inlined)]
     Sessions(Vec<String>),
+    /// Select the tasks from their task IDs.
+    #[armonik(rename = "task", inlined)]
     Tasks(Vec<String>),
 }
 
-impl Default for TaskFilterIds {
-    fn default() -> Self {
-        Self::Sessions(Default::default())
-    }
-}
-
-impl From<TaskFilterIds> for v3::submitter::task_filter::Ids {
-    fn from(value: TaskFilterIds) -> Self {
-        match value {
-            TaskFilterIds::Sessions(sessions) => {
-                Self::Session(v3::submitter::task_filter::IdsRequest { ids: sessions })
-            }
-            TaskFilterIds::Tasks(tasks) => {
-                Self::Task(v3::submitter::task_filter::IdsRequest { ids: tasks })
-            }
-        }
-    }
-}
-
-impl From<v3::submitter::task_filter::Ids> for TaskFilterIds {
-    fn from(value: v3::submitter::task_filter::Ids) -> Self {
-        match value {
-            v3::submitter::task_filter::Ids::Session(sessions) => Self::Sessions(sessions.ids),
-            v3::submitter::task_filter::Ids::Task(tasks) => Self::Tasks(tasks.ids),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Status selector of the filter.
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[armonik(oneof = "statuses")]
 pub enum TaskFilterStatuses {
+    /// No selector. Distinct from `Exclude([])`, which is a constraint that happens to be vacuous.
+    #[default]
+    Invalid,
+    /// Select the tasks whose status is one of these.
+    #[armonik(rename = "included", inlined)]
     Include(Vec<TaskStatus>),
+    /// Select the tasks whose status is none of these.
+    #[armonik(rename = "excluded", inlined)]
     Exclude(Vec<TaskStatus>),
 }
 
-impl Default for TaskFilterStatuses {
-    fn default() -> Self {
-        Self::Exclude(Default::default())
-    }
-}
-
-impl From<TaskFilterStatuses> for v3::submitter::task_filter::Statuses {
-    fn from(value: TaskFilterStatuses) -> Self {
-        match value {
-            TaskFilterStatuses::Include(statuses) => {
-                Self::Excluded(v3::submitter::task_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(|status| status as i32).collect(),
-                })
-            }
-            TaskFilterStatuses::Exclude(statuses) => {
-                Self::Included(v3::submitter::task_filter::StatusesRequest {
-                    statuses: statuses.into_iter().map(|status| status as i32).collect(),
-                })
-            }
-        }
-    }
-}
-
-impl From<v3::submitter::task_filter::Statuses> for TaskFilterStatuses {
-    fn from(value: v3::submitter::task_filter::Statuses) -> Self {
-        match value {
-            v3::submitter::task_filter::Statuses::Excluded(statuses) => {
-                Self::Exclude(statuses.statuses.into_collect())
-            }
-            v3::submitter::task_filter::Statuses::Included(statuses) => {
-                Self::Include(statuses.statuses.into_collect())
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct TaskFilter {
     pub ids: TaskFilterIds,
     pub statuses: TaskFilterStatuses,
 }
 
-super::super::impl_convert!(
-    struct TaskFilter = v3::submitter::TaskFilter {
-        ids = option ids,
-        statuses = option statuses,
+#[cfg(test)]
+mod tests {
+    use prost::Message;
+
+    use super::*;
+
+    /// Independent prost-derived reference, with the two oneofs spelled out as optional fields.
+    #[derive(Clone, PartialEq, Message)]
+    struct RefFilter {
+        #[prost(message, optional, tag = "1")]
+        session: Option<RefIds>,
+        #[prost(message, optional, tag = "3")]
+        task: Option<RefIds>,
+        #[prost(message, optional, tag = "4")]
+        included: Option<RefStatuses>,
+        #[prost(message, optional, tag = "5")]
+        excluded: Option<RefStatuses>,
     }
-);
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefIds {
+        #[prost(string, repeated, tag = "1")]
+        ids: Vec<String>,
+    }
+
+    #[derive(Clone, PartialEq, Message)]
+    struct RefStatuses {
+        #[prost(int32, repeated, tag = "1")]
+        statuses: Vec<i32>,
+    }
+
+    fn statuses(status: TaskStatus) -> Option<RefStatuses> {
+        Some(RefStatuses {
+            statuses: vec![i32::from(status)],
+        })
+    }
+
+    /// Each selector variant names its own proto member, in both directions.
+    #[test]
+    fn selectors_bind_their_own_proto_member() {
+        for (ours, theirs) in [
+            (
+                TaskFilterStatuses::Include(vec![TaskStatus::Completed]),
+                RefFilter {
+                    included: statuses(TaskStatus::Completed),
+                    ..Default::default()
+                },
+            ),
+            (
+                TaskFilterStatuses::Exclude(vec![TaskStatus::Cancelled]),
+                RefFilter {
+                    excluded: statuses(TaskStatus::Cancelled),
+                    ..Default::default()
+                },
+            ),
+        ] {
+            let filter = TaskFilter {
+                ids: TaskFilterIds::Tasks(vec![String::from("task-id")]),
+                statuses: ours.clone(),
+            };
+            let expected = RefFilter {
+                task: Some(RefIds {
+                    ids: vec![String::from("task-id")],
+                }),
+                ..theirs.clone()
+            };
+
+            assert_eq!(
+                RefFilter::decode(filter.encode_to_vec().as_slice()).unwrap(),
+                expected
+            );
+            assert_eq!(
+                TaskFilter::decode(expected.encode_to_vec().as_slice()).unwrap(),
+                filter
+            );
+
+            // The id selector too, on the other oneof.
+            let filter = TaskFilter {
+                ids: TaskFilterIds::Sessions(vec![String::from("session-id")]),
+                statuses: ours,
+            };
+            let expected = RefFilter {
+                session: Some(RefIds {
+                    ids: vec![String::from("session-id")],
+                }),
+                ..theirs
+            };
+
+            assert_eq!(
+                RefFilter::decode(filter.encode_to_vec().as_slice()).unwrap(),
+                expected
+            );
+            assert_eq!(
+                TaskFilter::decode(expected.encode_to_vec().as_slice()).unwrap(),
+                filter
+            );
+        }
+    }
+}

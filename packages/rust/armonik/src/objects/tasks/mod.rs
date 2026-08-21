@@ -9,21 +9,19 @@ pub mod list;
 pub mod list_detailed;
 pub mod submit;
 
-mod field;
-mod output;
-mod raw;
-mod summary;
+#[doc(hidden)]
+pub mod field;
+#[doc(hidden)]
+pub mod output;
+#[doc(hidden)]
+pub mod raw;
+#[doc(hidden)]
+pub mod summary;
 
-pub use field::{Field, SummaryField};
+pub use field::{Field, SummaryField, UnknownSummaryField};
 pub use output::Output;
 pub use raw::{Raw, Raw as Task};
 pub use summary::Summary;
 
+#[armonik_macros::alias("armonik.api.grpc.v1.tasks.ListTasksRequest.Sort")]
 pub type Sort = super::Sort<Field>;
-
-super::super::impl_convert!(
-    struct Sort = crate::api::v3::tasks::list_tasks_request::Sort {
-        field = option field,
-        direction = enum direction,
-    }
-);

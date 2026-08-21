@@ -1,0 +1,5 @@
+error: unknown armonik attribute key `mesage` (expected one of: oneof, rename, tag, with, service, rpc, generic, transparent, present, inlined)
+ --> tests/ui/unknown_attribute_key.rs:7:11
+  |
+7 | #[armonik(mesage = "fixture.Simple")]
+  |           ^^^^^^

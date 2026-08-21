@@ -14,36 +14,56 @@ rust-version.workspace = true
 
 [features]
 default = ["client"]
-serde = ["dep:serde", "armonik-transport?/serde"]
+serde = ["dep:serde", "bytes/serde", "armonik-transport?/serde"]
+# Every `CompressionEncoding` variant sits behind one of tonic's compression features, so without
+# one of these the compression knobs on `ServiceClient` and `Router` take an argument that cannot be
+# constructed. Additive, so a dependent can turn tonic's on directly instead; this is the
+# discoverable spelling. Only `gzip`: `zstd` would pull a C build into the lock file for a codec
+# nothing here has asked for, and enabling `tonic/zstd` directly still works.
+gzip = ["tonic/gzip"]
 client = ["_gen-client"]
 server = ["_gen-server"]
 agent = ["_gen-client", "_gen-server"]
 worker = ["_gen-client", "_gen-server"]
-_gen-client = ["tonic/channel", "dep:armonik-transport"]
-_gen-server = ["tonic/server", "tonic/router", "dep:tokio"]
+_gen-client = ["tonic/channel", "dep:armonik-transport", "dep:futures", "dep:snafu", "dep:tonic-prost", "dep:tracing", "dep:tracing-futures"]
+_gen-server = ["tonic/server", "tonic/router", "dep:tokio", "dep:futures", "dep:tonic-prost", "dep:tracing", "dep:tracing-futures"]
 
 [dependencies]
 # TLS, mTLS and the rest of the connection story live in `armonik-transport`; this crate keeps the
-# services and the generated types.
+# services and the generated types (which need `bytes` for zero-copy `bytes::Bytes` fields).
 armonik-transport = { workspace = true, optional = true }
+bytes = "1"
 tonic = { workspace = true, features = ["codegen"] }
-tonic-prost.workspace = true
+tonic-prost = { workspace = true, optional = true }
 prost.workspace = true
 prost-types.workspace = true
-futures.workspace = true
-snafu.workspace = true
-tracing.workspace = true
-tracing-futures = { workspace = true, features = ["futures-03"] }
+futures = { workspace = true, optional = true }
+snafu = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+tracing-futures = { workspace = true, features = ["futures-03"], optional = true }
 tokio = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 
+# The derives and `service!`; version-locked with this crate.
+# The standalone `version` line below is updated by `scripts/update-versions.ts`.
+[dependencies.armonik-macros]
+path = "../armonik-macros"
+version = "=3.29.2-beta-0"
+
 [dev-dependencies]
+criterion.workspace = true
+# The differential harness (`src/differential`), a `cfg(test)` module: each type's
+# round-trip and `Normalize` projection over `prost_reflect::DynamicMessage`,
+# self-registered into a `linkme` distributed slice.
+linkme = "0.3"
+prost-reflect = "0.16"
+# `gzip` so the compression knobs can be *called* whatever features the crate is
+# built with; the library's own `gzip` feature is what a dependent turns on.
+tonic = { workspace = true, features = ["gzip"] }
 # Only the `get_nb_request` test helper needs these: it drives a raw HTTP request through the connector
 # `armonik-transport` builds, to read the mock server's `/calls.json`.
 hyper = { workspace = true, features = ["client", "http1"] }
 hyper-util = { workspace = true, features = ["client", "http1"] }
-eyre.workspace = true
-tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 http-body-util.workspace = true
 serde_json.workspace = true
 serial_test.workspace = true
@@ -57,9 +77,18 @@ tokio = { workspace = true, features = [
   "test-util",
 ] }
 tokio-util.workspace = true
+trybuild.workspace = true
 
 [build-dependencies]
-tonic-prost-build.workspace = true
+protox = "0.9"
+prost.workspace = true
+# Descriptor-fingerprint hash; armonik-macros hashes it with the same crate at
+# expansion time, so the two sides cannot diverge (see build.rs).
+fnv.workspace = true
+
+[[test]]
+name = "ui"
+required-features = ["client"]
 
 [[test]]
 name = "agent"
@@ -78,11 +107,27 @@ name = "events"
 required-features = ["client", "server"]
 
 [[test]]
+name = "health_checks"
+required-features = ["client", "server"]
+
+[[test]]
 name = "partitions"
 required-features = ["client", "server"]
 
 [[test]]
 name = "results"
+required-features = ["client", "server"]
+
+[[test]]
+name = "call_inputs"
+required-features = ["client", "server"]
+
+[[test]]
+name = "server_mounting"
+required-features = ["client", "server"]
+
+[[test]]
+name = "server_socket"
 required-features = ["client", "server"]
 
 [[test]]
@@ -104,3 +149,13 @@ required-features = ["client", "server"]
 [[test]]
 name = "worker"
 required-features = ["agent", "worker"]
+
+[[bench]]
+name = "roundtrip"
+required-features = ["client", "server"]
+harness = false
+
+[[bench]]
+name = "wire"
+required-features = ["client", "server"]
+harness = false
