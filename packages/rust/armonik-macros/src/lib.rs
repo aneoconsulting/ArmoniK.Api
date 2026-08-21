@@ -231,14 +231,23 @@ use syn::DeriveInput;
 /// in a field of its own there.
 ///
 /// **On a field, a tuple variant, or a member payload field**, the field's
-/// message layer, unwrapped. Two layers qualify, told apart by cardinality:
-/// a singular single-field wrapper (`CreationStatusList { repeated
-/// CreationStatus creation_statuses = 1; }` as `Vec<Status>`, through
-/// `Wrapper<Own, N>` with `N` from the descriptor), and a repeated key/value
-/// pair (`IdStatus { string task_id = 1; TaskStatus status = 2; }` as a
-/// `HashMap` through `PairMap`, which drops entry order and collapses
-/// duplicate keys). Either way the Rust type is shape-checked against the
-/// unwrapped form, unlike [`with`](#with), which is trusted.
+/// message layer, unwrapped: a singular single-field wrapper
+/// (`CreationStatusList { repeated CreationStatus creation_statuses = 1; }` as
+/// `Vec<Status>`, through `Wrapper<Own, N>` with `N` from the descriptor). The
+/// Rust type is shape-checked against the unwrapped form, unlike
+/// [`with`](#with), which is trusted.
+///
+/// A *repeated* key/value pair message takes no key at all, because nothing has
+/// to be unwrapped: `map<K, V>` is encoded as `repeated Entry { K key = 1; V
+/// value = 2; }`, so a `HashMap` field already carries those bytes through its
+/// own `ProtoField`. A repeated two-field message at tags 1 and 2 is therefore
+/// shape-checked against *either* representation, `Vec<Entry>` or a map of the
+/// pair's two fields, each checked whole (a `repeated` value stays repeated, and
+/// a key names its enum), and the Rust type is what picks: `IdStatus { string
+/// task_id = 1; TaskStatus status = 2; }` as `HashMap<String, TaskStatus>`,
+/// which drops entry order and collapses duplicate keys. Only that reading
+/// leaves the pair without a Rust type, so only there is it registered as
+/// absorbed.
 ///
 /// ## transparent
 ///
@@ -602,13 +611,24 @@ pub fn client(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// differential harness counts them as covered through it.
 ///
 /// All off the plan, and all derived: the layer an `inlined` field or member absorbs, a transparent
-/// chain's middle wrappers, an inlined variant's member message. Nothing is spelled at the site, so
-/// no entry can name a message the descriptor no longer has.
-fn absorbed(names: &[String]) -> TokenStream2 {
-    let mut names = names.to_vec();
-    names.sort();
-    names.dedup();
-    emit::absorbed_registrations(&names)
+/// chain's middle wrappers, an inlined variant's member message, the pair message behind a field
+/// carried as a map. Nothing is spelled at the site, so no entry can name a message the descriptor
+/// no longer has.
+fn absorbed(absorbs: &[plan::Absorbed]) -> TokenStream2 {
+    // A claim is the message plus what settles it, so two fields swallowing one message through
+    // different types are two claims, and the harness counts the message absorbed if either holds.
+    let key = |absorbed: &plan::Absorbed| {
+        let when = absorbed
+            .when
+            .as_ref()
+            .map(|ty| quote::quote!(#ty).to_string())
+            .unwrap_or_default();
+        (absorbed.name.clone(), when)
+    };
+    let mut absorbs = absorbs.to_vec();
+    absorbs.sort_by_key(key);
+    absorbs.dedup_by_key(|absorbed| key(absorbed));
+    emit::absorbed_registrations(&absorbs)
 }
 
 /// `#[armonik_macros::alias("proto.Name")]` on a `type` alias: re-emit the alias and register

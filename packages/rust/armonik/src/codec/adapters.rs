@@ -2,58 +2,11 @@
 //! differs structurally from their proto counterpart
 //! (`#[armonik(with = "...")]`).
 
-use std::collections::HashMap;
-use std::hash::Hash;
-
 use prost::bytes::{Buf, BufMut};
 use prost::encoding::{self, DecodeContext, WireType};
 use prost::DecodeError;
 
 use super::{ProtoAdapter, ProtoField};
-
-/// `repeated Pair { key = KT; value = VT }` exposed as a `HashMap`.
-///
-/// Entry order is not preserved and duplicate keys collapse (last wins).
-///
-/// The three wire methods are pure forwards to the [`HashMap`] `ProtoField`
-/// implementation and change no bytes: that codec frames entries as tags 1 and
-/// 2, which is what the pair messages use. What the adapter is for is carrying
-/// `normalize_dynamic` and the entry framing; the shape check is the resolver's,
-/// synthesized from the pair's two fields.
-///
-/// Key and value tags are hardcoded rather than parameters: any other pair would need the framing
-/// hand-rolled again, and a `PairMap<KT, VT>` spelling only ever produced unsatisfied-bound errors
-/// pointing into expanded tokens.
-pub(crate) struct PairMap;
-
-impl<K, V> ProtoAdapter<HashMap<K, V>> for PairMap
-where
-    K: ProtoField + Eq + Hash,
-    V: ProtoField,
-{
-    fn encode_field(tag: u32, value: &HashMap<K, V>, buf: &mut impl BufMut) {
-        <HashMap<K, V> as ProtoField>::encode_field(tag, value, buf);
-    }
-
-    fn merge_field(
-        wire_type: WireType,
-        value: &mut HashMap<K, V>,
-        buf: &mut impl Buf,
-        ctx: DecodeContext,
-    ) -> Result<(), DecodeError> {
-        <HashMap<K, V> as ProtoField>::merge_field(wire_type, value, buf, ctx)
-    }
-
-    fn encoded_len_field(tag: u32, value: &HashMap<K, V>) -> usize {
-        <HashMap<K, V> as ProtoField>::encoded_len_field(tag, value)
-    }
-
-    /// The `HashMap` loses entry order and collapses duplicate keys.
-    #[cfg(test)]
-    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
-        crate::differential::fold_pairs_by_tag(message, tag, 1);
-    }
-}
 
 /// `Wrapper { V inner = TAG }` exposed as the bare `V`: one length-delimited
 /// framing layer around the codec `A`, which is how single-field wrapper

@@ -7,10 +7,10 @@
 //! maintaining it.
 //!
 //! Each registration also carries the type's [`Normalize`] projection: the value-level equivalence
-//! classes its Rust representation defines (map adapters losing order and duplicates, presence-only
-//! markers, transparent wrapper chains, the cross-field rules of the hand-written impls). The same
-//! constructs that cause a projection declare it (adapters, attributes, hand-written impls), so the
-//! harness never restates them. What it checks independently is that every field stays
+//! classes its Rust representation defines (a map losing order and duplicates, presence-only
+//! markers, transparent wrapper chains, the cross-field rules of the hand-written impls). Whatever
+//! causes a projection declares it, and each declares its own (a field type's `ProtoField`, an
+//! adapter, an attribute, a hand-written impl), so the harness never restates them. What it checks independently is that every field stays
 //! information-bearing through the quotient (the field-information ratchet) and that round-trips
 //! are lossless up to it.
 //!
@@ -38,7 +38,7 @@ mod rng;
 /// defines: two messages are the same value exactly when their projections match (up to proto3
 /// presence semantics and the canonical-absence fold, which the harness owns).
 ///
-/// Derived types get an implementation generated from the same attributes that shape their codec;
+/// Derived types get an implementation stitched from what shapes their codec, field type included;
 /// hand-written `prost::Message` impls write it by hand next to the codec. Registration requires
 /// it, so a hand-written type cannot forget its projection.
 pub trait Normalize {
@@ -88,9 +88,9 @@ pub fn wrapper_chain(message: &mut DynamicMessage) {
 /// Fold a repeated message field exposed as a `HashMap` keyed by the pair subfield with number
 /// `key_tag`: duplicates collapse (last wins) and order is lost, so entries are sorted by key.
 ///
-/// One caller, `PairMap`, whose key is a subfield of a pair message the proto declares for exactly
-/// that purpose. Keying on a field of the element type instead would need the key located by name,
-/// and would lose entries whenever that field is not unique.
+/// One caller, the `HashMap` codec, whose key is a subfield of a pair message the proto declares
+/// for exactly that purpose. Keying on a field of the element type instead would need the key
+/// located by name, and would lose entries whenever that field is not unique.
 pub fn fold_pairs_by_tag(message: &mut DynamicMessage, tag: u32, key_tag: u32) {
     let Some(field) = message.descriptor().get_field(tag) else {
         return;
@@ -124,7 +124,7 @@ pub fn fold_pairs_by_tag(message: &mut DynamicMessage, tag: u32, key_tag: u32) {
     message.set_field(&field, Value::List(by_key.into_values().collect()));
 }
 
-/// Total order over the pair-key values the adapters accept (`Eq + Hash` scalars); the order itself
+/// Total order over the pair-key values a map field accepts (`Eq + Hash` scalars); the order itself
 /// is arbitrary, it only has to be deterministic on both sides of a round-trip.
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum MapKey {

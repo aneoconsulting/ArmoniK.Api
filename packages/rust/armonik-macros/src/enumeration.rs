@@ -51,7 +51,7 @@ pub(crate) fn resolve_enumeration(
     let mut proto_enums: Vec<(String, &crate::descriptor::EnumMeta)> = Vec::new();
     // Intermediate wrapper messages walked through in transparent mode: they have no Rust type, so
     // they are registered as absorbed.
-    let mut absorbs: Vec<String> = Vec::new();
+    let mut absorbs: Vec<crate::plan::Absorbed> = Vec::new();
     let mode = if transparent {
         if message_names.is_empty() {
             generator.error(
@@ -80,7 +80,7 @@ pub(crate) fn resolve_enumeration(
                     FieldKind::Message(inner) => {
                         // A wrapper layer between the root message and the enum: no Rust type
                         // stands for it.
-                        absorbs.push(inner.clone());
+                        absorbs.push(crate::plan::Absorbed::always(inner.clone()));
                         current = inner.clone();
                     }
                     other => {

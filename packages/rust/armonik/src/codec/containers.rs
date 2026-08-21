@@ -65,7 +65,9 @@ impl<T: ProtoField> ProtoField for Vec<T> {
 }
 
 /// A proto `map<K, V>`, which is a repeated `{ K key = 1; V value = 2; }` entry message on the
-/// wire.
+/// wire, and so also the codec of a field the schema spells that way by hand: the encoding spec
+/// makes the two one wire form, and a repeated pair field is shape-checked against either
+/// representation, this one or `Vec<Pair>`.
 ///
 /// Hand-written rather than delegated to `prost::encoding::hash_map`, for one reason: prost's
 /// version skips a key or value equal to its default, which it needs a `V: PartialEq` bound to
@@ -80,11 +82,13 @@ where
     K: ProtoField + Eq + Hash,
     V: ProtoField,
 {
+    // `names` is empty rather than the value's: what this stands for is checked through `map`,
+    // where the value carries its own names.
     const SHAPE: Shape = Shape {
         kind: FieldKind::Message,
         cardinality: Cardinality::Map,
-        names: V::SHAPE.names,
-        map: Some((K::SHAPE.kind, V::SHAPE.kind)),
+        names: &[],
+        map: Some((&K::SHAPE, &V::SHAPE)),
     };
 
     fn encode_field(tag: u32, value: &Self, buf: &mut impl BufMut) {
@@ -127,6 +131,14 @@ where
                 encoding::key_len(tag) + encoding::encoded_len_varint(entry_len as u64) + entry_len
             })
             .sum()
+    }
+
+    /// Entry order is lost and duplicate keys collapse (last wins). A proto `map` field is already
+    /// a map in the dynamic message, where that happened at decode; an `inlined` repeated pair
+    /// field is a list, and this is where it happens.
+    #[cfg(test)]
+    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
+        crate::differential::fold_pairs_by_tag(message, tag, KEY_TAG);
     }
 }
 

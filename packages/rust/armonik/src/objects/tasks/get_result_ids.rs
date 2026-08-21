@@ -12,6 +12,5 @@ pub struct Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
 pub struct Response {
-    #[armonik(inlined)]
     pub task_results: HashMap<String, Vec<String>>,
 }

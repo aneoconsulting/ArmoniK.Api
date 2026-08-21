@@ -27,7 +27,13 @@ pub(crate) enum Role {
     Message(Hooks),
     /// No Rust type stands for this message: a flattening construct absorbs it into a parent,
     /// through which the harness counts it as covered.
-    Absorbed,
+    ///
+    /// `when` is `false` for a claim the Rust type refuted. A repeated key/value pair message is
+    /// absorbed exactly where the field carrying it is a map, and which of the two shapes a field
+    /// took is the type's answer, given by the same `SHAPE` const the shape assert reads. Recording
+    /// it unconditionally would claim no Rust type stands for a pair that is carried as
+    /// `Vec<Pair>`, which has one.
+    Absorbed { when: bool },
     /// No Rust type stands for this message: it belongs to an RPC the crate deliberately does not
     /// expose (the router answers UNIMPLEMENTED for its path). Registered by `service!` from the
     /// `unexposed(...)` declaration, so this allowlist cannot drift from the RPC one.
@@ -98,9 +104,9 @@ fn collect(role: fn(&Role) -> bool) -> Vec<&'static str> {
     entries
 }
 
-/// The [`Role::Absorbed`] proto names, sorted and de-duplicated.
+/// The [`Role::Absorbed`] proto names whose claim holds, sorted and de-duplicated.
 pub(crate) fn absorbed() -> Vec<&'static str> {
-    collect(|role| matches!(role, Role::Absorbed))
+    collect(|role| matches!(role, Role::Absorbed { when: true }))
 }
 
 /// The [`Role::Unexposed`] proto names, sorted and de-duplicated.

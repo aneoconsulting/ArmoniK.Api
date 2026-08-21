@@ -21,6 +21,5 @@ pub struct Request {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 #[armonik(message = "armonik.api.grpc.v1.Count")]
 pub struct Response {
-    #[armonik(inlined)]
     pub values: HashMap<TaskStatus, i32>,
 }

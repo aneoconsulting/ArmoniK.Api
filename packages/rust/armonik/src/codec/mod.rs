@@ -7,7 +7,7 @@
 //!   and enum. The trait picks the wire representation from the Rust type, while tags and expected
 //!   kinds come from the descriptor at expansion time.
 //! - [`ProtoAdapter`], the escape hatch for fields whose Rust representation differs structurally
-//!   from the proto (a repeated pair message exposed as a `HashMap`).
+//!   from the proto (a wrapper message layer absorbed, a member carried by its presence alone).
 //!
 //! [`ProtoField::SHAPE`] lets one derive-emitted `const` assertion per field check the Rust type
 //! against the descriptor at compile time (see [`shape_matches`]).
@@ -89,8 +89,11 @@ pub(crate) struct Shape {
     /// Full proto type names this Rust type can stand for; empty means unchecked. Containers
     /// propagate the names of their element type.
     pub(crate) names: &'static [&'static str],
-    /// Key/value kinds when `cardinality` is [`Cardinality::Map`].
-    pub(crate) map: Option<(FieldKind, FieldKind)>,
+    /// Key and value shapes when `cardinality` is [`Cardinality::Map`]: each is a field in its
+    /// own right, so a check compares them whole (kind, cardinality and proto name) rather than
+    /// by kind alone. A pair message's value may be `repeated`, which is a shape a kind cannot
+    /// say.
+    pub(crate) map: Option<(&'static Shape, &'static Shape)>,
 }
 
 impl Shape {
@@ -113,7 +116,7 @@ impl Shape {
 
 /// What the descriptor expects of one field, tokenized as a const literal by the derive.
 pub(crate) struct Expect {
-    /// `None` for map fields (their kinds live in `map`).
+    /// `None` for map fields (their key and value live in `map`).
     pub(crate) kind: Option<FieldKind>,
     /// Acceptable cardinalities (e.g. a singular message field may be either `Singular` or
     /// `Optional` in Rust).
@@ -121,7 +124,8 @@ pub(crate) struct Expect {
     /// Expected proto type name for message/enum (element) kinds; a `SHAPE` with empty `names` is
     /// unchecked (scalars, adapters, generics).
     pub(crate) name: Option<&'static str>,
-    pub(crate) map: Option<(FieldKind, FieldKind)>,
+    /// Key and value expectations of a map field, each checked as a field in its own right.
+    pub(crate) map: Option<(&'static Expect, &'static Expect)>,
 }
 
 /// Whether a field type's [`Shape`] satisfies the descriptor's [`Expect`].
@@ -149,7 +153,7 @@ pub(crate) const fn shape_matches(shape: &Shape, expect: &Expect) -> bool {
         let Some((shape_key, shape_value)) = shape.map else {
             return false;
         };
-        if !(shape_key.same(key) && shape_value.same(value)) {
+        if !(shape_matches(shape_key, key) && shape_matches(shape_value, value)) {
             return false;
         }
     }
@@ -195,6 +199,16 @@ pub(crate) trait ProtoField: Default {
         } else {
             Self::encoded_len_field(tag, value)
         }
+    }
+
+    /// Project the field at `tag` of a dynamic message onto the equivalence classes this
+    /// representation defines (for the differential harness; see
+    /// `crate::differential::Normalize`). The default is the identity: a representation that
+    /// mirrors the shape of its proto field loses nothing. [`ProtoAdapter`] has the same hook, for
+    /// a projection the substitution defines rather than the field type.
+    #[cfg(test)]
+    fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
+        let _ = (message, tag);
     }
 
     // Repeated forms, used by `Vec<Self>`. Packable kinds override them with their packed
@@ -407,10 +421,10 @@ pub(crate) trait ProtoAdapter<T> {
     ) -> Result<(), DecodeError>;
     fn encoded_len_field(tag: u32, value: &T) -> usize;
 
-    /// Project the field at `tag` of a dynamic message onto the equivalence classes this adapter's
-    /// Rust representation defines (for the differential harness; see
-    /// `crate::differential::Normalize`). The default is the identity: adapters that only
-    /// restructure the wire representation lose nothing.
+    /// Project the field at `tag` of a dynamic message onto the equivalence classes this adapter
+    /// defines (for the differential harness; see `crate::differential::Normalize`). The default is
+    /// the identity: an adapter that only restructures the wire representation loses nothing. What
+    /// the field *type* loses is its own to declare, through [`ProtoField::normalize_dynamic`].
     #[cfg(test)]
     fn normalize_dynamic(message: &mut ::prost_reflect::DynamicMessage, tag: u32) {
         let _ = (message, tag);

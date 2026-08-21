@@ -38,7 +38,7 @@ pub(crate) enum AttrItem {
     Present,
     /// `inlined`: a proto message layer gets no Rust type of its own; what it contains lives
     /// directly at the site. On a struct variant, the member message's fields spread into the
-    /// variant; on a field or tuple variant, the wrapper or key/value pair layer unwrapped from
+    /// variant; on a field or tuple variant, the wrapper layer unwrapped from
     /// the descriptor (the inner value, or a map).
     Inlined,
     /// `service = "full.proto.Service"`, on a client impl block: the proto service its methods

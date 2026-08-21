@@ -13,7 +13,7 @@ use quote::{quote, quote_spanned};
 
 use crate::descriptor::{Cardinality, FieldKind};
 use crate::generator::Generator;
-use crate::plan::{Arm, At, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
+use crate::plan::{Absorbed, Arm, At, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
 
 /// A field's key in braced syntax: its name, or its position for a tuple variant, whose fields are
 /// named `0`, `1`, ... So one pattern and one constructor serve every variant shape.
@@ -504,7 +504,9 @@ fn kind_description(kind: &FieldKind) -> String {
 /// The cardinalities a Rust type may use for a descriptor cardinality.
 ///
 /// One rule that is not a restatement: a singular *message* field may be either plain in Rust
-/// ("absent reads as default") or `Option` (presence is significant), so both are accepted.
+/// ("absent reads as default") or `Option` (presence is significant), so both are accepted. The
+/// other latitude a field has is a whole second [`Expectation`], which resolution offers and the
+/// assert takes as a disjunction; this one is within a single shape.
 fn cardinalities(expect: &Expectation) -> Vec<(TokenStream, &'static str)> {
     let one = |token, description| vec![(token, description)];
     match &expect.cardinality {
@@ -536,11 +538,11 @@ fn type_name(kind: &FieldKind) -> Option<&str> {
 
 /// Human form of the expected shape, for the assert message.
 fn describe(expect: &Expectation) -> String {
-    if let Cardinality::Map { key, value } = &expect.cardinality {
+    if let Some((key, value)) = &expect.map {
         return format!(
             "a map<{}, {}>",
-            kind_description(key),
-            kind_description(value)
+            entry_description(key),
+            entry_description(value)
         );
     }
     let cards = cardinalities(expect)
@@ -549,6 +551,17 @@ fn describe(expect: &Expectation) -> String {
         .collect::<Vec<_>>()
         .join(" or ");
     format!("{cards} {}", kind_description(&expect.kind))
+}
+
+/// Human form of a map's key or value: its kind, and its cardinality when that is not the singular
+/// a map entry's fields usually are (`map<string, repeated string>` is the pair form of a message
+/// whose value field is repeated, which no proto `map` declaration can spell).
+fn entry_description(expect: &Expectation) -> String {
+    match &expect.cardinality {
+        Cardinality::Singular => kind_description(&expect.kind),
+        // `describe` already reads as "cardinality kind" for everything else.
+        _ => describe(expect),
+    }
 }
 
 /// The `crate::codec::Expect` literal for one descriptor field.
@@ -562,35 +575,31 @@ pub(crate) fn expect_literal(
     proto_path: &str,
     span: proc_macro2::Span,
 ) -> Result<TokenStream, TokenStream> {
-    // A map's own kind is not checked: what it is made of is, through `map`.
-    let is_map = matches!(expect.cardinality, Cardinality::Map { .. });
-    let kind_expr = if is_map {
-        quote!(::core::option::Option::None)
-    } else {
-        match kind_pattern(&expect.kind) {
-            Some(token) => quote!(::core::option::Option::Some(#token)),
-            None => return Err(unsupported_kind_error(&expect.kind, proto_path, span)),
+    // A map's own kind and name are not checked: what it is made of is, through `map`, where the
+    // key and the value are each an `Expect` of their own.
+    let (kind_expr, name_expr) = match &expect.map {
+        Some(_) => (
+            quote!(::core::option::Option::None),
+            quote!(::core::option::Option::None),
+        ),
+        None => {
+            let kind = match kind_pattern(&expect.kind) {
+                Some(token) => quote!(::core::option::Option::Some(#token)),
+                None => return Err(unsupported_kind_error(&expect.kind, proto_path, span)),
+            };
+            let name = match type_name(&expect.kind) {
+                Some(name) => quote!(::core::option::Option::Some(#name)),
+                None => quote!(::core::option::Option::None),
+            };
+            (kind, name)
         }
     };
-    let map_expr = match &expect.cardinality {
-        Cardinality::Map { key, value } => match (kind_pattern(key), kind_pattern(value)) {
-            (Some(key_token), Some(value_token)) => {
-                quote!(::core::option::Option::Some((#key_token, #value_token)))
-            }
-            (key_token, _) => {
-                let unsupported = if key_token.is_none() { key } else { value };
-                return Err(unsupported_kind_error(unsupported, proto_path, span));
-            }
-        },
-        _ => quote!(::core::option::Option::None),
-    };
-    // A map names its *value* type, everything else its own.
-    let named = match &expect.cardinality {
-        Cardinality::Map { value, .. } => type_name(value),
-        _ => type_name(&expect.kind),
-    };
-    let name_expr = match named {
-        Some(name) => quote!(::core::option::Option::Some(#name)),
+    let map_expr = match &expect.map {
+        Some((key, value)) => {
+            let key = expect_literal(key, proto_path, span)?;
+            let value = expect_literal(value, proto_path, span)?;
+            quote!(::core::option::Option::Some((&#key, &#value)))
+        }
         None => quote!(::core::option::Option::None),
     };
     let cards = cardinalities(expect).into_iter().map(|(token, _)| token);
@@ -612,27 +621,36 @@ fn field_asserts_for(
     ty: &syn::Type,
     at: At,
     proto_path: &str,
-    checks: &Option<Expectation>,
+    checks: &[Expectation],
     type_ident: &syn::Ident,
 ) -> TokenStream {
-    let Some(expect) = checks else {
+    if checks.is_empty() {
         return TokenStream::new();
-    };
-    let literal = match expect_literal(expect, proto_path, at.name) {
-        Ok(literal) => literal,
-        Err(error) => return error,
-    };
+    }
+    let mut literals = Vec::new();
+    for expect in checks {
+        match expect_literal(expect, proto_path, at.name) {
+            Ok(literal) => literals.push(literal),
+            Err(error) => return error,
+        }
+    }
     let message = format!(
         "armonik: the Rust type of the field of `{type_ident}` mapping to proto field \
          `{proto_path}` does not have the expected shape ({})",
-        describe(expect),
+        checks
+            .iter()
+            .map(describe)
+            .collect::<Vec<_>>()
+            .join(", or "),
     );
+    // Several shapes are a disjunction: the type answers which representation it is, and the
+    // descriptor only says which answers are correct.
     quote_spanned! {at.code=>
         assert!(
-            crate::codec::shape_matches(
+            #(crate::codec::shape_matches(
                 &<#ty as crate::codec::ProtoField>::SHAPE,
-                &#literal,
-            ),
+                &#literals,
+            ))||*,
             #message
         );
     }
@@ -676,15 +694,31 @@ pub(crate) fn registrations(ident: &syn::Ident, names: &[String]) -> TokenStream
 }
 
 /// Register proto messages an absorbing construct swallows into its parent (an `inlined` field's
-/// wrapper or pair layer, a transparent chain's middle wrappers, an inlined variant's message), so
-/// they have no Rust type of their own and the differential harness counts them as covered through
-/// their parent.
-pub(crate) fn absorbed_registrations(names: &[String]) -> TokenStream {
-    if names.is_empty() {
-        return TokenStream::new();
-    }
+/// wrapper layer, a transparent chain's middle wrappers, an inlined variant's message, a repeated
+/// key/value pair carried as a map), so they have no Rust type of their own and the differential
+/// harness counts them as covered through their parent.
+///
+/// A pair message registers conditionally: whether it is absorbed at all is the field type's
+/// answer, not the descriptor's, so the registration carries the type and reads the same `SHAPE`
+/// const the shape assert does. Otherwise a pair carried as `Vec<Pair>` would claim to have no Rust
+/// type while having one.
+pub(crate) fn absorbed_registrations(absorbs: &[Absorbed]) -> TokenStream {
+    let always = absorbs.iter().filter(|a| a.when.is_none()).map(|a| &a.name);
+    let proven = match always.clone().next() {
+        Some(_) => quote! { crate::register!(absorbed: #(#always),*); },
+        None => TokenStream::new(),
+    };
+    let conditional = absorbs.iter().filter_map(|absorbed| {
+        let (name, ty) = (&absorbed.name, absorbed.when.as_ref()?);
+        Some(quote! { #name => #ty })
+    });
+    let decided = match conditional.clone().next() {
+        Some(_) => quote! { crate::register!(absorbed_if_map: #(#conditional),*); },
+        None => TokenStream::new(),
+    };
     quote! {
-        crate::register!(absorbed: #(#names),*);
+        #proven
+        #decided
     }
 }
 
@@ -937,9 +971,9 @@ fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -> SlotWrite
     match &slot.codec {
         SlotCodec::Field { adapter, .. } => {
             let d = slot_dispatch(slot);
-            // An adapter owns its wire form, deciding for itself what "nothing" looks like, so it is
-            // never asked to leave a zero out: `PairMap` writes an empty map as no entries, and
-            // `ErrorAdapter`'s empty string is what its `Success` *is*.
+            // An adapter owns its wire form, deciding for itself what "nothing" looks like, so it
+            // is never asked to leave a zero out: a `present` marker's whole value is that it is
+            // there, and `ErrorAdapter`'s empty string is what its `Success` *is*.
             let presence = match adapter {
                 Some(_) => Presence::Explicit,
                 None => presence,
@@ -952,10 +986,9 @@ fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -> SlotWrite
             SlotWrite {
                 encode: quote! { #d::#encode(#tag, #value, buf); },
                 len: quote! { #d::#len(#tag, #value) },
-                // A `with` adapter defines its own equivalence classes; it declares them itself.
-                normalize: adapter
-                    .is_some()
-                    .then(|| quote! { #d::normalize_dynamic(message, #tag); }),
+                // The representation defines its own equivalence classes and declares them
+                // itself, whether that is an adapter or the field type's own `ProtoField`.
+                normalize: Some(quote! { #d::normalize_dynamic(message, #tag); }),
             }
         }
         SlotCodec::Delegate { ty, .. } => {

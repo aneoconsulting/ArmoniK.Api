@@ -15,7 +15,9 @@ use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, FieldAttrs};
 use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta, MessageMeta};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
-use crate::plan::{respan, Arm, At, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec};
+use crate::plan::{
+    respan, Absorbed, Arm, At, Discr, Expectation, FieldAccess, Ir, Slot, SlotCodec,
+};
 
 /// Pick the shape `#[armonik_macros::message]` is standing for and resolve it. Total: whatever
 /// failed is recorded and the plan degrades (poisoned slots, or a fully poisoned plan when the
@@ -284,7 +286,7 @@ fn plain_ir(
                         ty: Box::new(field.ty.clone()),
                         tags: Some(tags),
                     },
-                    checks: None,
+                    checks: Vec::new(),
                     proto_path,
                     // A oneof is reached through a Rust field named after the *declaration*, which
                     // carries no comment of its own in the descriptor.
@@ -298,6 +300,7 @@ fn plain_ir(
                             index,
                             field_meta,
                             &proto_path,
+                            &field.ty,
                             payload,
                             &mut absorbs,
                             generator,
@@ -404,7 +407,7 @@ fn transparent_ir(
             ty: Box::new(field.ty.clone()),
             tags: None,
         },
-        checks: None,
+        checks: Vec::new(),
         proto_path: String::new(),
         // The delegate is not matched against the descriptor; the inner type documents itself.
         docs: Vec::new(),
@@ -468,7 +471,7 @@ fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut
                 ty: Box::new(field.ty.clone()),
                 adapter: None,
             },
-            checks: None,
+            checks: Vec::new(),
             proto_path: format!("{}.{field_name}", input.ident),
             // A generic type names no proto message, so there is nothing to harvest.
             docs: Vec::new(),
@@ -626,13 +629,14 @@ impl<'a> Siblings<'a> {
     /// The siblings as the plan's shared slots, in tag order: one per sibling that some variant
     /// bound. A missing binding is only possible when every variant errored, and those errors are
     /// already reported.
-    fn into_slots(self) -> Vec<Slot> {
+    fn into_slots(self, index: &DescriptorIndex, absorbs: &mut Vec<Absorbed>) -> Vec<Slot> {
         let proto_name = self.proto_name;
         let mut slots: Vec<Slot> = self
             .entries
             .into_iter()
             .filter_map(|(meta, binding)| {
                 let (ident, ty) = binding?;
+                let checks = expectations(index, meta, &ty, absorbs);
                 Some(Slot::field(
                     proto_name,
                     meta,
@@ -640,7 +644,7 @@ impl<'a> Siblings<'a> {
                     FieldAccess::named(&ident),
                     ty,
                     None,
-                    Some(Expectation::of(meta)),
+                    checks,
                 ))
             })
             .collect();
@@ -758,26 +762,35 @@ struct Leftover {
 
 /// Unwrap an absorbable message layer from the descriptor: the codec and the expectation the Rust
 /// type is checked against, so an inlined site keeps its shape check, unlike a `with` adapter,
-/// which is trusted. Two layers are descriptor-provable, told apart by the member's cardinality: a
-/// singular single-field wrapper, carried as its inner value (`Wrapper<Own, tag>`), and a repeated
-/// key/value pair (the shape a proto map compiles to), carried as a map (`PairMap`). The absorbed
-/// message may still have a Rust type of its own elsewhere (`StatusCount` does); the two claims
-/// are compatible, since both leave it covered.
+/// which is trusted. One layer is descriptor-provable here, a singular single-field wrapper carried
+/// as its inner value (`Wrapper<Own, tag>`); a repeated key/value pair is absorbed by nothing but
+/// the Rust type being a map, which needs no key (see [`expectations`]). The absorbed message may
+/// still have a Rust type of its own elsewhere (`StatusCount` does); the two claims are compatible,
+/// since both leave it covered.
 fn inlined_codec(
     index: &DescriptorIndex,
     member: &FieldMeta,
     proto_path: &str,
     span: Span,
-    absorbs: &mut Vec<String>,
+    absorbs: &mut Vec<Absorbed>,
     generator: &mut Generator,
-) -> Result<(Option<Box<syn::Type>>, Option<Expectation>), ()> {
+) -> Result<(Option<Box<syn::Type>>, Vec<Expectation>), ()> {
     let FieldKind::Message(inner_name) = &member.kind else {
         generator.error(
             span,
             format!(
-                "inlined absorbs a wrapper or key/value pair message, but `{proto_path}` \
-                 is {:?}",
+                "inlined absorbs a wrapper message, but `{proto_path}` is {:?}",
                 member.kind
+            ),
+        );
+        return Err(());
+    };
+    let Cardinality::Singular = &member.cardinality else {
+        generator.error(
+            span,
+            format!(
+                "inlined does not apply to a {:?} field (`{proto_path}`)",
+                member.cardinality
             ),
         );
         return Err(());
@@ -786,54 +799,55 @@ fn inlined_codec(
         .messages
         .get(inner_name)
         .filter(|inner| inner.oneofs.is_empty());
-    let (adapter, expectation) = match &member.cardinality {
-        Cardinality::Singular => {
-            let Some(field) = MessageMeta::sole_field(inner, inner_name, span, generator) else {
-                return Err(());
-            };
-            let tag = proc_macro2::Literal::u32_unsuffixed(field.tag);
-            let adapter: syn::Type = syn::parse_quote!(
-                crate::codec::adapters::Wrapper<crate::codec::adapters::Own, #tag>
-            );
-            (adapter, Expectation::of(field))
-        }
-        Cardinality::Repeated => {
-            let pair = inner.and_then(|inner| match inner.fields.as_slice() {
-                [key, value] if key.tag == 1 && value.tag == 2 => Some((key, value)),
-                _ => None,
-            });
-            let Some((key, value)) = pair else {
-                generator.error(
-                    span,
-                    format!(
-                        "`{inner_name}` is not a key/value pair message \
-                         (two fields, tags 1 and 2)"
-                    ),
-                );
-                return Err(());
-            };
-            let adapter: syn::Type = syn::parse_quote!(crate::codec::adapters::PairMap);
-            (
-                adapter,
-                Expectation {
-                    kind: member.kind.clone(),
-                    cardinality: Cardinality::Map {
-                        key: key.kind.clone(),
-                        value: value.kind.clone(),
-                    },
-                },
-            )
-        }
-        other => {
-            generator.error(
-                span,
-                format!("inlined does not apply to a {other:?} field (`{proto_path}`)"),
-            );
-            return Err(());
-        }
+    let Some(field) = MessageMeta::sole_field(inner, inner_name, span, generator) else {
+        return Err(());
     };
-    absorbs.push(inner_name.clone());
-    Ok((Some(Box::new(adapter)), Some(expectation)))
+    let tag = proc_macro2::Literal::u32_unsuffixed(field.tag);
+    let adapter: syn::Type = syn::parse_quote!(
+        crate::codec::adapters::Wrapper<crate::codec::adapters::Own, #tag>
+    );
+    absorbs.push(Absorbed::always(inner_name.clone()));
+    Ok((Some(Box::new(adapter)), vec![Expectation::of(field)]))
+}
+
+/// The shapes a Rust type may have for one descriptor field: the field's own, and, for a repeated
+/// key/value pair message, the map that same wire form compiles from (`map<K, V>` *is* `repeated
+/// Entry { K key = 1; V value = 2; }`, per the encoding spec, so a map type carries those bytes
+/// exactly). Both are offered and the const assert picks, so nothing here asks what the Rust type
+/// is: no key says "this one is a map", the type says it.
+///
+/// The absorbed record is claimed the same way, on the same authority: only the map form leaves the
+/// pair with no Rust type, so the claim carries the field type and the registry reads that `SHAPE`
+/// too ([`Absorbed::if_map`]). Claiming it outright would say no Rust type stands for a pair carried
+/// as `Vec<Pair>`, which has one.
+fn expectations(
+    index: &DescriptorIndex,
+    meta: &FieldMeta,
+    ty: &syn::Type,
+    absorbs: &mut Vec<Absorbed>,
+) -> Vec<Expectation> {
+    let mut shapes = vec![Expectation::of(meta)];
+    if let (Cardinality::Repeated, FieldKind::Message(inner_name)) = (&meta.cardinality, &meta.kind)
+    {
+        if let Some((key, value)) = pair_fields(index, inner_name) {
+            shapes.push(Expectation::pair_map(meta.kind.clone(), key, value));
+            absorbs.push(Absorbed::if_map(inner_name.clone(), ty.clone()));
+        }
+    }
+    shapes
+}
+
+/// The key and value of a pair message: exactly two fields, at tags 1 and 2, which is what a proto
+/// `map` entry compiles to. `None` for anything else, oneofs included.
+fn pair_fields<'a>(
+    index: &'a DescriptorIndex,
+    name: &str,
+) -> Option<(&'a FieldMeta, &'a FieldMeta)> {
+    let message = index.messages.get(name).filter(|m| m.oneofs.is_empty())?;
+    match message.fields.as_slice() {
+        [key, value] if key.tag == 1 && value.tag == 2 => Some((key, value)),
+        _ => None,
+    }
 }
 
 /// The codec substitution and shape check of a member carried whole: none (checked against the
@@ -843,13 +857,14 @@ fn payload_codec(
     index: &DescriptorIndex,
     field_meta: &FieldMeta,
     proto_path: &str,
+    ty: &syn::Type,
     payload: Option<Payload>,
-    absorbs: &mut Vec<String>,
+    absorbs: &mut Vec<Absorbed>,
     generator: &mut Generator,
-) -> Result<(Option<Box<syn::Type>>, Option<Expectation>), ()> {
+) -> Result<(Option<Box<syn::Type>>, Vec<Expectation>), ()> {
     match payload {
-        None => Ok((None, Some(Expectation::of(field_meta)))),
-        Some(Payload::Adapter(_, ty)) => Ok((Some(ty), None)),
+        None => Ok((None, expectations(index, field_meta, ty, absorbs))),
+        Some(Payload::Adapter(_, ty)) => Ok((Some(ty), Vec::new())),
         Some(Payload::Inlined(span)) => {
             inlined_codec(index, field_meta, proto_path, span, absorbs, generator)
         }
@@ -963,7 +978,7 @@ struct VariantCtx<'a> {
 ///
 /// `None` once the error(s) that make the variant unresolvable are recorded: the failure is already
 /// in the [`Generator`], so a resolver has nothing to carry back but the absence of a shape.
-type ResolvedShape = Option<(Option<FieldAccess>, SlotCodec, Option<Expectation>)>;
+type ResolvedShape = Option<(Option<FieldAccess>, SlotCodec, Vec<Expectation>)>;
 
 /// Resolve one variant against the oneof member it names.
 ///
@@ -975,7 +990,7 @@ fn resolve_variant(
     carrier: Carrier,
     leftovers: Vec<Leftover>,
     has_siblings: bool,
-    absorbs: &mut Vec<String>,
+    absorbs: &mut Vec<Absorbed>,
     generator: &mut Generator,
 ) -> ResolvedShape {
     match carrier {
@@ -1061,6 +1076,7 @@ fn resolve_variant(
                     ctx.index,
                     ctx.field_meta,
                     ctx.proto_path,
+                    &fields.unnamed[0].ty,
                     payload,
                     absorbs,
                     generator,
@@ -1100,6 +1116,7 @@ fn resolve_variant(
                                 ctx.index,
                                 ctx.field_meta,
                                 ctx.proto_path,
+                                &member.ty,
                                 payload,
                                 absorbs,
                                 generator,
@@ -1186,7 +1203,7 @@ fn resolve_marker_variant(ctx: &VariantCtx, generator: &mut Generator) -> Resolv
             ty: Box::new(syn::parse_quote!(())),
             adapter: Some(Box::new(adapter)),
         },
-        None,
+        Vec::new(),
     ))
 }
 
@@ -1195,7 +1212,7 @@ fn resolve_marker_variant(ctx: &VariantCtx, generator: &mut Generator) -> Resolv
 fn resolve_inlined_member(
     ctx: &VariantCtx,
     leftovers: Vec<Leftover>,
-    absorbs: &mut Vec<String>,
+    absorbs: &mut Vec<Absorbed>,
     generator: &mut Generator,
 ) -> ResolvedShape {
     let FieldKind::Message(inner_name) = &ctx.field_meta.kind else {
@@ -1242,6 +1259,7 @@ fn resolve_inlined_member(
         };
         // Everything about the part is the *member* message's, `inner_name`: looking its field up
         // in the containing message finds nothing, silently.
+        let checks = expectations(ctx.index, part_meta, &leftover.ty, absorbs);
         parts.push(Slot::field(
             inner_name,
             part_meta,
@@ -1252,7 +1270,7 @@ fn resolve_inlined_member(
             FieldAccess::named(&leftover.ident),
             leftover.ty,
             None,
-            Some(Expectation::of(part_meta)),
+            checks,
         ));
     }
     if failed {
@@ -1260,8 +1278,8 @@ fn resolve_inlined_member(
     }
     matcher.check_complete(ctx.span, generator);
     parts.sort_by_key(|part| part.tag);
-    absorbs.push(inner_name.clone());
-    Some((None, SlotCodec::Group { parts }, None))
+    absorbs.push(Absorbed::always(inner_name.clone()));
+    Some((None, SlotCodec::Group { parts }, Vec::new()))
 }
 
 /// Which oneof the enum stands for, and whether it stands for the whole message.
@@ -1408,7 +1426,7 @@ fn resolve_one_variant(
     selected: &Selected<'_>,
     index: &DescriptorIndex,
     siblings: &mut Siblings<'_>,
-    absorbs: &mut Vec<String>,
+    absorbs: &mut Vec<Absorbed>,
     generator: &mut Generator,
 ) -> VariantOutcome {
     let span = variant.ident.span();
@@ -1584,7 +1602,7 @@ fn oneof_ir(
     let mut covered = vec![false; selected.oneof.fields.len()];
     // Messages no Rust type stands for: the ones `inlined` absorbs, spread into a struct variant
     // or unwrapped from around a payload.
-    let mut absorbs: Vec<String> = Vec::new();
+    let mut absorbs: Vec<Absorbed> = Vec::new();
     for variant in &data.variants {
         match resolve_one_variant(
             variant,
@@ -1632,7 +1650,7 @@ fn oneof_ir(
         }
     }
 
-    let shared = siblings.into_slots();
+    let shared = siblings.into_slots(index, &mut absorbs);
     // Poisoned arms carry no tag and sort last, in declaration order.
     arms.sort_by_key(|arm| arm.own.tag);
     Ir {
