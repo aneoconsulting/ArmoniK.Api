@@ -4,9 +4,6 @@ Bindings for the ArmoniK API: ergonomic Rust types implementing `prost::Message`
 directly against the protobuf schema, with no generated intermediate types and no
 conversion layer, plus the gRPC clients and servers speaking them natively.
 
-`armonik/DESIGN.md` is the design record. It is meant to describe what the code
-does now, so a change to the mechanisms below changes it too.
-
 ## Layout
 
 | Crate | Holds |
@@ -145,14 +142,11 @@ ps -eo pid=,comm=,args= | awk '$2=="dotnet" && /Mock\.dll/ {print $1}' | xargs -
 - A wire-behaviour change needs a test that pins the direction, not just a
   passing round-trip: the harness compares re-encoded bytes, so a mapping that
   is wrong symmetrically survives it.
-- Keep `armonik/DESIGN.md` in step with the mechanisms; it is the only place the
-  reasoning behind them is written down.
 
 ## Simplifying
 
 Less is more, and the target is a mechanism general enough to need no special
-cases -- not fewer capabilities. `DESIGN.md` 12.1 records this at length; the
-rules are:
+cases -- not fewer capabilities. The rules are:
 
 - **A degenerate case falls out of the general code.** An empty list
   interpolates to nothing, so the shape carrying none of something is the shape
@@ -174,7 +168,7 @@ rules are:
   express a shape, ask whether ordering or composing differently would, before
   writing a check that rejects it.
 
-Before proposing an architectural alternative, read the four registers of
-rejected options -- `DESIGN.md` Part II 5, 11.2, 12.3 and 13.3. Each entry is
-recorded with the fact that refutes it, so the work is to refute the fact rather
-than to re-derive the option.
+Before proposing an architectural alternative, read the registers of rejected
+options in the pull request that introduced this crate: each entry is recorded
+with the fact that refutes it, so the work is to refute the fact rather than to
+re-derive the option.
