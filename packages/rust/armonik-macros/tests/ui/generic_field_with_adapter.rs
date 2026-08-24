@@ -6,7 +6,6 @@ include!("../support/prelude.rs");
 // shape to compare, so `with` has nowhere to be checked here.
 #[armonik_macros::message]
 #[derive(Debug)]
-#[armonik(generic)]
 pub struct Generic<T> {
     #[armonik(tag = 1, with = "crate::codec::adapters::Own")]
     pub first: T,

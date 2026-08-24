@@ -1,5 +1,0 @@
-error: generic and transparent cannot be combined: transparent flattens a single-field wrapper message into the type, generic skips descriptor validation because a generic type names no proto message, and there is no wrapper to flatten without one
-  --> tests/ui/generic_with_transparent.rs:12:20
-   |
-12 | #[armonik(generic, transparent)]
-   |                    ^^^^^^^^^^^

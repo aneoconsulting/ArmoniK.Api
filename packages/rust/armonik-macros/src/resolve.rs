@@ -45,27 +45,19 @@ pub(crate) fn resolve_message(
     let Some(attrs) = scan::<MessageAttrs>(&input.attrs, generator) else {
         return poisoned_ir(input, index, Vec::new());
     };
-    // Spans, not flags: the two are mutually exclusive and the rejection points at one of them.
-    let generic = flagged(attrs.generic);
     let transparent = flagged(attrs.transparent);
 
-    // Ahead of the dispatch below, so no precedence path skips it: the pair is nonsense whichever
-    // shape would have won, and `oneof = ...` beside it would only hide the answer.
-    if let (Some(_), Some(transparent_span)) = (generic, transparent) {
-        generator.error(
-            transparent_span,
-            "generic and transparent cannot be combined: transparent flattens a single-field \
-             wrapper message into the type, generic skips descriptor validation because a \
-             generic type names no proto message, and there is no wrapper to flatten without one",
-        );
-        return poisoned_ir(input, index, claimed(proto_names));
-    }
+    // A type with parameters and no proto name is generic, which is a fact about the item rather
+    // than a key on it: parameters are exactly what keeps a type from standing for one message
+    // (`plain_ir` and `transparent_ir` say so), so a parameterized type that names none has no
+    // other reading, and one that names one is rejected where it is read.
+    let generic = proto_names.is_empty() && !input.generics.params.is_empty();
 
     // An enum is oneof-shaped: it stands for a whole message with a single oneof, whose non-oneof
     // fields become siblings replicated in every variant. One oneof of a larger message, embedded
     // in the struct that derives it, is the other oneof-shaped thing, and has a macro of its own
     // ([`resolve_oneof`]) because it is a fragment of a message rather than one.
-    if matches!(input.data, syn::Data::Enum(_)) && generic.is_none() {
+    if matches!(input.data, syn::Data::Enum(_)) {
         // Read here rather than dropped: an enum stands for its message's oneof, so there is no
         // single field to delegate to and no key that could say otherwise.
         if let Some(span) = transparent {
@@ -82,19 +74,13 @@ pub(crate) fn resolve_message(
         };
         return oneof_ir(input, index, selected, generator);
     }
-    if generic.is_some() {
-        if !proto_names.is_empty() {
-            generator.error(
-                input.ident.span(),
-                "#[armonik(generic)] types are not validated against the descriptor; \
-                 remove the message attribute",
-            );
-            return poisoned_ir(input, index, Vec::new());
-        }
-        return generic_ir(input, index, generator);
-    }
+    // Ahead of the generic reading: `transparent` names a message, so a type carrying it is not
+    // one that names none, and `transparent_ir` says what is wrong with it in its own words.
     if transparent.is_some() {
         return transparent_ir(input, index, proto_names, generator);
+    }
+    if generic {
+        return generic_ir(input, index, generator);
     }
     plain_ir(input, index, proto_names, generator)
 }
@@ -173,15 +159,15 @@ fn plain_ir(
         generator.error(
             input.ident.span(),
             "missing the proto message this type stands for: \
-             #[armonik_macros::message(\"full.proto.Name\")] \
-             (or #[armonik(generic)] with explicit tags)",
+             #[armonik_macros::message(\"full.proto.Name\")]",
         );
         return poisoned_ir(input, index, Vec::new());
     }
     if !input.generics.params.is_empty() {
         generator.error(
             input.ident.span(),
-            "descriptor-validated types cannot be generic; use #[armonik(generic)]",
+            "descriptor-validated types cannot be generic: a type with parameters stands for \
+             no one proto message, so it takes none, and spells its tags instead",
         );
         return poisoned_ir(input, index, claimed(proto_names));
     }
@@ -409,7 +395,10 @@ fn transparent_ir(
 /// `#[armonik_macros::alias]` sites and the differential harness.
 fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut Generator) -> Ir {
     let syn::Data::Struct(data) = &input.data else {
-        generator.error(input.ident.span(), "#[armonik(generic)] expects a struct");
+        generator.error(
+            input.ident.span(),
+            "a type with parameters and no proto message is generic, which expects a struct",
+        );
         return poisoned_ir(input, index, Vec::new());
     };
 

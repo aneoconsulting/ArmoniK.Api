@@ -30,13 +30,11 @@ pub(crate) fn flagged(flag: Flag) -> Option<Span> {
     flag.is_present().then(|| flag.span())
 }
 
-/// Type level of `#[armonik_macros::message]`: the two keys the shape is picked from
-/// (`resolve::resolve_message`).
+/// Type level of `#[armonik_macros::message]`. Generic mode takes no key: a type with parameters
+/// and no proto name is read as generic, which `resolve::resolve_message` decides.
 #[derive(FromAttributes)]
 #[darling(attributes(armonik))]
 pub(crate) struct MessageAttrs {
-    /// `generic`: no descriptor validation; fields carry explicit `tag`s.
-    pub(crate) generic: Flag,
     /// `transparent`: single-field wrapper message flattened into its field.
     pub(crate) transparent: Flag,
 }
@@ -60,8 +58,8 @@ pub(crate) struct EnumerationAttrs {
 /// A field standing for a proto field: a struct's own, or a struct variant's.
 ///
 /// No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one of the
-/// `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct
-/// ([`GenericFieldAttrs`]). Spelling one here only ever restated what the proto says.
+/// `tag = ...` sites in the crate is inside a generic struct ([`GenericFieldAttrs`]). Spelling one
+/// here only ever restated what the proto says.
 #[derive(FromAttributes)]
 #[darling(attributes(armonik))]
 pub(crate) struct FieldAttrs {
@@ -74,7 +72,7 @@ pub(crate) struct FieldAttrs {
     pub(crate) inlined: Flag,
 }
 
-/// A field of an `#[armonik(generic)]` struct, which names no proto message.
+/// A field of a generic struct: one with parameters and no proto message to validate against.
 ///
 /// No `with`: the only check a generic type gets is the field-shape comparison at each
 /// `#[armonik_macros::alias]`, which reads `ProtoField::SHAPE` per field. An adapter has no shape to

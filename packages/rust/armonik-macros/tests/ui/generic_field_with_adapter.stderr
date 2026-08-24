@@ -1,5 +1,5 @@
 error: Unknown field: `with`. Available values: `tag`
-  --> tests/ui/generic_field_with_adapter.rs:11:24
+  --> tests/ui/generic_field_with_adapter.rs:10:24
    |
-11 |     #[armonik(tag = 1, with = "crate::codec::adapters::Own")]
+10 |     #[armonik(tag = 1, with = "crate::codec::adapters::Own")]
    |                        ^^^^

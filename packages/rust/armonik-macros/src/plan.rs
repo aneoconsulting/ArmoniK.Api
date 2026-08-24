@@ -41,7 +41,7 @@ pub(crate) struct Ir {
     /// Proto messages this type swallowed (a wrapper layer around a field, an inlined variant's
     /// member message, a repeated pair carried as a map), so they have no Rust type of their own.
     pub(crate) absorbs: Vec<Absorbed>,
-    /// `#[armonik(generic)]`: no descriptor was read, the tags are authoritative, and the
+    /// Generic mode: no descriptor was read, the tags are authoritative, and the
     /// `GenericFields` table is emitted so every `#[armonik_macros::alias]` instantiation can
     /// assert the fields against the message it registers under.
     pub(crate) generic: bool,

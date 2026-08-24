@@ -13,7 +13,6 @@ pub enum SortDirection {
 /// concrete instantiations are validated by the differential harness.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(generic)]
 pub struct Sort<T> {
     #[armonik(tag = 1)]
     pub field: T,
@@ -43,7 +42,6 @@ impl<T> Sort<T> {
 /// repeated fields.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(generic)]
 pub struct SortMany<T> {
     #[armonik(tag = 1)]
     pub fields: Vec<T>,

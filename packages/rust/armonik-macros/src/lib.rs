@@ -41,7 +41,8 @@ use syn::DeriveInput;
 /// protobuf descriptors compiled by the `armonik` build script.
 ///
 /// The macro's argument is the full proto name of the message the type stands
-/// for; a [`generic`](#generic) type gives none.
+/// for. A [generic type](#shapes) gives none: it stands for no one
+/// message, so there is no name to give.
 ///
 /// Tags, wire kinds and cardinalities come from the descriptor, never from the
 /// source. Every disagreement with it (unknown field, uncovered proto field or
@@ -113,14 +114,14 @@ use syn::DeriveInput;
 /// One oneof of a *larger* message is a fragment rather than a message, and has
 /// a macro of its own: [`oneof`](macro@oneof).
 ///
-/// **Generic struct**: [`generic`](#generic) skips descriptor validation, since
-/// a generic type cannot name one proto message. Every field carries an explicit
-/// [`tag`](#tag), and the concrete instantiations are validated instead:
+/// **Generic struct**: a struct with type parameters and no proto name is not
+/// validated against the descriptor, because it stands for no one message.
+/// Every field carries an explicit [`tag`](#tag) instead, and the concrete
+/// instantiations are validated at their [`alias`](macro@alias):
 ///
 /// ```ignore
 /// #[armonik_macros::message]
 /// #[derive(Debug, Clone, Default, PartialEq, Eq)]
-/// #[armonik(generic)]
 /// pub struct Sort<T> {
 ///     #[armonik(tag = 1)]
 ///     pub field: T,
@@ -134,15 +135,6 @@ use syn::DeriveInput;
 /// Everything not declared through `#[armonik(...)]` is inferred from the
 /// descriptor.
 ///
-/// ## generic
-///
-/// `generic`, on a struct: skip descriptor validation, since a generic type
-/// cannot name one proto message. Fields take [`tag`](#tag) and nothing else:
-/// each instantiation is checked at its [`alias`](macro@alias) by comparing
-/// every field's `ProtoField` shape, which a `with` adapter has none of.
-/// Combines with neither a proto name nor `transparent`, both of which name the
-/// message this says it does not have.
-///
 /// ## rename
 ///
 /// `rename = "proto_name"`, on a field or variant: the proto field or oneof
@@ -151,9 +143,10 @@ use syn::DeriveInput;
 ///
 /// ## tag
 ///
-/// `tag = N`, on a field of a [`generic`](#generic) struct, where it is
-/// required and authoritative. Rejected anywhere else: a descriptor-validated
-/// field takes its tag from the descriptor, and spelling one would restate it.
+/// `tag = N`, on a field of a [generic struct](#shapes), where it is
+/// required and authoritative -- it is the only thing that says where the field
+/// sits. Rejected anywhere else: a descriptor-validated field takes its tag from
+/// the descriptor, and spelling one would restate it.
 ///
 /// ## with
 ///
@@ -163,8 +156,9 @@ use syn::DeriveInput;
 /// proto shape that is semantic rather than structural -- `ErrorAdapter`,
 /// reading an empty error string as success, is the one site. It is trusted: the
 /// descriptor kind checks are skipped. Structural reshaping is
-/// [`inlined`](#inlined)'s, and stays checked. Not accepted in
-/// [`generic`](#generic) mode, whose only check is that comparison.
+/// [`inlined`](#inlined)'s, and stays checked. Not accepted on a [generic
+/// struct](#shapes)'s fields, whose only check is the shape comparison
+/// at each instantiation, which an adapter has nothing to answer with.
 ///
 /// ## present
 ///
@@ -659,8 +653,8 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
 }
 
 /// The field asserts a generic instantiation gets, standing in for the ones its declaration cannot
-/// have: `#[armonik(generic)]` skips descriptor validation because a generic type names no proto
-/// message, so this is where its fields are finally checked against one.
+/// have: a generic type is not validated against the descriptor, because it names no proto message,
+/// so this is where its fields are finally checked against one.
 ///
 /// Empty for the two shapes it cannot speak for: an alias that instantiates nothing (there is no
 /// `GenericFields` to read, and the aliased type validated itself), and a message with a oneof
