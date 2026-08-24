@@ -390,9 +390,8 @@ const SERVICE_METHOD: i32 = 2;
 
 fn add_services(file: &FileDescriptorProto, index: &mut DescriptorIndex) {
     // Through the same `comments` the messages and enums go through, rather than reading
-    // `leading_comments` directly: that read is what shifts a same-line block comment onto the next
-    // element, and it drops trailing comments outright. No rpc line carries one today, so this was
-    // latent, but it would have gone wrong the first time one did.
+    // `leading_comments` directly: that read shifts a same-line block comment onto the next element,
+    // and drops trailing comments outright.
     let comments = comments(file);
     let comment = |path: &[i32]| -> Vec<String> { comments.get(path).cloned().unwrap_or_default() };
 

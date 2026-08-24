@@ -1011,8 +1011,8 @@ fn slot_write(slot: &Slot, value: &TokenStream, presence: Presence) -> SlotWrite
                     let written = slot_write(part, &quote!(#local), Presence::Implicit);
                     // Not `written.normalize`: a part's tag is the *member* message's, so its
                     // projection would have to be applied inside the member's dynamic submessage,
-                    // which `normalize_dynamic(message, tag)` cannot reach. No part needs one
-                    // today, and a part whose type projects (a map) would need that descent first.
+                    // which `normalize_dynamic(message, tag)` cannot reach. A part whose type
+                    // projects (a map) needs that descent before it can carry one.
                     (written.encode, written.len)
                 })
                 .unzip();

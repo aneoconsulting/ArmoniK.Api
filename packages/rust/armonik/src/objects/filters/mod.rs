@@ -29,8 +29,11 @@ pub use number_operator::{FilterNumberOperator, UnknownFilterNumberOperator};
 pub use status_operator::{FilterStatusOperator, UnknownFilterStatusOperator};
 pub use string_operator::{FilterStringOperator, UnknownFilterStringOperator};
 
+/// The three types one filter family is made of, against the three proto messages it declares:
+/// `Or` over `And` over `Field`, which pairs the field to filter on with the condition to apply.
+/// The field enum and the condition are the family's own; everything else is the same shape for
+/// every service.
 macro_rules! impl_filter {
-    // Migrated form: direct wire implementations from the descriptor.
     (Filter[$field:ty, $condition:ty]: protos[$or_proto:literal, $and_proto:literal, $field_proto:literal]) => {
         #[armonik_macros::message($or_proto)]
         #[derive(Debug, Clone, Default, PartialEq, Eq)]
