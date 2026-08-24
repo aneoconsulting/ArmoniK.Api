@@ -39,7 +39,6 @@ pub struct FilterDuration {
 /// instantiations are validated by the differential harness.
 #[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[armonik(generic)]
 pub struct FilterStatus<T> {
     #[armonik(tag = 1)]
     pub value: T,

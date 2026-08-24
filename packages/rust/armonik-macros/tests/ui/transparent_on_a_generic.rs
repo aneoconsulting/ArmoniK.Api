@@ -2,15 +2,14 @@
 
 include!("../support/prelude.rs");
 
-// Two modes that cannot both apply: resolving one and dropping the other frames the value a
-// submessage level away from where the type says it is.
+// `transparent` names the message the type is wire-identical to, and a type with parameters stands
+// for no one message: the two readings of the item cannot both hold.
 //
 // `#[derive(Debug)]` and not `Default`: the salvage stub skips the `Msg` impl for a type that does
 // not derive `Default`, and with it the case would carry a second, unrelated error.
 #[armonik_macros::message]
 #[derive(Debug)]
-#[armonik(generic, transparent)]
+#[armonik(transparent)]
 pub struct Wrapper<T> {
-    #[armonik(tag = 1)]
     pub value: T,
 }

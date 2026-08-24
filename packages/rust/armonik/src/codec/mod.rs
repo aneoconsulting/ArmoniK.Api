@@ -296,7 +296,7 @@ pub(crate) const fn assert_response_message<T: Msg>(output: &'static str) {
     );
 }
 
-/// The tag and instantiated shape of every field of a `#[armonik(generic)]` type.
+/// The tag and instantiated shape of every field of a generic type.
 ///
 /// A generic type names no proto message, so its fields cannot be checked where they are declared.
 /// They can be checked where the type is *instantiated*, and this is what carries them there: the

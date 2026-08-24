@@ -50,7 +50,7 @@ pub mod codec {
         const ONEOF: &'static [&'static str];
     }
 
-    /// The per-instantiation field table of an `#[armonik(generic)]` type.
+    /// The per-instantiation field table of a generic type.
     pub trait GenericFields {
         const FIELDS: &'static [(u32, Shape)];
     }
