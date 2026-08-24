@@ -77,7 +77,7 @@ dependencies = [
  "prost-types",
  "protox",
  "quote",
- "syn 2.0.117",
+ "syn 3.0.3",
  "trybuild",
 ]
 
