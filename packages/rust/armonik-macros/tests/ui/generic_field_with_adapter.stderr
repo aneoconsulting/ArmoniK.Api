@@ -1,4 +1,4 @@
-error: generic-mode fields only take tag = ...
+error: Unknown field: `with`. Available values: `tag`
   --> tests/ui/generic_field_with_adapter.rs:11:24
    |
 11 |     #[armonik(tag = 1, with = "crate::codec::adapters::Own")]
