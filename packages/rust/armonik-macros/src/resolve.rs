@@ -66,6 +66,17 @@ pub(crate) fn resolve_message(
     // in the struct that derives it, is the other oneof-shaped thing, and has a macro of its own
     // ([`resolve_oneof`]) because it is a fragment of a message rather than one.
     if matches!(input.data, syn::Data::Enum(_)) && generic.is_none() {
+        // Read here rather than dropped: an enum stands for its message's oneof, so there is no
+        // single field to delegate to and no key that could say otherwise.
+        if let Some(span) = transparent {
+            generator.error(
+                span,
+                "#[armonik(transparent)] flattens a single-field wrapper struct into its \
+                 field; an enum stands for the oneof of the message it names, which has \
+                 nothing to flatten",
+            );
+            return poisoned_ir(input, index, claimed(proto_names));
+        }
         let Some(selected) = select_whole_message(input, index, proto_names, generator) else {
             return poisoned_ir(input, index, claimed(proto_names));
         };
