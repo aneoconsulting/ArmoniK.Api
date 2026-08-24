@@ -3,9 +3,8 @@
 include!("../support/prelude.rs");
 
 // `fixture.Simple` has no `nope`.
-#[armonik_macros::message("fixture.Choice")]
+#[armonik_macros::oneof("fixture.Choice.choice")]
 #[derive(Debug)]
-#[armonik(oneof = "choice")]
 pub enum Choice {
     Text(String),
     #[armonik(inlined)]

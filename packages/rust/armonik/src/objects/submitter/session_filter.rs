@@ -1,9 +1,8 @@
 use super::super::SessionStatus;
 
 /// Status selector of the filter.
-#[armonik_macros::message("armonik.api.grpc.v1.submitter.SessionFilter")]
+#[armonik_macros::oneof("armonik.api.grpc.v1.submitter.SessionFilter.statuses")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(oneof = "statuses")]
 pub enum SessionFilterStatuses {
     /// No selector. Distinct from `Exclude([])`, which is a constraint that happens to be vacuous.
     #[default]

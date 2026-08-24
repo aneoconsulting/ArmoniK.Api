@@ -1,9 +1,8 @@
 use super::super::TaskStatus;
 
 /// Task selector of the filter.
-#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
+#[armonik_macros::oneof("armonik.api.grpc.v1.submitter.TaskFilter.ids")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(oneof = "ids")]
 pub enum TaskFilterIds {
     /// No selector. Distinct from `Sessions([])`, which selects the tasks of no session.
     #[default]
@@ -17,9 +16,8 @@ pub enum TaskFilterIds {
 }
 
 /// Status selector of the filter.
-#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
+#[armonik_macros::oneof("armonik.api.grpc.v1.submitter.TaskFilter.statuses")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(oneof = "statuses")]
 pub enum TaskFilterStatuses {
     /// No selector. Distinct from `Exclude([])`, which is a constraint that happens to be vacuous.
     #[default]

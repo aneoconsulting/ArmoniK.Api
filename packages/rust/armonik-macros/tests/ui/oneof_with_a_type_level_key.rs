@@ -2,13 +2,12 @@
 
 include!("../support/prelude.rs");
 
-// `present` records that a member was set; it needs a bool or an empty message, not a string.
+// What the type stands for is the macro's argument; every type-level key picks a shape this is not.
 #[armonik_macros::oneof("fixture.Choice.choice")]
 #[derive(Debug)]
+#[armonik(transparent)]
 pub enum Choice {
-    #[armonik(present)]
-    Text,
+    Text(String),
     Simple(String),
-    #[armonik(present)]
     Flag,
 }

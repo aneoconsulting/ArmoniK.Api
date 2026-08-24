@@ -1,0 +1,5 @@
+error: Unknown field: `transparent`
+ --> tests/ui/oneof_with_a_type_level_key.rs:8:11
+  |
+8 | #[armonik(transparent)]
+  |           ^^^^^^^^^^^

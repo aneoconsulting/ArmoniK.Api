@@ -1,7 +1,7 @@
-//! The re-emitted item: the `#[armonik_macros::message]` / `#[armonik_macros::enumeration]`
-//! attribute macros hand the annotated type back with `#[doc]` attributes extracted from the
-//! protos' comments (type, fields, oneof variants, enum values), the `#[armonik(...)]` attributes
-//! stripped, and the hover anchors that make those attributes documented.
+//! The re-emitted item: the three attribute macros over a type (`message`, `oneof`, `enumeration`)
+//! hand it back with `#[doc]` attributes extracted from the protos' comments (type, fields, oneof
+//! variants, enum values), the `#[armonik(...)]` attributes stripped, and the hover anchors that
+//! make those attributes documented.
 //!
 //! Only an attribute macro may rewrite the item, which is the whole reason these are attributes:
 //! the proto prose becomes uncopyable, as it already is for the services. Injected docs come first,
@@ -18,6 +18,7 @@ use crate::plan::{EnumPlan, Ir, Slot, SlotCodec};
 #[derive(Clone, Copy)]
 pub(crate) enum Kind {
     Message,
+    Oneof,
     Enumeration,
 }
 
@@ -26,12 +27,13 @@ impl Kind {
     fn derive(self) -> &'static str {
         match self {
             Kind::Message => "message",
+            Kind::Oneof => "oneof",
             Kind::Enumeration => "enumeration",
         }
     }
 }
 
-/// Re-emit the item of a `#[armonik_macros::message]` type: the plan's docs injected,
+/// Re-emit the item of a message-shaped type (`message`, `oneof`): the plan's docs injected,
 /// `#[armonik(...)]` stripped, the serde line added.
 ///
 /// Infallible: everything it needs is already in the plan.

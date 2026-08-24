@@ -1,5 +1,5 @@
-error: the oneof `pick` covers the whole message `fixture.OnlyOneof`; drop the oneof attribute: the message name alone declares a whole-message enum
- --> tests/ui/oneof_covers_whole_message.rs:8:19
+error: the oneof `pick` covers the whole message `fixture.OnlyOneof`; a message whose oneof is all of it is a whole-message enum: #[armonik_macros::message("fixture.OnlyOneof")]
+ --> tests/ui/oneof_covers_whole_message.rs:6:25
   |
-8 | #[armonik(oneof = "pick")]
-  |                   ^^^^^^
+6 | #[armonik_macros::oneof("fixture.OnlyOneof.pick")]
+  |                         ^^^^^^^^^^^^^^^^^^^^^^^^

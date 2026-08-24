@@ -2,11 +2,11 @@
 
 include!("../support/prelude.rs");
 
-// `oneof = ...` does not get to decide this one: the pair is rejected whichever shape would
-// otherwise have won the dispatch.
+// An enum is oneof-shaped, so it would otherwise dispatch to the oneof-shaped resolver: the pair is
+// rejected ahead of that, whichever shape would have won.
 #[armonik_macros::message]
 #[derive(Debug)]
-#[armonik(oneof = "pick", generic, transparent)]
+#[armonik(generic, transparent)]
 pub enum Both<T> {
     Text(T),
 }

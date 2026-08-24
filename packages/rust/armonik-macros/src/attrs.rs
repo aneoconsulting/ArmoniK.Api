@@ -30,18 +30,23 @@ pub(crate) fn flagged(flag: Flag) -> Option<Span> {
     flag.is_present().then(|| flag.span())
 }
 
-/// Type level of `#[armonik_macros::message]`: the three keys the shape is picked from
+/// Type level of `#[armonik_macros::message]`: the two keys the shape is picked from
 /// (`resolve::resolve_message`).
 #[derive(FromAttributes)]
 #[darling(attributes(armonik))]
 pub(crate) struct MessageAttrs {
-    /// `oneof = "name"`: the type is the flattened oneof of that name.
-    pub(crate) oneof: Option<SpannedValue<String>>,
     /// `generic`: no descriptor validation; fields carry explicit `tag`s.
     pub(crate) generic: Flag,
     /// `transparent`: single-field wrapper message flattened into its field.
     pub(crate) transparent: Flag,
 }
+
+/// Type level of `#[armonik_macros::oneof]`, which takes no key: the oneof it stands for is the
+/// macro's argument, and the shape follows from that. Declared all the same, so that a key written
+/// here is named back rather than ignored.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct OneofAttrs {}
 
 /// Type level of `#[armonik_macros::enumeration]`.
 #[derive(FromAttributes)]

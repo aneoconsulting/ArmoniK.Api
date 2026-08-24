@@ -1,5 +1,5 @@
 error: `fixture.Simple` is not a single-field wrapper message
-  --> tests/ui/inlined_on_a_non_wrapper.rs:10:15
-   |
-10 |     #[armonik(inlined)]
-   |               ^^^^^^^
+ --> tests/ui/inlined_on_a_non_wrapper.rs:9:15
+  |
+9 |     #[armonik(inlined)]
+  |               ^^^^^^^

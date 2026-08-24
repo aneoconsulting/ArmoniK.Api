@@ -11,9 +11,8 @@ impl_filter!(
     ]
 );
 
-#[armonik_macros::message("armonik.api.grpc.v1.applications.FilterField")]
+#[armonik_macros::oneof("armonik.api.grpc.v1.applications.FilterField.value_condition")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[armonik(oneof = "value_condition")]
 pub enum Condition {
     /// No condition. A `FilterField` that names a field but no condition cannot be evaluated;
     /// reading it as the first condition holding its defaults would filter on something else.
