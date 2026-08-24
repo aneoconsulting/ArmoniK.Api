@@ -205,6 +205,13 @@ std::map<std::string, std::string> ResultsClient::get_owner_task_id(std::string 
 }
 
 std::string ResultsClient::download_result_data(std::string session_id, std::string result_id) {
+  std::string output{};
+  download_result_data_in(std::move(session_id), std::move(result_id), output);
+  output.shrink_to_fit();
+  return output;
+}
+
+void ResultsClient::download_result_data_in(std::string session_id, std::string result_id, std::string &output) {
   ::grpc::ClientContext context;
   armonik::api::grpc::v1::results::DownloadResultDataRequest request;
   armonik::api::grpc::v1::results::DownloadResultDataResponse response;
@@ -212,11 +219,9 @@ std::string ResultsClient::download_result_data(std::string session_id, std::str
   *request.mutable_session_id() = std::move(session_id);
   *request.mutable_result_id() = std::move(result_id);
 
-  std::string received_data;
-
   auto stream = stub->DownloadResultData(&context, request);
   while (stream->Read(&response)) {
-    received_data.append(response.data_chunk());
+    output.append(response.data_chunk());
   }
   auto status = stream->Finish();
   if (!status.ok()) {
@@ -226,8 +231,6 @@ std::string ResultsClient::download_result_data(std::string session_id, std::str
     auto str = message.str();
     throw armonik::api::common::exceptions::ArmoniKApiException(str);
   }
-
-  return received_data;
 }
 
 ResultsClient::Configuration ResultsClient::get_service_configuration() {
