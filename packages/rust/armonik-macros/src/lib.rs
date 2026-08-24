@@ -41,23 +41,17 @@ use syn::DeriveInput;
 /// protobuf descriptors compiled by the `armonik` build script.
 ///
 /// The macro's argument is the full proto name of the message the type stands
-/// for, or several names for a unified type standing for identical messages,
-/// which must agree on every field. Every validated type has one, so it is the
-/// macro's argument rather than a key that could be left out; a
-/// [`generic`](#generic) type gives none.
+/// for; a [`generic`](#generic) type gives none.
 ///
 /// Tags, wire kinds and cardinalities come from the descriptor, never from the
-/// source. Every disagreement with the proto message (unknown field, uncovered
-/// proto field or oneof, kind or cardinality mismatch) is a spanned error
-/// naming both sides. Proto enums go through
-/// [`enumeration`](macro@enumeration).
+/// source. Every disagreement with it (unknown field, uncovered proto field or
+/// oneof, kind or cardinality mismatch) is a spanned error naming both sides.
+/// Proto enums go through [`enumeration`](macro@enumeration).
 ///
-/// An attribute macro rather than a derive so the item can be re-emitted with
-/// the proto documentation injected: the type, its fields, its oneof variants
-/// and their inlined fields get `#[doc]`s harvested from the protos' leading
-/// comments, the same harvest `service!` does for services. Hand-written doc
-/// comments follow them, as Rust-specific notes. The `#[armonik(...)]`
-/// attributes are consumed and stripped.
+/// The item is re-emitted with the proto documentation injected -- on the type,
+/// its fields, its oneof variants and their inlined fields -- and the
+/// `#[armonik(...)]` attributes stripped. Hand-written doc comments follow the
+/// harvested ones.
 ///
 /// Besides `prost::Message`, the expansion emits:
 /// - a `Msg` impl, which the codec's blanket `ProtoField` impl picks up, so
@@ -74,9 +68,9 @@ use syn::DeriveInput;
 ///
 /// # Shapes
 ///
-/// **Plain struct**: [`message`](#message) names the proto message, and Rust
-/// fields match proto fields by name ([`rename`](#rename) when they differ;
-/// tuple structs must rename every field):
+/// **Plain struct**: Rust fields match proto fields by name
+/// ([`rename`](#rename) when they differ; tuple structs must rename every
+/// field):
 ///
 /// ```ignore
 /// #[armonik_macros::message("armonik.api.grpc.v1.tasks.GetResultIdsResponse")]
@@ -145,10 +139,9 @@ use syn::DeriveInput;
 /// `generic`, on a struct: skip descriptor validation, since a generic type
 /// cannot name one proto message. Fields take [`tag`](#tag) and nothing else:
 /// each instantiation is checked at its [`alias`](macro@alias) by comparing
-/// every field's `ProtoField` shape, which a [`with`](#with) adapter has none
-/// of. Combines with neither [`message`](#message) nor
-/// [`transparent`](#transparent), both of which name the message this says it
-/// does not have.
+/// every field's `ProtoField` shape, which a `with` adapter has none of.
+/// Combines with neither a proto name nor `transparent`, both of which name the
+/// message this says it does not have.
 ///
 /// ## rename
 ///
@@ -164,13 +157,12 @@ use syn::DeriveInput;
 ///
 /// ## with
 ///
-/// `with = "path::To::Adapter"`, on a field or single-payload tuple variant
-/// (in sibling variants, on the member payload field): encode through a
-/// `ProtoAdapter` instead of the type's `ProtoField` impl, for a relation to
-/// the proto shape that is semantic rather than structural -- `ErrorAdapter`,
-/// reading an empty error string as success, is the one site. It skips the
-/// descriptor kind checks on purpose, so only the differential harness covers
-/// it, `normalize_dynamic` included. Structural reshaping is
+/// `with = "path::To::Adapter"`, on a field or single-payload tuple variant (in
+/// sibling variants, on the member payload field): encode through a
+/// `ProtoAdapter` instead of the type's `ProtoField` impl, for a relation to the
+/// proto shape that is semantic rather than structural -- `ErrorAdapter`,
+/// reading an empty error string as success, is the one site. It is trusted: the
+/// descriptor kind checks are skipped. Structural reshaping is
 /// [`inlined`](#inlined)'s, and stays checked. Not accepted in
 /// [`generic`](#generic) mode, whose only check is that comparison.
 ///
@@ -202,48 +194,42 @@ use syn::DeriveInput;
 /// }
 /// ```
 ///
-/// Spelled rather than inferred: `Variant { token, request: T }` is genuinely
-/// ambiguous between the two readings. Without `inlined`, one leftover field
-/// carries the member and several are an error naming this key; with it, a
-/// leftover matching no field of the member message is an error listing the
-/// ones that exist.
+/// Spelled rather than inferred, because `Variant { token, request: T }` reads
+/// both ways: without `inlined`, one leftover field carries the member and
+/// several are an error; with it, a leftover matching no field of the member
+/// message is an error listing the ones that exist.
 ///
-/// On a struct variant, `inlined` combines with none of [`present`](#present),
-/// [`with`](#with), or a message that has non-oneof fields. The last is the one
-/// worth spelling out: every variant of such an enum carries those fields, so an
-/// inlined member's own fields would land in the same variant, sharing a binding
-/// namespace with tags drawn from two different messages. Carry the member whole
-/// in a field of its own there.
+/// On a struct variant, `inlined` combines with none of `present`, `with`, or a
+/// message that has non-oneof fields. The last because every variant of such an
+/// enum already carries those fields, so the member's own would land in the same
+/// variant under tags from two different messages: carry the member whole in a
+/// field of its own there.
 ///
 /// **On a field, a tuple variant, or a member payload field**, the field's
 /// message layer, unwrapped: a singular single-field wrapper
 /// (`CreationStatusList { repeated CreationStatus creation_statuses = 1; }` as
-/// `Vec<Status>`, through `Wrapper<Own, N>` with `N` from the descriptor). The
-/// Rust type is shape-checked against the unwrapped form, unlike
-/// [`with`](#with), which is trusted.
+/// `Vec<Status>`). The Rust type is shape-checked against the unwrapped form,
+/// unlike `with`, which is trusted.
 ///
-/// A *repeated* key/value pair message takes no key at all, because nothing has
-/// to be unwrapped: `map<K, V>` is encoded as `repeated Entry { K key = 1; V
-/// value = 2; }`, so a `HashMap` field already carries those bytes through its
-/// own `ProtoField`. A repeated two-field message at tags 1 and 2 is therefore
-/// shape-checked against *either* representation, `Vec<Entry>` or a map of the
-/// pair's two fields, each checked whole (a `repeated` value stays repeated, and
-/// a key names its enum), and the Rust type is what picks: `IdStatus { string
-/// task_id = 1; TaskStatus status = 2; }` as `HashMap<String, TaskStatus>`,
-/// which drops entry order and collapses duplicate keys. Only that reading
-/// leaves the pair without a Rust type, so only there is it registered as
-/// absorbed.
+/// A *repeated* key/value pair message takes no key at all: `map<K, V>` is
+/// encoded as `repeated Entry { K key = 1; V value = 2; }`, so a `HashMap` field
+/// already carries those bytes through its own `ProtoField`. A repeated
+/// two-field message at tags 1 and 2 is shape-checked against *either*
+/// representation, `Vec<Entry>` or a map of the pair's two fields, and the Rust
+/// type is what picks: `IdStatus { string task_id = 1; TaskStatus status = 2; }`
+/// as `HashMap<String, TaskStatus>`, which drops entry order and collapses
+/// duplicate keys. Only that reading leaves the pair without a Rust type, so
+/// only there is it registered as absorbed.
 ///
 /// ## transparent
 ///
 /// `transparent`, on a single-field struct: the type delegates its whole
 /// `prost::Message` impl to that one field, so it is wire-identical to the
-/// field's message and can stand for a whole RPC message (the struct sibling of
-/// the [`enumeration`](macro@enumeration#transparent) wrapper mode). Name the
-/// inner message with [`message`](#message); the field is not matched against
-/// the descriptor. Typically wraps a shared message per RPC site (e.g.
-/// `struct Request { filter: TaskFilter }`), keeping request types injective
-/// over RPCs.
+/// field's message and can stand for a whole RPC message. The macro's argument
+/// names the inner message; the field itself is not matched against the
+/// descriptor. Typically wraps a shared message per RPC site (e.g. `struct
+/// Request { filter: TaskFilter }`), keeping request types injective over
+/// RPCs.
 ///
 #[proc_macro_attribute]
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
@@ -384,30 +370,26 @@ pub fn oneof(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// Named values serialize as their variant name and the catch-all as a plain
 /// integer; deserializing accepts a name, an integer, or the `{"Unknown": 4}`
 /// object `derive(Deserialize)` writes. Reading three shapes means
-/// `deserialize_any`, so the self-describing formats work and the ones that
-/// need the type to drive the parse (bincode, postcard) do not.
+/// `deserialize_any`, so the formats that need the type to drive the parse
+/// (bincode, postcard) do not work.
 ///
 /// Emitting the comparison traits makes the type non-structural-match, so the
 /// `UNSPECIFIED` const is compared with `==` rather than matched on.
-///
-/// Enum-typed fields of derived messages are declared with
-/// [`message`](macro@message), which checks that the field type stands for the
-/// proto enum the descriptor names.
 ///
 /// # Attributes
 ///
 /// ## transparent
 ///
 /// `transparent`, on the type: the enum stands for a chain of single-field
-/// wrapper messages ending at an enum field, flattened into the Rust enum.
-/// Name the wrapper messages with [`message`](#message) instead of
-/// [`enum`](#enum). The type also implements `prost::Message` as the outermost
-/// wrapper, so it can stand for whole RPC messages:
+/// wrapper messages ending at an enum field, flattened into the Rust enum, and
+/// the macro's argument names the outermost wrapper rather than the enum. The
+/// type also implements `prost::Message` as that wrapper, so it can stand for
+/// whole RPC messages:
 ///
 /// ```ignore
-/// #[armonik_macros::enumeration]
+/// #[armonik_macros::enumeration("armonik.api.grpc.v1.applications.ApplicationField")]
 /// #[derive(Debug, Clone, Copy)]
-/// #[armonik(transparent, message = "armonik.api.grpc.v1.applications.ApplicationField")]
+/// #[armonik(transparent)]
 /// pub enum ApplicationField {
 ///     // matched against the enum at the end of the wrapper chain
 ///     Unspecified,
@@ -480,16 +462,15 @@ fn proto_names(
     }
 }
 
-/// Register a proto message name for a type alias, so generic instantiations
-/// carrying no annotation of their own (the per-service `Sort = Sort<Field>`,
-/// `Status = FilterStatus<T>`) are discovered by `armonik`'s build script and
-/// the differential harness like any `#[armonik_macros::message]` type.
+/// Register a proto message name for a type alias, so a generic instantiation
+/// carrying no annotation of its own (the per-service `Sort = Sort<Field>`,
+/// `Status = FilterStatus<T>`) is validated and discovered like any annotated
+/// type.
 ///
-/// The alias is re-emitted verbatim, plus the `crate::register!` entry a
-/// derive would emit for that proto name (into `armonik`'s
-/// `differential::registrations::REGISTRY`, with its harness hooks). The
-/// aliased type must implement `prost::Message`, and `Normalize` under
-/// `cfg(test)`.
+/// The alias is re-emitted verbatim, plus the registration a derive would emit
+/// for that proto name: the differential harness then covers the instantiation,
+/// and its fields are const-asserted against the descriptor's. The aliased type
+/// must implement `prost::Message`, and `Normalize` under `cfg(test)`.
 ///
 /// ```ignore
 /// #[armonik_macros::alias("armonik.api.grpc.v1.tasks.ListTasksRequest.Sort")]
@@ -539,8 +520,8 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// rpc Method([stream] req::Request) -> [stream] req::Response [as name];
 /// ```
 ///
-/// - `stream` sits where the proto puts it: schema syntax validated against
-///   the descriptor's streaming flags, not a config field.
+/// - `stream` sits where the proto puts it, and is validated against the
+///   descriptor's streaming flags.
 /// - `as name` names the **server** side: the `<Marker>Service` trait method
 ///   that handles this RPC, the router entry that dispatches into it, and the
 ///   telemetry label. It defaults to the module segment of the request path
@@ -548,16 +529,13 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///   request module and would otherwise collide in the trait, which is what
 ///   `create_tasks::{Small,Large}Request` do.
 ///
-///   It says nothing about the client. Client methods are hand-written in
-///   `client/*.rs` and name their own RPC through
-///   [`client`](macro@client)'s `#[armonik(rpc = "...")]`, so the two sides are
-///   named independently.
+///   It says nothing about the client.
 ///
 /// The client methods are *not* declared here. They live in `client/*.rs`,
 /// written out, and are tied back to these declarations by
-/// [`client`](macro@client) so that a test can prove every RPC has one. That is
-/// the point: a signature that is written down cannot move when a field is
-/// added to the proto message behind it.
+/// [`client`](macro@client) so that a test can prove every RPC has one: a
+/// signature that is written down cannot move when a field is added to the proto
+/// message behind it.
 ///
 /// # What one invocation emits
 ///
@@ -568,7 +546,7 @@ pub fn alias(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// - **under `cfg(test)`**: the unexposed RPCs' message names, registered for
 ///   the coverage ratchet (derived from `unexposed(...)`, so the two allowlists
 ///   cannot drift), and every declared RPC, registered for the client-coverage
-///   check that [`client`](macro@client) is the other half of.
+///   check.
 /// - **`_gen-server`**: the `<Marker>Service` trait (one method per RPC, docs
 ///   harvested, streaming shapes from the descriptor), the
 ///   `<Marker>ServiceExt::<marker>_server` wrapper, and the `Routes` table the
@@ -686,8 +664,8 @@ fn expand_alias(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStre
 ///
 /// Empty for the two shapes it cannot speak for: an alias that instantiates nothing (there is no
 /// `GenericFields` to read, and the aliased type validated itself), and a message with a oneof
-/// (whose members are not fields in this sense). Neither exists today; both are skipped rather than
-/// rejected, since an alias is a registration first and a check second.
+/// (whose members are not fields in this sense). Both are skipped rather than rejected, since an
+/// alias is a registration first and a check second.
 fn alias_asserts(
     item_type: &syn::ItemType,
     name: &str,
