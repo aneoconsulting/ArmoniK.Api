@@ -343,7 +343,7 @@ pub(crate) const fn assert_generic_fields<T: GenericFields>(expect: &[(u32, Expe
     );
 }
 
-/// The oneof a `#[armonik(oneof = "...")]` enum stands for, as `message.oneof` paths.
+/// The oneof an `#[armonik_macros::oneof]` enum stands for, as `message.oneof` paths.
 ///
 /// The counterpart of [`Msg::NAMES`] for the shape that is not a message: an embedded oneof is a
 /// fragment of one, so it implements [`prost::Message`] but not `Msg`, and nothing else records

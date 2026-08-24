@@ -1,18 +1,25 @@
 //! Resolution: from the annotated item and the descriptor to one [`Ir`].
 //!
-//! Every shape `#[armonik_macros::message]` accepts lands in the same plan; what varies is how its
+//! Every shape the two message-side macros accept lands in the same plan; what varies is how its
 //! slots are found. A struct's fields resolve by name against one message ([`plain_ir`]), or carry
 //! explicit tags when the type is generic and names no message ([`generic_ir`]), or delegate whole
 //! to the single field of a `transparent` newtype ([`transparent_ir`]). An enum's variants resolve
-//! against a oneof's members, with the message's non-oneof fields as a possibly-empty shared set:
-//! "no sibling fields" is the same case as "sibling fields, and there are zero of them", and a
-//! plain struct is the same case again with no oneof at all.
+//! against a oneof's members ([`oneof_ir`]), with the message's non-oneof fields as a
+//! possibly-empty shared set: "no sibling fields" is the same case as "sibling fields, and there
+//! are zero of them", and a plain struct is the same case again with no oneof at all.
+//!
+//! Which oneof, and whether the type is the message or a fragment of one, is all that separates the
+//! two entry points into that last shape: `#[armonik_macros::message]` on an enum infers the sole
+//! oneof of the message it names ([`resolve_message`]), and `#[armonik_macros::oneof]` is handed
+//! one oneof of a message whose other fields belong to the struct carrying it
+//! ([`resolve_oneof`]).
 
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 
 use crate::attrs::{
-    flagged, scan, unraw, FieldAttrs, GenericFieldAttrs, MessageAttrs, SpannedValue, VariantAttrs,
+    flagged, scan, unraw, FieldAttrs, GenericFieldAttrs, MessageAttrs, OneofAttrs, SpannedValue,
+    VariantAttrs,
 };
 use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta, MessageMeta};
 use crate::generator::Generator;
@@ -54,11 +61,15 @@ pub(crate) fn resolve_message(
         return poisoned_ir(input, index, claimed(proto_names));
     }
 
-    // Enums are oneof-shaped: `message = ...` alone stands for a whole message with a single
-    // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct.
-    let is_fragment = attrs.oneof.is_some();
-    if is_fragment || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
-        return oneof_ir(input, index, &attrs, proto_names, is_fragment, generator);
+    // An enum is oneof-shaped: it stands for a whole message with a single oneof, whose non-oneof
+    // fields become siblings replicated in every variant. One oneof of a larger message, embedded
+    // in the struct that derives it, is the other oneof-shaped thing, and has a macro of its own
+    // ([`resolve_oneof`]) because it is a fragment of a message rather than one.
+    if matches!(input.data, syn::Data::Enum(_)) && generic.is_none() {
+        let Some(selected) = select_whole_message(input, index, proto_names, generator) else {
+            return poisoned_ir(input, index, claimed(proto_names));
+        };
+        return oneof_ir(input, index, selected, generator);
     }
     if generic.is_some() {
         if !proto_names.is_empty() {
@@ -75,6 +86,37 @@ pub(crate) fn resolve_message(
         return transparent_ir(input, index, proto_names, generator);
     }
     plain_ir(input, index, proto_names, generator)
+}
+
+/// Resolve `#[armonik_macros::oneof]`: one oneof of a message, standing on its own so that the
+/// struct deriving that message carries it as the field named after the oneof.
+///
+/// A fragment of a message rather than a message: it implements `prost::Message` but no `Msg`, and
+/// carries `codec::Oneof` instead, which is what the carrying struct's assert reads. The message's
+/// non-oneof fields belong to that struct, so a fragment has no siblings and reaches the shared
+/// resolver ([`oneof_ir`]) with an empty set of them.
+pub(crate) fn resolve_oneof(
+    input: &syn::DeriveInput,
+    index: &DescriptorIndex,
+    paths: &[(Span, String)],
+    generator: &mut Generator,
+) -> Ir {
+    // The fragment marker survives a failed resolution, so the carrying struct's oneof assert stays
+    // quiet: an empty `ONEOF` is its unchecked case, and a type that did not resolve carries a
+    // `compile_error!` already.
+    let poisoned = || Ir {
+        fragment_of: Some(String::new()),
+        ..poisoned_ir(input, index, Vec::new())
+    };
+    // No key belongs here: what the type stands for is the macro's argument, and every other key
+    // picks a shape this one is not.
+    if scan::<OneofAttrs>(&input.attrs, generator).is_none() {
+        return poisoned();
+    }
+    let Some(selected) = select_named_oneof(input, index, paths, generator) else {
+        return poisoned();
+    };
+    oneof_ir(input, index, selected, generator)
 }
 
 /// The discriminant-less [`Ir`] every struct shape shares.
@@ -155,8 +197,8 @@ fn plain_ir(
     let syn::Data::Struct(data) = &input.data else {
         generator.error(
             input.ident.span(),
-            "#[armonik_macros::message] with `message = ...` expects a struct \
-             (use `oneof = ...` for flattened oneofs)",
+            "#[armonik_macros::message] expects a struct, or an enum for a message \
+             whose single oneof it stands for",
         );
         return poisoned_ir(input, index, claimed(proto_names));
     };
@@ -1207,36 +1249,42 @@ struct Selected<'a> {
     proto_name: String,
     meta: &'a crate::descriptor::MessageMeta,
     oneof: &'a crate::descriptor::OneofMeta,
-    /// `message = ...` alone: the enum is the message, and its non-oneof fields become siblings
-    /// replicated in every variant.
+    /// The enum is the message (`#[armonik_macros::message]`), so its non-oneof fields become
+    /// siblings replicated in every variant. A fragment (`#[armonik_macros::oneof]`) leaves them to
+    /// the struct carrying it, and has none.
     whole_message: bool,
 }
 
-/// Read the type-level attributes and answer the two questions that fix the shape: which proto
-/// message, and which of its oneofs.
-///
-/// Four ways to get it wrong, all of them about the schema rather than about the Rust item, which is
-/// why this is worth reading on its own: no such oneof, a oneof that covers the whole message (use
-/// the whole-message shape), a message with no oneof at all (use a struct), and a message with
-/// several (declare one enum each).
-fn select_oneof<'a>(
+/// The message a oneof-shaped enum resolves against: looked up once, reported once.
+fn message_of<'a>(
+    index: &'a DescriptorIndex,
+    span: Span,
+    proto_name: &str,
+    generator: &mut Generator,
+) -> Option<&'a crate::descriptor::MessageMeta> {
+    match index.messages.get(proto_name) {
+        Some(meta) => Some(meta),
+        None => {
+            generator.record(not_found(span, "message", proto_name));
+            None
+        }
+    }
+}
+
+/// `#[armonik_macros::message]` on an enum: the type is the whole message, and the oneof it stands
+/// for is inferred, which only works when the message has exactly one. The other two ways to get it
+/// wrong are about the schema rather than about the Rust item: a message with no oneof at all (that
+/// is a struct), and one with several (that is one fragment each).
+fn select_whole_message<'a>(
     input: &syn::DeriveInput,
     index: &'a DescriptorIndex,
-    attrs: &MessageAttrs,
     proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> Option<Selected<'a>> {
     for (span, _) in proto_names.iter().skip(1) {
-        generator.error(*span, "flattened oneofs support a single proto message");
-    }
-    // The two keys that pick another shape: `oneof = ...` is the only one this one takes.
-    for span in [attrs.generic, attrs.transparent]
-        .into_iter()
-        .filter_map(flagged)
-    {
         generator.error(
-            span,
-            "this armonik attribute is not valid at type level on a flattened oneof",
+            *span,
+            "an enum stands for one proto message; give the macro one name",
         );
     }
     let Some((message_span, proto_name)) = proto_names.first().cloned() else {
@@ -1247,75 +1295,127 @@ fn select_oneof<'a>(
         );
         return None;
     };
-
-    let Some(meta) = index.messages.get(&proto_name) else {
-        generator.record(not_found(message_span, "message", &proto_name));
-        return None;
-    };
-    // `message = ...` alone: the enum stands for the whole message, whose single oneof is inferred
-    // and whose non-oneof fields become siblings replicated in every variant. `oneof = ...`
-    // declares a partial enum embedded in a struct, and is rejected when the oneof is the whole
-    // message so the two shapes stay visually distinct.
-    let (oneof, whole_message) = match &attrs.oneof {
-        Some(oneof_name) => {
-            let oneof_span = oneof_name.span();
-            let oneof_name = oneof_name.as_str();
-            let Some((oneof_index, oneof)) = meta.oneof(oneof_name) else {
-                generator.error(
-                    oneof_span,
-                    format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
-                );
-                return None;
-            };
-            if meta
-                .fields
-                .iter()
-                .all(|field| field.oneof == Some(oneof_index))
-            {
-                generator.error(
-                    oneof_span,
-                    format!(
-                        "the oneof `{oneof_name}` covers the whole message `{proto_name}`; \
-                         drop the oneof attribute: the message name alone declares a \
-                         whole-message enum"
-                    ),
-                );
-                return None;
-            }
-            (oneof, false)
+    let meta = message_of(index, message_span, &proto_name, generator)?;
+    let oneof = match meta.oneofs.len() {
+        1 => &meta.oneofs[0],
+        0 => {
+            generator.error(
+                input.ident.span(),
+                format!(
+                    "proto message `{proto_name}` has no oneof; a message without a \
+                     oneof is derived on a struct"
+                ),
+            );
+            return None;
         }
-        None => match meta.oneofs.len() {
-            1 => (&meta.oneofs[0], true),
-            0 => {
-                generator.error(
-                    input.ident.span(),
-                    format!(
-                        "proto message `{proto_name}` has no oneof; a message without a \
-                         oneof is derived on a struct"
-                    ),
-                );
-                return None;
-            }
-            n => {
-                generator.error(
-                    input.ident.span(),
-                    format!(
-                        "proto message `{proto_name}` has {n} oneofs; an enum can stand \
-                         for the whole message only when there is exactly one. Declare \
-                         one enum per oneof with #[armonik(oneof = \"...\")] and compose \
-                         them in a struct"
-                    ),
-                );
-                return None;
-            }
-        },
+        n => {
+            generator.error(
+                input.ident.span(),
+                format!(
+                    "proto message `{proto_name}` has {n} oneofs; an enum can stand \
+                     for the whole message only when there is exactly one. Declare \
+                     one enum per oneof with #[armonik_macros::oneof(\"{proto_name}.<oneof>\")] \
+                     and compose them in a struct"
+                ),
+            );
+            return None;
+        }
     };
-
     Some(Selected {
         proto_name,
         meta,
         oneof,
-        whole_message,
+        whole_message: true,
+    })
+}
+
+/// `#[armonik_macros::oneof]`: the argument names the oneof, as the `message.oneof` path the
+/// emitted `Oneof::ONEOF` carries and the carrying struct compares against.
+///
+/// The last segment is the oneof: a oneof name is a bare identifier, so what precedes it is the
+/// message. A oneof that covers its whole message is rejected, because that is the whole-message
+/// enum spelled the long way, and the two shapes stay visually distinct.
+fn select_named_oneof<'a>(
+    input: &syn::DeriveInput,
+    index: &'a DescriptorIndex,
+    paths: &[(Span, String)],
+    generator: &mut Generator,
+) -> Option<Selected<'a>> {
+    for (span, _) in paths.iter().skip(1) {
+        generator.error(
+            *span,
+            "a flattened oneof stands for one proto oneof; give the macro one path",
+        );
+    }
+    let Some((span, path)) = paths.first().cloned() else {
+        generator.error(
+            input.ident.span(),
+            "flattened oneofs need the proto oneof they stand for: \
+             #[armonik_macros::oneof(\"full.proto.Message.oneof_name\")]",
+        );
+        return None;
+    };
+    // The likely mistake is naming the message and stopping there, which the split below would
+    // otherwise report as "no message named ..." about everything up to the last dot.
+    if let Some(meta) = index.messages.get(&path) {
+        let oneofs: Vec<String> = meta
+            .oneofs
+            .iter()
+            .map(|oneof| format!("`{path}.{}`", oneof.name))
+            .collect();
+        generator.error(
+            span,
+            match oneofs.as_slice() {
+                [] => format!(
+                    "`{path}` is a proto message with no oneof; a message without a oneof \
+                     is derived on a struct with #[armonik_macros::message(\"{path}\")]"
+                ),
+                _ => format!(
+                    "`{path}` names a proto message, and the argument is the oneof's path: {}",
+                    oneofs.join(" or ")
+                ),
+            },
+        );
+        return None;
+    }
+    let Some((proto_name, oneof_name)) = path.rsplit_once('.') else {
+        generator.error(
+            span,
+            format!(
+                "`{path}` names no oneof: the argument is the oneof\'s path, \
+                 `full.proto.Message.oneof_name`"
+            ),
+        );
+        return None;
+    };
+    let meta = message_of(index, span, proto_name, generator)?;
+    let Some((oneof_index, oneof)) = meta.oneof(oneof_name) else {
+        generator.error(
+            span,
+            format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
+        );
+        return None;
+    };
+    if meta
+        .fields
+        .iter()
+        .all(|field| field.oneof == Some(oneof_index))
+    {
+        generator.error(
+            span,
+            format!(
+                "the oneof `{oneof_name}` covers the whole message `{proto_name}`; \
+                 a message whose oneof is all of it is a whole-message enum: \
+                 #[armonik_macros::message(\"{proto_name}\")]"
+            ),
+        );
+        return None;
+    }
+    Some(Selected {
+        proto_name: proto_name.to_owned(),
+        meta,
+        oneof,
+        whole_message: false,
     })
 }
 
@@ -1476,28 +1576,20 @@ fn resolve_one_variant(
 fn oneof_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
-    attrs: &MessageAttrs,
-    proto_names: &[(Span, String)],
-    is_fragment: bool,
+    selected: Selected<'_>,
     generator: &mut Generator,
 ) -> Ir {
-    // The claimed message names and the fragment marker survive a failed selection, so the
-    // degraded plan keeps the `service!` asserts and the carrying struct's oneof assert quiet.
-
-    let Some(selected) = select_oneof(input, index, attrs, proto_names, generator) else {
-        return Ir {
-            fragment_of: is_fragment.then(String::new),
-            ..poisoned_ir(input, index, claimed(proto_names))
-        };
-    };
+    // The fragment marker survives a failed resolution, so the carrying struct's oneof assert stays
+    // quiet: an empty `ONEOF` is its unchecked case.
+    let fragment_of = (!selected.whole_message).then(String::new);
     let syn::Data::Enum(data) = &input.data else {
         generator.error(
             input.ident.span(),
-            "#[armonik(oneof = ...)] expects an enum",
+            "#[armonik_macros::oneof] expects an enum",
         );
         return Ir {
-            fragment_of: is_fragment.then(String::new),
-            ..poisoned_ir(input, index, claimed(proto_names))
+            fragment_of,
+            ..poisoned_ir(input, index, vec![selected.proto_name])
         };
     };
 
@@ -1615,10 +1707,26 @@ mod tests {
     }
 
     fn resolve(input: &syn::DeriveInput, proto: &str) -> Ir {
+        resolved(proto, |index, names, generator| {
+            resolve_message(input, index, names, generator)
+        })
+    }
+
+    /// The same for `#[armonik_macros::oneof]`, whose argument is the oneof's path.
+    fn resolve_fragment(input: &syn::DeriveInput, path: &str) -> Ir {
+        resolved(path, |index, paths, generator| {
+            resolve_oneof(input, index, paths, generator)
+        })
+    }
+
+    fn resolved(
+        name: &str,
+        f: impl FnOnce(&DescriptorIndex, &[(Span, String)], &mut Generator) -> Ir,
+    ) -> Ir {
         let index = fixture_index();
         let mut generator = Generator::new();
-        let names = [(Span::call_site(), proto.to_owned())];
-        let ir = resolve_message(input, &index, &names, &mut generator);
+        let names = [(Span::call_site(), name.to_owned())];
+        let ir = f(&index, &names, &mut generator);
         if let Some(error) = generator.into_error() {
             panic!("the fixture resolves: {error}");
         }
@@ -1633,7 +1741,6 @@ mod tests {
     #[test]
     fn variant_fields_are_bound_out_of_the_way() {
         let input: syn::DeriveInput = syn::parse_quote! {
-            #[armonik(oneof = "choice")]
             pub enum Choice {
                 Text(String),
                 Simple(String),
@@ -1648,7 +1755,7 @@ mod tests {
                 },
             }
         };
-        let emitted = emit(&resolve(&input, "fixture.Choice"));
+        let emitted = emit(&resolve_fragment(&input, "fixture.Choice.choice"));
 
         // Each field appears only as a *pattern key* renaming it out of the way (`buf : __f1`).
         // Binding it under its own name is what would shadow the emitter's `buf`, `len`, `value`
@@ -1711,7 +1818,6 @@ mod tests {
     #[test]
     fn an_embedded_oneof_records_the_oneof_it_stands_for() {
         let embedded: syn::DeriveInput = syn::parse_quote! {
-            #[armonik(oneof = "choice")]
             pub enum Choice {
                 Text(String),
                 Simple(String),
@@ -1720,7 +1826,7 @@ mod tests {
                 Hostile(String),
             }
         };
-        let emitted = emit(&resolve(&embedded, "fixture.Choice"));
+        let emitted = emit(&resolve_fragment(&embedded, "fixture.Choice.choice"));
         assert!(
             emitted.contains("impl crate :: codec :: Oneof for Choice"),
             "the marker is emitted: {emitted}",

@@ -1,0 +1,5 @@
+error: `fixture.Choice` names a proto message, and the argument is the oneof's path: `fixture.Choice.choice`
+ --> tests/ui/oneof_names_the_message.rs:7:25
+  |
+7 | #[armonik_macros::oneof("fixture.Choice")]
+  |                         ^^^^^^^^^^^^^^^^

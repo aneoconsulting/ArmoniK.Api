@@ -32,8 +32,9 @@ pub(crate) struct Ir {
     /// Full proto names the type stands for (several for unified types). Empty in
     /// [`generic`](Ir::generic) mode, which registers nothing.
     pub(crate) names: Vec<String>,
-    /// `Some("message.oneof")` for an embedded oneof: a fragment of a message rather than one, so
-    /// it gets the `Oneof` identity marker instead of `Msg`, and registers nothing.
+    /// `Some("message.oneof")` for an `#[armonik_macros::oneof]` type: a fragment of a message
+    /// rather than one, so it gets the `Oneof` identity marker instead of `Msg`, and registers
+    /// nothing.
     pub(crate) fragment_of: Option<String>,
     /// Leading comment of the proto message, for the re-emitted item.
     pub(crate) docs: Vec<String>,

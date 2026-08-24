@@ -9,7 +9,7 @@ conversion layer, plus the gRPC clients and servers speaking them natively.
 | Crate | Holds |
 |---|---|
 | `armonik` | the object types, the codec, `service!` invocations (`src/rpc/`), the generic `ServiceClient` and `Router`, the tests |
-| `armonik-macros` | `#[armonik_macros::message]`, `#[armonik_macros::enumeration]`, `#[armonik_macros::alias]`, `#[armonik_macros::client]` and `service!`; resolution against the descriptor, then codegen |
+| `armonik-macros` | `#[armonik_macros::message]`, `#[armonik_macros::oneof]`, `#[armonik_macros::enumeration]`, `#[armonik_macros::alias]`, `#[armonik_macros::client]` and `service!`; resolution against the descriptor, then codegen |
 | `armonik-transport` | endpoint configuration, TLS/mTLS, connectors. Independent, so depending on it alone keeps protobuf codegen out of a build |
 
 The protos in `../../Protos/V1` are the source of truth. `armonik/build.rs`

@@ -9,10 +9,11 @@
 //! Rust type is a compile error. Every expansion const-asserts a descriptor fingerprint, so a stale
 //! expansion cannot survive a descriptor change.
 //!
-//! [`message`](macro@message) covers messages and oneofs, [`enumeration`](macro@enumeration) proto
-//! enums, [`service`](macro@service) the per-service RPC definitions. The `#[armonik(...)]` grammar
-//! lives in the [message attributes](macro@message#attributes) and [enum
-//! attributes](macro@enumeration#attributes) sections.
+//! [`message`](macro@message) covers messages, [`oneof`](macro@oneof) the oneofs embedded in them,
+//! [`enumeration`](macro@enumeration) proto enums, [`service`](macro@service) the per-service RPC
+//! definitions. The `#[armonik(...)]` grammar lives in the [message
+//! attributes](macro@message#attributes) and [enum attributes](macro@enumeration#attributes)
+//! sections.
 
 use proc_macro::TokenStream;
 use quote::ToTokens;
@@ -86,14 +87,13 @@ use syn::DeriveInput;
 /// }
 /// ```
 ///
-/// A proto field belonging to a oneof cannot be mapped alone: declare one
-/// Rust field named after the *oneof*, typed as an embedded-oneof enum (see
-/// [`oneof`](#oneof)).
+/// A proto field belonging to a oneof cannot be mapped alone: declare one Rust
+/// field named after the *oneof*, typed as a [`oneof`](macro@oneof) enum.
 ///
-/// **Whole-message enum**: [`message`](#message) on an enum stands for a
-/// message whose single oneof is inferred. Variants match oneof members by
-/// snake_cased name; an attribute-less unit variant is the "no member set"
-/// case and becomes the `Default`:
+/// **Whole-message enum**: on an enum, the type stands for a message whose
+/// single oneof is inferred. Variants match oneof members by snake_cased name;
+/// one attribute-less variant, at most, is the "no member set" case, and is the
+/// one to mark `#[default]` since that is the proto zero:
 ///
 /// ```ignore
 /// #[armonik_macros::message("armonik.api.grpc.v1.Output")]
@@ -108,24 +108,20 @@ use syn::DeriveInput;
 /// }
 /// ```
 ///
-/// Variant payloads take three forms: a single tuple payload (`Variant(T)`),
-/// an [`inlined`](#inlined) struct variant spreading the fields of a message
-/// member (`Error` above;
-/// that member's message must not itself contain a oneof), or a
-/// [`present`](#present) unit variant for a `bool` or empty-message member
-/// whose only information is that it is set. Non-oneof fields of the message
-/// become *siblings*: every variant, including the attribute-less one, is a
-/// struct variant carrying all of them next to its own payload field, which
-/// keeps the per-field merge stateless and order-independent.
+/// Variant payloads take three forms: a single tuple payload (`Variant(T)`), an
+/// [`inlined`](#inlined) struct variant spreading the fields of a message member
+/// (`Error` above; that member's message must not itself contain a oneof), or a
+/// [`present`](#present) unit variant for a `bool` or empty-message member whose
+/// only information is that it is set. Non-oneof fields of the message become
+/// *siblings*: every variant, including the attribute-less one, is a struct
+/// variant carrying all of them next to its own payload field.
 ///
-/// **Embedded oneof**: [`message`](#message) with [`oneof`](#oneof) declares
-/// an enum for one oneof of a larger message, used as a field (named after
-/// the oneof) of the struct deriving that message.
+/// One oneof of a *larger* message is a fragment rather than a message, and has
+/// a macro of its own: [`oneof`](macro@oneof).
 ///
-/// **Generic struct**: [`generic`](#generic) skips descriptor validation,
-/// since a generic type cannot name one proto message. Every field carries an
-/// explicit [`tag`](#tag), and the differential harness validates the
-/// concrete instantiations instead:
+/// **Generic struct**: [`generic`](#generic) skips descriptor validation, since
+/// a generic type cannot name one proto message. Every field carries an explicit
+/// [`tag`](#tag), and the concrete instantiations are validated instead:
 ///
 /// ```ignore
 /// #[armonik_macros::message]
@@ -143,14 +139,6 @@ use syn::DeriveInput;
 ///
 /// Everything not declared through `#[armonik(...)]` is inferred from the
 /// descriptor.
-///
-/// ## oneof
-///
-/// `oneof = "name"`, on an enum: the enum stands for that oneof of the message
-/// named by [`message`](#message), embedded in a struct as a field named after
-/// the oneof. Rejected when the oneof covers the whole message; use the
-/// whole-message enum shape ([`message`](#message) alone) there, so the two
-/// shapes stay visually distinct.
 ///
 /// ## generic
 ///
@@ -274,15 +262,82 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implement `prost::Message` for one oneof of an ArmoniK API message: a Rust
+/// enum that the message's own type carries in the field named after that
+/// oneof.
+///
+/// The macro's argument is the oneof's path, `full.proto.Message.oneof_name`.
+/// The last segment is the oneof and what precedes it is the message; that path
+/// is what the expansion emits into the type's `Oneof` impl and what the
+/// carrying struct const-asserts, which makes standing one message's oneof in
+/// for another's a compile error rather than a silent re-encoding: two
+/// tag-compatible oneofs are a byte-level bijection.
+///
+/// A fragment of a message rather than a message: no `Msg` impl and no
+/// registration, both of which belong to the struct deriving the message. A
+/// oneof that covers its whole message is rejected here: that is the
+/// whole-message enum shape, under [`message`](macro@message).
+///
+/// ```ignore
+/// #[armonik_macros::message("armonik.api.grpc.v1.tasks.FilterField")]
+/// #[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// pub struct Field {
+///     pub field: TaskField,
+///     #[armonik(rename = "value_condition")]
+///     pub condition: Condition,     // the fragment, named after the oneof
+/// }
+///
+/// #[armonik_macros::oneof("armonik.api.grpc.v1.tasks.FilterField.value_condition")]
+/// #[derive(Debug, Clone, Default, PartialEq, Eq)]
+/// pub enum Condition {
+///     #[default]
+///     Invalid,                      // no member set
+///     #[armonik(rename = "filter_string")]
+///     String(FilterString),
+///     #[armonik(rename = "filter_number")]
+///     Number(FilterNumber),
+/// }
+/// ```
+///
+/// # Variants
+///
+/// One per oneof member, matched by snake_cased name, plus one attribute-less
+/// variant, at most, standing for "no member set" -- the proto zero, so it is
+/// the one to mark `#[default]`. A payload takes one of three forms: a tuple
+/// payload, an `inlined` struct variant spreading a member message's fields, or
+/// a `present` unit variant for a member whose only information is that it is
+/// set. There are no sibling fields to carry: those belong to the struct.
+///
+/// # Attributes
+///
+/// None at type level: the oneof is the macro's argument. On variants and their
+/// fields, the grammar is the [message attributes](macro@message#attributes).
+#[proc_macro_attribute]
+pub fn oneof(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let attr = TokenStream2::from(attr);
+    expand(input, |input, index, generator| {
+        let Some(paths) = proto_names(attr, generator) else {
+            return;
+        };
+        let ir = resolve::resolve_oneof(input, index, &paths, generator);
+        // Read before `rewrite` strips the `#[armonik(...)]` keys the anchors point at.
+        generator.emit(item::anchors(input, Kind::Oneof));
+        emit::message(&ir, generator);
+        generator.emit(emit::absorbed_registrations(&ir.absorbs));
+        item::rewrite(input, &ir);
+    })
+}
+
 /// Implement the wire representation of a protobuf enum for an ArmoniK API
 /// type, validated against the protobuf descriptors compiled by the `armonik`
-/// build script. An attribute macro like [`message`](macro@message): the item
-/// is re-emitted with the proto documentation injected (the enum and each
-/// matched value) and the `#[armonik(...)]` attributes stripped.
+/// build script. The item is re-emitted with the proto documentation injected
+/// (the enum and each matched value) and the `#[armonik(...)]` attributes
+/// stripped.
 ///
 /// The macro's argument is the full proto name of the enum the type stands for,
-/// or several for a unified type; with [`transparent`](#transparent) it names
-/// the single-field wrapper messages instead, whose tag paths must agree.
+/// or several for a unified type standing for identical enums; with
+/// [`transparent`](#transparent) it names the single-field wrapper messages
+/// instead, whose tag paths must agree.
 ///
 /// proto3 enums are open, so unknown values must round-trip losslessly. The
 /// expansion requires exactly one catch-all tuple variant, whose payload
