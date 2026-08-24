@@ -1,0 +1,5 @@
+error: #[armonik(transparent)] flattens a single-field wrapper struct into its field; an enum stands for the oneof of the message it names, which has nothing to flatten
+ --> tests/ui/transparent_on_an_enum.rs:8:11
+  |
+8 | #[armonik(transparent)]
+  |           ^^^^^^^^^^^
