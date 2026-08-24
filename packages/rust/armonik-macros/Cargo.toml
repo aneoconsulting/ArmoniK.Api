@@ -28,6 +28,11 @@ prost-types.workspace = true
 # Descriptor-fingerprint hash; the same crate hashes it in armonik's build
 # script, so the two sides cannot diverge (see `descriptor::index`).
 fnv.workspace = true
+# The `#[armonik(...)]` grammar: one struct per site, and the unknown-key diagnostic that names the
+# keys the site does accept (see `attrs`). `default-features = false` drops the `suggestions` feature,
+# whose fuzzy match replaces that list with a single "did you mean" guess: the list is what the
+# compile-fail snapshots pin, and it is complete.
+darling = { version = "0.24", default-features = false }
 
 [dev-dependencies]
 # The compile-fail suite compiles its own fixture schema, the way `armonik`'s

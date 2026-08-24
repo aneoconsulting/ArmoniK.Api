@@ -174,14 +174,11 @@ fn for_each_field(input: &mut DeriveInput, visit: impl FnMut(&mut syn::Field)) {
 /// Remove every `#[armonik(...)]` attribute: they were consumed by the expansion and are not
 /// registered anywhere once the item is re-emitted.
 fn strip(input: &mut DeriveInput) {
-    fn retain(attrs: &mut Vec<syn::Attribute>) {
-        attrs.retain(|attr| !attr.path().is_ident("armonik"));
-    }
-    retain(&mut input.attrs);
+    attrs::strip(&mut input.attrs);
     if let syn::Data::Enum(data) = &mut input.data {
         for variant in &mut data.variants {
-            retain(&mut variant.attrs);
+            attrs::strip(&mut variant.attrs);
         }
     }
-    for_each_field(input, |field| retain(&mut field.attrs));
+    for_each_field(input, |field| attrs::strip(&mut field.attrs));
 }

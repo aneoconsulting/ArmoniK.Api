@@ -19,7 +19,7 @@
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::quote;
 
-use crate::attrs::{self, AttrItem};
+use crate::attrs::{self, ClientAttrs, MethodAttrs};
 use crate::descriptor::ServiceMeta;
 use crate::matcher::unknown_name;
 
@@ -130,28 +130,14 @@ fn take_service(
     attrs: &mut Vec<syn::Attribute>,
     errors: &mut Vec<syn::Error>,
 ) -> Option<syn::LitStr> {
-    let mut service = None;
-    for attr in attrs.iter() {
-        if !attr.path().is_ident("armonik") {
-            continue;
+    let service = match attrs::read::<ClientAttrs>(attrs) {
+        Ok(scanned) => scanned.service,
+        Err(error) => {
+            errors.push(error);
+            None
         }
-        match attrs::parse(std::slice::from_ref(attr)) {
-            Ok(entries) => {
-                for entry in entries {
-                    match entry.item {
-                        AttrItem::Service(lit) => service = Some(lit),
-                        _ => errors.push(syn::Error::new(
-                            entry.span,
-                            "the only armonik attribute valid on a client impl block is \
-                             service = \"full.proto.Service\"",
-                        )),
-                    }
-                }
-            }
-            Err(error) => errors.push(error),
-        }
-    }
-    attrs.retain(|attr| !attr.path().is_ident("armonik"));
+    };
+    attrs::strip(attrs);
 
     if service.is_none() {
         errors.push(syn::Error::new(
@@ -165,33 +151,17 @@ fn take_service(
 
 /// The `#[armonik(rpc = "...")]` on a hand-written method, removed from it.
 fn claim_of_fn(method: &mut syn::ImplItemFn, errors: &mut Vec<syn::Error>) -> Option<Claim> {
-    let mut claim = None;
-    for attr in method.attrs.iter() {
-        if !attr.path().is_ident("armonik") {
-            continue;
+    let claim = match attrs::read::<MethodAttrs>(&method.attrs) {
+        Ok(scanned) => scanned.rpc.map(|rpc| Claim {
+            method: rpc.value(),
+            span: rpc.span(),
+        }),
+        Err(error) => {
+            errors.push(error);
+            None
         }
-        match attrs::parse(std::slice::from_ref(attr)) {
-            Ok(entries) => {
-                for entry in entries {
-                    match entry.item {
-                        AttrItem::Rpc(lit) => {
-                            claim = Some(Claim {
-                                method: lit.value(),
-                                span: lit.span(),
-                            })
-                        }
-                        _ => errors.push(syn::Error::new(
-                            entry.span,
-                            "the only armonik attribute valid on a client method is \
-                             rpc = \"MethodName\"",
-                        )),
-                    }
-                }
-            }
-            Err(error) => errors.push(error),
-        }
-    }
-    method.attrs.retain(|attr| !attr.path().is_ident("armonik"));
+    };
+    attrs::strip(&mut method.attrs);
 
     if claim.is_none() {
         errors.push(syn::Error::new(

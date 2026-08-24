@@ -1,102 +1,140 @@
-//! The `#[armonik(...)]` attribute grammar: parsing, and the per-site scan that decides what
-//! each field or variant accepts.
+//! The `#[armonik(...)]` attribute grammar: one struct per site, each naming the keys that site
+//! accepts.
 //!
-//! Parsed by hand rather than through `parse_nested_meta`: a key is an identifier, optionally
-//! `= <literal>` whose type the [`AttrItem`] constructor picks, and an unknown one is named back
-//! with the keys that do exist. One collector for every field and variant, with the accepted keys
-//! passed in as [`Allowed`], so a site cannot quietly start tolerating a key by forgetting to
+//! A key is an identifier, optionally `= <literal>` whose type the field's type picks; `darling`
+//! reads the entries of every `#[armonik(...)]` on the site into the struct and names an unknown one
+//! back with the keys the site does have. One struct per type, field and variant site, so a site
+//! accepts exactly the keys it declares and cannot quietly start tolerating one by forgetting to
 //! reject it. A scan that fails records into the [`Generator`] and answers `None`, like every other
 //! step: what the site does with that is the site's own. The user-facing grammar documentation lives
 //! on the two macros in `lib.rs`; keep it in sync.
 
+use darling::util::Flag;
+use darling::FromAttributes;
+
+/// A key's value and the span of that value, for a diagnostic about what the value *says*: the
+/// proto name that does not resolve, the adapter that does not fit. A key the site does not accept
+/// is `darling`'s own business, and it spans that at the key.
+pub(crate) use darling::util::SpannedValue;
 use proc_macro2::{Span, TokenStream};
-use syn::parse::{Parse, ParseStream, Parser};
+use syn::parse::Parser;
 use syn::punctuated::Punctuated;
-use syn::{Attribute, LitInt, LitStr, Token};
+use syn::spanned::Spanned;
+use syn::{Attribute, LitStr, Token};
 
 use crate::generator::Generator;
 
-/// A single `key` or `key = value` entry inside `#[armonik(...)]`.
-pub(crate) enum AttrItem {
+/// The span of a set flag, or `None`: what a site reasons about where the key both states a fact and
+/// says where to report anything about it.
+pub(crate) fn flagged(flag: Flag) -> Option<Span> {
+    flag.is_present().then(|| flag.span())
+}
+
+/// Type level of `#[armonik_macros::message]`: the three keys the shape is picked from
+/// (`resolve::resolve_message`).
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct MessageAttrs {
     /// `oneof = "name"`: the type is the flattened oneof of that name.
-    Oneof(LitStr),
+    pub(crate) oneof: Option<SpannedValue<String>>,
     /// `generic`: no descriptor validation; fields carry explicit `tag`s.
-    Generic,
+    pub(crate) generic: Flag,
     /// `transparent`: single-field wrapper message flattened into its field.
-    Transparent,
-    /// `rename = "proto_name"`: the proto field or value name differs from the Rust name.
-    Rename(LitStr),
-    /// `tag = N`: explicit field tag, cross-checked against the descriptor except in `generic`
-    /// mode, where it is authoritative.
-    Tag(LitInt),
+    pub(crate) transparent: Flag,
+}
+
+/// Type level of `#[armonik_macros::enumeration]`.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct EnumerationAttrs {
+    /// `transparent`: the enum is flattened out of the chain of single-field wrapper messages the
+    /// macro's argument names, rather than standing for a proto enum directly.
+    pub(crate) transparent: Flag,
+}
+
+/// A field standing for a proto field: a struct's own, or a struct variant's.
+///
+/// No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one of the
+/// `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct
+/// ([`GenericFieldAttrs`]). Spelling one here only ever restated what the proto says.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct FieldAttrs {
+    /// `rename = "proto_name"`: the proto field's name where it differs from the Rust field's.
+    pub(crate) rename: Option<String>,
     /// `with = "path::to::Adapter"`: custom codec for a non-standard representation.
-    With(LitStr),
-    /// `present`: marker oneof variant selected by field presence.
-    Present,
-    /// `inlined`: a proto message layer gets no Rust type of its own; what it contains lives
-    /// directly at the site. On a struct variant, the member message's fields spread into the
-    /// variant; on a field or tuple variant, the wrapper layer unwrapped from
-    /// the descriptor (the inner value, or a map).
-    Inlined,
-    /// `service = "full.proto.Service"`, on a client impl block: the proto service its methods
-    /// belong to, which is what `#[armonik_macros::client]` looks their documentation up in.
-    Service(LitStr),
-    /// `rpc = "MethodName"`, on a client method: the RPC it stands for.
-    Rpc(LitStr),
+    pub(crate) with: Option<SpannedValue<syn::Type>>,
+    /// `inlined`: the wrapper layer around the field's value gets no Rust type of its own; what it
+    /// contains (the inner value, or a map) lives directly at the field.
+    pub(crate) inlined: Flag,
 }
 
-pub(crate) struct AttrEntry {
-    pub(crate) span: Span,
-    pub(crate) item: AttrItem,
+/// A field of an `#[armonik(generic)]` struct, which names no proto message.
+///
+/// No `with`: the only check a generic type gets is the field-shape comparison at each
+/// `#[armonik_macros::alias]`, which reads `ProtoField::SHAPE` per field. An adapter has no shape to
+/// report -- it exists because the Rust representation is deliberately not the proto's -- so a field
+/// carrying one would have nothing to put in `GenericFields::FIELDS`.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct GenericFieldAttrs {
+    /// `tag = N`: the field's tag, authoritative here because there is no descriptor to take it
+    /// from.
+    pub(crate) tag: Option<u32>,
 }
 
-/// Parse the `= <value>` tail shared by every `key = value` entry; the value type
-/// (`LitStr`/`LitInt`) is inferred from the `AttrItem` constructor.
-fn eq_then<T: Parse>(input: ParseStream) -> syn::Result<T> {
-    input.parse::<Token![=]>()?;
-    input.parse()
+/// A variant of a oneof-shaped enum.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct VariantAttrs {
+    /// `rename = "member_name"`: the oneof member's name where it differs from the snake-cased
+    /// variant name.
+    pub(crate) rename: Option<String>,
+    /// `with = "path::to::Adapter"`: custom codec for the member carried whole.
+    pub(crate) with: Option<SpannedValue<syn::Type>>,
+    /// `present`: marker variant selected by the member's presence alone.
+    pub(crate) present: Flag,
+    /// `inlined`: the member's message layer gets no Rust type of its own; what it contains lives
+    /// directly in the variant (a struct variant spreads its fields, a tuple variant carries its
+    /// unwrapped inner value).
+    pub(crate) inlined: Flag,
 }
 
-struct AttrList(Vec<AttrEntry>);
+/// A variant of an `#[armonik_macros::enumeration]`, standing for one proto value.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct ValueAttrs {
+    /// `rename = "FULL_PROTO_VALUE_NAME"`: the proto value's name where the prost-style short form
+    /// does not match.
+    pub(crate) rename: Option<String>,
+}
 
-impl Parse for AttrList {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut entries = Vec::new();
-        while !input.is_empty() {
-            let ident: syn::Ident = input.parse()?;
-            let (span, key) = (ident.span(), ident.to_string());
+/// The impl block of `#[armonik_macros::client]`.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct ClientAttrs {
+    /// `service = "full.proto.Service"`: the proto service the block's methods belong to, which is
+    /// what their documentation is looked up in.
+    pub(crate) service: Option<LitStr>,
+}
 
-            let item = match key.as_str() {
-                "oneof" => AttrItem::Oneof(eq_then(input)?),
-                "rename" => AttrItem::Rename(eq_then(input)?),
-                "tag" => AttrItem::Tag(eq_then(input)?),
-                "with" => AttrItem::With(eq_then(input)?),
-                "service" => AttrItem::Service(eq_then(input)?),
-                "rpc" => AttrItem::Rpc(eq_then(input)?),
-                "generic" => AttrItem::Generic,
-                "transparent" => AttrItem::Transparent,
-                "present" => AttrItem::Present,
-                "inlined" => AttrItem::Inlined,
-                other => {
-                    return Err(syn::Error::new(
-                        span,
-                        format!(
-                            "unknown armonik attribute key `{other}` (expected one of: \
-                             oneof, rename, tag, with, service, rpc, generic, transparent, \
-                             present, inlined)"
-                        ),
-                    ));
-                }
-            };
-            entries.push(AttrEntry { span, item });
+/// One method of a `#[armonik_macros::client]` impl block.
+#[derive(FromAttributes)]
+#[darling(attributes(armonik))]
+pub(crate) struct MethodAttrs {
+    /// `rpc = "MethodName"`: the RPC the method stands for.
+    pub(crate) rpc: Option<LitStr>,
+}
 
-            if input.is_empty() {
-                break;
-            }
-            input.parse::<Token![,]>()?;
-        }
-        Ok(AttrList(entries))
-    }
+/// Read one site's `#[armonik(...)]` keys, or the combined error once the entries do not parse or
+/// name a key the site does not accept. `darling` stays behind this: the grammar has one home.
+pub(crate) fn read<T: FromAttributes>(attrs: &[Attribute]) -> syn::Result<T> {
+    T::from_attributes(attrs).map_err(syn::Error::from)
+}
+
+/// The same for a step holding a [`Generator`]: `None`, with everything wrong recorded.
+pub(crate) fn scan<T: FromAttributes>(attrs: &[Attribute], generator: &mut Generator) -> Option<T> {
+    read(attrs).map_err(|error| generator.record(error)).ok()
 }
 
 /// The proto names a macro was given as its argument: `#[armonik_macros::message("a.B")]`, or
@@ -112,18 +150,6 @@ pub(crate) fn proto_names(attr: TokenStream) -> syn::Result<Vec<(Span, String)>>
         .into_iter()
         .map(|name| (name.span(), name.value()))
         .collect())
-}
-
-/// Collect every entry of every `#[armonik(...)]` attribute in `attrs`.
-pub(crate) fn parse(attrs: &[Attribute]) -> syn::Result<Vec<AttrEntry>> {
-    let mut entries = Vec::new();
-    for attr in attrs {
-        if attr.path().is_ident("armonik") {
-            let list: AttrList = attr.parse_args()?;
-            entries.extend(list.0);
-        }
-    }
-    Ok(entries)
 }
 
 /// Visit the attributes of the type itself and of every field, variant and variant field: the
@@ -149,16 +175,26 @@ pub(crate) fn for_each_site(input: &syn::DeriveInput, mut visit: impl FnMut(&[At
 }
 
 /// Span of every key token of every `#[armonik(...)]` attribute in `attrs`, for the
-/// hover-documentation anchors (see `item::anchors`). Malformed attributes are skipped; the real
-/// parse reports them.
+/// hover-documentation anchors (see `item::anchors`). Read as `key`/`key = value` entries and
+/// nothing more, so an unknown key still gets its anchor; a malformed attribute is skipped, and the
+/// site's own scan reports it.
 pub(crate) fn key_spans(attrs: &[Attribute]) -> Vec<Span> {
     attrs
         .iter()
         .filter(|attr| attr.path().is_ident("armonik"))
-        .filter_map(|attr| attr.parse_args::<AttrList>().ok())
-        .flat_map(|list| list.0)
-        .map(|entry| entry.span)
+        .filter_map(|attr| {
+            attr.parse_args_with(Punctuated::<syn::Meta, Token![,]>::parse_terminated)
+                .ok()
+        })
+        .flatten()
+        .map(|entry| entry.path().span())
         .collect()
+}
+
+/// Remove the `#[armonik(...)]` attributes from one site: they are consumed by the expansion, and
+/// what re-emits the item they were written on hands back an item without them.
+pub(crate) fn strip(attrs: &mut Vec<Attribute>) {
+    attrs.retain(|attr| !attr.path().is_ident("armonik"));
 }
 
 /// The name an identifier matches proto names by: the ident, minus any raw prefix.
@@ -166,151 +202,39 @@ pub(crate) fn unraw(ident: &syn::Ident) -> String {
     ident.to_string().trim_start_matches("r#").to_owned()
 }
 
-/// Parse + scan one field/variant's attributes per the site's [`Allowed`] set; `None` (with the
-/// error pushed) when the attribute list itself does not parse.
-pub(crate) fn scan_attrs(
-    attrs: &[syn::Attribute],
-    allowed: Allowed,
-    reject: &str,
-    generator: &mut Generator,
-) -> Option<FieldAttrs> {
-    match parse(attrs) {
-        Ok(entries) => Some(scan_field_attrs(&entries, allowed, reject, generator)),
-        Err(err) => {
-            generator.record(err);
-            None
-        }
-    }
-}
-
-/// Parse the adapter type in `#[armonik(with = "path::To::Adapter")]`, pushing a spanned error (and
-/// returning `None`) when it does not parse.
-fn parse_adapter_type(
-    lit: &syn::LitStr,
-    span: Span,
-    generator: &mut Generator,
-) -> Option<syn::Type> {
-    match syn::parse_str::<syn::Type>(&lit.value()) {
-        Ok(ty) => Some(ty),
-        Err(err) => {
-            generator.error(span, format!("invalid adapter type in with = ...: {err}"));
-            None
-        }
-    }
-}
-
-/// The field/variant-level `#[armonik(...)]` keys collected by [`scan_field_attrs`]. Each site
-/// reads only the keys it opted into through [`Allowed`]; the rest stay at their defaults.
-#[derive(Default)]
-pub(crate) struct FieldAttrs {
-    pub(crate) rename: Option<String>,
-    pub(crate) tag: Option<(Span, u32)>,
-    pub(crate) with: Option<(Span, syn::Type)>,
-    pub(crate) present: bool,
-    pub(crate) inlined: Option<Span>,
-}
-
-/// The `#[armonik(...)]` keys a site accepts. Any key not enabled here is a spanned `reject` error,
-/// so each site keeps rejecting exactly what it did before.
-#[derive(Clone, Copy, Default)]
-pub(crate) struct Allowed {
-    pub(crate) rename: bool,
-    pub(crate) tag: bool,
-    pub(crate) with: bool,
-    pub(crate) present: bool,
-    pub(crate) inlined: bool,
-}
-
-/// Scan one field's or variant's `#[armonik(...)]` entries into a [`FieldAttrs`], pushing `reject`
-/// (spanned) for any key outside `allowed` and for a malformed `tag` or `with`.
-///
-/// A rejected entry is reported and skipped, so the collected attributes are whatever was valid;
-/// callers act on the pushed errors, not on a return value.
-fn scan_field_attrs(
-    entries: &[AttrEntry],
-    allowed: Allowed,
-    reject: &str,
-    generator: &mut Generator,
-) -> FieldAttrs {
-    let mut collected = FieldAttrs::default();
-    for entry in entries {
-        match &entry.item {
-            AttrItem::Rename(lit) if allowed.rename => collected.rename = Some(lit.value()),
-            AttrItem::Tag(lit) if allowed.tag => match lit.base10_parse::<u32>() {
-                Ok(tag) => collected.tag = Some((entry.span, tag)),
-                Err(err) => generator.error(entry.span, err),
-            },
-            AttrItem::With(lit) if allowed.with => {
-                if let Some(ty) = parse_adapter_type(lit, entry.span, generator) {
-                    collected.with = Some((entry.span, ty));
-                }
-            }
-            AttrItem::Present if allowed.present => collected.present = true,
-            AttrItem::Inlined if allowed.inlined => collected.inlined = Some(entry.span),
-            _ => generator.error(entry.span, reject),
-        }
-    }
-    collected
-}
-
 #[cfg(test)]
 mod tests {
-    //! Guards for [`scan_field_attrs`], the one place deciding which `#[armonik(...)]` keys each
-    //! field or variant site accepts. The full expansions only run inside the `armonik` crate (they
-    //! read the build-script descriptor), and the differential harness only fuzzes valid input, so
-    //! the per-site rejection rules, which the shared collector could silently weaken, are pinned
-    //! here instead.
-
-    use proc_macro2::Span;
+    //! Guards for the per-site key sets: which `#[armonik(...)]` keys a field or variant accepts.
+    //! The full expansions only run inside the `armonik` crate (they read the build-script
+    //! descriptor), and the differential harness only fuzzes valid input, so the two halves of a
+    //! site -- the keys it reads, and the keys it refuses -- are pinned here, over the site with
+    //! the most of both.
 
     use super::*;
 
-    fn entry(item: AttrItem) -> AttrEntry {
-        AttrEntry {
-            span: Span::call_site(),
-            item,
-        }
-    }
-
-    fn lit(value: &str) -> syn::LitStr {
-        syn::LitStr::new(value, Span::call_site())
-    }
-
-    fn scan(entries: &[AttrEntry], allowed: Allowed) -> (FieldAttrs, bool) {
-        let mut generator = Generator::new();
-        let collected = scan_field_attrs(entries, allowed, "reject", &mut generator);
-        (collected, !generator.poisoned())
+    fn variant_attrs(attr: syn::Attribute) -> darling::Result<VariantAttrs> {
+        VariantAttrs::from_attributes(&[attr])
     }
 
     #[test]
-    fn collects_only_enabled_keys() {
-        let (collected, clean) = scan(
-            &[
-                entry(AttrItem::Rename(lit("proto_name"))),
-                entry(AttrItem::Present),
-            ],
-            Allowed {
-                rename: true,
-                present: true,
-                ..Allowed::default()
-            },
-        );
-        assert!(clean);
-        assert_eq!(collected.rename.as_deref(), Some("proto_name"));
-        assert!(collected.present);
+    fn collects_the_keys_of_the_site() {
+        let scanned = variant_attrs(syn::parse_quote!(#[armonik(rename = "member", present)]))
+            .expect("the oneof-variant site takes both keys");
+        assert_eq!(scanned.rename.as_deref(), Some("member"));
+        assert!(scanned.present.is_present());
+        assert!(!scanned.inlined.is_present());
     }
 
     #[test]
-    fn disallowed_key_is_rejected_and_not_collected() {
-        // `present` at a site that only accepts `rename`.
-        let (collected, clean) = scan(
-            &[entry(AttrItem::Present)],
-            Allowed {
-                rename: true,
-                ..Allowed::default()
-            },
+    fn a_key_the_site_does_not_declare_is_rejected() {
+        // `tag` belongs to generic-mode fields; a oneof variant takes its member from the
+        // descriptor.
+        let Err(error) = variant_attrs(syn::parse_quote!(#[armonik(tag = 1)])) else {
+            panic!("a oneof variant does not take tag = ...");
+        };
+        assert!(
+            error.to_string().contains("tag"),
+            "the rejection names the key: {error}"
         );
-        assert!(!clean);
-        assert!(!collected.present);
     }
 }

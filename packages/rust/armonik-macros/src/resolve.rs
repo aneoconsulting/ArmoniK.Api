@@ -11,7 +11,9 @@
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 
-use crate::attrs::{scan_attrs, unraw, Allowed, AttrEntry, AttrItem, FieldAttrs};
+use crate::attrs::{
+    flagged, scan, unraw, FieldAttrs, GenericFieldAttrs, MessageAttrs, SpannedValue, VariantAttrs,
+};
 use crate::descriptor::{Cardinality, DescriptorIndex, FieldKind, FieldMeta, MessageMeta};
 use crate::generator::Generator;
 use crate::matcher::{not_found, unknown_name, Found, Matcher};
@@ -31,27 +33,14 @@ pub(crate) fn resolve_message(
     proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> Ir {
-    let entries = match crate::attrs::parse(&input.attrs) {
-        Ok(entries) => entries,
-        Err(error) => {
-            generator.record(error);
-            return poisoned_ir(input, index, Vec::new());
-        }
+    // A key this site does not accept is what the scan itself rejects, so nothing below reads a
+    // type-level attribute set it could not make sense of.
+    let Some(attrs) = scan::<MessageAttrs>(&input.attrs, generator) else {
+        return poisoned_ir(input, index, Vec::new());
     };
-
-    let mut stray: Vec<Span> = Vec::new();
-    let mut oneof_attr = false;
     // Spans, not flags: the two are mutually exclusive and the rejection points at one of them.
-    let mut generic: Option<Span> = None;
-    let mut transparent: Option<Span> = None;
-    for entry in &entries {
-        match &entry.item {
-            AttrItem::Oneof(_) => oneof_attr = true,
-            AttrItem::Generic => generic = Some(entry.span),
-            AttrItem::Transparent => transparent = Some(entry.span),
-            _ => stray.push(entry.span),
-        }
-    }
+    let generic = flagged(attrs.generic);
+    let transparent = flagged(attrs.transparent);
 
     // Ahead of the dispatch below, so no precedence path skips it: the pair is nonsense whichever
     // shape would have won, and `oneof = ...` beside it would only hide the answer.
@@ -66,17 +55,10 @@ pub(crate) fn resolve_message(
     }
 
     // Enums are oneof-shaped: `message = ...` alone stands for a whole message with a single
-    // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct. Dispatched on
-    // before anything else is reported, because a oneof reads the same entries for itself and
-    // rejects a stray key in its own words.
-    if oneof_attr || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
-        return oneof_ir(input, index, &entries, proto_names, oneof_attr, generator);
-    }
-    for span in stray {
-        generator.error(
-            span,
-            "this armonik attribute is not valid at type level on a struct",
-        );
+    // inferred oneof, `oneof = ...` for one oneof of a message, embedded in a struct.
+    let is_fragment = attrs.oneof.is_some();
+    if is_fragment || (matches!(input.data, syn::Data::Enum(_)) && generic.is_none()) {
+        return oneof_ir(input, index, &attrs, proto_names, is_fragment, generator);
     }
     if generic.is_some() {
         if !proto_names.is_empty() {
@@ -124,52 +106,6 @@ fn poisoned_ir(input: &syn::DeriveInput, index: &DescriptorIndex, names: Vec<Str
             vec![Slot::poisoned(input.ident.span())],
         )
     }
-}
-
-/// The attributes a Rust field standing for a proto field takes. `None` once the scan failed, which
-/// is the caller's to price: a struct's field poisons a slot, a variant's sibling poisons the
-/// variant.
-///
-/// No `tag`: a descriptor-validated field takes its tag from the descriptor, and every one of the
-/// six `tag = ...` sites in the crate is inside an `#[armonik(generic)]` struct, which
-/// [`generic_ir`] handles. Spelling one here only ever restated what the proto says.
-fn proto_field_attrs(
-    attrs: &[syn::Attribute],
-    reject: &str,
-    generator: &mut Generator,
-) -> Option<ProtoFieldAttrs> {
-    let FieldAttrs {
-        rename,
-        with,
-        inlined,
-        ..
-    } = scan_attrs(
-        attrs,
-        Allowed {
-            rename: true,
-            with: true,
-            inlined: true,
-            ..Allowed::default()
-        },
-        reject,
-        generator,
-    )?;
-    Some(ProtoFieldAttrs {
-        rename,
-        with,
-        inlined,
-    })
-}
-
-/// What a proto field's own attributes say about it.
-struct ProtoFieldAttrs {
-    /// The proto field's name where it differs from the Rust field's.
-    rename: Option<String>,
-    /// The `with = ...` codec substitution, spanned: where a site does not accept one, the error
-    /// points at the key rather than at whatever carries it.
-    with: Option<(Span, syn::Type)>,
-    /// `inlined`: the same, for the substitution the descriptor proves rather than names.
-    inlined: Option<Span>,
 }
 
 // ---- Plain struct: every field is a field of one proto message ----
@@ -232,19 +168,16 @@ fn plain_ir(
 
     for (field_index, field) in data.fields.iter().enumerate() {
         let (at, access) = field_access(field, field_index);
-        let Some(ProtoFieldAttrs {
+        let Some(FieldAttrs {
             rename,
             with,
             inlined,
-        }) = proto_field_attrs(
-            &field.attrs,
-            "this armonik attribute is not valid on a message field",
-            generator,
-        )
+        }) = scan::<FieldAttrs>(&field.attrs, generator)
         else {
             fields.push(Slot::poisoned(at.name));
             continue;
         };
+        let inlined = flagged(inlined);
 
         let proto_name = match (&rename, &field.ident) {
             (Some(name), _) => name.clone(),
@@ -434,19 +367,12 @@ fn generic_ir(input: &syn::DeriveInput, index: &DescriptorIndex, generator: &mut
         // `#[armonik_macros::alias]`, which reads `ProtoField::SHAPE` per field. An adapter has no
         // shape to report -- it exists because the Rust representation is deliberately not the
         // proto's -- so a field carrying one would have nothing to put in `GenericFields::FIELDS`.
-        let Some(FieldAttrs { tag, .. }) = scan_attrs(
-            &field.attrs,
-            Allowed {
-                tag: true,
-                ..Allowed::default()
-            },
-            "generic-mode fields only take tag = ...",
-            generator,
-        ) else {
+        let Some(GenericFieldAttrs { tag }) = scan::<GenericFieldAttrs>(&field.attrs, generator)
+        else {
             fields.push(Slot::poisoned(at.name));
             continue;
         };
-        let Some((_, tag)) = tag else {
+        let Some(tag) = tag else {
             generator.error(
                 at.name,
                 "generic-mode fields need an explicit #[armonik(tag = ...)]",
@@ -703,24 +629,21 @@ fn carried(
     let mut leftovers: Vec<Leftover> = Vec::new();
     for field in named {
         let ident = field.ident.clone().expect("named fields have idents");
-        let Some(ProtoFieldAttrs {
+        let Some(FieldAttrs {
             rename,
             with,
             inlined,
-        }) = proto_field_attrs(
-            &field.attrs,
-            "this armonik attribute is not valid on a struct variant field",
-            generator,
-        )
+        }) = scan::<FieldAttrs>(&field.attrs, generator)
         else {
             failed = true;
             continue;
         };
+        let inlined = flagged(inlined);
 
         let name = rename.unwrap_or_else(|| unraw(&ident));
         match siblings.claim(&mut seen, &name, &ident, &field.ty, generator) {
             Some(ok) => {
-                for span in with.map(|(span, _)| span).into_iter().chain(inlined) {
+                for span in with.iter().map(|with| with.span()).chain(inlined) {
                     generator.error(
                         span,
                         "this key is only valid on the member payload field, not on a \
@@ -735,7 +658,7 @@ fn carried(
                 ident,
                 name,
                 ty: field.ty.clone(),
-                with: with.map(|(_, ty)| ty),
+                with,
                 inlined,
             }),
         }
@@ -753,7 +676,7 @@ struct Leftover {
     name: String,
     ty: syn::Type,
     span: Span,
-    with: Option<syn::Type>,
+    with: Option<SpannedValue<syn::Type>>,
     inlined: Option<Span>,
 }
 
@@ -868,7 +791,7 @@ fn payload_codec(
 /// The one substitution a site carries, from the two keys that each name one. Both together is one
 /// mistake, reported on `inlined`, which is the key the descriptor could have proved instead.
 fn payload_of(
-    with: Option<(Span, syn::Type)>,
+    with: Option<SpannedValue<syn::Type>>,
     inlined: Option<Span>,
     generator: &mut Generator,
 ) -> Result<Option<Payload>, ()> {
@@ -881,7 +804,10 @@ fn payload_of(
             );
             Err(())
         }
-        (Some((span, ty)), None) => Ok(Some(Payload::Adapter(span, Box::new(ty)))),
+        (Some(with), None) => Ok(Some(Payload::Adapter(
+            with.span(),
+            Box::new(with.into_inner()),
+        ))),
         (None, Some(span)) => Ok(Some(Payload::Inlined(span))),
         (None, None) => Ok(None),
     }
@@ -913,7 +839,7 @@ enum Payload {
 
 fn carrier(
     variant_span: Span,
-    with: Option<(Span, syn::Type)>,
+    with: Option<SpannedValue<syn::Type>>,
     present: bool,
     inlined: Option<Span>,
     generator: &mut Generator,
@@ -925,8 +851,8 @@ fn carrier(
     if let Some(span) = inlined {
         named.push((span, "inlined"));
     }
-    if let Some((span, _)) = &with {
-        named.push((*span, "with = ..."));
+    if let Some(with) = &with {
+        named.push((with.span(), "with = ..."));
     }
     if let [_, (second_span, _), ..] = named.as_slice() {
         let keys = named
@@ -949,7 +875,7 @@ fn carrier(
     } else if let Some(span) = inlined {
         Carrier::Inlined(span)
     } else {
-        Carrier::Whole(with.map(|(span, ty)| Payload::Adapter(span, Box::new(ty))))
+        Carrier::Whole(with.map(|with| Payload::Adapter(with.span(), Box::new(with.into_inner()))))
     })
 }
 
@@ -1100,22 +1026,21 @@ fn resolve_variant(
                         // reported above, and a variant-level `inlined` never reaches here, because
                         // `Carrier::Inlined` dispatches on the variant's shape and this is the
                         // struct-variant arm.
-                        let Ok((adapter, checks)) = payload_of(
-                            member.with.map(|ty| (member.span, ty)),
-                            member.inlined,
-                            generator,
-                        )
-                        .and_then(|payload| {
-                            payload_codec(
-                                ctx.index,
-                                ctx.field_meta,
-                                ctx.proto_path,
-                                &member.ty,
-                                payload,
-                                absorbs,
-                                generator,
+                        let Ok((adapter, checks)) =
+                            payload_of(member.with, member.inlined, generator).and_then(
+                                |payload| {
+                                    payload_codec(
+                                        ctx.index,
+                                        ctx.field_meta,
+                                        ctx.proto_path,
+                                        &member.ty,
+                                        payload,
+                                        absorbs,
+                                        generator,
+                                    )
+                                },
                             )
-                        }) else {
+                        else {
                             return None;
                         };
                         Some((
@@ -1297,22 +1222,22 @@ struct Selected<'a> {
 fn select_oneof<'a>(
     input: &syn::DeriveInput,
     index: &'a DescriptorIndex,
-    entries: &[AttrEntry],
+    attrs: &MessageAttrs,
     proto_names: &[(Span, String)],
     generator: &mut Generator,
 ) -> Option<Selected<'a>> {
     for (span, _) in proto_names.iter().skip(1) {
         generator.error(*span, "flattened oneofs support a single proto message");
     }
-    let mut oneof_name: Option<(Span, String)> = None;
-    for entry in entries {
-        match &entry.item {
-            AttrItem::Oneof(lit) => oneof_name = Some((entry.span, lit.value())),
-            _ => generator.error(
-                entry.span,
-                "this armonik attribute is not valid at type level on a flattened oneof",
-            ),
-        }
+    // The two keys that pick another shape: `oneof = ...` is the only one this one takes.
+    for span in [attrs.generic, attrs.transparent]
+        .into_iter()
+        .filter_map(flagged)
+    {
+        generator.error(
+            span,
+            "this armonik attribute is not valid at type level on a flattened oneof",
+        );
     }
     let Some((message_span, proto_name)) = proto_names.first().cloned() else {
         generator.error(
@@ -1331,11 +1256,13 @@ fn select_oneof<'a>(
     // and whose non-oneof fields become siblings replicated in every variant. `oneof = ...`
     // declares a partial enum embedded in a struct, and is rejected when the oneof is the whole
     // message so the two shapes stay visually distinct.
-    let (oneof, whole_message) = match &oneof_name {
-        Some((oneof_span, oneof_name)) => {
+    let (oneof, whole_message) = match &attrs.oneof {
+        Some(oneof_name) => {
+            let oneof_span = oneof_name.span();
+            let oneof_name = oneof_name.as_str();
             let Some((oneof_index, oneof)) = meta.oneof(oneof_name) else {
                 generator.error(
-                    *oneof_span,
+                    oneof_span,
                     format!("no oneof named `{oneof_name}` in proto message `{proto_name}`"),
                 );
                 return None;
@@ -1346,7 +1273,7 @@ fn select_oneof<'a>(
                 .all(|field| field.oneof == Some(oneof_index))
             {
                 generator.error(
-                    *oneof_span,
+                    oneof_span,
                     format!(
                         "the oneof `{oneof_name}` covers the whole message `{proto_name}`; \
                          drop the oneof attribute: the message name alone declares a \
@@ -1427,27 +1354,17 @@ fn resolve_one_variant(
             own: Slot::poisoned(span),
         }),
     };
-    let Some(FieldAttrs {
+    let Some(VariantAttrs {
         rename,
         with,
         present,
         inlined,
-        ..
-    }) = scan_attrs(
-        &variant.attrs,
-        Allowed {
-            rename: true,
-            with: true,
-            present: true,
-            inlined: true,
-            ..Allowed::default()
-        },
-        "this armonik attribute is not valid on a oneof variant",
-        generator,
-    )
+    }) = scan::<VariantAttrs>(&variant.attrs, generator)
     else {
         return poisoned(None);
     };
+    let present = present.is_present();
+    let inlined = flagged(inlined);
 
     // Split once, before anything asks what the variant means.
     //
@@ -1559,7 +1476,7 @@ fn resolve_one_variant(
 fn oneof_ir(
     input: &syn::DeriveInput,
     index: &DescriptorIndex,
-    entries: &[AttrEntry],
+    attrs: &MessageAttrs,
     proto_names: &[(Span, String)],
     is_fragment: bool,
     generator: &mut Generator,
@@ -1567,7 +1484,7 @@ fn oneof_ir(
     // The claimed message names and the fragment marker survive a failed selection, so the
     // degraded plan keeps the `service!` asserts and the carrying struct's oneof assert quiet.
 
-    let Some(selected) = select_oneof(input, index, entries, proto_names, generator) else {
+    let Some(selected) = select_oneof(input, index, attrs, proto_names, generator) else {
         return Ir {
             fragment_of: is_fragment.then(String::new),
             ..poisoned_ir(input, index, claimed(proto_names))

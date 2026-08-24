@@ -4,7 +4,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 
-use crate::attrs::{self, scan_attrs, unraw, Allowed, AttrItem, FieldAttrs};
+use crate::attrs::{scan, unraw, EnumerationAttrs, ValueAttrs};
 use crate::descriptor::{DescriptorIndex, FieldKind, MessageMeta};
 use crate::emit::{message_shaped, placeholder_bodies, tripwire, MessageBodies};
 use crate::generator::Generator;
@@ -23,24 +23,8 @@ pub(crate) fn resolve_enumeration(
 ) -> EnumPlan {
     let derived_comparisons = reject_implemented_derives(input, generator);
 
-    let entries = match attrs::parse(&input.attrs) {
-        Ok(entries) => entries,
-        Err(error) => {
-            generator.record(error);
-            Vec::new()
-        }
-    };
-
-    let mut transparent = false;
-    for entry in &entries {
-        match &entry.item {
-            AttrItem::Transparent => transparent = true,
-            _ => generator.error(
-                entry.span,
-                "this armonik attribute is not valid at type level on derive(Enum)",
-            ),
-        }
-    }
+    let transparent = scan::<EnumerationAttrs>(&input.attrs, generator)
+        .is_some_and(|attrs| attrs.transparent.is_present());
 
     // Resolve the proto enum(s) the variants are matched against, and the wrapper tag in
     // transparent mode. A name that does not resolve is recorded and skipped: the variants below
@@ -185,16 +169,7 @@ pub(crate) fn resolve_enumeration(
             .attrs
             .iter()
             .any(|attr| attr.path().is_ident("default"));
-        let scanned = scan_attrs(
-            &variant.attrs,
-            Allowed {
-                rename: true,
-                ..Allowed::default()
-            },
-            "this armonik attribute is not valid on a derive(Enum) variant",
-            generator,
-        );
-        let Some(FieldAttrs { rename, .. }) = scanned else {
+        let Some(ValueAttrs { rename }) = scan::<ValueAttrs>(&variant.attrs, generator) else {
             plan.poison(&variant.ident, None);
             continue;
         };
