@@ -33,7 +33,6 @@ mod resolve;
 mod service;
 
 use generator::Generator;
-use item::Kind;
 use proc_macro2::TokenStream as TokenStream2;
 use syn::DeriveInput;
 
@@ -227,19 +226,7 @@ use syn::DeriveInput;
 ///
 #[proc_macro_attribute]
 pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let attr = TokenStream2::from(attr);
-    expand(input, |input, index, generator| {
-        let Some(names) = proto_names(attr, generator) else {
-            return;
-        };
-        let ir = resolve::resolve_message(input, index, &names, generator);
-        // Read before `rewrite` mutates the item: `anchors` has to see the `#[armonik(...)]` keys
-        // it points at, which `rewrite` strips.
-        generator.emit(item::anchors(input, Kind::Message));
-        emit::message(&ir, generator);
-        generator.emit(emit::absorbed_registrations(&ir.absorbs));
-        item::rewrite(input, &ir);
-    })
+    message_shaped(attr, input, "message", resolve::resolve_message)
 }
 
 /// Implement `prost::Message` for one oneof of an ArmoniK API message: a Rust
@@ -294,14 +281,27 @@ pub fn message(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// fields, the grammar is the [message attributes](macro@message#attributes).
 #[proc_macro_attribute]
 pub fn oneof(attr: TokenStream, input: TokenStream) -> TokenStream {
+    message_shaped(attr, input, "oneof", resolve::resolve_oneof)
+}
+
+/// The expansion both message-shaped macros are: resolve the item against the descriptor, then emit
+/// the wire impls, the absorbed registrations and the item itself. What differs is which shape
+/// `resolve` reads the argument as, and which macro the hover anchors point at.
+fn message_shaped(
+    attr: TokenStream,
+    input: TokenStream,
+    macro_name: &str,
+    resolve: resolve::Resolver,
+) -> TokenStream {
     let attr = TokenStream2::from(attr);
     expand(input, |input, index, generator| {
-        let Some(paths) = proto_names(attr, generator) else {
+        let Some(names) = proto_names(attr, generator) else {
             return;
         };
-        let ir = resolve::resolve_oneof(input, index, &paths, generator);
-        // Read before `rewrite` strips the `#[armonik(...)]` keys the anchors point at.
-        generator.emit(item::anchors(input, Kind::Oneof));
+        let ir = resolve(input, index, &names, generator);
+        // Read before `rewrite` mutates the item: `anchors` has to see the `#[armonik(...)]` keys
+        // it points at, which `rewrite` strips.
+        generator.emit(item::anchors(input, macro_name));
         emit::message(&ir, generator);
         generator.emit(emit::absorbed_registrations(&ir.absorbs));
         item::rewrite(input, &ir);
@@ -405,7 +405,7 @@ pub fn enumeration(attr: TokenStream, input: TokenStream) -> TokenStream {
             return;
         };
         let plan = enumeration::resolve_enumeration(input, index, &names, generator);
-        generator.emit(item::anchors(input, Kind::Enumeration));
+        generator.emit(item::anchors(input, "enumeration"));
         let wire = enumeration::wire(&plan, generator);
         generator.emit(wire);
         // `items` is the value-level half: the payload struct, the two `i32` conversions,
