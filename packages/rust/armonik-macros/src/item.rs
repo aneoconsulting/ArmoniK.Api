@@ -14,25 +14,6 @@ use syn::DeriveInput;
 use crate::attrs;
 use crate::plan::{EnumPlan, Ir, Slot, SlotCodec};
 
-/// Which macro is expanding, for the hover anchors.
-#[derive(Clone, Copy)]
-pub(crate) enum Kind {
-    Message,
-    Oneof,
-    Enumeration,
-}
-
-impl Kind {
-    /// The macro's own name, for the hover anchors.
-    fn derive(self) -> &'static str {
-        match self {
-            Kind::Message => "message",
-            Kind::Oneof => "oneof",
-            Kind::Enumeration => "enumeration",
-        }
-    }
-}
-
 /// Re-emit the item of a message-shaped type (`message`, `oneof`): the plan's docs injected,
 /// `#[armonik(...)]` stripped, the serde line added.
 ///
@@ -57,19 +38,22 @@ pub(crate) fn rewrite_enum(input: &mut DeriveInput, plan: &EnumPlan) {
 /// keys then resolves to this crate's macro, the single home of the grammar documentation. The
 /// anonymous `const` compiles to nothing.
 ///
+/// `macro_name` is the macro expanding, as this crate exports it: an anchor is an import of it, so
+/// a name that is not one fails to resolve wherever the item is used.
+///
 /// Reads the pristine item, so it has to run before [`rewrite`] strips the attributes it points at.
-pub(crate) fn anchors(input: &DeriveInput, kind: Kind) -> TokenStream {
+pub(crate) fn anchors(input: &DeriveInput, macro_name: &str) -> TokenStream {
     let mut spans = Vec::new();
     attrs::for_each_site(input, |attrs| spans.extend(attrs::key_spans(attrs)));
     if spans.is_empty() {
         return TokenStream::new();
     }
     let uses = spans.iter().map(|span| {
-        let derive = syn::Ident::new(kind.derive(), *span);
+        let expanding = syn::Ident::new(macro_name, *span);
         quote! {
             {
                 #[allow(unused_imports)]
-                use ::armonik_macros::#derive as _;
+                use ::armonik_macros::#expanding as _;
             }
         }
     });

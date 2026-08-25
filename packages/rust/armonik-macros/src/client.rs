@@ -130,13 +130,10 @@ fn take_service(
     attrs: &mut Vec<syn::Attribute>,
     errors: &mut Vec<syn::Error>,
 ) -> Option<syn::LitStr> {
-    let service = match attrs::read::<ClientAttrs>(attrs) {
-        Ok(scanned) => scanned.service,
-        Err(error) => {
-            errors.push(error);
-            None
-        }
-    };
+    let service = attrs::read::<ClientAttrs>(attrs)
+        .map_err(|error| errors.push(error))
+        .ok()
+        .and_then(|scanned| scanned.service);
     attrs::strip(attrs);
 
     if service.is_none() {
@@ -151,16 +148,14 @@ fn take_service(
 
 /// The `#[armonik(rpc = "...")]` on a hand-written method, removed from it.
 fn claim_of_fn(method: &mut syn::ImplItemFn, errors: &mut Vec<syn::Error>) -> Option<Claim> {
-    let claim = match attrs::read::<MethodAttrs>(&method.attrs) {
-        Ok(scanned) => scanned.rpc.map(|rpc| Claim {
+    let claim = attrs::read::<MethodAttrs>(&method.attrs)
+        .map_err(|error| errors.push(error))
+        .ok()
+        .and_then(|scanned| scanned.rpc)
+        .map(|rpc| Claim {
             method: rpc.value(),
             span: rpc.span(),
-        }),
-        Err(error) => {
-            errors.push(error);
-            None
-        }
-    };
+        });
     attrs::strip(&mut method.attrs);
 
     if claim.is_none() {
