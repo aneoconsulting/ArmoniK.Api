@@ -164,14 +164,23 @@ TEST_F(Results, test_results_upload_download) {
 
   init(channel, task_options, log);
 
+  const char *payload = "Test payload long enough it is not stored in the SSO buffer of std::string";
+
   auto client = armonik::api::client::ResultsClient(armonik::api::grpc::v1::results::Results::NewStub(channel));
   auto session_id = armonik::api::client::SessionsClient(armonik::api::grpc::v1::sessions::Sessions::NewStub(channel))
                         .create_session(task_options);
   auto map = client.create_results_metadata(session_id, std::vector<std::string>{"0"});
   ASSERT_EQ(map.size(), 1);
   ASSERT_NO_THROW(map.at("0"));
-  ASSERT_NO_THROW(client.upload_result_data(session_id, map.at("0"), "TestPayload"));
-  ASSERT_EQ(client.download_result_data(session_id, map.at("0")), "TestPayload");
+  ASSERT_NO_THROW(client.upload_result_data(session_id, map.at("0"), payload));
+  ASSERT_EQ(client.download_result_data(session_id, map.at("0")), payload);
+
+  std::string output;
+  output.reserve(strlen(payload));
+  const char *old_buffer = output.data();
+  ASSERT_NO_THROW(client.download_result_data_in(session_id, map.at("0"), output));
+  ASSERT_EQ(output, payload);
+  ASSERT_EQ(output.data(), old_buffer);
 }
 
 /**

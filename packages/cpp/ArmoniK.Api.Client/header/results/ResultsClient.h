@@ -137,6 +137,15 @@ public:
   std::string download_result_data(std::string session_id, std::string result_id);
 
   /**
+   * Retrieve data from a result
+   * @param session_id Session id
+   * @param result_id Result Id
+   * @param output The output buffer where the data will be downloaded
+   * @remarks If output is pre-allocated to the right size, no reallocation will happen
+   */
+  void download_result_data_in(std::string session_id, std::string result_id, std::string &output);
+
+  /**
    * Deletes the results data
    * @param session_id Session id
    * @param result_ids Result ids
