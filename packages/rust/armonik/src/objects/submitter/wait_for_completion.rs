@@ -1,19 +1,22 @@
-use crate::api::v3;
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+use super::super::TaskStatus;
+
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.WaitRequest")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Request {
     pub filter: super::TaskFilter,
     pub stop_on_first_task_error: bool,
     pub stop_on_first_task_cancellation: bool,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::submitter::WaitRequest {
-        filter = option filter,
-        stop_on_first_task_error,
-        stop_on_first_task_cancellation,
-    }
-);
-
-pub type Response = super::super::Count;
+/// Number of tasks per status, from the repeated `StatusCount` pairs (duplicate statuses collapse,
+/// last wins).
+///
+/// A scoped response rather than an alias to [`Count`](crate::Count), like every other proto
+/// message this crate shares across RPC sites: response types stay injective over RPCs.
+#[armonik_macros::message("armonik.api.grpc.v1.Count")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Response {
+    pub values: HashMap<TaskStatus, i32>,
+}

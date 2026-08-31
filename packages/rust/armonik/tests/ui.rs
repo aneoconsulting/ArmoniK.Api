@@ -1,0 +1,49 @@
+//! Compile-fail suite for the `call` input diagnostics.
+//!
+//! `ServiceClient::call` takes one argument for four call kinds, and which inputs are valid depends
+//! on the RPC. That is enforced by `IntoCall` having no impl for the wrong pairing, so what a caller
+//! actually sees is the `#[diagnostic::on_unimplemented]` text on the trait -- the whole reason the
+//! `M` marker parameter exists. Nothing else pins that text: probing the three misuses by hand
+//! shows that each still errors, not that the wording still names the mistake.
+//!
+//! Each case is a minimal `tests/ui/*.rs` paired with the exact `*.stderr` rustc prints for it.
+//! Regenerate after a deliberate wording change with:
+//!
+//! ```sh
+//! TRYBUILD=overwrite cargo test -p armonik --test ui
+//! ```
+//!
+//! and read the diff: an unexpected line there is the review.
+//!
+//! # Where they run
+//!
+//! The snapshots are byte-compared, and rustc's rendering moves between channels, so they are
+//! pinned against stable and skipped on nightly. They are also skipped off Linux: each case is a
+//! cold `cargo check` of a scratch project that pulls this crate's whole dependency graph (measured
+//! at ~2m40 of CPU for the three), and the snapshots carry nothing platform-specific to compare, so
+//! a second platform buys nothing. `ARMONIK_UI=1` runs them anyway.
+
+#![cfg(feature = "client")]
+
+/// Whether this run should byte-compare the snapshots; see the toolchain note in the module docs.
+fn snapshots_are_comparable() -> bool {
+    if std::env::var_os("ARMONIK_UI").is_some_and(|value| value == "1") {
+        return true;
+    }
+    cfg!(target_os = "linux")
+        && !std::env::var("RUSTUP_TOOLCHAIN")
+            .is_ok_and(|toolchain| toolchain.starts_with("nightly"))
+}
+
+#[test]
+fn ui() {
+    if !snapshots_are_comparable() {
+        eprintln!(
+            "skipping the compile-fail snapshots: they are byte-compared, and this is either a \
+             nightly toolchain or not the platform they are pinned on (set ARMONIK_UI=1 to run \
+             them anyway)"
+        );
+        return;
+    }
+    trybuild::TestCases::new().compile_fail("tests/ui/*.rs");
+}

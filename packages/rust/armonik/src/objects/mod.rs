@@ -1,8 +1,7 @@
-//! The object module contains all the armonik objects for the API.
-//! Each object has its own dedicated file that is re-exported here.
-//! All services have their dedicated sub-modules, and rpcs have their own files within the service module which contains both a Request and Response object.
+//! Every armonik API object, one per file, re-exported here.
 //!
-//! Example:
+//! Each service gets a sub-module, and each of its RPCs a file holding that
+//! RPC's `Request` and `Response`:
 //!
 //! ```text
 //! objects
@@ -26,30 +25,54 @@
 //!   + Object1
 //! ```
 
-mod configuration;
-mod count;
-mod data_chunk;
-mod error;
-mod filters;
-mod init_keyed_data_stream;
-mod init_task_request;
-mod output;
-mod result_request;
-mod result_status;
-mod session;
-mod session_status;
-mod sort;
-mod status_count;
-mod task_error;
-mod task_id;
-mod task_id_list;
-mod task_id_with_status;
-mod task_list;
-mod task_options;
-mod task_output_request;
-mod task_request;
-mod task_request_header;
-mod task_status;
+#[doc(hidden)]
+pub mod configuration;
+#[doc(hidden)]
+pub mod count;
+#[doc(hidden)]
+pub mod data_chunk;
+#[doc(hidden)]
+pub mod error;
+#[doc(hidden)]
+pub mod filters;
+#[doc(hidden)]
+pub mod init_keyed_data_stream;
+#[doc(hidden)]
+pub mod init_task_request;
+#[doc(hidden)]
+pub mod output;
+#[doc(hidden)]
+pub mod result_request;
+#[doc(hidden)]
+pub mod result_status;
+#[doc(hidden)]
+pub mod session;
+#[doc(hidden)]
+pub mod session_status;
+#[doc(hidden)]
+pub mod sort;
+#[doc(hidden)]
+pub mod status_count;
+#[doc(hidden)]
+pub mod task_error;
+#[doc(hidden)]
+pub mod task_id;
+#[doc(hidden)]
+pub mod task_id_list;
+#[doc(hidden)]
+pub mod task_id_with_status;
+#[doc(hidden)]
+pub mod task_list;
+#[doc(hidden)]
+pub mod task_options;
+#[doc(hidden)]
+pub mod task_output_request;
+#[doc(hidden)]
+pub mod task_request;
+#[doc(hidden)]
+pub mod task_request_header;
+#[doc(hidden)]
+pub mod task_status;
 
 pub mod agent;
 pub mod applications;
@@ -73,128 +96,18 @@ pub use init_keyed_data_stream::InitKeyedDataStream;
 pub use init_task_request::InitTaskRequest;
 pub use output::Output;
 pub use result_request::ResultRequest;
-pub use result_status::ResultStatus;
+pub use result_status::{ResultStatus, UnknownResultStatus};
 pub use session::Session;
-pub use session_status::SessionStatus;
-pub use sort::{Sort, SortDirection, SortMany};
+pub use session_status::{SessionStatus, UnknownSessionStatus};
+pub use sort::{Sort, SortDirection, SortMany, UnknownSortDirection};
 pub use status_count::StatusCount;
 pub use task_error::TaskError;
 pub use task_id::TaskId;
 pub use task_id_list::TaskIdList;
 pub use task_id_with_status::TaskIdWithStatus;
 pub use task_list::TaskList;
-pub use task_options::{TaskOptionField, TaskOptions};
+pub use task_options::{TaskOptionField, TaskOptions, UnknownTaskOptionField, INFINITE_DURATION};
 pub use task_output_request::TaskOutputRequest;
 pub use task_request::TaskRequest;
 pub use task_request_header::TaskRequestHeader;
-pub use task_status::TaskStatus;
-
-macro_rules! impl_convert {
-    // * -> *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$a:ident => $b:ident , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-                $b: $value.$a.into(),
-            }
-            $value: $A => $B { $($tail)* }
-        );
-    };
-    // * -> Enum *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$a:ident => enum $b:ident , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-                $b: $value.$a as i32,
-            }
-            $value: $A => $B { $($tail)* }
-        );
-    };
-    // Enum * -> *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {enum $a:ident => $b:ident , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-                $b: $value.$a.into(),
-            }
-            $value: $A => $B { $($tail)* }
-        );
-    };
-    // * -> Option *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$a:ident => option $b:ident , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-                $b: Some($value.$a.into()),
-            }
-            $value: $A => $B { $($tail)* }
-        );
-    };
-    // Option * -> *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {option $a:ident => $b:ident , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-                $b: $value.$a.map_or_else(Default::default, Into::into),
-            }
-            $value: $A => $B { $($tail)* }
-        );
-    };
-    // Option * -> Option *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {option $a:ident => option $b:ident , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-                $b: $value.$a.map(Into::into),
-            }
-            $value: $A => $B { $($tail)* }
-        );
-    };
-    // List * -> List *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {list $a:ident => list $b:ident , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-                $b: crate::utils::IntoCollection::into_collect($value.$a),
-            }
-            $value: $A => $B { $($tail)* }
-        );
-    };
-    // *
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {$($a:ident)+ , $($tail:tt)*}) => {
-        crate::impl_convert!(
-            @struct {
-                $($body)*
-            }
-            $value: $A => $B { $($a)+ => $($a)+, $($tail)* }
-        );
-    };
-    // End of recursion
-    (@struct {$($body:tt)*} $value:ident: $A:ty => $B:ty {}) => {
-        impl From<$A> for $B {
-            fn from($value: $A) -> Self {
-                Self {
-                    $($body)*
-                }
-            }
-        }
-    };
-    // Entry point
-    (struct $A:ty = $B:ty {$(
-        $($a:ident)+ $(= $($b:ident)+)?
-    ),* $(,)?}) => {
-        crate::impl_convert!(@struct {} _value: $A => $B { $($($a)+ $(=> $($b)+)?,)* });
-        crate::impl_convert!(@struct {} _value: $B => $A { $($($($b)+ =>)? $($a)+,)* });
-        crate::impl_convert!(req $A : $B);
-    };
-
-    // Request
-    (req $A:ty : $B:ty) => {
-        impl tonic::IntoRequest<$B> for $A {
-            fn into_request(self) -> tonic::Request<$B> {
-                tonic::Request::new(self.into())
-            }
-        }
-    };
-}
-pub(crate) use impl_convert;
+pub use task_status::{TaskStatus, UnknownTaskStatus};

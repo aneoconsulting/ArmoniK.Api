@@ -1,0 +1,5 @@
+error: every method of a client impl block needs #[armonik(rpc = "MethodName")] naming the RPC it stands for, so the coverage check can see it
+  --> tests/ui/client_method_without_rpc.rs:11:12
+   |
+11 |     pub fn probe(&self) {}
+   |            ^^^^^

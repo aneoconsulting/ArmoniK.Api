@@ -1,0 +1,5 @@
+error: no service `fixture.Nope` in the descriptor; known services: fixture.Fixture
+ --> tests/ui/service_unknown_service.rs:6:33
+  |
+6 |     Fixture in crate::fixture @ "fixture.Nope";
+  |                                 ^^^^^^^^^^^^^^

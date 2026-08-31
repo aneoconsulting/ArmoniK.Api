@@ -1,82 +1,49 @@
-use crate::api::v3;
+use super::{filter, Field, Raw, Sort, SummaryField};
 
-use super::{filter, Raw, Sort};
-
-/// Request to list tasks.
-///
-/// Use pagination, filtering and sorting.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Shares its wire form (`ListTasksRequest`) with [`super::list::Request`];
+/// a distinct type keeps the two RPCs' requests distinct (request types are
+/// injective over RPCs).
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.ListTasksRequest")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Request {
-    /// The page number. Start at 0.
-    pub page: i32,
-    /// The page size.
-    pub page_size: i32,
-    /// The filters.
     pub filters: filter::Or,
-    /// The sort.
-    ///
-    /// Must be set for every request.
     pub sort: Sort,
-    /// Request error message in case of error in task.
     pub with_errors: bool,
+    pub page: i32,
+    pub page_size: i32,
 }
 
-impl Default for Request {
-    fn default() -> Self {
+impl Request {
+    /// A first page of 100 tasks, sorted ascending on the task id, with no
+    /// filter. `Default::default()` is the proto zero value, like every armonik
+    /// type, so a page size of 0 and a sort field naming no field at all: this
+    /// names one.
+    pub fn recommended() -> Self {
         Self {
-            page: 0,
+            sort: Sort::ascending(Field::Summary(SummaryField::TaskId)),
             page_size: 100,
-            filters: Default::default(),
-            sort: Default::default(),
-            with_errors: false,
+            ..Default::default()
         }
     }
 }
 
-super::super::impl_convert!(
-    struct Request = v3::tasks::ListTasksRequest {
-        page,
-        page_size,
-        filters = option filters,
-        sort = option sort,
-        with_errors,
+#[cfg(test)]
+mod tests {
+    /// See [`super::super::list`]'s counterpart: the zero value of a field enum names no field.
+    #[test]
+    fn recommended_names_a_real_sort_field() {
+        let super::Field::Summary(field) = super::Request::recommended().sort.field else {
+            panic!("recommended() sorts on a task summary field");
+        };
+        assert_ne!(i32::from(field), 0);
     }
-);
+}
 
-/// Response to list tasks.
-///
-/// Use pagination, filtering and sorting from the request.
-/// Return a list of detailed tasks.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.tasks.ListTasksDetailedResponse")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Response {
-    /// The list of detailed tasks.
     pub tasks: Vec<Raw>,
-    /// The page number. Start at 0.
     pub page: i32,
-    /// The page size.
     pub page_size: i32,
-    /// The total number of tasks.
     pub total: i32,
 }
-
-impl Default for Response {
-    fn default() -> Self {
-        Self {
-            tasks: Vec::new(),
-            page: 0,
-            page_size: 100,
-            total: 0,
-        }
-    }
-}
-
-super::super::impl_convert!(
-    struct Response = v3::tasks::ListTasksDetailedResponse {
-        list tasks,
-        page,
-        page_size,
-        total,
-    }
-);

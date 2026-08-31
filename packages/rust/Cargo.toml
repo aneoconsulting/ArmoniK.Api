@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["armonik", "armonik-transport"]
+# Publish order: armonik-transport, then armonik-macros, then armonik, which requires both by
+# version; RELEASING.md says why. `nr update-versions` keeps the pins in step.
+members = ["armonik", "armonik-transport", "armonik-macros"]
 
 # Shared so that a version bump, or a change of MSRV or licence, is made once rather than drifting per
 # crate. Members opt in per field with `xxx.workspace = true`.
@@ -22,7 +24,15 @@ version = "3.29.2-beta-0"
 armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
 async-stream = "0.3"
 bytes = "1"
-eyre = "0.6"
+# Benchmark harness. `default-features = false` drops the HTML report and its
+# plotting/rayon tree; `async_tokio` is what drives the in-process round trips.
+criterion = { version = "0.5", default-features = false, features = [
+  "async_tokio",
+  "cargo_bench_support",
+] }
+# Descriptor-fingerprint hash. Shared because armonik-macros hashes at expansion time what
+# armonik's build script hashes at build time, and a divergent major would make the two disagree.
+fnv = "1"
 futures = "0.3"
 http-body-util = "0.1"
 humantime = "2.3.0"
@@ -42,8 +52,7 @@ tokio = { version = "1.52", default-features = false }
 tokio-util = "0.7"
 tonic = { version = "0.14", default-features = false }
 tonic-prost = "0.14"
-tonic-prost-build = "0.14"
 tower-service = "0.3"
 tracing = "0.1"
 tracing-futures = "0.2"
-tracing-subscriber = "0.3"
+trybuild = "1.0"

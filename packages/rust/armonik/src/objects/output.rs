@@ -1,38 +1,12 @@
-use crate::api::v3;
-
+#[armonik_macros::message("armonik.api.grpc.v1.Output")]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Output {
+    /// No member set. Distinct from [`Ok`](Self::Ok), which carries nothing but *is* set: a peer
+    /// that reports no outcome is not a peer that reports success.
     #[default]
+    Invalid,
+    #[armonik(present)]
     Ok,
-    Error {
-        details: String,
-    },
+    #[armonik(inlined)]
+    Error { details: String },
 }
-
-impl From<Output> for v3::Output {
-    fn from(value: Output) -> Self {
-        match value {
-            Output::Ok => v3::Output {
-                r#type: Some(v3::output::Type::Ok(v3::Empty {})),
-            },
-            Output::Error { details } => v3::Output {
-                r#type: Some(v3::output::Type::Error(v3::output::Error { details })),
-            },
-        }
-    }
-}
-
-impl From<v3::Output> for Output {
-    fn from(value: v3::Output) -> Self {
-        match value.r#type {
-            Some(v3::output::Type::Ok(_)) => Self::Ok,
-            Some(v3::output::Type::Error(error)) => Self::Error {
-                details: error.details,
-            },
-            None => Default::default(),
-        }
-    }
-}
-
-super::impl_convert!(req Output : v3::Output);

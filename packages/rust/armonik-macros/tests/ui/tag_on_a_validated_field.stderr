@@ -1,0 +1,5 @@
+error: Unknown field: `tag`. Available values: `inlined`, `rename`, `with`
+ --> tests/ui/tag_on_a_validated_field.rs:9:15
+  |
+9 |     #[armonik(tag = 1)]
+  |               ^^^

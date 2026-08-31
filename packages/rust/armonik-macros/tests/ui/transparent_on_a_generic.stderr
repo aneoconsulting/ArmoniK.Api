@@ -1,0 +1,11 @@
+error: #[armonik(transparent)] structs cannot be generic
+  --> tests/ui/transparent_on_a_generic.rs:13:12
+   |
+13 | pub struct Wrapper<T> {
+   |            ^^^^^^^
+
+error: #[armonik(transparent)] structs need exactly one name: #[armonik_macros::message("full.proto.Name")]
+  --> tests/ui/transparent_on_a_generic.rs:13:12
+   |
+13 | pub struct Wrapper<T> {
+   |            ^^^^^^^

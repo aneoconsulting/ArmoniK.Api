@@ -1,0 +1,5 @@
+error: #[armonik(present)] needs a bool or message member, but `fixture.Choice.text` is String
+  --> tests/ui/present_on_a_string.rs:10:5
+   |
+10 |     Text,
+   |     ^^^^

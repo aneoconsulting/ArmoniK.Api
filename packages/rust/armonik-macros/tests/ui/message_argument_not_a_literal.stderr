@@ -1,0 +1,5 @@
+error: expected string literal
+  --> tests/ui/message_argument_not_a_literal.rs:12:27
+   |
+12 | #[armonik_macros::message(fixture.Simple)]
+   |                           ^^^^^^^

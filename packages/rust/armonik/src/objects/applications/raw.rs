@@ -1,26 +1,8 @@
-use crate::api::v3;
-
-/// A raw application object.
-///
-/// Used when a list of applications is requested.
+#[armonik_macros::message("armonik.api.grpc.v1.applications.ApplicationRaw")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Raw {
-    /// Application name.
     pub name: String,
-    /// Application version.
     pub version: String,
-    /// Application namespace used in the executed class.
     pub namespace: String,
-    /// Application service used in the executed class.
     pub service: String,
 }
-
-super::super::impl_convert!(
-    struct Raw = v3::applications::ApplicationRaw {
-        name,
-        version,
-        namespace,
-        service,
-    }
-);
