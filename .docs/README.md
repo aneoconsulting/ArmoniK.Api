@@ -1,40 +1,80 @@
 # ArmoniK.Api Docs
 
-Docs for ArmoniK.Api
+Docs for ArmoniK.Api, built with [Sphinx](https://www.sphinx-doc.org/).
+
+## Prerequisites
+
+All commands are run from the **repository root**.
+
+| Tool | Purpose |
+|---|---|
+| Python 3 | Sphinx build |
+| `protoc` + `protoc-gen-doc` | Proto API page |
+| .NET SDK | C# API and env-var docs (`docfx`, `ArmoniK.Utils.DocExtractor`) |
+| Doxygen | C++ API docs |
 
 ## Installation
 
-> Be aware to be at the root of the repository
+Create and activate a Python virtual environment:
 
 ```bash
 python -m venv .venv-doc
-```
-
-Then activate the virtual environment:
-
-```bash
 source .venv-doc/bin/activate
-```
-
-And install dependencies:
-
-```bash
 pip install -r .docs/requirements.txt
 ```
 
-## Usage
+## Generating API content
 
-To build the docs locally, run the following command:
+Each section of the docs requires a generation step before Sphinx can build it. Run all steps that apply to your local setup.
+
+### Proto API (`content/api-reference/proto.md`)
+
+Requires `protoc` and the [`protoc-gen-doc`](https://github.com/pseudomuto/protoc-gen-doc) plugin.
 
 ```bash
+apt install -y protobuf-compiler   # or equivalent for your distro
+protoc -I Protos/V1 --doc_out=.docs/content/api-reference --doc_opt=markdown,tmp.md Protos/V1/*.proto
+scripts/generate-proto-doc.sh      # post-processes tmp.md into proto.md
+```
 
-apt update
-apt install -y protobuf-compiler
-protoc -I Protos/V1 --doc_out=.docs/content/api --doc_opt=markdown,tmp.md Protos/V1/*.proto
-scripts/generate-proto-doc.sh
+### C# API (`content/api-reference/csharp/`)
+
+Requires the [.NET SDK](https://dotnet.microsoft.com/) and installs `docfx` globally.
+
+```bash
 scripts/generate-csharp-doc.sh
-sphinx-apidoc -o .docs/content/api/python packages/python/src/armonik
+```
+
+### Environment variables (`content/how-to/envars/`)
+
+Requires the .NET SDK and installs `ArmoniK.Utils.DocExtractor` globally.
+
+```bash
+scripts/generate-envvars-doc.sh
+```
+
+### Python API (`content/api-reference/python/`)
+
+Requires the Python virtual environment to be active (see above).
+
+```bash
+sphinx-apidoc -T -o .docs/content/api-reference/python packages/python/src/armonik
+```
+
+### C++ API (`content/api-reference/cpp/doxygen/xml/`)
+
+Requires [Doxygen](https://www.doxygen.nl/).
+
+```bash
+doxygen Doxyfile
+```
+
+## Building
+
+Once all desired generation steps are complete, build the HTML output:
+
+```bash
 sphinx-build -M html .docs build
 ```
 
-Outputs can be found in `build/html/index.html`.
+Open `build/html/index.html` in a browser to view the result.

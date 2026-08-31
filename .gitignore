@@ -389,6 +389,13 @@ dist
 packages/web/LICENSE
 
 !.docs/content/**
+.docs/content/api-reference/csharp/*.md
+.docs/content/api-reference/csharp/*.yml
+.docs/content/api-reference/cpp/doxygen/
+.docs/content/api-reference/python/*.rst
+!.docs/content/api-reference/python/PythonAPI.rst
+.docs/content/api-reference/tmp.md
+.doxygen-warnings
 
 
 **/launchSettings.json

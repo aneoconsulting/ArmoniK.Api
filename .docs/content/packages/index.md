@@ -1,12 +1,6 @@
----
-navigation.icon: heroicons:magnifying-glass
----
-
-<!-- @case-police-ignore Api -->
-
 # Find your package
 
-The ArmoniK Team provides a set of packages generated on top the ArmoniK Api to help you to build your application.
+The ArmoniK Team provides a set of packages generated on top of the ArmoniK API to help you build your application.
 
 ## C# packages
 
