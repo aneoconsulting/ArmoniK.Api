@@ -10,7 +10,7 @@ edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/aneoconsulting/ArmoniK.Api"
 rust-version = "1.88.0"
-version = "3.29.2-beta-0"
+version = "3.29.3-beta-0"
 
 # Every version lives here, so the two crates cannot resolve to two different `tonic`s, or two
 # different `rustls`es, in one build. That matters because they hand each other types from both.
@@ -19,7 +19,7 @@ version = "3.29.2-beta-0"
 # By path and by version at once: a path dependency cannot be published, so `cargo publish` replaces
 # it with the version requirement, which therefore has to name the version being released.
 # `nr update-versions` keeps it in step.
-armonik-transport = { path = "armonik-transport", version = "3.29.2-beta-0" }
+armonik-transport = { path = "armonik-transport", version = "3.29.3-beta-0" }
 async-stream = "0.3"
 bytes = "1"
 eyre = "0.6"
