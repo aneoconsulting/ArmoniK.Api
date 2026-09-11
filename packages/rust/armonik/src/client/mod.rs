@@ -8,7 +8,8 @@ use snafu::{ResultExt, Snafu};
 use armonik_transport::ConfigSnafu;
 #[cfg(feature = "_gen-client")]
 pub use armonik_transport::{
-    ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ReadEnvError,
+    ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ProxyConfig, ProxySource,
+    ReadEnvError, SecretString,
 };
 
 #[cfg(feature = "worker")]
