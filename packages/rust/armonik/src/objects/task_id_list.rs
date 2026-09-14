@@ -1,13 +1,5 @@
-use crate::api::v3;
-
+#[armonik_macros::message("armonik.api.grpc.v1.TaskIdList")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaskIdList {
     pub task_ids: Vec<String>,
 }
-
-super::impl_convert!(
-    struct TaskIdList = v3::TaskIdList {
-        task_ids,
-    }
-);

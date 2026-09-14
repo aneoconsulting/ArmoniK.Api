@@ -1,4 +1,32 @@
-//! ArmoniK clients for all the services
+//! ArmoniK clients for all the services.
+//!
+//! # Writing a client method
+//!
+//! One impl block per service, carrying `#[armonik_macros::client]` and the proto service name. The
+//! attribute prepends each method the RPC's documentation, harvested from the proto rather than
+//! copied, and registers it so `every_rpc_has_a_client_method` can prove no RPC was forgotten.
+//!
+//! Methods are written out rather than generated. That is deliberate: a signature that is spelled
+//! here cannot move when a field is added to the proto message behind it, which is what generating
+//! them from the request's fields would do to every caller.
+//!
+//! The common shape -- widen a few arguments, build the request, call, project one field -- goes
+//! through `client_method!`, which spells the signature just the same:
+//!
+//! ```ignore
+//! #[armonik_macros::client]
+//! #[armonik(service = "armonik.api.grpc.v1.sessions.Sessions")]
+//! impl<T: super::Channel> super::ServiceClient<services::Sessions, T> {
+//!     client_method!(GetSession:
+//!         get(session_id: into<String>)
+//!         -> crate::sessions::get::Request => session: crate::sessions::Raw);
+//! }
+//! ```
+//!
+//! `into` / `iter` / `pairs` / `filters` / `plain` say how each argument is widened and converted
+//! back; the table is in `client/method.rs`. Anything that does not fit -- the bodies that turn a oneof
+//! response into an error, or build a request stream -- is an ordinary `fn` in the same block, under
+//! `#[armonik(rpc = "MethodName")]`.
 
 use snafu::{ResultExt, Snafu};
 
@@ -11,30 +39,45 @@ pub use armonik_transport::{
     ClientConfig, ClientConfigArgs, ConfigError, ConnectionError, ReadEnvError,
 };
 
+#[cfg(feature = "_gen-client")]
+pub(crate) mod method;
+#[cfg(feature = "_gen-client")]
+pub(crate) use method::client_method;
+
+mod service_client;
+pub use service_client::{
+    ByMessage, ByRequest, ByStream, ByStreamRequest, Channel, Dispatch, DispatchMessage,
+    DispatchStream, IntoCall, ServiceClient,
+};
+
+// The four use-case features are four distinct use cases, and a user normally wants exactly one.
+// `Agent` and `Worker` are therefore gated on the *other* one of the pair, which reads as a typo
+// and is not: a worker is what calls an agent, and an agent is what calls a worker. The rest of
+// the services are what a `client` calls.
 #[cfg(feature = "worker")]
-mod agent;
+pub mod agent;
 #[cfg(feature = "client")]
-mod applications;
+pub mod applications;
 #[cfg(feature = "client")]
-mod auth;
+pub mod auth;
 #[cfg(feature = "client")]
-mod events;
+pub mod events;
 #[cfg(feature = "client")]
-mod health_checks;
+pub mod health_checks;
 #[cfg(feature = "client")]
-mod partitions;
+pub mod partitions;
 #[cfg(feature = "client")]
-mod results;
+pub mod results;
 #[cfg(feature = "client")]
-mod sessions;
+pub mod sessions;
 #[cfg(feature = "client")]
-mod submitter;
+pub mod submitter;
 #[cfg(feature = "client")]
-mod tasks;
+pub mod tasks;
 #[cfg(feature = "client")]
-mod versions;
+pub mod versions;
 #[cfg(feature = "agent")]
-mod worker;
+pub mod worker;
 
 #[cfg(feature = "worker")]
 pub use agent::Agent;
@@ -87,204 +130,56 @@ impl Client<tonic::transport::Channel> {
         )
         .await
     }
+}
 
-    #[cfg(test)]
-    async fn get_nb_request(service: &str, rpc: &str) -> usize {
-        use std::collections::HashMap;
-
-        use http_body_util::BodyExt;
-        use hyper_util::rt::TokioExecutor;
-
-        let mut config = ClientConfig::from_env().unwrap();
-
-        match std::env::var("Http__Endpoint") {
-            Ok(value) if !value.is_empty() => {
-                config.endpoint = hyper::Uri::try_from(value).expect("HTTP endpoint");
+/// One borrowed + one owned accessor per service on [`Client`].
+macro_rules! services {
+    ($($(#[$attr:meta])* $borrow:ident, $into:ident => $Service:ident;)*) => {
+        $(
+            $(#[$attr])*
+            #[doc = concat!("Create a borrowed [`", stringify!($Service), "`]")]
+            pub fn $borrow(&mut self) -> $Service<&mut Self> {
+                $Service::with_channel(self)
             }
-            Ok(_) | Err(std::env::VarError::NotPresent) => {}
-            Err(std::env::VarError::NotUnicode(value)) => {
-                panic!("{value:?} is not a valid unicode string")
+
+            $(#[$attr])*
+            #[doc = concat!("Create an owned [`", stringify!($Service), "`]")]
+            pub fn $into(self) -> $Service<Self> {
+                $Service::with_channel(self)
             }
-        }
-
-        let request = hyper::Request::get(format!("{}calls.json", config.endpoint))
-            .body(http_body_util::Empty::<&[u8]>::new())
-            .expect("Request");
-
-        let https = armonik_transport::https_connector(config)
-            .await
-            .expect("Build connection information");
-
-        let client = hyper_util::client::legacy::Client::builder(TokioExecutor::new()).build(https);
-
-        let response = client.request(request).await.expect("/calls.json");
-
-        let body = response.collect().await.expect("Response").to_bytes();
-
-        let calls =
-            serde_json::from_slice::<HashMap<String, HashMap<String, usize>>>(body.as_ref())
-                .expect("Invalid JSON request");
-
-        calls[service][rpc]
-    }
+        )*
+    };
 }
 
 impl<T> Client<T>
 where
     T: Clone,
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
 {
     /// Build a client from a gRPC channel
     pub fn with_channel(channel: T) -> Self {
         Self { channel }
     }
 
-    #[cfg(feature = "worker")]
-    /// Create a borrowed [`Agent`]
-    pub fn agent(&mut self) -> Agent<&mut Self> {
-        Agent::with_channel(self)
-    }
-    #[cfg(feature = "worker")]
-    /// Create an owned [`Agent`]
-    pub fn into_agent(self) -> Agent<Self> {
-        Agent::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Applications`]
-    pub fn applications(&mut self) -> Applications<&mut Self> {
-        Applications::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Applications`]
-    pub fn into_applications(self) -> Applications<Self> {
-        Applications::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Auth`]
-    pub fn auth(&mut self) -> Auth<&mut Self> {
-        Auth::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Auth`]
-    pub fn into_auth(self) -> Auth<Self> {
-        Auth::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Events`]
-    pub fn events(&mut self) -> Events<&mut Self> {
-        Events::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Events`]
-    pub fn into_events(self) -> Events<Self> {
-        Events::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`HealthChecks`]
-    pub fn health_checks(&mut self) -> HealthChecks<&mut Self> {
-        HealthChecks::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`HealthChecks`]
-    pub fn into_health_checks(self) -> HealthChecks<Self> {
-        HealthChecks::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Partitions`]
-    pub fn partitions(&mut self) -> Partitions<&mut Self> {
-        Partitions::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Partitions`]
-    pub fn into_partitions(self) -> Partitions<Self> {
-        Partitions::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Results`]
-    pub fn results(&mut self) -> Results<&mut Self> {
-        Results::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Results`]
-    pub fn into_results(self) -> Results<Self> {
-        Results::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Sessions`]
-    pub fn sessions(&mut self) -> Sessions<&mut Self> {
-        Sessions::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Sessions`]
-    pub fn into_sessions(self) -> Sessions<Self> {
-        Sessions::with_channel(self)
-    }
-
-    /// Create a borrowed [`Submitter`]
-    #[cfg(feature = "client")]
-    #[deprecated]
-    #[allow(deprecated)]
-    pub fn submitter(&mut self) -> Submitter<&mut Self> {
-        Submitter::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    #[deprecated]
-    #[allow(deprecated)]
-    /// Create an owned [`Submitter`]
-    pub fn into_submitter(self) -> Submitter<Self> {
-        Submitter::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Tasks`]
-    pub fn tasks(&mut self) -> Tasks<&mut Self> {
-        Tasks::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Tasks`]
-    pub fn into_tasks(self) -> Tasks<Self> {
-        Tasks::with_channel(self)
-    }
-
-    #[cfg(feature = "client")]
-    /// Create a borrowed [`Versions`]
-    pub fn versions(&mut self) -> Versions<&mut Self> {
-        Versions::with_channel(self)
-    }
-    #[cfg(feature = "client")]
-    /// Create an owned [`Versions`]
-    pub fn into_versions(self) -> Versions<Self> {
-        Versions::with_channel(self)
-    }
-
-    #[cfg(feature = "agent")]
-    /// Create a borrowed [`Worker`]
-    pub fn worker(&mut self) -> Worker<&mut Self> {
-        Worker::with_channel(self)
-    }
-    #[cfg(feature = "agent")]
-    /// Create an owned [`Worker`]
-    pub fn into_worker(self) -> Worker<Self> {
-        Worker::with_channel(self)
+    services! {
+        #[cfg(feature = "worker")] agent, into_agent => Agent;
+        #[cfg(feature = "client")] applications, into_applications => Applications;
+        #[cfg(feature = "client")] auth, into_auth => Auth;
+        #[cfg(feature = "client")] events, into_events => Events;
+        #[cfg(feature = "client")] health_checks, into_health_checks => HealthChecks;
+        #[cfg(feature = "client")] partitions, into_partitions => Partitions;
+        #[cfg(feature = "client")] results, into_results => Results;
+        #[cfg(feature = "client")] sessions, into_sessions => Sessions;
+        #[cfg(feature = "client")] #[deprecated] #[allow(deprecated)] submitter, into_submitter => Submitter;
+        #[cfg(feature = "client")] tasks, into_tasks => Tasks;
+        #[cfg(feature = "client")] versions, into_versions => Versions;
+        #[cfg(feature = "agent")] worker, into_worker => Worker;
     }
 }
 
 impl<T> tonic::client::GrpcService<tonic::body::Body> for Client<T>
 where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
 {
     type ResponseBody = T::ResponseBody;
     type Error = T::Error;
@@ -304,10 +199,7 @@ where
 
 impl<T> tonic::client::GrpcService<tonic::body::Body> for &'_ mut Client<T>
 where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
+    T: crate::client::Channel,
 {
     type ResponseBody = T::ResponseBody;
     type Error = T::Error;
@@ -325,43 +217,6 @@ where
     }
 }
 
-/// Perform a gRPC call from a raw request.
-#[allow(async_fn_in_trait)]
-pub trait GrpcCall<Request> {
-    type Response;
-    type Error;
-
-    /// Perform a gRPC call from a raw request.
-    async fn call(self, request: Request) -> Result<Self::Response, Self::Error>;
-}
-
-/// Perform a gRPC call from a raw request.
-#[allow(async_fn_in_trait)]
-pub trait GrpcCallStream<Request, Stream>
-where
-    Stream: futures::Stream<Item = Request> + Send + 'static,
-{
-    type Response;
-    type Error;
-
-    /// Perform a gRPC call from a raw request.
-    async fn call(self, request: Stream) -> Result<Self::Response, Self::Error>;
-}
-
-impl<Stream, Request, T> GrpcCall<Stream> for T
-where
-    Stream: futures::Stream<Item = Request> + Send + 'static,
-    T: GrpcCallStream<Request, Stream>,
-{
-    type Response = <T as GrpcCallStream<Request, Stream>>::Response;
-    type Error = <T as GrpcCallStream<Request, Stream>>::Error;
-
-    /// Perform a gRPC call from a raw request.
-    async fn call(self, request: Stream) -> Result<Self::Response, Self::Error> {
-        <T as GrpcCallStream<Request, Stream>>::call(self, request).await
-    }
-}
-
 #[derive(Debug, Snafu)]
 #[non_exhaustive]
 pub enum RequestError {
@@ -374,34 +229,3 @@ pub enum RequestError {
         location: snafu::Location,
     },
 }
-
-macro_rules! impl_call {
-    (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty> $block:block) => {
-        crate::client::impl_call! {
-            @one $Client($self, $request: $Request) -> Result<$Response, crate::client::RequestError> $block
-        }
-    };
-    (@one $Client:ident($self:ident, $request:ident: $Request:ty) -> Result<$Response:ty, $Error:ty> $block:block) => {
-        impl<T> $crate::client::GrpcCall<$Request> for &'_ mut $Client<T>
-        where
-            T: tonic::client::GrpcService<tonic::body::Body>,
-            T::Error: Into<tonic::codegen::StdError>,
-            T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-            <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
-        {
-            type Response = $Response;
-            type Error = $Error;
-
-            async fn call($self, $request: $Request) -> Result<Self::Response, Self::Error> $block
-        }
-    };
-    ($Client:ident {$(async fn call($self:ident, $request:ident: $Request:ty) -> Result<$($Result:ty),*> $block:block)*}) => {
-        $(
-            crate::client::impl_call! {
-                @one $Client($self, $request: $Request) -> Result<$($Result),*> $block
-            }
-        )*
-    };
-}
-
-pub(crate) use impl_call;

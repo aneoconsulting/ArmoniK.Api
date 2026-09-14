@@ -1,0 +1,5 @@
+error: inlined needs a field to absorb the member into: a struct variant spreads the member message's fields, a tuple variant carries the wrapper's inner value
+  --> tests/ui/inlined_on_a_unit_variant.rs:12:15
+   |
+12 |     #[armonik(inlined)]
+   |               ^^^^^^^

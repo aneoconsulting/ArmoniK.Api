@@ -1,0 +1,5 @@
+error: no service `fixture.Nope` in the descriptor; known services: fixture.Fixture
+ --> tests/ui/client_unknown_service.rs:8:21
+  |
+8 | #[armonik(service = "fixture.Nope")]
+  |                     ^^^^^^^^^^^^^^

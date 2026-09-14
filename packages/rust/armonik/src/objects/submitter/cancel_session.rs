@@ -1,22 +1,12 @@
-use crate::api::v3;
-
+/// Request for cancelling a session; stands in for the `Session` message at
+/// the Submitter.CancelSession RPC.
+#[armonik_macros::message("armonik.api.grpc.v1.Session")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
+    #[armonik(rename = "id")]
     pub session_id: String,
 }
 
-super::super::impl_convert!(
-    struct Request = v3::Session {
-        session_id = id,
-    }
-);
-
+#[armonik_macros::message("armonik.api.grpc.v1.Empty")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Response {}
-
-super::super::impl_convert!(
-    struct Response = v3::Empty {
-    }
-);

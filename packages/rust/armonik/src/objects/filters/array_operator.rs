@@ -1,42 +1,11 @@
-use crate::api::v3;
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.FilterArrayOperator")]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum FilterArrayOperator {
     /// Contains the specified element.
     #[default]
-    Contains = 0,
+    Contains,
     /// Does not contain the specified element.
-    NotContains = 1,
+    NotContains,
+    /// Unknown to this crate version; round-trips losslessly.
+    Unknown(UnknownFilterArrayOperator),
 }
-
-impl From<i32> for FilterArrayOperator {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Contains,
-            1 => Self::NotContains,
-            _ => Default::default(),
-        }
-    }
-}
-
-impl From<FilterArrayOperator> for v3::FilterArrayOperator {
-    fn from(value: FilterArrayOperator) -> Self {
-        match value {
-            FilterArrayOperator::Contains => Self::Contains,
-            FilterArrayOperator::NotContains => Self::NotContains,
-        }
-    }
-}
-
-impl From<v3::FilterArrayOperator> for FilterArrayOperator {
-    fn from(value: v3::FilterArrayOperator) -> Self {
-        match value {
-            v3::FilterArrayOperator::Contains => Self::Contains,
-            v3::FilterArrayOperator::NotContains => Self::NotContains,
-        }
-    }
-}
-
-super::super::impl_convert!(req FilterArrayOperator : v3::FilterArrayOperator);

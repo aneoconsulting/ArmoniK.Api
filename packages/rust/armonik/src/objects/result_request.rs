@@ -1,15 +1,7 @@
-use crate::api::v3;
-
+#[armonik_macros::message("armonik.api.grpc.v1.ResultRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResultRequest {
+    #[armonik(rename = "session")]
     pub session_id: String,
     pub result_id: String,
 }
-
-super::impl_convert!(
-    struct ResultRequest = v3::ResultRequest {
-        session_id = session,
-        result_id,
-    }
-);

@@ -1,0 +1,5 @@
+error: `present` and `inlined` each say how the member is carried (present: by presence alone; inlined: its message layer absorbed into the variant; with: through an adapter), so they cannot be combined
+  --> tests/ui/inlined_with_present.rs:10:24
+   |
+10 |     #[armonik(present, inlined)]
+   |                        ^^^^^^^

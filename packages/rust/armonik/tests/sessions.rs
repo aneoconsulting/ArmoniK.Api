@@ -1,310 +1,193 @@
-use std::sync::Arc;
+use armonik::server::SessionsServiceExt;
+use armonik::sessions;
 
-use armonik::{
-    server::{RequestContext, SessionsServiceExt},
-    sessions,
-};
-
+#[macro_use]
 mod common;
 
-#[derive(Debug, Clone, Default)]
-struct Service {
-    failure: Option<tonic::Status>,
-    wait: Option<tokio::time::Duration>,
-}
-
-impl armonik::server::SessionsService for Service {
-    async fn list(
-        self: Arc<Self>,
-        request: sessions::list::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::list::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::list::Response {
-                sessions: vec![sessions::Raw {
-                    session_id: String::from("rpc-list-output"),
-                    ..Default::default()
-                }],
-                page: request.page,
-                page_size: request.page_size,
-                total: 1337,
-            })
-        })
-        .await
-    }
-
-    async fn get(
-        self: Arc<Self>,
-        request: sessions::get::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::get::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::get::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-get-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-
-    async fn cancel(
-        self: Arc<Self>,
-        request: sessions::cancel::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::cancel::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::cancel::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-cancel-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-
-    async fn create(
-        self: Arc<Self>,
-        _request: sessions::create::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::create::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::create::Response {
-                session_id: String::from("rpc-create-output"),
-            })
-        })
-        .await
-    }
-
-    async fn pause(
-        self: Arc<Self>,
-        request: sessions::pause::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::pause::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::pause::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-pause-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-
-    async fn resume(
-        self: Arc<Self>,
-        request: sessions::resume::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::resume::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::resume::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-resume-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-
-    async fn close(
-        self: Arc<Self>,
-        request: sessions::close::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::close::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::close::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-close-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-
-    async fn purge(
-        self: Arc<Self>,
-        request: sessions::purge::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::purge::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::purge::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-purge-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-
-    async fn delete(
-        self: Arc<Self>,
-        request: sessions::delete::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::delete::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::delete::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-delete-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-
-    async fn stop_submission(
-        self: Arc<Self>,
-        request: sessions::stop_submission::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<sessions::stop_submission::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(sessions::stop_submission::Response {
-                session: sessions::Raw {
-                    session_id: request.session_id,
-                    partition_ids: vec![String::from("rpc-stop-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
+/// Every RPC that answers with a session echoes the id back and tags the reply
+/// with its own sentinel partition, so a response identifies the handler that
+/// produced it.
+fn session(session_id: String, sentinel: &str) -> sessions::Raw {
+    sessions::Raw {
+        session_id,
+        partition_ids: vec![String::from(sentinel)],
+        ..Default::default()
     }
 }
 
-#[tokio::test]
-async fn list() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
+rpc_tests! {
+    client: into_sessions;
+    server: SessionsService, sessions_server;
+    mock: "Sessions";
 
-    let response = client
-        .list(
-            armonik::sessions::filter::Or::default(),
-            armonik::sessions::Sort::default(),
+    rpc unary list {
+        request: sessions::list::Request {
+            filters: sessions::filter::Or::default(),
+            sort: sessions::Sort::default(),
+            with_task_options: true,
+            page: 3,
+            page_size: 12,
+        },
+        respond: |request| sessions::list::Response {
+            sessions: vec![sessions::Raw {
+                session_id: String::from("rpc-list-output"),
+                ..Default::default()
+            }],
+            page: request.page,
+            page_size: request.page_size,
+            total: 1337,
+        },
+        convenience: list(
+            sessions::filter::Or::default(),
+            sessions::Sort::default(),
             true,
             3,
             12,
-        )
-        .await
-        .unwrap();
+        ),
+        check: |response| {
+            assert_eq!(response.page, 3);
+            assert_eq!(response.page_size, 12);
+            assert_eq!(response.total, 1337);
+            assert_eq!(response.sessions[0].session_id, "rpc-list-output");
+        },
+    }
 
-    assert_eq!(response.page, 3);
-    assert_eq!(response.page_size, 12);
-    assert_eq!(response.total, 1337);
-    assert_eq!(response.sessions[0].session_id, "rpc-list-output");
-}
+    rpc unary get {
+        request: sessions::get::Request {
+            session_id: String::from("rpc-get-input"),
+        },
+        respond: |request| sessions::get::Response {
+            session: session(request.session_id, "rpc-get-output"),
+        },
+        convenience: get("rpc-get-input"),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-get-input");
+            assert_eq!(session.partition_ids[0], "rpc-get-output");
+        },
+    }
 
-#[tokio::test]
-async fn get() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
+    rpc unary cancel {
+        request: sessions::cancel::Request {
+            session_id: String::from("rpc-cancel-input"),
+        },
+        respond: |request| sessions::cancel::Response {
+            session: session(request.session_id, "rpc-cancel-output"),
+        },
+        convenience: cancel("rpc-cancel-input"),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-cancel-input");
+            assert_eq!(session.partition_ids[0], "rpc-cancel-output");
+        },
+    }
 
-    let response = client.get("rpc-get-input").await.unwrap();
+    rpc unary pause {
+        request: sessions::pause::Request {
+            session_id: String::from("rpc-pause-input"),
+        },
+        respond: |request| sessions::pause::Response {
+            session: session(request.session_id, "rpc-pause-output"),
+        },
+        convenience: pause("rpc-pause-input"),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-pause-input");
+            assert_eq!(session.partition_ids[0], "rpc-pause-output");
+        },
+    }
 
-    assert_eq!(response.session_id, "rpc-get-input");
-    assert_eq!(response.partition_ids[0], "rpc-get-output");
-}
+    rpc unary resume {
+        request: sessions::resume::Request {
+            session_id: String::from("rpc-resume-input"),
+        },
+        respond: |request| sessions::resume::Response {
+            session: session(request.session_id, "rpc-resume-output"),
+        },
+        convenience: resume("rpc-resume-input"),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-resume-input");
+            assert_eq!(session.partition_ids[0], "rpc-resume-output");
+        },
+    }
 
-#[tokio::test]
-async fn cancel() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
+    rpc unary close {
+        request: sessions::close::Request {
+            session_id: String::from("rpc-close-input"),
+        },
+        respond: |request| sessions::close::Response {
+            session: session(request.session_id, "rpc-close-output"),
+        },
+        convenience: close("rpc-close-input"),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-close-input");
+            assert_eq!(session.partition_ids[0], "rpc-close-output");
+        },
+    }
 
-    let response = client.cancel("rpc-cancel-input").await.unwrap();
+    rpc unary purge {
+        request: sessions::purge::Request {
+            session_id: String::from("rpc-purge-input"),
+        },
+        respond: |request| sessions::purge::Response {
+            session: session(request.session_id, "rpc-purge-output"),
+        },
+        convenience: purge("rpc-purge-input"),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-purge-input");
+            assert_eq!(session.partition_ids[0], "rpc-purge-output");
+        },
+    }
 
-    assert_eq!(response.session_id, "rpc-cancel-input");
-    assert_eq!(response.partition_ids[0], "rpc-cancel-output");
-}
+    rpc unary delete {
+        request: sessions::delete::Request {
+            session_id: String::from("rpc-delete-input"),
+        },
+        respond: |request| sessions::delete::Response {
+            session: session(request.session_id, "rpc-delete-output"),
+        },
+        convenience: delete("rpc-delete-input"),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-delete-input");
+            assert_eq!(session.partition_ids[0], "rpc-delete-output");
+        },
+    }
 
-#[tokio::test]
-async fn create() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
+    rpc unary create {
+        request: sessions::create::Request {
+            partition_ids: vec![String::from("rpc-create-input")],
+            default_task_options: Default::default(),
+        },
+        respond: |_request| sessions::create::Response {
+            session_id: String::from("rpc-create-output"),
+        },
+        convenience: create([String::from("rpc-create-input")], Default::default()),
+        project: |response| response.session_id,
+        check: |session_id| {
+            assert_eq!(session_id, "rpc-create-output");
+        },
+    }
 
-    let response = client
-        .create(vec![String::from("rpc-create-input")], Default::default())
-        .await
-        .unwrap();
-
-    assert_eq!(response, "rpc-create-output");
-}
-
-#[tokio::test]
-async fn pause() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
-
-    let response = client.pause("rpc-pause-input").await.unwrap();
-
-    assert_eq!(response.session_id, "rpc-pause-input");
-    assert_eq!(response.partition_ids[0], "rpc-pause-output");
-}
-
-#[tokio::test]
-async fn resume() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
-
-    let response = client.resume("rpc-resume-input").await.unwrap();
-
-    assert_eq!(response.session_id, "rpc-resume-input");
-    assert_eq!(response.partition_ids[0], "rpc-resume-output");
-}
-
-#[tokio::test]
-async fn close() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
-
-    let response = client.close("rpc-close-input").await.unwrap();
-
-    assert_eq!(response.session_id, "rpc-close-input");
-    assert_eq!(response.partition_ids[0], "rpc-close-output");
-}
-
-#[tokio::test]
-async fn purge() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
-
-    let response = client.purge("rpc-purge-input").await.unwrap();
-
-    assert_eq!(response.session_id, "rpc-purge-input");
-    assert_eq!(response.partition_ids[0], "rpc-purge-output");
-}
-
-#[tokio::test]
-async fn delete() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
-
-    let response = client.delete("rpc-delete-input").await.unwrap();
-
-    assert_eq!(response.session_id, "rpc-delete-input");
-    assert_eq!(response.partition_ids[0], "rpc-delete-output");
-}
-
-#[tokio::test]
-async fn stop_submission() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().sessions_server()).into_sessions();
-
-    let response = client
-        .stop_submission("rpc-stop-input", true, true)
-        .await
-        .unwrap();
-
-    assert_eq!(response.session_id, "rpc-stop-input");
-    assert_eq!(response.partition_ids[0], "rpc-stop-output");
+    rpc unary stop_submission {
+        request: sessions::stop_submission::Request {
+            // Deliberately unequal: two `bool` parameters in a row are the one pair the
+            // signature cannot keep apart, so the values have to.
+            session_id: String::from("rpc-stop-input"),
+            client: true,
+            worker: false,
+        },
+        respond: |request| sessions::stop_submission::Response {
+            session: session(request.session_id, "rpc-stop-output"),
+        },
+        convenience: stop_submission("rpc-stop-input", true, false),
+        project: |response| response.session,
+        check: |session| {
+            assert_eq!(session.session_id, "rpc-stop-input");
+            assert_eq!(session.partition_ids[0], "rpc-stop-output");
+        },
+    }
 }

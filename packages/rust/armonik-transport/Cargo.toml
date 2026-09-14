@@ -8,7 +8,7 @@ readme = "README.md"
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-include = ["**/*.rs", "Cargo.toml", "README.md"]
+include = ["**/*.rs", "Cargo.toml", "LICENSE", "README.md"]
 
 [features]
 serde = ["dep:serde"]

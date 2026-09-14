@@ -1,56 +1,41 @@
-use std::sync::Arc;
+use armonik::applications;
+use armonik::server::ApplicationsServiceExt;
 
-use armonik::{
-    applications,
-    server::{ApplicationsServiceExt, RequestContext},
-};
-
+#[macro_use]
 mod common;
 
-#[derive(Debug, Clone, Default)]
-struct Service {
-    failure: Option<tonic::Status>,
-    wait: Option<tokio::time::Duration>,
-}
+rpc_tests! {
+    client: into_applications;
+    server: ApplicationsService, applications_server;
+    mock: "Applications";
 
-impl armonik::server::ApplicationsService for Service {
-    async fn list(
-        self: Arc<Self>,
-        request: applications::list::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<applications::list::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(applications::list::Response {
-                applications: vec![applications::Raw {
-                    name: String::from("rpc-list-output"),
-                    ..Default::default()
-                }],
-                page: request.page,
-                page_size: request.page_size,
-                total: 1337,
-            })
-        })
-        .await
-    }
-}
-
-#[tokio::test]
-async fn list() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().applications_server()).into_applications();
-
-    let response = client
-        .list(
-            armonik::applications::filter::Or::default(),
-            armonik::applications::Sort::default(),
+    rpc unary list {
+        request: applications::list::Request {
+            filters: applications::filter::Or::default(),
+            sort: applications::Sort::default(),
+            page: 3,
+            page_size: 12,
+        },
+        respond: |request| applications::list::Response {
+            applications: vec![applications::Raw {
+                name: String::from("rpc-list-output"),
+                ..Default::default()
+            }],
+            page: request.page,
+            page_size: request.page_size,
+            total: 1337,
+        },
+        convenience: list(
+            applications::filter::Or::default(),
+            applications::Sort::default(),
             3,
             12,
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(response.page, 3);
-    assert_eq!(response.page_size, 12);
-    assert_eq!(response.total, 1337);
-    assert_eq!(response.applications[0].name, "rpc-list-output");
+        ),
+        check: |response| {
+            assert_eq!(response.page, 3);
+            assert_eq!(response.page_size, 12);
+            assert_eq!(response.total, 1337);
+            assert_eq!(response.applications[0].name, "rpc-list-output");
+        },
+    }
 }

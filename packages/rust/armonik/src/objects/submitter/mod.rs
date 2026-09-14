@@ -15,8 +15,10 @@ pub mod try_get_task_output;
 pub mod wait_for_availability;
 pub mod wait_for_completion;
 
-mod session_filter;
-mod task_filter;
+#[doc(hidden)]
+pub mod session_filter;
+#[doc(hidden)]
+pub mod task_filter;
 
 pub use session_filter::{SessionFilter, SessionFilterStatuses};
 pub use task_filter::{TaskFilter, TaskFilterIds, TaskFilterStatuses};

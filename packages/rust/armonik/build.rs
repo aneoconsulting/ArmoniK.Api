@@ -1,74 +1,72 @@
-/// The proto files to compile, relative to [`PROTO_ROOT`].
+use std::error::Error;
+use std::path::{Path, PathBuf};
+
+use prost::Message;
+
+/// Where the schema lives. A symlink to the repository-wide `Protos`, shared with the other language
+/// bindings.
+const PROTO_DIR: &str = "protos/V1";
+
+/// Every `.proto` under [`PROTO_DIR`], sorted.
 ///
-/// A list rather than a glob, so that each file can be named to `cargo:rerun-if-changed` below.
-const PROTO_FILES: &[&str] = &[
-    "agent_common.proto",
-    "agent_service.proto",
-    "applications_common.proto",
-    "applications_fields.proto",
-    "applications_filters.proto",
-    "applications_service.proto",
-    "auth_common.proto",
-    "auth_service.proto",
-    "events_common.proto",
-    "events_service.proto",
-    "filters_common.proto",
-    "objects.proto",
-    "health_checks_common.proto",
-    "health_checks_service.proto",
-    "partitions_common.proto",
-    "partitions_fields.proto",
-    "partitions_filters.proto",
-    "partitions_service.proto",
-    "result_status.proto",
-    "results_common.proto",
-    "results_fields.proto",
-    "results_filters.proto",
-    "results_service.proto",
-    "session_status.proto",
-    "sessions_common.proto",
-    "sessions_fields.proto",
-    "sessions_filters.proto",
-    "sessions_service.proto",
-    "sort_direction.proto",
-    "submitter_common.proto",
-    "submitter_service.proto",
-    "task_status.proto",
-    "tasks_common.proto",
-    "tasks_fields.proto",
-    "tasks_filters.proto",
-    "tasks_service.proto",
-    "versions_common.proto",
-    "versions_service.proto",
-    "worker_common.proto",
-    "worker_service.proto",
-];
-
-/// Where the protos live, as seen from this crate: under a symlink to the repository's `Protos`, which is
-/// what makes `include = ["protos/**"]` vendor them into the published crate.
-const PROTO_ROOT: &str = "protos/V1";
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let proto_files = PROTO_FILES
-        .iter()
-        .map(|file| format!("{PROTO_ROOT}/{file}"))
-        .collect::<Vec<_>>();
-
-    // With nothing declared, cargo watches the whole crate directory, so editing a test re-runs `protoc`
-    // over all forty protos. Declaring them replaces that fallback rather than adding to it, which is why
-    // this list now decides rebuilds as well as what gets compiled.
-    for file in &proto_files {
-        println!("cargo:rerun-if-changed={file}");
+/// Read from the directory rather than listed, because the schema is shared: a file can arrive with
+/// another binding's change, and one that nothing already compiled imports would otherwise be absent
+/// from the descriptor set, which is the denominator of the harness's coverage ratchet.
+///
+/// Sorted so the descriptor bytes, and with them `DESCRIPTOR_FINGERPRINT`, do not depend on the order
+/// the filesystem hands entries back.
+fn proto_files() -> Result<Vec<PathBuf>, Box<dyn Error>> {
+    let mut files: Vec<PathBuf> = std::fs::read_dir(PROTO_DIR)?
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().is_some_and(|ext| ext == "proto"))
+        .collect();
+    if files.is_empty() {
+        return Err(format!("no .proto files under {PROTO_DIR}").into());
     }
-    // The symlink itself, so that repointing it counts as a change too.
-    println!("cargo:rerun-if-changed=protos");
-    println!("cargo:rerun-if-changed=build.rs");
+    files.sort();
+    Ok(files)
+}
 
-    tonic_prost_build::configure()
-        .use_arc_self(true)
-        .build_client(cfg!(feature = "_gen-client"))
-        .build_server(cfg!(feature = "_gen-server"))
-        // Both slices have to hold the same type, and `proto_files` is `Vec<String>`.
-        .compile_protos(&proto_files, &[String::from(PROTO_ROOT)])?;
+fn main() -> Result<(), Box<dyn Error>> {
+    let protos = proto_files()?;
+    for proto in &protos {
+        println!("cargo:rerun-if-changed={}", proto.display());
+    }
+    // The directory itself as well, so that adding or removing a file re-runs this.
+    println!("cargo:rerun-if-changed={PROTO_DIR}");
+
+    // Compile the descriptor set with protox (pure Rust, no protoc required).
+    let fds = protox::compile(&protos, [PROTO_DIR])?;
+    let bytes = fds.encode_to_vec();
+
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
+
+    // Input of the armonik-macros expansions, and of the differential harness, which embeds it
+    // with its own `include_bytes!`.
+    write_if_changed(&out_dir.join("descriptor.bin"), &bytes)?;
+
+    // Staleness anchor: included in the crate through `include!` so that any descriptor change
+    // invalidates the crate in rustc's dep-info, and cross-checked by a const-assert emitted by
+    // every derive.
+    let fingerprint = {
+        use std::hash::Hasher as _;
+        let mut hasher = fnv::FnvHasher::default();
+        hasher.write(&bytes);
+        hasher.finish()
+    };
+    write_if_changed(
+        &out_dir.join("schema_meta.rs"),
+        format!("pub(crate) const DESCRIPTOR_FINGERPRINT: u64 = {fingerprint:#018x};\n").as_bytes(),
+    )?;
+
     Ok(())
+}
+
+fn write_if_changed(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    if std::fs::read(path).is_ok_and(|existing| existing == contents) {
+        return Ok(());
+    }
+    std::fs::write(path, contents)
 }

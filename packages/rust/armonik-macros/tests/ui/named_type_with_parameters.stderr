@@ -1,0 +1,5 @@
+error: descriptor-validated types cannot be generic: a type with parameters stands for no one proto message, so it takes none, and spells its tags instead
+ --> tests/ui/named_type_with_parameters.rs:9:12
+  |
+9 | pub struct Simple<T> {
+  |            ^^^^^^

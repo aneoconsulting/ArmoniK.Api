@@ -1,5 +1,5 @@
 //! Reading configuration from the environment, and the one deliberately-insecure certificate
-//! verifier that `allow_unsafe_connection` selects.
+//! verifier `allow_unsafe_connection` selects.
 
 use snafu::Snafu;
 
@@ -109,7 +109,7 @@ impl rustls::client::danger::ServerCertVerifier for InsecureCertVerifier {
 mod tests {
     use super::*;
 
-    /// A variable name of its own per test, so that a stray value cannot leak between them even though
+    /// A variable name of its own per test, so a stray value cannot leak between them even though
     /// they are serialised.
     fn with_var<T>(name: &str, value: Option<&str>, body: impl FnOnce() -> T) -> T {
         match value {
@@ -124,8 +124,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn every_accepted_spelling_is_accepted() {
-        // The vocabulary is wider than `true`/`false` and there is no other record of it: the list is the
-        // specification, so it is written out here rather than sampled.
+        // The vocabulary is wider than `true`/`false` and there is no other record of it: the list
+        // is the specification, so it is written out here rather than sampled.
         for spelling in ["1", "true", "yes", "enable", "allow", "authorize"] {
             let read = with_var("ARMONIK_TEST_BOOL", Some(spelling), || {
                 read_env_bool("ARMONIK_TEST_BOOL")
@@ -144,8 +144,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn an_unset_variable_reads_as_false() {
-        // Absent and empty are the same thing here, which is what lets every boolean option default to
-        // off without the caller having to set it.
+        // Absent and empty are the same thing here, which is what lets every boolean option default
+        // to off without the caller having to set it.
         let read = with_var("ARMONIK_TEST_BOOL", None, || {
             read_env_bool("ARMONIK_TEST_BOOL")
         });
@@ -155,8 +155,8 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn an_unrecognised_value_is_reported_with_its_name_and_value() {
-        // The message has to carry both, or the reader is left guessing which of a dozen `GrpcClient__*`
-        // variables was the problem.
+        // The message has to carry both, or the reader is left guessing which of a dozen
+        // `GrpcClient__*` variables was the problem.
         let read = with_var("ARMONIK_TEST_BOOL", Some("perhaps"), || {
             read_env_bool("ARMONIK_TEST_BOOL")
         });

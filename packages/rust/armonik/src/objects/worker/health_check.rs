@@ -1,46 +1,16 @@
-use crate::api::v3;
-
+#[armonik_macros::message("armonik.api.grpc.v1.Empty")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {}
 
-super::super::impl_convert!(
-    struct Request = v3::Empty {
-    }
-);
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Health status of the worker, standing for the whole `HealthCheckReply`
+/// message (a transparent wrapper around its `ServingStatus` enum).
+#[armonik_macros::enumeration("armonik.api.grpc.v1.worker.HealthCheckReply")]
+#[derive(Debug, Clone, Copy)]
+#[armonik(transparent)]
 pub enum Response {
-    #[default]
-    Unknown = 0,
-    Serving = 1,
-    NotServing = 2,
+    Serving,
+    NotServing,
+    /// The proto `UNKNOWN` (zero) status, reachable as [`Response::UNSPECIFIED`],
+    /// or a status unknown to this crate version.
+    Unknown(UnknownServingStatus),
 }
-
-impl From<i32> for Response {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unknown,
-            1 => Self::Serving,
-            2 => Self::NotServing,
-            _ => Self::Unknown,
-        }
-    }
-}
-
-impl From<Response> for v3::worker::HealthCheckReply {
-    fn from(value: Response) -> Self {
-        Self {
-            status: value as i32,
-        }
-    }
-}
-
-impl From<v3::worker::HealthCheckReply> for Response {
-    fn from(value: v3::worker::HealthCheckReply) -> Self {
-        value.status.into()
-    }
-}
-
-super::super::impl_convert!(req Response : v3::worker::HealthCheckReply);

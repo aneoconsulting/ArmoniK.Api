@@ -1,9 +1,11 @@
 //! ArmoniK objects related to the Health Checks service
 
-mod service_health;
-mod status;
+#[doc(hidden)]
+pub mod service_health;
+#[doc(hidden)]
+pub mod status;
 
 pub mod check;
 
 pub use service_health::ServiceHealth;
-pub use status::Status;
+pub use status::{Status, UnknownStatus};

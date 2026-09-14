@@ -1,0 +1,5 @@
+error: `Chat` is server-streaming in the proto
+  --> tests/ui/service_bidi_half_declared.rs:14:9
+   |
+14 |     rpc Chat(stream chat::Request) -> chat::Response;
+   |         ^^^^

@@ -1,0 +1,17 @@
+error: an enumeration must not derive `PartialEq`: the expansion implements it in terms of the proto value, so that the two spellings of one value (the named variant, and the catch-all holding its number) are one value
+ --> tests/ui/enum_derives_a_comparison.rs:9:30
+  |
+9 | #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+  |                              ^^^^^^^^^
+
+error: an enumeration must not derive `Eq`: the expansion implements it in terms of the proto value, so that the two spellings of one value (the named variant, and the catch-all holding its number) are one value
+ --> tests/ui/enum_derives_a_comparison.rs:9:41
+  |
+9 | #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+  |                                         ^^
+
+error: an enumeration must not derive `Hash`: the expansion implements it in terms of the proto value, so that the two spellings of one value (the named variant, and the catch-all holding its number) are one value
+ --> tests/ui/enum_derives_a_comparison.rs:9:45
+  |
+9 | #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+  |                                             ^^^^

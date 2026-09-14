@@ -1,15 +1,7 @@
-use crate::api::v3;
-
+#[armonik_macros::message("armonik.api.grpc.v1.TaskOutputRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaskOutputRequest {
+    #[armonik(rename = "session")]
     pub session_id: String,
     pub task_id: String,
 }
-
-super::impl_convert!(
-    struct TaskOutputRequest = v3::TaskOutputRequest {
-        session_id = session,
-        task_id,
-    }
-);

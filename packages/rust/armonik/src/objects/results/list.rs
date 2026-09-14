@@ -1,78 +1,43 @@
-use crate::api::v3;
+use super::{filter, Field, Raw, Sort};
 
-use super::{filter, Raw, Sort};
-
-/// Request to list results.
-///
-/// Use pagination, filtering and sorting.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.results.ListResultsRequest")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Request {
-    /// The page number. Start at 0.
-    pub page: i32,
-    /// The page size.
-    pub page_size: i32,
-    /// The filters.
     pub filters: filter::Or,
-    /// The sort.
-    ///
-    /// Must be set for every request.
     pub sort: Sort,
+    pub page: i32,
+    pub page_size: i32,
 }
 
-impl Default for Request {
-    fn default() -> Self {
+impl Request {
+    /// A first page of 100 results, sorted ascending on the result id, with no
+    /// filter. `Default::default()` is the proto zero value, like every armonik
+    /// type, so a page size of 0 and a sort field naming no field at all: this
+    /// names one.
+    pub fn recommended() -> Self {
         Self {
-            page: 0,
+            sort: Sort::ascending(Field::ResultId),
             page_size: 100,
-            filters: Default::default(),
-            sort: Default::default(),
+            ..Default::default()
         }
     }
 }
 
-super::super::impl_convert!(
-    struct Request = v3::results::ListResultsRequest {
-        page,
-        page_size,
-        filters = option filters,
-        sort = option sort,
+#[cfg(test)]
+mod tests {
+    /// See [`crate::tasks::list`]'s counterpart: the zero value of a field enum names no field.
+    #[test]
+    fn recommended_names_a_real_sort_field() {
+        let field = super::Request::recommended().sort.field;
+        assert_ne!(i32::from(field), 0);
     }
-);
+}
 
-/// Response to list results.
-///
-/// Use pagination, filtering and sorting from the request.
-/// Retunr a list of raw results.
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.results.ListResultsResponse")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Response {
-    /// The list of raw results.
     pub results: Vec<Raw>,
-    /// The page number. Start at 0.
     pub page: i32,
-    /// The page size.
     pub page_size: i32,
-    /// The total number of results.
     pub total: i32,
 }
-
-impl Default for Response {
-    fn default() -> Self {
-        Self {
-            results: Vec::new(),
-            page: 0,
-            page_size: 100,
-            total: 0,
-        }
-    }
-}
-
-super::super::impl_convert!(
-    struct Response = v3::results::ListResultsResponse {
-        list results,
-        page,
-        page_size,
-        total,
-    }
-);

@@ -2,77 +2,63 @@ use std::collections::HashMap;
 
 use super::Raw;
 
-use crate::api::v3;
-
-/// Request for creating results without data.
+#[armonik_macros::message("armonik.api.grpc.v1.results.ImportResultsDataRequest")]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Request {
-    /// The opaque ids associated to the results to import.
-    pub results: HashMap<String, Vec<u8>>,
-    /// The session in which create results.
     pub session_id: String,
+    /// The opaque storage id to import into each result, keyed by result id.
+    pub results: HashMap<String, bytes::Bytes>,
 }
 
-impl From<Request> for v3::results::ImportResultsDataRequest {
-    fn from(value: Request) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|(result_id, opaque_id)| {
-                    v3::results::import_results_data_request::ResultOpaqueId {
-                        opaque_id,
-                        result_id,
-                    }
-                })
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-impl From<v3::results::ImportResultsDataRequest> for Request {
-    fn from(value: v3::results::ImportResultsDataRequest) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|result| (result.result_id, result.opaque_id))
-                .collect(),
-            session_id: value.session_id,
-        }
-    }
-}
-
-super::super::impl_convert!(req Request : v3::results::ImportResultsDataRequest);
-
-/// Response for creating results without data.
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.results.ImportResultsDataResponse")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Response {
-    /// The list of raw results that were created.
-    pub results: HashMap<String, Raw>,
+    pub results: Vec<Raw>,
 }
 
-impl From<Response> for v3::results::ImportResultsDataResponse {
-    fn from(value: Response) -> Self {
-        Self {
-            results: value.results.into_values().map(Into::into).collect(),
-        }
+impl Response {
+    /// The updated results by name, which is not a key: nothing on the wire makes `name` unique,
+    /// so this view can hold fewer entries than `results`.
+    pub fn by_name(&self) -> HashMap<&str, &Raw> {
+        self.results
+            .iter()
+            .map(|raw| (raw.name.as_str(), raw))
+            .collect()
+    }
+
+    /// The updated results by result id, which is what [`Request::results`] is keyed by.
+    pub fn by_result_id(&self) -> HashMap<&str, &Raw> {
+        self.results
+            .iter()
+            .map(|raw| (raw.result_id.as_str(), raw))
+            .collect()
     }
 }
 
-impl From<v3::results::ImportResultsDataResponse> for Response {
-    fn from(value: v3::results::ImportResultsDataResponse) -> Self {
-        Self {
-            results: value
-                .results
-                .into_iter()
-                .map(|result| (result.name.clone(), result.into()))
-                .collect(),
+#[cfg(test)]
+mod tests {
+    use super::{Raw, Response};
+
+    fn raw(result_id: &str, name: &str) -> Raw {
+        Raw {
+            result_id: String::from(result_id),
+            name: String::from(name),
+            ..Default::default()
         }
     }
-}
 
-super::super::impl_convert!(req Response : v3::results::ImportResultsDataResponse);
+    /// Two results may share a name, and the response keeps both. Keying the field by name lost one
+    /// of them, silently, and left the survivor unmatchable against the request that asked for it.
+    #[test]
+    fn two_results_sharing_a_name_both_survive() {
+        let response = Response {
+            results: vec![raw("r1", "shared"), raw("r2", "shared")],
+        };
+
+        assert_eq!(response.results.len(), 2);
+        assert_eq!(response.by_name().len(), 1);
+        assert_eq!(response.by_result_id().len(), 2);
+        assert_eq!(response.by_result_id()["r1"].name, "shared");
+        assert_eq!(response.by_result_id()["r2"].name, "shared");
+    }
+}

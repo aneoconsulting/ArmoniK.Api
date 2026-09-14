@@ -1,0 +1,5 @@
+error: proto message `fixture.Nope` not found in the compiled descriptor set
+ --> tests/ui/unknown_message.rs:5:27
+  |
+5 | #[armonik_macros::message("fixture.Nope")]
+  |                           ^^^^^^^^^^^^^^

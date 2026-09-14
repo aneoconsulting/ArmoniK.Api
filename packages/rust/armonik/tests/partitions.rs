@@ -1,84 +1,60 @@
-use std::sync::Arc;
+use armonik::partitions;
+use armonik::server::PartitionsServiceExt;
 
-use armonik::{
-    partitions,
-    server::{PartitionsServiceExt, RequestContext},
-};
-
+#[macro_use]
 mod common;
 
-#[derive(Debug, Clone, Default)]
-struct Service {
-    failure: Option<tonic::Status>,
-    wait: Option<tokio::time::Duration>,
-}
+rpc_tests! {
+    client: into_partitions;
+    server: PartitionsService, partitions_server;
+    mock: "Partitions";
 
-impl armonik::server::PartitionsService for Service {
-    async fn list(
-        self: Arc<Self>,
-        request: partitions::list::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<partitions::list::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(partitions::list::Response {
-                partitions: vec![partitions::Raw {
-                    partition_id: String::from("rpc-list-output"),
-                    ..Default::default()
-                }],
-                page: request.page,
-                page_size: request.page_size,
-                total: 1337,
-            })
-        })
-        .await
-    }
-
-    async fn get(
-        self: Arc<Self>,
-        request: partitions::get::Request,
-        _context: RequestContext,
-    ) -> std::result::Result<partitions::get::Response, tonic::Status> {
-        common::unary_rpc_impl(self.wait, self.failure.clone(), || {
-            Ok(partitions::get::Response {
-                partition: partitions::Raw {
-                    partition_id: request.partition_id,
-                    parent_partition_ids: vec![String::from("rpc-get-output")],
-                    ..Default::default()
-                },
-            })
-        })
-        .await
-    }
-}
-
-#[tokio::test]
-async fn list() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().partitions_server()).into_partitions();
-
-    let response = client
-        .list(
-            armonik::partitions::filter::Or::default(),
-            armonik::partitions::Sort::default(),
+    rpc unary list {
+        request: partitions::list::Request {
+            filters: partitions::filter::Or::default(),
+            sort: partitions::Sort::default(),
+            page: 3,
+            page_size: 12,
+        },
+        respond: |request: partitions::list::Request| partitions::list::Response {
+            partitions: vec![partitions::Raw {
+                partition_id: String::from("rpc-list-output"),
+                ..Default::default()
+            }],
+            page: request.page,
+            page_size: request.page_size,
+            total: 1337,
+        },
+        convenience: list(
+            partitions::filter::Or::default(),
+            partitions::Sort::default(),
             3,
             12,
-        )
-        .await
-        .unwrap();
+        ),
+        check: |response| {
+            assert_eq!(response.page, 3);
+            assert_eq!(response.page_size, 12);
+            assert_eq!(response.total, 1337);
+            assert_eq!(response.partitions[0].partition_id, "rpc-list-output");
+        },
+    }
 
-    assert_eq!(response.page, 3);
-    assert_eq!(response.page_size, 12);
-    assert_eq!(response.total, 1337);
-    assert_eq!(response.partitions[0].partition_id, "rpc-list-output");
-}
-
-#[tokio::test]
-async fn get() {
-    let mut client =
-        armonik::Client::with_channel(Service::default().partitions_server()).into_partitions();
-
-    let response = client.get("rpc-get-input").await.unwrap();
-
-    assert_eq!(response.partition_id, "rpc-get-input");
-    assert_eq!(response.parent_partition_ids[0], "rpc-get-output");
+    rpc unary get {
+        request: partitions::get::Request {
+            partition_id: String::from("rpc-get-input"),
+        },
+        respond: |request: partitions::get::Request| partitions::get::Response {
+            partition: partitions::Raw {
+                partition_id: request.partition_id,
+                parent_partition_ids: vec![String::from("rpc-get-output")],
+                ..Default::default()
+            },
+        },
+        convenience: get("rpc-get-input"),
+        project: |response| response.partition,
+        check: |partition| {
+            assert_eq!(partition.partition_id, "rpc-get-input");
+            assert_eq!(partition.parent_partition_ids[0], "rpc-get-output");
+        },
+    }
 }

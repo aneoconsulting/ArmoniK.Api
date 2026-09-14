@@ -1,25 +1,23 @@
-use crate::api::v3;
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+use super::super::TaskStatus;
+
+/// Request for counting tasks; stands in for the `TaskFilter` message at the
+/// Submitter.CountTasks RPC.
+#[armonik_macros::message("armonik.api.grpc.v1.submitter.TaskFilter")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[armonik(transparent)]
 pub struct Request {
     pub filter: super::TaskFilter,
 }
 
-impl From<Request> for v3::submitter::TaskFilter {
-    fn from(value: Request) -> Self {
-        value.filter.into()
-    }
+/// Number of tasks per status, from the repeated `StatusCount` pairs (duplicate statuses collapse,
+/// last wins).
+///
+/// A scoped response rather than an alias to [`Count`](crate::Count), like every other proto
+/// message this crate shares across RPC sites: response types stay injective over RPCs.
+#[armonik_macros::message("armonik.api.grpc.v1.Count")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Response {
+    pub values: HashMap<TaskStatus, i32>,
 }
-
-impl From<v3::submitter::TaskFilter> for Request {
-    fn from(value: v3::submitter::TaskFilter) -> Self {
-        Self {
-            filter: value.into(),
-        }
-    }
-}
-
-super::super::impl_convert!(req Request : v3::submitter::TaskFilter);
-
-pub type Response = super::super::Count;

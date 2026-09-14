@@ -1,42 +1,11 @@
-use crate::api::v3;
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.FilterStatusOperator")]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum FilterStatusOperator {
     /// Is equal to the specified status.
     #[default]
-    Equal = 0,
+    Equal,
     /// Is not equal to the specified status.
-    NotEqual = 1,
+    NotEqual,
+    /// Unknown to this crate version; round-trips losslessly.
+    Unknown(UnknownFilterStatusOperator),
 }
-
-impl From<i32> for FilterStatusOperator {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Equal,
-            1 => Self::NotEqual,
-            _ => Default::default(),
-        }
-    }
-}
-
-impl From<FilterStatusOperator> for v3::FilterStatusOperator {
-    fn from(value: FilterStatusOperator) -> Self {
-        match value {
-            FilterStatusOperator::Equal => Self::Equal,
-            FilterStatusOperator::NotEqual => Self::NotEqual,
-        }
-    }
-}
-
-impl From<v3::FilterStatusOperator> for FilterStatusOperator {
-    fn from(value: v3::FilterStatusOperator) -> Self {
-        match value {
-            v3::FilterStatusOperator::Equal => Self::Equal,
-            v3::FilterStatusOperator::NotEqual => Self::NotEqual,
-        }
-    }
-}
-
-super::super::impl_convert!(req FilterStatusOperator : v3::FilterStatusOperator);

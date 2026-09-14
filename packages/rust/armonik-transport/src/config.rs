@@ -318,8 +318,9 @@ impl ClientConfig {
                     value: rate_limit.clone(),
                 })?
                 .into();
-            // `tower`'s rate limiter asserts both are non-zero, so leaving these to it turns a mistyped
-            // option into a panic inside `connect` rather than an error the caller can read.
+            // `tower`'s rate limiter asserts both are non-zero, so leaving these to it turns a
+            // mistyped option into a panic inside `connect` rather than an error the caller can
+            // read.
             if limit == 0 || duration.is_zero() {
                 return IncompatibleOptionsSnafu {
                     msg: format!(
@@ -549,8 +550,8 @@ mod tests {
         }
     }
 
-    /// Every message in the chain, joined. snafu keeps the detail in the source, so asserting on the
-    /// outermost `Display` alone would pass whatever the cause turned out to be.
+    /// Every message in the chain, joined. snafu keeps the detail in the source, so asserting on
+    /// the outermost `Display` alone would pass whatever the cause turned out to be.
     fn chain(error: &ConfigError) -> String {
         let mut rendered = error.to_string();
         let mut source = std::error::Error::source(error);
@@ -649,7 +650,8 @@ mod tests {
 
     #[test]
     fn an_integer_that_does_not_fit_is_rejected_rather_than_wrapped() {
-        // These are `u32`; a value past the top must fail rather than silently become something else.
+        // These are `u32`; a value past the top must fail rather than silently become something
+        // else.
         let error = ClientConfig::from_config_args(ClientConfigArgs {
             http2_max_header_list_size: String::from("4294967296"),
             ..args()
@@ -677,8 +679,8 @@ mod tests {
 
     #[test]
     fn a_zero_rate_limit_is_rejected_rather_than_left_to_panic() {
-        // `tower`'s `Rate::new` asserts both halves are above zero, so a zero has to be refused here
-        // rather than reaching it: a panic inside `connect` tells the caller nothing.
+        // `tower`'s `Rate::new` asserts both halves are above zero, so a zero has to be refused
+        // here rather than reaching it: a panic inside `connect` tells the caller nothing.
         for value in ["0/1s", "1/0s", "0/0s"] {
             let error = ClientConfig::from_config_args(ClientConfigArgs {
                 rate_limit: String::from(value),
@@ -697,8 +699,8 @@ mod tests {
 
     #[test]
     fn a_rate_limit_missing_its_duration_is_reported_with_the_expected_shape() {
-        // The message has to show the format, since `100` on its own looks perfectly reasonable to whoever
-        // wrote it.
+        // The message has to show the format, since `100` on its own looks perfectly reasonable to
+        // whoever wrote it.
         let error = ClientConfig::from_config_args(ClientConfigArgs {
             rate_limit: String::from("100"),
             ..args()
@@ -741,8 +743,9 @@ mod tests {
 
     #[test]
     fn half_an_identity_is_rejected_and_names_both_variables() {
-        // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected handshake
-        // on an mTLS one. Neither path is read from disk before the check, so this needs no fixture.
+        // Half an identity is silent on a plain-TLS endpoint and only surfaces as a rejected
+        // handshake on an mTLS one. Neither path is read from disk before the check, so this needs
+        // no fixture.
         for (cert, key) in [("cert.pem", ""), ("", "key.pem")] {
             let error = ClientConfig::from_config_args(ClientConfigArgs {
                 cert_pem: String::from(cert),
@@ -769,8 +772,8 @@ mod tests {
 
     #[test]
     fn a_certificate_path_that_does_not_exist_is_reported_with_the_path() {
-        // These options are paths, not contents. A typo in one has to name the file rather than surface
-        // later as a TLS failure.
+        // These options are paths, not contents. A typo in one has to name the file rather than
+        // surface later as a TLS failure.
         let error = ClientConfig::from_config_args(ClientConfigArgs {
             cert_pem: String::from("no/such/cert.pem"),
             key_pem: String::from("no/such/key.pem"),
@@ -806,8 +809,8 @@ mod tests {
 
     #[test]
     fn an_override_target_given_as_a_host_keeps_the_endpoints_scheme_and_path() {
-        // The common case: the certificate names one host, the endpoint is reached at another. Only the
-        // authority is being overridden, so everything else has to come from the endpoint.
+        // The common case: the certificate names one host, the endpoint is reached at another. Only
+        // the authority is overridden, so everything else has to come from the endpoint.
         let config = ClientConfig::from_config_args(ClientConfigArgs {
             endpoint: String::from("https://10.0.0.1:5003/base"),
             override_target_name: String::from("server.example.com"),
@@ -839,8 +842,8 @@ mod tests {
             Some("server.example.com")
         );
         assert_eq!(override_target.path(), "/other");
-        // The scheme still comes from the endpoint: the connection is made to the endpoint, and this only
-        // changes the name it is verified against.
+        // The scheme still comes from the endpoint: the connection is made to the endpoint, and
+        // this only changes the name it is verified against.
         assert_eq!(override_target.scheme_str(), Some("https"));
     }
 
@@ -855,8 +858,9 @@ mod tests {
     #[cfg(feature = "serde")]
     #[test]
     fn arguments_round_trip_through_serde_with_absent_fields_defaulted() {
-        // Every field but the endpoint carries `serde(default)`, so a configuration file need only name
-        // what it changes. The feature is off by default, so nothing else here would notice it breaking.
+        // Every field but the endpoint carries `serde(default)`, so a configuration file need only
+        // name what it changes. The feature is off by default, so nothing else here would notice it
+        // breaking.
         let deserialised: ClientConfigArgs =
             serde_json::from_str(r#"{"endpoint":"http://localhost:5001","timeout":"30s"}"#)
                 .expect("absent fields should default");

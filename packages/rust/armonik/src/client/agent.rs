@@ -1,110 +1,20 @@
-use futures::{Stream, StreamExt};
+use futures::Stream;
 use snafu::ResultExt;
 
-use crate::agent::{
-    create_results, create_results_metadata, create_tasks, get_common_data, get_direct_data,
-    get_resource_data, notify_result_data, submit_tasks, ResultMetaData,
-};
-use crate::api::v3;
-use crate::utils::IntoCollection;
-use crate::TaskOptions;
+use crate::agent::create_tasks;
+use crate::client::client_method;
+use crate::rpc::services;
 
-use super::{GrpcCall, GrpcCallStream};
+/// The Agent gRPC service, exposed to workers for spawning subtasks and
+/// exchanging data. (The proto documents the service with nothing at all, so this
+/// sentence is the crate's own, and stays here rather than being harvested.)
+pub use crate::rpc::agent::Client as Agent;
 
-/// The ResultsService provides methods for interacting with results.
-#[derive(Clone)]
-pub struct Agent<T> {
-    inner: v3::agent::agent_client::AgentClient<T>,
-}
-
-impl<T> Agent<T>
-where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
-{
-    /// Build a client from a gRPC channel
-    pub fn with_channel(channel: T) -> Self {
-        Self {
-            inner: v3::agent::agent_client::AgentClient::new(channel),
-        }
-    }
-
-    /// Create the metadata of multiple results at once.
-    /// Data have to be uploaded separately.
-    pub async fn create_results_metadata(
-        &mut self,
-        token: impl Into<String>,
-        session_id: impl Into<String>,
-        names: impl std::iter::IntoIterator<Item = impl Into<String>>,
-    ) -> Result<Vec<ResultMetaData>, super::RequestError> {
-        Ok(self
-            .call(create_results_metadata::Request {
-                communication_token: token.into(),
-                results: names.into_iter().map(|name| name.into().into()).collect(),
-                session_id: session_id.into(),
-            })
-            .await?
-            .results)
-    }
-
-    /// Create multiple results with data included in the request.
-    pub async fn create_results(
-        &mut self,
-        token: impl Into<String>,
-        session_id: impl Into<String>,
-        results: impl std::iter::IntoIterator<Item = (impl Into<String>, impl Into<Vec<u8>>)>,
-    ) -> Result<Vec<ResultMetaData>, super::RequestError> {
-        Ok(self
-            .call(create_results::Request {
-                communication_token: token.into(),
-                results: results
-                    .into_iter()
-                    .map(|(name, data)| (name.into(), data.into()).into())
-                    .collect(),
-                session_id: session_id.into(),
-            })
-            .await?
-            .results)
-    }
-
-    /// Notify results data are available in files.
-    pub async fn notify_result_data(
-        &mut self,
-        token: impl Into<String>,
-        session_id: impl Into<String>,
-        result_ids: impl std::iter::IntoIterator<Item = impl Into<String>>,
-    ) -> Result<Vec<String>, super::RequestError> {
-        Ok(self
-            .call(notify_result_data::Request {
-                communication_token: token.into(),
-                session_id: session_id.into(),
-                result_ids: result_ids.into_collect(),
-            })
-            .await?
-            .result_ids)
-    }
-
-    /// Create tasks metadata and submit task for processing.
-    pub async fn submit_tasks(
-        &mut self,
-        token: impl Into<String>,
-        session_id: impl Into<String>,
-        task_options: Option<TaskOptions>,
-        items: impl IntoIterator<Item = submit_tasks::RequestItem>,
-    ) -> Result<Vec<submit_tasks::ResponseItem>, super::RequestError> {
-        Ok(self
-            .call(submit_tasks::Request {
-                communication_token: token.into(),
-                session_id: session_id.into(),
-                task_options,
-                items: items.into_collect(),
-            })
-            .await?
-            .items)
-    }
-
+#[armonik_macros::client]
+#[armonik(service = "armonik.api.grpc.v1.agent.Agent")]
+impl<T: super::Channel> super::ServiceClient<services::Agent, T> {
+    /// Submit tasks as a request stream, turning the reply's error member into a `Status`.
+    #[armonik(rpc = "CreateTask")]
     pub async fn create_tasks(
         &mut self,
         request: impl Stream<Item = create_tasks::Request> + Send + 'static,
@@ -120,342 +30,51 @@ where
                 communication_token: _,
                 error,
             } => Err(tonic::Status::internal(error)).context(super::GrpcSnafu {}),
+            // A reply naming neither outcome, which is not an empty success: the tasks may well
+            // have been created, and the caller cannot find out from here.
+            create_tasks::Response::Invalid {
+                communication_token: _,
+            } => Err(tonic::Status::internal(
+                "the agent's CreateTask reply set neither creation_status_list nor error",
+            ))
+            .context(super::GrpcSnafu {}),
         }
     }
 
-    /// Perform a gRPC call from a raw request.
-    pub async fn call<Request>(
+    client_method!(CreateResultsMetaData:
+        create_results_metadata(communication_token: into<String>, session_id: into<String>, results: iter<crate::agent::create_results_metadata::RequestItem>)
+        -> crate::agent::create_results_metadata::Request => results: Vec<crate::agent::ResultMetaData>);
+    client_method!(CreateResults:
+        create_results(communication_token: into<String>, session_id: into<String>, results: iter<crate::agent::create_results::RequestItem>)
+        -> crate::agent::create_results::Request => results: Vec<crate::agent::ResultMetaData>);
+    /// Notify results that all belong to one session, which is what the proto's `repeated
+    /// ResultIdentifier` is used for; build the request by hand to vary the session per result.
+    #[armonik(rpc = "NotifyResultData")]
+    pub async fn notify_result_data(
         &mut self,
-        request: Request,
-    ) -> Result<<&mut Self as GrpcCall<Request>>::Response, <&mut Self as GrpcCall<Request>>::Error>
-    where
-        for<'a> &'a mut Self: GrpcCall<Request>,
-    {
-        <&mut Self as GrpcCall<Request>>::call(self, request).await
+        communication_token: impl Into<String>,
+        session_id: impl Into<String>,
+        result_ids: impl IntoIterator<Item = impl Into<String>>,
+    ) -> Result<Vec<String>, super::RequestError> {
+        Ok(self
+            .call(crate::agent::notify_result_data::Request::in_session(
+                communication_token,
+                session_id,
+                result_ids,
+            ))
+            .await?
+            .result_ids)
     }
-}
-
-super::impl_call! {
-    Agent {
-        async fn call(self, request: create_results_metadata::Request) -> Result<create_results_metadata::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .create_results_meta_data(request),
-                tracing::debug_span!("Agent::create_results_metadata")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-
-        async fn call(self, request: create_results::Request) -> Result<create_results::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .create_results(request),
-                tracing::debug_span!("Agent::create_results")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-
-        async fn call(self, request: notify_result_data::Request) -> Result<notify_result_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .notify_result_data(request),
-                tracing::debug_span!("Agent::notify_result_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-
-        async fn call(self, request: submit_tasks::Request) -> Result<submit_tasks::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .submit_tasks(request),
-                tracing::debug_span!("Agent::submit_tasks")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-
-        async fn call(self, request: get_resource_data::Request) -> Result<get_resource_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_resource_data(request),
-                tracing::debug_span!("Agent::get_resource_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-
-        async fn call(self, request: get_common_data::Request) -> Result<get_common_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_common_data(request),
-                tracing::debug_span!("Agent::get_common_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-
-        async fn call(self, request: get_direct_data::Request) -> Result<get_direct_data::Response> {
-            let call = tracing_futures::Instrument::instrument(
-                self
-                    .inner
-                    .get_direct_data(request),
-                tracing::debug_span!("Agent::get_direct_data")
-            );
-            Ok(call
-                .await
-                .context(super::GrpcSnafu{})?
-                .into_inner()
-                .into())
-        }
-    }
-}
-
-impl<T, S> GrpcCallStream<create_tasks::Request, S> for &'_ mut Agent<T>
-where
-    T: tonic::client::GrpcService<tonic::body::Body>,
-    T::Error: Into<tonic::codegen::StdError>,
-    T::ResponseBody: tonic::codegen::Body<Data = tonic::codegen::Bytes> + Send + 'static,
-    <T::ResponseBody as tonic::codegen::Body>::Error: Into<tonic::codegen::StdError> + Send,
-    S: Stream<Item = create_tasks::Request> + Send + 'static,
-{
-    type Response = create_tasks::Response;
-    type Error = super::RequestError;
-
-    async fn call(self, request: S) -> Result<Self::Response, Self::Error> {
-        let span = tracing::debug_span!("Agent::create_tasks");
-        let stream = tracing_futures::Instrument::instrument(
-            request.map(Into::into),
-            tracing::trace_span!(parent: &span, "stream"),
-        );
-        let call = tracing_futures::Instrument::instrument(
-            self.inner.create_task(stream),
-            tracing::trace_span!("rpc"),
-        );
-        Ok(call.await.context(super::GrpcSnafu {})?.into_inner().into())
-    }
-}
-
-#[cfg(test)]
-#[serial_test::serial(agent)]
-mod tests {
-    use crate::Client;
-
-    // Named methods
-
-    #[tokio::test]
-    async fn create_results_metadata() {
-        let before = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .create_results_metadata("token", "session-id", ["result1", "result2"])
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn create_results() {
-        let before = Client::get_nb_request("Agent", "CreateResults").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .create_results("token", "session-id", [("result1", "payload")])
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "CreateResults").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn notify_result_data() {
-        let before = Client::get_nb_request("Agent", "NotifyResultData").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .notify_result_data("token", "session-id", ["result1", "result2"])
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "NotifyResultData").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn submit() {
-        let before = Client::get_nb_request("Agent", "SubmitTasks").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .submit_tasks("token", "session-id", None, [])
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "SubmitTasks").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn create_tasks() {
-        let before = Client::get_nb_request("Agent", "CreateTask").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-
-        client
-            .create_tasks(futures::stream::iter([
-                crate::agent::create_tasks::Request::Invalid,
-            ]))
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "CreateTask").await;
-        assert_eq!(after - before, 1);
-    }
-
-    // Explicit call request
-
-    #[tokio::test]
-    async fn create_results_metadata_call() {
-        let before = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .call(crate::agent::create_results_metadata::Request {
-                communication_token: String::from("token"),
-                session_id: String::from("session-id"),
-                results: Vec::new(),
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "CreateResultsMetaData").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn create_results_call() {
-        let before = Client::get_nb_request("Agent", "CreateResults").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .call(crate::agent::create_results::Request {
-                communication_token: String::from("token"),
-                session_id: String::from("session-id"),
-                results: Vec::new(),
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "CreateResults").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn notify_result_data_call() {
-        let before = Client::get_nb_request("Agent", "NotifyResultData").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .call(crate::agent::notify_result_data::Request {
-                communication_token: String::from("token"),
-                session_id: String::from("session-id"),
-                result_ids: vec![],
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "NotifyResultData").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn submit_tasks_call() {
-        let before = Client::get_nb_request("Agent", "SubmitTasks").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .call(crate::agent::submit_tasks::Request {
-                communication_token: String::from("token"),
-                session_id: String::from("session-id"),
-                task_options: None,
-                items: vec![],
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "SubmitTasks").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn get_resource_data_call() {
-        let before = Client::get_nb_request("Agent", "GetResourceData").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .call(crate::agent::get_resource_data::Request {
-                communication_token: String::from("token"),
-                result_id: String::from("result-id"),
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "GetResourceData").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn get_common_data_call() {
-        let before = Client::get_nb_request("Agent", "GetCommonData").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .call(crate::agent::get_common_data::Request {
-                communication_token: String::from("token"),
-                result_id: String::from("result-id"),
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "GetCommonData").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn get_direct_data_call() {
-        let before = Client::get_nb_request("Agent", "GetDirectData").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-        client
-            .call(crate::agent::get_direct_data::Request {
-                communication_token: String::from("token"),
-                result_id: String::from("result-id"),
-            })
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "GetDirectData").await;
-        assert_eq!(after - before, 1);
-    }
-
-    #[tokio::test]
-    async fn create_tasks_call() {
-        let before = Client::get_nb_request("Agent", "CreateTask").await;
-        let mut client = Client::new().await.unwrap().into_agent();
-
-        client
-            .call(futures::stream::iter([
-                crate::agent::create_tasks::Request::Invalid,
-            ]))
-            .await
-            .unwrap();
-        let after = Client::get_nb_request("Agent", "CreateTask").await;
-        assert_eq!(after - before, 1);
-    }
+    client_method!(SubmitTasks:
+        submit_tasks(communication_token: into<String>, session_id: into<String>, task_options: plain<Option<crate::TaskOptions>>, items: iter<crate::agent::submit_tasks::RequestItem>)
+        -> crate::agent::submit_tasks::Request => items: Vec<crate::agent::submit_tasks::ResponseItem>);
+    client_method!(GetResourceData:
+        get_resource_data(communication_token: into<String>, result_id: into<String>)
+        -> crate::agent::get_resource_data::Request => result_id: String);
+    client_method!(GetCommonData:
+        get_common_data(communication_token: into<String>, result_id: into<String>)
+        -> crate::agent::get_common_data::Request => result_id: String);
+    client_method!(GetDirectData:
+        get_direct_data(communication_token: into<String>, result_id: into<String>)
+        -> crate::agent::get_direct_data::Request => result_id: String);
 }

@@ -1,7 +1,14 @@
+/// Used by the client methods that widen an argument to `impl IntoIterator`.
+///
+/// Unused under the narrowest use-case features: `--features agent` compiles only the `Worker`
+/// client, whose one method takes no arguments.
+#[cfg(feature = "_gen-client")]
+#[allow(dead_code)]
 pub(crate) trait IntoCollection<T> {
     fn into_collect(self) -> T;
 }
 
+#[cfg(feature = "_gen-client")]
 impl<X, Y, TX, TY> IntoCollection<TY> for TX
 where
     X: Into<Y>,
@@ -12,6 +19,24 @@ where
     fn into_collect(self) -> TY {
         self.into_iter().map(Into::into).collect()
     }
+}
+
+/// The nested-filter collect shared by the `list`/`subscribe` convenience
+/// methods: two levels of `impl IntoIterator` into the service's
+/// `filter::Or { or: Vec<filter::And> }` shape.
+#[cfg(feature = "_gen-client")]
+#[allow(dead_code)]
+pub(crate) fn into_filters<Field, And, Or>(
+    filters: impl IntoIterator<Item = impl IntoIterator<Item = Field>>,
+) -> Or
+where
+    And: FromIterator<Field>,
+    Or: FromIterator<And>,
+{
+    filters
+        .into_iter()
+        .map(|fields| fields.into_iter().collect())
+        .collect()
 }
 
 #[cfg(feature = "serde")]
@@ -94,12 +119,8 @@ pub(crate) mod serde_option_duration {
 ///
 /// # Examples
 ///
-/// ```ignore
-/// struct Foo();
-/// struct Bar(Vec<Foo>);
-///
-/// crate::utils::impl_vec_wrapper!(Bar(Foo));
-/// ```
+/// The `{field: Type}` form (a named-field wrapper) implements everything,
+/// including `FromIterator`:
 ///
 /// ```ignore
 /// struct Foo();
@@ -108,14 +129,8 @@ pub(crate) mod serde_option_duration {
 /// crate::utils::impl_vec_wrapper!(Bar{bar: Foo});
 /// ```
 ///
-/// # Examples without FromIterator
-///
-/// ```ignore
-/// struct Foo();
-/// struct Bar(Vec<Foo>, i64);
-///
-/// crate::utils::impl_vec_wrapper!(Bar[0: Foo]);
-/// ```
+/// The `[field: Type]` form skips `FromIterator` (for a wrapper that carries
+/// other fields too):
 ///
 /// ```ignore
 /// struct Foo();
@@ -130,15 +145,6 @@ macro_rules! impl_vec_wrapper {
         impl FromIterator<$inner_type> for $wrapper {
             fn from_iter<T: IntoIterator<Item = $inner_type>>(iter: T) -> Self {
                 Self{$inner: iter.into_iter().collect()}
-            }
-        }
-    };
-    ($wrapper:ident($inner_type:ty)) => {
-        crate::utils::impl_vec_wrapper!($wrapper[0: $inner_type]);
-
-        impl FromIterator<$inner_type> for $wrapper {
-            fn from_iter<T: IntoIterator<Item = $inner_type>>(iter: T) -> Self {
-                Self(iter.into_iter().collect())
             }
         }
     };

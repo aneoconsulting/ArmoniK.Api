@@ -1,0 +1,5 @@
+error: no field or oneof named `nope` in proto message `fixture.Simple` (available: count, name); use #[armonik(rename = "...")] if the names differ
+  --> tests/ui/inlined_unknown_member_field.rs:13:9
+   |
+13 |         nope: i32,
+   |         ^^^^

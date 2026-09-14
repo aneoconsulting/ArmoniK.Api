@@ -1,0 +1,17 @@
+error: oneof member `fixture.Choice.simple` (tag 3) is not covered by any variant
+ --> tests/ui/oneof_uncovered_member.rs:8:10
+  |
+8 | pub enum Choice {
+  |          ^^^^^^
+
+error: oneof member `fixture.Choice.flag` (tag 4) is not covered by any variant
+ --> tests/ui/oneof_uncovered_member.rs:8:10
+  |
+8 | pub enum Choice {
+  |          ^^^^^^
+
+error: oneof member `fixture.Choice.hostile` (tag 5) is not covered by any variant
+ --> tests/ui/oneof_uncovered_member.rs:8:10
+  |
+8 | pub enum Choice {
+  |          ^^^^^^

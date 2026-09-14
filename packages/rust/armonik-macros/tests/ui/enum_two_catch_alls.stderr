@@ -1,0 +1,5 @@
+error: #[armonik_macros::enumeration] expects exactly one catch-all tuple variant
+  --> tests/ui/enum_two_catch_alls.rs:13:5
+   |
+13 |     AlsoUnknown(AlsoUnknownColour),
+   |     ^^^^^^^^^^^

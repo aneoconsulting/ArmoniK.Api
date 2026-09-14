@@ -1,76 +1,43 @@
-use crate::api::v3;
+use super::{filter, Field, Raw, Sort};
 
-use super::{filter, Raw, Sort};
-
-/// Request to list partitions.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.partitions.ListPartitionsRequest")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Request {
-    /// The page number. Start at 0.
-    pub page: i32,
-    /// The number of items per page.
-    pub page_size: i32,
-    /// The filter.
     pub filters: filter::Or,
-    /// The sort.
-    ///
-    /// Must be set for every request.
     pub sort: Sort,
+    pub page: i32,
+    pub page_size: i32,
 }
 
-impl Default for Request {
-    fn default() -> Self {
+impl Request {
+    /// A first page of 100 partitions, sorted ascending on the partition id,
+    /// with no filter. `Default::default()` is the proto zero value, like every
+    /// armonik type, so a page size of 0 and a sort field naming no field at
+    /// all: this names one.
+    pub fn recommended() -> Self {
         Self {
-            page: 0,
+            sort: Sort::ascending(Field::Id),
             page_size: 100,
-            filters: Default::default(),
-            sort: Default::default(),
+            ..Default::default()
         }
     }
 }
 
-super::super::impl_convert!(
-    struct Request = v3::partitions::ListPartitionsRequest {
-        page,
-        page_size,
-        filters = option filters,
-        sort = option sort,
+#[cfg(test)]
+mod tests {
+    /// See [`crate::tasks::list`]'s counterpart: the zero value of a field enum names no field.
+    #[test]
+    fn recommended_names_a_real_sort_field() {
+        let field = super::Request::recommended().sort.field;
+        assert_ne!(i32::from(field), 0);
     }
-);
+}
 
-/// Response to list partitions.
-///
-/// Use pagination, filtering and sorting from the request.
-/// Retunr a list of raw partitions.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[armonik_macros::message("armonik.api.grpc.v1.partitions.ListPartitionsResponse")]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Response {
-    /// The list of raw partitions.
     pub partitions: Vec<Raw>,
-    /// The page number. Start at 0.
     pub page: i32,
-    /// The page size.
     pub page_size: i32,
-    /// The total number of partitions.
     pub total: i32,
 }
-
-impl Default for Response {
-    fn default() -> Self {
-        Self {
-            partitions: Vec::new(),
-            page: 0,
-            page_size: 100,
-            total: 0,
-        }
-    }
-}
-
-super::super::impl_convert!(
-    struct Response = v3::partitions::ListPartitionsResponse {
-        list partitions,
-        page,
-        page_size,
-        total,
-    }
-);

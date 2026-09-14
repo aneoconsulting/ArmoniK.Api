@@ -12,17 +12,13 @@ pub mod purge;
 pub mod resume;
 pub mod stop_submission;
 
-mod field;
-mod raw;
+#[doc(hidden)]
+pub mod field;
+#[doc(hidden)]
+pub mod raw;
 
-pub use field::{Field, RawField};
+pub use field::{Field, RawField, UnknownRawField};
 pub use raw::Raw;
 
+#[armonik_macros::alias("armonik.api.grpc.v1.sessions.ListSessionsRequest.Sort")]
 pub type Sort = super::Sort<Field>;
-
-super::super::impl_convert!(
-    struct Sort = crate::api::v3::sessions::list_sessions_request::Sort {
-        field = option field,
-        direction = enum direction,
-    }
-);

@@ -1,0 +1,5 @@
+error: #[armonik_macros::enumeration] expects an enum
+ --> tests/ui/enum_on_a_struct.rs:9:12
+  |
+9 | pub struct Colour {
+  |            ^^^^^^

@@ -1,6 +1,7 @@
 //! ArmoniK objects related to the Agent service
 
-mod result_metadata;
+#[doc(hidden)]
+pub mod result_metadata;
 
 pub mod create_results;
 pub mod create_results_metadata;

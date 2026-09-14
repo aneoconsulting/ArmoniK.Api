@@ -1,102 +1,81 @@
-use crate::api::v3;
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.task_status.TaskStatus")]
+#[derive(Debug, Clone, Copy)]
 pub enum TaskStatus {
-    /// Task is in an unknown state.
-    #[default]
-    Unspecified = 0,
-    /// Task is being created in database.
-    Creating = 1,
-    /// Task is submitted to the queue.
-    Submitted = 2,
-    /// Task is dispatched to a worker.
-    Dispatched = 3,
-    /// Task is completed.
-    Completed = 4,
-    /// Task is in error state.
-    Error = 5,
-    /// Task is in timeout state.
-    Timeout = 6,
-    /// Task is being cancelled.
-    Cancelling = 7,
-    /// Task is cancelled.
-    Cancelled = 8,
-    /// Task is being processed.
-    Processing = 9,
-    /// Task is processed.
-    Processed = 10,
-    /// Task is retried.
-    Retried = 11,
-    /// Task is waiting for its dependencies before becoming executable.
-    Pending = 12,
-    /// Task is paused and will not be executed until session is resumed.
-    Paused = 13,
+    Creating,
+    Submitted,
+    Dispatched,
+    Completed,
+    Error,
+    Timeout,
+    Cancelling,
+    Cancelled,
+    Processing,
+    Processed,
+    Retried,
+    Pending,
+    Paused,
+    /// Unspecified (zero) or a status unknown to this crate version;
+    /// round-trips losslessly.
+    Unknown(UnknownTaskStatus),
 }
 
-impl From<i32> for TaskStatus {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::Creating,
-            2 => Self::Submitted,
-            3 => Self::Dispatched,
-            4 => Self::Completed,
-            5 => Self::Error,
-            6 => Self::Timeout,
-            7 => Self::Cancelling,
-            8 => Self::Cancelled,
-            9 => Self::Processing,
-            10 => Self::Processed,
-            11 => Self::Retried,
-            12 => Self::Pending,
-            13 => Self::Paused,
-            _ => Default::default(),
+#[cfg(test)]
+mod tests {
+    use super::TaskStatus;
+
+    #[test]
+    fn conversions_are_normalizing_and_lossless() {
+        assert_eq!(TaskStatus::from(1), TaskStatus::Creating);
+        assert_eq!(TaskStatus::from(13), TaskStatus::Paused);
+        assert_eq!(TaskStatus::from(0), TaskStatus::UNSPECIFIED);
+        assert_eq!(TaskStatus::default(), TaskStatus::UNSPECIFIED);
+
+        // Unknown values are preserved and never shadow a known one.
+        let unknown = TaskStatus::from(999);
+        assert!(matches!(unknown, TaskStatus::Unknown(raw) if raw.value() == 999));
+        assert_eq!(i32::from(unknown), 999);
+        assert_ne!(unknown, TaskStatus::UNSPECIFIED);
+
+        for value in 0..=13 {
+            assert_eq!(i32::from(TaskStatus::from(value)), value);
         }
     }
-}
 
-impl From<TaskStatus> for v3::task_status::TaskStatus {
-    fn from(value: TaskStatus) -> Self {
-        match value {
-            TaskStatus::Unspecified => Self::Unspecified,
-            TaskStatus::Creating => Self::Creating,
-            TaskStatus::Submitted => Self::Submitted,
-            TaskStatus::Dispatched => Self::Dispatched,
-            TaskStatus::Completed => Self::Completed,
-            TaskStatus::Error => Self::Error,
-            TaskStatus::Timeout => Self::Timeout,
-            TaskStatus::Cancelling => Self::Cancelling,
-            TaskStatus::Cancelled => Self::Cancelled,
-            TaskStatus::Processing => Self::Processing,
-            TaskStatus::Processed => Self::Processed,
-            TaskStatus::Retried => Self::Retried,
-            TaskStatus::Pending => Self::Pending,
-            TaskStatus::Paused => Self::Paused,
-        }
+    /// Ordering is the proto values', for every variant including the catch-all: it is emitted in
+    /// terms of `i32::from`, so where a value sorts does not depend on whether this crate version
+    /// happens to name it.
+    #[test]
+    fn ordering_follows_the_proto_values() {
+        assert!(TaskStatus::Creating < TaskStatus::Submitted);
+        assert!(TaskStatus::Submitted < TaskStatus::Paused);
+
+        // The zero value sorts first and an unknown one sorts by what it holds, next to the named
+        // values rather than before all of them.
+        assert!(TaskStatus::UNSPECIFIED < TaskStatus::Creating);
+        assert!(TaskStatus::Paused < TaskStatus::from(999));
+        assert!(TaskStatus::UNSPECIFIED < TaskStatus::from(999));
+
+        let mut sorted: Vec<TaskStatus> = (0..=13).rev().map(TaskStatus::from).collect();
+        sorted.sort();
+        let values: Vec<i32> = sorted.into_iter().map(i32::from).collect();
+        assert_eq!(values, (0..=13).collect::<Vec<i32>>());
+    }
+
+    /// Equality and hashing read the same proto value ordering does, so the two spellings of one
+    /// value agree even though only one of them is reachable: `From<i32>` normalizes, and the
+    /// payload's field is private, so no caller outside this module can build the other.
+    #[test]
+    fn equality_and_hashing_follow_the_proto_values() {
+        use std::collections::HashSet;
+
+        assert_eq!(TaskStatus::from(0), TaskStatus::UNSPECIFIED);
+        assert_ne!(TaskStatus::from(999), TaskStatus::UNSPECIFIED);
+        assert_ne!(TaskStatus::from(999), TaskStatus::from(998));
+
+        let statuses: HashSet<TaskStatus> =
+            (0..=13).chain(998..=999).map(TaskStatus::from).collect();
+        assert_eq!(statuses.len(), 16);
+        assert!(statuses.contains(&TaskStatus::Paused));
+        assert!(statuses.contains(&TaskStatus::from(999)));
     }
 }
-
-impl From<v3::task_status::TaskStatus> for TaskStatus {
-    fn from(value: v3::task_status::TaskStatus) -> Self {
-        match value {
-            v3::task_status::TaskStatus::Unspecified => Self::Unspecified,
-            v3::task_status::TaskStatus::Creating => Self::Creating,
-            v3::task_status::TaskStatus::Submitted => Self::Submitted,
-            v3::task_status::TaskStatus::Dispatched => Self::Dispatched,
-            v3::task_status::TaskStatus::Completed => Self::Completed,
-            v3::task_status::TaskStatus::Error => Self::Error,
-            v3::task_status::TaskStatus::Timeout => Self::Timeout,
-            v3::task_status::TaskStatus::Cancelling => Self::Cancelling,
-            v3::task_status::TaskStatus::Cancelled => Self::Cancelled,
-            v3::task_status::TaskStatus::Processing => Self::Processing,
-            v3::task_status::TaskStatus::Processed => Self::Processed,
-            v3::task_status::TaskStatus::Retried => Self::Retried,
-            v3::task_status::TaskStatus::Pending => Self::Pending,
-            v3::task_status::TaskStatus::Paused => Self::Paused,
-        }
-    }
-}
-
-super::impl_convert!(req TaskStatus : v3::task_status::TaskStatus);

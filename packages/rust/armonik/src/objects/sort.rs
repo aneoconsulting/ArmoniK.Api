@@ -1,67 +1,82 @@
-use crate::api::v3;
-
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(i32)]
+#[armonik_macros::enumeration("armonik.api.grpc.v1.sort_direction.SortDirection")]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum SortDirection {
-    /// Unspecified. Do not use.
-    Unspecified = 0,
-    /// Ascending.
     #[default]
-    Asc = 1,
-    /// Descending
-    Desc = 2,
+    Unspecified,
+    Asc,
+    Desc,
+    /// Unknown to this crate version.
+    Unknown(UnknownSortDirection),
 }
 
-impl From<i32> for SortDirection {
-    fn from(value: i32) -> Self {
-        match value {
-            0 => Self::Unspecified,
-            1 => Self::Asc,
-            2 => Self::Desc,
-            _ => Self::Unspecified,
-        }
-    }
-}
-
-impl From<SortDirection> for i32 {
-    fn from(value: SortDirection) -> Self {
-        value as i32
-    }
-}
-
-impl From<SortDirection> for v3::sort_direction::SortDirection {
-    fn from(value: SortDirection) -> Self {
-        match value {
-            SortDirection::Unspecified => Self::Unspecified,
-            SortDirection::Asc => Self::Asc,
-            SortDirection::Desc => Self::Desc,
-        }
-    }
-}
-
-impl From<v3::sort_direction::SortDirection> for SortDirection {
-    fn from(value: v3::sort_direction::SortDirection) -> Self {
-        match value {
-            v3::sort_direction::SortDirection::Unspecified => Self::Unspecified,
-            v3::sort_direction::SortDirection::Asc => Self::Asc,
-            v3::sort_direction::SortDirection::Desc => Self::Desc,
-        }
-    }
-}
-
-super::impl_convert!(req SortDirection : v3::sort_direction::SortDirection);
-
+/// Sort on a single field; stands for the per-service `Sort` messages, whose
+/// concrete instantiations are validated by the differential harness.
+#[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Sort<T> {
+    #[armonik(tag = 1)]
     pub field: T,
+    #[armonik(tag = 2)]
     pub direction: SortDirection,
 }
 
+impl<T> Sort<T> {
+    /// Sort on `field`, smallest first.
+    pub fn ascending(field: T) -> Self {
+        Self {
+            field,
+            direction: SortDirection::Asc,
+        }
+    }
+
+    /// Sort on `field`, largest first.
+    pub fn descending(field: T) -> Self {
+        Self {
+            field,
+            direction: SortDirection::Desc,
+        }
+    }
+}
+
+/// Sort on several fields; stands for the per-service `Sort` messages with
+/// repeated fields.
+#[armonik_macros::message]
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SortMany<T> {
+    #[armonik(tag = 1)]
     pub fields: Vec<T>,
+    #[armonik(tag = 2)]
     pub direction: SortDirection,
+}
+
+impl<T> SortMany<T> {
+    /// Sort on `fields`, smallest first.
+    pub fn ascending(fields: impl IntoIterator<Item = T>) -> Self {
+        Self {
+            fields: fields.into_iter().collect(),
+            direction: SortDirection::Asc,
+        }
+    }
+
+    /// Sort on `fields`, largest first.
+    pub fn descending(fields: impl IntoIterator<Item = T>) -> Self {
+        Self {
+            fields: fields.into_iter().collect(),
+            direction: SortDirection::Desc,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SortDirection;
+
+    /// An enum whose zero value has a named variant: the catch-all covers only the unknown values,
+    /// which sort by what they hold, so after every named one here.
+    #[test]
+    fn ordering_follows_the_proto_values() {
+        assert!(SortDirection::Unspecified < SortDirection::Asc);
+        assert!(SortDirection::Asc < SortDirection::Desc);
+        assert!(SortDirection::Desc < SortDirection::from(77));
+    }
 }

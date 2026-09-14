@@ -1,16 +1,23 @@
 //! ArmoniK objects related to the Events service
 
-mod events_enum;
-mod new_result;
-mod new_task;
-mod result_owner_update;
-mod result_status_update;
-mod task_status_update;
-mod update;
+#[doc(hidden)]
+pub mod events_enum;
+#[doc(hidden)]
+pub mod new_result;
+#[doc(hidden)]
+pub mod new_task;
+#[doc(hidden)]
+pub mod result_owner_update;
+#[doc(hidden)]
+pub mod result_status_update;
+#[doc(hidden)]
+pub mod task_status_update;
+#[doc(hidden)]
+pub mod update;
 
 pub mod subscribe;
 
-pub use events_enum::EventsEnum;
+pub use events_enum::{EventsEnum, UnknownEventsEnum};
 pub use new_result::NewResult;
 pub use new_task::NewTask;
 pub use result_owner_update::ResultOwnerUpdate;

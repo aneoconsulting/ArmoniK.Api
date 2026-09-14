@@ -13,7 +13,5 @@ wants the services as well needs only that one.
 dependency cannot be published: `cargo publish` on `armonik` rewrites it into a version requirement
 against the registry, so the version it names must already be there.
 
-```sh
-cargo publish -p armonik-transport   # first, and wait for the index to pick it up
-cargo publish -p armonik
-```
+It is not the only one: `armonik-macros` comes between them, `=`-pinned. The whole order, and why
+each edge forces it, is in [`../RELEASING.md`](../RELEASING.md).
