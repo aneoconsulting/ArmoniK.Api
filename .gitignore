@@ -410,3 +410,5 @@ target/
 # Documentation artifacts
 build/
 .venv-doc
+# ffi exploration: Python bytecode from the shared generators
+ffi/**/__pycache__/
