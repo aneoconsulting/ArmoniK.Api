@@ -56,5 +56,9 @@ than from a re-read.
 - The **worker path**, where Rust interprets message content rather than
   forwarding bytes: two decoders over one buffer, or typed getters that put the
   schema back into the boundary.
+- Whether the accessor contract **assumes the host language implements it**. In
+  Python the accessors are generated C speaking the CPython API rather than
+  Python code (README 9.1), so the specification has to be written in terms of
+  what a binding provides, not what a host language does.
 - The **unpaired-surrogate substitution**, which Java and .NET do not currently
   agree on, and which the conformance corpus will pin.
