@@ -160,8 +160,8 @@ not a column in a comparison table.
 
 They are allowed to diverge, and where the target is faster for it they should:
 `#if NET8_0_OR_GREATER` against `#if NETSTANDARD2_0`, a JDK 17 source tree
-against a Java 8 one, `if constexpr` and `std::variant` against a hand-rolled
-union. The floor's job is that the design is *reachable* from a pinned consumer,
+against a Java 8 one, `if constexpr` in a generated traversal against a tag
+switch. The floor's job is that the design is *reachable* from a pinned consumer,
 not that the target is held back to it.
 
 Four conditions, and they are what keep the divergence from quietly becoming two
@@ -178,19 +178,66 @@ runs on every level a slice claims, and a divergence between them is a defect,
 never a variant. This is the invariant that lets the floor and the target be
 different code at all.
 
-**The public surface should not diverge, and where it must, that is a reported
-cost.** A consumer's source compiling against one level and not the other is a
-migration cost with a number attached, not an implementation detail.
+**The public surface diverges only additively.** A higher level may add entry
+points (5.1.2); it may not change or remove one, because then a consumer's source
+compiles against one level and not the other, which is a migration cost with a
+number attached rather than an implementation detail. Anything beyond additive is
+reported as that cost.
 
 **In C++ the divergence must not reach the layout of an installed header type**,
 and this one is a hard stop rather than a preference. The consumer picks `-std`,
 we do not, so a facade type whose layout depends on the standard level is an ODR
 violation waiting for a consumer who compiles at a different level than the
 library was built at. The base design deliberately verified its optional and its
-sum type ABI-identical from C++11 through C++23; `std::variant` in a public
-header gives that property up. Diverge inside the codec and the binding freely;
-in the headers, only where the layout is provably unchanged, or by surrendering
-the property on purpose and saying so.
+sum type ABI-identical from C++11 through C++23. Diverge inside the codec and the
+binding freely; in the headers, only under the two rules below.
+
+#### 5.1.1 C++ vocabulary types are ours, not the standard library's
+
+A convenience type the facade exposes is reimplemented rather than aliased to its
+standard counterpart: one concrete type at every standard level, with the
+conversions to and from the standard type guarded by the feature macro. That is
+already the house pattern.
+`packages/cpp/ArmoniK.Api.Common/header/utils/string_view.h` is exactly this and
+says so in its own header comment, so `armonik::string_view` is the precedent and
+a hand-rolled variant would be its sibling. The cost is real (a five-variant sum
+type was ~105 lines of C++11 against Rust's 14) and it is what buys a single ABI
+across the levels a consumer might compile at.
+
+#### 5.1.2 Additive interfaces per level are allowed
+
+A better surface at a higher level is welcome where it makes sense: a C++20
+coroutine or `std::expected` API, say, alongside the C++11 one. Three conditions,
+and the third is the one that is easy to get wrong.
+
+- **The floor keeps a complete alternative.** The higher level buys ergonomics,
+  never capability. A C++11 consumer that cannot reach a feature at all is a
+  second product.
+- **It is expressible over the same ABI primitives.** The ABI's completion
+  callback is the primitive every host idiom is built on, so a coroutine surface
+  is facade code over an entry point that already exists. An additive interface
+  that needs a new C entry point is not additive; it is a second design, and it
+  goes through the ABI document rather than through a define.
+- **It is added as free functions or a separate adapter type, not as members of
+  an installed class.** Layout is not the only thing an ODR argument covers: two
+  translation units that see different definitions of the same class are already
+  ill-formed, even when the members they disagree about are non-virtual and the
+  layout is identical. Keeping the class definition the same at every level and
+  putting the extra surface beside it costs nothing and keeps the property.
+
+For the POC this is an allowance rather than a work item. A slice does not have to
+build the C++20 surface; it has to show that the ABI primitive supports one, which
+a sketch settles.
+
+#### 5.1.3 Packaging is a separate question, and in Java it is open
+
+A single jar is the preference. Whether that forces one bytecode level for
+everything, or a multi-release jar carrying per-level classes, is not decided
+here and no design is forced on the slice. Worth knowing before it is: on the
+target (JDK 17, JNI) the prior slice needed two substitutions to reach Java 8 and
+no third, so **there may be nothing to package differently at all** unless FFM
+becomes a target, and FFM is the only divergence large enough to be worth a
+packaging decision.
 
 ### 5.2 How the floor is measured
 
@@ -491,7 +538,10 @@ The report states which, and states the evidence that rules out the other two.
    to 10 messages. The alternative is to drive every slice off the real
    `Protos/V1` descriptor, which makes the corpus of section 10 a by-product
    rather than a separate build.
-6. **Who is the audience for `REPORT.md`?** A decision record for the team, or an
+6. **Java packaging.** A single jar is wanted; whether that means one bytecode
+   level for everything, a multi-release jar, or runtime capability dispatch is
+   open, and may not need deciding at all if FFM never becomes a target (5.1.3).
+7. **Who is the audience for `REPORT.md`?** A decision record for the team, or an
    AEP-shaped proposal. The base design notes this would be the largest breaking
    change in the repository's history and that an AEP process exists for exactly
    that.
