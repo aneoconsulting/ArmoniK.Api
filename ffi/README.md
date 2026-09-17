@@ -377,25 +377,72 @@ from the verdicts.
 
 ## 9. The Python slice
 
-Stated in more detail because it is the one with no prior art.
+Stated in more detail because it is the one with no prior art, and because its
+binding shape differs from every other slice's.
 
-- **Incumbent**: `protobuf` (the upb C extension) plus `grpcio` (the gRPC C
-  core). Unlike C# and Java, Python's incumbent is already a native library
-  reached across a boundary, so the comparison is native-to-native and the
-  crossing argument may land differently.
-- **Binding mechanisms to price**: `ctypes`, `cffi` (ABI and API modes) and
-  PyO3. These differ by an order of magnitude in per-call cost, so R5 matters
-  more here than anywhere else.
-- **The question that decides it**: the GIL. A reverse call into Python must hold
-  it, so the drafted ABI's per-field upcall is the worst possible shape, and the
-  amended ABI's batched drain and by-value group are the only ones with a chance.
-  If the amended shape still loses, Python is a case for generating a codec into
-  Python and keeping only the RPC layer on the C ABI.
+**The incumbent is already native.** `protobuf` on the upb C extension plus
+`grpcio` on the gRPC C core. Unlike C# and Java, the comparison here is
+native against native, and the crossing argument may land differently.
+
+### 9.1 The core calls Python primitives; it does not call back into Python
+
+This is the design default for the Python binding, and it is what makes the
+shape different from the managed slices. A reverse call is **a C-API call
+against a Python object** (`PyUnicode_FromStringAndSize`, `PyList_SET_ITEM`,
+`PyLong_FromLongLong`, a slot read on the facade object), never a call to a
+Python-level accessor. Entering the interpreter costs a frame, an argument
+tuple and bytecode dispatch; a C-API call on a primitive costs none of those.
+
+What follows from it:
+
+- **The Python binding has three layers where C# has two**: the Rust core, a
+  **generated C shim that speaks the CPython API**, and the Python facade. The
+  shim is still generated from the same description by the same generator, so
+  this is one more backend, not a hand-written layer.
+- **The binding mechanism list changes.** `ctypes` and `cffi` in ABI mode route
+  a callback through the interpreter, which is the thing being avoided, so they
+  are not candidates for the codec path. The candidates are a generated C
+  extension module and PyO3 (which is the same C-API calls with a Rust
+  spelling). They remain candidates for the RPC layer, where the crossing count
+  is two per call.
+- **The facade's storage becomes a measured choice**, because it decides what a
+  field read costs the shim: a plain class (a dict lookup), a `__slots__` class
+  (a descriptor offset), or a C extension type (a struct member, so a field read
+  stops being a crossing at all). Each is more work than the last and each is
+  faster; the slice prices them rather than assuming, and it keeps the facade
+  idiomatic in all three.
+- **The GIL is still held for every C-API call**, so batching still matters:
+  fewer, larger crossings mean fewer GIL-held stretches and a longer window in
+  which the pure parse can run with the GIL released.
+- **One control arm settles the premise rather than assuming it**: the same
+  codec with Python-level accessors, measured once. If it is not clearly worse,
+  the extra layer is not earning its place.
+
+### 9.2 The packaging constraint this creates
+
+Speaking the CPython API ties the artifact to Python in a way the other slices
+have no equivalent of, and the choice is real:
+
+- **The full C-API** gives every fast path and needs **one wheel per minor
+  version**.
+- **The limited API and the stable ABI (`abi3`)** give **one wheel across 3.x**
+  and take some of the fast paths away, because several of the cheapest
+  accessors are macros that are not in it.
+
+That is a packaging cost against a per-field cost, it is a decision the report
+has to state rather than discover, and it belongs with open question 4.
+
+### 9.3 The rest
+
+- **What could still refuse the answer**: if the amended shape loses to upb
+  anyway, Python is a case for generating a codec into Python (or into the C
+  shim) and keeping only the RPC layer on the C ABI.
 - **Also worth knowing**: `packages/python` reads no transport environment
   configuration at all today, so the configuration-homogeneity half of the
   argument is a pure gain there rather than a migration.
-- **Minimum slice**: the shapes of section 6, with one binding mechanism chosen
-  by microbenchmark before the full slice commits to it.
+- **Minimum slice**: the shapes of section 6, with the facade storage and the
+  binding mechanism each chosen by microbenchmark before the full slice commits
+  to one.
 
 ## 10. The conformance corpus
 
@@ -543,10 +590,12 @@ The report states which, and states the evidence that rules out the other two.
    amendment rather than cost it.
 3. **Is the C++ floor C++11 or C++14?** The design says a customer is pinned to
    C++11; `packages/cpp` sets `CXX_STANDARD 14` on every target today.
-4. **Python floor and target.** `pyproject.toml` declares `>=3.7`. Holding 3.7 as
-   the floor rules out some binding mechanisms outright; and 3.13 free-threaded
-   changes the GIL argument, so whether it is a target, an arm or out of scope
-   needs deciding.
+4. **Python floor, target, and wheel policy.** `pyproject.toml` declares
+   `>=3.7`. Holding 3.7 as the floor rules out some binding mechanisms outright;
+   3.13 free-threaded changes the GIL argument, so whether it is a target, an
+   arm or out of scope needs deciding; and the full C-API against the stable ABI
+   (9.2) is a wheel-per-version against wheel-per-3.x decision that the floor
+   choice constrains.
 5. **How much of the real schema does a slice cover?** The existing slices use 8
    to 10 messages. The alternative is to drive every slice off the real
    `Protos/V1` descriptor, which makes the corpus of section 10 a by-product

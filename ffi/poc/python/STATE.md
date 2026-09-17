@@ -19,7 +19,8 @@ Does the amended ABI beat an incumbent that is already native, and can it surviv
 ## Arms
 
 - incumbent: protobuf-python on upb, grpcio
-- `core-ffi`: the amended ABI through the binding mechanism chosen below
+- `core-ffi`: the amended ABI, with the core calling CPython primitives through
+  a generated C shim rather than calling back into Python
 - no-boundary control: a generated pure-Python codec over the same facade
 
 ## What exists
