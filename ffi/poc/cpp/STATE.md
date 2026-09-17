@@ -49,6 +49,15 @@ Everything. This list is filled as the slice narrows it.
 - The prior slice covered 16 of 179 messages, all flat, all from one service, with 2 repeated-string fields out of 11 repeated fields. It could not see a cost that falls on repeated strings.
 - The generator is a Rust binary using the `clang` crate; what defeated it before was generics (libclang exposes the primary template pattern) and C++ name resolution.
 
+- Vocabulary types are ours, not the standard library's: one concrete type at
+  every standard level, conversions to and from the standard type guarded by the
+  feature macro. `packages/cpp/ArmoniK.Api.Common/header/utils/string_view.h` is
+  already exactly this and is the precedent to follow.
+- An additive interface per level is allowed (a C++20 coroutine surface over the
+  ABI's completion callback, say), on three conditions: the floor keeps a
+  complete alternative, it needs no new C entry point, and it is free functions
+  or an adapter type rather than new members on an installed class. The slice
+  does not have to build one; it has to show the ABI primitive supports one.
 - Floor and target may be different code, with one hard stop: **the divergence
   must not reach the layout of an installed header type.** The consumer picks
   `-std`, we do not, so a facade type whose layout depends on the standard level

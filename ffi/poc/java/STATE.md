@@ -49,9 +49,16 @@ Everything. This list is filled as the slice narrows it.
 - Measurement hazard, load-bearing: on JDK 21+ one `String.format` with a numeric conversion permanently deoptimises every char narrowing loop in the process, which is protobuf-java's own encoder.
 - The binding must be re-entrant before anything else is trusted: pooled buffers as instance state, not statics.
 
+- A single jar is the preference and no multi-JDK packaging design is forced on
+  this slice. On the target (JDK 17, JNI) there may be nothing to package
+  differently at all: the prior slice reached Java 8 with two substitutions and
+  no third. FFM is the only divergence large enough to be worth a packaging
+  decision, and it is not a target. If one is needed later, the options to price
+  are a single bytecode level for everything, a multi-release jar, or runtime
+  capability dispatch.
 - Floor and target may be different code, and Java has no preprocessor, so the
   divergence is one emitted source tree per target level (Java 8 and JDK 17) from
-  one description, or a multi-release jar. The prior slice reached Java 8 with
+  one description. The prior slice reached Java 8 with
   two substitutions, measured on 8, 11, 17, 21 and 25, both free but for one
   cell. Arm b of README 5.2 is the Java 8 build running on JDK 17.
 
