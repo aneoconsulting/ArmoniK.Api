@@ -104,7 +104,7 @@ same payloads, so that the columns of the final table mean the same thing.
 | `rust` | prost and tonic | What a host language loses against full Rust, and what the new design costs against what `packages/rust` does today. The denominator for everything else. |
 | `cpp` | protobuf C++ (arena and non-arena), grpc++ | Does the amended ABI still work for the language the design was drafted for, under the C++11 floor? |
 | `csharp` | `Google.Protobuf`, `Grpc.Net.Client` | Closing the two gaps its own report names: a managed decode control, and oneofs plus explicit presence. |
-| `java` | protobuf-java, grpc-java | Does the encode regression survive the reconciled ABI, and does the generated-Java-codec fallback stay ahead? |
+| `java` | protobuf-java, grpc-java | Does the encode regression survive ABI v1, and does the generated-Java-codec fallback stay ahead? |
 | `python` | protobuf (upb), grpcio | Section 9. The one language whose incumbent is already native. |
 
 ### 4.1 Why Rust is a slice, and not just a floor
@@ -295,12 +295,12 @@ deliverable.
 
 | # | Work item | Done when |
 |---|---|---|
-| W1 | **Reconcile the ABI.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI.md` exists with 10 open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. |
+| W1 | **Specify ABI v1.** One specification, in this branch, merging the base design with the amendments from the C# and Java reports. Every amendment carries the figure that motivated it and the language it came from. | **Drafted.** `design/ABI-v1.md` exists with 10 open decisions; agreed when decision 1 (is every amendment free at the C++11 floor) is settled and the rest are accepted or scheduled. |
 | W2 | **Freeze the shapes and the payload set.** | `design/SHAPES.md` is agreed and no slice has a shape the others lack. |
 | W3 | **Rust slice.** Section 4.1. | The four arms exist and the interface-cost decomposition is available to every other slice. |
 | W4 | **C++ slice on the amended ABI.** Rebuild against W1, re-measure against protobuf C++, and demonstrate the C++11 floor. | The amended ABI has a C++ column, and "the managed amendments are free in C++" is a measurement. |
 | W5 | **C# slice.** Import the existing slice, rebuild against W1, then close its two named gaps: a managed decode control, and oneofs plus explicit presence. | Both gaps have numbers, and the floor (netstandard2.0 or net48) compiles and passes correctness. |
-| W6 | **Java slice.** Import, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. | The encode verdict is stated against the reconciled ABI, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
+| W6 | **Java slice.** Import, rebuild against W1, re-measure encode, and keep the generated-Java-codec arm as a first-class candidate. | The encode verdict is stated against ABI v1, on JDK 17 with JNI, with the Java 8 floor demonstrated. |
 | W7 | **Python slice.** Section 9. | Python has a verdict of the same shape as the others, or a stated reason why the question is different there. |
 | W8 | **Conformance corpus.** Section 10. | Every slice produces and consumes the same bytes, and the corpus is generated rather than curated. |
 | W9 | **The report.** | `REPORT.md` states a recommendation, the evidence for it, and what it does not establish. |
@@ -526,7 +526,7 @@ ffi/
   CLAUDE.md              the operating contract for anyone working in here
   REPORT.md              the deliverable. The only thing that counts at the end
   design/
-    ABI.md               W1: the reconciled ABI specification
+    ABI-v1.md            W1: the ABI specification, version 1
     SHAPES.md            W2: the shapes and payloads every slice implements
     DESIGN.md            the base design, updated as findings land
   poc/<lang>/            one slice per language, agent-owned
@@ -583,9 +583,9 @@ The report states which, and states the evidence that rules out the other two.
 ## 15. Open questions
 
 1. **W5 and W6 scope.** Importing the C# and Java slices and rebuilding them
-   against the reconciled ABI is strictly better evidence than importing and
+   against ABI v1 is strictly better evidence than importing and
    re-running them as they are, and it roughly doubles both items.
-2. **Does the reconciled ABI get a C++11 re-check as part of W1**, or does W4
+2. **Does ABI v1 get a C++11 re-check as part of W1**, or does W4
    discover it? The C++11 pin is the one constraint that can disqualify an
    amendment rather than cost it.
 3. **Is the C++ floor C++11 or C++14?** The design says a customer is pinned to

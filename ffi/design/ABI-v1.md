@@ -1,16 +1,24 @@
-# The reconciled C ABI
+# The C ABI, v1
 
 **Status: draft for agreement (W1).** This is the specification every slice is
 built against. Until it is agreed, no slice starts; once it is agreed, a slice
 that disagrees with it raises a finding rather than diverging quietly.
+
+**It is called v1 because it is meant to be the only one.** The version is not a
+hedge against this document being provisional: it is there so that a future shape
+this design cannot absorb has a name (`ABI-v2.md`, in its own document) rather
+than arriving as an amendment that silently changes what a shipped binding
+expects. Within v1, symbols are unsuffixed and `ak_abi_version()` is what a host
+checks at load. If a v2 ever has to coexist with v1 in one process, it takes a
+symbol prefix of its own; nothing in v1 reserves one today.
 
 It merges three sources. The [base design](https://claude.ai/code/artifact/d29ed568-05eb-4ded-b22a-b1db669a56fb?sk=k-raOgdhnjAvYmpd0YdSGA)
 supplies the layering, the RPC half, lifetime and the streaming contract. The
 [C# finding](https://claude.ai/artifact/WYD94FSYuq1Nxjdu6WHbtS?sk=aeQYJo8cccAcZsFgdTXRkQ)
 section 4 replaces the codec half, which it measured as a regression in the base
 design's form. The [Java finding](https://claude.ai/artifact/YFSNVzYD41C1TsHmANLcBu?sk=MJlBPbq3WV9R4dxdhAv6Og)
-section 4 amends that again and, on decode, contradicts it; section 5 below is
-where the contradiction is resolved rather than averaged.
+section 4 amends that again and, on decode, contradicts it; section 7 below is
+where the contradiction is settled rather than averaged.
 
 Names here are illustrative. The generator emits them, and where a name appears
 it is to fix a shape, an argument order or an ownership rule.
@@ -37,7 +45,7 @@ supplies pointers. On decode the destination is the host's objects, so the host
 drives and the codec supplies an intermediate.
 
 Rule 2 is a mechanism rule and Rule 1 is a boundary rule. They agree everywhere
-on encode. On decode they do not, and section 5 settles it with two delivery
+on encode. On decode they do not, and section 7 settles it with two delivery
 families rather than one answer, because the evidence says the right answer
 differs by runtime and not by preference.
 
@@ -70,64 +78,221 @@ binding, never with a host language.
 on a path string, so it serves every RPC unchanged and adding one is a table row.
 Only the codec half is generated per message.
 
-## 3. Common vocabulary
+## 3. Lifecycle: what a host does, in order
+
+Nothing here is implicit. A host initialises the library, then builds a runtime,
+then a context, then a client, and destroys them in the reverse order.
 
 ```c
-/* Every entry point reports out of band, including the void ones: a Rust panic
-   crossing extern "C" aborts, so catch_unwind is mandatory and a caught panic
-   needs somewhere to put its message. There is no thread-local last_error. */
-typedef struct { int32_t code; const char *msg; uint32_t msg_len; } ak_err;
+/* ---- once per process, before anything else, codec included ---------------- */
+struct ak_init_opts {
+  uint32_t abi_version;     /* the version the HOST was generated against */
+  uint32_t flags;           /* AK_INIT_OWN_LOGGING, AK_INIT_NO_PANIC_HOOK, ... */
+  ak_log_fn log;            /* NULL unless the host takes the process log */
+  void     *log_ctx;
+};
+int32_t     ak_init(const struct ak_init_opts*, ak_err*);
+uint32_t    ak_abi_version(void);
+const char *ak_build_id(void);
 
+/* ---- the transport stack --------------------------------------------------- */
+ak_runtime *ak_runtime_new(const ak_runtime_opts*, ak_err*);
+ak_context *ak_context_new(ak_runtime*, ak_bytes_in config_json, ak_err*);
+ak_client  *ak_client_new (ak_context*, ak_err*);
+void ak_client_destroy(ak_client*);
+void ak_context_destroy(ak_context*);
+void ak_runtime_destroy(ak_runtime*);
+
+/* ---- the codec, which needs no runtime ------------------------------------- */
+ak_enc_ctx *ak_enc_ctx_new(void);   void ak_enc_ctx_free(ak_enc_ctx*);
+ak_dec_ctx *ak_dec_ctx_new(void);   void ak_dec_ctx_free(ak_dec_ctx*);
+void ak_enc_reset(ak_enc_ctx*);     void ak_dec_reset(ak_dec_ctx*);
+```
+
+**`ak_init` is explicit because three things it does cannot be done later, and
+two of them are one-shot per process.**
+
+- It **installs rustls's crypto provider by name** rather than reading whichever
+  one happened to be installed. One line, and it matters most in a worker
+  container that loads customer code.
+- It **installs the tracing and log bridges**, unless the host passes
+  `AK_INIT_OWN_LOGGING`. `tracing::set_global_default` and `log::set_logger` are
+  both one-shot per process, so who owns them is decided here or not at all; this
+  is what open decision 7 in the base design was about.
+- It **installs the panic hook** and checks the build id, because two copies of
+  the staticlib in one process either share Rust's globals or split-brain them
+  with no warning.
+
+It is **idempotent under identical options**: a second call with the same options
+returns `AK_ALREADY_INITIALIZED`, which is a success. A second call with
+different options fails, because the one-shot installs cannot be redone. **There
+is no `ak_shutdown`**, for the same reason: the process-global installs cannot be
+undone, and every resource that can be released has its own destroy.
+
+`abi_version` is passed in rather than only exported, so the check is made by the
+side that knows what it was generated against, once, at the only point where
+failing is cheap.
+
+**Every other entry point requires `ak_init` to have returned successfully**, the
+codec included, and returns `AK_ERR_UNINITIALIZED` if it has not. A host that
+uses only the codec still calls it.
+
+**Configuration precedence is fixed here and must be reproduced**: an explicit
+setter beats the environment, the environment beats the JSON handed to
+`ak_context_new`, and that beats the defaults. Inverting it turns
+`GrpcClient__AllowUnsafeConnection`, a pod-spec environment variable, into a
+silent certificate-verification bypass for a context that explicitly pinned a CA.
+
+**`worker_threads` comes from `ak_runtime_opts` with a small explicit default,
+never from `Runtime::new()`.** Rust reads the cgroup quota, so `cpu: 500m` rounds
+down to one worker while a requests-only pod takes every CPU on the node
+(measured: 23 threads, 1.49 GB of virtual address space, idle). Two workers to
+four on two vCPUs cost 2 percent of throughput and doubled to quadrupled the
+p999, so a client that silently takes a worker per CPU does not look slow, it
+looks erratic.
+
+**Ownership between handles is internal.** A call holds an `Arc` on its client's
+storage, invisible to the ABI, so `ak_client_destroy` drops the host's reference
+rather than pulling the ground out from under an in-flight call. One clone per
+call creation, not per operation.
+
+## 4. Common vocabulary
+
+```c
 /* Encode: a string or bytes field as DATA inside the group, never a call.
    `len` counts SOURCE code units, never bytes and never characters.
    `data` must stay valid for the duration of the codec call.
    `tc == NULL` means the field is absent. */
-struct ak_str { const void *data; size_t len; const struct ak_transcoder *tc; };
+struct ak_str { const void *data; size_t len; ak_transcode_fn tc; };
 
 /* Decode: an OFFSET into the buffer the host handed in, plus a byte length.
    8 bytes where a pointer pair was 24, and still meaningful after a JNI host
    has released a critical section, which is what lets that host build a String.
-   `coder` is an optional host hint (see 5.4). */
+   `coder` is an optional host hint (see 7.4). */
 struct ak_span { uint32_t off, len; uint32_t coder; };
 
-struct ak_transcoder {
-  uint32_t max_bytes_per_unit;   /* utf8 1, latin1 2, utf16 3, ucs4 1, bytes 1 */
-  uint32_t reserved;
-  int32_t (*transcode)(const void *src, size_t len, uint8_t *dst, int32_t cap,
-                       ak_grow_fn grow, void *grow_ctx);
-};
-const struct ak_transcoder *ak_tc_utf8(void);    /* Rust String, Go string */
-const struct ak_transcoder *ak_tc_utf16(void);   /* .NET string, JVM String */
-const struct ak_transcoder *ak_tc_latin1(void);  /* JVM compact, CPython 1-byte */
-const struct ak_transcoder *ak_tc_ucs4(void);    /* CPython 4-byte */
-const struct ak_transcoder *ak_tc_bytes(void);   /* memcpy, no validation */
+/* The transcoder writes the host's own string representation as UTF-8 into the
+   codec's buffer. `cap` is what is available at `dst` right now, which is
+   normally the whole remaining buffer rather than a per-string reservation, so
+   a grow is the exception and not the rhythm. If it needs more it asks; `grow`
+   may move the buffer, which is why it writes back through pointers. Returns
+   bytes written, or a negative ak error code. */
+typedef int32_t (*ak_grow_fn)(void *sink, int32_t want, uint8_t **dst, int32_t *cap);
+typedef int32_t (*ak_transcode_fn)(const void *src, size_t len,
+                                   uint8_t *dst, int32_t cap,
+                                   ak_grow_fn grow, void *sink);
 
-uint32_t ak_abi_version(void);          /* checked once at load */
-size_t   ak_sizeof_group(uint32_t id);  /* asserted against the host's own sizeof */
+ak_transcode_fn ak_tc_utf8(void);    /* Rust String, Go string */
+ak_transcode_fn ak_tc_utf16(void);   /* .NET string, JVM String */
+ak_transcode_fn ak_tc_latin1(void);  /* JVM compact form, CPython 1-byte */
+ak_transcode_fn ak_tc_ucs4(void);    /* CPython 4-byte */
+ak_transcode_fn ak_tc_bytes(void);   /* memcpy, no validation */
 ```
 
 **Why the transcoder is data rather than a callback.** There are not many
 representations a host actually holds, so the core implements all of them once
 for every language, and every managed host stops maintaining a UTF-8 encoder.
-`max_bytes_per_unit` is a field and not a call because the codec needs it once
-per string to size its reservation, and a call there puts back the crossing this
-exists to remove. The unit form, rather than a ratio over a byte length, is worth
-3.0 to 14.1 percent of an encode: the two are the same function (checked at 4,097
-lengths, zero disagreements) but the ratio form costs a hardware divide by a
-runtime value, once per string, on a schema with 174 string fields.
+This is the largest single change from the drafted interface and it removes
+machinery rather than adding it: no write callback, no capacity slot, no clamp
+and no half-open rollback anywhere in the ABI.
 
-**The grow callback is what makes the bound a hint.** A host may supply its own
-transcoder and may be wrong about its own bound. With a plain bound as a
-correctness contract, an under-declaring transcoder produces *silent wire
-corruption*: measured, a transcoder that doubles every byte and declares 1
-returned success and wrote a zero-length prefix followed by zeros. With the
-growth callback the transcoder asks for room like anything else, and the bound
-drops to a hint for the first reservation. It also measured slightly faster than
-the codec-side retry loop it replaces (median 0.957). One check is not removable:
-the codec refuses a returned count larger than the capacity it gave, because
-nothing can make a transcoder that writes past its buffer safe.
+**How many bytes an input can produce is the transcoder's business, not the
+ABI's.** An earlier draft had the transcoder declare `max_bytes_per_unit` so the
+codec could size a reservation. That is gone, and what it buys is worth stating
+because it is not only simplification:
 
-## 4. Encode
+- **The under-declared bound is gone as a failure mode.** A declared bound is a
+  correctness contract a host can be wrong about, and being wrong about it was
+  measured as *silent wire corruption*: a transcoder that doubled every byte and
+  declared 1 returned success and wrote a zero-length prefix followed by zeros.
+  With no declaration there is nothing to under-declare.
+- **The expansion table leaves the specification.** Whether UTF-8 passthrough
+  declares 1 or 3 was coupled to whether it fails or substitutes on malformed
+  input; that coupling is gone and the question is now purely about semantics
+  (open decision 3).
+- **The measured win for expressing the bound per code unit rather than as a
+  ratio survives as an argument for `len` being in code units**, which it still
+  is. The 3.0 to 14.1 percent that form was worth came from avoiding a hardware
+  divide per string; no form of it remains in the call path.
+- **What it costs is one check that cannot be removed**: the codec refuses a
+  returned count larger than the capacity it gave, because nothing can make a
+  transcoder that writes past its buffer safe. A transcoder that over-runs and
+  does not ask is refused with `AK_ERR_CAPACITY` and none of its field is
+  written.
+- **It is not free of risk, and the slices measure it rather than assume.** The
+  codec no longer knows what to reserve, so the grow path is exercised by
+  whatever the buffer has left. The first build of the callback form produced
+  messages exactly one byte short, because a length prefix sized from a stale
+  reservation had to shift right into room a grow had not left. Prefix width is
+  therefore always resolved after the transcode returns (section 6), and a
+  payload built to cross a varint boundary (P2.4) is in the corpus for it.
+
+## 5. Errors
+
+**An error channel exists from the start, on every path, and it lives in the
+context.** This is not a late addition to be retrofitted: an accessor that cannot
+fail is a process abort, because a managed exception inside a reverse call does
+not propagate and cannot be caught, and the generated guard that catches it needs
+somewhere to put what it caught.
+
+```c
+typedef struct { int32_t code; uint32_t msg_len; const char *msg; } ak_err;
+
+/* Any host code holding a context may fail the operation. Sticky: the first
+   error wins, so unwinding cannot overwrite the cause. Never allocates, never
+   throws, safe from inside a reverse-call frame. */
+void    ak_fail(void *ctx, int32_t code, const char *msg, uint32_t msg_len);
+int32_t ak_ctx_err(const void *ctx, ak_err *out);   /* AK_OK if none */
+```
+
+Three rules make that uniform rather than a per-shape arrangement.
+
+- **Every host-facing callback takes the context as its first argument.** The
+  loop callbacks, the decode `apply`, the batched `add`, the element maker. A
+  callback with no context would be a place where a failure has nowhere to go,
+  and one register is a cheaper price than a second error convention.
+- **The codec checks the sticky slot after every upcall** and unwinds: it rolls
+  the field and the message back to positions it recorded, stops, and the entry
+  point returns the code. The output buffer is left for the host to discard or
+  `ak_enc_reset`.
+- **The generator emits the guard.** Every reverse-call accessor in a managed
+  binding is wrapped so that an exception becomes `ak_fail` plus a return, and it
+  is generated rather than left to a binding author's discipline.
+
+On encode the root group is filled by the host *before* it calls in, so a failure
+there needs no channel: the host simply does not call.
+
+```c
+#define AK_OK                   0
+#define AK_ALREADY_INITIALIZED  1   /* success */
+#define AK_ERR_HOST            -1   /* the host reported through ak_fail */
+#define AK_ERR_MALFORMED       -2   /* invalid wire */
+#define AK_ERR_TRUNCATED       -3
+#define AK_ERR_DEPTH           -4   /* decode recursion limit */
+#define AK_ERR_LIMIT           -5   /* message size limit */
+#define AK_ERR_TRANSCODE       -6   /* the transcoder refused its input */
+#define AK_ERR_CAPACITY        -7   /* a transcoder wrote past the capacity given */
+#define AK_ERR_INVALID_STATE   -8   /* e.g. two concurrent recv on one call */
+#define AK_ERR_PANIC           -9   /* a caught Rust panic, with its message */
+#define AK_ERR_UNINITIALIZED  -10   /* ak_init was not called */
+#define AK_ERR_ABI            -11   /* version or group-layout mismatch */
+```
+
+**Every entry point carries an error path, including the void ones**, because a
+Rust panic crossing `extern "C"` aborts the process: `catch_unwind` is mandatory
+everywhere, and a caught panic needs somewhere to put its message. There is no
+thread-local `ak_last_error()`; the context is the place, and an entry point with
+no context takes an `ak_err` out-parameter.
+
+**Cost, stated so a slice does not inherit an optimistic margin.** The guard
+measured +1.1 ns on a scalar accessor and +2.9 ns on a string accessor, and every
+published figure in both managed reports was measured *without* it. v1 makes that
+cheaper than it was rather than free: with strings riding in the group, the
+accessors that remain are one per repeated field and one per element rather than
+one per string, so the guard lands on tens of calls per message instead of
+thousands. **Every slice measures with the guard on.**
+
+## 6. Encode
 
 **The group carries the whole singular subtree, unconditionally.** One struct per
 message holding every scalar, every `ak_str`, and every singular child inlined
@@ -151,9 +316,9 @@ intptr_t ak_encode_TaskDetailed(const void *obj, ak_enc_ctx *ctx,
 
 /* What the host calls are PLAIN EXPORTS, not a table. */
 int32_t ak_str_elem(void *ctx, const void *data, size_t len,
-                    const struct ak_transcoder *tc);       /* declines, never allocates */
-void    ak_blob_reserve(void *ctx, int32_t want);          /* may allocate */
-void    ak_run_i64(void *ctx, const int64_t *p, size_t n); /* one per host layout */
+                    ak_transcode_fn tc);                   /* declines, never allocates */
+int32_t ak_blob_reserve(void *ctx, int32_t want);          /* may allocate, may fail */
+int32_t ak_run_i64(void *ctx, const int64_t *p, size_t n); /* one per host layout */
 int32_t ak_elem_ResultRaw (void *ctx, const struct ak_efix_ResultRaw *elems, int32_t n);
 int32_t ak_elemu_TaskDetailed(void *ctx, const struct ak_efix_TaskDetailed *elems,
                               int32_t n, int32_t tok0);
@@ -219,6 +384,12 @@ should be made on those grounds. **The other direction cannot have that**, and
 the asymmetry is forced: a managed method has no symbol, and a function pointer
 is the only callable address .NET, the JVM and CPython can produce.
 
+**Every loop and every element call returns `int32_t`**, and a host that fails
+mid-iteration says so through `ak_fail` on the context it was handed (section 5).
+The codec rolls the field and the message back to positions it recorded. This was
+the widest hole in the drafted interface, because a loop can fail after writing
+half a field.
+
 **The fill must be total.** Every scalar, every count and all three words of
 every `ak_str` are assigned unconditionally, and the presence word is assigned
 rather than OR-ed. In exchange the codec does not reset the element group between
@@ -226,7 +397,7 @@ elements, worth 5.4 ns per `ResultRaw` and 24.4 per `TaskDetailed`. This is an
 invariant and it belongs in the header: a partial fill does not fail, it silently
 inherits the previous element's value.
 
-## 5. Decode
+## 7. Decode
 
 **Decode needs less machinery than encode, not more**, because the codec already
 owns the bytes: the span points into the buffer the host handed in, so there is
@@ -247,7 +418,7 @@ U+FFFD, today, silently, and one shared transcoder cannot reproduce both. Moving
 the transcoder into the core changes the observable bytes of at least one host
 for input that was never valid, and that is a migration note rather than a defect.
 
-### 5.1 Two delivery families, one traversal emitter
+### 7.1 Two delivery families, one traversal emitter
 
 This is where the C# and Java findings disagree, and the disagreement is real
 rather than a measurement artifact.
@@ -274,24 +445,25 @@ apart on a shape nobody tested.
 ```c
 /* push: one entry point per message, the arena is a local of THIS function, so
    it is per decode rather than per thread: reentrant and allocation-free. */
-int32_t ak_decode_ListResultsResponse(void *obj, const uint8_t *buf, size_t len,
+int32_t ak_decode_ListResultsResponse(ak_dec_ctx*, void *obj,
+                                      const uint8_t *buf, size_t len,
                                       const struct ak_dvt_ListResultsResponse *vt);
 struct ak_dvt_ListResultsResponse {
-  void (*apply)      (void *obj, const struct ak_dfix_ListResultsResponse *fx);
-  void (*add_results)(void *obj, const struct ak_dfix_ResultRaw *elems, int32_t n);
+  void (*apply)      (ak_dec_ctx*, void *obj, const struct ak_dfix_ListResultsResponse *fx);
+  void (*add_results)(ak_dec_ctx*, void *obj, const struct ak_dfix_ResultRaw *elems, int32_t n);
 };
 
-/* pull: the context is host-owned, so the host can hold two decoded responses,
-   read what it is paying, bound it and release it. */
-ak_bdr_ctx *ak_bdr_ctx_new(void);
-int32_t     ak_bdr_reserve(ak_bdr_ctx*, size_t bytes);
-size_t      ak_bdr_footprint(const ak_bdr_ctx*);
-void        ak_bdr_ctx_free(ak_bdr_ctx*);
-int32_t     ak_parse_ListResultsResponse(ak_bdr_ctx*, const uint8_t *buf, size_t len);
-int32_t     ak_bdr_drain(ak_bdr_ctx*, uint8_t *dst, int32_t cap, size_t *cursor);
+/* pull: the same host-owned ak_dec_ctx of section 3, so the host can hold two
+   decoded responses, read what it is paying, bound it and release it. Parse and
+   drain cannot be one call, because a critical section and an upcall are
+   mutually exclusive on the JVM. */
+int32_t ak_bdr_reserve  (ak_dec_ctx*, size_t bytes);
+size_t  ak_bdr_footprint(const ak_dec_ctx*);
+int32_t ak_parse_ListResultsResponse(ak_dec_ctx*, const uint8_t *buf, size_t len);
+int32_t ak_bdr_drain    (ak_dec_ctx*, uint8_t *dst, int32_t cap, size_t *cursor);
 ```
 
-### 5.2 Batching predicate, and why batches never nest
+### 7.2 Batching predicate, and why batches never nest
 
 **A repeated field may be handed over as a run if and only if its element type
 contains no repeated and no map field, transitively.** Batching defers the host
@@ -307,7 +479,7 @@ rows arrive in three calls; `ListTasksDetailedResponse.tasks` does not and keeps
 two calls per element, which is 7 crossings per task where the drafted ABI spent
 43.
 
-### 5.3 The arena, and the flush that makes it correct
+### 7.3 The arena, and the flush that makes it correct
 
 The run is materialised in a fixed-size arena sized as **a byte budget divided by
 the group size**, not an element count, so the scratch is the same 32 KB whatever
@@ -327,7 +499,7 @@ re-entrancy hazard; the push family declares it at the top of the entry point
 (per decode, reentrant by construction) and the pull family puts it in the
 host-owned context.
 
-### 5.4 Two rules for a facade author
+### 7.4 Two rules for a facade author
 
 **Resolve spans against the base pointer you already hold.** The host pinned the
 buffer to make the call, so an offset is one add and then the same fused
@@ -341,7 +513,7 @@ the count you were handed.
 take a straight compact copy). It is a host-specific field in a shared struct and
 is **optional in this specification**: see open decision 4.
 
-## 6. Bulk bytes: the direct-argument path
+## 8. Bulk bytes: the direct-argument path
 
 A small range of `ak_str.data` values is reserved as sentinels meaning *this
 field is a direct argument of the call* rather than a pointer into staging. It is
@@ -355,17 +527,14 @@ tests it on a nested message, and **a direct field declared on a message that
 does make a reverse call should be a generator-time refusal** and currently is
 not.
 
-## 7. The RPC half
+## 9. The RPC half
 
-Unchanged in shape from the base design, and it is the half whose case is
+Its lifecycle is section 3. Unchanged in shape from the base design, and it is
+the half whose case is
 behavioural rather than performance: one retry set, one backoff, one TLS
 configuration, one cancellation contract, enforced rather than copied.
 
 ```c
-ak_runtime *ak_runtime_new(ak_err*);
-ak_context *ak_context_new(ak_runtime*, ak_bytes_in config_json, ak_log_fn, void*, ak_err*);
-ak_client  *ak_client_new(ak_context*, ak_err*);
-
 ak_status ak_call_unary   (ak_client*, ak_bytes_in path, ak_bytes_in req,
                            ak_call_opts*, ak_bytes *out, ak_call **handle, ak_err*);
 ak_call  *ak_call_unary_cb(ak_client*, ak_bytes_in path, ak_bytes_in req,
@@ -410,20 +579,13 @@ because a thread inside a native call does not observe an interrupt. **Offered
 instead**: a current-thread runtime, described accurately as "no worker pool, one
 mostly-parked thread" rather than "shares the host's threads".
 
-**`worker_threads` comes from config with a small explicit default.** Never
-`Runtime::new()`: Rust reads the cgroup quota, so `cpu: 500m` rounds down to one
-worker while a requests-only pod takes every CPU on the node (measured: 23
-threads, 1.49 GB of virtual address space, idle). Two workers to four on two
-vCPUs cost 2 percent of throughput and doubled to quadrupled the p999, so a
-client that silently takes a worker per CPU does not look slow, it looks erratic.
-
 **The streaming concurrency contract** is unchanged from the base design:
 `send || recv` on one call allowed from any threads, `send || send` and
 `recv || recv` refused with `AK_INVALID_STATE` through a per-direction atomic and
 a try-lock, `close || anything` allowed and must unblock, `destroy || anything`
 forbidden. Under callback delivery, "returned" means the completion has fired.
 
-## 8. Lifetime, versioning and load-time checks
+## 10. Lifetime, versioning and load-time checks
 
 - **Every handle is a plain pointer**, created and destroyed explicitly by the
   host, which is how every C library works and what RAII, `SafeHandle` and an FFM
@@ -432,9 +594,9 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
   merely risky but unimplementable: a woken `recv` re-acquires the mutex inside
   the object to finish waking, which TSan catches as a use-after-free with no
   ordering of stores that avoids it.
-- **One `ak_abi_version()`, checked once at load.** The whole ABI versions as a
-  unit; not a size field per table. The host-called direction needs no version,
-  because a mismatch there is a link failure.
+- **One `ak_abi_version()`, checked once in `ak_init` (section 3).** The whole
+  ABI versions as a unit; not a size field per table. The host-called direction
+  needs no version, because a mismatch there is a link failure.
 - **Group layouts are exported and asserted at load.** A disagreement between
   `#[repr(C)]` and a host's layout otherwise surfaces as a wrong value in a
   field, which is the worst way to find it. Four lines, and it is insurance for
@@ -447,7 +609,7 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
 - **Document whether `ak_call_unary_cb` may invoke its callback before
   returning.** A host that finds out the hard way finds out as a re-entrant lock.
 
-## 9. Deliberately not in the ABI
+## 11. Deliberately not in the ABI
 
 | Not in it | Why |
 |---|---|
@@ -459,7 +621,7 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
 | batched submission, call fusion | under one percent at best and not stable in sign |
 | a runtime schema fingerprint | both sides ship from one release, so a disagreement is a codegen bug: it belongs in CI as a build-time subset check, not in a runtime guard |
 
-## 10. Conformance obligations this ABI creates
+## 12. Conformance obligations ABI v1 creates
 
 1. **The byte corpus is a release gate**, generated from the descriptor, with
    unknown fields, absent fields and every field shape (README section 10).
@@ -480,53 +642,58 @@ forbidden. Under callback delivery, "returned" means the completion has fired.
    shape reports zero wrong bytes with a per-thread-state defect present and
    absent alike; two shapes find it in twenty encodes out of twenty.
 
-## 11. Open decisions
+## 13. Open decisions
 
 Each blocks something. None is settled by a measurement that exists today.
 
-1. **Is every amendment free under the C++11 floor?** The amendments were
-   motivated by managed hosts. That C++ pays nothing for the group, the triple
+1. **Is every mechanism free under the C++11 floor?** They were motivated by
+   managed hosts. That C++ pays nothing for the group, the string-as-data form
    and the batching predicate is currently an argument. Settled by the C++ slice,
    or earlier if it is cheap to check. **Blocks: freezing this document.**
-2. **Which decode family does each binding take** (5.1), and is the single
+2. **Which decode family does each binding take** (7.1), and is the single
    parameterised emitter actually buildable? Settled by the first two slices that
    pick different families.
-3. **UTF-8 passthrough: validate-and-fail, or validate-and-substitute?** Fail
-   keeps the bound at 1 and gives C++ a memcpy with an exact reservation;
-   substitute makes it 3 and has the cheapest-boundary language make the largest
-   reservation. The Java slice chose fail.
+3. **UTF-8 passthrough: validate-and-fail, or validate-and-substitute?** The
+   argument that used to decide this (a declared expansion bound of 1 against 3)
+   is gone with the bound, so what is left is semantics: fail reports bad input
+   to the host that supplied it, substitute makes a `bytes`-like field out of it
+   and cannot fail. The Java slice chose fail.
 4. **Is `ak_span.coder` in the shared struct or out?** It is a JVM-specific hint
    in a struct every language reads.
-5. **The worker path.** Either Rust hands the facade the raw `ProcessRequest`
+5. **What the grow path actually costs now that nothing is reserved from a
+   declared bound** (section 4). The codec hands the transcoder whatever the
+   buffer has left, so a grow should be rare, but no slice has measured the rate
+   or what a grow costs when the length prefix has to be resized after it. The
+   first slice to build the encode path answers it, and P2.4 is the payload for
+   it. **This is the one decision created by v1 rather than inherited.**
+6. **The worker path.** Either Rust hands the facade the raw `ProcessRequest`
    bytes and the facade decodes them itself, which is two decoders over one
    buffer that can silently disagree, or Rust decodes once and exposes typed
    getters, which puts the schema back into the boundary and contradicts the
-   fixed-size property everywhere else. Obligation 10.4 covers the first.
-6. **The accessor error channel.** Repeated fields have one (every loop returns
-   `int32_t` and the codec rolls back to recorded positions). The group's fill
-   does not, and the natural place is a status word in the group, which already
-   crosses once per message. Every published margin is measured *without* the
-   generated try/catch that a managed host requires, so adopting this costs a few
-   percent of encode on string-heavy messages and the slices must re-measure.
+   fixed-size property everywhere else. Obligation 12.4 covers the first.
 7. **Decode recursion limit.** Rust holds the reader and recurses in Rust, so
    prost's `RECURSION_LIMIT` does not apply and the built codec has none. The
    in-scope schema is acyclic with static depth 6 and unknown nested fields are
    skipped without recursing, so it is not reachable today and nothing enforces
-   that.
+   that. `AK_ERR_DEPTH` exists for it; the limit itself is unset.
 8. **Message size limits.** `WorkerServer.h` sets `SetMaxReceiveMessageSize(-1)`
    today; tonic defaults to 4 MiB. Without an explicit per-direction knob,
    migration day gives `RESOURCE_EXHAUSTED` to every customer whose payloads
-   exceed 4 MiB, which for an HPC orchestrator is normal.
-9. **The diagnostic contract.** Five distinct transport failures currently render
-   as one string. `ak_err` must carry a machine-readable failure class and the
-   flattened source chain, and someone must own `tracing::set_global_default`,
-   which is one-shot per process and therefore cannot be retrofitted.
-10. **Configuration precedence**, which is already decided by
-    `Configuration.cpp` and must be reproduced: an explicit `set()` beats the
-    environment, the environment beats JSON and defaults. Inverting it turns a
-    pod-spec environment variable into a silent certificate-verification bypass.
+   exceed 4 MiB, which for an HPC orchestrator is normal. `AK_ERR_LIMIT` exists
+   for it; the default does not.
+9. **The diagnostic contract.** `ak_init` now owns the log and tracing bridges
+   (section 3), which settles *who*. What is still open is *what*: five distinct
+   transport failures currently render as one string, so `ak_err` needs a
+   machine-readable failure class and the flattened source chain, and a host
+   needs a restart-only transport-diagnostics dial. Today `GRPC_TRACE` is what an
+   SRE reaches for at 03:00 and there is no counterpart.
 
-## 12. Provenance
+**Settled since the first draft**, kept here so a reader of an earlier version
+does not look for them: the accessor error channel is now section 5 rather than a
+gap, `max_bytes_per_unit` is gone rather than specified, and configuration
+precedence is stated in section 3 rather than carried as a decision.
+
+## 14. Provenance
 
 Every amendment, what motivated it, and where the figure lives. A slice that
 wants to revisit one starts here rather than re-deriving it.
@@ -535,8 +702,8 @@ wants to revisit one starts here rather than re-deriving it.
 |---|---|---|
 | by-value group carrying the singular subtree | C#, confirmed on JVM | decode 1.192 to 0.955 on P1.2; the JVM control without it is 1.22 to 1.64 times worse |
 | string as data in the group (the triple) | C# and Java | the largest single change: 1.12 to 1.64 times on JVM encode, 25 to 36 percent on .NET |
-| `max_bytes_per_unit` per code unit, not a ratio | Java | 3.0 to 14.1 percent of an encode |
-| transcoder growth callback | Java | closes silent wire corruption; 0.957 against the retry loop it replaces |
+| lengths in source code units | Java | the ratio-over-bytes form cost a hardware divide per string: 3.0 to 14.1 percent of an encode |
+| transcoder growth callback, and no declared expansion bound at all | Java, then v1 | the callback closed silent wire corruption at 0.957 against the retry loop it replaced; v1 drops the declared bound with it, which no slice has measured (decision 5) |
 | packed scalar as the host's own array | C# | 0.22 against 0.44 of `ToByteArray`; 2,001 crossings against 25,201 |
 | one element entry point with a count | C# | no measurable cost, less compiled code, one protocol instead of two |
 | host-driven batched element runs, leaf form default | Java | 2 to 9 percent on JNI, about half on FFM, nothing on .NET |
@@ -550,4 +717,6 @@ wants to revisit one starts here rather than re-deriving it.
 | no map case | C# | tens of nanoseconds per entry, paid deliberately |
 | group layout export and assert, one ABI version | C# and Java | insurance against the worst failure mode a by-value ABI adds |
 | RPC: handle on the blocking call, metadata, deadline, status code | Java | a retry policy is a function of the status code |
+| explicit `ak_init`, one-shot installs owned there | base design, v1 | the crypto provider, the log and tracing bridges and the panic hook cannot be installed late, and two of the three are one-shot per process |
+| error channel in the context, guard generated | C#, then v1 | an unguarded accessor terminates the process; the guard costs +1.1 ns scalar and +2.9 ns string, and every published margin was measured without it |
 | completion queue with one drainer; no executor slot | Java, C# | the queue is the best arm on virtual threads; the executor slot earns nothing on either runtime |

@@ -7,7 +7,7 @@ session, which makes it the most expensive defect in this directory.
 | | |
 |---|---|
 | **Status** | not started |
-| **Blocked on** | W1 (`design/ABI.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
+| **Blocked on** | W1 (`design/ABI-v1.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
 | **Floor** (must build and pass correctness) | C++11 (customer pin). Open question: `packages/cpp` sets `CXX_STANDARD 14` today |
 | **Target** (where the clock runs) | C++17 |
 | **Incumbent** (the baseline every ratio is against) | protobuf C++ (arena and non-arena), grpc++ |
@@ -29,7 +29,7 @@ Nothing yet.
 
 ## Next step
 
-Port the existing C++ slice onto the reconciled ABI of W1, then re-run its correctness suite before any timing.
+Port the existing C++ slice onto ABI v1 of W1, then re-run its correctness suite before any timing.
 
 ## Correctness
 
