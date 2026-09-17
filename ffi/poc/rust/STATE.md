@@ -29,7 +29,12 @@ Nothing yet.
 
 ## Next step
 
-Stand up the four arms over M1 and P1.1/P1.2 only, and confirm `prost` and `armonik` agree byte for byte before adding anything.
+**Validate `ffi/schema/generated/manifest.json` against prost first.** Every hash in it
+was produced by `ffi/schema/emit/wire.py`, which nothing has checked; the framing
+is proved, the semantics are not. Compile `schema/generated/shapes.proto` with prost,
+re-encode each payload from the same value rules, and either confirm the hashes
+or report where they differ. Nothing else in any slice can be trusted until this
+passes. Then stand up the four arms over M1 and P1.1/P1.2 only.
 
 ## Correctness
 

@@ -1,0 +1,816 @@
+{
+  "version": 1,
+  "package": "armonik.ffi.shapes.v1",
+  "note": "The single source every slice generates from. See README.md in this directory.",
+  "enums": {
+    "ResultStatus": {
+      "source": "Protos/V1/result_status.proto",
+      "values": {
+        "RESULT_STATUS_UNSPECIFIED": 0,
+        "RESULT_STATUS_CREATED": 1,
+        "RESULT_STATUS_COMPLETED": 2,
+        "RESULT_STATUS_ABORTED": 3,
+        "RESULT_STATUS_DELETED": 4,
+        "RESULT_STATUS_NOTFOUND": 127
+      },
+      "why": "127 is real and it is why this enum is here: a two-byte varint, and a value a host built against a shorter enum must round-trip losslessly."
+    },
+    "TaskStatus": {
+      "source": "Protos/V1/task_status.proto",
+      "values": {
+        "TASK_STATUS_UNSPECIFIED": 0,
+        "TASK_STATUS_CREATING": 1,
+        "TASK_STATUS_SUBMITTED": 2,
+        "TASK_STATUS_DISPATCHED": 3,
+        "TASK_STATUS_COMPLETED": 4,
+        "TASK_STATUS_ERROR": 5,
+        "TASK_STATUS_TIMEOUT": 6,
+        "TASK_STATUS_CANCELLING": 7,
+        "TASK_STATUS_CANCELLED": 8,
+        "TASK_STATUS_PROCESSING": 9,
+        "TASK_STATUS_PROCESSED": 10,
+        "TASK_STATUS_RETRIED": 11,
+        "TASK_STATUS_PENDING": 12,
+        "TASK_STATUS_PAUSED": 13
+      }
+    },
+    "ProbeKind": {
+      "source": "invented",
+      "values": {
+        "PROBE_KIND_UNSPECIFIED": 0,
+        "PROBE_KIND_ALPHA": 1,
+        "PROBE_KIND_BETA": 2
+      }
+    }
+  },
+  "messages": {
+    "Timestamp": {
+      "source": "google.protobuf.Timestamp, copied rather than imported",
+      "why": "Same wire shape, no dependency on the well-known-type descriptor closure, which is a trap the base design records: protox does not close over them transitively and they have to be opened explicitly or they are simply absent.",
+      "fields": [
+        {
+          "name": "seconds",
+          "tag": 1,
+          "kind": "int64"
+        },
+        {
+          "name": "nanos",
+          "tag": 2,
+          "kind": "int32"
+        }
+      ]
+    },
+    "Duration": {
+      "source": "google.protobuf.Duration, copied rather than imported",
+      "fields": [
+        {
+          "name": "seconds",
+          "tag": 1,
+          "kind": "int64"
+        },
+        {
+          "name": "nanos",
+          "tag": 2,
+          "kind": "int32"
+        }
+      ]
+    },
+    "ResultRaw": {
+      "shape": "M1",
+      "source": "Protos/V1/results_common.proto, tags preserved including the gap at 7",
+      "fields": [
+        {
+          "name": "session_id",
+          "tag": 1,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "name",
+          "tag": 2,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "owner_task_id",
+          "tag": 3,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "status",
+          "tag": 4,
+          "kind": "enum",
+          "of": "ResultStatus"
+        },
+        {
+          "name": "created_at",
+          "tag": 5,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "completed_at",
+          "tag": 6,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "result_id",
+          "tag": 8,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "size",
+          "tag": 9,
+          "kind": "int64"
+        },
+        {
+          "name": "created_by",
+          "tag": 10,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "opaque_id",
+          "tag": 11,
+          "kind": "bytes"
+        },
+        {
+          "name": "manual_deletion",
+          "tag": 12,
+          "kind": "bool"
+        }
+      ]
+    },
+    "TaskOptions": {
+      "source": "Protos/V1/objects.proto",
+      "fields": [
+        {
+          "name": "options",
+          "tag": 1,
+          "kind": "map",
+          "key": "string",
+          "value_kind": "string",
+          "entries": 4
+        },
+        {
+          "name": "max_duration",
+          "tag": 2,
+          "kind": "message",
+          "of": "Duration"
+        },
+        {
+          "name": "max_retries",
+          "tag": 3,
+          "kind": "int32"
+        },
+        {
+          "name": "priority",
+          "tag": 4,
+          "kind": "int32"
+        },
+        {
+          "name": "partition_id",
+          "tag": 5,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "application_name",
+          "tag": 6,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "application_version",
+          "tag": 7,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "application_namespace",
+          "tag": 8,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "application_service",
+          "tag": 9,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "engine_type",
+          "tag": 10,
+          "kind": "string",
+          "value": "word"
+        }
+      ]
+    },
+    "TaskOutput": {
+      "source": "Protos/V1/tasks_common.proto, TaskDetailed.Output, hoisted out of its parent",
+      "adapter": "output",
+      "why": "One facade type with two wire forms: a nested message here at TaskDetailed.output, and a plain string at TaskSummary.error. The map is not injective, so only a byte corpus catches an adapter written from intuition.",
+      "fields": [
+        {
+          "name": "success",
+          "tag": 1,
+          "kind": "bool"
+        },
+        {
+          "name": "error",
+          "tag": 2,
+          "kind": "string",
+          "value": "sentence"
+        }
+      ]
+    },
+    "TaskDetailed": {
+      "shape": "M2",
+      "source": "Protos/V1/tasks_common.proto, tags preserved",
+      "fields": [
+        {
+          "name": "id",
+          "tag": 1,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "session_id",
+          "tag": 2,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "owner_pod_id",
+          "tag": 3,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "parent_task_ids",
+          "tag": 4,
+          "kind": "string",
+          "card": "repeated",
+          "value": "guid"
+        },
+        {
+          "name": "data_dependencies",
+          "tag": 5,
+          "kind": "string",
+          "card": "repeated",
+          "value": "guid"
+        },
+        {
+          "name": "expected_output_ids",
+          "tag": 6,
+          "kind": "string",
+          "card": "repeated",
+          "value": "guid"
+        },
+        {
+          "name": "retry_of_ids",
+          "tag": 7,
+          "kind": "string",
+          "card": "repeated",
+          "value": "guid"
+        },
+        {
+          "name": "status",
+          "tag": 8,
+          "kind": "enum",
+          "of": "TaskStatus"
+        },
+        {
+          "name": "status_message",
+          "tag": 9,
+          "kind": "string",
+          "value": "sentence"
+        },
+        {
+          "name": "options",
+          "tag": 10,
+          "kind": "message",
+          "of": "TaskOptions"
+        },
+        {
+          "name": "created_at",
+          "tag": 11,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "submitted_at",
+          "tag": 12,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "started_at",
+          "tag": 13,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "ended_at",
+          "tag": 14,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "pod_ttl",
+          "tag": 15,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "output",
+          "tag": 16,
+          "kind": "message",
+          "of": "TaskOutput",
+          "adapter_site": "nested"
+        },
+        {
+          "name": "pod_hostname",
+          "tag": 17,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "received_at",
+          "tag": 18,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "acquired_at",
+          "tag": 19,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "creation_to_end_duration",
+          "tag": 20,
+          "kind": "message",
+          "of": "Duration"
+        },
+        {
+          "name": "processing_to_end_duration",
+          "tag": 21,
+          "kind": "message",
+          "of": "Duration"
+        },
+        {
+          "name": "initial_task_id",
+          "tag": 22,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "received_to_end_duration",
+          "tag": 23,
+          "kind": "message",
+          "of": "Duration"
+        },
+        {
+          "name": "processed_at",
+          "tag": 24,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "fetched_at",
+          "tag": 25,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "payload_id",
+          "tag": 26,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "created_by",
+          "tag": 27,
+          "kind": "string",
+          "value": "guid"
+        }
+      ]
+    },
+    "TaskSummary": {
+      "shape": "M4",
+      "source": "Protos/V1/tasks_common.proto, reduced to the fields the adapter site needs",
+      "fields": [
+        {
+          "name": "id",
+          "tag": 1,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "session_id",
+          "tag": 2,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "options",
+          "tag": 3,
+          "kind": "message",
+          "of": "TaskOptions"
+        },
+        {
+          "name": "status",
+          "tag": 4,
+          "kind": "enum",
+          "of": "TaskStatus"
+        },
+        {
+          "name": "created_at",
+          "tag": 5,
+          "kind": "message",
+          "of": "Timestamp"
+        },
+        {
+          "name": "error",
+          "tag": 8,
+          "kind": "string",
+          "value": "sentence",
+          "adapter_site": "plain"
+        },
+        {
+          "name": "status_message",
+          "tag": 9,
+          "kind": "string",
+          "value": "sentence"
+        },
+        {
+          "name": "count_data_dependencies",
+          "tag": 11,
+          "kind": "int64"
+        }
+      ]
+    },
+    "Probe": {
+      "shape": "M3",
+      "source": "invented; both shapes are real, the schema has 19 oneofs in 413 fields",
+      "fields": [
+        {
+          "name": "id",
+          "tag": 1,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "opt_count",
+          "tag": 2,
+          "kind": "int32",
+          "presence": "explicit"
+        },
+        {
+          "name": "opt_label",
+          "tag": 3,
+          "kind": "string",
+          "presence": "explicit",
+          "value": "word"
+        },
+        {
+          "name": "opt_flag",
+          "tag": 4,
+          "kind": "bool",
+          "presence": "explicit"
+        },
+        {
+          "name": "as_int",
+          "tag": 10,
+          "kind": "int64",
+          "oneof": "body"
+        },
+        {
+          "name": "as_text",
+          "tag": 11,
+          "kind": "string",
+          "oneof": "body",
+          "value": "word"
+        },
+        {
+          "name": "as_blob",
+          "tag": 12,
+          "kind": "bytes",
+          "oneof": "body"
+        },
+        {
+          "name": "as_stamp",
+          "tag": 13,
+          "kind": "message",
+          "of": "Timestamp",
+          "oneof": "body"
+        },
+        {
+          "name": "as_nothing",
+          "tag": 14,
+          "kind": "message",
+          "of": "Empty",
+          "oneof": "body",
+          "why": "the payload-free member: a variant selected by presence of an empty body"
+        }
+      ]
+    },
+    "Empty": {
+      "source": "Protos/V1/objects.proto",
+      "fields": []
+    },
+    "UploadResultData": {
+      "shape": "M5",
+      "source": "adapted from UploadResultDataRequest: flattened out of its oneof stream so that one message carries the bulk field",
+      "fields": [
+        {
+          "name": "session_id",
+          "tag": 1,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "result_id",
+          "tag": 2,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "data_chunk",
+          "tag": 3,
+          "kind": "bytes",
+          "value": "bulk"
+        }
+      ]
+    },
+    "MetricsBatch": {
+      "shape": "M6",
+      "source": "invented. CONTROL: the real schema has 3 packed repeated fields and all of them are enums",
+      "fields": [
+        {
+          "name": "id",
+          "tag": 1,
+          "kind": "string",
+          "value": "guid"
+        },
+        {
+          "name": "ticks",
+          "tag": 2,
+          "kind": "int64",
+          "card": "packed",
+          "count": 30
+        },
+        {
+          "name": "values",
+          "tag": 3,
+          "kind": "double",
+          "card": "packed",
+          "count": 30
+        },
+        {
+          "name": "codes",
+          "tag": 4,
+          "kind": "int32",
+          "card": "packed",
+          "count": 30
+        },
+        {
+          "name": "flags",
+          "tag": 5,
+          "kind": "bool",
+          "card": "packed",
+          "count": 30
+        }
+      ]
+    },
+    "Pair": {
+      "source": "invented, the element of M7",
+      "fields": [
+        {
+          "name": "key",
+          "tag": 1,
+          "kind": "string",
+          "value": "word"
+        },
+        {
+          "name": "value",
+          "tag": 2,
+          "kind": "int32"
+        }
+      ]
+    },
+    "ListResultsResponse": {
+      "fields": [
+        {
+          "name": "results",
+          "tag": 1,
+          "kind": "message",
+          "of": "ResultRaw",
+          "card": "repeated"
+        },
+        {
+          "name": "page",
+          "tag": 2,
+          "kind": "int32"
+        },
+        {
+          "name": "total",
+          "tag": 3,
+          "kind": "int32"
+        }
+      ]
+    },
+    "ListTasksDetailedResponse": {
+      "fields": [
+        {
+          "name": "tasks",
+          "tag": 1,
+          "kind": "message",
+          "of": "TaskDetailed",
+          "card": "repeated"
+        },
+        {
+          "name": "page",
+          "tag": 2,
+          "kind": "int32"
+        },
+        {
+          "name": "total",
+          "tag": 3,
+          "kind": "int32"
+        }
+      ]
+    },
+    "ListTaskSummaryResponse": {
+      "fields": [
+        {
+          "name": "tasks",
+          "tag": 1,
+          "kind": "message",
+          "of": "TaskSummary",
+          "card": "repeated"
+        }
+      ]
+    },
+    "ListProbeResponse": {
+      "fields": [
+        {
+          "name": "probes",
+          "tag": 1,
+          "kind": "message",
+          "of": "Probe",
+          "card": "repeated"
+        }
+      ]
+    },
+    "ListMetricsResponse": {
+      "fields": [
+        {
+          "name": "batches",
+          "tag": 1,
+          "kind": "message",
+          "of": "MetricsBatch",
+          "card": "repeated"
+        }
+      ]
+    },
+    "UploadResultDataMessage": {
+      "fields": [
+        {
+          "name": "upload",
+          "tag": 1,
+          "kind": "message",
+          "of": "UploadResultData"
+        }
+      ]
+    },
+    "DualResponse": {
+      "shape": "M7",
+      "source": "invented. CONTROL: legal wire that no group buffer keyed by type can decode",
+      "fields": [
+        {
+          "name": "left",
+          "tag": 1,
+          "kind": "message",
+          "of": "Pair",
+          "card": "repeated"
+        },
+        {
+          "name": "right",
+          "tag": 2,
+          "kind": "message",
+          "of": "Pair",
+          "card": "repeated"
+        }
+      ],
+      "wire": "interleaved: left[0] right[0] left[1] right[1] ..."
+    }
+  },
+  "payloads": {
+    "P1.1": {
+      "root": "ListResultsResponse",
+      "field": "results",
+      "count": 4
+    },
+    "P1.2": {
+      "root": "ListResultsResponse",
+      "field": "results",
+      "count": 1000
+    },
+    "P1.3": {
+      "root": "ListResultsResponse",
+      "field": "results",
+      "count": 300,
+      "mode": "all_absent"
+    },
+    "P2.1": {
+      "root": "ListTasksDetailedResponse",
+      "field": "tasks",
+      "count": 1,
+      "repeats": 3
+    },
+    "P2.2": {
+      "root": "ListTasksDetailedResponse",
+      "field": "tasks",
+      "count": 500,
+      "repeats": 3
+    },
+    "P2.3": {
+      "root": "ListTasksDetailedResponse",
+      "field": "tasks",
+      "count": 125,
+      "repeats": 30
+    },
+    "P2.4": {
+      "root": "ListTasksDetailedResponse",
+      "field": "tasks",
+      "count": 80,
+      "repeats": [
+        3,
+        150
+      ]
+    },
+    "P2.5": {
+      "root": "ListTasksDetailedResponse",
+      "field": "tasks",
+      "count": 20,
+      "repeats": 3,
+      "mode": "half_absent"
+    },
+    "P3.1": {
+      "root": "ListProbeResponse",
+      "field": "probes",
+      "count": 200
+    },
+    "P4.1": {
+      "root": "ListTaskSummaryResponse",
+      "field": "tasks",
+      "count": 200
+    },
+    "P5.1": {
+      "root": "UploadResultDataMessage",
+      "bulk": 36
+    },
+    "P5.2": {
+      "root": "UploadResultDataMessage",
+      "bulk": 65536
+    },
+    "P5.3": {
+      "root": "UploadResultDataMessage",
+      "bulk": 1048576
+    },
+    "P5.4": {
+      "root": "UploadResultDataMessage",
+      "bulk": 4194304
+    },
+    "P6.1": {
+      "root": "ListMetricsResponse",
+      "field": "batches",
+      "count": 200
+    },
+    "P7.1": {
+      "root": "DualResponse",
+      "count": 3,
+      "interleaved": true
+    }
+  },
+  "content_sets": {
+    "ascii": {
+      "default": true,
+      "why": "every id in the real schema is an ASCII GUID"
+    },
+    "latin1": {
+      "why": "a narrowing transcoder has real work to do",
+      "chars": "U+00A0 to U+00FF"
+    },
+    "wide": {
+      "why": "a narrowing transcoder cannot represent its input",
+      "chars": "above U+00FF"
+    }
+  },
+  "mode_note": "all_absent: every string empty, every child absent, every scalar zero, so an element encodes to nothing and the wire carries a length of zero. half_absent: half the map values emptied, the adapter child removed, half the timestamps absent, everything else as normal."
+}

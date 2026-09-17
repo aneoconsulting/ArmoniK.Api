@@ -1,9 +1,13 @@
 # The shapes and payloads every slice implements
 
-**Status: draft, work item W2.** Nothing is built against this until it is
-agreed. Once it is agreed, a slice may add an arm but may not change a shape:
-a column of the final table that covers a different set of shapes is not a
-column, it is a second table.
+**Status: built (W2).** This document is the prose; the description a generator
+actually reads is [`../schema/shapes.json`](../schema/shapes.json), and the
+emitted `.proto`, the payload manifest and the committed vectors are in
+[`../schema/generated/`](../schema/generated/). **On a disagreement the JSON wins**, because
+it is what the slices consume.
+
+A slice may add an arm. It may not change a shape: a column of the final table
+that covers a different set of shapes is not a column, it is a second table.
 
 ## Why these and not others
 
@@ -74,6 +78,10 @@ does not cover one records it in `STATE.md` and it goes in the report.
 Defined by content rule rather than by byte size, because the byte size is an
 output: **once every slice is driven by the same description, two slices
 disagreeing on the wire size of a payload is a defect, not a difference.**
+
+Sizes below are what `../schema/emit/payloads.py` produces today, and every
+payload also carries a sha256 in `../schema/generated/manifest.json`. They are
+provisional until the Rust slice checks them against prost.
 
 | Payload | Message | Elements | What it tests |
 |---|---|---|---|
