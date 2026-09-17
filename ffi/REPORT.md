@@ -8,7 +8,7 @@ Until then, the state of the work is:
 
 - [`README.md`](README.md): the question, the rules, the work items W1 to W9.
 - [`design/SHAPES.md`](design/SHAPES.md): what every slice implements.
-- [`design/ABI.md`](design/ABI.md): the reconciled ABI. **W1, not written.**
+- [`design/ABI.md`](design/ABI.md): the reconciled ABI. **W1, drafted, not yet agreed.**
 - `poc/<lang>/STATE.md`: where each slice actually is.
 
 ## What this report will have to answer
