@@ -32,7 +32,7 @@ most important results in this work are corrections of exactly that.
 ## How you work
 
 - **Correctness before timing, always.** Byte identity across every arm,
-  including the absent-path payloads (P16, P17) and the unknown-field vectors.
+  including the absent-path payloads (P1.3, P2.5) and the unknown-field vectors.
   A number taken before that holds is worse than no number.
 - **Counts, not estimates.** Every measured payload gets a boundary-call count
   from a counting build.

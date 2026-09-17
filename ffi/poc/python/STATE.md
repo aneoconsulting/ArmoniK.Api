@@ -33,7 +33,7 @@ Microbenchmark the binding mechanisms (`ctypes`, `cffi` ABI and API, PyO3) for f
 ## Correctness
 
 Not established. Nothing is timed before byte identity holds across every arm,
-including P16 and P17 (the absent path) and the unknown-field vectors.
+including P1.3 and P2.5 (the absent path) and the unknown-field vectors.
 
 ## Open defects
 

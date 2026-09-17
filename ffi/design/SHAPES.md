@@ -67,7 +67,7 @@ does not cover one records it in `STATE.md` and it goes in the report.
 | open enum with an unknown value | M1, M2 | an unknown wire value must round-trip losslessly |
 | an adapter site (`with`) | M4 | one facade type, two wire forms. Only a byte corpus catches a wrong one |
 | unknown fields on the wire | corpus | protobuf's forward compatibility, never executed by a corpus generated from the schema that reads it |
-| absent and empty everywhere | P16, P17 | where offset defects hide |
+| absent and empty everywhere | P1.3, P2.5 | where offset defects hide |
 
 ## Payloads
 
@@ -77,29 +77,84 @@ disagreeing on the wire size of a payload is a defect, not a difference.**
 
 | Payload | Message | Elements | What it tests |
 |---|---|---|---|
-| P7 | M1 | 4 | small and flat: the call-rate case, where the per-message cost is spread thinnest |
-| P1 | M1 | 1,000 | large and flat: strings and scalars only |
-| P6 | M2 | 1 | small and nested: every field shape in one element |
-| **P2** | M2 | 500 | **the shape the control plane actually moves. Read this column first** |
-| P3 | M2, 30 elements in each repeated string field | 125 | repeated strings and nothing else |
-| P10 | M2, alternating 3 and 150 repeated strings | 80 | element bodies alternating across a varint length boundary. The only payload that exercises the length-placeholder move |
-| P11 | M6 | 200 | packed scalars. A control, and the string path's control too: 200 strings cannot move it |
-| P12 | M3 | 200 | oneof and explicit presence |
-| P13 | M4 | 200 | the adapter site |
-| P14 | M5 | 1 | 36 B to 4 MB, upload and download |
-| P15 | M7 | 3 + 3 | interleaved repeated fields of one type |
-| P16 | M1, every string empty and every child absent | 300 | the absent path |
-| P17 | M2, half the map values emptied and the output child removed | 20 | the absent path, nested |
+| P1.1 | M1 | 4 | small and flat: the call-rate case, where the per-message cost is spread thinnest |
+| P1.2 | M1 | 1,000 | large and flat: strings and scalars only |
+| P1.3 | M1, every string empty and every child absent | 300 | the absent path |
+| P2.1 | M2 | 1 | small and nested: every field shape in one element |
+| **P2.2** | M2 | 500 | **the shape the control plane actually moves. Read this column first** |
+| P2.3 | M2, 30 elements in each repeated string field | 125 | repeated strings and nothing else |
+| P2.4 | M2, alternating 3 and 150 repeated strings | 80 | element bodies alternating across a varint length boundary. The only payload that exercises the length-placeholder move |
+| P2.5 | M2, half the map values emptied and the output child removed | 20 | the absent path, nested |
+| P3.1 | M3 | 200 | oneof and explicit presence |
+| P4.1 | M4 | 200 | the adapter site |
+| P5.1 | M5, 36 B | 1 | the degenerate bulk case: two ids and almost nothing else |
+| P5.2 | M5, 64 KB | 1 | result upload and download, small |
+| P5.3 | M5, 1 MB | 1 | result upload and download, medium |
+| P5.4 | M5, 4 MB | 1 | result upload and download, the size the direct-argument path exists for |
+| P6.1 | M6 | 200 | packed scalars. A control, and the string path's control too: 200 strings cannot move it |
+| P7.1 | M7 | 3 + 3 | interleaved repeated fields of one type |
 
-P16 and P17 are not optional. A payload generator that gives every string a
+**P1.3 and P2.5 are not optional.** A payload generator that gives every string a
 value and every optional child an instance cannot reach any path conditioned on
-emptiness, and a defect that lived exactly there passed all seven standard
-payloads in the Java slice.
+emptiness, and a defect that lived exactly there passed every other payload in
+the Java slice.
+
+### Reading a figure from an existing report
+
+The three published reports use a flat numbering that carried no message in it,
+and this one is keyed to the message instead. The map, so that a figure quoted
+from one of them is not silently attached to the wrong payload:
+
+| Published as | Here | Published as | Here |
+|---|---|---|---|
+| P7 | P1.1 | P17 | P2.5 |
+| P1 | P1.2 | P12 | P3.1 |
+| P16 | P1.3 | P13 | P4.1 |
+| P6 | P2.1 | P14 | P5.2 to P5.4 |
+| P2 | P2.2 | P11 | P6.1 |
+| P3 | P2.3 | P15 | P7.1 |
+| P10 | P2.4 | P18, P19, P20 | content sets, below |
+
+Three published payloads are deliberately not carried. **P8** (200 tasks with
+200-byte error strings) and **P9** (40 tasks with 150 dependencies each) exist in
+the C# appendix only, to make a length prefix change varint width; P2.4 covers
+that case and is the harder one, because a per-call-site learned width is wrong
+on every element of it by construction. Three further payloads were retired
+before publication and their numbers were never reused, which is why the
+published sequence has holes.
+
+### Content sets
+
+A payload says how many elements and of what shape; a **content set** says what
+is in the strings. Every payload above is measured with the ASCII content set by
+default, because every id, session id, task id, result id and partition name in
+the real schema is an ASCII GUID.
+
+Two further content sets exist and apply only to the arms that touch the string
+path, where they are named in the table rather than assumed:
+
+- **Latin-1 but not ASCII**, and **above U+00FF**. These are where a narrowing
+  transcoder has real work to do or cannot represent its input at all, and they
+  are what the Java slice's pinning oracle used (published as P18, P19 and P20).
+- They also decide a measurement hazard rather than only a cost: on JDK 21 and
+  later the first UTF-16 string to reach `String.charAt` anywhere in the process
+  permanently deoptimises every char narrowing loop in it, and protobuf-java's
+  own encoder is such a loop. An incumbent measured on ASCII only is measured in
+  a state production is unlikely to be in.
+
+A slice that reports one string-path number without saying which content set it
+came from has reported half a number.
+
+The published wire sizes also differ between the C# and Java slices for what was
+nominally the same payload (P7 is 958 B in one and 1,016 B in the other), because
+the two generators were not driven by the same description. **Under R1 that is a
+defect rather than a difference**, and the first slice to be rebuilt sets the
+sizes every later one has to match.
 
 ## The RPC arm
 
 Smaller, and deliberately so. Each slice measures one unary RPC carrying a real
-payload (P2), against that language's gRPC incumbent, over loopback:
+payload (P2.2), against that language's gRPC incumbent, over loopback:
 
 - CPU per RPC and allocation per RPC, at 1, 8 and 16 calls in flight;
 - the crossing count per RPC (it should be two, not a function of field count);

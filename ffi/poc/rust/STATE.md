@@ -29,12 +29,12 @@ Nothing yet.
 
 ## Next step
 
-Stand up the four arms over M1 and P7/P1 only, and confirm `prost` and `armonik` agree byte for byte before adding anything.
+Stand up the four arms over M1 and P1.1/P1.2 only, and confirm `prost` and `armonik` agree byte for byte before adding anything.
 
 ## Correctness
 
 Not established. Nothing is timed before byte identity holds across every arm,
-including P16 and P17 (the absent path) and the unknown-field vectors.
+including P1.3 and P2.5 (the absent path) and the unknown-field vectors.
 
 ## Open defects
 
