@@ -49,10 +49,12 @@ Everything. This list is filled as the slice narrows it.
 - The prior slice covered 16 of 179 messages, all flat, all from one service, with 2 repeated-string fields out of 11 repeated fields. It could not see a cost that falls on repeated strings.
 - The generator is a Rust binary using the `clang` crate; what defeated it before was generics (libclang exposes the primary template pattern) and C++ name resolution.
 
-- Vocabulary types are ours, not the standard library's: one concrete type at
-  every standard level, conversions to and from the standard type guarded by the
-  feature macro. `packages/cpp/ArmoniK.Api.Common/header/utils/string_view.h` is
-  already exactly this and is the precedent to follow.
+- A vocabulary type that arrives after C++11 is ours (`string_view`, `optional`,
+  `variant`, `span`): one concrete type at every standard level, conversions to
+  and from the standard counterpart guarded by the feature macro, as
+  `packages/cpp/ArmoniK.Api.Common/header/utils/string_view.h` already does. The
+  C++11 library itself (`std::string`, `std::vector`, `std::map`,
+  `std::shared_ptr`) is used directly: it means the same thing at every level.
 - An additive interface per level is allowed (a C++20 coroutine surface over the
   ABI's completion callback, say), on three conditions: the floor keeps a
   complete alternative, it needs no new C entry point, and it is free functions
