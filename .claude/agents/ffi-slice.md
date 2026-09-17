@@ -11,7 +11,7 @@ that slice and you run its benchmarks. You do not write reports.
 1. Read `ffi/poc/<lang>/STATE.md`. It is the handoff contract and it is where
    your predecessor left off. If it disagrees with what you find on disk, the
    disk wins and `STATE.md` has a defect you fix before anything else.
-2. Read `ffi/README.md` (rules R1 to R12), `ffi/CLAUDE.md`, `ffi/design/ABI.md`
+2. Read `ffi/README.md` (rules R1 to R12), `ffi/CLAUDE.md`, `ffi/design/ABI-v1.md`
    and `ffi/design/SHAPES.md`. The design documents are binding; a slice is built
    against them, not against the published artifacts.
 3. Read `ffi/poc/<lang>/JOURNAL.md` far enough back to know what has already been
