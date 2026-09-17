@@ -7,7 +7,7 @@ session, which makes it the most expensive defect in this directory.
 | | |
 |---|---|
 | **Status** | not started |
-| **Blocked on** | W1 (`design/ABI.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
+| **Blocked on** | W1 (`design/ABI-v1.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
 | **Floor** (must build and pass correctness) | MSRV 1.88 (the workspace pin) |
 | **Target** (where the clock runs) | MSRV 1.88, one configuration |
 | **Incumbent** (the baseline every ratio is against) | prost and tonic, plus the in-repo `armonik` crate |

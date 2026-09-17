@@ -7,7 +7,7 @@ session, which makes it the most expensive defect in this directory.
 | | |
 |---|---|
 | **Status** | not started |
-| **Blocked on** | W1 (`design/ABI.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
+| **Blocked on** | W1 (`design/ABI-v1.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
 | **Floor** (must build and pass correctness) | the floor `pyproject.toml` declares (`>=3.7`), open question |
 | **Target** (where the clock runs) | to be decided, proposal 3.11 |
 | **Incumbent** (the baseline every ratio is against) | `protobuf` (upb C extension) and `grpcio` (the gRPC C core) |

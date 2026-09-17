@@ -7,14 +7,14 @@ session, which makes it the most expensive defect in this directory.
 | | |
 |---|---|
 | **Status** | not started |
-| **Blocked on** | W1 (`design/ABI.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
+| **Blocked on** | W1 (`design/ABI-v1.md`, drafted, 10 open decisions) and W2 (`design/SHAPES.md`, drafted) |
 | **Floor** (must build and pass correctness) | Java 8 |
 | **Target** (where the clock runs) | JDK 17 with the JNI back end |
 | **Incumbent** (the baseline every ratio is against) | protobuf-java (the pom pins 3.19; grpc-java 1.74 resolves 3.25.5) and grpc-java |
 
 ## The question this slice answers
 
-Does the encode regression survive the reconciled ABI, and does the generated-Java-codec fallback stay ahead in both directions?
+Does the encode regression survive ABI v1, and does the generated-Java-codec fallback stay ahead in both directions?
 
 ## Arms
 
@@ -28,7 +28,7 @@ Nothing yet.
 
 ## Next step
 
-Import the slice, re-establish the primary configuration, and re-run the encode comparison against the reconciled ABI.
+Import the slice, re-establish the primary configuration, and re-run the encode comparison against ABI v1.
 
 ## Correctness
 
