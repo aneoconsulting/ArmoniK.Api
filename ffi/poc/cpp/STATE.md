@@ -49,6 +49,18 @@ Everything. This list is filled as the slice narrows it.
 - The prior slice covered 16 of 179 messages, all flat, all from one service, with 2 repeated-string fields out of 11 repeated fields. It could not see a cost that falls on repeated strings.
 - The generator is a Rust binary using the `clang` crate; what defeated it before was generics (libclang exposes the primary template pattern) and C++ name resolution.
 
+- Floor and target may be different code, with one hard stop: **the divergence
+  must not reach the layout of an installed header type.** The consumer picks
+  `-std`, we do not, so a facade type whose layout depends on the standard level
+  is an ODR violation waiting for a consumer who compiles at a different level
+  than the library was built at. The base design verified its optional and its
+  sum type ABI-identical from C++11 through C++23; a `std::variant` in a public
+  header surrenders that property and has to be a decision rather than a
+  convenience. Inside the codec and the binding, diverge freely: `if constexpr`
+  in the generated traversal and `std::string_view` on a decode span are exactly
+  what C++17 is a target for. A five-variant oneof cost ~105 hand-rolled C++11
+  lines against Rust's 14, so this is where the target level is worth the most.
+
 ## Log index
 
 | Log | Configuration | What it establishes |
